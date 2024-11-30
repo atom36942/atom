@@ -68,8 +68,8 @@ async def postgres_create_where(postgres_column_datatype,param):
    param={k:v for k,v in param.items() if k in postgres_column_datatype}
    param={k:v for k,v in param.items() if k not in ["table","order","limit","page"]}
    param={k:v for k,v in param.items() if k not in ["location","metadata"]}
-   where_value={k:v.split(',',1)[1] for k,v in param.items()}
    where_operator={k:v.split(',',1)[0] for k,v in param.items()}
+   where_value={k:v.split(',',1)[1] for k,v in param.items()}
    key_list=[f"({k} {where_operator[k]} :{k} or :{k} is null)" for k,v in where_value.items()]
    key_joined=' and '.join(key_list)
    where_string=f"where {key_joined}" if key_joined else ""
@@ -87,6 +87,17 @@ async def postgres_create_where(postgres_column_datatype,param):
 #postgres crud
 import hashlib,datetime,json
 async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mode,table,object_list):
+   #mode
+   if mode=="create":
+      column_to_insert_list=[*object_list[0]]
+      query=f"insert into {table} ({','.join(column_to_insert_list)}) values ({','.join([':'+item for item in column_to_insert_list])}) on conflict do nothing returning *;"
+   if mode=="update":
+      column_to_update_list=[*object_list[0]]
+      column_to_update_list.remove("id")
+      query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_to_update_list])} where id=:id returning *;"
+   if mode=="delete":
+      query=f"delete from {table} where id=:id;"
+   #serialize
    if is_serialize==1:
       for index,object in enumerate(object_list):
          for k,v in object.items():
@@ -100,15 +111,9 @@ async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mo
             if datatype in ["date"]:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
             if datatype in ["jsonb"]:object_list[index][k]=json.dumps(v) if v else None
             if datatype in ["ARRAY"]:object_list[index][k]=v.split(",") if v else None
-   if mode=="create":
-      column_to_insert_list=[*object_list[0]]
-      query=f"insert into {table} ({','.join(column_to_insert_list)}) values ({','.join([':'+item for item in column_to_insert_list])}) on conflict do nothing returning *;"
-   if mode=="update":
-      column_to_update_list=[*object_list[0]]
-      column_to_update_list.remove("id")
-      query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_to_update_list])} where id=:id returning *;"
-   if mode=="delete":query=f"delete from {table} where id=:id;"
+   #execute
    if len(object_list)>1:output=await postgres_client.execute_many(query=query,values=object_list)
    else:output=await postgres_client.execute(query=query,values=object_list[0])
+   #final
    return {"status":1,"message":output}
    
