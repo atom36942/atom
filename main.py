@@ -93,7 +93,7 @@ async def middleware(request:Request,api_function):
       global object_list_log
       object={"created_by_id":user["id"] if user else None,"api":api,"status_code":response.status_code,"response_time_ms":response_time_ms}
       object_list_log.append(object)
-      if len(object_list_log)>=100:
+      if len(object_list_log)>=10:
          query="insert into log (created_by_id,api,status_code,response_time_ms) values (:created_by_id,:api,:status_code,:response_time_ms)"
          query_param=object_list_log
          BackgroundTask(await postgres_client.execute_many(query=query,values=query_param))

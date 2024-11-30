@@ -74,7 +74,7 @@ async def root_postgres_schema_create(request:Request,mode:str):
    },
    "index":{
    "created_at":["brin",["users","post"]],
-   "created_by_id":["btree",["users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log","atom","workseeker"]],
+   "created_by_id":["btree",["users","post","rating","comment","message","helpdesk","otp","log","atom","workseeker"]],
    "is_active":["btree",["users","post","comment","workseeker"]],
    "is_verified":["btree",["users","post","comment","workseeker"]],
    "is_read":["btree",["message"]],
@@ -200,7 +200,8 @@ async def root_postgres_schema_create(request:Request,mode:str):
 @router.get("/root/postgres-query-runner")
 async def root_postgres_query_runner(request:Request,query:str):
    #logic
-   for item in query.split("---"):output=await request.state.postgres_client.fetch_all(query=item,values={})
+   for item in query.split("---"):
+      output=await request.state.postgres_client.fetch_all(query=item,values={})
    #final
    return {"status":1,"message":output}
 
@@ -1354,20 +1355,15 @@ async def admin_update_api_access(request:Request,body:schema_update_api_access)
 #admin/postgres clean
 @router.delete("/admin/postgres-clean")
 async def admin_pclean(request:Request):
-   #start
-   query_list=[]
    #creator not exist
    for table in ["post","likes","bookmark","report","block","rating","comment","follow","message"]:
       query=f"delete from {table} where created_by_id not in (select id from users);"
-      query_list.append(query)
+      await request.state.postgres_client.fetch_all(query=query,values={})
    #parent not exist
    for table in ["likes","bookmark","report","block","rating","comment","follow"]:
       for parent_table in ["users","post","comment"]:
          query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
-         query_list.append(query)
-   #bulk execute
-   query_list_string="\n".join(query_list)
-   output=await request.state.postgres_client.fetch_all(query=query_list_string,values={})
+         await request.state.postgres_client.fetch_all(query=query,values={})
    #final
    return {"status":1,"message":"done"}
 
