@@ -62,28 +62,6 @@ async def postgres_add_creator_key(postgres_client,object_list):
                break
    return {"status":1,"message":object_list}
 
-#postgres create where
-import hashlib,datetime
-async def postgres_create_where(postgres_column_datatype,param):
-   param={k:v for k,v in param.items() if k in postgres_column_datatype}
-   param={k:v for k,v in param.items() if k not in ["table","order","limit","page"]}
-   param={k:v for k,v in param.items() if k not in ["location","metadata"]}
-   where_operator={k:v.split(',',1)[0] for k,v in param.items()}
-   where_value={k:v.split(',',1)[1] for k,v in param.items()}
-   key_list=[f"({k} {where_operator[k]} :{k} or :{k} is null)" for k,v in where_value.items()]
-   key_joined=' and '.join(key_list)
-   where_string=f"where {key_joined}" if key_joined else ""
-   for k,v in where_value.items():
-      if k in postgres_column_datatype:datatype=postgres_column_datatype[k]
-      else:return {"status":0,"message":f"{k} column not in postgres_column_datatype"}
-      if k in ["password","google_id"]:where_value[k]=hashlib.sha256(v.encode()).hexdigest() if v else None
-      if "int" in datatype:where_value[k]=int(v) if v else None
-      if datatype in ["numeric"]:where_value[k]=round(float(v),3) if v else None
-      if "time" in datatype:where_value[k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
-      if datatype in ["date"]:where_value[k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
-      if datatype in ["ARRAY"]:where_value[k]=v.split(",") if v else None
-   return {"status":1,"message":[where_string,where_value]}
-
 #postgres crud
 import hashlib,datetime,json
 async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mode,table,object_list):
@@ -97,6 +75,15 @@ async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mo
       query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_to_update_list])} where id=:id returning *;"
    if mode=="delete":
       query=f"delete from {table} where id=:id;"
+   if mode=="read":
+      object=object_list[0]
+      object={k:v for k,v in object.items() if k in postgres_column_datatype}
+      object={k:v for k,v in object.items() if k not in ["table","order","limit","page"]+["location","metadata"]}
+      operator={k:v.split(',',1)[0] for k,v in object.items()}
+      object={k:v.split(',',1)[1] for k,v in object.items()}
+      where=' and '.join([f"({k} {operator[k]} :{k} or :{k} is null)" for k,v in object.items()])
+      where=f"where {where}" if where else ""
+      object_list=[object]
    #serialize
    if is_serialize==1:
       for index,object in enumerate(object_list):
@@ -111,9 +98,11 @@ async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mo
             if datatype in ["date"]:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
             if datatype in ["jsonb"]:object_list[index][k]=json.dumps(v) if v else None
             if datatype in ["ARRAY"]:object_list[index][k]=v.split(",") if v else None
-   #execute
-   if len(object_list)>1:output=await postgres_client.execute_many(query=query,values=object_list)
-   else:output=await postgres_client.execute(query=query,values=object_list[0])
+   #output
+   if mode in ["create","update","delete"]:
+      if len(object_list)>1:output=await postgres_client.execute_many(query=query,values=object_list)
+      else:output=await postgres_client.execute(query=query,values=object_list[0])
+   if mode=="read":output=[where,object_list[0]]
    #final
    return {"status":1,"message":output}
    

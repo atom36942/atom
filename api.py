@@ -500,14 +500,14 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1):
    return response
 
 #my/object-delete
-from function import postgres_create_where
+from function import postgres_crud
 @router.delete("/my/object-delete")
 async def my_object_delete(request:Request,table:str):
    #check
    if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
    param=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
-   response=await postgres_create_where(request.state.postgres_column_datatype,param)
+   response=await postgres_crud(request.state.postgres_column_datatype,param)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #logic
@@ -518,17 +518,17 @@ async def my_object_delete(request:Request,table:str):
    return {"status":1,"message":"done"}
 
 #my/object-read
-from function import postgres_create_where
+from function import postgres_crud
 @router.get("/my/object-read")
 async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #create where
-   param=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
-   response=await postgres_create_where(request.state.postgres_column_datatype,param)
+   object=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
+   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
+   where,object=response["message"][0],response["message"][1]
    #logic
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param=where_value
+   query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param=object
    output=await request.state.postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
@@ -1091,7 +1091,7 @@ async def public_otp_verify_mobile(request:Request,mobile:str,otp:int):
    return {"status":1,"message":"done"}
 
 #public/object read
-from function import postgres_create_where
+from function import postgres_crud
 from function import postgres_add_creator_key
 from function import postgres_add_action_count
 @router.get("/public/object-read")
@@ -1100,13 +1100,13 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    #check table
    if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
-   param=dict(request.query_params)
-   response=await postgres_create_where(request.state.postgres_column_datatype,param)
+   object=dict(request.query_params)
+   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
+   where,object=response["message"][0],response["message"][1]
    #read object
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param=where_value
+   query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param=object
    object_list=await request.state.postgres_client.fetch_all(query=query,values=query_param)
    #add creator key
    if object_list and table in ["post"]:
@@ -1127,44 +1127,44 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    return {"status":1,"message":object_list}
 
 #private/search-location
-from function import postgres_create_where
+from function import postgres_crud
 @router.get("/private/search-location")
 async def private_location_search(request:Request,table:str,location:str,within:str,order:str="id desc",limit:int=100,page:int=1):
    #start
    long,lat=float(location.split(",")[0]),float(location.split(",")[1])
    min_meter,max_meter=int(within.split(",")[0]),int(within.split(",")[1])
    #create where
-   param=dict(request.query_params)
-   response=await postgres_create_where(request.state.postgres_column_datatype,param)
+   object=dict(request.query_params)
+   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
+   where,object=response["message"][0],response["message"][1]
    #logic
    query=f'''
    with
-   x as (select * from {table} {where_string}),
+   x as (select * from {table} {where}),
    y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x)
    select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};
    '''
-   query_param=where_value
+   query_param=object
    output=await request.state.postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
 
 #private/object read
-from function import postgres_create_where
+from function import postgres_crud
 @router.get("/private/object-read")
 @cache(expire=60)
 async def private_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #check table
    if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
-   param=dict(request.query_params)
-   response=await postgres_create_where(request.state.postgres_column_datatype,param)
+   object=dict(request.query_params)
+   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
+   where,object=response["message"][0],response["message"][1]
    #read object
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param=where_value
+   query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param=object
    output=await request.state.postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
@@ -1476,17 +1476,17 @@ async def admin_postgres_query_runner(request:Request,query:str):
   return {"status":1,"message":output}
 
 #admin/object-read
-from function import postgres_create_where
+from function import postgres_crud
 @router.get("/admin/object-read")
 async def admin_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #create where
-   param=dict(request.query_params)
-   response=await postgres_create_where(request.state.postgres_column_datatype,param)
+   object=dict(request.query_params)
+   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
+   where,object=response["message"][0],response["message"][1]
    #read object
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param=where_value
+   query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param=object
    output=await request.state.postgres_client.fetch_all(query=query,values=query_param)
    response={"status":1,"message":output}
    #final
