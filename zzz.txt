@@ -1,0 +1,233 @@
+#zzz
+pid kill=lsof -i:8000---kill -9 <pid>
+venv size=du -hs venv
+python version=python --version
+
+#env
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip freeze > requirements.txt
+
+#zshrc
+alias python=python3
+alias pip=pip3
+eval "$(/opt/homebrew/bin/brew shellenv)"
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+
+#zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+#dynamodb
+primary key(parition key)
+parition key+sort key
+
+#cassandra
+brew install cassandra
+brew services start cassandra
+brew services stop cassandra
+data model=keyspaces-table-partition-object
+keyspaces=SELECT * FROM system_schema.keyspaces;
+drop table=drop table atom2k.users;
+list tables=select * from system_schema.tables where keyspace_name='atom2k';
+partition concept=partition users created each min by country..so max size will be <10mb if 100-1000 users registers in 1 min
+create table=create table atom2k.users (created_at_min text,id bigint,username text,age int,country text,primary key ((created_at_min,country),id));
+create=insert into atom2k.users (created_at_min,id,username,age,country) VALUES ('2000-11-29T23:59:00',1,'atom',33,'india');
+read=select * from atom2k.users where id=1 limit 1 allow filtering;
+update=update atom2k.users set username='atom2' where created_at_min='2000-11-29T23:59:00' and country='india' and id=1;
+delete=delete from atom2k.users where created_at_min='2000-11-29T23:59:00' and country='india' and id=1;
+
+#redis
+connect url=redis-cli -u <url>
+docker run=docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest
+show all keys=keys *
+scal all keys=redis-cli --scan --pattern '*'
+delete all keys=flushall
+subscribe channel=SUBSCRIBE index
+
+#git init
+git init
+git remote add origin https://github.com/atom36942123/atom.git
+git branch -M main
+
+#git push
+git add . 
+git commit -m "sync" 
+git push -f origin main
+
+#git pull
+git fetch origin 
+git reset --hard origin/master 
+git clean -f -d
+
+#git clean history
+git checkout --orphan TEMP_BRANCH 
+git add -A 
+git commit -am "Initial commit" 
+git branch -D main 
+git branch -m main 
+git push -f origin main
+
+#docker
+brew install --cask docker
+open -a Docker
+docker images
+docker build .
+docker run <image_name>
+docker rmi <image_id>
+docker ps -a
+docker stop <container_id>
+docker rm <container_id>
+
+#mongo docker
+image=docker pull mongodb/mongodb-community-server:latest
+container=docker run --name mongodb -p 27017:27017 -d mongodb/mongodb-community-server:latest
+terminal=mongosh
+check count=db.users.countDocuments({})
+
+#mongo brew
+brew tap mongodb/brew
+brew update
+brew install mongodb-community@8.0
+brew services start mongodb-community@8.0
+brew services stop mongodb-community@8.0
+brew services info mongodb-community@8.0
+brew install --cask mongodb-compass
+
+#postgres
+brew install postgresql@17
+brew services start postgresql@17
+brew services stop postgresql@17
+brew services info postgresql@17
+login=psql postgres/psql -d postgres -U atom
+user=\du
+password change=\password
+url=postgresql://atom:123@localhost/postgres
+
+#postgres reset
+drop schema public cascade;
+create schema public;
+DO
+$$ DECLARE r RECORD; BEGIN FOR r IN
+(SELECT tablename FROM pg_tables WHERE schemaname=current_schema() and tablename not in ('spatial_ref_sys')) LOOP
+EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || '
+CASCADE'; END LOOP;
+END $$;
+
+#postgres schema
+extension=select * from pg_extension;
+database=select *,pg_size_pretty(pg_database_size(datname)) as db_size from pg_database;
+namespace=select * from pg_namespace;
+routine=select * from pg_proc where proname='function_set_updated_at_now'
+trigger=select * from information_schema.triggers;
+activity=select * from pg_stat_activity;
+constraint=select * from information_schema.constraint_column_usage where constraint_schema='public';
+index=select * from pg_indexes where schemaname='public';
+rules=select * from pg_rules;
+identity=select * from pg_attribute where attnum>0 and attidentity in ('a','d');
+table=select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';
+column=select * from information_schema.columns where table_schema='public';
+
+#postgres table all row count
+select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public');
+
+#postgres drop
+drop connection=SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname='test' AND pid <> pg_backend_pid();
+drop constraint all=SELECT 'ALTER TABLE '||table_name||' DROP CONSTRAINT '||constraint_name||';' FROM information_schema.constraint_table_usage where constraint_schema='public';
+drop view all=SELECT 'DROP VIEW ' || table_name || ';' FROM information_schema.views WHERE table_schema NOT IN ('pg_catalog', 'information_schema') AND table_name !~ '^pg_';
+drop triggers all=SELECT 'DROP TRIGGER ' || trigger_name || ' ON ' || event_object_table || ';' FROM information_schema.triggers WHERE trigger_schema = 'public';
+drop index all=select 'drop index ' || string_agg(i.indexrelid::regclass::text,', ' order by n.nspname,i.indrelid::regclass::text, cl.relname) as output from pg_index i join pg_class cl ON cl.oid = i.indexrelid join pg_namespace n ON n.oid = cl.relnamespace left join pg_constraint co ON co.conindid = i.indexrelid where  n.nspname <> 'information_schema' and n.nspname not like 'pg\_%' and co.conindid is null and not i.indisprimary and not i.indisunique and not i.indisexclusion and not i.indisclustered and not i.indisreplident;
+
+#postgres export/import table
+export full=\copy post to '<filepath>' with (format csv,header);
+export column=\copy (query) to '<filepath>' with (format csv,header);
+import full=\copy post from '<filepath>' with (format csv,header);
+import column=\copy atom(type,title,location) from '/Users/atom/Downloads/city.csv' with (format csv,header);
+
+#postgres dump database
+export=pg_dump -h pg-16385e13-atom36942-5c4a.e.aivencloud.com -p 28793 -Fc -U avnadmin defaultdb > /Users/atom/Downloads/dbbackup.dump
+import=pg_restore -h pg-16385e13-atom36942-5c4a.e.aivencloud.com -p 28793 -d defaultdb -U avnadmin /Users/atom/Downloads/dbbackup.dump
+
+#postgres crud
+tag read one=select * from post where 'investor'=any(tag);
+tag read all=select * from post where tag @> '{"xxx","yyy"}';
+tag read any=select * from post where tag && '{"xxx","yyy"}';
+tag read regex=select * from post where (array_to_string(tag,'')~*'xx');
+tag replace=update post set tag=array_replace(tag,'xxx','yyy')
+tag append=update box set tag=array_append(tag,'xxx') where id=1;
+tag append no duplicate=update box set tag=(select array_agg(distinct t) from unnest(tag||'{xxx}') as t) where id=1;
+tag delete=update box set tag=array_remove(tag,'atom') where id=1;
+
+#follow
+follower = select created_by_id from follow where user_id=2;
+following = select user_id from follow where created_by_id=2;
+follow back user_ids=select created_by_id from follow where user_id=2 and created_by_id not in (select user_id from follow where created_by_id=2);
+
+#follow mapper against user_ids
+with 
+x as (select user_id from follow where created_by_id=2),
+y as(select created_by_id from follow where user_id=2),
+z as (select created_by_id as user_id from follow where user_id=2 and created_by_id not in (select user_id from follow where created_by_id=2)),
+a as (select unnest(array[1,2,3,4,5,6,7,8,9,10,101,158]) as id),
+b as (select a.id as user_id,case when x.user_id is not null then 'yes' else 'no' end as follow from a left join x on a.id=x.user_id),
+c as (select b.*,case when y.created_by_id is not null then 'yes' else 'no' end as following from b  left join y on b.user_id=y.created_by_id),
+d as (select c.*,case when z.user_id is not null then 'yes' else 'no' end as follow_back from c left join z on c.user_id=z.user_id)
+select * from d
+
+#follow back yes/no checker against user_ids
+with 
+x as (select created_by_id as user_id from follow where user_id=2 and created_by_id not in (select user_id from follow where created_by_id=2)),
+y as (select unnest(array[1,2,3,4,5,6,7,8,9,10]) as id)
+select y.id as user_id,case when x.user_id is null then 'yes' else 'no' end as fb from y left join x on y.id=x.user_id
+
+#postgres users following me
+with 
+x as (select * from follow where user_id=23 offset 0 limit 10)
+select x.id follow_id,u.id,u.username,u.profile_pic_url,
+(case when x.created_by_id in (select user_id from follow where created_by_id=23) then 0 else 1 end) as fb
+from x left join users as u on x.created_by_id=u.id
+
+#postgres users following me search by username
+with 
+x as (select * from follow where user_id=23),
+y as (select x.id follow_id,u.id,u.username,u.profile_pic_url,(case when x.created_by_id in (select user_id from follow where created_by_id=23) then 0 else 1 end) as fb from x left join users as u on x.created_by_id=u.id) 
+select * from y where username ilike '%kal%' offset 0 limit 10
+
+#postgres users i am following
+with 
+x as (select * from follow where created_by_id=23 offset 0 limit 10)
+select x.id as follow_id,u.id,u.username,u.profile_pic_url from x left join users as u on x.user_id=u.id
+
+#postgres users i am following and following back
+with 
+x as (select * from follow where created_by_id in (select user_id from follow where created_by_id=1)),
+y as (select distinct(created_by_id) from x where user_id=1 limit 10 offset 0)
+select u.* from y left join users as u on y.created_by_id=u.id
+
+#postgres users i am following and not following back
+with 
+x as (select * from follow where created_by_id in (select user_id from follow where created_by_id=1)),
+y as (select distinct(created_by_id) from x where created_by_id not in (select created_by_id from x where user_id=1) limit 10 offset 0)
+select * from y left join users as u on y.created_by_id=u.id
+
+#postgres unnest list
+with
+po as (select * from post order by id desc limit 10 offset 0),
+pu as (select id, unnest(user_ids) as tagged_user_id from po),
+pul as (select pu.*,u.username as tagged_username from pu left join users as u on pu.tagged_user_id= u.id),
+pulg as (select id,array_agg(tagged_user_id) as user_ids, array_agg(tagged_username) as user_ids_username from pul group by id),
+p as (select p.*,pulg.user_ids_username from pulg left join post as p on pulg.id=p.id),
+pf as (select p.*,u.username as creator_username from p left join users as u on p.created_by_id=u.id)
+select * from pf order by id desc;
+
+#timescaledb
+create table event (created_at timestamptz default now() not null, type text not null, data jsonb not null);
+SELECT create_hypertable('event', by_range('created_at'));
+
+#sqlite
+table=create table if not exists users (id integer primary key,name varchar(100),rating integer);
+create=insert into users(name, rating) values ('rahul',8) returning *;
+read=select * from users limit 3;
+update=update users set name='sharma' where id=1 returning *;
+delete=delete from users where id=1;
+
