@@ -7,6 +7,11 @@ load_dotenv()
 from databases import Database
 postgres_client=Database(os.getenv("postgres_database_url"),min_size=1,max_size=100)
 
+#sentry
+import sentry_sdk
+sentry_dsn=os.getenv("sentry_dsn")
+if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0)
+
 #redis key builder
 from fastapi import Request,Response
 def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Response=None,**kwargs):
@@ -114,26 +119,54 @@ for item in file_name_list_without_extension:
       router=__import__(item).router
       app.include_router(router)
 
-#sentry
-import sentry_sdk
-sentry_dsn=os.getenv("sentry_dsn")
-if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0)
+#fastapi app start
+import uvicorn
+async def fastapi_app_start(app):
+   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info")
+   server=uvicorn.Server(config)
+   await server.serve()
+   
+#kafka consumer start
+from aiokafka import AIOKafkaConsumer
+from aiokafka.helpers import create_ssl_context
+async def kafka_consumer_start(server_url,path_cafile,path_certfile,path_keyfile,topic):
+   context=create_ssl_context(cafile=path_cafile,certfile=path_certfile,keyfile=path_keyfile)
+   consumer=AIOKafkaConsumer(topic,bootstrap_servers=server_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+   await consumer.start()
+   try:
+      async for msg in consumer:
+         print("consumed:",msg.topic, msg.partition, msg.offset,msg.key, msg.value, msg.timestamp)
+   finally:
+      await consumer.stop()
+
+#redis subscriber start
+import redis.asyncio as redis
+import asyncio
+import async_timeout
+async def redis_subscriber_start(redis_server_url,channel):
+   redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_server_url))
+   redis_pubsub=redis_client.pubsub()
+   await redis_pubsub.psubscribe(channel)
+   while True:
+      try:
+         async with async_timeout.timeout(1):
+               message=await redis_pubsub.get_message(ignore_subscribe_messages=True)
+               if message is not None:
+                  print(message)
+                  if message["data"].decode()=="stop":break
+      except asyncio.TimeoutError:pass
+
+
+#mode
+import sys
+mode=sys.argv
 
 #main
-import sys,asyncio,uvicorn
-from function import redis_subscriber_start
-from function import kafka_consumer_start
+import asyncio
 if __name__=="__main__":
-   mode=sys.argv
    try:
-      #app
-      if len(mode)==1:
-         uvicorn_config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info")
-         uvicorn_server=uvicorn.Server(uvicorn_config)
-         asyncio.run(uvicorn_server.serve())
-      #redis
+      if len(mode)==1:asyncio.run(fastapi_app_start(app))
       if len(mode)>1 and mode[1]=="redis-subscribe":asyncio.run(redis_subscriber_start(os.getenv("redis_server_url"),"atom"))
-      #kafka
       if len(mode)>1 and mode[1]=="kafka-consumer":asyncio.run(kafka_consumer_start(os.getenv("kafka_server_url"),os.getenv("kafka_path_cafile"),os.getenv("kafka_path_certfile"),os.getenv("kafka_path_keyfile"),"atom"))
    except KeyboardInterrupt:
       print("exited")

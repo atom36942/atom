@@ -1,3 +1,79 @@
+#function
+import hashlib,datetime,json
+async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mode,table,object_list):
+   #mode
+   if mode=="create":
+      column_to_insert_list=[*object_list[0]]
+      query=f"insert into {table} ({','.join(column_to_insert_list)}) values ({','.join([':'+item for item in column_to_insert_list])}) on conflict do nothing returning *;"
+   if mode=="update":
+      column_to_update_list=[*object_list[0]]
+      column_to_update_list.remove("id")
+      query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_to_update_list])} where id=:id returning *;"
+   if mode=="delete":
+      query=f"delete from {table} where id=:id;"
+   if mode=="read":
+      object=object_list[0]
+      object={k:v for k,v in object.items() if k in postgres_column_datatype}
+      object={k:v for k,v in object.items() if k not in ["table","order","limit","page"]+["location","metadata"]}
+      operator={k:v.split(',',1)[0] for k,v in object.items()}
+      object={k:v.split(',',1)[1] for k,v in object.items()}
+      where=' and '.join([f"({k} {operator[k]} :{k} or :{k} is null)" for k,v in object.items()])
+      where=f"where {where}" if where else ""
+      object_list=[object]
+   #serialize
+   if is_serialize==1:
+      for index,object in enumerate(object_list):
+         for k,v in object.items():
+            if k in postgres_column_datatype:datatype=postgres_column_datatype[k]
+            else:return {"status":0,"message":f"{k} column not in postgres_column_datatype"}
+            if not v:object_list[index][k]=None
+            if k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(v.encode()).hexdigest() if v else None
+            if "int" in datatype:object_list[index][k]=int(v) if v else None
+            if datatype in ["numeric"]:object_list[index][k]=round(float(v),3) if v else None
+            if "time" in datatype:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
+            if datatype in ["date"]:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
+            if datatype in ["jsonb"]:object_list[index][k]=json.dumps(v) if v else None
+            if datatype in ["ARRAY"]:object_list[index][k]=v.split(",") if v else None
+   #output
+   if mode in ["create","update","delete"]:
+      if len(object_list)>1:output=await postgres_client.execute_many(query=query,values=object_list)
+      else:output=await postgres_client.execute(query=query,values=object_list[0])
+   if mode=="read":output=[where,object_list[0]]
+   #final
+   return {"status":1,"message":output}
+
+async def postgres_add_creator_key(postgres_client,object_list):
+   if not object_list:return {"status":1,"message":object_list}
+   object_list=[dict(item)|{"created_by_username":None} for item in object_list]
+   created_by_ids_list=[str(item["created_by_id"]) for item in object_list if item["created_by_id"]]
+   created_by_ids_string=",".join(created_by_ids_list)
+   if created_by_ids_string:
+      query=f"select * from users where id in ({created_by_ids_string});"
+      object_list_user=await postgres_client.fetch_all(query=query,values={})
+      for x in object_list:
+         for y in object_list_user:
+            if x["created_by_id"]==y["id"]:
+               x["created_by_username"]=y["username"]
+               break
+   return {"status":1,"message":object_list}
+
+async def postgres_add_action_count(postgres_client,action,object_list,object_table):
+   if not object_list:return {"status":1,"message":object_list}
+   key_name=f"{action}_count"
+   object_list=[dict(item)|{key_name:0} for item in object_list]
+   parent_ids_list=[str(item["id"]) for item in object_list if item["id"]]
+   parent_ids_string=",".join(parent_ids_list)
+   if parent_ids_string:
+      query=f"select parent_id,count(*) from {action} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
+      query_param={"parent_table":object_table}
+      object_list_action=await postgres_client.fetch_all(query=query,values=query_param)
+      for x in object_list:
+         for y in object_list_action:
+               if x["id"]==y["parent_id"]:
+                  x[key_name]=y["count"]
+                  break
+   return {"status":1,"message":object_list}
+
 #router
 from fastapi import APIRouter
 router=APIRouter()
@@ -7,11 +83,13 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-#common
+#package
 from fastapi import Request,UploadFile,responses,BackgroundTasks,Depends
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 import hashlib,datetime,json,uuid,time,jwt
+
+########## api ##########
 
 #index
 @router.get("/")
@@ -457,7 +535,6 @@ async def my_delete_account(request:Request):
    return {"status":1,"message":"account deleted"}
 
 #my/object-create
-from function import postgres_crud
 @router.post("/my/object-create")
 async def my_object_create(request:Request,table:str,is_serialize:int=1):
    #object set
@@ -473,7 +550,6 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1):
    return response
 
 #my/object-update
-from function import postgres_crud
 @router.put("/my/object-update")
 async def my_object_update(request:Request,table:str,is_serialize:int=1):
    #object set
@@ -501,7 +577,6 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1):
    return response
 
 #my/object-delete
-from function import postgres_crud
 @router.delete("/my/object-delete")
 async def my_object_delete(request:Request,table:str):
    #check
@@ -519,12 +594,11 @@ async def my_object_delete(request:Request,table:str):
    return {"status":1,"message":"done"}
 
 #my/object-read
-from function import postgres_crud
 @router.get("/my/object-read")
 async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #create where
    object=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
-   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud(None,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #logic
@@ -976,7 +1050,6 @@ async def get():
     return HTMLResponse(html)
  
 #public/object-create
-from function import postgres_crud
 @router.post("/public/object-create")
 async def public_object_create(request:Request,table:Literal["helpdesk","workseeker"],is_serialize:int=1):
    #object set
@@ -1092,9 +1165,6 @@ async def public_otp_verify_mobile(request:Request,mobile:str,otp:int):
    return {"status":1,"message":"done"}
 
 #public/object read
-from function import postgres_crud
-from function import postgres_add_creator_key
-from function import postgres_add_action_count
 @router.get("/public/object-read")
 @cache(expire=60)
 async def public_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
@@ -1102,7 +1172,7 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
    object=dict(request.query_params)
-   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud(None,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #read object
@@ -1128,7 +1198,6 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    return {"status":1,"message":object_list}
 
 #private/search-location
-from function import postgres_crud
 @router.get("/private/search-location")
 async def private_location_search(request:Request,table:str,location:str,within:str,order:str="id desc",limit:int=100,page:int=1):
    #start
@@ -1136,7 +1205,7 @@ async def private_location_search(request:Request,table:str,location:str,within:
    min_meter,max_meter=int(within.split(",")[0]),int(within.split(",")[1])
    #create where
    object=dict(request.query_params)
-   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud(None,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #logic
@@ -1152,7 +1221,6 @@ async def private_location_search(request:Request,table:str,location:str,within:
    return {"status":1,"message":output}
 
 #private/object read
-from function import postgres_crud
 @router.get("/private/object-read")
 @cache(expire=60)
 async def private_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
@@ -1160,7 +1228,7 @@ async def private_object_read(request:Request,table:str,order:str="id desc",limi
    if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
    object=dict(request.query_params)
-   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud(None,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #read object
@@ -1369,7 +1437,6 @@ async def admin_pclean(request:Request):
 
 #admin/csv-uploader
 import csv,codecs
-from function import postgres_crud
 @router.post("/admin/csv-uploader")
 async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,is_serialize:int=1):
    #file to object list
@@ -1472,12 +1539,11 @@ async def admin_postgres_query_runner(request:Request,query:str):
   return {"status":1,"message":output}
 
 #admin/object-read
-from function import postgres_crud
 @router.get("/admin/object-read")
 async def admin_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #create where
    object=dict(request.query_params)
-   response=await postgres_crud(request.state.postgres_client,request.state.postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud(None,request.state.postgres_column_datatype,1,"read",None,[object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #read object
@@ -1489,7 +1555,6 @@ async def admin_object_read(request:Request,table:str,order:str="id desc",limit:
    return response
 
 #admin/object-update
-from function import postgres_crud
 @router.put("/admin/object-update")
 async def admin_object_update(request:Request,table:str,is_serialize:int=1):
    #object set
