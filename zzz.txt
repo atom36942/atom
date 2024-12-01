@@ -9,6 +9,10 @@ python version=python --version
 async def public_postgres_transaction(request:Request):
    return {"status":1,"message":"done"}
 
+#router
+from fastapi import APIRouter
+router=APIRouter()
+
 #env
 python3 -m venv venv
 source venv/bin/activate
