@@ -38,7 +38,7 @@ async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mo
    if mode=="read":output=[where,object_list[0]]
    return {"status":1,"message":output}
 
-async def postgres_add_creator_key(postgres_client,object_list):
+async def postgres_add_creator_data(postgres_client,object_list):
    if not object_list:return {"status":1,"message":object_list}
    object_list=[dict(item)|{"created_by_username":None} for item in object_list]
    created_by_ids_list=[str(item["created_by_id"]) for item in object_list if item["created_by_id"]]
@@ -989,16 +989,30 @@ async def public_opensearch_create_index(request:Request,index:str):
    output=opensearch_client.indices.create(index,body={'settings':{'index':{'number_of_shards':4}}})
    return {"status":1,"message":output}
 
+#public/postgres-prepared-statement
+@app.get("/public/postgres-prepared-statement")
+async def public_postgres_prepared_statement(request:Request):
+   query="select * from pg_prepared_statements where name='read_user';"
+   output=await postgres_client.fetch_all(query=query,values={})
+   if not output:
+      query="prepare read_user (int) as select * from users where id=$1;"
+      await postgres_client.fetch_all(query=query,values={})
+   query="explain analyze select * from users where id=1;"
+   output_1=await postgres_client.fetch_all(query=query,values={})
+   query="explain analyze execute read_user(1);"
+   output_2=await postgres_client.fetch_all(query=query,values={})
+   output={"simple":output_1,"prepared":output_2}
+   return {"status":1,"message":output}
+
 #public/postgres-transaction
 @app.get("/public/postgres-transaction")
 async def public_postgres_transaction(request:Request):
-   database=postgres_client
-   transaction=await database.transaction()
+   transaction=await postgres_client.transaction()
    query_1="insert into atom(type,number) values ('payment',100)"
    query_2="insert into atom(type,number) values ('payment',-10)"
    try:
-      await database.execute(query=query_1,values={})
-      await database.execute(query=query_2,values={})
+      await postgres_client.execute(query=query_1,values={})
+      await postgres_client.execute(query=query_2,values={})
    except:await transaction.rollback()
    else:await transaction.commit()
    return {"status":1,"message":"done"}
@@ -1341,9 +1355,9 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
    query_param=object
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
-   #add creator key
+   #add creator data
    if object_list and table in ["post"]:
-      response=await postgres_add_creator_key(postgres_client,object_list)
+      response=await postgres_add_creator_data(postgres_client,object_list)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object_list=response["message"]
    #add likes count
@@ -1590,7 +1604,7 @@ async def admin_pclean(request:Request):
       query=f"delete from {table} where created_by_id not in (select id from users);"
       await postgres_client.fetch_all(query=query,values={})
    #action table read
-   query="select distinct(table_name) from information_schema.columns where column_name in ('parent_table','parent_id');"
+   query="select distinct(table_name) from information_schema.columns where column_name='parent_table';"
    output=await postgres_client.fetch_all(query=query,values={})
    action_table_list=[item["table_name"] for item in output]
    #parent null delete
