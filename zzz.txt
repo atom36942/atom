@@ -138,7 +138,7 @@ drop view all=SELECT 'DROP VIEW ' || table_name || ';' FROM information_schema.v
 drop triggers all=SELECT 'DROP TRIGGER ' || trigger_name || ' ON ' || event_object_table || ';' FROM information_schema.triggers WHERE trigger_schema = 'public';
 drop index all=select 'drop index ' || string_agg(i.indexrelid::regclass::text,', ' order by n.nspname,i.indrelid::regclass::text, cl.relname) as output from pg_index i join pg_class cl ON cl.oid = i.indexrelid join pg_namespace n ON n.oid = cl.relnamespace left join pg_constraint co ON co.conindid = i.indexrelid where  n.nspname <> 'information_schema' and n.nspname not like 'pg\_%' and co.conindid is null and not i.indisprimary and not i.indisunique and not i.indisexclusion and not i.indisclustered and not i.indisreplident;
 
-#postgres export/import table
+#postgres dump table
 export full=\copy post to '<filepath>' with (format csv,header);
 export column=\copy (query) to '<filepath>' with (format csv,header);
 import full=\copy post from '<filepath>' with (format csv,header);
