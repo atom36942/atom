@@ -43,7 +43,7 @@ async def lifespan(app:FastAPI):
    #postgres column data type
    if postgres_client:
       global postgres_column_datatype
-      query="select column_name,max(data_type) as data_type,max(udt_name) as udt_name from information_schema.columns where table_schema='public' group by  column_name;"
+      query="select column_name,max(data_type) as data_type from information_schema.columns where table_schema='public' group by  column_name;"
       output=await postgres_client.fetch_all(query=query,values={})
       postgres_column_datatype={item["column_name"]:item["data_type"] for item in output}
    #disconnect

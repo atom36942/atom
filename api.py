@@ -96,9 +96,9 @@ import hashlib,datetime,json,uuid,time,jwt
 async def root(request:Request):
    return {"status":1,"message":"welcome to atom"}
 
-#root/postgres-schema-create
-@router.post("/root/postgres-schema-create")
-async def root_postgres_schema_create(request:Request,mode:str):
+#root/postgres-schema-init
+@router.post("/root/postgres-schema-init")
+async def root_postgres_schema_init(request:Request,mode:str):
    #schema define
    if mode=="self":schema=await request.json()
    if mode=="default":schema={
@@ -148,7 +148,8 @@ async def root_postgres_schema_create(request:Request,mode:str):
    "file_url":["text",["atom","post"]],
    "link_url":["text",["atom","post","workseeker"]],
    "tag":["text",["atom","users","post","workseeker"]],
-   "tag_array":["text[]",[]]
+   "tag_array":["text[]",[]],
+   "number":["numeric",["atom"]],
    },
    "index":{
    "created_at":["brin",["users","post"]],
@@ -184,7 +185,9 @@ async def root_postgres_schema_create(request:Request,mode:str):
    },
    "query":{
    "create_root_user":"insert into users (username,password) values ('atom','8b7f73ac16c3a88452745581b5cfe7243c04e6aeaaefc28d9e4094302a6b0770') on conflict do nothing;",
-   "delete_disable_root_user":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;"
+   "delete_disable_root_user":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
+   "view_column_master":"create or replace view view_column_master as (select column_name,max(data_type) as data_type, array_agg(table_name) as table_name from information_schema.columns where table_schema='public' group by  column_name);",
+   "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public'));",
    }
    }
    #create extension
@@ -206,6 +209,12 @@ async def root_postgres_schema_create(request:Request,mode:str):
          if f"{k}_{item}" not in postgres_schema_column_table:
             query=f"alter table {item} add column if not exists {k} {v[0]};"
             await request.state.postgres_client.fetch_all(query=query,values={})
+   #set created_at default (auto)
+   postgres_schema_column=await request.state.postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
+   for item in postgres_schema_column:
+      if item["column_name"]=="created_at" and not item["column_default"]:
+         query=f"alter table only {item['table_name']} alter column created_at set default now();"
+         await request.state.postgres_client.fetch_all(query=query,values={})
    #alter notnull
    postgres_schema_column=await request.state.postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
    postgres_schema_column_table_nullable={f"{item['column_name']}_{item['table_name']}":item["is_nullable"] for item in postgres_schema_column}
@@ -233,19 +242,15 @@ async def root_postgres_schema_create(request:Request,mode:str):
             query=f"create index concurrently if not exists {index_name} on {item} using {v[0]} ({k});"
             await request.state.postgres_client.fetch_all(query=query,values={})
    #delete disable bulk
-   await request.state.postgres_client.fetch_all(query="create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",values={})
+   function_delete_disable_bulk="create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;"
+   await request.state.postgres_client.fetch_all(query=function_delete_disable_bulk,values={})
    for k,v in schema["bulk_delete_disable"].items():
       trigger_name=f"trigger_delete_disable_bulk_{k}"
       query=f"create or replace trigger {trigger_name} after delete on {k} referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk({v});"
       await request.state.postgres_client.fetch_all(query=query,values={})
-   #set created_at default (auto)
-   postgres_schema_column=await request.state.postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
-   for item in postgres_schema_column:
-      if item["column_name"]=="created_at" and not item["column_default"]:
-         query=f"alter table only {item['table_name']} alter column created_at set default now();"
-         await request.state.postgres_client.fetch_all(query=query,values={})
    #set updated at now (auto)
-   await request.state.postgres_client.fetch_all(query="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at= now(); return new; end; $$ language 'plpgsql';",values={})
+   function_set_updated_at_now="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at= now(); return new; end; $$ language 'plpgsql';"
+   await request.state.postgres_client.fetch_all(query=function_set_updated_at_now,values={})
    postgres_schema_column=await request.state.postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
    postgres_schema_trigger=await request.state.postgres_client.fetch_all(query="select trigger_name from information_schema.triggers;",values={})
    postgres_schema_trigger_name_list=[item["trigger_name"] for item in postgres_schema_trigger]
@@ -265,6 +270,12 @@ async def root_postgres_schema_create(request:Request,mode:str):
          if rule_name not in postgres_schema_rule_name_list:
             query=f"create or replace rule {rule_name} as on delete to {item['table_name']} where old.is_protected=1 do instead nothing;"
             await request.state.postgres_client.fetch_all(query=query,values={})
+   #refresh mat all
+   query="select oid::regclass::text as mat_name from pg_class where relkind='m';"
+   output=await request.state.postgres_client.fetch_all(query=query,values={})
+   for item in output:
+      query=f"refresh materialized view {item["mat_name"]};"
+      await request.state.postgres_client.fetch_all(query=query,values={})
    #run misc query
    postgres_schema_constraint=await request.state.postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
    postgres_schema_constraint_name_list=[item["constraint_name"] for item in postgres_schema_constraint]
@@ -840,6 +851,20 @@ async def public_opensearch_create_index(request:Request,index:str):
    opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
    output=opensearch_client.indices.create(index,body={'settings':{'index':{'number_of_shards':4}}})
    return {"status":1,"message":output}
+
+#public/postgres-transaction
+@router.get("/public/postgres-transaction")
+async def public_postgres_transaction(request:Request):
+   database=request.state.postgres_client
+   transaction=await database.transaction()
+   query_1="insert into atom(type,number) values ('payment',100)"
+   query_2="insert into atom(type,number) values ('payment',-10)"
+   try:
+      await database.execute(query=query_1,values={})
+      await database.execute(query=query_2,values={})
+   except:await transaction.rollback()
+   else:await transaction.commit()
+   return {"status":1,"message":"done"}
 
 #admin/redis-set-object
 import redis.asyncio as redis
@@ -1427,8 +1452,12 @@ async def admin_pclean(request:Request):
    for table in ["post","likes","bookmark","report","block","rating","comment","follow","message"]:
       query=f"delete from {table} where created_by_id not in (select id from users);"
       await request.state.postgres_client.fetch_all(query=query,values={})
-   #parent not exist
-   for table in ["likes","bookmark","report","block","rating","comment","follow"]:
+   #action table read
+   query="select distinct(table_name) from information_schema.columns where column_name in ('parent_table','parent_id');"
+   output=await request.state.postgres_client.fetch_all(query=query,values={})
+   action_table_list=[item["table_name"] for item in output]
+   #parent null delete
+   for table in action_table_list:
       for parent_table in ["users","post","comment"]:
          query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
          await request.state.postgres_client.fetch_all(query=query,values={})
