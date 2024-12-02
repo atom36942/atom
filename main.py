@@ -397,15 +397,14 @@ async def root_postgres_schema_init(request:Request,mode:str):
          query=f"create or replace trigger {trigger_name} before update on {item} for each row execute procedure function_set_updated_at_now();"
          await postgres_client.fetch_all(query=query,values={})
    #create rule protection (auto)
-   schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
+   schema_column_is_protected=await postgres_client.fetch_all(query="select column_name,table_name,column_default from information_schema.columns where column_name='is_protected';",values={})
    schema_rule=await postgres_client.fetch_all(query="select rulename from pg_rules;",values={})
-   postgres_schema_rule_name_list=[item["rulename"] for item in schema_rule]
-   for item in schema_column:
-      if item["column_name"]=="is_protected":
-         rule_name=f"rule_delete_disable_{item['table_name']}"
-         if rule_name not in postgres_schema_rule_name_list:
-            query=f"create or replace rule {rule_name} as on delete to {item['table_name']} where old.is_protected=1 do instead nothing;"
-            await postgres_client.fetch_all(query=query,values={})
+   schema_rule_list=[item["rulename"] for item in schema_rule]
+   for item in schema_column_is_protected:
+      rule_name=f"rule_protect_{item['table_name']}"
+      if rule_name not in schema_rule_list:
+         query=f"create or replace rule {rule_name} as on delete to {item['table_name']} where old.is_protected=1 do instead nothing;"
+         await postgres_client.fetch_all(query=query,values={})
    #refresh mat all (auto)
    query="select oid::regclass::text as mat_name from pg_class where relkind='m';"
    output=await postgres_client.fetch_all(query=query,values={})
