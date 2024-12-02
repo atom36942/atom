@@ -240,7 +240,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    if mode=="self":schema=await request.json()
    if mode=="default":schema={
    "extension":["postgis"],
-   "table":["users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log","workseeker"],
+   "table":["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log","workseeker"],
    "column":{
    "created_at":["timestamptz",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log","workseeker"]],
    "created_by_id":["bigint",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log","workseeker"]],
@@ -325,99 +325,98 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "delete_disable_root_user":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
    "view_column_master":"create or replace view view_column_master as (select column_name,max(data_type) as data_type, array_agg(table_name) as table_name from information_schema.columns where table_schema='public' group by  column_name);",
    "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public'));",
+   "view_post_master":"create or replace view view_post_master as(select p.*,u.username as username from post as p left join users as u on p.created_by_id=u.id);",
    }
    }
-   #create extension
+   #create extension (config)
    for item in schema["extension"]:
       query=f"create extension if not exists {item}"
       await postgres_client.fetch_all(query=query,values={})
-   #create table
-   postgres_schema_table=await postgres_client.fetch_all(query="select table_name from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
-   postgres_schema_table_name_list=[item["table_name"] for item in postgres_schema_table]
+   #create table (config)
+   schema_table=await postgres_client.fetch_all(query="select table_name from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
+   schema_table_name_list=[item["table_name"] for item in schema_table]
    for item in schema["table"]:
-      if item not in postgres_schema_table_name_list:
+      if item not in schema_table_name_list:
          query=f"create table if not exists {item} (id bigint primary key generated always as identity not null);"
          await postgres_client.fetch_all(query=query,values={})
-   #create column
-   postgres_schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
-   postgres_schema_column_table={f"{item['column_name']}_{item['table_name']}":item["data_type"] for item in postgres_schema_column}
+   #create column (config)
+   schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
+   schema_column_table={f"{item['column_name']}_{item['table_name']}":item["data_type"] for item in schema_column}
    for k,v in schema["column"].items():
       for item in v[1]:
-         if f"{k}_{item}" not in postgres_schema_column_table:
+         if f"{k}_{item}" not in schema_column_table:
             query=f"alter table {item} add column if not exists {k} {v[0]};"
             await postgres_client.fetch_all(query=query,values={})
-   #set created_at default (auto)
-   postgres_schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
-   for item in postgres_schema_column:
-      if item["column_name"]=="created_at" and not item["column_default"]:
-         query=f"alter table only {item['table_name']} alter column created_at set default now();"
-         await postgres_client.fetch_all(query=query,values={})
-   #alter notnull
-   postgres_schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
-   postgres_schema_column_table_nullable={f"{item['column_name']}_{item['table_name']}":item["is_nullable"] for item in postgres_schema_column}
+   #alter notnull (config)
+   schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
+   schema_column_table_nullable={f"{item['column_name']}_{item['table_name']}":item["is_nullable"] for item in schema_column}
    for k,v in schema["not_null"].items():
       for item in v:
-         if postgres_schema_column_table_nullable[f"{k}_{item}"]=="YES":
+         if schema_column_table_nullable[f"{k}_{item}"]=="YES":
             query=f"alter table {item} alter column {k} set not null;"
             await postgres_client.fetch_all(query=query,values={})
-   #alter unique
-   postgres_schema_constraint=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
-   postgres_schema_constraint_name_list=[item["constraint_name"] for item in postgres_schema_constraint]
+   #alter unique (config)
+   schema_constraint=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
+   schema_constraint_name_list=[item["constraint_name"] for item in schema_constraint]
    for k,v in schema["unique"].items():
       for item in v:
          constraint_name=f"constraint_unique_{k}_{item}".replace(',','_')
-         if constraint_name not in postgres_schema_constraint_name_list:
+         if constraint_name not in schema_constraint_name_list:
             query=f"alter table {item} add constraint {constraint_name} unique ({k});"
             await postgres_client.fetch_all(query=query,values={})
-   #create index
-   postgres_schema_index=await postgres_client.fetch_all(query="select indexname from pg_indexes where schemaname='public';",values={})
-   postgres_schema_index_name_list=[item["indexname"] for item in postgres_schema_index]
+   #create index (config)
+   schema_index=await postgres_client.fetch_all(query="select indexname from pg_indexes where schemaname='public';",values={})
+   schema_index_name_list=[item["indexname"] for item in schema_index]
    for k,v in schema["index"].items():
       for item in v[1]:
          index_name=f"index_{k}_{item}"
-         if index_name not in postgres_schema_index_name_list:
+         if index_name not in schema_index_name_list:
             query=f"create index concurrently if not exists {index_name} on {item} using {v[0]} ({k});"
             await postgres_client.fetch_all(query=query,values={})
-   #delete disable bulk
+   #delete disable bulk (config)
    function_delete_disable_bulk="create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;"
    await postgres_client.fetch_all(query=function_delete_disable_bulk,values={})
    for k,v in schema["bulk_delete_disable"].items():
       trigger_name=f"trigger_delete_disable_bulk_{k}"
       query=f"create or replace trigger {trigger_name} after delete on {k} referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk({v});"
       await postgres_client.fetch_all(query=query,values={})
-   #set updated at now (auto)
+   #set created_at default (config)
+   schema_column_created_at=await postgres_client.fetch_all(query="select column_name,table_name,column_default from information_schema.columns where column_name='created_at';",values={})
+   for item in schema_column_created_at:
+      if item["table_name"] in schema["column"]["created_at"][1] and not item["column_default"]:
+         query=f"alter table only {item['table_name']} alter column created_at set default now();"
+         await postgres_client.fetch_all(query=query,values={})
+   #set updated at now (config)
    function_set_updated_at_now="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at= now(); return new; end; $$ language 'plpgsql';"
    await postgres_client.fetch_all(query=function_set_updated_at_now,values={})
-   postgres_schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
-   postgres_schema_trigger=await postgres_client.fetch_all(query="select trigger_name from information_schema.triggers;",values={})
-   postgres_schema_trigger_name_list=[item["trigger_name"] for item in postgres_schema_trigger]
-   for item in postgres_schema_column:
-      if item["column_name"]=="updated_at":
-         trigger_name=f"trigger_set_updated_at_now_{item['table_name']}"
-         if trigger_name not in postgres_schema_trigger_name_list:
-            query=f"create or replace trigger {trigger_name} before update on {item['table_name']} for each row execute procedure function_set_updated_at_now();"
-            await postgres_client.fetch_all(query=query,values={})
+   schema_trigger=await postgres_client.fetch_all(query="select trigger_name from information_schema.triggers;",values={})
+   schema_trigger_list=[item["trigger_name"] for item in schema_trigger]
+   for item in schema["column"]["updated_at"][1]:
+      trigger_name=f"trigger_set_updated_at_now_{item}"
+      if trigger_name not in schema_trigger_list:
+         query=f"create or replace trigger {trigger_name} before update on {item} for each row execute procedure function_set_updated_at_now();"
+         await postgres_client.fetch_all(query=query,values={})
    #create rule protection (auto)
-   postgres_schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
-   postgres_schema_rule=await postgres_client.fetch_all(query="select rulename from pg_rules;",values={})
-   postgres_schema_rule_name_list=[item["rulename"] for item in postgres_schema_rule]
-   for item in postgres_schema_column:
+   schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
+   schema_rule=await postgres_client.fetch_all(query="select rulename from pg_rules;",values={})
+   postgres_schema_rule_name_list=[item["rulename"] for item in schema_rule]
+   for item in schema_column:
       if item["column_name"]=="is_protected":
          rule_name=f"rule_delete_disable_{item['table_name']}"
          if rule_name not in postgres_schema_rule_name_list:
             query=f"create or replace rule {rule_name} as on delete to {item['table_name']} where old.is_protected=1 do instead nothing;"
             await postgres_client.fetch_all(query=query,values={})
-   #refresh mat all
+   #refresh mat all (auto)
    query="select oid::regclass::text as mat_name from pg_class where relkind='m';"
    output=await postgres_client.fetch_all(query=query,values={})
    for item in output:
       query=f"refresh materialized view {item["mat_name"]};"
       await postgres_client.fetch_all(query=query,values={})
-   #run misc query
-   postgres_schema_constraint=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
-   postgres_schema_constraint_name_list=[item["constraint_name"] for item in postgres_schema_constraint]
+   #run misc query (config)
+   schema_constraint=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
+   schema_constraint_name_list=[item["constraint_name"] for item in schema_constraint]
    for k,v in schema["query"].items():
-      if "add constraint" in v and v.split()[5] in postgres_schema_constraint_name_list:continue
+      if "add constraint" in v and v.split()[5] in schema_constraint_name_list:continue
       await postgres_client.fetch_all(query=v,values={})
    #final
    return {"status":1,"message":"done"}
@@ -1004,9 +1003,9 @@ async def public_postgres_prepared_statement(request:Request):
    output={"simple":output_1,"prepared":output_2}
    return {"status":1,"message":output}
 
-#public/postgres-transaction
-@app.get("/public/postgres-transaction")
-async def public_postgres_transaction(request:Request):
+#root/postgres-transaction
+@app.get("/root/postgres-transaction")
+async def root_postgres_transaction(request:Request):
    transaction=await postgres_client.transaction()
    query_1="insert into atom(type,number) values ('payment',100)"
    query_2="insert into atom(type,number) values ('payment',-10)"
@@ -1249,12 +1248,12 @@ async def public_api_list(request:Request,mode:str=None):
 @app.get("/public/table-column")
 async def public_table_column(request:Request,mode:str=None,table:str=None):
    #read postgres schema
-   if mode=="main":postgres_schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public' and column_name not in ('id','created_at','created_by_id','updated_at','updated_by_id','is_active','is_verified','is_protected','last_active_at');",values={})
-   else:postgres_schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
+   if mode=="main":schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public' and column_name not in ('id','created_at','created_by_id','updated_at','updated_by_id','is_active','is_verified','is_protected','last_active_at');",values={})
+   else:schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
    #logic
    temp={}
-   table_list=list(set([item['table_name'] for item in postgres_schema_column]))
-   for item in table_list:temp[item]={column["column_name"]:column["data_type"] for column in postgres_schema_column if column['table_name']==item}
+   table_list=list(set([item['table_name'] for item in schema_column]))
+   for item in table_list:temp[item]={column["column_name"]:column["data_type"] for column in schema_column if column['table_name']==item}
    #if table
    if table:temp=temp[table]
    #final

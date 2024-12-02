@@ -122,6 +122,9 @@ CASCADE'; END LOOP;
 END $$;
 
 #postgres schema
+pgclass(relations)=SELECT * FROM pg_class where relname='users'
+pgattribute(columns)=SELECT * FROM pg_attribute WHERE attrelid='users'::regclass;
+pgproc=SELECT *  FROM pg_proc WHERE pronamespace='public'::regnamespace and proname ilike 'function_%';
 extension=select * from pg_extension;
 database=select *,pg_size_pretty(pg_database_size(datname)) as db_size from pg_database;
 namespace=select * from pg_namespace;
@@ -132,9 +135,13 @@ constraint=select * from information_schema.constraint_column_usage where constr
 index=select * from pg_indexes where schemaname='public';
 rules=select * from pg_rules;
 identity=select * from pg_attribute where attnum>0 and attidentity in ('a','d');
-table=select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';
+table all=select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';
+table only=select * from information_schema.tables where table_schema not in ('information_schema', 'pg_catalog') and table_type = 'BASE TABLE'
 column=select * from information_schema.columns where table_schema='public';
 prepared=select * from pg_prepared_statements;
+view all=select table_name from INFORMATION_SCHEMA.views;
+view user=select table_name from INFORMATION_SCHEMA.views WHERE table_schema = ANY (current_schemas(false))
+function user=SELECT *  FROM pg_proc WHERE pronamespace='public'::regnamespace and proname ilike 'function_%';
 
 #postgres drop
 connection=SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname='test' AND pid <> pg_backend_pid();
@@ -143,6 +150,7 @@ view all=SELECT 'DROP VIEW ' || table_name || ';' FROM information_schema.views 
 triggers all=SELECT 'DROP TRIGGER ' || trigger_name || ' ON ' || event_object_table || ';' FROM information_schema.triggers WHERE trigger_schema = 'public';
 index all=select 'drop index ' || string_agg(i.indexrelid::regclass::text,', ' order by n.nspname,i.indrelid::regclass::text, cl.relname) as output from pg_index i join pg_class cl ON cl.oid = i.indexrelid join pg_namespace n ON n.oid = cl.relnamespace left join pg_constraint co ON co.conindid = i.indexrelid where  n.nspname <> 'information_schema' and n.nspname not like 'pg\_%' and co.conindid is null and not i.indisprimary and not i.indisunique and not i.indisexclusion and not i.indisclustered and not i.indisreplident;
 mat all=SELECT 'DROP MATERIALIZED VIEW ' || string_agg(oid::regclass::text, ', ') FROM   pg_class WHERE  relkind = 'm';
+view=drop view if exists <name>;
 
 #postgres dump table
 export full=\copy post to '<filepath>' with (format csv,header);
