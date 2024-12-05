@@ -112,8 +112,7 @@ password change=\password
 url=postgresql://atom:123@localhost/postgres
 
 #postgres reset
-drop schema public cascade;
-create schema public;
+drop schema public cascade;---create schema public;
 DO
 $$ DECLARE r RECORD; BEGIN FOR r IN
 (SELECT tablename FROM pg_tables WHERE schemaname=current_schema() and tablename not in ('spatial_ref_sys')) LOOP
@@ -150,7 +149,9 @@ view all=SELECT 'DROP VIEW ' || table_name || ';' FROM information_schema.views 
 triggers all=SELECT 'DROP TRIGGER ' || trigger_name || ' ON ' || event_object_table || ';' FROM information_schema.triggers WHERE trigger_schema = 'public';
 index all=select 'drop index ' || string_agg(i.indexrelid::regclass::text,', ' order by n.nspname,i.indrelid::regclass::text, cl.relname) as output from pg_index i join pg_class cl ON cl.oid = i.indexrelid join pg_namespace n ON n.oid = cl.relnamespace left join pg_constraint co ON co.conindid = i.indexrelid where  n.nspname <> 'information_schema' and n.nspname not like 'pg\_%' and co.conindid is null and not i.indisprimary and not i.indisunique and not i.indisexclusion and not i.indisclustered and not i.indisreplident;
 mat all=SELECT 'DROP MATERIALIZED VIEW ' || string_agg(oid::regclass::text, ', ') FROM   pg_class WHERE  relkind = 'm';
-view=drop view if exists <name>;
+view=drop view if exists view_post_master;
+function=drop function if exists function_read_user;
+trigger=drop trigger if exists trigger_log_password_change on users cascade;
 
 #postgres dump table
 export full=\copy post to '<filepath>' with (format csv,header);

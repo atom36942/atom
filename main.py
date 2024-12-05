@@ -135,6 +135,7 @@ from fastapi_limiter import FastAPILimiter
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 postgres_client=None
+redis_client=None
 postgres_column_datatype=None
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -143,6 +144,7 @@ async def lifespan(app:FastAPI):
    postgres_client=Database(os.getenv("postgres_database_url"),min_size=1,max_size=100)
    await postgres_client.connect()
    #redis
+   global redis_client
    redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url")))
    await FastAPILimiter.init(redis_client)
    FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
@@ -198,12 +200,12 @@ async def middleware(request:Request,api_function):
       #end
       end=time.time()
       response_time_ms=(end-start)*1000
-      #log create
+      #log_api create
       global object_list_log
       object={"created_by_id":user["id"] if user else None,"api":api,"status_code":response.status_code,"response_time_ms":response_time_ms}
       object_list_log.append(object)
-      if len(object_list_log)>=10:
-         query="insert into log (created_by_id,api,status_code,response_time_ms) values (:created_by_id,:api,:status_code,:response_time_ms)"
+      if len(object_list_log)>=3:
+         query="insert into log_api (created_by_id,api,status_code,response_time_ms) values (:created_by_id,:api,:status_code,:response_time_ms)"
          query_param=object_list_log
          BackgroundTask(await postgres_client.execute_many(query=query,values=query_param))
          object_list_log=[]
@@ -240,10 +242,10 @@ async def root_postgres_schema_init(request:Request,mode:str):
    if mode=="self":schema=await request.json()
    if mode=="default":schema={
    "extension":["postgis"],
-   "table":["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log","workseeker"],
+   "table":["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password"],
    "column":{
-   "created_at":["timestamptz",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log","workseeker"]],
-   "created_by_id":["bigint",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log","workseeker"]],
+   "created_at":["timestamptz",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password"]],
+   "created_by_id":["bigint",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password"]],
    "updated_at":["timestamptz",["atom","users","post","report","comment","message","helpdesk","workseeker"]],
    "updated_by_id":["bigint",["atom","users","post","report","comment","message","helpdesk","workseeker"]],
    "is_active":["smallint",["users","post","comment","workseeker"]],
@@ -252,20 +254,20 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "is_read":["smallint",["message"]],
    "is_deleted":["smallint",[]],
    "otp":["integer",["otp"]],
-   "user_id":["bigint",["message"]],
+   "user_id":["bigint",["message","log_password"]],
    "parent_table":["text",["likes","bookmark","report","block","rating","comment","follow"]],
    "parent_id":["bigint",["likes","bookmark","report","block","rating","comment","follow"]],
    "location":["geography(POINT)",["users","post","atom"]],
-   "api":["text",["log"]],
-   "status_code":["smallint",["log"]],
-   "response_time_ms":["numeric",["log"]],
+   "api":["text",["log_api"]],
+   "status_code":["smallint",["log_api"]],
+   "response_time_ms":["numeric",["log_api"]],
    "type":["text",["atom","users","post","helpdesk","workseeker"]],
    "status":["text",["report","helpdesk","workseeker"]],
    "remark":["text",["report","helpdesk","workseeker"]],
    "rating":["numeric",["post","rating","workseeker"]],
    "metadata":["jsonb",["users","post","workseeker"]],
    "username":["text",["users"]],
-   "password":["text",["users"]],
+   "password":["text",["users","log_password"]],
    "google_id":["text",["users"]],
    "profile_pic_url":["text",["users"]],
    "last_active_at":["timestamptz",["users"]],
@@ -290,7 +292,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    },
    "index":{
    "created_at":["brin",["users","post"]],
-   "created_by_id":["btree",["users","post","rating","comment","message","helpdesk","otp","log","atom","workseeker"]],
+   "created_by_id":["btree",["users","post","rating","comment","message","helpdesk","otp","log_api","atom","workseeker"]],
    "is_active":["btree",["users","post","comment","workseeker"]],
    "is_verified":["btree",["users","post","comment","workseeker"]],
    "is_read":["btree",["message"]],
@@ -321,11 +323,10 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "users":1
    },
    "query":{
-   "create_root_user":"insert into users (username,password) values ('atom','8b7f73ac16c3a88452745581b5cfe7243c04e6aeaaefc28d9e4094302a6b0770') on conflict do nothing;",
-   "delete_disable_root_user":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
    "view_column_master":"create or replace view view_column_master as (select column_name,max(data_type) as data_type, array_agg(table_name) as table_name from information_schema.columns where table_schema='public' group by  column_name);",
    "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public'));",
-   "view_post_master":"create or replace view view_post_master as(select p.*,u.username as username from post as p left join users as u on p.created_by_id=u.id);",
+   "view_post_master":"create or replace view view_post_master as(select p.*,u.username as created_by_id_username from post as p left join users as u on p.created_by_id=u.id);",
+   "function_read_user":"create or replace function function_read_user(uid int) returns setof users as $$ begin return query select * from users where id=uid; end; $$ language plpgsql;",
    }
    }
    #create extension (config)
@@ -387,7 +388,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
          query=f"alter table only {item['table_name']} alter column created_at set default now();"
          await postgres_client.fetch_all(query=query,values={})
    #set updated at now (config)
-   function_set_updated_at_now="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at= now(); return new; end; $$ language 'plpgsql';"
+   function_set_updated_at_now="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';"
    await postgres_client.fetch_all(query=function_set_updated_at_now,values={})
    schema_trigger=await postgres_client.fetch_all(query="select trigger_name from information_schema.triggers;",values={})
    schema_trigger_list=[item["trigger_name"] for item in schema_trigger]
@@ -411,6 +412,16 @@ async def root_postgres_schema_init(request:Request,mode:str):
    for item in output:
       query=f"refresh materialized view {item["mat_name"]};"
       await postgres_client.fetch_all(query=query,values={})
+   #root user (auto)
+   create_root_user="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;"
+   await postgres_client.fetch_all(query=create_root_user,values={})
+   delete_disable_root_user="create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;"
+   await postgres_client.fetch_all(query=delete_disable_root_user,values={})
+   #log password change 
+   function_log_password_change="CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(created_by_id,user_id,password) VALUES(NEW.updated_by_id,OLD.id,OLD.password); END IF; RETURN NEW; END; $$;"
+   await postgres_client.fetch_all(query=function_log_password_change,values={})
+   trigger_log_password_change="CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();"
+   await postgres_client.fetch_all(query=trigger_log_password_change,values={})
    #run misc query (config)
    schema_constraint=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
    schema_constraint_name_list=[item["constraint_name"] for item in schema_constraint]
@@ -432,12 +443,13 @@ async def root_postgres_query_runner(request:Request,query:str):
 #root/grant all api access
 @app.put("/root/grant-all-api-access")
 async def root_grant_all_api_access(request:Request,user_id:int):
-   #api admin list
-   api_admin_list=[route.path for route in router.routes if "/admin" in route.path]
-   api_admin_str=",".join(api_admin_list)
-   #update api access
+   #api list
+   api_list=[route.path for route in request.app.routes]
+   api_list_admin=[item for item in api_list if "/admin" in item]
+   api_list_admin_str=",".join(api_list_admin)
+   #logic
    query="update users set api_access=:api_access where id=:id returning *"
-   query_param={"api_access":api_admin_str,"id":user_id}
+   query_param={"api_access":api_list_admin_str,"id":user_id}
    output=await postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
@@ -622,6 +634,36 @@ async def my_token_refresh(request:Request):
    #final
    return {"status":1,"message":token}
 
+#my/update-password
+@app.put("/my/update-password")
+async def my_update_password(request:Request,password:str):
+   #logic
+   query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
+   query_param={"id":request.state.user["id"],"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#admin/update-password
+@app.put("/admin/update-password")
+async def admin_update_password(request:Request,user_id:int,password:str):
+   #logic
+   query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
+   query_param={"id":user_id,"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#root/update-password
+@app.put("/root/update-password")
+async def root_update_password(request:Request,user_id:int,password:str):
+   #logic
+   query="update users set password=:password where id=:id returning *;"
+   query_param={"id":user_id,"password":hashlib.sha256(password.encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
 #my/update-email
 @app.put("/my/update-email")
 async def my_update_email(request:Request,email:str,otp:int):
@@ -631,7 +673,7 @@ async def my_update_email(request:Request,email:str,otp:int):
    output=await postgres_client.fetch_all(query=query,values=query_param)
    if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
    if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #update email
+   #logic
    query="update users set email=:email,updated_by_id=:updated_by_id where id=:id returning *;"
    query_param={"id":request.state.user["id"],"email":email,"updated_by_id":request.state.user["id"]}
    output=await postgres_client.fetch_all(query=query,values=query_param)
@@ -647,7 +689,7 @@ async def my_update_mobile(request:Request,mobile:str,otp:int):
    output=await postgres_client.fetch_all(query=query,values=query_param)
    if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
    if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #update mobile
+   #logic
    query="update users set mobile=:mobile,updated_by_id=:updated_by_id where id=:id returning *;"
    query_param={"id":request.state.user["id"],"mobile":mobile,"updated_by_id":request.state.user["id"]}
    output=await postgres_client.fetch_all(query=query,values=query_param)
@@ -660,7 +702,7 @@ async def my_delete_ids(request:Request,table:str,ids:str):
    #check      
    if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    if len(ids.split(","))>3:return responses.JSONResponse(status_code=400,content={"status":0,"message":"ids length not allowed"})
-   #delete ids
+   #logic
    query=f"delete from {table} where created_by_id=:created_by_id and id in ({ids});"
    query_param={"created_by_id":request.state.user["id"]}
    await postgres_client.fetch_all(query=query,values=query_param)
@@ -673,7 +715,7 @@ async def my_delete_account(request:Request):
    #check
    if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
    if request.state.user["id"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
-   #delete user
+   #logic
    query="delete from users where id=:id;"
    query_param={"id":request.state.user["id"]}
    output=await postgres_client.fetch_all(query=query,values=query_param)
@@ -1004,16 +1046,16 @@ async def public_postgres_prepared_statement(request:Request):
 
 #root/postgres-transaction
 @app.get("/root/postgres-transaction")
-async def root_postgres_transaction(request:Request):
+async def root_postgres_transaction(request:Request,mode:str):
+   if mode=="success":query_1,query_2="insert into atom(type,number) values ('payment',100);","insert into atom(type,number) values ('payment',-10);"
+   if mode=="fail":query_1,query_2="insert into atom(type,number) values ('payment',100);","insert into atom(type,number) values ('payment',-10a);"
    transaction=await postgres_client.transaction()
-   query_1="insert into atom(type,number) values ('payment',100)"
-   query_2="insert into atom(type,number) values ('payment',-10)"
    try:
       await postgres_client.execute(query=query_1,values={})
       await postgres_client.execute(query=query_2,values={})
-   except:await transaction.rollback()
-   else:await transaction.commit()
-   return {"status":1,"message":"done"}
+   except:output=await transaction.rollback()
+   else:output=await transaction.commit()
+   return {"status":1,"message":output}
 
 #admin/redis-set-object
 import redis.asyncio as redis
@@ -1580,14 +1622,15 @@ class schema_update_api_access(BaseModel):
    api_access:str|None=None
 @app.put("/admin/update-api-access")
 async def admin_update_api_access(request:Request,body:schema_update_api_access):
-   #api access string
-   api_admin_list=[route.path for route in router.routes if "/admin" in route.path]
-   api_admin_str=",".join(api_admin_list)
-   #check body api string
+   #api list
+   api_list=[route.path for route in request.app.routes]
+   api_list_admin=[item for item in api_list if "/admin" in item]
+   api_list_admin_str=",".join(api_list_admin)
+   #check body
    if body.api_access:
       for item in body.api_access.split(","):
-         if item not in api_admin_str:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
-   #update api access
+         if item not in api_list_admin_str:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
+   #logic
    query="update users set api_access=:api_access where id=:id returning *"
    query_param={"id":body.user_id,"api_access":body.api_access}
    output=await postgres_client.fetch_all(query=query,values=query_param)
