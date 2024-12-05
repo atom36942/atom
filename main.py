@@ -328,25 +328,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "view_post_master":"create or replace view view_post_master as(select p.*,u.username as created_by_id_username from post as p left join users as u on p.created_by_id=u.id);",
    "function_read_user":"create or replace function function_read_user(a int) returns setof users as $$ begin return query select * from users where id=a; end; $$ language plpgsql;",
    "procedure_stats":"create or replace procedure procedure_stats(inout users_count int default 0,inout post_count int default 0) as $$ begin select count(*) into users_count from users; select count(*) into post_count from post; end; $$ language plpgsql;",
-   "procedure_delete_user":'''
-   create or replace procedure procedure_delete_user(a int)
-   language plpgsql
-   as $$
-   begin
-   delete from users where id=a;
-   delete from block where created_by_id=a;
-   delete from bookmark where created_by_id=a;
-   delete from comment where created_by_id=a;
-   delete from follow where created_by_id=a;
-   delete from likes where created_by_id=a;
-   delete from message where created_by_id=a;
-   delete from message where user_id=a;
-   delete from post where created_by_id=a;
-   delete from rating where created_by_id=a;
-   delete from report where created_by_id=a;
-   commit;
-   end;$$;
-   '''
+   "procedure_delete_user":'''create or replace procedure procedure_delete_user(a int) language plpgsql as $$ begin delete from users where id=a;delete from block where created_by_id=a;delete from bookmark where created_by_id=a;delete from comment where created_by_id=a;delete from follow where created_by_id=a;delete from likes where created_by_id=a;delete from message where created_by_id=a;delete from message where user_id=a;delete from post where created_by_id=a;delete from rating where created_by_id=a;delete from report where created_by_id=a;commit;end;$$;''',
    }
    }
    #create extension (config)
