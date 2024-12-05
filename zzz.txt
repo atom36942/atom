@@ -3,54 +3,11 @@ pid kill=lsof -i:8000---kill -9 <pid>
 venv size=du -hs venv
 python version=python --version
 
-#insert otp
-insert into otp (otp,email) values (123,'atom36942@gmail.com')---insert into otp (otp,mobile) values (123,'919508502855')
-
-#router
-from fastapi import APIRouter
-router=APIRouter()
-
 #env
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 pip freeze > requirements.txt
-
-#zshrc
-alias python=python3
-alias pip=pip3
-eval "$(/opt/homebrew/bin/brew shellenv)"
-export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
-
-#zprofile
-eval "$(/opt/homebrew/bin/brew shellenv)"
-
-#dynamodb
-primary key(parition key)
-parition key+sort key
-
-#cassandra
-brew install cassandra
-brew services start cassandra
-brew services stop cassandra
-data model=keyspaces-table-partition-object
-keyspaces=SELECT * FROM system_schema.keyspaces;
-drop table=drop table atom2k.users;
-list tables=select * from system_schema.tables where keyspace_name='atom2k';
-partition concept=partition users created each min by country..so max size will be <10mb if 100-1000 users registers in 1 min
-create table=create table atom2k.users (created_at_min text,id bigint,username text,age int,country text,primary key ((created_at_min,country),id));
-create=insert into atom2k.users (created_at_min,id,username,age,country) VALUES ('2000-11-29T23:59:00',1,'atom',33,'india');
-read=select * from atom2k.users where id=1 limit 1 allow filtering;
-update=update atom2k.users set username='atom2' where created_at_min='2000-11-29T23:59:00' and country='india' and id=1;
-delete=delete from atom2k.users where created_at_min='2000-11-29T23:59:00' and country='india' and id=1;
-
-#redis
-connect url=redis-cli -u <url>
-docker run=docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest
-show all keys=keys *
-scal all keys=redis-cli --scan --pattern '*'
-delete all keys=flushall
-subscribe channel=SUBSCRIBE index
 
 #git init
 git init
@@ -74,6 +31,15 @@ git commit -am "sync"
 git branch -D main 
 git branch -m main 
 git push -f origin main
+
+#zshrc
+alias python=python3
+alias pip=pip3
+eval "$(/opt/homebrew/bin/brew shellenv)"
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+
+#zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
 
 #docker
 brew install --cask docker
@@ -141,6 +107,7 @@ prepared=select * from pg_prepared_statements;
 view all=select table_name from INFORMATION_SCHEMA.views;
 view user=select table_name from INFORMATION_SCHEMA.views WHERE table_schema = ANY (current_schemas(false))
 function user=SELECT *  FROM pg_proc WHERE pronamespace='public'::regnamespace and proname ilike 'function_%';
+procedure=SELECT *  FROM pg_proc WHERE pronamespace='public'::regnamespace and proname ilike 'procedure_%';
 
 #postgres drop
 connection=SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname='test' AND pid <> pg_backend_pid();
@@ -150,7 +117,8 @@ triggers all=SELECT 'DROP TRIGGER ' || trigger_name || ' ON ' || event_object_ta
 index all=select 'drop index ' || string_agg(i.indexrelid::regclass::text,', ' order by n.nspname,i.indrelid::regclass::text, cl.relname) as output from pg_index i join pg_class cl ON cl.oid = i.indexrelid join pg_namespace n ON n.oid = cl.relnamespace left join pg_constraint co ON co.conindid = i.indexrelid where  n.nspname <> 'information_schema' and n.nspname not like 'pg\_%' and co.conindid is null and not i.indisprimary and not i.indisunique and not i.indisexclusion and not i.indisclustered and not i.indisreplident;
 mat all=SELECT 'DROP MATERIALIZED VIEW ' || string_agg(oid::regclass::text, ', ') FROM   pg_class WHERE  relkind = 'm';
 view=drop view if exists view_post_master;
-function=drop function if exists function_read_user;
+function=drop function if exists function_name;
+procedure=drop procedure if exists trigger_name;
 trigger=drop trigger if exists trigger_log_password_change on users cascade;
 
 #postgres dump table
@@ -249,3 +217,36 @@ read=select * from users limit 3;
 update=update users set name='sharma' where id=1 returning *;
 delete=delete from users where id=1;
 
+#cassandra
+brew install cassandra
+brew services start cassandra
+brew services stop cassandra
+data model=keyspaces-table-partition-object
+keyspaces=SELECT * FROM system_schema.keyspaces;
+drop table=drop table atom2k.users;
+list tables=select * from system_schema.tables where keyspace_name='atom2k';
+partition concept=partition users created each min by country..so max size will be <10mb if 100-1000 users registers in 1 min
+create table=create table atom2k.users (created_at_min text,id bigint,username text,age int,country text,primary key ((created_at_min,country),id));
+create=insert into atom2k.users (created_at_min,id,username,age,country) VALUES ('2000-11-29T23:59:00',1,'atom',33,'india');
+read=select * from atom2k.users where id=1 limit 1 allow filtering;
+update=update atom2k.users set username='atom2' where created_at_min='2000-11-29T23:59:00' and country='india' and id=1;
+delete=delete from atom2k.users where created_at_min='2000-11-29T23:59:00' and country='india' and id=1;
+
+#insert otp
+insert into otp (otp,email) values (123,'atom36942@gmail.com')---insert into otp (otp,mobile) values (123,'919508502855')
+
+#router
+from fastapi import APIRouter
+router=APIRouter()
+
+#dynamodb
+primary key(parition key)
+parition key+sort key
+
+#redis
+connect url=redis-cli -u <url>
+docker run=docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest
+show all keys=keys *
+scal all keys=redis-cli --scan --pattern '*'
+delete all keys=flushall
+subscribe channel=SUBSCRIBE index

@@ -326,7 +326,27 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "view_column_master":"create or replace view view_column_master as (select column_name,max(data_type) as data_type, array_agg(table_name) as table_name from information_schema.columns where table_schema='public' group by  column_name);",
    "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public'));",
    "view_post_master":"create or replace view view_post_master as(select p.*,u.username as created_by_id_username from post as p left join users as u on p.created_by_id=u.id);",
-   "function_read_user":"create or replace function function_read_user(uid int) returns setof users as $$ begin return query select * from users where id=uid; end; $$ language plpgsql;",
+   "function_read_user":"create or replace function function_read_user(a int) returns setof users as $$ begin return query select * from users where id=a; end; $$ language plpgsql;",
+   "procedure_stats":"create or replace procedure procedure_stats(inout users_count int default 0,inout post_count int default 0) as $$ begin select count(*) into users_count from users; select count(*) into post_count from post; end; $$ language plpgsql;",
+   "procedure_delete_user":'''
+   create or replace procedure procedure_delete_user(a int)
+   language plpgsql
+   as $$
+   begin
+   delete from users where id=a;
+   delete from block where created_by_id=a;
+   delete from bookmark where created_by_id=a;
+   delete from comment where created_by_id=a;
+   delete from follow where created_by_id=a;
+   delete from likes where created_by_id=a;
+   delete from message where created_by_id=a;
+   delete from message where user_id=a;
+   delete from post where created_by_id=a;
+   delete from rating where created_by_id=a;
+   delete from report where created_by_id=a;
+   commit;
+   end;$$;
+   '''
    }
    }
    #create extension (config)
@@ -417,7 +437,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    await postgres_client.fetch_all(query=create_root_user,values={})
    delete_disable_root_user="create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;"
    await postgres_client.fetch_all(query=delete_disable_root_user,values={})
-   #log password change 
+   #log password change (auto)
    function_log_password_change="CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(created_by_id,user_id,password) VALUES(NEW.updated_by_id,OLD.id,OLD.password); END IF; RETURN NEW; END; $$;"
    await postgres_client.fetch_all(query=function_log_password_change,values={})
    trigger_log_password_change="CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();"
@@ -716,9 +736,13 @@ async def my_delete_account(request:Request):
    if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
    if request.state.user["id"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
    #logic
-   query="delete from users where id=:id;"
-   query_param={"id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if False:
+      query="delete from users where id=:id;"
+      query_param={"id":request.state.user["id"]}
+      output=await postgres_client.fetch_all(query=query,values=query_param)
+   #procedure
+   query=f"call procedure_delete_user({request.state.user["id"]});"
+   output=await postgres_client.fetch_all(query=query,values={})
    #final
    return {"status":1,"message":"account deleted"}
 
@@ -1300,10 +1324,10 @@ async def public_table_column(request:Request,mode:str=None,table:str=None):
    #final
    return {"status":1,"message":temp}
 
-#public/project metadata
-@app.get("/public/project-metadata")
+#public/project meta
+@app.get("/public/project-meta")
 @cache(expire=60)
-async def public_project_metadata(request:Request):
+async def public_project_meta(request:Request):
    #logic
    query_dict={"user_count":"select count(*) from users;"}
    temp={k:await postgres_client.fetch_all(query=v,values={}) for k,v in query_dict.items()}
