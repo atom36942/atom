@@ -1063,10 +1063,32 @@ async def root_postgres_transaction(request:Request,mode:str):
    else:output=await transaction.commit()
    return {"status":1,"message":output}
 
-#admin/redis-set-object
+#root/valkey-set-object
+import valkey
+@app.post("/root/valkey-set-object")
+async def root_valkey_set_object(request:Request,key:str,expiry:int=None):
+   valkey_client=valkey.from_url(os.getenv("valkey_server_url"))
+   object=await request.json()
+   object=json.dumps(object)
+   if not expiry:output=valkey_client.set(key,object)
+   else:output=valkey_client.setex(key,expiry,object)
+   valkey_client.close()
+   return {"status":1,"message":output}
+
+#root/valkey-get-object
+import valkey
+@app.get("/root/valkey-get-object")
+async def root_valkey_get_object(request:Request,key:str):
+   valkey_client=valkey.from_url(os.getenv("valkey_server_url"))
+   output=valkey_client.get("post_1")
+   if output:output=json.loads(output)
+   valkey_client.close()
+   return {"status":1,"message":output}
+
+#root/redis-set-object
 import redis.asyncio as redis
-@app.post("/admin/redis-set-object")
-async def admin_redis_set_object(request:Request,key:str,expiry:int=None):
+@app.post("/root/redis-set-object")
+async def root_redis_set_object(request:Request,key:str,expiry:int=None):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    object=await request.json()
    object=json.dumps(object)
@@ -1075,38 +1097,38 @@ async def admin_redis_set_object(request:Request,key:str,expiry:int=None):
    await redis_client.close()
    return {"status":1,"message":output}
 
-#admin/redis-get-object
+#root/redis-get-object
 import redis.asyncio as redis
-@app.get("/admin/redis-get-object")
-async def admin_redis_get_object(request:Request,key:str):
+@app.get("/root/redis-get-object")
+async def root_redis_get_object(request:Request,key:str):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.get("post_1")
    if output:output=json.loads(output)
    await redis_client.close()
    return {"status":1,"message":output}
 
-#admin/redis-flush
+#root/redis-flush
 import redis.asyncio as redis
-@app.delete("/admin/redis-flush")
-async def admin_redis_flush(request:Request):
+@app.delete("/root/redis-flush")
+async def root_redis_flush(request:Request):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.flushall()
    await redis_client.close()
    return {"status":1,"message":output}
 
-#admin/redis-info
+#root/redis-info
 import redis.asyncio as redis
-@app.get("/admin/redis-info")
-async def admin_redis_info(request:Request):
+@app.get("/root/redis-info")
+async def root_redis_info(request:Request):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.info()
    await redis_client.close()
    return {"status":1,"message":output}
 
-#public/redis-publish
+#root/redis-publish
 import redis.asyncio as redis
-@app.post("/public/redis-publish")
-async def public_redis_publish(request:Request,channel:str):
+@app.post("/root/redis-publish")
+async def root_redis_publish(request:Request,channel:str):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    object=await request.json()
    object=json.dumps(object)
@@ -1114,10 +1136,10 @@ async def public_redis_publish(request:Request,channel:str):
    await redis_client.aclose()
    return {"status":1,"message":output}
 
-#admin/redis-transaction
+#root/redis-transaction
 import redis.asyncio as redis
-@app.post("/admin/redis-transaction")
-async def admin_redis_transaction(request:Request,expiry:int=100):
+@app.post("/root/redis-transaction")
+async def root_redis_transaction(request:Request,expiry:int=100):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    body=await request.json()
    object_list=body["data"]
