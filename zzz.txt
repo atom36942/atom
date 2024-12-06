@@ -108,6 +108,9 @@ view all=select table_name from INFORMATION_SCHEMA.views;
 view user=select table_name from INFORMATION_SCHEMA.views WHERE table_schema = ANY (current_schemas(false))
 function user=SELECT *  FROM pg_proc WHERE pronamespace='public'::regnamespace and proname ilike 'function_%';
 procedure=SELECT *  FROM pg_proc WHERE pronamespace='public'::regnamespace and proname ilike 'procedure_%';
+database size=SELECT pg_size_pretty (pg_database_size ('defaultdb')) as size;
+table size=SELECT relname AS "relation",pg_size_pretty (pg_total_relation_size (C .oid)) AS "total_size" FROM pg_class C LEFT JOIN pg_namespace N ON (N.oid = C .relnamespace) WHERE nspname NOT IN ('pg_catalog','information_schema') AND C .relkind <> 'i' AND nspname !~ '^pg_toast' ORDER BY pg_total_relation_size (C .oid) DESC LIMIT 10000;
+table row count=select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public');
 
 #postgres drop
 connection=SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname='test' AND pid <> pg_backend_pid();
@@ -141,8 +144,28 @@ tag append=update box set tag=array_append(tag,'xxx') where id=1;
 tag append no duplicate=update box set tag=(select array_agg(distinct t) from unnest(tag||'{xxx}') as t) where id=1;
 tag delete=update box set tag=array_remove(tag,'atom') where id=1;
 
-#postgres misc
-table row count=select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public');
+#postgres schema
+SELECT * FROM pg_namespace;
+SELECT current_schema();
+SHOW search_path;
+CREATE SCHEMA IF NOT EXISTS sales;
+SET search_path TO sales, public;
+SET search_path TO public;
+DROP SCHEMA IF EXISTS sales CASCADE;
+GRANT USAGE ON SCHEMA schema_name TO role_name;
+GRANT CREATE ON SCHEMA schema_name TO user_name;
+
+#postgres role
+SELECT * FROM pg_roles where rolname not ilike 'pg_%';
+CREATE ROLE alice LOGIN PASSWORD 'securePass1';
+DROP ROLE alice;
+GRANT USAGE ON SCHEMA public TO alice;
+GRANT ALL ON users TO alice;
+REVOKE ALL ON users FROM alice;
+GRANT ALL ON ALL TABLES IN SCHEMA "public" TO alice;
+SELECT CURRENT_USER;
+SET ROLE alice;
+SELECT SESSION_USER;
 
 #follow
 follower = select created_by_id from follow where user_id=2;
