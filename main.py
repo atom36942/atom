@@ -1212,46 +1212,29 @@ async def public_meilisearch(request:Request,index:str,keyword:str):
    output=index.search(keyword)
    return {"status":1,"message":output}
 
-#websocket
-from fastapi import WebSocket,WebSocketDisconnect
-websocket_connection_list=[]
-@app.websocket("/public/ws/{client_id}")
-async def websocket_endpoint(websocket:WebSocket,client_id:int):
-    await websocket.accept()
-    websocket_connection_list.append(websocket)
-    try:
-        while True:
-            message=await websocket.receive_text()
-            for connection in websocket_connection_list:
-                await connection.send_text(message)
-    except WebSocketDisconnect:
-        websocket_connection_list.remove(websocket)
-        for connection in websocket_connection_list:
-             await connection.send_text(f"Client #{client_id} left the chat")
-
-#chat html
+#public/html-group-chat
 from fastapi.responses import HTMLResponse
-@app.get("/public/chat")
-async def get():
-    html = """
+@app.get("/public/html-group-chat")
+async def public_html_group_chat():
+    html="""
     <!DOCTYPE html>
     <html>
         <head>
             <title>Chat</title>
         </head>
         <body>
-            <h1>WebSocket Chat</h1>
-            <h2>Your ID: <span id="ws-id"></span></h2>
+            <h1>Group Chat</h1>
+            <h2>Your ID=<span id="client_id"></span></h2>
             <form action="" onsubmit="sendMessage(event)">
                 <input type="text" id="messageText" autocomplete="off"/>
                 <button>Send</button>
             </form>
             <ul id='messages'>
             </ul>
-            <script>
+            <script> 
                 var client_id = Date.now()
-                document.querySelector("#ws-id").textContent = client_id;
-                var ws = new WebSocket(`ws://localhost:8000/public/ws/${client_id}`);
+                document.querySelector("#client_id").textContent = client_id;
+                var ws = new WebSocket(`ws://localhost:8000/public/websocket-group-chat/${client_id}`);
                 ws.onmessage = function(event) {
                     var messages = document.getElementById('messages')
                     var message = document.createElement('li')
@@ -1271,6 +1254,83 @@ async def get():
     """
     return HTMLResponse(html)
  
+#websocket group chat
+from fastapi import WebSocket,WebSocketDisconnect
+websocket_connection_list=[]
+@app.websocket("/public/websocket-group-chat/{client_id}")
+async def public_websocket_group_chat(websocket:WebSocket,client_id:int):
+    await websocket.accept()
+    websocket_connection_list.append(websocket)
+    try:
+        while True:
+            message=await websocket.receive_text()
+            for connection in websocket_connection_list:
+                await connection.send_text(message)
+    except WebSocketDisconnect:
+        websocket_connection_list.remove(websocket)
+        for connection in websocket_connection_list:
+             await connection.send_text(f"{client_id} left the chat")
+ 
+#public/html-single-chat
+from fastapi.responses import HTMLResponse
+@app.get("/public/html-single-chat/{user_id_1}/{user_id_2}")
+async def public_html_single_chat(user_id_1:int,user_id_2:int):
+   html=f"""
+   <!DOCTYPE html>
+   <html>
+      <head>
+         <title>Chat</title>
+      </head>
+      <body>
+         <h1>Single Chat</h1>
+         <h2>Your ID: <span id="client_id"></span></h2>
+         <form action="" onsubmit="sendMessage(event)">
+               <input type="text" id="messageText" autocomplete="off"/>
+               <button>Send</button>
+         </form>
+         <ul id='messages'>
+         </ul>
+         <script>
+               document.querySelector("#client_id").textContent = {user_id_1};
+               var ws = new WebSocket(`ws://localhost:8000/public/websocket-single-chat/{user_id_1}/{user_id_2}`);
+               ws.onmessage = function(event) {{
+                  var messages = document.getElementById('messages')
+                  var message = document.createElement('li')
+                  var content = document.createTextNode(event.data)
+                  message.appendChild(content)
+                  messages.appendChild(message)
+               }};
+               function sendMessage(event) {{
+                  var input = document.getElementById("messageText")
+                  ws.send(input.value)
+                  input.value = ''
+                  event.preventDefault()
+               }}
+         </script>
+      </body>
+   </html>
+   """
+   return HTMLResponse(html)
+ 
+#websocket single chat
+from fastapi import WebSocket,WebSocketDisconnect
+websocket_connection_dict={}
+@app.websocket("/public/websocket-single-chat/{user_id_1}/{user_id_2}")
+async def public_websocket_single_chat(websocket:WebSocket,user_id_1:int,user_id_2:int):
+    await websocket.accept()
+    websocket_connection_dict[user_id_1]=websocket
+    try:
+        while True:
+            message=await websocket.receive_text()
+            if user_id_2 in websocket_connection_dict:
+               await websocket_connection_dict[user_id_1].send_text(f"{user_id_1}-{message}")
+               await websocket_connection_dict[user_id_2].send_text(f"{user_id_1}-{message}")
+            else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_2} offline")
+    except WebSocketDisconnect:
+       websocket_connection_dict.pop(user_id_1, None)
+       if user_id_2 in websocket_connection_dict:await websocket_connection_dict[user_id_2].send_text(f"{user_id_1} left the chat")
+       else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_1} left the chat")
+             
 #public/object-create
 @app.post("/public/object-create")
 async def public_object_create(request:Request,table:Literal["helpdesk","workseeker"],is_serialize:int=1):
