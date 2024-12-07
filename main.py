@@ -412,7 +412,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    query="select oid::regclass::text as mat_name from pg_class where relkind='m';"
    output=await postgres_client.fetch_all(query=query,values={})
    for item in output:
-      query=f"refresh materialized view {item["mat_name"]};"
+      query=f"refresh materialized view {item['mat_name']};"
       await postgres_client.fetch_all(query=query,values={})
    #root user (auto)
    create_root_user="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;"
