@@ -1251,10 +1251,10 @@ async def public_kafka_producer(request:Request,topic:str):
    await kafka_producer_client.stop()
    return {"status":1,"message":output}
 
-#public/timescaledb
+#public/timescaledb-create-event
 from databases import Database
-@app.post("/public/timescaledb")
-async def public_timescaledb(request:Request,type:str):
+@app.post("/public/timescaledb-create-event")
+async def public_timescaledb_create_event(request:Request,type:str):
    timescaledb_client=Database(os.getenv("timescaledb_url"),min_size=1,max_size=100) 
    timescaledb_client.connect()
    object=await request.json()
@@ -1265,10 +1265,10 @@ async def public_timescaledb(request:Request,type:str):
    timescaledb_client.disconnect()
    return {"status":1,"message":output}
 
-#public/meilisearch
+#public/meilisearch-search
 import meilisearch
-@app.get("/public/meilisearch")
-async def public_meilisearch(request:Request,index:str,keyword:str):
+@app.get("/public/meilisearch-search")
+async def public_meilisearch_search(request:Request,index:str,keyword:str):
    meilisearch_client=meilisearch.Client(os.getenv("meilisearch_url"),os.getenv("meilisearch_key"))
    index=meilisearch_client.index(index)
    output=index.search(keyword)

@@ -189,31 +189,31 @@ x as (select created_by_id as user_id from follow where user_id=2 and created_by
 y as (select unnest(array[1,2,3,4,5,6,7,8,9,10]) as id)
 select y.id as user_id,case when x.user_id is null then 'yes' else 'no' end as fb from y left join x on y.id=x.user_id
 
-#postgres users following me
+#users following me
 with 
 x as (select * from follow where user_id=23 offset 0 limit 10)
 select x.id follow_id,u.id,u.username,u.profile_pic_url,
 (case when x.created_by_id in (select user_id from follow where created_by_id=23) then 0 else 1 end) as fb
 from x left join users as u on x.created_by_id=u.id
 
-#postgres users following me search by username
+#users following me search by username
 with 
 x as (select * from follow where user_id=23),
 y as (select x.id follow_id,u.id,u.username,u.profile_pic_url,(case when x.created_by_id in (select user_id from follow where created_by_id=23) then 0 else 1 end) as fb from x left join users as u on x.created_by_id=u.id) 
 select * from y where username ilike '%kal%' offset 0 limit 10
 
-#postgres users i am following
+#users i am following
 with 
 x as (select * from follow where created_by_id=23 offset 0 limit 10)
 select x.id as follow_id,u.id,u.username,u.profile_pic_url from x left join users as u on x.user_id=u.id
 
-#postgres users i am following and following back
+#i am following and following back
 with 
 x as (select * from follow where created_by_id in (select user_id from follow where created_by_id=1)),
 y as (select distinct(created_by_id) from x where user_id=1 limit 10 offset 0)
 select u.* from y left join users as u on y.created_by_id=u.id
 
-#postgres users i am following and not following back
+#users i am following and not following back
 with 
 x as (select * from follow where created_by_id in (select user_id from follow where created_by_id=1)),
 y as (select distinct(created_by_id) from x where created_by_id not in (select created_by_id from x where user_id=1) limit 10 offset 0)
