@@ -723,7 +723,7 @@ async def my_delete_account(request:Request):
       query_param={"id":request.state.user["id"]}
       output=await postgres_client.fetch_all(query=query,values=query_param)
    #procedure
-   query=f"call procedure_delete_user({request.state.user["id"]});"
+   query=f"call procedure_delete_user({request.state.user['id']});"
    output=await postgres_client.fetch_all(query=query,values={})
    #final
    return {"status":1,"message":"account deleted"}
