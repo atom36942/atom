@@ -715,8 +715,8 @@ async def my_delete_ids(request:Request,table:str,ids:str):
 @app.delete("/my/delete-account")
 async def my_delete_account(request:Request):
    #check
-   if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
    if request.state.user["id"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
+   if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
    #logic
    if False:
       query="delete from users where id=:id;"
