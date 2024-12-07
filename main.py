@@ -1063,6 +1063,26 @@ async def root_postgres_transaction(request:Request,mode:str):
    else:output=await transaction.commit()
    return {"status":1,"message":output}
 
+#root/memcached-set-object
+from pymemcache.client.hash import HashClient
+@app.post("/root/memcached-set-object")
+async def root_memcached_set_object(request:Request,key:str,expiry:int=None):
+   client=HashClient(['127.0.0.1:11211','127.0.0.1:11212',])
+   object=await request.json()
+   object=json.dumps(object)
+   if expiry:output=client.set(key,object,expiry)
+   else:output=client.set(key,object)
+   return {"status":1,"message":output}
+
+#root/memcached-get-object
+from pymemcache.client.hash import HashClient
+@app.get("/root/memcached-get-object")
+async def root_memcached_get_object(request:Request,key:str):
+   client=HashClient(['127.0.0.1:11211','127.0.0.1:11212',])
+   output=client.get("post_1")
+   if output:output=json.loads(output)
+   return {"status":1,"message":output}
+
 #root/valkey-set-object
 import valkey
 @app.post("/root/valkey-set-object")
@@ -1070,8 +1090,8 @@ async def root_valkey_set_object(request:Request,key:str,expiry:int=None):
    valkey_client=valkey.from_url(os.getenv("valkey_server_url"))
    object=await request.json()
    object=json.dumps(object)
-   if not expiry:output=valkey_client.set(key,object)
-   else:output=valkey_client.setex(key,expiry,object)
+   if expiry:output=valkey_client.setex(key,expiry,object)
+   else:output=valkey_client.set(key,object)
    valkey_client.close()
    return {"status":1,"message":output}
 
@@ -1094,7 +1114,7 @@ async def root_redis_set_object(request:Request,key:str,expiry:int=None):
    object=json.dumps(object)
    if expiry:output=await redis_client.setex(key,expiry,object)
    else:output=await redis_client.set(key,object)
-   await redis_client.close()
+   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-get-object
@@ -1104,7 +1124,7 @@ async def root_redis_get_object(request:Request,key:str):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.get("post_1")
    if output:output=json.loads(output)
-   await redis_client.close()
+   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-flush
@@ -1113,7 +1133,7 @@ import redis.asyncio as redis
 async def root_redis_flush(request:Request):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.flushall()
-   await redis_client.close()
+   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-info
@@ -1122,7 +1142,7 @@ import redis.asyncio as redis
 async def root_redis_info(request:Request):
    redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.info()
-   await redis_client.close()
+   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-publish
@@ -1149,7 +1169,7 @@ async def root_redis_transaction(request:Request,expiry:int=None):
          if expiry:pipe.setex(key_list[index],expiry,json.dumps(object))
          else:pipe.set(key_list[index],json.dumps(object))
       await pipe.execute()
-   await redis_client.close()
+   await redis_client.aclose()
    return {"status":1,"message":"done"}
 
 #root/redis-csv-set
@@ -1167,7 +1187,7 @@ async def root_redis_csv_set(request:Request,file:UploadFile,table:str,expiry:in
          if expiry:pipe.setex(key,expiry,json.dumps(object))
          else:pipe.set(key,json.dumps(object))
       await pipe.execute()
-   await redis_client.close()
+   await redis_client.aclose()
    return {"status":1,"message":"done"}
 
 #public/mongodb-delete

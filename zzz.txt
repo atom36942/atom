@@ -267,10 +267,19 @@ primary key(parition key)
 parition key+sort key
 
 #redis
-connect url=redis-cli -u <url>
-docker run=docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest
-show all keys=keys *
-scal all keys=redis-cli --scan --pattern '*'
-delete all keys=flushall
+start brew=brew services start redis
+start docker=docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest
+start dragonfly=docker run -p 6379:6379 --ulimit memlock=-1 docker.dragonflydb.io/dragonflydb/dragonfly
+cli local=redis-cli -p 6379
+cli url=redis-cli -u redis://localhost
+count keys=DBSIZE
+keys show=keys *
+scan keys=redis-cli --scan --pattern '*'
+delete keys=flushall
 subscribe channel=SUBSCRIBE index
-DBSIZE
+
+#memecached
+brew install memcached
+brew services start memcached
+brew install telnet
+telnet localhost 11211
