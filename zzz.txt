@@ -15,7 +15,7 @@ git remote add origin https://github.com/atom36942123/atom.git
 git branch -M main
 
 #git push
-git add . 
+git add .
 git commit -m "sync" 
 git push -f origin main
 
@@ -273,3 +273,4 @@ show all keys=keys *
 scal all keys=redis-cli --scan --pattern '*'
 delete all keys=flushall
 subscribe channel=SUBSCRIBE index
+DBSIZE
