@@ -1,3 +1,8 @@
+#env
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 #function
 import hashlib,datetime,json
 async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mode,table,object_list):
@@ -75,7 +80,7 @@ async def fastapi_app_start(app):
    config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info")
    server=uvicorn.Server(config)
    await server.serve()
-   
+
 import redis.asyncio as redis
 import asyncio
 import async_timeout
@@ -103,12 +108,15 @@ async def kafka_consumer_start(server_url,path_cafile,path_certfile,path_keyfile
          print("consumed:",msg.topic, msg.partition, msg.offset,msg.key, msg.value, msg.timestamp)
    finally:
       await consumer.stop()
+      
+def lavinmq_consumer_logic(ch,method,properties,body):
+   print(body)
+   return None
 
-#env
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
+def rabbitmq_consumer_logic(ch,method,properties,body):
+   print(body)
+   return None
+   
 #sentry
 import sentry_sdk
 sentry_dsn=os.getenv("sentry_dsn")
@@ -229,7 +237,7 @@ for item in file_name_list_without_extension:
 from fastapi import Request,UploadFile,responses,BackgroundTasks,Depends
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
-import hashlib,datetime,json,uuid,time,jwt
+import hashlib,datetime,json,uuid,time,jwt,csv,codecs
 
 @app.get("/")
 async def root(request:Request):
@@ -1067,19 +1075,19 @@ async def root_postgres_transaction(request:Request,mode:str):
 from pymemcache.client.hash import HashClient
 @app.post("/root/memcached-set-object")
 async def root_memcached_set_object(request:Request,key:str,expiry:int=None):
-   client=HashClient(['127.0.0.1:11211','127.0.0.1:11212',])
+   memcached_client=HashClient(['127.0.0.1:11211','127.0.0.1:11212',])
    object=await request.json()
    object=json.dumps(object)
-   if expiry:output=client.set(key,object,expiry)
-   else:output=client.set(key,object)
+   if expiry:output=memcached_client.set(key,object,expiry)
+   else:output=memcached_client.set(key,object)
    return {"status":1,"message":output}
 
 #root/memcached-get-object
 from pymemcache.client.hash import HashClient
 @app.get("/root/memcached-get-object")
 async def root_memcached_get_object(request:Request,key:str):
-   client=HashClient(['127.0.0.1:11211','127.0.0.1:11212',])
-   output=client.get("post_1")
+   memcached_client=HashClient(['127.0.0.1:11211','127.0.0.1:11212',])
+   output=memcached_client.get("post_1")
    if output:output=json.loads(output)
    return {"status":1,"message":output}
 
@@ -1238,18 +1246,44 @@ async def public_mongodb_create(request:Request,database:str,table:str):
    output=await collection.insert_many([object])
    return {"status":1,"message":str(output)}
 
-#public/kafka-producer
+#root/kafka-producer
 from aiokafka import AIOKafkaProducer
 from aiokafka.helpers import create_ssl_context
-@app.post("/public/kafka-producer")
-async def public_kafka_producer(request:Request,topic:str):
+@app.post("/root/kafka-producer")
+async def root_kafka_producer(request:Request,topic:str):
    kafka_producer_client=AIOKafkaProducer(bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=create_ssl_context(cafile=os.getenv("kafka_path_cafile"),certfile=os.getenv("kafka_path_certfile"),keyfile=os.getenv("kafka_path_keyfile")))
    await kafka_producer_client.start()
    object=await request.json()
-   object_json=json.dumps(object,indent=2).encode('utf-8')
-   output=await kafka_producer_client.send_and_wait(topic,object_json,partition=0)
+   object=json.dumps(object,indent=2).encode('utf-8')
+   output=await kafka_producer_client.send_and_wait(topic,object,partition=0)
    await kafka_producer_client.stop()
    return {"status":1,"message":output}
+
+#root/lavinmq-producer
+import pika
+@app.post("/root/lavinmq-producer")
+async def root_lavinmq_producer(request:Request,queue:str):
+   lavinmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("lavinmq_server_url")))
+   channel=lavinmq_client.channel()
+   channel.queue_declare(queue=queue)
+   object=await request.json()
+   object=json.dumps(object)
+   channel.basic_publish(exchange='',routing_key=queue,body=object)
+   lavinmq_client.close()
+   return {"status":1,"message":"done"}
+
+#root/rabbitmq-producer
+import pika
+@app.post("/root/rabbitmq-producer")
+async def root_rabbitmq_producer(request:Request,queue:str):
+   rabbitmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("rabbitmq_server_url")))
+   channel=rabbitmq_client.channel()
+   channel.queue_declare(queue=queue)
+   object=await request.json()
+   object=json.dumps(object)
+   channel.basic_publish(exchange='',routing_key=queue,body=object)
+   rabbitmq_client.close()
+   return {"status":1,"message":"done"}
 
 #public/timescaledb-create-event
 from databases import Database
@@ -1784,8 +1818,7 @@ async def admin_pclean(request:Request):
    #final
    return {"status":1,"message":"done"}
 
-#admin/csv-uploader
-import csv,codecs
+#admin/csv-uploader 
 @app.post("/admin/csv-uploader")
 async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,is_serialize:int=1):
    #file to object list
@@ -2154,13 +2187,55 @@ async def admin_sqlite_query_runner(request:Request,mode:str,query:str):
    sqlite_client.disconnect()
    return {"status":1,"message":output}
 
-#main
-import sys,asyncio
-if __name__=="__main__":
-   mode=sys.argv
+#mode
+import sys
+mode=sys.argv
+
+#main fastapi app start
+import asyncio,uvicorn
+if __name__=="__main__" and len(mode)==1:
    try:
-      if len(mode)==1:asyncio.run(fastapi_app_start(app))
-      if len(mode)>1 and mode[1]=="redis-subscribe":asyncio.run(redis_subscriber_start(os.getenv("redis_server_url"),"atom"))
-      if len(mode)>1 and mode[1]=="kafka-consumer":asyncio.run(kafka_consumer_start(os.getenv("kafka_server_url"),os.getenv("kafka_path_cafile"),os.getenv("kafka_path_certfile"),os.getenv("kafka_path_keyfile"),"atom"))
+      asyncio.run(fastapi_app_start(app))
    except KeyboardInterrupt:
       print("exited")
+
+#main redis subscriber start
+import asyncio
+if __name__=="__main__" and len(mode)>1 and mode[1]=="redis_subscribe":
+   try:
+      asyncio.run(redis_subscriber_start(os.getenv("redis_server_url"),mode[2]))
+   except KeyboardInterrupt:
+      print("exited")
+   
+#main kafka consumer start
+import asyncio
+if __name__=="__main__" and len(mode)>1 and mode[1]=="kafka_consumer":
+   try:
+      asyncio.run(kafka_consumer_start(os.getenv("kafka_server_url"),os.getenv("kafka_path_cafile"),os.getenv("kafka_path_certfile"),os.getenv("kafka_path_keyfile"),mode[2]))
+   except KeyboardInterrupt:
+      print("exited")
+
+#main lavinmq consumer start
+import asyncio,pika
+if __name__=="__main__" and len(mode)>1 and mode[1]=="lavinmq_consumer":
+   try:
+      lavinmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("lavinmq_server_url")))
+      channel=lavinmq_client.channel()
+      channel.queue_declare(queue=mode[2])
+      channel.basic_consume(mode[2],lavinmq_consumer_logic,auto_ack=True)
+      channel.start_consuming()
+   except KeyboardInterrupt:
+      print("exited")
+
+#main rabbitmq consumer start
+import asyncio,pika
+if __name__=="__main__" and len(mode)>1 and mode[1]=="rabbitmq_consumer":
+   try:
+      rabbitmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("rabbitmq_server_url")))
+      channel=rabbitmq_client.channel()
+      channel.queue_declare(queue=mode[2])
+      channel.basic_consume(mode[2],rabbitmq_consumer_logic,auto_ack=True)
+      channel.start_consuming()
+   except KeyboardInterrupt:
+      print("exited")
+      
