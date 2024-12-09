@@ -963,19 +963,9 @@ async def my_action_create(request:Request,action:Literal["likes","bookmark","re
    #final
    return {"status":1,"message":output}
 
-#my/action-parent-delete
-@app.delete("/my/action-parent-delete")
-async def my_action_parent_delete(request:Request,action:str,parent_table:str,parent_id:int):
-   #delete ids
-   query=f"delete from {action} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;"
-   query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":"done"}
-
-#my/action-parent-read
-@app.get("/my/action-parent-read")
-async def my_action_parent_read(request:Request,action:str,parent_table:str,order:str="id desc",limit:int=100,page:int=1):
+#my/action-read
+@app.get("/my/action-read")
+async def my_action_read(request:Request,action:str,parent_table:str,order:str="id desc",limit:int=100,page:int=1):
    #read parent ids
    query=f"select parent_id from {action} where parent_table=:parent_table and created_by_id=:created_by_id order by {order} limit {limit} offset {(page-1)*limit};"
    query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
@@ -991,9 +981,19 @@ async def my_action_parent_read(request:Request,action:str,parent_table:str,orde
    #final
    return {"status":1,"message":output}
 
-#my/action-parent-check
-@app.get("/my/action-parent-check")
-async def my_action_parent_check(request:Request,action:str,parent_table:str,parent_ids:str):
+#my/action-delete
+@app.delete("/my/action-delete")
+async def my_action_delete(request:Request,action:str,parent_table:str,parent_id:int):
+   #delete ids
+   query=f"delete from {action} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;"
+   query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":"done"}
+
+#my/action-check
+@app.get("/my/action-check")
+async def my_action_check(request:Request,action:str,parent_table:str,parent_ids:str):
    #read parent ids string data
    query=f"select parent_id from {action} where parent_id in ({parent_ids}) and parent_table=:parent_table and created_by_id=:created_by_id;"
    query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
