@@ -169,3 +169,4 @@ env.py
 .DS_Store
 .vscode/
 *.db
+.gitignore
