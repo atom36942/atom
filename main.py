@@ -1006,9 +1006,112 @@ async def my_action_parent_check(request:Request,action:str,parent_table:str,par
    #final
    return {"status":1,"message":mapping}
 
+#public/langchain-txt-file-token-splitter
+from langchain_community.document_loaders import TextLoader
+from langchain.text_splitter import TokenTextSplitter
+@app.get("/public/langchain-txt-file-token-splitter")
+async def public_langchain_txt_file_token_splitter(request:Request,file_path:str):
+   loader=TextLoader(file_path)
+   document=loader.load()
+   text=document[0].page_content
+   splitter=TokenTextSplitter(encoding_name="cl100k_base",chunk_size=1000,chunk_overlap=100)
+   chunks=splitter.split_text(text)
+   return {"status":1,"message":chunks}
+
+#public/langchain-txt-file-chunks-splitter-recursive
+from langchain_community.document_loaders import TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+@app.get("/public/langchain-txt-file-chunks-splitter-recursive")
+async def public_langchain_txt_file_chunks_splitter_recursive(request:Request,file_path:str):
+   loader=TextLoader(file_path)
+   document=loader.load()
+   text=document[0].page_content
+   splitter=RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " ", ""],chunk_size=1000,chunk_overlap=200,length_function=len)
+   chunks=splitter.split_text(text)
+   return {"status":1,"message":chunks}
+
+#public/langchain-txt-file-chunks-splitter
+from langchain_community.document_loaders import TextLoader
+from langchain.text_splitter import CharacterTextSplitter
+@app.get("/public/langchain-txt-file-chunks-splitter")
+async def public_langchain_txt_file_chunks_splitter(request:Request,file_path:str):
+   loader=TextLoader(file_path)
+   document=loader.load()
+   text=document[0].page_content
+   splitter=CharacterTextSplitter(separator="\n\n",chunk_size=1000,chunk_overlap=200)
+   chunks=splitter.split_text(text)
+   return {"status":1,"message":chunks}
+
+#public/langchain-webpage-loader
+import os,bs4
+from langchain_community.document_loaders import WebBaseLoader
+@app.get("/public/langchain-webpage-loader")
+async def public_langchain_webpage_loader(request:Request,webpage_url:str):
+   os.environ['USER_AGENT']='myagent'
+   loader=WebBaseLoader(web_paths=[webpage_url],bs_kwargs={"parse_only": bs4.SoupStrainer(class_="theme-doc-markdown markdown"),},bs_get_text_kwargs={"separator": " | ", "strip": True},)
+   document_list=[]
+   async for doc in loader.alazy_load():document_list.append(doc)
+   return {"status":1,"message":document_list}
+
+#public/langchain-html-loader
+from langchain_community.document_loaders import BSHTMLLoader
+@app.get("/public/langchain-html-loader")
+async def public_langchain_html_loader(request:Request,file_path:str):
+   loader=BSHTMLLoader(file_path)
+   data=loader.load()
+   return {"status":1,"message":data}
+
+#public/langchain-json-loader
+from langchain_community.document_loaders import JSONLoader
+@app.get("/public/langchain-json-loader")
+async def public_langchain_json_loader(request:Request,file_path:str):
+   loader=JSONLoader(file_path=file_path,jq_schema='.data',text_content=False)
+   data=loader.load()
+   return {"status":1,"message":data}
+
+#public/langchain-pdf-loader
+from langchain_community.document_loaders import PyPDFLoader
+@app.get("/public/langchain-pdf-loader")
+async def public_langchain_pdf_loader(request:Request,file_path:str):
+   loader=PyPDFLoader(file_path)
+   document_list=[]
+   async for page in loader.alazy_load():document_list.append(page)
+   return {"status":1,"message":document_list}
+
+#public/langchain-csv-loader
+from langchain_community.document_loaders.csv_loader import CSVLoader
+@app.get("/public/langchain-csv-loader")
+async def public_langchain_csv_loader(request:Request,file_path:str):
+   loader=CSVLoader(file_path=file_path)
+   document=loader.load()
+   data=document[0].page_content
+   return {"status":1,"message":document}
+
+#public/langchain-directory-loader
+from langchain_community.document_loaders import TextLoader,DirectoryLoader
+@app.get("/public/langchain-directory-loader")
+async def public_langchain_directory_loader(request:Request,directory_path:str,glob:str):
+   loader=DirectoryLoader(directory_path,glob=glob,loader_cls=TextLoader,use_multithreading=True,show_progress=True)
+   documents=loader.load()
+   return {"status":1,"message":len(documents)}
+
+#public/langchain-txt-file-loader
+from langchain_community.document_loaders import TextLoader
+@app.get("/public/langchain-txt-file-loader")
+async def public_langchain_txt_file_loader(request:Request,file_path:str):
+   loader=TextLoader(file_path)
+   document=loader.load()
+   text=document[0].page_content
+   return {"status":1,"message":text}
+
+#public/text-to-txt-file
+@app.get("/public/text-to-txt-file")
+async def public_text_to_txt_file(request:Request,text:str,file_path:str):
+   with open(file_path,"w",encoding="utf-8") as file:file.write(text)
+   return {"status":1,"message":"done"}
+
 #public/opensearch-read-document
 from opensearchpy import OpenSearch
-from fastapi import Request
 @app.get("/public/opensearch-read-document")
 async def public_opensearch_read_document(request:Request,index:str,keyword:str):
    opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
@@ -1018,7 +1121,6 @@ async def public_opensearch_read_document(request:Request,index:str,keyword:str)
 
 #public/opensearch-delete-document
 from opensearchpy import OpenSearch
-from fastapi import Request
 @app.delete("/public/opensearch-delete-document")
 async def public_opensearch_delete_document(request:Request,index:str,_id:str):
    opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)

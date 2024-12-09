@@ -15,5 +15,3 @@ COPY ./ /code
 
 #run command
 CMD ["python","main.py","--port", "80"]
-
-
