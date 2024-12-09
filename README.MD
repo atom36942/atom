@@ -10,5 +10,3 @@
 9. [how atom can help](https://docs.google.com/spreadsheets/d/1UwSomfcP8CWhZbS3_ROaYkmCb9ODXQOpIH6Glfrhtp4/edit?gid=0#gid=0)
 10. contact=atom36942@gmail.com
 
-
-

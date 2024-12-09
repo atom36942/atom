@@ -3,12 +3,6 @@ pid kill=lsof -i:8000---kill -9 <pid>
 venv size=du -hs venv
 python version=python --version
 
-#sample api
-#public/xxx
-@app.get("/public/xxx")
-async def public_xxx(request:Request):
-   return {"status":1,"message":output}
-
 #env
 python3 -m venv venv
 source venv/bin/activate
@@ -51,7 +45,8 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 brew install --cask docker
 open -a Docker
 docker images
-docker build .
+docker build -t atom .
+docker run -p 8000:8000 a201262aa41c
 docker run <image_name>
 docker rmi <image_id>
 docker ps -a

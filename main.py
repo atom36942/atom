@@ -77,7 +77,7 @@ async def postgres_add_action_count(postgres_client,action,object_list,object_ta
 
 import uvicorn
 async def fastapi_app_start(app):
-   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info")
+   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
    server=uvicorn.Server(config)
    await server.serve()
 

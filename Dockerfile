@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY ./ /code
 
 #run command
-CMD ["python","main.py","--port", "80"]
+CMD ["python","main.py"]
