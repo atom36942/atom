@@ -444,12 +444,19 @@ async def root_postgres_schema_init(request:Request,mode:str):
 #root/postgres-query-runner
 @app.get("/root/postgres-query-runner")
 async def root_postgres_query_runner(request:Request,query:str):
-   #logic
-   for item in query.split("---"):
-      output=await postgres_client.fetch_all(query=item,values={})
-   #final
+   query_list=query.split("---")
+   if len(query_list)==1:output=await postgres_client.fetch_all(query=query,values={})
+   else:
+      transaction=await postgres_client.transaction()
+      try:[await postgres_client.fetch_all(query=item,values={}) for item in query_list]
+      except:
+         await transaction.rollback()
+         return responses.JSONResponse(status_code=400,content={"status":0,"message":"transaction failed"})
+      else:
+         await transaction.commit()
+         output="done"
    return {"status":1,"message":output}
-
+      
 #root/grant all api access
 @app.put("/root/grant-all-api-access")
 async def root_grant_all_api_access(request:Request,user_id:int):
@@ -1304,10 +1311,10 @@ async def root_redis_csv_set(request:Request,file:UploadFile,table:str,expiry:in
 import motor.motor_asyncio
 from bson.objectid import ObjectId
 @app.delete("/public/mongodb-delete")
-async def public_mongodb_delete(request:Request,database:str,table:str,_id:str):
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_url"))
+async def public_mongodb_delete(request:Request,database:str,collection:str,_id:str):
+   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
-   collection=database[table]
+   collection=database[collection]
    _id=ObjectId(_id)
    output=await collection.delete_one({"_id":_id})
    return {"status":1,"message":str(output)}
@@ -1316,10 +1323,10 @@ async def public_mongodb_delete(request:Request,database:str,table:str,_id:str):
 import motor.motor_asyncio
 from bson.objectid import ObjectId
 @app.put("/public/mongodb-update")
-async def public_mongodb_update(request:Request,database:str,table:str,_id:str):
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_url"))
+async def public_mongodb_update(request:Request,database:str,collection:str,_id:str):
+   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
-   collection=database[table]
+   collection=database[collection]
    _id=ObjectId(_id)
    object=await request.json()
    output=await collection.update_one({"_id":_id},{"$set":object})
@@ -1329,10 +1336,10 @@ async def public_mongodb_update(request:Request,database:str,table:str,_id:str):
 import motor.motor_asyncio
 from bson.objectid import ObjectId
 @app.get("/public/mongodb-read")
-async def public_mongodb_read(request:Request,database:str,table:str,_id:str):
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_url"))
+async def public_mongodb_read(request:Request,database:str,collection:str,_id:str):
+   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
-   collection=database[table]
+   collection=database[collection]
    _id=ObjectId(_id)
    output=await collection.find_one({"_id":_id})
    return {"status":1,"message":str(output)}
@@ -1340,10 +1347,10 @@ async def public_mongodb_read(request:Request,database:str,table:str,_id:str):
 #public/mongodb-create
 import motor.motor_asyncio
 @app.post("/public/mongodb-create")
-async def public_mongodb_create(request:Request,database:str,table:str):
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_url"))
+async def public_mongodb_create(request:Request,database:str,collection:str):
+   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
-   collection=database[table]
+   collection=database[collection]
    object=await request.json()
    output=await collection.insert_many([object])
    return {"status":1,"message":str(output)}
@@ -1901,9 +1908,9 @@ async def admin_update_api_access(request:Request,body:schema_update_api_access)
    #final
    return {"status":1,"message":output}
 
-#admin/postgres clean
-@app.delete("/admin/postgres-clean")
-async def admin_pclean(request:Request):
+#root/postgres clean
+@app.delete("/root/postgres-clean")
+async def root_pclean(request:Request):
    #creator not exist
    for table in ["post","likes","bookmark","report","block","rating","comment","follow","message"]:
       query=f"delete from {table} where created_by_id not in (select id from users);"
@@ -2327,6 +2334,7 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="lavinmq_consumer":
       channel.basic_consume(mode[2],lavinmq_consumer_logic,auto_ack=True)
       channel.start_consuming()
    except KeyboardInterrupt:
+      lavinmq_client.close()
       print("exited")
 
 #main rabbitmq consumer start
@@ -2339,5 +2347,6 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="rabbitmq_consumer":
       channel.basic_consume(mode[2],rabbitmq_consumer_logic,auto_ack=True)
       channel.start_consuming()
    except KeyboardInterrupt:
+      rabbitmq_client.close()
       print("exited")
       

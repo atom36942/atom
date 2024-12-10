@@ -1,82 +1,14 @@
-#zzz
-pid kill=lsof -i:8000---kill -9 <pid>
 venv size=du -hs venv
-python version=python --version
-
-#env
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip freeze > requirements.txt
-
-#git init
-git init
-git remote add origin https://github.com/atom36942123/atom.git
-git branch -M main
-
-#git push
-git add .
-git commit -m "sync" 
-git push -f origin main
-
-#git pull
-git fetch origin 
-git reset --hard origin/master 
-git clean -f -d
-
-#git clean history
-git checkout --orphan TEMP_BRANCH
-git add -A 
-git commit -am "sync" 
-git branch -D main 
-git branch -m main 
-git push -f origin main
-
-#zshrc
-alias python=python3
-alias pip=pip3
-eval "$(/opt/homebrew/bin/brew shellenv)"
-export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
-
-#zprofile
-eval "$(/opt/homebrew/bin/brew shellenv)"
-
-#docker
-brew install --cask docker
-open -a Docker
-docker images
-docker build -t atom .
-docker run -p 8000:8000 a201262aa41c
-docker run <image_name>
-docker rmi <image_id>
-docker ps -a
-docker stop <container_id>
-docker rm <container_id>
-
-#mongo docker
-image=docker pull mongodb/mongodb-community-server:latest
-container=docker run --name mongodb -p 27017:27017 -d mongodb/mongodb-community-server:latest
-terminal=mongosh
-check count=db.users.countDocuments({})
-
-#mongo brew
-brew tap mongodb/brew
-brew update
-brew install mongodb-community@8.0
-brew services start mongodb-community@8.0
-brew services stop mongodb-community@8.0
-brew services info mongodb-community@8.0
-brew install --cask mongodb-compass
-
-#postgres
-brew install postgresql@17
-brew services start postgresql@17
-brew services stop postgresql@17
-brew services info postgresql@17
-login=psql postgres/psql -d postgres -U atom
-user=\du
-password change=\password
-url=postgresql://atom:123@localhost/postgres
+pid kill=lsof -i:8000 --- kill -9 <pid>
+env=python3 -m venv venv --- source venv/bin/activate --- pip install -r requirements.txt --- pip freeze > requirements.txt
+git init=git init --- git remote add origin https://github.com/atom36942123/atom.git --- git branch -M main
+git pull=git fetch origin --- git reset --hard origin/master --- git clean -f -d
+git push=git add . --- git commit -m "sync" --- git push -f origin main
+git reset=git checkout --orphan TEMP_BRANCH --- git add -A --- git commit -am "sync" --- git branch -D main --- git branch -m main --- git push -f origin main
+docker install=brew install --cask docker --- open -a Docker --- docker images --- docker ps
+dockerfile run=docker build -t atom . --- docker run -p 8000:8000 a201262aa41c
+postgres brew=brew install postgresql@17 --- brew services start postgresql@17 --- brew services stop postgresql@17 --- brew services info postgresql@17
+postgres psql=psql postgres/psql -d postgres -U atom --- postgresql://atom:123@localhost/postgres
 
 #postgres reset
 drop schema public cascade;---create schema public;
