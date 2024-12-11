@@ -317,40 +317,28 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "rating":["btree",["workseeker"]],
    "tag_array":["gin",[]]
    },
-   "not_null":{
-   "created_by_id":["message"],
-   "user_id":["message"],
-   "parent_table":["likes","bookmark","report","block","rating","comment","follow"],
-   "parent_id":["likes","bookmark","report","block","rating","comment","follow"]
-   },
-   "unique":{
-   "username":["users"],
-   "created_by_id,parent_table,parent_id":["likes","bookmark","report","block","follow"]
-   },
-   "bulk_delete_disable":{
-   "users":1
-   },
+   "not_null":{"created_by_id":["message"],"user_id":["message"],"parent_table":["likes","bookmark","report","block","rating","comment","follow"],"parent_id":["likes","bookmark","report","block","rating","comment","follow"]},
+   "unique":{"username":["users"],"created_by_id,parent_table,parent_id":["likes","bookmark","report","block","follow"]},
+   "bulk_delete_disable":{"users":1},
    "query":{
    "view_column_master":"create or replace view view_column_master as (select column_name,max(data_type) as data_type, array_agg(table_name) as table_name from information_schema.columns where table_schema='public' group by  column_name);",
    "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public'));",
-   "view_post_master":"create or replace view view_post_master as(select p.*,u.username as created_by_id_username from post as p left join users as u on p.created_by_id=u.id);",
    "function_read_user":"create or replace function function_read_user(a int) returns setof users as $$ begin return query select * from users where id=a; end; $$ language plpgsql;",
    "procedure_stats":"create or replace procedure procedure_stats(inout users_count int default 0,inout post_count int default 0) as $$ begin select count(*) into users_count from users; select count(*) into post_count from post; end; $$ language plpgsql;",
-   "procedure_delete_user":'''create or replace procedure procedure_delete_user(a int) language plpgsql as $$ begin delete from users where id=a;delete from block where created_by_id=a;delete from bookmark where created_by_id=a;delete from comment where created_by_id=a;delete from follow where created_by_id=a;delete from likes where created_by_id=a;delete from message where created_by_id=a;delete from message where user_id=a;delete from post where created_by_id=a;delete from rating where created_by_id=a;delete from report where created_by_id=a;commit;end;$$;''',
    }
    }
-   #create extension (config)
+   #extension (config)
    for item in schema["extension"]:
       query=f"create extension if not exists {item}"
       await postgres_client.fetch_all(query=query,values={})
-   #create table (config)
+   #table (config)
    schema_table=await postgres_client.fetch_all(query="select table_name from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
    schema_table_name_list=[item["table_name"] for item in schema_table]
    for item in schema["table"]:
       if item not in schema_table_name_list:
          query=f"create table if not exists {item} (id bigint primary key generated always as identity not null);"
          await postgres_client.fetch_all(query=query,values={})
-   #create column (config)
+   #column (config)
    schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
    schema_column_table={f"{item['column_name']}_{item['table_name']}":item["data_type"] for item in schema_column}
    for k,v in schema["column"].items():
@@ -358,7 +346,16 @@ async def root_postgres_schema_init(request:Request,mode:str):
          if f"{k}_{item}" not in schema_column_table:
             query=f"alter table {item} add column if not exists {k} {v[0]};"
             await postgres_client.fetch_all(query=query,values={})
-   #alter notnull (config)
+   #index (config)
+   schema_index=await postgres_client.fetch_all(query="select indexname from pg_indexes where schemaname='public';",values={})
+   schema_index_name_list=[item["indexname"] for item in schema_index]
+   for k,v in schema["index"].items():
+      for item in v[1]:
+         index_name=f"index_{k}_{item}"
+         if index_name not in schema_index_name_list:
+            query=f"create index concurrently if not exists {index_name} on {item} using {v[0]} ({k});"
+            await postgres_client.fetch_all(query=query,values={}) 
+   #notnull (config)
    schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
    schema_column_table_nullable={f"{item['column_name']}_{item['table_name']}":item["is_nullable"] for item in schema_column}
    for k,v in schema["not_null"].items():
@@ -366,7 +363,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
          if schema_column_table_nullable[f"{k}_{item}"]=="YES":
             query=f"alter table {item} alter column {k} set not null;"
             await postgres_client.fetch_all(query=query,values={})
-   #alter unique (config)
+   #unique (config)
    schema_constraint=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
    schema_constraint_name_list=[item["constraint_name"] for item in schema_constraint]
    for k,v in schema["unique"].items():
@@ -375,69 +372,107 @@ async def root_postgres_schema_init(request:Request,mode:str):
          if constraint_name not in schema_constraint_name_list:
             query=f"alter table {item} add constraint {constraint_name} unique ({k});"
             await postgres_client.fetch_all(query=query,values={})
-   #create index (config)
-   schema_index=await postgres_client.fetch_all(query="select indexname from pg_indexes where schemaname='public';",values={})
-   schema_index_name_list=[item["indexname"] for item in schema_index]
-   for k,v in schema["index"].items():
-      for item in v[1]:
-         index_name=f"index_{k}_{item}"
-         if index_name not in schema_index_name_list:
-            query=f"create index concurrently if not exists {index_name} on {item} using {v[0]} ({k});"
-            await postgres_client.fetch_all(query=query,values={})
-   #delete disable bulk (config)
+   #bulk delete disable (config)
    function_delete_disable_bulk="create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;"
    await postgres_client.fetch_all(query=function_delete_disable_bulk,values={})
    for k,v in schema["bulk_delete_disable"].items():
       trigger_name=f"trigger_delete_disable_bulk_{k}"
       query=f"create or replace trigger {trigger_name} after delete on {k} referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk({v});"
       await postgres_client.fetch_all(query=query,values={})
-   #set created_at default (config)
-   schema_column_created_at=await postgres_client.fetch_all(query="select column_name,table_name,column_default from information_schema.columns where column_name='created_at';",values={})
-   for item in schema_column_created_at:
-      if item["table_name"] in schema["column"]["created_at"][1] and not item["column_default"]:
-         query=f"alter table only {item['table_name']} alter column created_at set default now();"
-         await postgres_client.fetch_all(query=query,values={})
-   #set updated at now (config)
-   function_set_updated_at_now="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';"
-   await postgres_client.fetch_all(query=function_set_updated_at_now,values={})
-   schema_trigger=await postgres_client.fetch_all(query="select trigger_name from information_schema.triggers;",values={})
-   schema_trigger_list=[item["trigger_name"] for item in schema_trigger]
-   for item in schema["column"]["updated_at"][1]:
-      trigger_name=f"trigger_set_updated_at_now_{item}"
-      if trigger_name not in schema_trigger_list:
-         query=f"create or replace trigger {trigger_name} before update on {item} for each row execute procedure function_set_updated_at_now();"
-         await postgres_client.fetch_all(query=query,values={})
-   #create rule protection (auto)
-   schema_column_is_protected=await postgres_client.fetch_all(query="select column_name,table_name,column_default from information_schema.columns where column_name='is_protected';",values={})
-   schema_rule=await postgres_client.fetch_all(query="select rulename from pg_rules;",values={})
-   schema_rule_list=[item["rulename"] for item in schema_rule]
-   for item in schema_column_is_protected:
-      rule_name=f"rule_protect_{item['table_name']}"
-      if rule_name not in schema_rule_list:
-         query=f"create or replace rule {rule_name} as on delete to {item['table_name']} where old.is_protected=1 do instead nothing;"
-         await postgres_client.fetch_all(query=query,values={})
-   #refresh mat all (auto)
-   query="select oid::regclass::text as mat_name from pg_class where relkind='m';"
-   output=await postgres_client.fetch_all(query=query,values={})
-   for item in output:
-      query=f"refresh materialized view {item['mat_name']};"
-      await postgres_client.fetch_all(query=query,values={})
-   #root user (auto)
-   create_root_user="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;"
-   await postgres_client.fetch_all(query=create_root_user,values={})
-   delete_disable_root_user="create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;"
-   await postgres_client.fetch_all(query=delete_disable_root_user,values={})
-   #log password change (auto)
-   function_log_password_change="CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(created_by_id,user_id,password) VALUES(NEW.updated_by_id,OLD.id,OLD.password); END IF; RETURN NEW; END; $$;"
-   await postgres_client.fetch_all(query=function_log_password_change,values={})
-   trigger_log_password_change="CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();"
-   await postgres_client.fetch_all(query=trigger_log_password_change,values={})
-   #run misc query (config)
+   #query (config)
    schema_constraint=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
    schema_constraint_name_list=[item["constraint_name"] for item in schema_constraint]
    for k,v in schema["query"].items():
       if "add constraint" in v and v.split()[5] in schema_constraint_name_list:continue
       await postgres_client.fetch_all(query=v,values={})
+   #set created_at default (auto)
+   query="select * from information_schema.columns as t1 left join pg_class as t2 on t1.table_name=t2.relname where t2.relkind='r' and t1.column_name='created_at';"
+   column_created_at=await postgres_client.fetch_all(query=query,values={})
+   for item in column_created_at:
+      if not item["column_default"]:
+         query=f"alter table only {item['table_name']} alter column created_at set default now();"
+         await postgres_client.fetch_all(query=query,values={})
+   #set updated at now (auto)
+   await postgres_client.fetch_all(query="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",values={})
+   schema_trigger=await postgres_client.fetch_all(query="select trigger_name from information_schema.triggers;",values={})
+   schema_trigger_list=[item["trigger_name"] for item in schema_trigger]
+   query="select * from information_schema.columns as t1 left join pg_class as t2 on t1.table_name=t2.relname where t2.relkind='r' and t1.column_name='updated_at';"
+   column_updated_at=await postgres_client.fetch_all(query=query,values={})
+   for item in column_updated_at:
+      trigger_name=f"trigger_set_updated_at_now_{item['table_name']}"
+      if trigger_name not in schema_trigger_list:
+         query=f"create or replace trigger {trigger_name} before update on {item['table_name']} for each row execute procedure function_set_updated_at_now();"
+         await postgres_client.fetch_all(query=query,values={})
+   #create rule protection (auto)
+   schema_rule=await postgres_client.fetch_all(query="select rulename from pg_rules;",values={})
+   schema_rule_list=[item["rulename"] for item in schema_rule]
+   query="select * from information_schema.columns as t1 left join pg_class as t2 on t1.table_name=t2.relname where t2.relkind='r' and t1.column_name='is_protected';"
+   column_is_protected=await postgres_client.fetch_all(query=query,values={})
+   for item in column_is_protected:
+      rule_name=f"rule_protect_{item['table_name']}"
+      if rule_name not in schema_rule_list:
+         query=f"create or replace rule {rule_name} as on delete to {item['table_name']} where old.is_protected=1 do instead nothing;"
+         await postgres_client.fetch_all(query=query,values={})
+   #root user (auto)
+   await postgres_client.fetch_all(query="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",values={})
+   await postgres_client.fetch_all(query=  "create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",values={})
+   #refresh mat all (auto)
+   query='''
+   DO
+   $$ DECLARE r RECORD; 
+   BEGIN FOR r IN 
+   (select oid::regclass::text as mat_name from pg_class where relkind='m') 
+   LOOP
+   EXECUTE 'refresh materialized view ' || quote_ident(r.mat_name); 
+   END LOOP;
+   END $$;
+   '''
+   await postgres_client.fetch_all(query=query,values={})
+   #log password change (auto)
+   function_log_password_change='''
+   CREATE OR REPLACE FUNCTION function_log_password_change() 
+   RETURNS TRIGGER LANGUAGE PLPGSQL 
+   AS $$ 
+   BEGIN 
+   IF OLD.password <> NEW.password 
+   THEN 
+   INSERT INTO log_password(created_by_id,user_id,password) VALUES(NEW.updated_by_id,OLD.id,OLD.password); 
+   END IF; 
+   RETURN NEW; 
+   END; 
+   $$;
+   '''
+   await postgres_client.fetch_all(query=function_log_password_change,values={})
+   trigger_log_password_change='''
+   CREATE OR REPLACE TRIGGER trigger_log_password_change 
+   AFTER UPDATE ON users 
+   FOR EACH ROW 
+   WHEN (OLD.password IS DISTINCT FROM NEW.password) 
+   EXECUTE FUNCTION function_log_password_change();
+   '''
+   await postgres_client.fetch_all(query=trigger_log_password_change,values={})
+   #procedure delete user (auto)
+   query='''
+   create or replace procedure procedure_delete_user(a int)
+   language plpgsql
+   as $$
+   begin 
+   delete from users where id=a;
+   delete from block where created_by_id=a;
+   delete from bookmark where created_by_id=a;
+   delete from comment where created_by_id=a;
+   delete from follow where created_by_id=a;
+   delete from likes where created_by_id=a;
+   delete from message where created_by_id=a;
+   delete from message where user_id=a;
+   delete from post where created_by_id=a;
+   delete from rating where created_by_id=a;
+   delete from report where created_by_id=a;
+   commit;
+   end;
+   $$;
+   '''
+   await postgres_client.fetch_all(query=query,values={})
    #final
    return {"status":1,"message":"done"}
 
@@ -486,7 +521,7 @@ async def root_grant_all_api_access(request:Request,user_id:int):
    return {"status":1,"message":output}
 
 #auth/signup
-@app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=10))])
+@app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
 async def auth_signup(request:Request,username:str,password:str):
    #create user
    query="insert into users (username,password) values (:username,:password) returning *;"
@@ -738,7 +773,7 @@ async def my_delete_ids(request:Request,table:str,ids:str):
 
 #my/delete-account
 @app.delete("/my/delete-account")
-async def my_delete_account(request:Request):
+async def my_delete_account(request:Request,mode:str=None):
    output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    request.state.user=output[0] if output else None
    if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
@@ -747,13 +782,8 @@ async def my_delete_account(request:Request):
    if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"protected user cant be deleted"})
    if request.state.user["api_access"]:return responses.JSONResponse(status_code=200,content={"status":0,"message":"admin user cant be deleted"})
    #logic
-   if False:
-      query="delete from users where id=:id;"
-      query_param={"id":request.state.user["id"]}
-      output=await postgres_client.fetch_all(query=query,values=query_param)
-   #procedure
-   query=f"call procedure_delete_user({request.state.user['id']});"
-   output=await postgres_client.fetch_all(query=query,values={})
+   if not mode:await postgres_client.fetch_all(query="delete from users where id=:id;",values={"id":request.state.user["id"]})
+   if mode=="procedure":await postgres_client.fetch_all(query=f"call procedure_delete_user({request.state.user['id']});",values={})
    #final
    return {"status":1,"message":"account deleted"}
 
