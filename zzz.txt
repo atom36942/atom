@@ -1,6 +1,6 @@
 venv size=du -hs venv
 pid kill=lsof -i:8000 --- kill -9 <pid>
-env=python3 -m venv venv --- source venv/bin/activate --- pip install -r requirements.txt --- pip freeze > requirements.txt
+venv=python3 -m venv venv --- source venv/bin/activate --- pip install -r requirements.txt --- pip freeze > requirements.txt
 git init=git init --- git remote add origin https://github.com/atom36942123/atom.git --- git branch -M main
 git pull=git fetch origin --- git reset --hard origin/master --- git clean -f -d
 git push=git add . --- git commit -m "sync" --- git push -f origin main
@@ -11,7 +11,6 @@ postgres brew=brew install postgresql@17 --- brew services start postgresql@17 -
 postgres psql=psql postgres/psql -d postgres -U atom --- postgresql://atom:123@localhost/postgres
 
 #postgres reset
-drop schema public cascade;---create schema public;
 DO
 $$ DECLARE r RECORD; BEGIN FOR r IN
 (SELECT tablename FROM pg_tables WHERE schemaname=current_schema() and tablename not in ('spatial_ref_sys')) LOOP
@@ -187,9 +186,6 @@ create=insert into atom2k.users (created_at_min,id,username,age,country) VALUES 
 read=select * from atom2k.users where id=1 limit 1 allow filtering;
 update=update atom2k.users set username='atom2' where created_at_min='2000-11-29T23:59:00' and country='india' and id=1;
 delete=delete from atom2k.users where created_at_min='2000-11-29T23:59:00' and country='india' and id=1;
-
-#insert otp
-insert into otp (otp,email) values (123,'atom36942@gmail.com')---insert into otp (otp,mobile) values (123,'919508502855')
 
 #router
 from fastapi import APIRouter

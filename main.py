@@ -441,6 +441,20 @@ async def root_postgres_schema_init(request:Request,mode:str):
    #final
    return {"status":1,"message":"done"}
 
+#root/postgres-schema-reset
+@app.delete("/root/postgres-schema-reset")
+async def root_postgres_schema_reset(request:Request,schema:str="public"):
+   transaction=await postgres_client.transaction()
+   try:
+      await postgres_client.fetch_all(query=f"drop schema {schema} cascade;",values={})
+      await postgres_client.fetch_all(query=f"create schema {schema};",values={})
+   except Exception as e:
+      await transaction.rollback()
+      return responses.JSONResponse(status_code=400,content={"status":0,"message":e.args})
+   else:
+      await transaction.commit()
+   return {"status":1,"message":"done"}
+
 #root/postgres-query-runner
 @app.get("/root/postgres-query-runner")
 async def root_postgres_query_runner(request:Request,query:str):
@@ -449,9 +463,9 @@ async def root_postgres_query_runner(request:Request,query:str):
    else:
       transaction=await postgres_client.transaction()
       try:[await postgres_client.fetch_all(query=item,values={}) for item in query_list]
-      except:
+      except Exception as e:
          await transaction.rollback()
-         return responses.JSONResponse(status_code=400,content={"status":0,"message":"transaction failed"})
+         return responses.JSONResponse(status_code=400,content={"status":0,"message":e.args})
       else:
          await transaction.commit()
          output="done"
@@ -622,30 +636,26 @@ async def auth_login_mobile_password(request:Request,mobile:str,password:str):
 @app.get("/my/profile")
 @cache(expire=60)
 async def my_profile(request:Request,background:BackgroundTasks):
-   #read user
-   query="select * from users where id=:id;"
-   query_param={"id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   response={"status":1,"message":user}
+   #refresh request user
+   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   request.state.user=output[0] if output else None
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    #update last active at
    query="update users set last_active_at=:last_active_at where id=:id"
-   query_param={"id":user["id"],"last_active_at":datetime.datetime.now()}
+   query_param={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()}
    background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
    #final
-   return response
+   return {"status":1,"message":request.state.user}
 
 #my/token-refresh
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
-   #read user
-   query="select * from users where id=:id;"
-   query_param={"id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   #refresh request user
+   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   request.state.user=output[0] if output else None
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    #create token
+   user=request.state.user
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
    token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
    #final
@@ -729,9 +739,13 @@ async def my_delete_ids(request:Request,table:str,ids:str):
 #my/delete-account
 @app.delete("/my/delete-account")
 async def my_delete_account(request:Request):
+   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   request.state.user=output[0] if output else None
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    #check
-   if request.state.user["id"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
-   if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"not allowed"})
+   if request.state.user["id"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"root user cant be deleted"})
+   if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"protected user cant be deleted"})
+   if request.state.user["api_access"]:return responses.JSONResponse(status_code=200,content={"status":0,"message":"admin user cant be deleted"})
    #logic
    if False:
       query="delete from users where id=:id;"
@@ -1165,19 +1179,6 @@ async def public_postgres_prepared_statement(request:Request):
    query="explain analyze execute read_user(1);"
    output_2=await postgres_client.fetch_all(query=query,values={})
    output={"simple":output_1,"prepared":output_2}
-   return {"status":1,"message":output}
-
-#root/postgres-transaction
-@app.get("/root/postgres-transaction")
-async def root_postgres_transaction(request:Request,mode:str):
-   if mode=="success":query_1,query_2="insert into atom(type,number) values ('payment',100);","insert into atom(type,number) values ('payment',-10);"
-   if mode=="fail":query_1,query_2="insert into atom(type,number) values ('payment',100);","insert into atom(type,number) values ('payment',-10a);"
-   transaction=await postgres_client.transaction()
-   try:
-      await postgres_client.execute(query=query_1,values={})
-      await postgres_client.execute(query=query_2,values={})
-   except:output=await transaction.rollback()
-   else:output=await transaction.commit()
    return {"status":1,"message":output}
 
 #root/memcached-set-object
@@ -1901,6 +1902,8 @@ async def admin_update_api_access(request:Request,body:schema_update_api_access)
    if body.api_access:
       for item in body.api_access.split(","):
          if item not in api_list_admin_str:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
+   #body modify
+   if body.api_access=="":body.api_access=None
    #logic
    query="update users set api_access=:api_access where id=:id returning *"
    query_param={"id":body.user_id,"api_access":body.api_access}
@@ -1942,10 +1945,10 @@ async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,
    #final
    return response
 
-#admin/s3-delete-url
+#root/s3-delete-url
 import boto3
-@app.delete("/admin/s3-delete-url")
-async def admin_s3_delete_url(request:Request,url:str):
+@app.delete("/root/s3-delete-url")
+async def root_s3_delete_url(request:Request,url:str):
    #logic
    bucket=url.split("//",1)[1].split(".",1)[0]
    key=url.rsplit("/",1)[1]
@@ -1954,50 +1957,50 @@ async def admin_s3_delete_url(request:Request,url:str):
    #final
    return {"status":1,"message":output}
 
-#admin/s3-delete-bucket
+#root/s3-delete-bucket
 import boto3
-@app.delete("/admin/s3-delete-bucket")
-async def admin_s3_delete_bucket(request:Request,bucket:str):
+@app.delete("/root/s3-delete-bucket")
+async def root_s3_delete_bucket(request:Request,bucket:str):
    #logic
    s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=s3_client.delete_bucket(Bucket=bucket)
    #final
    return {"status":1,"message":output}
 
-#admin/s3-empty-bucket
+#root/s3-empty-bucket
 import boto3
-@app.delete("/admin/s3-empty-bucket")
-async def admin_s3_empty_bucket(request:Request,bucket:str):
+@app.delete("/root/s3-empty-bucket")
+async def root_s3_empty_bucket(request:Request,bucket:str):
    #logic
    s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=s3_resource.Bucket(bucket).objects.all().delete()
    #final
    return {"status":1,"message":output}
 
-#admin/s3-list-all-bucket
+#root/s3-list-all-bucket
 import boto3
-@app.get("/admin/s3-list-all-bucket")
-async def admin_s3_list_all_bucket(request:Request):
+@app.get("/root/s3-list-all-bucket")
+async def root_s3_list_all_bucket(request:Request):
    #logic
    s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=s3_client.list_buckets()
    #final
    return {"status":1,"message":output}
 
-#admin/s3-create-bucket
+#root/s3-create-bucket
 import boto3
-@app.post("/admin/s3-create-bucket")
-async def admin_s3_create_bucket(request:Request,region:str,name:str):
+@app.post("/root/s3-create-bucket")
+async def root_s3_create_bucket(request:Request,region:str,name:str):
    #logic
    s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=s3_client.create_bucket(Bucket=name,CreateBucketConfiguration={'LocationConstraint':region})
    #final
    return {"status":1,"message":output}
 
-#admin/s3-make-bucket-public
+#root/s3-make-bucket-public
 import boto3
-@app.put("/admin/s3-make-bucket-public")
-async def admin_s3_make_bucket_public(request:Request,bucket:str):
+@app.put("/root/s3-make-bucket-public")
+async def root_s3_make_bucket_public(request:Request,bucket:str):
    #logic
    s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
@@ -2006,10 +2009,10 @@ async def admin_s3_make_bucket_public(request:Request,bucket:str):
    #final
    return {"status":1,"message":output}
 
-#admin/s3-download-url
+#root/s3-download-url
 import boto3
-@app.get("/admin/s3-download-url")
-async def admin_s3_download_url(request:Request,url:str,path:str):
+@app.get("/root/s3-download-url")
+async def root_s3_download_url(request:Request,url:str,path:str):
    #logic
    bucket=url.split("//",1)[1].split(".",1)[0]
    key=url.rsplit("/",1)[1]
@@ -2066,10 +2069,10 @@ async def admin_delete_ids(request:Request,table:str,ids:str):
    #final
    return {"status":1,"message":"done"}
 
-#admin/ses-add-identity
+#root/ses-add-identity
 import boto3
-@app.post("/admin/ses-add-identity")
-async def admin_ses_add_identity(request:Request,region:str,type:Literal["email","domain"],identity:str):
+@app.post("/root/ses-add-identity")
+async def root_ses_add_identity(request:Request,region:str,type:Literal["email","domain"],identity:str):
    #logic
    ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    if type=="email":output=ses_client.verify_email_identity(EmailAddress=identity)
@@ -2077,60 +2080,60 @@ async def admin_ses_add_identity(request:Request,region:str,type:Literal["email"
    #final
    return {"status":1,"message":output}
 
-#admin/ses-list-identity
+#root/ses-list-identity
 import boto3
-@app.get("/admin/ses-list-identity")
-async def admin_ses_list_identity(request:Request,region:str,type:Literal["EmailAddress","Domain"],limit:int,next_token:str=None):
+@app.get("/root/ses-list-identity")
+async def root_ses_list_identity(request:Request,region:str,type:Literal["EmailAddress","Domain"],limit:int,next_token:str=None):
    #logic
    ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=ses_client.list_identities(IdentityType=type,NextToken='' if not next_token else next_token,MaxItems=limit)
    #final
    return {"status":1,"message":output}
 
-#admin/ses-identity-status
+#root/ses-identity-status
 import boto3
-@app.get("/admin/ses-identity-status")
-async def admin_ses_identity_status(request:Request,region:str,identity:str):
+@app.get("/root/ses-identity-status")
+async def root_ses_identity_status(request:Request,region:str,identity:str):
    #logic
    ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=ses_client.get_identity_verification_attributes(Identities=[identity])
    #final
    return {"status":1,"message":output}
 
-#admin/ses-delete-identity
+#root/ses-delete-identity
 import boto3
-@app.delete("/admin/ses-delete-identity")
-async def admin_ses_delete_identity(request:Request,region:str,identity:str):
+@app.delete("/root/ses-delete-identity")
+async def root_ses_delete_identity(request:Request,region:str,identity:str):
    #logic
    ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=ses_client.delete_identity(Identity=identity)
    #final
    return {"status":1,"message":output}
 
-#admin/sns-check-opted-out
+#root/sns-check-opted-out
 import boto3
-@app.get("/admin/sns-check-opted-out")
-async def admin_sns_check_opted_out(request:Request,region:str,mobile:str):
+@app.get("/root/sns-check-opted-out")
+async def root_sns_check_opted_out(request:Request,region:str,mobile:str):
    #logic
    sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=sns_client.check_if_phone_number_is_opted_out(phoneNumber=mobile)
    #final
    return {"status":1,"message":output}
 
-#admin/sns-list-opted-mobile
+#root/sns-list-opted-mobile
 import boto3
-@app.get("/admin/sns-list-opted-mobile")
-async def admin_sns_list_opted_mobile(request:Request,region:str,next_token:str=None):
+@app.get("/root/sns-list-opted-mobile")
+async def root_sns_list_opted_mobile(request:Request,region:str,next_token:str=None):
    #logic
    sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=sns_client.list_phone_numbers_opted_out(nextToken='' if not next_token else next_token)
    #final
    return {"status":1,"message":output}
 
-#admin/sns-list-sandbox-mobile
+#root/sns-list-sandbox-mobile
 import boto3
-@app.get("/admin/sns-list-sandbox-mobile")
-async def admin_sns_list_sandbox_mobile(request:Request,region:str,limit:int=100,next_token:str=None):
+@app.get("/root/sns-list-sandbox-mobile")
+async def root_sns_list_sandbox_mobile(request:Request,region:str,limit:int=100,next_token:str=None):
    #logic
    sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    if not next_token:output=sns_client.list_sms_sandbox_phone_numbers(MaxResults=limit)
@@ -2138,50 +2141,50 @@ async def admin_sns_list_sandbox_mobile(request:Request,region:str,limit:int=100
    #final
    return {"status":1,"message":output}
 
-#admin/sns-add-sandbox-mobile
+#root/sns-add-sandbox-mobile
 import boto3
-@app.get("/admin/sns-add-sandbox-mobile")
-async def admin_sns_add_sandbox_mobile(request:Request,region:str,mobile:str):
+@app.get("/root/sns-add-sandbox-mobile")
+async def root_sns_add_sandbox_mobile(request:Request,region:str,mobile:str):
    #logic
    sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=sns_client.create_sms_sandbox_phone_number(PhoneNumber=mobile,LanguageCode='en-US')
    #final
    return {"status":1,"message":output}
 
-#admin/sns-verify-sandbox-mobile
+#root/sns-verify-sandbox-mobile
 import boto3
-@app.put("/admin/sns-verify-sandbox-mobile")
-async def admin_sns_verify_sandbox_mobile(request:Request,region:str,mobile:str,otp:str):
+@app.put("/root/sns-verify-sandbox-mobile")
+async def root_sns_verify_sandbox_mobile(request:Request,region:str,mobile:str,otp:str):
    #logic
    sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=sns_client.verify_sms_sandbox_phone_number(PhoneNumber=mobile,OneTimePassword=otp)
    #final
    return {"status":1,"message":output}
 
-#admin/sns-optin-mobile
+#root/sns-optin-mobile
 import boto3
-@app.put("/admin/sns-optin-mobile")
-async def admin_sns_optin_mobile(request:Request,region:str,mobile:str):
+@app.put("/root/sns-optin-mobile")
+async def root_sns_optin_mobile(request:Request,region:str,mobile:str):
    #logic
    sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=sns_client.opt_in_phone_number(phoneNumber=mobile)
    #final
    return {"status":1,"message":output}
 
-#admin/sns-delete-sandbox-mobile
+#root/sns-delete-sandbox-mobile
 import boto3
-@app.delete("/admin/sns-delete-sandbox-mobile")
-async def admin_sns_delete_sandbox_mobile(request:Request,region:str,mobile:str):
+@app.delete("/root/sns-delete-sandbox-mobile")
+async def root_sns_delete_sandbox_mobile(request:Request,region:str,mobile:str):
    #logic
    sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=sns_client.delete_sms_sandbox_phone_number(PhoneNumber=mobile)
    #final
    return {"status":1,"message":output}
 
-#admin/dynamodb-create-table
+#root/dynamodb-create-table
 import boto3,json
-@app.post("/admin/dynamodb-create-table")
-async def admin_dynamodb_create_table(request:Request,region:str,name:str,hash:str,range:str,hash_data_type:str,range_data_type:str,read:int,write:int):
+@app.post("/root/dynamodb-create-table")
+async def root_dynamodb_create_table(request:Request,region:str,name:str,hash:str,range:str,hash_data_type:str,range_data_type:str,read:int,write:int):
    #logic
    dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    table=dynamodb_resource.create_table(TableName=name,KeySchema=[{"AttributeName":hash,"KeyType":"HASH"},{"AttributeName":range,"KeyType":"RANGE"}],AttributeDefinitions=[{"AttributeName":hash,"AttributeType":hash_data_type},{"AttributeName":range,"AttributeType":range_data_type}],ProvisionedThroughput={'ReadCapacityUnits':read,'WriteCapacityUnits':write})
@@ -2189,10 +2192,10 @@ async def admin_dynamodb_create_table(request:Request,region:str,name:str,hash:s
    #final
    return {"status":1,"message":"done"}
 
-#admin/dynamodb-delete-table
+#root/dynamodb-delete-table
 import boto3,json
-@app.delete("/admin/dynamodb-delete-table")
-async def admin_dynamodb_delete_table(request:Request,region:str,name:str):
+@app.delete("/root/dynamodb-delete-table")
+async def root_dynamodb_delete_table(request:Request,region:str,name:str):
    #logic
    dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    table=dynamodb_resource.Table(name)
@@ -2200,11 +2203,11 @@ async def admin_dynamodb_delete_table(request:Request,region:str,name:str):
    #final
    return {"status":1,"message":output}
 
-#admin/dynamodb-create-item
+#root/dynamodb-create-item
 import boto3
 from decimal import Decimal
-@app.post("/admin/dynamodb-create-item")
-async def admin_dynamodb_create_item(request:Request,region:str,table:str):
+@app.post("/root/dynamodb-create-item")
+async def root_dynamodb_create_item(request:Request,region:str,table:str):
    #logic
    dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    table=dynamodb_resource.Table(table)
@@ -2214,10 +2217,10 @@ async def admin_dynamodb_create_item(request:Request,region:str,table:str):
    #final
    return {"status":1,"message":output}
 
-#admin/dynamodb-create-item-batch
+#root/dynamodb-create-item-batch
 import boto3
-@app.post("/admin/dynamodb-create-item-batch")
-async def admin_dynamodb_create_item_batch(request:Request,region:str,table:str,hash:str,range:str):
+@app.post("/root/dynamodb-create-item-batch")
+async def root_dynamodb_create_item_batch(request:Request,region:str,table:str,hash:str,range:str):
    #logic
    dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    table=dynamodb_resource.Table(table)
@@ -2227,10 +2230,10 @@ async def admin_dynamodb_create_item_batch(request:Request,region:str,table:str,
    #final
    return {"status":1,"message":"done"}
 
-#admin/dynamodb-read-item-pk
+#root/dynamodb-read-item-pk
 import boto3
-@app.post("/admin/dynamodb-read-item-pk")
-async def admin_dynamodb_read_item_pk(request:Request,region:str,table:str,hash:str,range:str):
+@app.post("/root/dynamodb-read-item-pk")
+async def root_dynamodb_read_item_pk(request:Request,region:str,table:str,hash:str,range:str):
    #logic
    dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    table=dynamodb_resource.Table(table)
@@ -2240,11 +2243,11 @@ async def admin_dynamodb_read_item_pk(request:Request,region:str,table:str,hash:
    #final
    return {"status":1,"message":output}
 
-#admin/dynamodb-read-item-attribute
+#root/dynamodb-read-item-attribute
 import boto3
 from boto3.dynamodb.conditions import Attr
-@app.post("/admin/dynamodb-read-item-attribute")
-async def admin_dynamodb_read_item_attribute(request:Request,region:str,table:str):
+@app.post("/root/dynamodb-read-item-attribute")
+async def root_dynamodb_read_item_attribute(request:Request,region:str,table:str):
    #logic
    dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    table=dynamodb_resource.Table(table)
@@ -2254,10 +2257,10 @@ async def admin_dynamodb_read_item_attribute(request:Request,region:str,table:st
    #final
    return {"status":1,"message":output}
 
-#admin/dynamodb-update-item
+#root/dynamodb-update-item
 import boto3
-@app.put("/admin/dynamodb-update-item")
-async def admin_dynamodb_update_item(request:Request,region:str,table:str,hash:str,range:str):
+@app.put("/root/dynamodb-update-item")
+async def root_dynamodb_update_item(request:Request,region:str,table:str,hash:str,range:str):
    #logic
    dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    table=dynamodb_resource.Table(table)
@@ -2268,10 +2271,10 @@ async def admin_dynamodb_update_item(request:Request,region:str,table:str,hash:s
    #final
    return {"status":1,"message":output}
 
-#admin/dynamodb-delete-item
+#root/dynamodb-delete-item
 import boto3
-@app.delete("/admin/dynamodb-delete-item")
-async def admin_dynamodb_delete_item(request:Request,region:str,table:str,hash:str,range:str):
+@app.delete("/root/dynamodb-delete-item")
+async def root_dynamodb_delete_item(request:Request,region:str,table:str,hash:str,range:str):
    #logic
    dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    table=dynamodb_resource.Table(table)
@@ -2281,17 +2284,18 @@ async def admin_dynamodb_delete_item(request:Request,region:str,table:str,hash:s
    #final
    return {"status":1,"message":output}
 
-#admin/sqlite-query-runner
+#root/sqlite-query-runner
 from databases import Database
-@app.get("/admin/sqlite-query-runner")
-async def admin_sqlite_query_runner(request:Request,mode:str,query:str):
+@app.get("/root/sqlite-query-runner")
+async def root_sqlite_query_runner(request:Request,mode:str,query:str):
    #client
    sqlite_client=Database('sqlite+aiosqlite:///atom.db')
    sqlite_client.connect()
+   query_list=query.split("---")
+   output="done"
    #logic
-   if mode=="write":
-      for item in query.split("---"):output=await sqlite_client.execute(query=query,values={})
    if mode=="read":output=await sqlite_client.fetch_all(query=query,values={})
+   if mode=="write":[await sqlite_client.execute(query=item,values={}) for item in query_list]
    #final
    sqlite_client.disconnect()
    return {"status":1,"message":output}
