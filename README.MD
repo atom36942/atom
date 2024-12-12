@@ -2,7 +2,7 @@
 1. atom is a open-source repo that be used to deployed backend of most applications in minimal time
 2. atom has pre-built modules that is common accross most of the applications
 3. primary vision is to entreprenurs to laucnh their ideas faster
-4. atom follows functional style programming with solid principles
+4. atom follows Procedural+functional programming style with focus on solid principles
 5. core tech stack=python,fastapi,postgres,redis
 6. example:linkedin v1 backend can be build within 2 weeks
 7. how to run=download repo | create env | install requirements | python main.py

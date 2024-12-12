@@ -5,7 +5,7 @@ load_dotenv()
 
 #function
 import hashlib,datetime,json
-async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mode,table,object_list):
+async def postgres_crud(mode,table,object_list,postgres_client,postgres_column_datatype,is_serialize):
    if mode=="create":
       column_to_insert_list=[*object_list[0]]
       query=f"insert into {table} ({','.join(column_to_insert_list)}) values ({','.join([':'+item for item in column_to_insert_list])}) on conflict do nothing returning *;"
@@ -38,12 +38,38 @@ async def postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mo
             if datatype in ["jsonb"]:object_list[index][k]=json.dumps(v) if v else None
             if datatype in ["ARRAY"]:object_list[index][k]=v.split(",") if v else None
    if mode in ["create","update","delete"]:
-      if len(object_list)>1:output=await postgres_client.execute_many(query=query,values=object_list)
-      else:output=await postgres_client.execute(query=query,values=object_list[0])
+      if len(object_list)==1:output=await postgres_client.execute(query=query,values=object_list[0])
+      else:
+         try:
+            transaction=await postgres_client.transaction()
+            output=await postgres_client.execute_many(query=query,values=object_list)
+         except Exception as e:
+            await transaction.rollback()
+            return {"status":0,"message":e.args}
+         else:
+            await transaction.commit()
+            output="done"
    if mode=="read":output=[where,object_list[0]]
    return {"status":1,"message":output}
 
-async def postgres_add_creator_data(postgres_client,object_list):
+async def postgres_add_action_count(action,table,object_list,postgres_client):
+   if not object_list:return {"status":1,"message":object_list}
+   key_name=f"{action}_count"
+   object_list=[dict(item)|{key_name:0} for item in object_list]
+   parent_ids_list=[str(item["id"]) for item in object_list if item["id"]]
+   parent_ids_string=",".join(parent_ids_list)
+   if parent_ids_string:
+      query=f"select parent_id,count(*) from {action} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
+      query_param={"parent_table":table}
+      object_list_action=await postgres_client.fetch_all(query=query,values=query_param)
+      for x in object_list:
+         for y in object_list_action:
+               if x["id"]==y["parent_id"]:
+                  x[key_name]=y["count"]
+                  break
+   return {"status":1,"message":object_list}
+
+async def postgres_add_creator_data(object_list,postgres_client):
    if not object_list:return {"status":1,"message":object_list}
    object_list=[dict(item)|{"created_by_username":None} for item in object_list]
    created_by_ids_list=[str(item["created_by_id"]) for item in object_list if item["created_by_id"]]
@@ -56,23 +82,6 @@ async def postgres_add_creator_data(postgres_client,object_list):
             if x["created_by_id"]==y["id"]:
                x["created_by_username"]=y["username"]
                break
-   return {"status":1,"message":object_list}
-
-async def postgres_add_action_count(postgres_client,action,object_list,object_table):
-   if not object_list:return {"status":1,"message":object_list}
-   key_name=f"{action}_count"
-   object_list=[dict(item)|{key_name:0} for item in object_list]
-   parent_ids_list=[str(item["id"]) for item in object_list if item["id"]]
-   parent_ids_string=",".join(parent_ids_list)
-   if parent_ids_string:
-      query=f"select parent_id,count(*) from {action} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
-      query_param={"parent_table":object_table}
-      object_list_action=await postgres_client.fetch_all(query=query,values=query_param)
-      for x in object_list:
-         for y in object_list_action:
-               if x["id"]==y["parent_id"]:
-                  x[key_name]=y["count"]
-                  break
    return {"status":1,"message":object_list}
 
 import uvicorn
@@ -320,12 +329,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "not_null":{"created_by_id":["message"],"user_id":["message"],"parent_table":["likes","bookmark","report","block","rating","comment","follow"],"parent_id":["likes","bookmark","report","block","rating","comment","follow"]},
    "unique":{"username":["users"],"created_by_id,parent_table,parent_id":["likes","bookmark","report","block","follow"]},
    "bulk_delete_disable":{"users":1},
-   "query":{
-   "view_column_master":"create or replace view view_column_master as (select column_name,max(data_type) as data_type, array_agg(table_name) as table_name from information_schema.columns where table_schema='public' group by  column_name);",
-   "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema = 'public'));",
-   "function_read_user":"create or replace function function_read_user(a int) returns setof users as $$ begin return query select * from users where id=a; end; $$ language plpgsql;",
-   "procedure_stats":"create or replace procedure procedure_stats(inout users_count int default 0,inout post_count int default 0) as $$ begin select count(*) into users_count from users; select count(*) into post_count from post; end; $$ language plpgsql;",
-   }
+   "query":{}
    }
    #extension (config)
    for item in schema["extension"]:
@@ -474,20 +478,6 @@ async def root_postgres_schema_init(request:Request,mode:str):
    '''
    await postgres_client.fetch_all(query=query,values={})
    #final
-   return {"status":1,"message":"done"}
-
-#root/postgres-schema-reset
-@app.delete("/root/postgres-schema-reset")
-async def root_postgres_schema_reset(request:Request,schema:str="public"):
-   transaction=await postgres_client.transaction()
-   try:
-      await postgres_client.fetch_all(query=f"drop schema {schema} cascade;",values={})
-      await postgres_client.fetch_all(query=f"create schema {schema};",values={})
-   except Exception as e:
-      await transaction.rollback()
-      return responses.JSONResponse(status_code=400,content={"status":0,"message":e.args})
-   else:
-      await transaction.commit()
    return {"status":1,"message":"done"}
 
 #root/postgres-query-runner
@@ -797,7 +787,7 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1):
    for k,v in object.items():
       if k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
    #logic
-   response=await postgres_crud(postgres_client,postgres_column_datatype,is_serialize,"create",table,[object])
+   response=await postgres_crud("create",table,[object],postgres_client,postgres_column_datatype,is_serialize)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
@@ -824,7 +814,7 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1):
       if not object_2:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no object"})
       if object_2["created_by_id"]!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"object ownership issue"})
    #logic
-   response=await postgres_crud(postgres_client,postgres_column_datatype,is_serialize,"update",table,[object])
+   response=await postgres_crud("update",table,[object],postgres_client,postgres_column_datatype,is_serialize)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
@@ -851,7 +841,7 @@ async def my_object_delete(request:Request,table:str):
 async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #create where
    object=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
-   response=await postgres_crud(None,postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #logic
@@ -1014,48 +1004,77 @@ async def my_action_create(request:Request,action:Literal["likes","bookmark","re
    #final
    return {"status":1,"message":output}
 
-#my/action-read
-@app.get("/my/action-read")
-async def my_action_read(request:Request,action:str,parent_table:str,order:str="id desc",limit:int=100,page:int=1):
-   #read parent ids
-   query=f"select parent_id from {action} where parent_table=:parent_table and created_by_id=:created_by_id order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
+#ex=my liked post
+#my/action-read-parent
+@app.get("/my/action-read-parent")
+async def my_action_read_parent(request:Request,action:str,parent_table:str,order:str="id desc",limit:int=100,page:int=1):
+   #logic
+   query=f'''
+   with
+   x as (select parent_id from {action} where created_by_id=:created_by_id and parent_table=:parent_table order by {order} limit {limit} offset {(page-1)*limit})
+   select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;
+   '''
+   query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table}
    output=await postgres_client.fetch_all(query=query,values=query_param)
-   parent_ids_list=[item["parent_id"] for item in output]
-   parent_ids_list_str=[str(item["parent_id"]) for item in output]
-   parent_ids_str=",".join(parent_ids_list_str)
-   #read parent ids string data
-   output=None
-   if parent_ids_str:
-      query=f"select * from {parent_table} as pt where id in ({parent_ids_str}) order by array_position(array{parent_ids_list}::bigint[],pt.id::bigint);"
-      output=await postgres_client.fetch_all(query=query,values={})
    #final
    return {"status":1,"message":output}
 
-#my/action-delete
-@app.delete("/my/action-delete")
-async def my_action_delete(request:Request,action:str,parent_table:str,parent_id:int):
-   #delete ids
+#my/action-delete-parent
+@app.delete("/my/action-delete-parent")
+async def my_action_delete_parent(request:Request,action:str,parent_table:str,parent_id:int):
+   #logic
    query=f"delete from {action} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;"
    query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
    output=await postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":"done"}
 
-#my/action-check
-@app.get("/my/action-check")
-async def my_action_check(request:Request,action:str,parent_table:str,parent_ids:str):
-   #read parent ids string data
+#my/action-check-parent
+@app.get("/my/action-check-parent")
+async def my_action_check_parent(request:Request,action:str,parent_table:str,parent_ids:str):
+   #filter parent_ids
    query=f"select parent_id from {action} where parent_id in ({parent_ids}) and parent_table=:parent_table and created_by_id=:created_by_id;"
    query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
    output=await postgres_client.fetch_all(query=query,values=query_param)
    parent_ids_output=[item["parent_id"] for item in output if item["parent_id"]]
-   #create mapping
+   #parent_ids mapping
    parent_ids_input=parent_ids.split(",")
    parent_ids_input=[int(item) for item in parent_ids_input]
    mapping={item:1 if item in parent_ids_output else 0 for item in parent_ids_input}
    #final
    return {"status":1,"message":mapping}
+
+#ex=users following me
+#my/action-on-me-creator-read
+@app.get("/my/action-on-me-creator-read")
+async def my_action_on_me_creator_read(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
+   #logic
+   query=f'''
+   with 
+   x as (select * from {action} where parent_table=:parent_table),
+   y as (select created_by_id from x where parent_id=:parent_id order by {order} limit {limit} offset {(page-1)*limit})
+   select u.* from y left join users as u on y.created_by_id=u.id;
+   '''
+   query_param={"parent_table":"users","parent_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#ex=users i follow and following me
+#my/action-on-me-creator-read-mutual
+@app.get("/my/action-on-me-creator-read-mutual")
+async def my_action_on_me_creator_read_mutual(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
+   #logic
+   query=f'''
+   with 
+   x as (select * from {action} where parent_table=:parent_table),
+   y as (select created_by_id from {action} where created_by_id in (select parent_id from x where created_by_id=:created_by_id) and parent_id=:parent_id order by {order} limit {limit} offset {(page-1)*limit})
+   select u.* from y left join users as u on y.created_by_id=u.id;
+   '''
+   query_param={"parent_table":"users","parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
 
 #public/langchain-txt-file-token-splitter
 from langchain_community.document_loaders import TextLoader
@@ -1425,10 +1444,22 @@ async def root_rabbitmq_producer(request:Request,queue:str):
    rabbitmq_client.close()
    return {"status":1,"message":"done"}
 
-#public/timescaledb-create-event
+#root/timescaledb-create-table
 from databases import Database
-@app.post("/public/timescaledb-create-event")
-async def public_timescaledb_create_event(request:Request,type:str):
+@app.get("/root/timescaledb-create-table")
+async def root_timescaledb_create_table(request:Request):
+   timescaledb_client=Database(os.getenv("timescaledb_url"),min_size=1,max_size=100) 
+   timescaledb_client.connect()
+   query="create table event (created_at timestamptz default now() not null, type text not null, data jsonb not null);"
+   await timescaledb_client.execute(query=query,values={})
+   query="select create_hypertable('event', by_range('created_at'));"
+   output=await timescaledb_client.fetch_all(query=query,values={})
+   return {"status":1,"message":output}
+
+#root/timescaledb-create-event
+from databases import Database
+@app.post("/root/timescaledb-create-event")
+async def root_timescaledb_create_event(request:Request,type:str):
    timescaledb_client=Database(os.getenv("timescaledb_url"),min_size=1,max_size=100) 
    timescaledb_client.connect()
    object=await request.json()
@@ -1573,7 +1604,7 @@ async def public_object_create(request:Request,table:Literal["helpdesk","worksee
    #object set
    object=await request.json()
    #object crud
-   response=await postgres_crud(postgres_client,postgres_column_datatype,is_serialize,"create",table,[object])
+   response=await postgres_crud("create",table,[object],postgres_client,postgres_column_datatype,is_serialize)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
@@ -1690,28 +1721,25 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
    object=dict(request.query_params)
-   response=await postgres_crud(None,postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #read object
-   query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
+   query=f'''
+   with
+   x as (select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit})
+   select x.*,u.username as created_by_id_username from x left join users as u on x.created_by_id=u.id;
+   '''
    query_param=object
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
-   #add creator data
-   if object_list and table in ["post"]:
-      response=await postgres_add_creator_data(postgres_client,object_list)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
    #add likes count
-   if object_list and table in ["post"]:
-      response=await postgres_add_action_count(postgres_client,"likes",object_list,table)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
+   response=await postgres_add_action_count("likes",table,object_list,postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   object_list=response["message"]
    #add bookmark count
-   if object_list and table in ["post"]:
-      response=await postgres_add_action_count(postgres_client,"bookmark",object_list,table)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
+   response=await postgres_add_action_count("bookmark",table,object_list,postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   object_list=response["message"]
    #final
    return {"status":1,"message":object_list}
 
@@ -1723,7 +1751,7 @@ async def private_location_search(request:Request,table:str,location:str,within:
    min_meter,max_meter=int(within.split(",")[0]),int(within.split(",")[1])
    #create where
    object=dict(request.query_params)
-   response=await postgres_crud(None,postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #logic
@@ -1746,7 +1774,7 @@ async def private_object_read(request:Request,table:str,order:str="id desc",limi
    if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
    object=dict(request.query_params)
-   response=await postgres_crud(None,postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #read object
@@ -1944,17 +1972,17 @@ async def admin_update_api_access(request:Request,body:schema_update_api_access)
 #root/postgres clean
 @app.delete("/root/postgres-clean")
 async def root_pclean(request:Request):
-   #creator not exist
+   #creator null
    for table in ["post","likes","bookmark","report","block","rating","comment","follow","message"]:
       query=f"delete from {table} where created_by_id not in (select id from users);"
       await postgres_client.fetch_all(query=query,values={})
-   #action table read
-   query="select distinct(table_name) from information_schema.columns where column_name='parent_table';"
-   output=await postgres_client.fetch_all(query=query,values={})
+   #parent null
+   output=await postgres_client.fetch_all(query="select distinct(table_name) from information_schema.columns where column_name='parent_table';",values={})
    action_table_list=[item["table_name"] for item in output]
-   #parent null delete
    for table in action_table_list:
-      for parent_table in ["users","post","comment"]:
+      output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {table};",values={})
+      parent_table_list=[item["parent_table"] for item in output]
+      for parent_table in parent_table_list:
          query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
          await postgres_client.fetch_all(query=query,values={})
    #final
@@ -1970,7 +1998,7 @@ async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,
    for row in file_csv:object_list.append(row)
    await file.close()
    #object crud
-   response=await postgres_crud(postgres_client,postgres_column_datatype,is_serialize,mode,table,object_list)
+   response=await postgres_crud(mode,table,object_list,postgres_client,postgres_column_datatype,is_serialize)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
@@ -2067,7 +2095,7 @@ async def admin_postgres_query_runner(request:Request,query:str):
 async def admin_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #create where
    object=dict(request.query_params)
-   response=await postgres_crud(None,postgres_column_datatype,1,"read",None,[object])
+   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where,object=response["message"][0],response["message"][1]
    #read object
@@ -2085,7 +2113,7 @@ async def admin_object_update(request:Request,table:str,is_serialize:int=1):
    object=await request.json()
    object["updated_by_id"]=request.state.user["id"]
    #object crud
-   response=await postgres_crud(postgres_client,postgres_column_datatype,is_serialize,"update",table,[object])
+   response=await postgres_crud("update",table,[object],postgres_client,postgres_column_datatype,is_serialize)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
