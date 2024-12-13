@@ -5,7 +5,7 @@ load_dotenv()
 
 #function
 import hashlib,datetime,json
-async def postgres_crud(mode,table,object_list,postgres_client,postgres_column_datatype,is_serialize):
+async def postgres_crud(mode,table,object_list,postgres_client,postgres_column_datatype):
    if mode=="create":
       column_to_insert_list=[*object_list[0]]
       query=f"insert into {table} ({','.join(column_to_insert_list)}) values ({','.join([':'+item for item in column_to_insert_list])}) on conflict do nothing returning *;"
@@ -16,15 +16,17 @@ async def postgres_crud(mode,table,object_list,postgres_client,postgres_column_d
    if mode=="delete":
       query=f"delete from {table} where id=:id;"
    if mode=="read":
-      object=object_list[0]
-      object={k:v for k,v in object.items() if k in postgres_column_datatype}
-      object={k:v for k,v in object.items() if k not in ["table","order","limit","page"]+["location","metadata"]}
-      operator={k:v.split(',',1)[0] for k,v in object.items()}
-      object={k:v.split(',',1)[1] for k,v in object.items()}
-      where=' and '.join([f"({k} {operator[k]} :{k} or :{k} is null)" for k,v in object.items()])
-      where=f"where {where}" if where else ""
-      object_list=[object]
-   if is_serialize==1:
+      object_raw=object_list[0]
+      object_raw={k:v for k,v in object_raw.items() if k in postgres_column_datatype}
+      object_raw={k:v for k,v in object_raw.items() if k not in ["table","order","limit","page"]+["location","metadata"]}
+      object_operator={k:v.split(',',1)[0] for k,v in object_raw.items()}
+      object_value={k:v.split(',',1)[1] for k,v in object_raw.items()}
+      column_to_read_list=[*object_raw]
+      where_column_list=[f"({column} {object_operator[column]} :{column} or :{column} is null)" for column in column_to_read_list]
+      where_column_joined=' and '.join(where_column_list)
+      where_string=f"where {where_column_joined}" if where_column_joined else ""
+      object_list=[object_value]
+   if postgres_column_datatype:
       for index,object in enumerate(object_list):
          for k,v in object.items():
             if k in postgres_column_datatype:datatype=postgres_column_datatype[k]
@@ -49,7 +51,8 @@ async def postgres_crud(mode,table,object_list,postgres_client,postgres_column_d
          else:
             await transaction.commit()
             output="done"
-   if mode=="read":output=[where,object_list[0]]
+   if mode=="read":
+      output=[where_string,object_list[0]]
    return {"status":1,"message":output}
 
 async def postgres_add_action_count(action,table,object_list,postgres_client):
@@ -246,7 +249,7 @@ for item in file_name_list_without_extension:
 from fastapi import Request,UploadFile,responses,BackgroundTasks,Depends
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
-import hashlib,datetime,json,uuid,time,jwt,csv,codecs
+import hashlib,datetime,json,uuid,time,jwt,csv,codecs,copy
 
 @app.get("/")
 async def root(request:Request):
@@ -259,12 +262,12 @@ async def root_postgres_schema_init(request:Request,mode:str):
    if mode=="self":schema=await request.json()
    if mode=="default":schema={
    "extension":["postgis"],
-   "table":["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password"],
+   "table":["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password","human"],
    "column":{
-   "created_at":["timestamptz",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password"]],
-   "created_by_id":["bigint",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password"]],
-   "updated_at":["timestamptz",["atom","users","post","report","comment","message","helpdesk","workseeker"]],
-   "updated_by_id":["bigint",["atom","users","post","report","comment","message","helpdesk","workseeker"]],
+   "created_at":["timestamptz",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password","human"]],
+   "created_by_id":["bigint",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password","human"]],
+   "updated_at":["timestamptz",["atom","users","post","report","comment","message","helpdesk","workseeker","human"]],
+   "updated_by_id":["bigint",["atom","users","post","report","comment","message","helpdesk","workseeker","human"]],
    "is_active":["smallint",["users","post","comment","workseeker"]],
    "is_verified":["smallint",["users","post","comment","workseeker"]],
    "is_protected":["smallint",["users","post"]],
@@ -289,16 +292,16 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "profile_pic_url":["text",["users"]],
    "last_active_at":["timestamptz",["users"]],
    "api_access":["text",["users"]],
-   "name":["text",["users","workseeker"]],
-   "email":["text",["users","post","otp","helpdesk","workseeker"]],
-   "mobile":["text",["users","post","otp","helpdesk","workseeker"]],
-   "country":["text",["users","workseeker"]],
-   "state":["text",["users","workseeker"]],
+   "name":["text",["users","workseeker","human"]],
+   "email":["text",["users","post","otp","helpdesk","workseeker","human"]],
+   "mobile":["text",["users","post","otp","helpdesk","workseeker","human"]],
+   "country":["text",["users","workseeker","human"]],
+   "state":["text",["users","workseeker","human"]],
    "city":["text",["users"]],
-   "date_of_birth":["date",["users","workseeker"]],
-   "interest":["text",["users"]],
-   "skill":["text",["users"]],
-   "gender":["text",["users","workseeker"]],
+   "date_of_birth":["date",["users","workseeker","human"]],
+   "interest":["text",["users","human"]],
+   "skill":["text",["users","human"]],
+   "gender":["text",["users","workseeker","human"]],
    "title":["text",["atom","users","post","workseeker"]],
    "description":["text",["atom","users","post","comment","message","helpdesk","workseeker"]],
    "file_url":["text",["atom","post"]],
@@ -659,7 +662,6 @@ async def auth_login_mobile_password(request:Request,mobile:str,password:str):
 
 #my/profile
 @app.get("/my/profile")
-@cache(expire=60)
 async def my_profile(request:Request,background:BackgroundTasks):
    #refresh request user
    output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
@@ -787,7 +789,7 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1):
    for k,v in object.items():
       if k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
    #logic
-   response=await postgres_crud("create",table,[object],postgres_client,postgres_column_datatype,is_serialize)
+   response=await postgres_crud("create",table,[object],postgres_client,postgres_column_datatype if is_serialize==1 else None)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
@@ -814,7 +816,7 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1):
       if not object_2:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no object"})
       if object_2["created_by_id"]!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"object ownership issue"})
    #logic
-   response=await postgres_crud("update",table,[object],postgres_client,postgres_column_datatype,is_serialize)
+   response=await postgres_crud("update",table,[object],postgres_client,postgres_column_datatype if is_serialize==1 else None)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
@@ -825,8 +827,8 @@ async def my_object_delete(request:Request,table:str):
    #check
    if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
-   param=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
-   response=await postgres_crud(postgres_column_datatype,param)
+   object_raw=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
+   response=await postgres_crud("read",None,[object_raw],postgres_client,postgres_column_datatype)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #logic
@@ -838,15 +840,16 @@ async def my_object_delete(request:Request,table:str):
 
 #my/object-read
 @app.get("/my/object-read")
+@cache(expire=60)
 async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #create where
-   object=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
-   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
+   object_raw=dict(request.query_params)|{"created_by_id":f"=,{request.state.user['id']}"}
+   response=await postgres_crud("read",None,[object_raw],postgres_client,postgres_column_datatype)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where,object=response["message"][0],response["message"][1]
+   where_string,where_value=response["message"][0],response["message"][1]
    #logic
-   query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param=object
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param=where_value
    output=await postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
@@ -1604,7 +1607,7 @@ async def public_object_create(request:Request,table:Literal["helpdesk","worksee
    #object set
    object=await request.json()
    #object crud
-   response=await postgres_crud("create",table,[object],postgres_client,postgres_column_datatype,is_serialize)
+   response=await postgres_crud("create",table,[object],postgres_client,postgres_column_datatype if is_serialize==1 else None)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
@@ -1620,14 +1623,22 @@ async def public_api_list(request:Request,mode:str=None):
 
 #public/table-column
 @app.get("/public/table-column")
-async def public_table_column(request:Request,mode:str=None,table:str=None):
-   #read postgres schema
-   if mode=="main":schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public' and column_name not in ('id','created_at','created_by_id','updated_at','updated_by_id','is_active','is_verified','is_protected','last_active_at');",values={})
-   else:schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
+async def public_table_column(request:Request,is_main_column:int=None,table:str=None):
+   #schema table
+   schema_table=await postgres_client.fetch_all(query="select table_name from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
+   table_list=[item['table_name'] for item in schema_table]
+   #schema column
+   schema_column=await postgres_client.fetch_all(query="select * from information_schema.columns where table_schema='public';",values={})
    #logic
    temp={}
-   table_list=list(set([item['table_name'] for item in schema_column]))
-   for item in table_list:temp[item]={column["column_name"]:column["data_type"] for column in schema_column if column['table_name']==item}
+   for item in table_list:
+      temp[item]={column["column_name"]:column["data_type"] for column in schema_column if column['table_name']==item}
+   #if is_main_column
+   temp2=copy.deepcopy(temp)
+   if is_main_column==1:
+      for k1,v1 in temp2.items():
+         for k2,v2 in v1.items():
+            if k2 in ['id','created_at','created_by_id','updated_at','updated_by_id','is_active','is_verified','is_protected','last_active_at']:del temp[k1][k2]
    #if table
    if table:temp=temp[table]
    #final
@@ -1720,17 +1731,17 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    #check table
    if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
-   object=dict(request.query_params)
-   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
+   object_raw=dict(request.query_params)
+   response=await postgres_crud("read",None,[object_raw],postgres_client,postgres_column_datatype)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where,object=response["message"][0],response["message"][1]
+   where_string,where_value=response["message"][0],response["message"][1]
    #read object
    query=f'''
    with
-   x as (select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit})
+   x as (select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit})
    select x.*,u.username as created_by_id_username from x left join users as u on x.created_by_id=u.id;
    '''
-   query_param=object
+   query_param=where_value
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
    #add likes count
    response=await postgres_add_action_count("likes",table,object_list,postgres_client)
@@ -1750,18 +1761,18 @@ async def private_location_search(request:Request,table:str,location:str,within:
    long,lat=float(location.split(",")[0]),float(location.split(",")[1])
    min_meter,max_meter=int(within.split(",")[0]),int(within.split(",")[1])
    #create where
-   object=dict(request.query_params)
-   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
+   object_raw=dict(request.query_params)
+   response=await postgres_crud("read",None,[object_raw],postgres_client,postgres_column_datatype)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where,object=response["message"][0],response["message"][1]
+   where_string,where_value=response["message"][0],response["message"][1]
    #logic
    query=f'''
    with
-   x as (select * from {table} {where}),
+   x as (select * from {table} {where_string}),
    y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x)
    select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};
    '''
-   query_param=object
+   query_param=where_value
    output=await postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
@@ -1773,13 +1784,13 @@ async def private_object_read(request:Request,table:str,order:str="id desc",limi
    #check table
    if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    #create where
-   object=dict(request.query_params)
-   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
+   object_raw=dict(request.query_params)
+   response=await postgres_crud("read",None,[object_raw],postgres_client,postgres_column_datatype)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where,object=response["message"][0],response["message"][1]
+   where_string,where_value=response["message"][0],response["message"][1]
    #read object
-   query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param=object
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param=where_value
    output=await postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
@@ -1998,7 +2009,7 @@ async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,
    for row in file_csv:object_list.append(row)
    await file.close()
    #object crud
-   response=await postgres_crud(mode,table,object_list,postgres_client,postgres_column_datatype,is_serialize)
+   response=await postgres_crud(mode,table,object_list,postgres_client,postgres_column_datatype if is_serialize==1 else None)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
@@ -2094,13 +2105,13 @@ async def admin_postgres_query_runner(request:Request,query:str):
 @app.get("/admin/object-read")
 async def admin_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
    #create where
-   object=dict(request.query_params)
-   response=await postgres_crud("read",table,[object],postgres_client,postgres_column_datatype,1)
+   object_raw=dict(request.query_params)
+   response=await postgres_crud("read",None,[object_raw],postgres_client,postgres_column_datatype)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where,object=response["message"][0],response["message"][1]
+   where_string,where_value=response["message"][0],response["message"][1]
    #read object
-   query=f"select * from {table} {where} order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param=object
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param=where_value
    output=await postgres_client.fetch_all(query=query,values=query_param)
    response={"status":1,"message":output}
    #final
@@ -2113,7 +2124,7 @@ async def admin_object_update(request:Request,table:str,is_serialize:int=1):
    object=await request.json()
    object["updated_by_id"]=request.state.user["id"]
    #object crud
-   response=await postgres_crud("update",table,[object],postgres_client,postgres_column_datatype,is_serialize)
+   response=await postgres_crud("update",table,[object],postgres_client,postgres_column_datatype if is_serialize==1 else None)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
