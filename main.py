@@ -1447,6 +1447,66 @@ async def root_rabbitmq_producer(request:Request,queue:str):
    rabbitmq_client.close()
    return {"status":1,"message":"done"}
 
+#root/ftp-list-dir-item
+import ftplib
+@app.get("/root/ftp-list-dir-item")
+async def root_ftp_list_dir_item(request:Request,dir_path:str):
+   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
+   ftp_client.cwd(dir_path)
+   output=ftp_client.nlst()
+   ftp_client.quit()
+   return {"status":1,"message":output}
+
+#root/ftp-mkdir
+import ftplib
+@app.post("/root/ftp-mkdir")
+async def root_ftp_mkdir(request:Request,dir_path:str,dir_name:str):
+   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
+   ftp_client.cwd(dir_path)
+   ftp_client.mkd(dir_name)
+   ftp_client.quit()
+   return {"status":1,"message":"done"}
+
+#root/ftp-upload-file
+import ftplib
+@app.post("/root/ftp-upload-file")
+async def root_ftp_upload_file(request:Request,dir_path:str,file:UploadFile):
+   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
+   ftp_client.cwd(dir_path)
+   ftp_client.storbinary(f"STOR {file.filename}",file.file)
+   ftp_client.quit()
+   return {"status":1,"message":"done"}
+
+#root/ftp-rename-file
+import ftplib
+@app.put("/root/ftp-rename-file")
+async def root_ftp_rename_file(request:Request,dir_path:str,filename_old:str,filename_new:str):
+   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
+   ftp_client.cwd(dir_path)
+   ftp_client.rename(filename_old,filename_new) 
+   ftp_client.quit()
+   return {"status":1,"message":"done"}
+
+#root/ftp-delete-file
+import ftplib
+@app.delete("/root/ftp-delete-file")
+async def root_ftp_delete_file(request:Request,dir_path:str,filename:str):
+   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
+   ftp_client.cwd(dir_path)
+   ftp_client.delete(filename)
+   ftp_client.quit()
+   return {"status":1,"message":"done"}
+
+#root/ftp-delete-dir
+import ftplib
+@app.delete("/root/ftp-delete-dir")
+async def root_ftp_delete_dir(request:Request,dir_path:str,dir_name:str):
+   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
+   ftp_client.cwd(dir_path)
+   ftp_client.rmd(dir_name)
+   ftp_client.quit()
+   return {"status":1,"message":"done"}
+
 #root/timescaledb-create-table
 from databases import Database
 @app.get("/root/timescaledb-create-table")
