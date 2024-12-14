@@ -11,7 +11,3 @@
 10. contact=atom36942@gmail.com
 
 
-3. action_
-4. clean
-
-

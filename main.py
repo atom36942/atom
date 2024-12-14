@@ -268,75 +268,75 @@ async def root_postgres_schema_init(request:Request,mode:str):
    if mode=="self":schema=await request.json()
    if mode=="default":schema={
    "extension":["postgis"],
-   "table":["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password","human"],
+   "table":["atom","human","users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_rating","action_comment","action_follow","log_api","log_password"],
    "column":{
-   "created_at":["timestamptz",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password","human"]],
-   "created_by_id":["bigint",["atom","users","post","likes","bookmark","report","block","rating","comment","follow","message","helpdesk","otp","log_api","workseeker","log_password","human"]],
-   "updated_at":["timestamptz",["atom","users","post","report","comment","message","helpdesk","workseeker","human"]],
-   "updated_by_id":["bigint",["atom","users","post","report","comment","message","helpdesk","workseeker","human"]],
-   "is_active":["smallint",["users","post","comment","workseeker"]],
-   "is_verified":["smallint",["users","post","comment","workseeker"]],
+   "created_at":["timestamptz",["atom","human","users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password"]],
+   "created_by_id":["bigint",["atom","human","users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password"]],
+   "updated_at":["timestamptz",["atom","human","users","post","message","helpdesk","action_report","action_comment"]],
+   "updated_by_id":["bigint",["atom","human","users","post","message","helpdesk","action_report","action_comment"]],
+   "is_active":["smallint",["users","post","action_comment"]],
+   "is_verified":["smallint",["users","post","action_comment"]],
    "is_protected":["smallint",["users","post"]],
    "is_read":["smallint",["message"]],
    "is_deleted":["smallint",[]],
    "otp":["integer",["otp"]],
    "user_id":["bigint",["message","log_password"]],
-   "parent_table":["text",["likes","bookmark","report","block","rating","comment","follow"]],
-   "parent_id":["bigint",["likes","bookmark","report","block","rating","comment","follow"]],
+   "parent_table":["text",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
+   "parent_id":["bigint",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
    "location":["geography(POINT)",["users","post","atom"]],
    "api":["text",["log_api"]],
    "status_code":["smallint",["log_api"]],
    "response_time_ms":["numeric",["log_api"]],
-   "type":["text",["atom","users","post","helpdesk","workseeker"]],
-   "status":["text",["report","helpdesk","workseeker"]],
-   "remark":["text",["report","helpdesk","workseeker"]],
-   "rating":["numeric",["post","rating","workseeker"]],
-   "metadata":["jsonb",["users","post","workseeker"]],
+   "type":["text",["atom","users","post","helpdesk"]],
+   "status":["text",["action_report","helpdesk"]],
+   "remark":["text",["action_report","helpdesk"]],
+   "rating":["numeric",["post","action_rating"]],
+   "metadata":["jsonb",["users","post"]],
    "username":["text",["users"]],
    "password":["text",["users","log_password"]],
    "google_id":["text",["users"]],
    "profile_pic_url":["text",["users"]],
    "last_active_at":["timestamptz",["users"]],
    "api_access":["text",["users"]],
-   "name":["text",["users","workseeker","human"]],
-   "email":["text",["users","post","otp","helpdesk","workseeker","human"]],
-   "mobile":["text",["users","post","otp","helpdesk","workseeker","human"]],
-   "country":["text",["users","workseeker","human"]],
-   "state":["text",["users","workseeker","human"]],
+   "name":["text",["users","human"]],
+   "email":["text",["users","post","otp","helpdesk","human"]],
+   "mobile":["text",["users","post","otp","helpdesk","human"]],
+   "country":["text",["users","human"]],
+   "state":["text",["users","human"]],
    "city":["text",["users"]],
-   "date_of_birth":["date",["users","workseeker","human"]],
+   "date_of_birth":["date",["users","human"]],
    "interest":["text",["users","human"]],
    "skill":["text",["users","human"]],
-   "gender":["text",["users","workseeker","human"]],
-   "title":["text",["atom","users","post","workseeker"]],
-   "description":["text",["atom","users","post","comment","message","helpdesk","workseeker"]],
+   "gender":["text",["users","human"]],
+   "title":["text",["atom","users","post"]],
+   "description":["text",["atom","users","post","action_comment","message","helpdesk"]],
    "file_url":["text",["atom","post"]],
-   "link_url":["text",["atom","post","workseeker"]],
-   "tag":["text",["atom","users","post","workseeker"]],
+   "link_url":["text",["atom","post"]],
+   "tag":["text",["atom","users","post"]],
    "tag_array":["text[]",[]],
    "number":["numeric",["atom"]],
    },
    "index":{
    "created_at":["brin",["users","post"]],
-   "created_by_id":["btree",["users","post","rating","comment","message","helpdesk","otp","log_api","atom","workseeker"]],
-   "is_active":["btree",["users","post","comment","workseeker"]],
-   "is_verified":["btree",["users","post","comment","workseeker"]],
+   "created_by_id":["btree",["users","post","message","helpdesk","otp","action_rating","action_comment","log_api"]],
+   "is_active":["btree",["users","post","action_comment"]],
+   "is_verified":["btree",["users","post","action_comment"]],
    "is_read":["btree",["message"]],
    "user_id":["btree",["message"]],
-   "parent_table":["btree",["likes","bookmark","report","block","rating","comment","follow"]],
-   "parent_id":["btree",["likes","bookmark","report","block","rating","comment","follow"]],
-   "type":["btree",["atom","users","post","helpdesk","workseeker"]],
-   "status":["btree",["report","helpdesk","workseeker"]],
-   "email":["btree",["users","otp","workseeker"]],
-   "mobile":["btree",["users","otp","workseeker"]],
+   "parent_table":["btree",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
+   "parent_id":["btree",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
+   "type":["btree",["atom","users","post","helpdesk"]],
+   "status":["btree",["action_report","helpdesk"]],
+   "email":["btree",["users","otp"]],
+   "mobile":["btree",["users","otp"]],
    "password":["btree",["users"]],
    "location":["gist",["users","post"]],
-   "tag":["btree",["atom","users","post","workseeker"]],
-   "rating":["btree",["workseeker"]],
+   "tag":["btree",["atom","users","post"]],
+   "rating":["btree",["action_rating","post"]],
    "tag_array":["gin",[]]
    },
-   "not_null":{"created_by_id":["message"],"user_id":["message"],"parent_table":["likes","bookmark","report","block","rating","comment","follow"],"parent_id":["likes","bookmark","report","block","rating","comment","follow"]},
-   "unique":{"username":["users"],"created_by_id,parent_table,parent_id":["likes","bookmark","report","block","follow"]},
+   "not_null":{"created_by_id":["message"],"user_id":["message"],"parent_table":["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"],"parent_id":["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]},
+   "unique":{"username":["users"],"created_by_id,parent_table,parent_id":["action_like","action_bookmark","action_report","action_block","action_follow"]},
    "bulk_delete_disable":{"users":1},
    "query":{}
    }
@@ -393,7 +393,8 @@ async def root_postgres_schema_init(request:Request,mode:str):
    constraint_name_list=[item["constraint_name"] for item in output]
    for k,v in schema["unique"].items():
       for item in v:
-         constraint_name=f"constraint_unique_{item}_{k}".replace(',','_')
+         if len(k.split(","))==1:constraint_name=f"constraint_unique_{item}_{k}"
+         else:constraint_name=f"constraint_unique_{item}_{"".join([item[0] for item in k.split(",")])}"
          if constraint_name not in constraint_name_list:
             query=f"alter table {item} add constraint {constraint_name} unique ({k});"
             await postgres_client.fetch_all(query=query,values={})
@@ -500,16 +501,16 @@ async def root_postgres_schema_init(request:Request,mode:str):
    as $$
    begin 
    delete from users where id=a;
-   delete from block where created_by_id=a;
-   delete from bookmark where created_by_id=a;
-   delete from comment where created_by_id=a;
-   delete from follow where created_by_id=a;
-   delete from likes where created_by_id=a;
+   delete from post where created_by_id=a;
    delete from message where created_by_id=a;
    delete from message where user_id=a;
-   delete from post where created_by_id=a;
-   delete from rating where created_by_id=a;
-   delete from report where created_by_id=a;
+   delete from action_like where created_by_id=a;
+   delete from action_bookmark where created_by_id=a;
+   delete from action_report where created_by_id=a;
+   delete from action_block where created_by_id=a;
+   delete from action_follow where created_by_id=a;
+   delete from action_rating where created_by_id=a;
+   delete from action_comment where created_by_id=a;
    commit;
    end;
    $$;
@@ -1043,16 +1044,16 @@ async def my_delete_message_single(request:Request,id:int):
 #my/action-create
 from typing import Literal
 @app.post("/my/action-create")
-async def my_action_create(request:Request,action:Literal["likes","bookmark","report","block","rating","comment","follow"],parent_table:str,parent_id:int,rating:float=None,description:str=None):
+async def my_action_create(request:Request,action:str,parent_table:str,parent_id:int,rating:float=None,description:str=None):
    #logic
-   if action in ["likes","bookmark","report","block","follow"]:
+   if action in ["action_like","action_bookmark","action_report","action_block","action_follow"]:
       query=f"insert into {action} (created_by_id,parent_table,parent_id) values (:created_by_id,:parent_table,:parent_id) returning *;"
       query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
-   if action in ["rating"]:
+   if action in ["action_rating"]:
       if not rating:return responses.JSONResponse(status_code=400,content={"status":0,"message":"rating is must"})
       query=f"insert into {action} (created_by_id,parent_table,parent_id,rating) values (:created_by_id,:parent_table,:parent_id,:rating) returning *;"
       query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id,"rating":rating}
-   if action in ["comment"]:
+   if action in ["action_comment"]:
       if not description:return responses.JSONResponse(status_code=400,content={"status":0,"message":"description is must"})
       query=f"insert into {action} (created_by_id,parent_table,parent_id,description) values (:created_by_id,:parent_table,:parent_id,:description) returning *;"
       query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id,"description":description}
@@ -1116,7 +1117,7 @@ async def my_action_on_me_creator_read(request:Request,action:str,order:str="id 
    #final
    return {"status":1,"message":output}
 
-#ex=users i follow and following me
+#ex=users i action_follow and following me
 #my/action-on-me-creator-read-mutual
 @app.get("/my/action-on-me-creator-read-mutual")
 async def my_action_on_me_creator_read_mutual(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
@@ -1716,7 +1717,7 @@ async def public_websocket_single_chat(websocket:WebSocket,user_id_1:int,user_id
              
 #public/object-create
 @app.post("/public/object-create")
-async def public_object_create(request:Request,table:Literal["helpdesk","workseeker"],is_serialize:int=1):
+async def public_object_create(request:Request,table:Literal["helpdesk"],is_serialize:int=1):
    #object set
    object=await request.json()
    #serialize
@@ -1863,12 +1864,12 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    select x.*,u.username as created_by_id_username from x left join users as u on x.created_by_id=u.id;
    '''
    object_list=await postgres_client.fetch_all(query=query,values=where_value)
-   #add likes count
-   response=await postgres_add_action_count("likes",table,object_list,postgres_client)
+   #add action_like count
+   response=await postgres_add_action_count("action_like",table,object_list,postgres_client)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    object_list=response["message"]
-   #add bookmark count
-   response=await postgres_add_action_count("bookmark",table,object_list,postgres_client)
+   #add action_bookmark count
+   response=await postgres_add_action_count("action_bookmark",table,object_list,postgres_client)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    object_list=response["message"]
    #final
@@ -2109,19 +2110,20 @@ async def admin_update_api_access(request:Request,body:schema_update_api_access)
 #root/postgres clean
 @app.delete("/root/postgres-clean")
 async def root_pclean(request:Request):
+   #table name
+   output=await postgres_client.fetch_all(query="select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
+   table_name_list=[item["table_name"] for item in output]
+   table_name_list_action=[item for item in table_name_list if "action_" in item]
+   #parent_table name
+   parent_table_list=[]
+   for item in table_name_list_action:
+      output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {item};",values={})
+      parent_table_list=parent_table_list+[item["parent_table"] for item in output]
+   parent_table_name_list=list(set(parent_table_list))
    #creator null
-   for table in ["post","likes","bookmark","report","block","rating","comment","follow","message"]:
-      query=f"delete from {table} where created_by_id not in (select id from users);"
-      await postgres_client.fetch_all(query=query,values={})
+   [await postgres_client.fetch_all(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in ["post","message"]+table_name_list_action]
    #parent null
-   output=await postgres_client.fetch_all(query="select distinct(table_name) from information_schema.columns where column_name='parent_table';",values={})
-   action_table_list=[item["table_name"] for item in output]
-   for table in action_table_list:
-      output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {table};",values={})
-      parent_table_list=[item["parent_table"] for item in output]
-      for parent_table in parent_table_list:
-         query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
-         await postgres_client.fetch_all(query=query,values={})
+   [await postgres_client.fetch_all(query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});",values={}) for table in table_name_list_action for parent_table in parent_table_name_list]
    #final
    return {"status":1,"message":"done"}
 
