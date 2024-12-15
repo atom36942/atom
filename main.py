@@ -1717,7 +1717,7 @@ async def public_websocket_single_chat(websocket:WebSocket,user_id_1:int,user_id
              
 #public/object-create
 @app.post("/public/object-create")
-async def public_object_create(request:Request,table:Literal["helpdesk"],is_serialize:int=1):
+async def public_object_create(request:Request,table:Literal["helpdesk","human"],is_serialize:int=1):
    #object set
    object=await request.json()
    #serialize
