@@ -1742,7 +1742,7 @@ async def public_api_list(request:Request,mode:str=None):
 
 #public/table-column
 @app.get("/public/table-column")
-async def public_table_column(request:Request,table:str=None):
+async def public_table_column(request:Request,is_main_column:int=None,table:str=None):
    #table
    output=await postgres_client.fetch_all(query="select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
    table_name_list=[item["table_name"] for item in output]
@@ -1757,6 +1757,12 @@ async def public_table_column(request:Request,table:str=None):
    '''
    output=await postgres_client.fetch_all(query=query_master,values={})
    for item in output:temp[item["table_name"]][item["column_name"]]=item["data_type"]
+   #if is_main_column
+   temp2=copy.deepcopy(temp)
+   if is_main_column==1:
+      for k1,v1 in temp2.items():
+         for k2,v2 in v1.items():
+            if k2 in ['id','created_at','created_by_id','updated_at','updated_by_id','is_active','is_verified','is_protected','last_active_at']:del temp[k1][k2]
    #if table
    if table:temp=temp[table]
    #final
