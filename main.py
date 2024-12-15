@@ -394,7 +394,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    for k,v in schema["unique"].items():
       for item in v:
          if len(k.split(","))==1:constraint_name=f"constraint_unique_{item}_{k}"
-         else:constraint_name=f"constraint_unique_{item}_{"".join([item[0] for item in k.split(',')])}"
+         else:constraint_name=f"constraint_unique_{item}_{''.join([item[0] for item in k.split(',')])}"
          if constraint_name not in constraint_name_list:
             query=f"alter table {item} add constraint {constraint_name} unique ({k});"
             await postgres_client.fetch_all(query=query,values={})
