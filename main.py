@@ -573,7 +573,7 @@ async def auth_login(request:Request,username:str,password:str,mode:str=None):
    user=output[0] if output else None
    #check user
    if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   if mode=="admin" and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no admin"})
+   if mode=="admin" and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"not admin"})
    #create token
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
    token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
