@@ -288,9 +288,9 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "status_code":["smallint",["log_api"]],
    "response_time_ms":["numeric",["log_api"]],
    "type":["text",["atom","users","post","helpdesk"]],
-   "status":["text",["action_report","helpdesk"]],
-   "remark":["text",["action_report","helpdesk"]],
-   "rating":["numeric",["post","action_rating"]],
+   "status":["text",["action_report","helpdesk","human"]],
+   "remark":["text",["action_report","helpdesk","human"]],
+   "rating":["numeric",["post","action_rating","human"]],
    "metadata":["jsonb",["users","post"]],
    "username":["text",["users"]],
    "password":["text",["users","log_password"]],
@@ -303,18 +303,26 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "mobile":["text",["users","post","otp","helpdesk","human"]],
    "country":["text",["users","human"]],
    "state":["text",["users","human"]],
-   "city":["text",["users"]],
-   "date_of_birth":["date",["users","human"]],
-   "interest":["text",["users","human"]],
-   "skill":["text",["users","human"]],
+   "city":["text",["users","human"]],
+   "date_of_birth":["date",["users"]],
+   "year_of_birth":["smallint",["human"]],
    "gender":["text",["users","human"]],
    "title":["text",["atom","users","post"]],
    "description":["text",["atom","users","post","action_comment","message","helpdesk"]],
    "file_url":["text",["atom","post"]],
    "link_url":["text",["atom","post"]],
-   "tag":["text",["atom","users","post"]],
+   "tag":["text",["atom","users","post","human"]],
    "tag_array":["text[]",[]],
    "number":["numeric",["atom"]],
+   "interest":["text",["users","human"]],
+   "skill":["text",["users","human"]],
+   "experience":["smallint",["human"]],
+   "college":["text",["human"]],
+   "education":["text",["human"]],
+   "linkedin_url":["text",["human"]],
+   "github_url":["text",["human"]],
+   "portfolio_url":["text",["human"]],
+   "salary":["text",["human"]],
    },
    "index":{
    "created_at":["brin",["users","post"]],
@@ -533,6 +541,22 @@ async def root_postgres_query_runner(request:Request,query:str):
       else:
          await transaction.commit()
          output="done"
+   return {"status":1,"message":output}
+
+#root/package-size
+import os,pkg_resources
+@app.get("/root/package-size")
+async def root_package_size(request:Request):
+   output={}
+   for package in pkg_resources.working_set:
+      package_path=os.path.join(package.location,package.project_name)
+      output[package.project_name]=0
+      for dirpath, _,filenames in os.walk(package_path):
+         for file in filenames:
+               package_file_path=os.path.join(dirpath,file)
+               output[package.project_name]+=os.path.getsize(package_file_path)
+   output={k:v/1000000 for k,v in output.items()}
+   output=dict(sorted(output.items(), key=lambda item: item[1],reverse=True))
    return {"status":1,"message":output}
       
 #root/grant all api access
@@ -1734,11 +1758,14 @@ async def public_object_create(request:Request,table:Literal["helpdesk","human"]
 #public/api-list
 @app.get("/public/api-list")
 async def public_api_list(request:Request,mode:str=None):
+   #api list
+   api_list=[route.path for route in request.app.routes]
+   api_list_admin=[item for item in api_list if "/admin" in item]
    #logic
-   api_list=[route.path for route in router.routes]
-   if mode=="admin":api_list=[route.path for route in router.routes if "/admin" in route.path]
+   if not mode:output=api_list
+   else:output=api_list_admin
    #final
-   return {"status":1,"message":api_list}
+   return {"status":1,"message":output}
 
 #public/table-column
 @app.get("/public/table-column")
@@ -2086,6 +2113,21 @@ async def private_openai_prompt(request:Request,text:str):
    #logic
    llm=OpenAI(api_key=os.getenv("secret_key_openai"),temperature=0.7)
    output=llm(text)
+   #final
+   return {"status":1,"message":output}
+
+#admin/admin-check
+@app.get("/admin/admin-check")
+async def admin_admin_check(request:Request):
+   return {"status":1,"message":"yes"}
+
+#admin/mark-user-admin
+@app.put("/admin/mark-user-admin")
+async def admin_mark_user_admin(request:Request,user_id:int):
+   #logic
+   query="update users set api_access=:api_access where id=:id returning *"
+   query_param={"id":user_id,"api_access":"/admin/admin-check"}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
 
