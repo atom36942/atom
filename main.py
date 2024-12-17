@@ -578,6 +578,15 @@ async def root_package_size(request:Request):
    output=dict(sorted(output.items(), key=lambda item: item[1],reverse=True))
    return {"status":1,"message":output}
 
+#root/pandas-read-csv
+import pandas
+@app.post("/root/pandas-read-csv")
+async def root_pandas_read_csv(request:Request,file:UploadFile,):
+   df=pandas.read_csv(file.file)
+   file.file.close()
+   df.to_json('df_csv.json', orient='records', lines=True)
+   return {"status":1,"message":df.to_json(orient='records',lines=True)}
+
 #root/chromadb-create-collection
 import chromadb
 @app.post("/root/chromadb-create-collection")
@@ -1506,7 +1515,7 @@ async def root_redis_csv_set(request:Request,file:UploadFile,table:str,expiry:in
    file_csv=csv.DictReader(codecs.iterdecode(file.file,'utf-8'))
    object_list=[]
    for row in file_csv:object_list.append(row)
-   await file.close()
+   file.file.close()
    async with redis_client.pipeline(transaction=True) as pipe:
       for object in object_list:
          key=f"{table}_{object['id']}"
@@ -2261,7 +2270,7 @@ async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,
    file_csv=csv.DictReader(codecs.iterdecode(file.file,'utf-8'))
    object_list=[]
    for row in file_csv:object_list.append(row)
-   await file.close()
+   file.file.close()
    #serialize
    if is_serialize:
       response=await postgres_serialize(object_list,postgres_column_datatype)

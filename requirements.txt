@@ -160,6 +160,7 @@ orderly-set==5.2.2
 orjson==3.10.11
 overrides==7.7.0
 packaging==24.2
+pandas==2.2.3
 pandocfilters==1.5.1
 parso==0.8.4
 pdf2image==1.17.0
@@ -204,6 +205,7 @@ python-json-logger==2.0.7
 python-magic==0.4.27
 python-multipart==0.0.17
 python-snappy==0.7.3
+pytz==2024.2
 PyYAML==6.0.2
 pyzmq==26.2.0
 RapidFuzz==3.10.1
