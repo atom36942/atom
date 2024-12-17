@@ -548,22 +548,6 @@ async def root_postgres_query_runner(request:Request,query:str):
          output="done"
    return {"status":1,"message":output}
 
-#root/package-size
-import os,pkg_resources
-@app.get("/root/package-size")
-async def root_package_size(request:Request):
-   output={}
-   for package in pkg_resources.working_set:
-      package_path=os.path.join(package.location,package.project_name)
-      output[package.project_name]=0
-      for dirpath, _,filenames in os.walk(package_path):
-         for file in filenames:
-               package_file_path=os.path.join(dirpath,file)
-               output[package.project_name]+=os.path.getsize(package_file_path)
-   output={k:v/1000000 for k,v in output.items()}
-   output=dict(sorted(output.items(), key=lambda item: item[1],reverse=True))
-   return {"status":1,"message":output}
-      
 #root/grant all api access
 @app.put("/root/grant-all-api-access")
 async def root_grant_all_api_access(request:Request,user_id:int):
@@ -576,6 +560,67 @@ async def root_grant_all_api_access(request:Request,user_id:int):
    query_param={"api_access":api_list_admin_str,"id":user_id}
    output=await postgres_client.fetch_all(query=query,values=query_param)
    #final
+   return {"status":1,"message":output}
+
+#root/chromadb-create-collection
+import chromadb
+@app.post("/root/chromadb-create-collection")
+async def root_chromadb_create_collection(request:Request,name:str):
+   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
+   collection=chromadb_client.get_or_create_collection(name=name)
+   return {"status":1,"message":"done"}
+
+#root/chromadb-delete-collection
+import chromadb
+@app.delete("/root/chromadb-delete-collection")
+async def root_chromadb_delete_collection(request:Request,name:str):
+   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
+   collection=chromadb_client.delete_collection(name=name)
+   return {"status":1,"message":"done"}
+
+#root/chromadb-rename-collection
+import chromadb
+@app.put("/root/chromadb-rename-collection")
+async def root_chromadb_rename_collection(request:Request,name_old:str,name_new:str):
+   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
+   collection=chromadb_client.get_collection(name=name_old)
+   collection.modify(name=name_new)
+   return {"status":1,"message":"done"}
+
+#root/chromadb-delete-database
+import chromadb
+from chromadb.config import Settings
+@app.delete("/root/chromadb-delete-database")
+async def root_chromadb_delete_database(request:Request):
+   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads",settings=Settings(allow_reset=True))
+   chromadb_client.reset()
+   return {"status":1,"message":"done"}
+
+#root/chromadb-pdf-store
+import chromadb
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+@app.post("/root/chromadb-pdf-store")
+async def root_chromadb_pdf_store(request:Request,collection_name:str,file_path:str):
+   #pdf to chunk
+   loader=PyPDFLoader(file_path)
+   document=loader.load()
+   text=" ".join([item.page_content for item in document])
+   splitter=RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=20)
+   chunk=splitter.split_text(text)
+   #chunk store
+   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
+   collection=chromadb_client.get_or_create_collection(name=collection_name)
+   collection.add(documents=chunk,metadatas=[{"source":file_path} for item in chunk],ids=[str(index) for index,item in enumerate(chunk)])
+   return {"status":1,"message":"done"}
+
+#root/chromadb-pdf-search
+import chromadb
+@app.get("/root/chromadb-pdf-search")
+async def root_chromadb_pdf_search(request:Request,collection_name:str,text:str,limit:int=3):
+   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
+   collection=chromadb_client.get_or_create_collection(name=collection_name)
+   output=collection.query(query_texts=[text],n_results=limit)
    return {"status":1,"message":output}
 
 #auth/signup
@@ -1169,34 +1214,46 @@ from langchain.text_splitter import TokenTextSplitter
 async def public_langchain_txt_file_token_splitter(request:Request,file_path:str):
    loader=TextLoader(file_path)
    document=loader.load()
-   text=document[0].page_content
+   text=" ".join([item.page_content for item in document])
    splitter=TokenTextSplitter(encoding_name="cl100k_base",chunk_size=1000,chunk_overlap=100)
-   chunks=splitter.split_text(text)
-   return {"status":1,"message":chunks}
+   chunk=splitter.split_text(text)
+   return {"status":1,"message":chunk}
 
-#public/langchain-txt-file-chunks-splitter-recursive
+#public/langchain-txt-file-chunk-splitter-recursive
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-@app.get("/public/langchain-txt-file-chunks-splitter-recursive")
-async def public_langchain_txt_file_chunks_splitter_recursive(request:Request,file_path:str):
+@app.get("/public/langchain-txt-file-chunk-splitter-recursive")
+async def public_langchain_txt_file_chunk_splitter_recursive(request:Request,file_path:str):
    loader=TextLoader(file_path)
    document=loader.load()
-   text=document[0].page_content
+   text=" ".join([item.page_content for item in document])
    splitter=RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " ", ""],chunk_size=1000,chunk_overlap=200,length_function=len)
-   chunks=splitter.split_text(text)
-   return {"status":1,"message":chunks}
+   chunk=splitter.split_text(text)
+   return {"status":1,"message":chunk}
 
-#public/langchain-txt-file-chunks-splitter
+#public/langchain-pdf-file-chunk-splitter-recursive
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+@app.get("/public/langchain-pdf-file-chunk-splitter-recursive")
+async def public_langchain_pdf_file_chunk_splitter_recursive(request:Request,file_path:str):
+   loader=PyPDFLoader(file_path)
+   document=loader.load()
+   text=" ".join([item.page_content for item in document])
+   splitter=RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=100)
+   chunk=splitter.split_text(text)
+   return {"status":1,"message":chunk}
+
+#public/langchain-txt-file-chunk-splitter
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import CharacterTextSplitter
-@app.get("/public/langchain-txt-file-chunks-splitter")
-async def public_langchain_txt_file_chunks_splitter(request:Request,file_path:str):
+@app.get("/public/langchain-txt-file-chunk-splitter")
+async def public_langchain_txt_file_chunk_splitter(request:Request,file_path:str):
    loader=TextLoader(file_path)
    document=loader.load()
-   text=document[0].page_content
+   text=" ".join([item.page_content for item in document])
    splitter=CharacterTextSplitter(separator="\n\n",chunk_size=1000,chunk_overlap=200)
-   chunks=splitter.split_text(text)
-   return {"status":1,"message":chunks}
+   chunk=splitter.split_text(text)
+   return {"status":1,"message":chunk}
 
 #public/langchain-webpage-loader
 import os,bs4
