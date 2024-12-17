@@ -562,6 +562,22 @@ async def root_grant_all_api_access(request:Request,user_id:int):
    #final
    return {"status":1,"message":output}
 
+#root/package-size
+import os,pkg_resources
+@app.get("/root/package-size")
+async def root_package_size(request:Request):
+   output={}
+   for package in pkg_resources.working_set:
+      package_path=os.path.join(package.location,package.project_name)
+      output[package.project_name]=0
+      for dirpath, _,filenames in os.walk(package_path):
+         for file in filenames:
+               package_file_path=os.path.join(dirpath,file)
+               output[package.project_name]+=os.path.getsize(package_file_path)
+   output={k:v/1000000 for k,v in output.items()}
+   output=dict(sorted(output.items(), key=lambda item: item[1],reverse=True))
+   return {"status":1,"message":output}
+
 #root/chromadb-create-collection
 import chromadb
 @app.post("/root/chromadb-create-collection")
