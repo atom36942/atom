@@ -648,6 +648,22 @@ async def root_chromadb_pdf_search(request:Request,collection_name:str,text:str,
    output=collection.query(query_texts=[text],n_results=limit)
    return {"status":1,"message":output}
 
+#root/openai-chat-completion
+from openai import OpenAI
+@app.get("/root/openai-chat-completion")
+async def root_openai_chat_completion(request:Request,model:str,system:str,user:str):
+   openai_client=OpenAI(api_key=os.getenv("secret_key_openai"))
+   output=openai_client.chat.completions.create(model=model,messages=[{"role":"system","content":system},{"role":"user","content":user}])
+   return {"status":1,"message":output}
+
+#root/openai-create-embedding
+from openai import OpenAI
+@app.get("/root/openai-create-embedding")
+async def root_openai_create_embedding(request:Request,model:str,text:str):
+   openai_client=OpenAI(api_key=os.getenv("secret_key_openai"))
+   output=openai_client.embeddings.create(model=model,input=text,encoding_format="float")
+   return {"status":1,"message":output}
+
 #auth/signup
 @app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
 async def auth_signup(request:Request,username:str,password:str):
@@ -2190,16 +2206,6 @@ async def private_rekognition_job_status(request:Request,region:str,mode:Literal
    if mode=="content":
       if next_token:output=rekognition_client.get_content_moderation(JobId=job_id,MaxResults=100,NextToken=next_token)
       else:output=rekognition_client.get_content_moderation(JobId=job_id,MaxResults=100)
-   #final
-   return {"status":1,"message":output}
-
-#private/openai
-from langchain_community.llms import OpenAI
-@app.get("/private/openai-prompt")
-async def private_openai_prompt(request:Request,text:str):
-   #logic
-   llm=OpenAI(api_key=os.getenv("secret_key_openai"),temperature=0.7)
-   output=llm(text)
    #final
    return {"status":1,"message":output}
 
