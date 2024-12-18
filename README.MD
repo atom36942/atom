@@ -1,4 +1,5 @@
 # about atom
+```
 1. atom is a open-source repo that be used to deployed backend of most applications in minimal time
 2. atom has pre-built modules that is common accross most of the applications
 3. primary vision is to help entreprenurs to laucnh their ideas faster
@@ -6,13 +7,16 @@
 5. core tech stack=python,fastapi,postgres,redis
 6. [api docs](https://atom-tbsk.onrender.com/docs)
 7. contact=atom36942@gmail.com
+```
 
+```
 # how to run
 1. download atom repo
 2. create .env file inside downloaded folder (check below for env file keys)
 3. create venv
 4. install requirements.txt
 5. python main.py
+```
 
 # env file
 ```
