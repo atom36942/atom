@@ -237,7 +237,7 @@ async def middleware(request:Request,api_function):
          object_list_log=[]
    except Exception as e:
       print(traceback.format_exc())
-      return responses.JSONResponse(status_code=400,content={"status":0,"message":e.args})
+      return responses.JSONResponse(status_code=400,content={"status":0,"message":str(e.args)})
    return response
 
 #router
@@ -255,7 +255,7 @@ for item in file_name_list_without_extension:
 from fastapi import Request,UploadFile,responses,BackgroundTasks,Depends
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
-import hashlib,datetime,json,uuid,time,jwt,csv,codecs,copy
+import hashlib,datetime,json,uuid,time,jwt,csv,codecs,copy,requests,os
 
 @app.get("/")
 async def root(request:Request):
@@ -562,6 +562,77 @@ async def root_grant_all_api_access(request:Request,user_id:int):
    #final
    return {"status":1,"message":output}
 
+#root/file-save
+@app.post("/root/file-save")
+async def root_file_save(request:Request,path:str,file:UploadFile):
+   with open(f"{path}/{file.filename}","wb") as f:f.write(file.file.read())
+   return {"status":1,"message":"done"}
+
+#root/gemini-prompt
+import google.generativeai as genai
+@app.get("/root/gemini-prompt")
+async def root_gemini_prompt(request:Request,model:str,prompt:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   output=model.generate_content(prompt)
+   return {"status":1,"message":output.text}
+
+#root/gemini-prompt-image-url
+import google.generativeai as genai
+import httpx,os,base64
+@app.get("/root/gemini-prompt-image-url")
+async def root_gemini_prompt_image_url(request:Request,model:str,prompt:str,url:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   image=httpx.get(url)
+   output=model.generate_content([{'mime_type':'image/jpeg', 'data': base64.b64encode(image.content).decode('utf-8')},prompt])
+   return {"status":1,"message":output.text}
+
+#root/gemini-prompt-image-path
+import google.generativeai as genai
+@app.get("/root/gemini-prompt-image-path")
+async def root_gemini_prompt_image_path(request:Request,model:str,prompt:str,file_path:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   image=genai.upload_file(file_path)
+   output=model.generate_content([image,prompt])
+   return {"status":1,"message":output.text}
+
+#root/gemini-prompt-image-upload
+import google.generativeai as genai
+import PIL.Image
+@app.post("/root/gemini-prompt-image-upload")
+async def root_gemini_prompt_image_upload(request:Request,model:str,prompt:str,file:UploadFile):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   path=f"./{file.filename}"
+   with open(path,"wb") as f:f.write(file.file.read())
+   media=PIL.Image.open(path)
+   output=model.generate_content([prompt,media])
+   os.remove(path)
+   return {"status":1,"message":output.text}
+
+#root/gemini-prompt-audio-upload
+import google.generativeai as genai
+@app.post("/root/gemini-prompt-audio-upload")
+async def root_gemini_prompt_audio_upload(request:Request,model:str,prompt:str,file:UploadFile):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   path=f"./{file.filename}"
+   with open(path,"wb") as f:f.write(file.file.read())
+   file_uploaded=genai.upload_file(path)
+   output=model.generate_content([file_uploaded,prompt])
+   os.remove(path)
+   return {"status":1,"message":output.text}
+
+#root/gemini-create-embedding
+import google.generativeai as genai
+@app.get("/root/gemini-create-embedding")
+async def root_gemini_create_embedding(request:Request,model:str,text:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   output=genai.embed_content(model=model,content=text)
+   return {"status":1,"message":str(output['embedding'])}
+
 #root/package-size
 import os,pkg_resources
 @app.get("/root/package-size")
@@ -577,6 +648,26 @@ async def root_package_size(request:Request):
    output={k:v/1000000 for k,v in output.items()}
    output=dict(sorted(output.items(), key=lambda item: item[1],reverse=True))
    return {"status":1,"message":output}
+
+#root/request-get
+@app.get("/root/request-get")
+async def root_request_get(request:Request,url:str):
+   output=requests.get(url,params={},headers={})
+   return {"status":1,"message":output.json()}
+
+#root/request-post
+@app.post("/root/request-post")
+async def root_request_post(request:Request,url:str):
+   body=await request.json()
+   output=requests.post(url,json=body)
+   return {"status":1,"message":output.json()}
+
+#root/request-put
+@app.post("/root/request-post")
+async def root_request_post(request:Request,url:str):
+   body=await request.json()
+   output=requests.post(url,json=body)
+   return {"status":1,"message":output.json()}
 
 #root/pandas-read-csv
 import pandas
@@ -2665,7 +2756,7 @@ if __name__=="__main__" and len(mode)==1:
 
 #main redis subscriber start
 import asyncio
-if __name__=="__main__" and len(mode)>1 and mode[1]=="redis_subscribe":
+if __name__=="__main__" and len(mode)>1 and mode[1]=="redis-subscribe":
    try:
       asyncio.run(redis_subscriber_start(os.getenv("redis_server_url"),mode[2]))
    except KeyboardInterrupt:
@@ -2673,7 +2764,7 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="redis_subscribe":
    
 #main kafka consumer start
 import asyncio
-if __name__=="__main__" and len(mode)>1 and mode[1]=="kafka_consumer":
+if __name__=="__main__" and len(mode)>1 and mode[1]=="kafka-consumer":
    try:
       asyncio.run(kafka_consumer_start(os.getenv("kafka_server_url"),os.getenv("kafka_path_cafile"),os.getenv("kafka_path_certfile"),os.getenv("kafka_path_keyfile"),mode[2]))
    except KeyboardInterrupt:
@@ -2681,7 +2772,7 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="kafka_consumer":
 
 #main lavinmq consumer start
 import asyncio,pika
-if __name__=="__main__" and len(mode)>1 and mode[1]=="lavinmq_consumer":
+if __name__=="__main__" and len(mode)>1 and mode[1]=="lavinmq-consumer":
    try:
       lavinmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("lavinmq_server_url")))
       channel=lavinmq_client.channel()
@@ -2694,7 +2785,7 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="lavinmq_consumer":
 
 #main rabbitmq consumer start
 import asyncio,pika
-if __name__=="__main__" and len(mode)>1 and mode[1]=="rabbitmq_consumer":
+if __name__=="__main__" and len(mode)>1 and mode[1]=="rabbitmq-consumer":
    try:
       rabbitmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("rabbitmq_server_url")))
       channel=rabbitmq_client.channel()
@@ -2704,4 +2795,20 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="rabbitmq_consumer":
    except KeyboardInterrupt:
       rabbitmq_client.close()
       print("exited")
-      
+
+#main gemini chat start
+import google.generativeai as genai
+if __name__=="__main__" and len(mode)>1 and mode[1]=="gemini-chat":
+   try:
+      genai.configure(api_key=os.getenv("secret_key_gemini"))
+      model=genai.GenerativeModel("gemini-1.5-flash")
+      chat=model.start_chat(history=[])
+      while True:
+         user_input=input("You: ")
+         response=chat.send_message(user_input,stream=True)
+         for chunk in response:print(chunk.text)
+   except KeyboardInterrupt:
+      print("exited")
+
+ 
+   

@@ -170,3 +170,9 @@ env.py
 .vscode/
 *.db
 *.sqlite3
+*.png
+*.jpg
+*.jpeg
+*.csv
+*.json
+*.mp3
