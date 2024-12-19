@@ -172,13 +172,13 @@ async def lifespan(app:FastAPI):
    FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
    #postgres column data type
    global postgres_column_datatype
-   query_master='''
+   query_schema='''
    with 
    t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
    c as (select * from information_schema.columns where table_schema='public')
    select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
    '''
-   output=await postgres_client.fetch_all(query=query_master,values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
    postgres_column_datatype={item["column_name"]:item["data_type"] for item in output}
    #disconnect
    yield
@@ -267,12 +267,12 @@ async def root_postgres_schema_init(request:Request,mode:str):
    if mode=="self":schema=await request.json()
    if mode=="default":schema={
    "extension":["postgis"],
-   "table":["atom","human","users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_rating","action_comment","action_follow","log_api","log_password"],
+   "table":["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_rating","action_comment","action_follow","log_api","log_password","atom","human"],
    "column":{
-   "created_at":["timestamptz",["atom","human","users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password"]],
-   "created_by_id":["bigint",["atom","human","users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password"]],
-   "updated_at":["timestamptz",["atom","human","users","post","message","helpdesk","action_report","action_comment"]],
-   "updated_by_id":["bigint",["atom","human","users","post","message","helpdesk","action_report","action_comment"]],
+   "created_at":["timestamptz",["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password","atom","human"]],
+   "created_by_id":["bigint",["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password","atom","human"]],
+   "updated_at":["timestamptz",["users","post","message","helpdesk","action_report","action_comment","atom","human"]],
+   "updated_by_id":["bigint",["users","post","message","helpdesk","action_report","action_comment","atom","human"]],
    "is_active":["smallint",["users","post","action_comment"]],
    "is_verified":["smallint",["users","post","action_comment"]],
    "is_protected":["smallint",["users","post"]],
@@ -286,9 +286,9 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "api":["text",["log_api"]],
    "status_code":["smallint",["log_api"]],
    "response_time_ms":["numeric",["log_api"]],
-   "type":["text",["atom","users","post","helpdesk","human"]],
-   "status":["text",["action_report","helpdesk","human"]],
-   "remark":["text",["action_report","helpdesk","human"]],
+   "type":["text",["users","post","helpdesk","atom","human"]],
+   "status":["text",["action_report","helpdesk","atom","human"]],
+   "remark":["text",["action_report","helpdesk","atom","human"]],
    "rating":["numeric",["post","action_rating","human"]],
    "metadata":["jsonb",["users","post"]],
    "username":["text",["users"]],
@@ -307,11 +307,11 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "date_of_birth":["date",["users"]],
    "year_of_birth":["smallint",["human"]],
    "gender":["text",["users","human"]],
-   "title":["text",["atom","users","post"]],
-   "description":["text",["atom","users","post","action_comment","message","helpdesk","human"]],
-   "file_url":["text",["atom","post"]],
-   "link_url":["text",["atom","post","human"]],
-   "tag":["text",["atom","users","post","human"]],
+   "title":["text",["users","post","atom"]],
+   "description":["text",["users","post","action_comment","message","helpdesk","atom","human"]],
+   "file_url":["text",["post","atom"]],
+   "link_url":["text",["post","atom","human"]],
+   "tag":["text",["users","post","atom","human"]],
    "tag_array":["text[]",[]],
    "number":["numeric",["atom"]],
    "interest":["text",["users","human"]],
@@ -337,20 +337,23 @@ async def root_postgres_schema_init(request:Request,mode:str):
    "user_id":["btree",["message"]],
    "parent_table":["btree",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
    "parent_id":["btree",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
-   "type":["btree",["atom","users","post","helpdesk"]],
+   "type":["btree",["users","post","helpdesk","atom","human"]],
    "status":["btree",["action_report","helpdesk"]],
    "email":["btree",["users","otp"]],
    "mobile":["btree",["users","otp"]],
    "password":["btree",["users"]],
    "location":["gist",["users","post"]],
-   "tag":["btree",["atom","users","post"]],
-   "rating":["btree",["action_rating","post"]],
+   "tag":["btree",["users","post","atom"]],
+   "rating":["btree",["post","action_rating"]],
    "tag_array":["gin",[]]
    },
    "not_null":{"created_by_id":["message"],"user_id":["message"],"parent_table":["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"],"parent_id":["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]},
    "unique":{"username":["users"],"created_by_id,parent_table,parent_id":["action_like","action_bookmark","action_report","action_block","action_follow"]},
    "bulk_delete_disable":{"users":1},
-   "query":{}
+   "query":{
+   "view_schema":"create or replace view view_schema as (with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public') select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name);",
+   "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema='public'));",
+   }
    }
    #extension (config)
    for item in schema["extension"]:
@@ -364,13 +367,13 @@ async def root_postgres_schema_init(request:Request,mode:str):
          query=f"create table if not exists {item} (id bigint primary key generated always as identity not null);"
          await postgres_client.fetch_all(query=query,values={})
    #column (config)
-   query_master='''
+   query_schema='''
    with 
    t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
    c as (select * from information_schema.columns where table_schema='public')
    select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
    '''
-   output=await postgres_client.fetch_all(query=query_master,values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
    table_column_list=[f"{item['table_name']}_{item['column_name']}" for item in output]
    for k,v in schema["column"].items():
       for item in v[1]:
@@ -387,13 +390,13 @@ async def root_postgres_schema_init(request:Request,mode:str):
             query=f"create index concurrently if not exists {index_name} on {item} using {v[0]} ({k});"
             await postgres_client.fetch_all(query=query,values={}) 
    #notnull (config)
-   query_master='''
+   query_schema='''
    with 
    t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
    c as (select * from information_schema.columns where table_schema='public')
    select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
    '''
-   output=await postgres_client.fetch_all(query=query_master,values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
    table_column_nullable_mapping={f"{item['table_name']}_{item['column_name']}":item["is_nullable"] for item in output}
    for k,v in schema["not_null"].items():
       for item in v:
@@ -424,13 +427,13 @@ async def root_postgres_schema_init(request:Request,mode:str):
       if "add constraint" in v and v.split()[5] in constraint_name_list:continue
       await postgres_client.fetch_all(query=v,values={})
    #set created_at default (auto)
-   query_master='''
+   query_schema='''
    with 
    t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
    c as (select * from information_schema.columns where table_schema='public')
    select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
    '''
-   output=await postgres_client.fetch_all(query=query_master,values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
    for item in output:
       if item["column_name"]=="created_at" and not item["column_default"]:
          query=f"alter table only {item['table_name']} alter column created_at set default now();"
@@ -439,13 +442,13 @@ async def root_postgres_schema_init(request:Request,mode:str):
    await postgres_client.fetch_all(query="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",values={})
    output=await postgres_client.fetch_all(query="select trigger_name from information_schema.triggers;",values={})
    trigger_name_list=[item["trigger_name"] for item in output]
-   query_master='''
+   query_schema='''
    with 
    t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
    c as (select * from information_schema.columns where table_schema='public')
    select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
    '''
-   output=await postgres_client.fetch_all(query=query_master,values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
    for item in output:
       if item["column_name"]=="updated_at":
          trigger_name=f"trigger_set_updated_at_now_{item['table_name']}"
@@ -455,13 +458,13 @@ async def root_postgres_schema_init(request:Request,mode:str):
    #create rule protection (auto)
    output=await postgres_client.fetch_all(query="select rulename from pg_rules;",values={})
    rule_name_list=[item["rulename"] for item in output]
-   query_master='''
+   query_schema='''
    with 
    t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
    c as (select * from information_schema.columns where table_schema='public')
    select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
    '''
-   output=await postgres_client.fetch_all(query=query_master,values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
    for item in output:
       if item["column_name"]=="is_protected":
          rule_name=f"rule_protect_{item['table_name']}"
@@ -471,18 +474,6 @@ async def root_postgres_schema_init(request:Request,mode:str):
    #root user (auto)
    await postgres_client.fetch_all(query="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",values={})
    await postgres_client.fetch_all(query=  "create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",values={})
-   #refresh mat all (auto)
-   query='''
-   DO
-   $$ DECLARE r RECORD; 
-   BEGIN FOR r IN 
-   (select oid::regclass::text as mat_name from pg_class where relkind='m') 
-   LOOP
-   EXECUTE 'refresh materialized view ' || quote_ident(r.mat_name); 
-   END LOOP;
-   END $$;
-   '''
-   await postgres_client.fetch_all(query=query,values={})
    #log password change (auto)
    function_log_password_change='''
    CREATE OR REPLACE FUNCTION function_log_password_change() 
@@ -528,8 +519,34 @@ async def root_postgres_schema_init(request:Request,mode:str):
    $$;
    '''
    await postgres_client.fetch_all(query=query,values={})
+   #refresh mat all (auto)
+   query='''
+   DO
+   $$ DECLARE r RECORD; 
+   BEGIN FOR r IN 
+   (select oid::regclass::text as mat_name from pg_class where relkind='m') 
+   LOOP
+   EXECUTE 'refresh materialized view ' || quote_ident(r.mat_name); 
+   END LOOP;
+   END $$;
+   '''
+   await postgres_client.fetch_all(query=query,values={})
    #final
    return {"status":1,"message":"done"}
+
+#root/grant all api access
+@app.put("/root/grant-all-api-access")
+async def root_grant_all_api_access(request:Request,user_id:int):
+   #api list
+   api_list=[route.path for route in request.app.routes]
+   api_list_admin=[item for item in api_list if "/admin" in item]
+   api_list_admin_str=",".join(api_list_admin)
+   #logic
+   query="update users set api_access=:api_access where id=:id returning *"
+   query_param={"api_access":api_list_admin_str,"id":user_id}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
 
 #root/postgres-query-runner
 @app.get("/root/postgres-query-runner")
@@ -547,19 +564,178 @@ async def root_postgres_query_runner(request:Request,query:str):
          output="done"
    return {"status":1,"message":output}
 
-#root/grant all api access
-@app.put("/root/grant-all-api-access")
-async def root_grant_all_api_access(request:Request,user_id:int):
-   #api list
-   api_list=[route.path for route in request.app.routes]
-   api_list_admin=[item for item in api_list if "/admin" in item]
-   api_list_admin_str=",".join(api_list_admin)
-   #logic
-   query="update users set api_access=:api_access where id=:id returning *"
-   query_param={"api_access":api_list_admin_str,"id":user_id}
+#auth/signup
+@app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
+async def auth_signup(request:Request,username:str,password:str):
+   #create user
+   query="insert into users (username,password) values (:username,:password) returning *;"
+   query_param={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=query_param)
+   user=user=output[0]
+   #create token
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
    #final
-   return {"status":1,"message":output}
+   return {"status":1,"message":token}
+
+#auth/login
+@app.get("/auth/login")
+async def auth_login(request:Request,username:str,password:str,is_admin:int=None):
+   #read user
+   query=f"select * from users where username=:username and password=:password order by id desc limit 1;"
+   query_param={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   user=output[0] if output else None
+   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   #create token
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   #check admin
+   if is_admin==1 and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
+   #final
+   return {"status":1,"message":token}
+
+#auth/login-google
+@app.get("/auth/login-google")
+async def auth_login_google(request:Request,google_id:str,is_admin:int=None):
+   #read user
+   query=f"select * from users where google_id=:google_id order by id desc limit 1;"
+   query_param={"google_id":hashlib.sha256(google_id.encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   user=output[0] if output else None
+   #create user
+   if not user:
+     query=f"insert into users (google_id) values (:google_id) returning *;"
+     query_param={"google_id":hashlib.sha256(google_id.encode()).hexdigest()}
+     output=await postgres_client.fetch_all(query=query,values=query_param)
+     user_id=output[0]["id"]
+     query="select * from users where id=:id;"
+     query_param={"id":user_id}
+     output=await postgres_client.fetch_all(query=query,values=query_param)
+     user=output[0]
+   #create token
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   #check admin
+   if is_admin==1 and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
+   #final
+   return {"status":1,"message":token}
+
+#auth/login-email-otp
+@app.get("/auth/login-email-otp")
+async def auth_login_email_otp(request:Request,email:str,otp:int,is_admin:int=None,is_exist:int=None):
+   #verify otp
+   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+   query_param={"email":email}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   #read user
+   query=f"select * from users where email=:email order by id desc limit 1;"
+   query_param={"email":email}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   user=output[0] if output else None
+   #check if user exist
+   if is_exist==1 and not user:return responses.JSONResponse(status_code=400,content={"status":1,"message":"no user"})
+   #create user
+   if not user:
+     query=f"insert into users (email) values (:email) returning *;"
+     query_param={"email":email}
+     output=await postgres_client.fetch_all(query=query,values=query_param)
+     user_id=output[0]["id"]
+     query="select * from users where id=:id;"
+     query_param={"id":user_id}
+     output=await postgres_client.fetch_all(query=query,values=query_param)
+     user=output[0]
+   #create token
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   #check admin
+   if is_admin==1 and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
+   #final
+   return {"status":1,"message":token}
+
+#auth/login-mobile-otp
+@app.get("/auth/login-mobile-otp")
+async def auth_login_mobile_otp(request:Request,mobile:str,otp:int,is_admin:int=None,is_exist:int=None):
+   #verify otp
+   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+   query_param={"mobile":mobile}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   #read user
+   query=f"select * from users where mobile=:mobile order by id desc limit 1;"
+   query_param={"mobile":mobile}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   user=output[0] if output else None
+   #check if user exist
+   if is_exist==1 and not user:return responses.JSONResponse(status_code=400,content={"status":1,"message":"no user"})
+   #create user
+   if not user:
+     query=f"insert into users (mobile) values (:mobile) returning *;"
+     query_param={"mobile":mobile}
+     output=await postgres_client.fetch_all(query=query,values=query_param)
+     user_id=output[0]["id"]
+     query="select * from users where id=:id;"
+     query_param={"id":user_id}
+     output=await postgres_client.fetch_all(query=query,values=query_param)
+     user=output[0]
+   #create token
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   #check admin
+   if is_admin==1 and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
+   #final
+   return {"status":1,"message":token}
+
+#auth/login-email-password
+@app.get("/auth/login-email-password")
+async def auth_login_email_password(request:Request,email:str,password:str):
+   #read user
+   query=f"select * from users where email=:email and password=:password order by id desc limit 1;"
+   query_param={"email":email,"password":hashlib.sha256(password.encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   user=output[0] if output else None
+   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   #create token
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   #final
+   return {"status":1,"message":token}
+
+#auth/login-mobile-password
+@app.get("/auth/login-mobile-password")
+async def auth_login_mobile_password(request:Request,mobile:str,password:str):
+   #read user
+   query=f"select * from users where mobile=:mobile and password=:password order by id desc limit 1;"
+   query_param={"mobile":mobile,"password":hashlib.sha256(password.encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   user=output[0] if output else None
+   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   #create token
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   #final
+   return {"status":1,"message":token}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #root/file-save
 @app.post("/root/file-save")
@@ -754,152 +930,7 @@ async def root_openai_create_embedding(request:Request,model:str,text:str):
    output=openai_client.embeddings.create(model=model,input=text,encoding_format="float")
    return {"status":1,"message":output}
 
-#auth/signup
-@app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
-async def auth_signup(request:Request,username:str,password:str):
-   #create user
-   query="insert into users (username,password) values (:username,:password) returning *;"
-   query_param={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=user=output[0]
-   #create token
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
 
-#auth/login
-@app.get("/auth/login")
-async def auth_login(request:Request,username:str,password:str,mode:str=None):
-   #read user
-   query=f"select * from users where username=:username and password=:password order by id desc limit 1;"
-   query_param={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   #check user
-   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   if mode=="admin" and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"not admin"})
-   #create token
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
-
-#auth/login-google
-@app.get("/auth/login-google")
-async def auth_login_google(request:Request,google_id:str):
-   #read user
-   query=f"select * from users where google_id=:google_id order by id desc limit 1;"
-   query_param={"google_id":hashlib.sha256(google_id.encode()).hexdigest()}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   #create user
-   if not user:
-     query=f"insert into users (google_id) values (:google_id) returning *;"
-     query_param={"google_id":hashlib.sha256(google_id.encode()).hexdigest()}
-     output=await postgres_client.fetch_all(query=query,values=query_param)
-     user_id=output[0]["id"]
-     query="select * from users where id=:id;"
-     query_param={"id":user_id}
-     output=await postgres_client.fetch_all(query=query,values=query_param)
-     user=output[0]
-   #create token
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
-
-#auth/login-email-otp
-@app.get("/auth/login-email-otp")
-async def auth_login_email_otp(request:Request,email:str,otp:int,mode:str=None):
-   #verify otp
-   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
-   query_param={"email":email}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #read user
-   query=f"select * from users where email=:email order by id desc limit 1;"
-   query_param={"email":email}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   if mode=="exist" and not user:return responses.JSONResponse(status_code=400,content={"status":1,"message":"no user"})
-   #create user
-   if not user:
-     query=f"insert into users (email) values (:email) returning *;"
-     query_param={"email":email}
-     output=await postgres_client.fetch_all(query=query,values=query_param)
-     user_id=output[0]["id"]
-     query="select * from users where id=:id;"
-     query_param={"id":user_id}
-     output=await postgres_client.fetch_all(query=query,values=query_param)
-     user=output[0]
-   #create token
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
-
-#auth/login-mobile-otp
-@app.get("/auth/login-mobile-otp")
-async def auth_login_mobile_otp(request:Request,mobile:str,otp:int,mode:str=None):
-   #verify otp
-   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
-   query_param={"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #read user
-   query=f"select * from users where mobile=:mobile order by id desc limit 1;"
-   query_param={"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   if mode=="exist" and not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   #create user
-   if not user:
-     query=f"insert into users (mobile) values (:mobile) returning *;"
-     query_param={"mobile":mobile}
-     output=await postgres_client.fetch_all(query=query,values=query_param)
-     user_id=output[0]["id"]
-     query="select * from users where id=:id;"
-     query_param={"id":user_id}
-     output=await postgres_client.fetch_all(query=query,values=query_param)
-     user=output[0]
-   #create token
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
-
-#auth/login-email-password
-@app.get("/auth/login-email-password")
-async def auth_login_email_password(request:Request,email:str,password:str):
-   #read user
-   query=f"select * from users where email=:email and password=:password order by id desc limit 1;"
-   query_param={"email":email,"password":hashlib.sha256(password.encode()).hexdigest()}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   #create token
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
-
-#auth/login-mobile-password
-@app.get("/auth/login-mobile-password")
-async def auth_login_mobile_password(request:Request,mobile:str,password:str):
-   #read user
-   query=f"select * from users where mobile=:mobile and password=:password order by id desc limit 1;"
-   query_param={"mobile":mobile,"password":hashlib.sha256(password.encode()).hexdigest()}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   #create token
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
 
 #my/profile
 @app.get("/my/profile")
@@ -925,7 +956,7 @@ async def my_token_refresh(request:Request):
    #create token
    user=request.state.user
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
    #final
    return {"status":1,"message":token}
 
@@ -1969,13 +2000,13 @@ async def public_table_column(request:Request,is_main_column:int=None,table:str=
    temp={}
    for item in table_name_list:temp[item]={}
    #columm
-   query_master='''
+   query_schema='''
    with 
    t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
    c as (select * from information_schema.columns where table_schema='public')
    select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
    '''
-   output=await postgres_client.fetch_all(query=query_master,values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
    for item in output:temp[item["table_name"]][item["column_name"]]=item["data_type"]
    #if is_main_column
    temp2=copy.deepcopy(temp)

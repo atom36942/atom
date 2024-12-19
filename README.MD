@@ -5,6 +5,7 @@
 3. primary vision is to help entreprenurs to laucnh their ideas faster
 4. atom is non-opionanted as it is written on object level with no affection to type of object
 5. core tech stack=python,fastapi,postgres,redis
+6. atom doesn't rely on any orm and uses raw sql entirely
 ```
 
 ### coding paradigm
@@ -18,7 +19,11 @@ A procedure can store local data that is not accessible from outside the procedu
 
 ### api docs
 ```
-https://atom-tbsk.onrender.com/docs
+1. http://localhost:8000/redoc
+
+2. http://127.0.0.1:8000/docs
+
+3. sample hsoted docs = https://atom-tbsk.onrender.com/docs
 ```
 
 ### contact
@@ -144,4 +149,41 @@ You can add more gates in the middleware if there is a need.
 4. public=all api starting with /public are apis where there is no auth needed. Any user can access it.
 5. private - all api starting with /private are apis where there is token is needed.
 6. admin - all api starting with /admin are api where user.type="admin" in db. 
+```
+
+### adding routers
+```
+If you want to make new api files, then just name it with "api_{filename}" and it will be automatically imported.
+```
+
+### database schema init
+```
+1. atom uses postgres as the primary database.
+2. just add "postgres_database_url" in .env file
+3. atom has a simple api to initialzie the entire database schema with just one click
+4. api = {{baseurl}}/root/postgres-schema-init?mode=default
+5. above api executes - extension installation + table creation + column creation + not null configuration + unique configuration + bulk delete disable + triggers + functions + procedures + protection on rows delete + misc query
+```
+
+### query runner
+```
+1. atom has given root user privilege to run any sql.
+2. api={{baseurl}}/root/postgres-query-runner
+3. to run bulk query, use separator "---"
+4. bulk query sample=insert into otp (otp,email) values (123,'atom36942@gmail.com')---insert into otp (otp,mobile) values (123,'123456789')
+```
+
+### auth module
+```
+Atom has all the necessary auth apis prebuilt.
+
+1. signup with username/password
+2. login with username/password
+3. login with google
+4. login with email/otp
+5. login with mobile/otp
+6. login with email/password
+7. login with mobile/password
+
+Above apis support admin login also depending on the query param passed.
 ```
