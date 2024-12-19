@@ -4,8 +4,15 @@
 2. atom can reduce develoment time to a large extent
 3. primary vision is to help entreprenurs to laucnh their ideas faster
 4. atom is non-opionanted as atom is written on object level with no affection to type of object
-5. atom follows procedural+functional programming style with focus on solid principles
-6. core tech stack=python,fastapi,postgres,redis
+5. core tech stack=python,fastapi,postgres,redis
+```
+
+### coding pattern
+```
+Atom follows procedural+functional programming style with focus on solid principles.
+
+Procedural programming is a programming paradigm built around the idea that programs are sequences of instructions to be executed. They focus heavily on splitting up programs into named sets of instructions called procedures, analogous to functions. A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
+
 ```
 
 ### api docs
@@ -67,6 +74,7 @@ How to enable sentry logs in atom:-
 Atom has inbuild redis caching layer for any api including request query params+token.
 
 How to enable redis caching in atom:-
+
 1. add key "redis_server_url" in .env file
 2. add decorator @cache(expire=60) in any api you want to cache with expiry time in seconds (example api below)
 
@@ -80,6 +88,7 @@ async def example_api(request:Request):
 ### lifespan
 ```
 If you want to execute some logics at app startup/shutdown, you can add them in the lifespan section.
+
 Currently added logics:-
 
 1. postgres connect/disconnect
@@ -93,6 +102,7 @@ A Rate Limiter limits the number of client requests allowed to be sent over a sp
 Atom support ratelimiting for any api with a simple query param.
 
 How to use
+
 1. Pass ratelimit configuration in the api dependencies(example api below)
 
 @app.get("/example-api",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
