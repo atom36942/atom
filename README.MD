@@ -48,17 +48,34 @@ ftp_port=credential
 USER_AGENT=credential
 ```
 
-### How to add sentry
+### how to add sentry
 ```
 Sentry provides end-to-end distributed tracing, enabling developers to identify and debug performance issues and errors across their systems and services.
-Just add key "sentry_dsn" in .file
+How:-
+-add key "sentry_dsn" in .env file
+-check your sentry account for logs
 ```
 
-# fundamentals - api gates and authorization
+### redis caching layer
 ```
-atom has 5 api gates to divide all the apis from the access pov.
-all apis auto
-- {baseurl}/root = this gate needs root user
+Redis offers several key benefits, including: extremely fast performance due to its in-memory storage, support for a wide variety of data structures, high scalability, flexible persistence options, and ease of use, making it ideal for caching frequently accessed data and improving application responsiveness.
+Atom has inbuild redis caching layer for any api.
+How:-
+- add key "redis_server_url" in .env file
+- add decorator @cache(expire=60) in any api you want to cache with expiry time in seconds
+- for ex:
+
+@app.get("/public/project-meta")
+@cache(expire=60)
+async def public_project_meta(request:Request):
+   #logic
+   query_dict={"user_count":"select count(*) from users;"}
+   temp={k:await postgres_client.fetch_all(query=v,values={}) for k,v in query_dict.items()}
+   response={"status":1,"message":temp}
+   #final
+   return response
 ```
 
-# database schema init
+
+
+
