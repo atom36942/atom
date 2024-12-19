@@ -55,7 +55,8 @@ USER_AGENT=credential
 ### sentry logs
 ```
 Sentry provides end-to-end distributed tracing, enabling developers to identify and debug performance issues and errors across their systems and services.
-How:-
+Atom has inbuilt sentry logs logic.
+How to enable sentry logs in atom:-
 -add key "sentry_dsn" in .env file
 -check your sentry account for logs
 ```
@@ -64,7 +65,7 @@ How:-
 ```
 Redis offers several key benefits, including: extremely fast performance due to its in-memory storage, support for a wide variety of data structures, high scalability, flexible persistence options, and ease of use, making it ideal for caching frequently accessed data and improving application responsiveness.
 Atom has inbuild redis caching layer for any api including request query params+token.
-How:-
+How to enable redis caching in atom:-
 - add key "redis_server_url" in .env file
 - add decorator @cache(expire=60) in any api you want to cache with expiry time in seconds
 - for ex:
@@ -113,7 +114,29 @@ app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,all
 ### middleware
 ```
 Atom has inbuilt middleware with below logics already built. You can add more logic as per your need.
+
 -auth check
 - api logs 
 - api errors catch
+```
+
+### api authorization
+```
+Atom divides all api starting points as gates.
+Atom has 5 gates depending on the type of user and its authorization. 
+Gates auth logic is handled in middleware by default. While adding any api, just choose which gate you want your api belong to.
+
+- root=all api starting with /root will need root user token which is present in the .env file. This gate is for adding apis which has to be accessed by limited users without any need of database.
+
+- auth=all api stating with /auth are login apis.
+
+- my=all api starting from /my are logged-in user api.
+
+- public=all api starting with /public are apis where there is no auth needed. Any user can access it.
+
+- private - all api starting with /private are apis where there is token is needed.
+
+- admin - all api starting with /admin are api where user.type="admin" in db. 
+
+You can add more gates in the middleware if there is a need.
 ```
