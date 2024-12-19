@@ -1,18 +1,19 @@
-### About atom
+### about atom
 ```
 1. atom is an open-source backend that has pre-built modules which are most commonly used
 2. atom can reduce develoment time to a large extent
 3. primary vision is to help entreprenurs to laucnh their ideas faster
-4. atom is non-opionanted as atom is written on object level with no affection to type of object
+4. atom is non-opionanted as it is written on object level with no affection to type of object
 5. core tech stack=python,fastapi,postgres,redis
 ```
 
-### coding pattern
+### coding paradigm
 ```
-Atom follows procedural+functional programming style with focus on solid principles.
+Atom follows procedural+functional programming paradigm with focus on solid principles.
 
-Procedural programming is a programming paradigm built around the idea that programs are sequences of instructions to be executed. They focus heavily on splitting up programs into named sets of instructions called procedures, analogous to functions. A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
-
+Procedural programming is a programming paradigm built around the idea that programs are sequences of instructions to be executed. <br /> 
+They focus heavily on splitting up programs into named sets of instructions called procedures, analogous to functions. <br />
+A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
 ```
 
 ### api docs
