@@ -209,14 +209,13 @@ async def middleware(request:Request,api_function):
       user=None
       method=request.method
       #auth check
-      if gate not in ["","docs","openapi.json","root","auth","my","public","private","admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"gate not allowed"})
+      if gate not in ["","docs","openapi.json","redoc","root","auth","my","public","private","admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"gate not allowed"})
       if gate=="root" and token!=os.getenv("secret_key_root"):return responses.JSONResponse(status_code=400,content={"status":0,"message":"token root mismatch"})
       if gate in ["my","private","admin"]:user=json.loads(jwt.decode(token,os.getenv("secret_key_jwt"),algorithms="HS256")["data"])
       if gate in ["admin"]:
          output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":user["id"]})
          user=output[0] if output else None
          if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-      if gate in ["admin"]:
          if not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
          if api not in user["api_access"].split(","):return responses.JSONResponse(status_code=400,content={"status":0,"message":"api access denied"})
       #request state assign

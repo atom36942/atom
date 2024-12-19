@@ -3,7 +3,7 @@
 - atom is an open-source backend that has pre-built modules which are most commonly used
 - atom can reduce develoment time to a large extent
 - primary vision is to help entreprenurs to laucnh their ideas faster
-- atom is non opionanted as atom is written on object level with no affection to type of object
+- atom is non-opionanted as atom is written on object level with no affection to type of object
 - atom follows procedural+functional programming style with focus on solid principles
 - core tech stack=python,fastapi,postgres,redis
 ```
@@ -47,3 +47,18 @@ ftp_password=credential
 ftp_port=credential
 USER_AGENT=credential
 ```
+
+# How to add sentry
+```
+Sentry provides end-to-end distributed tracing, enabling developers to identify and debug performance issues and errors across their systems and services.
+Just add key "sentry_dsn" in .file
+```
+
+# fundamentals - api gates and authorization
+```
+atom has 5 api gates to divide all the apis from the access pov.
+all apis auto
+- {baseurl}/root = this gate needs root user
+```
+
+# database schema init
