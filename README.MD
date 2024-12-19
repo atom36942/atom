@@ -69,14 +69,10 @@ How:-
 - add decorator @cache(expire=60) in any api you want to cache with expiry time in seconds
 - for ex:
 
-@app.get("/public/project-meta")
+@app.get("/example-api")
 @cache(expire=60)
-async def public_project_meta(request:Request):
-   #logic
-   query_dict={"user_count":"select count(*) from users;"}
-   temp={k:await postgres_client.fetch_all(query=v,values={}) for k,v in query_dict.items()}
-   response={"status":1,"message":temp}
-   #final
+async def example_api(request:Request):
+   api logic
    return response
 ```
 
@@ -98,18 +94,26 @@ How:-
 Pass ratelimit configuration in the api dependencies.
 For ex:-
 
-@app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
-async def auth_signup(request:Request,username:str,password:str):
-   #create user
-   query="insert into users (username,password) values (:username,:password) returning *;"
-   query_param={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=user=output[0]
-   #create token
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+10000600000,"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
+@app.get("/example-api",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
+@cache(expire=60)
+async def example_api(request:Request):
+   api logic
+   return response
 ```
 
+### cors
+```
+You can modify cors as per your needs in the cors section.
 
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
+
+```
+
+### middleware
+```
+Atom has inbuilt middleware with below logics already built. You can add more logic as per your need.
+-auth check
+- api logs 
+- api errors catch
+```
