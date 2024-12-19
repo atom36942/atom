@@ -8,10 +8,14 @@
 - core tech stack=python,fastapi,postgres,redis
 ```
 
-### contact/links
+### api docs
 ```
-- api docs=https://atom-tbsk.onrender.com/docs
-- contact=atom36942@gmail.com
+https://atom-tbsk.onrender.com/docs
+```
+
+### contact
+```
+atom36942@gmail.com
 ```
 
 ### how to run
