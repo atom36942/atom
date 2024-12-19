@@ -151,7 +151,7 @@ You can add more gates in the middleware if there is a need.
 6. admin - all api starting with /admin are api where user.type="admin" in db. 
 ```
 
-### adding routers
+### routers
 ```
 If you want to make new api files, then just name it with "api_{filename}" and it will be automatically imported.
 ```
@@ -186,4 +186,50 @@ Atom has all the necessary auth apis prebuilt.
 7. login with mobile/password
 
 Above apis support admin login also depending on the query param passed.
+```
+
+### logged-in user apis
+```
+Atom has many pre-built apis for logged-in user.
+
+1. my profile
+2. token refres
+3. update password
+4. update email with otp verification
+5. update mobile with otp verification
+6. delete any table primary keys in single/bulk mode
+7. message module
+8. object crud
+9. action module
+
+```
+
+### object crud
+```
+1. atom has a object level crud approach where any object can be passed in crud apis
+2. atom will handle serialization by interacting with the db schema itself
+3. atom support all primary datatypes + array+jsonb crud
+```
+
+### action module
+```
+Atom supports unique/multiple action on any table with parent table concept.
+Ex- likes,bookmark,comment,report,follow,block,etc
+```
+
+### otp module
+```
+Atom has pre-built to send/verify otp on email/mobile via aws sns/ses/etc
+
+```
+
+
+### location search
+```
+Atom has location search apis using postgis extension. PostGIS is a PostgreSQL extension that adds geospatial data capabilities to the database. You can seach store lat/long with search based on any filters.
+
+```
+
+### s3 apis
+```
 ```

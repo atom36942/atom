@@ -574,7 +574,7 @@ async def auth_signup(request:Request,username:str,password:str):
    user=user=output[0]
    #create token
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_second")),"data":data},os.getenv("secret_key_jwt"))
    #final
    return {"status":1,"message":token}
 
@@ -589,7 +589,7 @@ async def auth_login(request:Request,username:str,password:str,is_admin:int=None
    if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    #create token
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_second")),"data":data},os.getenv("secret_key_jwt"))
    #check admin
    if is_admin==1 and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
    #final
@@ -615,7 +615,7 @@ async def auth_login_google(request:Request,google_id:str,is_admin:int=None):
      user=output[0]
    #create token
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_second")),"data":data},os.getenv("secret_key_jwt"))
    #check admin
    if is_admin==1 and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
    #final
@@ -649,7 +649,7 @@ async def auth_login_email_otp(request:Request,email:str,otp:int,is_admin:int=No
      user=output[0]
    #create token
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_second")),"data":data},os.getenv("secret_key_jwt"))
    #check admin
    if is_admin==1 and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
    #final
@@ -683,7 +683,7 @@ async def auth_login_mobile_otp(request:Request,mobile:str,otp:int,is_admin:int=
      user=output[0]
    #create token
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_second")),"data":data},os.getenv("secret_key_jwt"))
    #check admin
    if is_admin==1 and not user["api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user not admin"})
    #final
@@ -700,7 +700,7 @@ async def auth_login_email_password(request:Request,email:str,password:str):
    if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    #create token
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_second")),"data":data},os.getenv("secret_key_jwt"))
    #final
    return {"status":1,"message":token}
 
@@ -715,9 +715,682 @@ async def auth_login_mobile_password(request:Request,mobile:str,password:str):
    if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    #create token
    data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_second")),"data":data},os.getenv("secret_key_jwt"))
    #final
    return {"status":1,"message":token}
+
+#my/profile
+@app.get("/my/profile")
+async def my_profile(request:Request,background:BackgroundTasks):
+   #refresh request user
+   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   request.state.user=output[0] if output else None
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   #update last active at
+   query="update users set last_active_at=:last_active_at where id=:id"
+   query_param={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()}
+   background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
+   #final
+   return {"status":1,"message":request.state.user}
+
+#my/token-refresh
+@app.get("/my/token-refresh")
+async def my_token_refresh(request:Request):
+   #refresh request user
+   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   request.state.user=output[0] if output else None
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   #create token
+   user=request.state.user
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
+   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_second")),"data":data},os.getenv("secret_key_jwt"))
+   #final
+   return {"status":1,"message":token}
+
+#my/update-password
+@app.put("/my/update-password")
+async def my_update_password(request:Request,password:str):
+   #logic
+   query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
+   query_param={"id":request.state.user["id"],"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#my/update-email
+@app.put("/my/update-email")
+async def my_update_email(request:Request,email:str,otp:int):
+   #verify otp
+   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+   query_param={"email":email}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   #logic
+   query="update users set email=:email,updated_by_id=:updated_by_id where id=:id returning *;"
+   query_param={"id":request.state.user["id"],"email":email,"updated_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#my/update-mobile
+@app.put("/my/update-mobile")
+async def my_update_mobile(request:Request,mobile:str,otp:int):
+   #verify otp
+   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+   query_param={"mobile":mobile}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   #logic
+   query="update users set mobile=:mobile,updated_by_id=:updated_by_id where id=:id returning *;"
+   query_param={"id":request.state.user["id"],"mobile":mobile,"updated_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#my/delete-ids
+@app.delete("/my/delete-ids")
+async def my_delete_ids(request:Request,table:str,ids:str):
+   #check      
+   if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+   if len(ids.split(","))>3:return responses.JSONResponse(status_code=400,content={"status":0,"message":"ids length not allowed"})
+   #logic
+   query=f"delete from {table} where created_by_id=:created_by_id and id in ({ids});"
+   query_param={"created_by_id":request.state.user["id"]}
+   await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":"done"}
+
+#my/delete-account
+@app.delete("/my/delete-account")
+async def my_delete_account(request:Request,mode:str=None):
+   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   request.state.user=output[0] if output else None
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   #check
+   if request.state.user["id"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"root user cant be deleted"})
+   if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"protected user cant be deleted"})
+   if request.state.user["api_access"]:return responses.JSONResponse(status_code=200,content={"status":0,"message":"admin user cant be deleted"})
+   #logic
+   if not mode:await postgres_client.fetch_all(query="delete from users where id=:id;",values={"id":request.state.user["id"]})
+   if mode=="procedure":await postgres_client.fetch_all(query=f"call procedure_delete_user({request.state.user['id']});",values={})
+   #final
+   return {"status":1,"message":"account deleted"}
+
+#my/message-create
+@app.post("/my/message-create")
+async def my_message_create(request:Request,user_id:int,description:str):
+   #delete ids
+   query=f"insert into message (created_by_id,user_id,description) values (:created_by_id,:user_id,:description) returning *;"
+   query_param={"created_by_id":request.state.user["id"],"user_id":user_id,"description":description}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#my/message-received
+@app.get("/my/message-received")
+async def my_message_received(request:Request,background:BackgroundTasks,order:str="id desc",limit:int=100,page:int=1):
+   #read message
+   query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param={"user_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #ids string from object
+   ids_list=[str(item["id"]) for item in output]
+   ids_string=",".join(ids_list)
+   #mark read
+   if ids_string:
+      query=f"update message set is_read=:is_read,updated_by_id=:updated_by_id where id in ({ids_string});"
+      query_param={"is_read":1,"updated_by_id":request.state.user["id"]}
+      background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
+   #final
+   return {"status":1,"message":output}
+
+#my/message-received-unread
+@app.get("/my/message-received-unread")
+async def my_message_received_unread(request:Request,background:BackgroundTasks,order:str="id desc",limit:int=100,page:int=1):
+   #read message
+   query=f"select * from message where user_id=:user_id and is_read!=1 is null order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param={"user_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #ids string from object
+   ids_list=[str(item["id"]) for item in output]
+   ids_string=",".join(ids_list)
+   #mark read
+   if ids_string:
+      query=f"update message set is_read=:is_read,updated_by_id=:updated_by_id where id in ({ids_string});"
+      query_param={"is_read":1,"updated_by_id":request.state.user["id"]}
+      background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
+   #final
+   return {"status":1,"message":output}
+
+#my/message-inbox
+@app.get("/my/message-inbox")
+async def my_message_inbox(request:Request,order:str="id desc",limit:int=100,page:int=1):
+   #read inbox
+   query=f'''
+   with
+   x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),
+   y as (select max(id) as id from x group by unique_id),
+   z as (select m.* from y left join message as m on y.id=m.id)
+   select * from z order by {order} limit {limit} offset {(page-1)*limit};
+   '''
+   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#my/message-inbox-unread
+@app.get("/my/message-inbox-unread")
+async def my_message_inbox_unread(request:Request,order:str="id desc",limit:int=100,page:int=1):
+   #read inbox
+   query=f'''
+   with
+   x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),
+   y as (select max(id) as id from x group by unique_id),
+   z as (select m.* from y left join message as m on y.id=m.id),
+   a as (select * from z where user_id=:user_id and is_read!=1 is null)
+   select * from a order by {order} limit {limit} offset {(page-1)*limit};
+   '''
+   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#my/message-thread
+@app.get("/my/message-thread")
+async def my_message_thread(request:Request,background:BackgroundTasks,user_id:int,order:str="id desc",limit:int=100,page:int=1):
+   #read message thread
+   query=f"select * from message where ((created_by_id=:user_1 and user_id=:user_2) or (created_by_id=:user_2 and user_id=:user_1)) order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param={"user_1":request.state.user["id"],"user_2":user_id}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #mark read
+   query="update message set is_read=:is_read,updated_by_id=:updated_by_id where created_by_id=:created_by_id and user_id=:user_id returning *;"
+   query_param={"is_read":1,"updated_by_id":request.state.user['id'],"created_by_id":user_id,"user_id":request.state.user["id"]}
+   background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
+   #final
+   return {"status":1,"message":output}
+
+#my/message-delete-all
+@app.delete("/my/message-delete-all")
+async def my_message_delete_all(request:Request):
+   #logic
+   query="delete from message where (created_by_id=:created_by_id or user_id=:user_id);"
+   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":"done"}
+
+#my/message-delete-created
+@app.delete("/my/message-delete-created")
+async def my_message_delete_created(request:Request):
+   #logic
+   query="delete from message where created_by_id=:created_by_id;"
+   query_param={"created_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":"done"}
+
+#my/message-delete-received
+@app.delete("/my/message-delete-received")
+async def my_message_delete_received(request:Request):
+   #logic
+   query="delete from message where user_id=:user_id;"
+   query_param={"user_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":"done"}
+
+#my/message-delete-single
+@app.delete("/my/message-delete-single")
+async def my_message_delete_single(request:Request,id:int):
+   #logic
+   query="delete from message where id=:id and (created_by_id=:created_by_id or user_id=:user_id);"
+   query_param={"id":id,"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":"done"}
+
+#my/object-create
+@app.post("/my/object-create")
+async def my_object_create(request:Request,table:str,is_serialize:int=1):
+   #object set
+   object=await request.json()
+   object["created_by_id"]=request.state.user["id"]
+   #object check
+   for k,v in object.items():
+      if k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
+   #serialize
+   if is_serialize:
+      response=await postgres_serialize([object],postgres_column_datatype)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object=response["message"][0]
+   #logic
+   response=await postgres_cud("create",table,[object],postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   #final
+   return response
+
+#my/object-read
+@app.get("/my/object-read")
+@cache(expire=60)
+async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
+   #parse object where
+   object_where=dict(request.query_params)
+   object_where["created_by_id"]=f"=,{request.state.user['id']}"
+   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   #serialize
+   response=await postgres_serialize([where_value],postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   #logic
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   output=await postgres_client.fetch_all(query=query,values=where_value)
+   #final
+   return {"status":1,"message":output}
+
+#my/object-update
+@app.put("/my/object-update")
+async def my_object_update(request:Request,table:str,is_serialize:int=1):
+   #object set
+   object=await request.json()
+   object["updated_by_id"]=request.state.user["id"]
+   #object check
+   for k,v in object.items():
+      if k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp","api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
+   if table=="users" and "email" in object:return responses.JSONResponse(status_code=400,content={"status":0,"message":"email not allowed"})
+   if table=="users" and "mobile" in object:return responses.JSONResponse(status_code=400,content={"status":0,"message":"mobile not allowed"})
+   #ownwership check
+   if table=="users":
+      if int(object["id"])!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"object ownership issue"})
+   if table!="users":
+      query=f"select created_by_id from {table} where id=:id;"
+      query_param={"id":int(object["id"])}
+      output=await postgres_client.fetch_all(query=query,values=query_param)
+      object_2=output[0] if output else None
+      if not object_2:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no object"})
+      if object_2["created_by_id"]!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"object ownership issue"})
+   #serialize
+   if is_serialize:
+      response=await postgres_serialize([object],postgres_column_datatype)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object=response["message"][0]
+   #logic
+   response=await postgres_cud("update",table,[object],postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   #final
+   return response
+
+#my/object-delete
+@app.delete("/my/object-delete")
+async def my_object_delete(request:Request,table:str):
+   #check
+   if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+   #parse object where
+   object_where=dict(request.query_params)
+   object_where["created_by_id"]=f"=,{request.state.user['id']}"
+   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   #serialize
+   response=await postgres_serialize([where_value],postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   #logic
+   query=f"delete from {table} {where_string};"
+   await postgres_client.fetch_all(query=query,values=where_value)
+   #final
+   return {"status":1,"message":"done"}
+
+#my/action-create
+from typing import Literal
+@app.post("/my/action-create")
+async def my_action_create(request:Request,action:str,parent_table:str,parent_id:int,rating:float=None,description:str=None):
+   #logic
+   if action in ["action_like","action_bookmark","action_report","action_block","action_follow"]:
+      query=f"insert into {action} (created_by_id,parent_table,parent_id) values (:created_by_id,:parent_table,:parent_id) returning *;"
+      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
+   if action in ["action_rating"]:
+      if not rating:return responses.JSONResponse(status_code=400,content={"status":0,"message":"rating is must"})
+      query=f"insert into {action} (created_by_id,parent_table,parent_id,rating) values (:created_by_id,:parent_table,:parent_id,:rating) returning *;"
+      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id,"rating":rating}
+   if action in ["action_comment"]:
+      if not description:return responses.JSONResponse(status_code=400,content={"status":0,"message":"description is must"})
+      query=f"insert into {action} (created_by_id,parent_table,parent_id,description) values (:created_by_id,:parent_table,:parent_id,:description) returning *;"
+      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id,"description":description}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#ex=my liked post
+#my/action-read-parent
+@app.get("/my/action-read-parent")
+async def my_action_read_parent(request:Request,action:str,parent_table:str,order:str="id desc",limit:int=100,page:int=1):
+   #logic
+   query=f'''
+   with
+   x as (select parent_id from {action} where created_by_id=:created_by_id and parent_table=:parent_table order by {order} limit {limit} offset {(page-1)*limit})
+   select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;
+   '''
+   query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#my/action-delete-parent
+@app.delete("/my/action-delete-parent")
+async def my_action_delete_parent(request:Request,action:str,parent_table:str,parent_id:int):
+   #logic
+   query=f"delete from {action} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;"
+   query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":"done"}
+
+#my/action-check-parent
+@app.get("/my/action-check-parent")
+async def my_action_check_parent(request:Request,action:str,parent_table:str,parent_ids:str):
+   #filter parent_ids
+   query=f"select parent_id from {action} where parent_id in ({parent_ids}) and parent_table=:parent_table and created_by_id=:created_by_id;"
+   query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   parent_ids_output=[item["parent_id"] for item in output if item["parent_id"]]
+   #parent_ids mapping
+   parent_ids_input=parent_ids.split(",")
+   parent_ids_input=[int(item) for item in parent_ids_input]
+   mapping={item:1 if item in parent_ids_output else 0 for item in parent_ids_input}
+   #final
+   return {"status":1,"message":mapping}
+
+#ex=users following me
+#my/action-on-me-creator-read
+@app.get("/my/action-on-me-creator-read")
+async def my_action_on_me_creator_read(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
+   #logic
+   query=f'''
+   with 
+   x as (select * from {action} where parent_table=:parent_table),
+   y as (select created_by_id from x where parent_id=:parent_id order by {order} limit {limit} offset {(page-1)*limit})
+   select u.* from y left join users as u on y.created_by_id=u.id;
+   '''
+   query_param={"parent_table":"users","parent_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#ex=users i action_follow and following me
+#my/action-on-me-creator-read-mutual
+@app.get("/my/action-on-me-creator-read-mutual")
+async def my_action_on_me_creator_read_mutual(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
+   #logic
+   query=f'''
+   with 
+   x as (select * from {action} where parent_table=:parent_table),
+   y as (select created_by_id from {action} where created_by_id in (select parent_id from x where created_by_id=:created_by_id) and parent_id=:parent_id order by {order} limit {limit} offset {(page-1)*limit})
+   select u.* from y left join users as u on y.created_by_id=u.id;
+   '''
+   query_param={"parent_table":"users","parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#public/api-list
+@app.get("/public/api-list")
+async def public_api_list(request:Request,mode:str=None):
+   #api list
+   api_list=[route.path for route in request.app.routes]
+   api_list_admin=[item for item in api_list if "/admin" in item]
+   #logic
+   if not mode:output=api_list
+   else:output=api_list_admin
+   #final
+   return {"status":1,"message":output}
+
+#public/table-column
+@app.get("/public/table-column")
+async def public_table_column(request:Request,is_main_column:int=None,table:str=None):
+   #table
+   output=await postgres_client.fetch_all(query="select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
+   table_name_list=[item["table_name"] for item in output]
+   temp={}
+   for item in table_name_list:temp[item]={}
+   #columm
+   query_schema='''
+   with 
+   t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
+   c as (select * from information_schema.columns where table_schema='public')
+   select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
+   '''
+   output=await postgres_client.fetch_all(query=query_schema,values={})
+   for item in output:temp[item["table_name"]][item["column_name"]]=item["data_type"]
+   #if is_main_column
+   temp2=copy.deepcopy(temp)
+   if is_main_column==1:
+      for k1,v1 in temp2.items():
+         for k2,v2 in v1.items():
+            if k2 in ['id','created_at','created_by_id','updated_at','updated_by_id','is_active','is_verified','is_protected','last_active_at']:del temp[k1][k2]
+   #if table
+   if table:temp=temp[table]
+   #final
+   return {"status":1,"message":temp}
+
+#public/project meta
+@app.get("/public/project-meta")
+@cache(expire=60)
+async def public_project_meta(request:Request):
+   #logic
+   query_dict={"user_count":"select count(*) from users;"}
+   temp={k:await postgres_client.fetch_all(query=v,values={}) for k,v in query_dict.items()}
+   response={"status":1,"message":temp}
+   #final
+   return response
+
+#public/object-create
+@app.post("/public/object-create")
+async def public_object_create(request:Request,table:Literal["helpdesk","human"],is_serialize:int=1):
+   #object set
+   object=await request.json()
+   #serialize
+   if is_serialize:
+      response=await postgres_serialize([object],postgres_column_datatype)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object=response["message"][0]
+   #logic
+   response=await postgres_cud("create",table,[object],postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   #final
+   return response
+
+#public/object read
+@app.get("/public/object-read")
+@cache(expire=60)
+async def public_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
+   #check table
+   if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+   #parse object where
+   object_where=dict(request.query_params)
+   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   #serialize
+   response=await postgres_serialize([where_value],postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   #read object
+   query=f'''
+   with
+   x as (select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit})
+   select x.*,u.username as created_by_id_username from x left join users as u on x.created_by_id=u.id;
+   '''
+   object_list=await postgres_client.fetch_all(query=query,values=where_value)
+   #add action_like count
+   response=await postgres_add_action_count("action_like",table,object_list,postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   object_list=response["message"]
+   #add action_bookmark count
+   response=await postgres_add_action_count("action_bookmark",table,object_list,postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   object_list=response["message"]
+   #final
+   return {"status":1,"message":object_list}
+
+#public/otp send email ses
+import boto3
+@app.get("/public/otp-send-email-ses")
+async def public_otp_send_email_ses(request:Request,region:str,sender:str,email:str):
+   #create otp
+   otp=random.randint(100000,999999)
+   query="insert into otp (otp,email) values (:otp,:email) returning *;"
+   query_param={"otp":otp,"email":email}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #send otp
+   to,title,body=[email],"otp from atom",str(otp)
+   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+   #final
+   return {"status":1,"message":"done"}
+
+#public/otp send mobile sns
+import boto3,random
+@app.get("/public/otp-send-mobile-sns")
+async def public_otp_send_mobile_sns(request:Request,region:str,mobile:str,entity_id:str=None,sender_id:str=None,template_id:str=None,message:str=None):
+   #create otp
+   otp=random.randint(100000,999999)
+   query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
+   query_param={"otp":otp,"mobile":mobile}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #send otp
+   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
+   else:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   #final
+   return {"status":1,"message":output}
+
+#public/otp verify email
+@app.get("/public/otp-verify-email")
+async def public_otp_verify_email(request:Request,email:str,otp:int):
+   #logic
+   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+   query_param={"email":email}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   #final
+   return {"status":1,"message":"done"}
+
+#public/otp verify mobile
+@app.get("/public/otp-verify-mobile")
+async def public_otp_verify_mobile(request:Request,mobile:str,otp:int):
+   #logic
+   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+   query_param={"mobile":mobile}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   #final
+   return {"status":1,"message":"done"}
+
+#private/object read
+@app.get("/private/object-read")
+@cache(expire=60)
+async def private_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
+   #check table
+   if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+   #parse object where
+   object_where=dict(request.query_params)
+   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   #serialize
+   response=await postgres_serialize([where_value],postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   #logic
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   output=await postgres_client.fetch_all(query=query,values=where_value)
+   #final
+   return {"status":1,"message":output}
+
+#private/search-location
+@app.get("/private/search-location")
+async def private_location_search(request:Request,table:str,location:str,within:str,order:str="id desc",limit:int=100,page:int=1):
+   #start
+   long,lat=float(location.split(",")[0]),float(location.split(",")[1])
+   min_meter,max_meter=int(within.split(",")[0]),int(within.split(",")[1])
+   #parse object where
+   object_where=dict(request.query_params)
+   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   #serialize
+   response=await postgres_serialize([where_value],postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   #logic
+   query=f'''
+   with
+   x as (select * from {table} {where_string}),
+   y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x)
+   select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};
+   '''
+   output=await postgres_client.fetch_all(query=query,values=where_value)
+   #final
+   return {"status":1,"message":output}
+
+#private/s3 upload file
+import boto3
+@app.post("/private/s3-upload-file")
+async def private_s3_upload_file(request:Request,bucket:str,file:UploadFile):
+   #logic
+   key=str(uuid.uuid4())+"-"+file.filename
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=s3_client.upload_fileobj(file.file,bucket,key)
+   url=f"https://{bucket}.s3.amazonaws.com/{key}"
+   #final
+   return {"status":1,"message":url}
+
+#private/s3 create presigned url
+import boto3
+@app.get("/private/s3-create-presigned-url")
+async def private_s3_create_presigned_url(request:Request,region:str,bucket:str,filename:str):
+   #logic
+   if "." not in filename:return {"status":0,"message":"filename extension must"}
+   key=str(uuid.uuid4())+"-"+filename
+   expiry_sec=1000
+   size_kb=250
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
+   #final
+   return {"status":1,"message":output}
+
+#private/s3 upload file multipart
+import boto3
+from boto3.s3.transfer import TransferConfig
+@app.post("/private/s3-upload-file-multipart")
+async def private_s3_upload_file_multipart(request:Request,bucket:str,file_path:str):
+   #logic
+   file_name=file_path.rsplit("/",1)[-1]
+   key=str(uuid.uuid4())+"-"+file_name
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=s3_client.upload_file(file_path,bucket,key,Config=TransferConfig(multipart_threshold=8000000))
+   url=f"https://{bucket}.s3.amazonaws.com/{key}"
+   #final
+   return {"status":1,"message":url}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -930,46 +1603,6 @@ async def root_openai_create_embedding(request:Request,model:str,text:str):
    output=openai_client.embeddings.create(model=model,input=text,encoding_format="float")
    return {"status":1,"message":output}
 
-
-
-#my/profile
-@app.get("/my/profile")
-async def my_profile(request:Request,background:BackgroundTasks):
-   #refresh request user
-   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   request.state.user=output[0] if output else None
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   #update last active at
-   query="update users set last_active_at=:last_active_at where id=:id"
-   query_param={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()}
-   background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
-   #final
-   return {"status":1,"message":request.state.user}
-
-#my/token-refresh
-@app.get("/my/token-refresh")
-async def my_token_refresh(request:Request):
-   #refresh request user
-   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   request.state.user=output[0] if output else None
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   #create token
-   user=request.state.user
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+int(os.getenv("token_expiry_seconds")),"data":data},os.getenv("secret_key_jwt"))
-   #final
-   return {"status":1,"message":token}
-
-#my/update-password
-@app.put("/my/update-password")
-async def my_update_password(request:Request,password:str):
-   #logic
-   query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
-   query_param={"id":request.state.user["id"],"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
 #admin/update-password
 @app.put("/admin/update-password")
 async def admin_update_password(request:Request,user_id:int,password:str):
@@ -986,385 +1619,6 @@ async def root_update_password(request:Request,user_id:int,password:str):
    #logic
    query="update users set password=:password where id=:id returning *;"
    query_param={"id":user_id,"password":hashlib.sha256(password.encode()).hexdigest()}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#my/update-email
-@app.put("/my/update-email")
-async def my_update_email(request:Request,email:str,otp:int):
-   #verify otp
-   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
-   query_param={"email":email}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #logic
-   query="update users set email=:email,updated_by_id=:updated_by_id where id=:id returning *;"
-   query_param={"id":request.state.user["id"],"email":email,"updated_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#my/update-mobile
-@app.put("/my/update-mobile")
-async def my_update_mobile(request:Request,mobile:str,otp:int):
-   #verify otp
-   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
-   query_param={"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #logic
-   query="update users set mobile=:mobile,updated_by_id=:updated_by_id where id=:id returning *;"
-   query_param={"id":request.state.user["id"],"mobile":mobile,"updated_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#my/delete-ids
-@app.delete("/my/delete-ids")
-async def my_delete_ids(request:Request,table:str,ids:str):
-   #check      
-   if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   if len(ids.split(","))>3:return responses.JSONResponse(status_code=400,content={"status":0,"message":"ids length not allowed"})
-   #logic
-   query=f"delete from {table} where created_by_id=:created_by_id and id in ({ids});"
-   query_param={"created_by_id":request.state.user["id"]}
-   await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":"done"}
-
-#my/delete-account
-@app.delete("/my/delete-account")
-async def my_delete_account(request:Request,mode:str=None):
-   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   request.state.user=output[0] if output else None
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   #check
-   if request.state.user["id"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"root user cant be deleted"})
-   if request.state.user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"protected user cant be deleted"})
-   if request.state.user["api_access"]:return responses.JSONResponse(status_code=200,content={"status":0,"message":"admin user cant be deleted"})
-   #logic
-   if not mode:await postgres_client.fetch_all(query="delete from users where id=:id;",values={"id":request.state.user["id"]})
-   if mode=="procedure":await postgres_client.fetch_all(query=f"call procedure_delete_user({request.state.user['id']});",values={})
-   #final
-   return {"status":1,"message":"account deleted"}
-
-#my/object-create
-@app.post("/my/object-create")
-async def my_object_create(request:Request,table:str,is_serialize:int=1):
-   #object set
-   object=await request.json()
-   object["created_by_id"]=request.state.user["id"]
-   #object check
-   for k,v in object.items():
-      if k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
-   #serialize
-   if is_serialize:
-      response=await postgres_serialize([object],postgres_column_datatype)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object=response["message"][0]
-   #logic
-   response=await postgres_cud("create",table,[object],postgres_client)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   #final
-   return response
-
-#my/object-update
-@app.put("/my/object-update")
-async def my_object_update(request:Request,table:str,is_serialize:int=1):
-   #object set
-   object=await request.json()
-   object["updated_by_id"]=request.state.user["id"]
-   #object check
-   for k,v in object.items():
-      if k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp","api_access"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
-   if table=="users" and "email" in object:return responses.JSONResponse(status_code=400,content={"status":0,"message":"email not allowed"})
-   if table=="users" and "mobile" in object:return responses.JSONResponse(status_code=400,content={"status":0,"message":"mobile not allowed"})
-   #ownwership check
-   if table=="users":
-      if int(object["id"])!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"object ownership issue"})
-   if table!="users":
-      query=f"select created_by_id from {table} where id=:id;"
-      query_param={"id":int(object["id"])}
-      output=await postgres_client.fetch_all(query=query,values=query_param)
-      object_2=output[0] if output else None
-      if not object_2:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no object"})
-      if object_2["created_by_id"]!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"object ownership issue"})
-   #serialize
-   if is_serialize:
-      response=await postgres_serialize([object],postgres_column_datatype)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object=response["message"][0]
-   #logic
-   response=await postgres_cud("update",table,[object],postgres_client)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   #final
-   return response
-
-#my/object-delete
-@app.delete("/my/object-delete")
-async def my_object_delete(request:Request,table:str):
-   #check
-   if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   #parse object where
-   object_where=dict(request.query_params)
-   object_where["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_serialize([where_value],postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f"delete from {table} {where_string};"
-   await postgres_client.fetch_all(query=query,values=where_value)
-   #final
-   return {"status":1,"message":"done"}
-
-#my/object-read
-@app.get("/my/object-read")
-@cache(expire=60)
-async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #parse object where
-   object_where=dict(request.query_params)
-   object_where["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_serialize([where_value],postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   output=await postgres_client.fetch_all(query=query,values=where_value)
-   #final
-   return {"status":1,"message":output}
-
-#my/message-create
-@app.post("/my/message-create")
-async def my_message_create(request:Request,user_id:int,description:str):
-   #delete ids
-   query=f"insert into message (created_by_id,user_id,description) values (:created_by_id,:user_id,:description) returning *;"
-   query_param={"created_by_id":request.state.user["id"],"user_id":user_id,"description":description}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#my/message-received
-@app.get("/my/message-received")
-async def my_message_received(request:Request,background:BackgroundTasks,order:str="id desc",limit:int=100,page:int=1):
-   #read message
-   query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param={"user_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #ids string from object
-   ids_list=[str(item["id"]) for item in output]
-   ids_string=",".join(ids_list)
-   #mark read
-   if ids_string:
-      query=f"update message set is_read=:is_read,updated_by_id=:updated_by_id where id in ({ids_string});"
-      query_param={"is_read":1,"updated_by_id":request.state.user["id"]}
-      background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
-   #final
-   return {"status":1,"message":output}
-
-#my/message-received-unread
-@app.get("/my/message-received-unread")
-async def my_message_received_unread(request:Request,background:BackgroundTasks,order:str="id desc",limit:int=100,page:int=1):
-   #read message
-   query=f"select * from message where user_id=:user_id and is_read!=1 is null order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param={"user_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #ids string from object
-   ids_list=[str(item["id"]) for item in output]
-   ids_string=",".join(ids_list)
-   #mark read
-   if ids_string:
-      query=f"update message set is_read=:is_read,updated_by_id=:updated_by_id where id in ({ids_string});"
-      query_param={"is_read":1,"updated_by_id":request.state.user["id"]}
-      background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
-   #final
-   return {"status":1,"message":output}
-
-#my/message-inbox
-@app.get("/my/message-inbox")
-async def my_message_inbox(request:Request,order:str="id desc",limit:int=100,page:int=1):
-   #read inbox
-   query=f'''
-   with
-   x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),
-   y as (select max(id) as id from x group by unique_id),
-   z as (select m.* from y left join message as m on y.id=m.id)
-   select * from z order by {order} limit {limit} offset {(page-1)*limit};
-   '''
-   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#my/message-inbox-unread
-@app.get("/my/message-inbox-unread")
-async def my_message_inbox_unread(request:Request,order:str="id desc",limit:int=100,page:int=1):
-   #read inbox
-   query=f'''
-   with
-   x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),
-   y as (select max(id) as id from x group by unique_id),
-   z as (select m.* from y left join message as m on y.id=m.id),
-   a as (select * from z where user_id=:user_id and is_read!=1 is null)
-   select * from a order by {order} limit {limit} offset {(page-1)*limit};
-   '''
-   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#my/message-thread
-@app.get("/my/message-thread")
-async def my_message_thread(request:Request,background:BackgroundTasks,user_id:int,order:str="id desc",limit:int=100,page:int=1):
-   #read message thread
-   query=f"select * from message where ((created_by_id=:user_1 and user_id=:user_2) or (created_by_id=:user_2 and user_id=:user_1)) order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param={"user_1":request.state.user["id"],"user_2":user_id}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #mark read
-   query="update message set is_read=:is_read,updated_by_id=:updated_by_id where created_by_id=:created_by_id and user_id=:user_id returning *;"
-   query_param={"is_read":1,"updated_by_id":request.state.user['id'],"created_by_id":user_id,"user_id":request.state.user["id"]}
-   background.add_task(await postgres_client.fetch_all(query=query,values=query_param))
-   #final
-   return {"status":1,"message":output}
-
-#my/delete-message-all
-@app.delete("/my/delete-message-all")
-async def my_delete_messag_all(request:Request):
-   #logic
-   query="delete from message where (created_by_id=:created_by_id or user_id=:user_id);"
-   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":"done"}
-
-#my/delete-message-created
-@app.delete("/my/delete-message-created")
-async def my_delete_message_created(request:Request):
-   #logic
-   query="delete from message where created_by_id=:created_by_id;"
-   query_param={"created_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":"done"}
-
-#my/delete-message-received
-@app.delete("/my/delete-message-received")
-async def my_delete_message_received(request:Request):
-   #logic
-   query="delete from message where user_id=:user_id;"
-   query_param={"user_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":"done"}
-
-#my/delete-message-single
-@app.delete("/my/delete-message-single")
-async def my_delete_message_single(request:Request,id:int):
-   #logic
-   query="delete from message where id=:id and (created_by_id=:created_by_id or user_id=:user_id);"
-   query_param={"id":id,"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":"done"}
-
-#my/action-create
-from typing import Literal
-@app.post("/my/action-create")
-async def my_action_create(request:Request,action:str,parent_table:str,parent_id:int,rating:float=None,description:str=None):
-   #logic
-   if action in ["action_like","action_bookmark","action_report","action_block","action_follow"]:
-      query=f"insert into {action} (created_by_id,parent_table,parent_id) values (:created_by_id,:parent_table,:parent_id) returning *;"
-      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
-   if action in ["action_rating"]:
-      if not rating:return responses.JSONResponse(status_code=400,content={"status":0,"message":"rating is must"})
-      query=f"insert into {action} (created_by_id,parent_table,parent_id,rating) values (:created_by_id,:parent_table,:parent_id,:rating) returning *;"
-      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id,"rating":rating}
-   if action in ["action_comment"]:
-      if not description:return responses.JSONResponse(status_code=400,content={"status":0,"message":"description is must"})
-      query=f"insert into {action} (created_by_id,parent_table,parent_id,description) values (:created_by_id,:parent_table,:parent_id,:description) returning *;"
-      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id,"description":description}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#ex=my liked post
-#my/action-read-parent
-@app.get("/my/action-read-parent")
-async def my_action_read_parent(request:Request,action:str,parent_table:str,order:str="id desc",limit:int=100,page:int=1):
-   #logic
-   query=f'''
-   with
-   x as (select parent_id from {action} where created_by_id=:created_by_id and parent_table=:parent_table order by {order} limit {limit} offset {(page-1)*limit})
-   select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;
-   '''
-   query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#my/action-delete-parent
-@app.delete("/my/action-delete-parent")
-async def my_action_delete_parent(request:Request,action:str,parent_table:str,parent_id:int):
-   #logic
-   query=f"delete from {action} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;"
-   query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":"done"}
-
-#my/action-check-parent
-@app.get("/my/action-check-parent")
-async def my_action_check_parent(request:Request,action:str,parent_table:str,parent_ids:str):
-   #filter parent_ids
-   query=f"select parent_id from {action} where parent_id in ({parent_ids}) and parent_table=:parent_table and created_by_id=:created_by_id;"
-   query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   parent_ids_output=[item["parent_id"] for item in output if item["parent_id"]]
-   #parent_ids mapping
-   parent_ids_input=parent_ids.split(",")
-   parent_ids_input=[int(item) for item in parent_ids_input]
-   mapping={item:1 if item in parent_ids_output else 0 for item in parent_ids_input}
-   #final
-   return {"status":1,"message":mapping}
-
-#ex=users following me
-#my/action-on-me-creator-read
-@app.get("/my/action-on-me-creator-read")
-async def my_action_on_me_creator_read(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
-   #logic
-   query=f'''
-   with 
-   x as (select * from {action} where parent_table=:parent_table),
-   y as (select created_by_id from x where parent_id=:parent_id order by {order} limit {limit} offset {(page-1)*limit})
-   select u.* from y left join users as u on y.created_by_id=u.id;
-   '''
-   query_param={"parent_table":"users","parent_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#ex=users i action_follow and following me
-#my/action-on-me-creator-read-mutual
-@app.get("/my/action-on-me-creator-read-mutual")
-async def my_action_on_me_creator_read_mutual(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
-   #logic
-   query=f'''
-   with 
-   x as (select * from {action} where parent_table=:parent_table),
-   y as (select created_by_id from {action} where created_by_id in (select parent_id from x where created_by_id=:created_by_id) and parent_id=:parent_id order by {order} limit {limit} offset {(page-1)*limit})
-   select u.* from y left join users as u on y.created_by_id=u.id;
-   '''
-   query_param={"parent_table":"users","parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
    output=await postgres_client.fetch_all(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
@@ -1963,73 +2217,6 @@ async def public_websocket_single_chat(websocket:WebSocket,user_id_1:int,user_id
        if user_id_2 in websocket_connection_dict:await websocket_connection_dict[user_id_2].send_text(f"{user_id_1} left the chat")
        else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_1} left the chat")
              
-#public/object-create
-@app.post("/public/object-create")
-async def public_object_create(request:Request,table:Literal["helpdesk","human"],is_serialize:int=1):
-   #object set
-   object=await request.json()
-   #serialize
-   if is_serialize:
-      response=await postgres_serialize([object],postgres_column_datatype)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object=response["message"][0]
-   #logic
-   response=await postgres_cud("create",table,[object],postgres_client)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   #final
-   return response
-
-#public/api-list
-@app.get("/public/api-list")
-async def public_api_list(request:Request,mode:str=None):
-   #api list
-   api_list=[route.path for route in request.app.routes]
-   api_list_admin=[item for item in api_list if "/admin" in item]
-   #logic
-   if not mode:output=api_list
-   else:output=api_list_admin
-   #final
-   return {"status":1,"message":output}
-
-#public/table-column
-@app.get("/public/table-column")
-async def public_table_column(request:Request,is_main_column:int=None,table:str=None):
-   #table
-   output=await postgres_client.fetch_all(query="select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
-   table_name_list=[item["table_name"] for item in output]
-   temp={}
-   for item in table_name_list:temp[item]={}
-   #columm
-   query_schema='''
-   with 
-   t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
-   c as (select * from information_schema.columns where table_schema='public')
-   select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
-   '''
-   output=await postgres_client.fetch_all(query=query_schema,values={})
-   for item in output:temp[item["table_name"]][item["column_name"]]=item["data_type"]
-   #if is_main_column
-   temp2=copy.deepcopy(temp)
-   if is_main_column==1:
-      for k1,v1 in temp2.items():
-         for k2,v2 in v1.items():
-            if k2 in ['id','created_at','created_by_id','updated_at','updated_by_id','is_active','is_verified','is_protected','last_active_at']:del temp[k1][k2]
-   #if table
-   if table:temp=temp[table]
-   #final
-   return {"status":1,"message":temp}
-
-#public/project meta
-@app.get("/public/project-meta")
-@cache(expire=60)
-async def public_project_meta(request:Request):
-   #logic
-   query_dict={"user_count":"select count(*) from users;"}
-   temp={k:await postgres_client.fetch_all(query=v,values={}) for k,v in query_dict.items()}
-   response={"status":1,"message":temp}
-   #final
-   return response
-
 # #public/cassandra-version
 # from cassandra.cluster import Cluster
 # from cassandra.auth import PlainTextAuthProvider
@@ -2042,182 +2229,6 @@ async def public_project_meta(request:Request):
 #    if row:output=row[0]
 #    #final
 #    return {"status":1,"message":output}
-
-#public/otp send mobile sns
-import boto3,random
-@app.get("/public/otp-send-mobile-sns")
-async def public_otp_send_mobile_sns(request:Request,region:str,mobile:str,entity_id:str=None,sender_id:str=None,template_id:str=None,message:str=None):
-   #create otp
-   otp=random.randint(100000,999999)
-   query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
-   query_param={"otp":otp,"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #send otp
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
-   else:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
-   #final
-   return {"status":1,"message":output}
-
-#public/otp send email ses
-import boto3
-@app.get("/public/otp-send-email-ses")
-async def public_otp_send_email_ses(request:Request,region:str,sender:str,email:str):
-   #create otp
-   otp=random.randint(100000,999999)
-   query="insert into otp (otp,email) values (:otp,:email) returning *;"
-   query_param={"otp":otp,"email":email}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #send otp
-   to,title,body=[email],"otp from atom",str(otp)
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
-   #final
-   return {"status":1,"message":"done"}
-
-#public/otp verify email
-@app.get("/public/otp-verify-email")
-async def public_otp_verify_email(request:Request,email:str,otp:int):
-   #logic
-   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
-   query_param={"email":email}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #final
-   return {"status":1,"message":"done"}
-
-#public/otp verify mobile
-@app.get("/public/otp-verify-mobile")
-async def public_otp_verify_mobile(request:Request,mobile:str,otp:int):
-   #logic
-   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
-   query_param={"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #final
-   return {"status":1,"message":"done"}
-
-#public/object read
-@app.get("/public/object-read")
-@cache(expire=60)
-async def public_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #check table
-   if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   #parse object where
-   object_where=dict(request.query_params)
-   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_serialize([where_value],postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #read object
-   query=f'''
-   with
-   x as (select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit})
-   select x.*,u.username as created_by_id_username from x left join users as u on x.created_by_id=u.id;
-   '''
-   object_list=await postgres_client.fetch_all(query=query,values=where_value)
-   #add action_like count
-   response=await postgres_add_action_count("action_like",table,object_list,postgres_client)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   object_list=response["message"]
-   #add action_bookmark count
-   response=await postgres_add_action_count("action_bookmark",table,object_list,postgres_client)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   object_list=response["message"]
-   #final
-   return {"status":1,"message":object_list}
-
-#private/search-location
-@app.get("/private/search-location")
-async def private_location_search(request:Request,table:str,location:str,within:str,order:str="id desc",limit:int=100,page:int=1):
-   #start
-   long,lat=float(location.split(",")[0]),float(location.split(",")[1])
-   min_meter,max_meter=int(within.split(",")[0]),int(within.split(",")[1])
-   #parse object where
-   object_where=dict(request.query_params)
-   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_serialize([where_value],postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f'''
-   with
-   x as (select * from {table} {where_string}),
-   y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x)
-   select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};
-   '''
-   output=await postgres_client.fetch_all(query=query,values=where_value)
-   #final
-   return {"status":1,"message":output}
-
-#private/object read
-@app.get("/private/object-read")
-@cache(expire=60)
-async def private_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #check table
-   if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   #parse object where
-   object_where=dict(request.query_params)
-   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_serialize([where_value],postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   output=await postgres_client.fetch_all(query=query,values=where_value)
-   #final
-   return {"status":1,"message":output}
-
-#private/s3 upload file
-import boto3
-@app.post("/private/s3-upload-file")
-async def private_s3_upload_file(request:Request,bucket:str,file:UploadFile):
-   #logic
-   key=str(uuid.uuid4())+"-"+file.filename
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.upload_fileobj(file.file,bucket,key)
-   url=f"https://{bucket}.s3.amazonaws.com/{key}"
-   #final
-   return {"status":1,"message":url}
-
-#private/s3 upload file multipart
-import boto3
-from boto3.s3.transfer import TransferConfig
-@app.post("/private/s3-upload-file-multipart")
-async def private_s3_upload_file_multipart(request:Request,bucket:str,file_path:str):
-   #logic
-   file_name=file_path.rsplit("/",1)[-1]
-   key=str(uuid.uuid4())+"-"+file_name
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.upload_file(file_path,bucket,key,Config=TransferConfig(multipart_threshold=8000000))
-   url=f"https://{bucket}.s3.amazonaws.com/{key}"
-   #final
-   return {"status":1,"message":url}
-
-#private/s3 create presigned url
-import boto3
-@app.get("/private/s3-create-presigned-url")
-async def private_s3_create_presigned_url(request:Request,region:str,bucket:str,filename:str):
-   #logic
-   if "." not in filename:return {"status":0,"message":"filename extension must"}
-   key=str(uuid.uuid4())+"-"+filename
-   expiry_sec=1000
-   size_kb=250
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
-   #final
-   return {"status":1,"message":output}
 
 #private/rekognition compare face
 import boto3
