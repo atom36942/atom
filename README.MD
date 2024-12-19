@@ -1,4 +1,4 @@
-# about atom
+### about atom
 ```
 - atom is an open-source backend that has pre-built modules which are most commonly used
 - atom can reduce develoment time to a large extent
@@ -8,13 +8,13 @@
 - core tech stack=python,fastapi,postgres,redis
 ```
 
-# contact/links
+### contact/links
 ```
 - api docs=https://atom-tbsk.onrender.com/docs
 - contact=atom36942@gmail.com
 ```
 
-# how to run
+### how to run
 ```
 - download atom repo
 - create .env file inside downloaded folder(check env file section)
@@ -23,7 +23,7 @@
 - run python main.py
 ```
 
-# env file
+### env file
 ```
 postgres_database_url=credential
 redis_server_url=credential
@@ -48,7 +48,7 @@ ftp_port=credential
 USER_AGENT=credential
 ```
 
-# How to add sentry
+### How to add sentry
 ```
 Sentry provides end-to-end distributed tracing, enabling developers to identify and debug performance issues and errors across their systems and services.
 Just add key "sentry_dsn" in .file
