@@ -2749,24 +2749,6 @@ async def public_websocket_group_chat(websocket:WebSocket,client_id:int):
 import sys
 mode=sys.argv
 
-#streamlit
-import streamlit as st
-if __name__=="__main__" and len(mode)>1 and mode[1]=="st":
-   st.markdown("<h4>welcome to atom</h4>",unsafe_allow_html=True)
-   with st.form("jobseeker_form"):
-      st.header("Personal Information")
-      name=st.text_input("name")
-      email=st.text_input("email")
-      mobile=st.text_input("mobile")
-      linkedin=st.text_input("linkedin")
-      job_type=st.selectbox("job type",["Full-time", "Part-time", "Internship", "Contract"])
-      experience=st.slider("experience", 0, 30, 1)
-      skills=st.text_area("skills",placeholder="separate multiple skills by commas")
-      submitted=st.form_submit_button("Submit")
-      if submitted:
-         if not name or not email or not mobile:st.error("name/email/mobile is mandatory")
-         else:st.success("Thank you for your application, {}!".format(name))
-
 #fastapi
 import asyncio,uvicorn
 if __name__=="__main__" and len(mode)==1:
@@ -2831,3 +2813,20 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="gemini-chat":
    except KeyboardInterrupt:
       print("exited")
 
+#streamlit
+import streamlit as st
+if __name__=="__main__" and len(mode)>1 and mode[1]=="st":
+   st.markdown("<h4>welcome to atom</h4>",unsafe_allow_html=True)
+   with st.form("jobseeker_form"):
+      st.header("Personal Information")
+      name=st.text_input("name")
+      email=st.text_input("email")
+      mobile=st.text_input("mobile")
+      linkedin=st.text_input("linkedin")
+      job_type=st.selectbox("job type",["Full-time", "Part-time", "Internship", "Contract"])
+      experience=st.slider("experience", 0, 30, 1)
+      skills=st.text_area("skills",placeholder="separate multiple skills by commas")
+      submitted=st.form_submit_button("Submit")
+      if submitted:
+         if not name or not email or not mobile:st.error("name/email/mobile is mandatory")
+         else:st.success("Thank you for your application, {}!".format(name))
