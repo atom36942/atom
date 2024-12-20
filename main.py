@@ -548,6 +548,36 @@ async def root_grant_all_api_access(request:Request,user_id:int):
    #final
    return {"status":1,"message":output}
 
+#root/postgres clean
+@app.delete("/root/postgres-clean")
+async def root_pclean(request:Request):
+   #table name
+   output=await postgres_client.fetch_all(query="select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
+   table_name_list=[item["table_name"] for item in output]
+   table_name_list_action=[item for item in table_name_list if "action_" in item]
+   #parent_table name
+   parent_table_list=[]
+   for item in table_name_list_action:
+      output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {item};",values={})
+      parent_table_list=parent_table_list+[item["parent_table"] for item in output]
+   parent_table_name_list=list(set(parent_table_list))
+   #creator null
+   [await postgres_client.fetch_all(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in ["post","message"]+table_name_list_action]
+   #parent null
+   [await postgres_client.fetch_all(query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});",values={}) for table in table_name_list_action for parent_table in parent_table_name_list]
+   #final
+   return {"status":1,"message":"done"}
+
+#root/update-password
+@app.put("/root/update-password")
+async def root_update_password(request:Request,user_id:int,password:str):
+   #logic
+   query="update users set password=:password where id=:id returning *;"
+   query_param={"id":user_id,"password":hashlib.sha256(password.encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
 #root/postgres-query-runner
 @app.get("/root/postgres-query-runner")
 async def root_postgres_query_runner(request:Request,query:str):
@@ -1236,41 +1266,9 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    #final
    return {"status":1,"message":object_list}
 
-#public/otp send email ses
-import boto3
-@app.get("/public/otp-send-email-ses")
-async def public_otp_send_email_ses(request:Request,region:str,sender:str,email:str):
-   #create otp
-   otp=random.randint(100000,999999)
-   query="insert into otp (otp,email) values (:otp,:email) returning *;"
-   query_param={"otp":otp,"email":email}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #send otp
-   to,title,body=[email],"otp from atom",str(otp)
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
-   #final
-   return {"status":1,"message":"done"}
-
-#public/otp send mobile sns
-import boto3,random
-@app.get("/public/otp-send-mobile-sns")
-async def public_otp_send_mobile_sns(request:Request,region:str,mobile:str,entity_id:str=None,sender_id:str=None,template_id:str=None,message:str=None):
-   #create otp
-   otp=random.randint(100000,999999)
-   query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
-   query_param={"otp":otp,"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #send otp
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
-   else:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
-   #final
-   return {"status":1,"message":output}
-
-#public/otp verify email
-@app.get("/public/otp-verify-email")
-async def public_otp_verify_email(request:Request,email:str,otp:int):
+#public/verify-otp-email
+@app.get("/public/verify-otp-email")
+async def public_verify_otp_email(request:Request,email:str,otp:int):
    #logic
    query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
    query_param={"email":email}
@@ -1280,9 +1278,9 @@ async def public_otp_verify_email(request:Request,email:str,otp:int):
    #final
    return {"status":1,"message":"done"}
 
-#public/otp verify mobile
-@app.get("/public/otp-verify-mobile")
-async def public_otp_verify_mobile(request:Request,mobile:str,otp:int):
+#public/verify-otp-mobile
+@app.get("/public/verify-otp-mobile")
+async def public_verify_otp_mobile(request:Request,mobile:str,otp:int):
    #logic
    query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
    query_param={"mobile":mobile}
@@ -1379,42 +1377,206 @@ async def private_s3_upload_file_multipart(request:Request,bucket:str,file_path:
    #final
    return {"status":1,"message":url}
 
+#root/s3-delete-url
+import boto3
+@app.delete("/root/s3-delete-url")
+async def root_s3_delete_url(request:Request,url:str):
+   #logic
+   bucket=url.split("//",1)[1].split(".",1)[0]
+   key=url.rsplit("/",1)[1]
+   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=s3_resource.Object(bucket,key).delete()
+   #final
+   return {"status":1,"message":output}
 
+#root/s3-delete-bucket
+import boto3
+@app.delete("/root/s3-delete-bucket")
+async def root_s3_delete_bucket(request:Request,bucket:str):
+   #logic
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=s3_client.delete_bucket(Bucket=bucket)
+   #final
+   return {"status":1,"message":output}
 
+#root/s3-empty-bucket
+import boto3
+@app.delete("/root/s3-empty-bucket")
+async def root_s3_empty_bucket(request:Request,bucket:str):
+   #logic
+   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=s3_resource.Bucket(bucket).objects.all().delete()
+   #final
+   return {"status":1,"message":output}
 
+#root/s3-list-all-bucket
+import boto3
+@app.get("/root/s3-list-all-bucket")
+async def root_s3_list_all_bucket(request:Request):
+   #logic
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=s3_client.list_buckets()
+   #final
+   return {"status":1,"message":output}
 
+#root/s3-create-bucket
+import boto3
+@app.post("/root/s3-create-bucket")
+async def root_s3_create_bucket(request:Request,region:str,name:str):
+   #logic
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=s3_client.create_bucket(Bucket=name,CreateBucketConfiguration={'LocationConstraint':region})
+   #final
+   return {"status":1,"message":output}
 
+#root/s3-make-bucket-public
+import boto3
+@app.put("/root/s3-make-bucket-public")
+async def root_s3_make_bucket_public(request:Request,bucket:str):
+   #logic
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   #final
+   return {"status":1,"message":output}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#root/file-save
-@app.post("/root/file-save")
-async def root_file_save(request:Request,path:str,file:UploadFile):
-   with open(f"{path}/{file.filename}","wb") as f:f.write(file.file.read())
+#root/s3-download-url
+import boto3
+@app.get("/root/s3-download-url")
+async def root_s3_download_url(request:Request,url:str,path:str):
+   #logic
+   bucket=url.split("//",1)[1].split(".",1)[0]
+   key=url.rsplit("/",1)[1]
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   s3_client.download_file(bucket,key,path)
+   #final
    return {"status":1,"message":"done"}
+
+#admin/admin-check
+@app.get("/admin/admin-check")
+async def admin_admin_check(request:Request):
+   return {"status":1,"message":"yes"}
+
+#admin/mark-user-admin
+@app.put("/admin/mark-user-admin")
+async def admin_mark_user_admin(request:Request,user_id:int):
+   #logic
+   query="update users set api_access=:api_access where id=:id returning *"
+   query_param={"id":user_id,"api_access":"/admin/admin-check"}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#admin/update-api-access
+from pydantic import BaseModel
+class schema_update_api_access(BaseModel):
+   user_id:int
+   api_access:str|None=None
+@app.put("/admin/update-api-access")
+async def admin_update_api_access(request:Request,body:schema_update_api_access):
+   #api list
+   api_list=[route.path for route in request.app.routes]
+   api_list_admin=[item for item in api_list if "/admin" in item]
+   api_list_admin_str=",".join(api_list_admin)
+   #check body
+   if body.api_access:
+      for item in body.api_access.split(","):
+         if item not in api_list_admin_str:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
+   #body modify
+   if body.api_access=="":body.api_access=None
+   #logic
+   query="update users set api_access=:api_access where id=:id returning *"
+   query_param={"id":body.user_id,"api_access":body.api_access}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#admin/object-read
+@app.get("/admin/object-read")
+async def admin_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
+   #parse object where
+   object_where=dict(request.query_params)
+   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   #serialize
+   response=await postgres_serialize([where_value],postgres_column_datatype)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   #read object
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   output=await postgres_client.fetch_all(query=query,values=where_value)
+   response={"status":1,"message":output}
+   #final
+   return response
+
+#admin/object-update
+@app.put("/admin/object-update")
+async def admin_object_update(request:Request,table:str,is_serialize:int=1):
+   #object set
+   object=await request.json()
+   object["updated_by_id"]=request.state.user["id"]
+   #serialize
+   if is_serialize:
+      response=await postgres_serialize([object],postgres_column_datatype)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object=response["message"][0]
+   #logic
+   response=await postgres_cud("update",table,[object],postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   #final
+   return response
+
+#admin/delete ids
+@app.put("/admin/delete-ids")
+async def admin_delete_ids(request:Request,table:str,ids:str):
+   #logic
+   query=f"delete from {table} where id in ({ids});"
+   await postgres_client.fetch_all(query=query,values={})
+   #final
+   return {"status":1,"message":"done"}
+
+#admin/update-password
+@app.put("/admin/update-password")
+async def admin_update_password(request:Request,user_id:int,password:str):
+   #logic
+   query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
+   query_param={"id":user_id,"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
+
+#admin/csv-uploader 
+@app.post("/admin/csv-uploader")
+async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,is_serialize:int=1):
+   #object list
+   if file.content_type!="text/csv":return {"status":0,"message":"file extension must be csv"}
+   file_csv=csv.DictReader(codecs.iterdecode(file.file,'utf-8'))
+   object_list=[]
+   for row in file_csv:object_list.append(row)
+   file.file.close()
+   #serialize
+   if is_serialize:
+      response=await postgres_serialize(object_list,postgres_column_datatype)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object_list=response["message"]
+   #logic
+   response=await postgres_cud(mode,table,object_list,postgres_client)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   #final
+   return response
+
+#admin/postgres-query-runner
+@app.get("/admin/postgres-query-runner")
+async def admin_postgres_query_runner(request:Request,query:str):
+  #stop keywords
+  for item in ["insert","update","delete","alter","drop"]:
+    if item in query:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{item} not allowed in query"})
+  #query run
+  output=await postgres_client.fetch_all(query=query,values={})
+  #final
+  return {"status":1,"message":output}
 
 #root/gemini-prompt
 import google.generativeai as genai
@@ -1481,50 +1643,21 @@ async def root_gemini_create_embedding(request:Request,model:str,text:str):
    output=genai.embed_content(model=model,content=text)
    return {"status":1,"message":str(output['embedding'])}
 
-#root/package-size
-import os,pkg_resources
-@app.get("/root/package-size")
-async def root_package_size(request:Request):
-   output={}
-   for package in pkg_resources.working_set:
-      package_path=os.path.join(package.location,package.project_name)
-      output[package.project_name]=0
-      for dirpath, _,filenames in os.walk(package_path):
-         for file in filenames:
-               package_file_path=os.path.join(dirpath,file)
-               output[package.project_name]+=os.path.getsize(package_file_path)
-   output={k:v/1000000 for k,v in output.items()}
-   output=dict(sorted(output.items(), key=lambda item: item[1],reverse=True))
+#root/openai-chat-completion
+from openai import OpenAI
+@app.get("/root/openai-chat-completion")
+async def root_openai_chat_completion(request:Request,model:str,system:str,user:str):
+   openai_client=OpenAI(api_key=os.getenv("secret_key_openai"))
+   output=openai_client.chat.completions.create(model=model,messages=[{"role":"system","content":system},{"role":"user","content":user}])
    return {"status":1,"message":output}
 
-#root/request-get
-@app.get("/root/request-get")
-async def root_request_get(request:Request,url:str):
-   output=requests.get(url,params={},headers={})
-   return {"status":1,"message":output.json()}
-
-#root/request-post
-@app.post("/root/request-post")
-async def root_request_post(request:Request,url:str):
-   body=await request.json()
-   output=requests.post(url,json=body)
-   return {"status":1,"message":output.json()}
-
-#root/request-put
-@app.post("/root/request-post")
-async def root_request_post(request:Request,url:str):
-   body=await request.json()
-   output=requests.post(url,json=body)
-   return {"status":1,"message":output.json()}
-
-#root/pandas-read-csv
-import pandas
-@app.post("/root/pandas-read-csv")
-async def root_pandas_read_csv(request:Request,file:UploadFile,):
-   df=pandas.read_csv(file.file)
-   file.file.close()
-   df.to_json('df_csv.json', orient='records', lines=True)
-   return {"status":1,"message":df.to_json(orient='records',lines=True)}
+#root/openai-create-embedding
+from openai import OpenAI
+@app.get("/root/openai-create-embedding")
+async def root_openai_create_embedding(request:Request,model:str,text:str):
+   openai_client=OpenAI(api_key=os.getenv("secret_key_openai"))
+   output=openai_client.embeddings.create(model=model,input=text,encoding_format="float")
+   return {"status":1,"message":output}
 
 #root/chromadb-create-collection
 import chromadb
@@ -1587,41 +1720,77 @@ async def root_chromadb_pdf_search(request:Request,collection_name:str,text:str,
    output=collection.query(query_texts=[text],n_results=limit)
    return {"status":1,"message":output}
 
-#root/openai-chat-completion
-from openai import OpenAI
-@app.get("/root/openai-chat-completion")
-async def root_openai_chat_completion(request:Request,model:str,system:str,user:str):
-   openai_client=OpenAI(api_key=os.getenv("secret_key_openai"))
-   output=openai_client.chat.completions.create(model=model,messages=[{"role":"system","content":system},{"role":"user","content":user}])
+#root/package-size
+import os,pkg_resources
+@app.get("/root/package-size")
+async def root_package_size(request:Request):
+   output={}
+   for package in pkg_resources.working_set:
+      package_path=os.path.join(package.location,package.project_name)
+      output[package.project_name]=0
+      for dirpath, _,filenames in os.walk(package_path):
+         for file in filenames:
+               package_file_path=os.path.join(dirpath,file)
+               output[package.project_name]+=os.path.getsize(package_file_path)
+   output={k:v/1000000 for k,v in output.items()}
+   output=dict(sorted(output.items(), key=lambda item: item[1],reverse=True))
    return {"status":1,"message":output}
 
-#root/openai-create-embedding
-from openai import OpenAI
-@app.get("/root/openai-create-embedding")
-async def root_openai_create_embedding(request:Request,model:str,text:str):
-   openai_client=OpenAI(api_key=os.getenv("secret_key_openai"))
-   output=openai_client.embeddings.create(model=model,input=text,encoding_format="float")
+#root/postgres-prepared-statement
+@app.get("/root/postgres-prepared-statement")
+async def root_postgres_prepared_statement(request:Request):
+   query="select * from pg_prepared_statements where name='read_user';"
+   output=await postgres_client.fetch_all(query=query,values={})
+   if not output:
+      query="prepare read_user (int) as select * from users where id=$1;"
+      await postgres_client.fetch_all(query=query,values={})
+   query="explain analyze select * from users where id=1;"
+   output_1=await postgres_client.fetch_all(query=query,values={})
+   query="explain analyze execute read_user(1);"
+   output_2=await postgres_client.fetch_all(query=query,values={})
+   output={"simple":output_1,"prepared":output_2}
    return {"status":1,"message":output}
 
-#admin/update-password
-@app.put("/admin/update-password")
-async def admin_update_password(request:Request,user_id:int,password:str):
-   #logic
-   query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
-   query_param={"id":user_id,"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
+#root/pandas-read-csv
+import pandas
+@app.post("/root/pandas-read-csv")
+async def root_pandas_read_csv(request:Request,file:UploadFile,):
+   df=pandas.read_csv(file.file)
+   file.file.close()
+   df.to_json('df_csv.json', orient='records', lines=True)
+   return {"status":1,"message":df.to_json(orient='records',lines=True)}
 
-#root/update-password
-@app.put("/root/update-password")
-async def root_update_password(request:Request,user_id:int,password:str):
-   #logic
-   query="update users set password=:password where id=:id returning *;"
-   query_param={"id":user_id,"password":hashlib.sha256(password.encode()).hexdigest()}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
+#root/file-save
+@app.post("/root/file-save")
+async def root_file_save(request:Request,path:str,file:UploadFile):
+   with open(f"{path}/{file.filename}","wb") as f:f.write(file.file.read())
+   return {"status":1,"message":"done"}
+
+#public/text-to-txt-file
+@app.get("/public/text-to-txt-file")
+async def public_text_to_txt_file(request:Request,text:str,file_path:str):
+   with open(file_path,"w",encoding="utf-8") as file:file.write(text)
+   return {"status":1,"message":"done"}
+
+#root/request-get
+@app.get("/root/request-get")
+async def root_request_get(request:Request,url:str):
+   output=requests.get(url,params={},headers={})
+   return {"status":1,"message":output.json()}
+
+#root/request-post
+@app.post("/root/request-post")
+async def root_request_post(request:Request,url:str):
+   body=await request.json()
+   output=requests.post(url,json=body)
+   return {"status":1,"message":output.json()}
+
+#root/request-put
+@app.post("/root/request-post")
+async def root_request_post(request:Request,url:str):
+   body=await request.json()
+   output=requests.post(url,json=body)
+   return {"status":1,"message":output.json()}
 
 #public/langchain-txt-file-token-splitter
 from langchain_community.document_loaders import TextLoader
@@ -1733,60 +1902,39 @@ async def public_langchain_txt_file_loader(request:Request,file_path:str):
    text=document[0].page_content
    return {"status":1,"message":text}
 
-#public/text-to-txt-file
-@app.get("/public/text-to-txt-file")
-async def public_text_to_txt_file(request:Request,text:str,file_path:str):
-   with open(file_path,"w",encoding="utf-8") as file:file.write(text)
-   return {"status":1,"message":"done"}
-
-#public/opensearch-read-document
+#root/opensearch-read-document
 from opensearchpy import OpenSearch
-@app.get("/public/opensearch-read-document")
-async def public_opensearch_read_document(request:Request,index:str,keyword:str):
+@app.get("/root/opensearch-read-document")
+async def root_opensearch_read_document(request:Request,index:str,keyword:str):
    opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
    query={'size':5,'query':{'multi_match':{'query':keyword}}}
    output=opensearch_client.search(body=query,index=index)
    return {"status":1,"message":output}
 
-#public/opensearch-delete-document
+#root/opensearch-delete-document
 from opensearchpy import OpenSearch
-@app.delete("/public/opensearch-delete-document")
-async def public_opensearch_delete_document(request:Request,index:str,_id:str):
+@app.delete("/root/opensearch-delete-document")
+async def root_opensearch_delete_document(request:Request,index:str,_id:str):
    opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
    output=opensearch_client.delete(index=index,id=_id)
    return {"status":1,"message":output}
 
-#public/opensearch-create-document
+#root/opensearch-create-document
 from opensearchpy import OpenSearch
-@app.post("/public/opensearch-create-document")
-async def public_opensearch_create_document(request:Request,index:str):
+@app.post("/root/opensearch-create-document")
+async def root_opensearch_create_document(request:Request,index:str):
    opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
    object=await request.json()
    object_json=json.dumps(object)
    output=opensearch_client.index(index=index,body=object_json,refresh=True)
    return {"status":1,"message":output}
 
-#public/opensearch-create-index
+#root/opensearch-create-index
 from opensearchpy import OpenSearch
-@app.get("/public/opensearch-create-index")
-async def public_opensearch_create_index(request:Request,index:str):
+@app.get("/root/opensearch-create-index")
+async def root_opensearch_create_index(request:Request,index:str):
    opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
    output=opensearch_client.indices.create(index,body={'settings':{'index':{'number_of_shards':4}}})
-   return {"status":1,"message":output}
-
-#public/postgres-prepared-statement
-@app.get("/public/postgres-prepared-statement")
-async def public_postgres_prepared_statement(request:Request):
-   query="select * from pg_prepared_statements where name='read_user';"
-   output=await postgres_client.fetch_all(query=query,values={})
-   if not output:
-      query="prepare read_user (int) as select * from users where id=$1;"
-      await postgres_client.fetch_all(query=query,values={})
-   query="explain analyze select * from users where id=1;"
-   output_1=await postgres_client.fetch_all(query=query,values={})
-   query="explain analyze execute read_user(1);"
-   output_2=await postgres_client.fetch_all(query=query,values={})
-   output={"simple":output_1,"prepared":output_2}
    return {"status":1,"message":output}
 
 #root/memcached-set-object
@@ -1916,11 +2064,11 @@ async def root_redis_csv_set(request:Request,file:UploadFile,table:str,expiry:in
    await redis_client.aclose()
    return {"status":1,"message":"done"}
 
-#public/mongodb-delete
+#root/mongodb-delete
 import motor.motor_asyncio
 from bson.objectid import ObjectId
-@app.delete("/public/mongodb-delete")
-async def public_mongodb_delete(request:Request,database:str,collection:str,_id:str):
+@app.delete("/root/mongodb-delete")
+async def root_mongodb_delete(request:Request,database:str,collection:str,_id:str):
    mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
    collection=database[collection]
@@ -1928,11 +2076,11 @@ async def public_mongodb_delete(request:Request,database:str,collection:str,_id:
    output=await collection.delete_one({"_id":_id})
    return {"status":1,"message":str(output)}
 
-#public/mongodb-update
+#root/mongodb-update
 import motor.motor_asyncio
 from bson.objectid import ObjectId
-@app.put("/public/mongodb-update")
-async def public_mongodb_update(request:Request,database:str,collection:str,_id:str):
+@app.put("/root/mongodb-update")
+async def root_mongodb_update(request:Request,database:str,collection:str,_id:str):
    mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
    collection=database[collection]
@@ -1941,11 +2089,11 @@ async def public_mongodb_update(request:Request,database:str,collection:str,_id:
    output=await collection.update_one({"_id":_id},{"$set":object})
    return {"status":1,"message":str(output)}
 
-#public/mongodb-read
+#root/mongodb-read
 import motor.motor_asyncio
 from bson.objectid import ObjectId
-@app.get("/public/mongodb-read")
-async def public_mongodb_read(request:Request,database:str,collection:str,_id:str):
+@app.get("/root/mongodb-read")
+async def root_mongodb_read(request:Request,database:str,collection:str,_id:str):
    mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
    collection=database[collection]
@@ -1953,10 +2101,10 @@ async def public_mongodb_read(request:Request,database:str,collection:str,_id:st
    output=await collection.find_one({"_id":_id})
    return {"status":1,"message":str(output)}
 
-#public/mongodb-create
+#root/mongodb-create
 import motor.motor_asyncio
-@app.post("/public/mongodb-create")
-async def public_mongodb_create(request:Request,database:str,collection:str):
+@app.post("/root/mongodb-create")
+async def root_mongodb_create(request:Request,database:str,collection:str):
    mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
    collection=database[collection]
@@ -2002,6 +2150,7 @@ async def root_rabbitmq_producer(request:Request,queue:str):
    channel.basic_publish(exchange='',routing_key=queue,body=object)
    rabbitmq_client.close()
    return {"status":1,"message":"done"}
+
 
 #root/ftp-list-dir-item
 import ftplib
@@ -2098,125 +2247,6 @@ async def public_meilisearch_search(request:Request,index:str,keyword:str):
    output=index.search(keyword)
    return {"status":1,"message":output}
 
-#public/html-group-chat
-from fastapi.responses import HTMLResponse
-@app.get("/public/html-group-chat")
-async def public_html_group_chat():
-    html="""
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Chat</title>
-        </head>
-        <body>
-            <h1>Group Chat</h1>
-            <h2>Your ID=<span id="client_id"></span></h2>
-            <form action="" onsubmit="sendMessage(event)">
-                <input type="text" id="messageText" autocomplete="off"/>
-                <button>Send</button>
-            </form>
-            <ul id='messages'>
-            </ul>
-            <script> 
-                var client_id = Date.now()
-                document.querySelector("#client_id").textContent = client_id;
-                var ws = new WebSocket(`ws://localhost:8000/public/websocket-group-chat/${client_id}`);
-                ws.onmessage = function(event) {
-                    var messages = document.getElementById('messages')
-                    var message = document.createElement('li')
-                    var content = document.createTextNode(event.data)
-                    message.appendChild(content)
-                    messages.appendChild(message)
-                };
-                function sendMessage(event) {
-                    var input = document.getElementById("messageText")
-                    ws.send(input.value)
-                    input.value = ''
-                    event.preventDefault()
-                }
-            </script>
-        </body>
-    </html>
-    """
-    return HTMLResponse(html)
- 
-#websocket group chat
-from fastapi import WebSocket,WebSocketDisconnect
-websocket_connection_list=[]
-@app.websocket("/public/websocket-group-chat/{client_id}")
-async def public_websocket_group_chat(websocket:WebSocket,client_id:int):
-    await websocket.accept()
-    websocket_connection_list.append(websocket)
-    try:
-        while True:
-            message=await websocket.receive_text()
-            for connection in websocket_connection_list:
-                await connection.send_text(message)
-    except WebSocketDisconnect:
-        websocket_connection_list.remove(websocket)
-        for connection in websocket_connection_list:
-             await connection.send_text(f"{client_id} left the chat")
- 
-#public/html-single-chat
-from fastapi.responses import HTMLResponse
-@app.get("/public/html-single-chat/{user_id_1}/{user_id_2}")
-async def public_html_single_chat(user_id_1:int,user_id_2:int):
-   html=f"""
-   <!DOCTYPE html>
-   <html>
-      <head>
-         <title>Chat</title>
-      </head>
-      <body>
-         <h1>Single Chat</h1>
-         <h2>Your ID: <span id="client_id"></span></h2>
-         <form action="" onsubmit="sendMessage(event)">
-               <input type="text" id="messageText" autocomplete="off"/>
-               <button>Send</button>
-         </form>
-         <ul id='messages'>
-         </ul>
-         <script>
-               document.querySelector("#client_id").textContent = {user_id_1};
-               var ws = new WebSocket(`ws://localhost:8000/public/websocket-single-chat/{user_id_1}/{user_id_2}`);
-               ws.onmessage = function(event) {{
-                  var messages = document.getElementById('messages')
-                  var message = document.createElement('li')
-                  var content = document.createTextNode(event.data)
-                  message.appendChild(content)
-                  messages.appendChild(message)
-               }};
-               function sendMessage(event) {{
-                  var input = document.getElementById("messageText")
-                  ws.send(input.value)
-                  input.value = ''
-                  event.preventDefault()
-               }}
-         </script>
-      </body>
-   </html>
-   """
-   return HTMLResponse(html)
- 
-#websocket single chat
-from fastapi import WebSocket,WebSocketDisconnect
-websocket_connection_dict={}
-@app.websocket("/public/websocket-single-chat/{user_id_1}/{user_id_2}")
-async def public_websocket_single_chat(websocket:WebSocket,user_id_1:int,user_id_2:int):
-    await websocket.accept()
-    websocket_connection_dict[user_id_1]=websocket
-    try:
-        while True:
-            message=await websocket.receive_text()
-            if user_id_2 in websocket_connection_dict:
-               await websocket_connection_dict[user_id_1].send_text(f"{user_id_1}-{message}")
-               await websocket_connection_dict[user_id_2].send_text(f"{user_id_1}-{message}")
-            else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_2} offline")
-    except WebSocketDisconnect:
-       websocket_connection_dict.pop(user_id_1, None)
-       if user_id_2 in websocket_connection_dict:await websocket_connection_dict[user_id_2].send_text(f"{user_id_1} left the chat")
-       else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_1} left the chat")
-             
 # #public/cassandra-version
 # from cassandra.cluster import Cluster
 # from cassandra.auth import PlainTextAuthProvider
@@ -2230,10 +2260,10 @@ async def public_websocket_single_chat(websocket:WebSocket,user_id_1:int,user_id
 #    #final
 #    return {"status":1,"message":output}
 
-#private/rekognition compare face
+#root/rekognition-compare-face
 import boto3
-@app.post("/private/rekognition-compare-face")
-async def private_rekognition_compare_face(request:Request,region:str,file:list[UploadFile]):
+@app.post("/root/rekognition-compare-face")
+async def root_rekognition_compare_face(request:Request,region:str,file:list[UploadFile]):
    #logic
    rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    source_image={"Bytes":file[0].file.read()}
@@ -2242,10 +2272,10 @@ async def private_rekognition_compare_face(request:Request,region:str,file:list[
    #final
    return {"status":1,"message":output}
 
-#private/rekognition detetct label
+#root/rekognition-detect-label
 import boto3
-@app.post("/private/rekognition-detect-label")
-async def private_rekognition_detect_label(request:Request,region:str,file:UploadFile):
+@app.post("/root/rekognition-detect-label")
+async def root_rekognition_detect_label(request:Request,region:str,file:UploadFile):
    #logic
    rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    image={"Bytes":file.file.read()}
@@ -2253,10 +2283,10 @@ async def private_rekognition_detect_label(request:Request,region:str,file:Uploa
    #final
    return {"status":1,"message":output}
 
-#private/rekognition detetct face
+#root/rekognition-detect-face
 import boto3
-@app.post("/private/rekognition-detect-face")
-async def private_rekognition_detect_face(request:Request,region:str,file:UploadFile):
+@app.post("/root/rekognition-detect-face")
+async def root_rekognition_detect_face(request:Request,region:str,file:UploadFile):
    #logic
    rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    image={"Bytes":file.file.read()}
@@ -2264,10 +2294,10 @@ async def private_rekognition_detect_face(request:Request,region:str,file:Upload
    #final
    return {"status":1,"message":output}
 
-#private/rekognition detect moderation
+#root/rekognition-detect-moderation
 import boto3
-@app.post("/private/rekognition-detect-moderation")
-async def private_rekognition_detect_moderation(request:Request,region:str,file:UploadFile):
+@app.post("/root/rekognition-detect-moderation")
+async def root_rekognition_detect_moderation(request:Request,region:str,file:UploadFile):
    #logic
    rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    image={"Bytes":file.file.read()}
@@ -2275,10 +2305,10 @@ async def private_rekognition_detect_moderation(request:Request,region:str,file:
    #final
    return {"status":1,"message":output}
 
-#private/rekognition detect text
+#root/rekognition-detect-text
 import boto3
-@app.post("/private/rekognition-detect-text")
-async def private_rekognition_detect_text(request:Request,region:str,file:UploadFile):
+@app.post("/root/rekognition-detect-text")
+async def root_rekognition_detect_text(request:Request,region:str,file:UploadFile):
    #logic
    rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    image={"Bytes":file.file.read()}
@@ -2286,20 +2316,20 @@ async def private_rekognition_detect_text(request:Request,region:str,file:Upload
    #final
    return {"status":1,"message":output}
 
-#private/rekognition celebrity info
+#root/rekognition-celebrity-info
 import boto3
-@app.post("/private/rekognition-celebrity-info")
-async def private_rekognition_celebrity_info(request:Request,region:str,celebrity_id:str):
+@app.post("/root/rekognition-celebrity-info")
+async def root_rekognition_celebrity_info(request:Request,region:str,celebrity_id:str):
    #logic
    rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=rekognition_client.get_celebrity_info(Id=celebrity_id)
    #final
    return {"status":1,"message":output}
 
-#private/rekognition job start
+#root/rekognition-job-start
 import boto3
-@app.post("/private/rekognition-job-start")
-async def private_rekognition_job_start(request:Request,region:str,mode:Literal["celebrity","text","segment","label","face","content"],video_url:str):
+@app.post("/root/rekognition-job-start")
+async def root_rekognition_job_start(request:Request,region:str,mode:Literal["celebrity","text","segment","label","face","content"],video_url:str):
    #logic
    rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    bucket=video_url.split("//",1)[1].split(".",1)[0]
@@ -2314,10 +2344,10 @@ async def private_rekognition_job_start(request:Request,region:str,mode:Literal[
    #final
    return {"status":1,"message":output}
 
-#private/rekognition job status
+#root/rekognition-job-status
 import boto3
-@app.post("/private/rekognition-job-status")
-async def private_rekognition_job_status(request:Request,region:str,mode:Literal["celebrity","text","segment","label","face","content"],job_id:str,next_token:str=None):
+@app.post("/root/rekognition-job-status")
+async def root_rekognition_job_status(request:Request,region:str,mode:Literal["celebrity","text","segment","label","face","content"],job_id:str,next_token:str=None):
    #logic
    rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    if mode=="celebrity":
@@ -2341,255 +2371,19 @@ async def private_rekognition_job_status(request:Request,region:str,mode:Literal
    #final
    return {"status":1,"message":output}
 
-#admin/admin-check
-@app.get("/admin/admin-check")
-async def admin_admin_check(request:Request):
-   return {"status":1,"message":"yes"}
-
-#admin/mark-user-admin
-@app.put("/admin/mark-user-admin")
-async def admin_mark_user_admin(request:Request,user_id:int):
-   #logic
-   query="update users set api_access=:api_access where id=:id returning *"
-   query_param={"id":user_id,"api_access":"/admin/admin-check"}
+#public/sns-otp-send
+import boto3,random
+@app.get("/public/sns-otp-send")
+async def public_sns_otp_send(request:Request,region:str,mobile:str,entity_id:str=None,sender_id:str=None,template_id:str=None,message:str=None):
+   #create otp
+   otp=random.randint(100000,999999)
+   query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
+   query_param={"otp":otp,"mobile":mobile}
    output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#admin/update-api-access
-from pydantic import BaseModel
-class schema_update_api_access(BaseModel):
-   user_id:int
-   api_access:str|None=None
-@app.put("/admin/update-api-access")
-async def admin_update_api_access(request:Request,body:schema_update_api_access):
-   #api list
-   api_list=[route.path for route in request.app.routes]
-   api_list_admin=[item for item in api_list if "/admin" in item]
-   api_list_admin_str=",".join(api_list_admin)
-   #check body
-   if body.api_access:
-      for item in body.api_access.split(","):
-         if item not in api_list_admin_str:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
-   #body modify
-   if body.api_access=="":body.api_access=None
-   #logic
-   query="update users set api_access=:api_access where id=:id returning *"
-   query_param={"id":body.user_id,"api_access":body.api_access}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#root/postgres clean
-@app.delete("/root/postgres-clean")
-async def root_pclean(request:Request):
-   #table name
-   output=await postgres_client.fetch_all(query="select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
-   table_name_list=[item["table_name"] for item in output]
-   table_name_list_action=[item for item in table_name_list if "action_" in item]
-   #parent_table name
-   parent_table_list=[]
-   for item in table_name_list_action:
-      output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {item};",values={})
-      parent_table_list=parent_table_list+[item["parent_table"] for item in output]
-   parent_table_name_list=list(set(parent_table_list))
-   #creator null
-   [await postgres_client.fetch_all(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in ["post","message"]+table_name_list_action]
-   #parent null
-   [await postgres_client.fetch_all(query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});",values={}) for table in table_name_list_action for parent_table in parent_table_name_list]
-   #final
-   return {"status":1,"message":"done"}
-
-#admin/csv-uploader 
-@app.post("/admin/csv-uploader")
-async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,is_serialize:int=1):
-   #object list
-   if file.content_type!="text/csv":return {"status":0,"message":"file extension must be csv"}
-   file_csv=csv.DictReader(codecs.iterdecode(file.file,'utf-8'))
-   object_list=[]
-   for row in file_csv:object_list.append(row)
-   file.file.close()
-   #serialize
-   if is_serialize:
-      response=await postgres_serialize(object_list,postgres_column_datatype)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
-   #logic
-   response=await postgres_cud(mode,table,object_list,postgres_client)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   #final
-   return response
-
-#root/s3-delete-url
-import boto3
-@app.delete("/root/s3-delete-url")
-async def root_s3_delete_url(request:Request,url:str):
-   #logic
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_resource.Object(bucket,key).delete()
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-delete-bucket
-import boto3
-@app.delete("/root/s3-delete-bucket")
-async def root_s3_delete_bucket(request:Request,bucket:str):
-   #logic
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.delete_bucket(Bucket=bucket)
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-empty-bucket
-import boto3
-@app.delete("/root/s3-empty-bucket")
-async def root_s3_empty_bucket(request:Request,bucket:str):
-   #logic
-   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_resource.Bucket(bucket).objects.all().delete()
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-list-all-bucket
-import boto3
-@app.get("/root/s3-list-all-bucket")
-async def root_s3_list_all_bucket(request:Request):
-   #logic
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.list_buckets()
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-create-bucket
-import boto3
-@app.post("/root/s3-create-bucket")
-async def root_s3_create_bucket(request:Request,region:str,name:str):
-   #logic
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.create_bucket(Bucket=name,CreateBucketConfiguration={'LocationConstraint':region})
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-make-bucket-public
-import boto3
-@app.put("/root/s3-make-bucket-public")
-async def root_s3_make_bucket_public(request:Request,bucket:str):
-   #logic
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-download-url
-import boto3
-@app.get("/root/s3-download-url")
-async def root_s3_download_url(request:Request,url:str,path:str):
-   #logic
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   s3_client.download_file(bucket,key,path)
-   #final
-   return {"status":1,"message":"done"}
-
-#admin/postgres-query-runner
-@app.get("/admin/postgres-query-runner")
-async def admin_postgres_query_runner(request:Request,query:str):
-  #stop keywords
-  for item in ["insert","update","delete","alter","drop"]:
-    if item in query:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{item} not allowed in query"})
-  #query run
-  output=await postgres_client.fetch_all(query=query,values={})
-  #final
-  return {"status":1,"message":output}
-
-#admin/object-read
-@app.get("/admin/object-read")
-async def admin_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #parse object where
-   object_where=dict(request.query_params)
-   response=await postgres_object_where_parse(object_where,postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_serialize([where_value],postgres_column_datatype)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #read object
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   output=await postgres_client.fetch_all(query=query,values=where_value)
-   response={"status":1,"message":output}
-   #final
-   return response
-
-#admin/object-update
-@app.put("/admin/object-update")
-async def admin_object_update(request:Request,table:str,is_serialize:int=1):
-   #object set
-   object=await request.json()
-   object["updated_by_id"]=request.state.user["id"]
-   #serialize
-   if is_serialize:
-      response=await postgres_serialize([object],postgres_column_datatype)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object=response["message"][0]
-   #logic
-   response=await postgres_cud("update",table,[object],postgres_client)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   #final
-   return response
-
-#admin/delete ids
-@app.put("/admin/delete-ids")
-async def admin_delete_ids(request:Request,table:str,ids:str):
-   #logic
-   query=f"delete from {table} where id in ({ids});"
-   await postgres_client.fetch_all(query=query,values={})
-   #final
-   return {"status":1,"message":"done"}
-
-#root/ses-add-identity
-import boto3
-@app.post("/root/ses-add-identity")
-async def root_ses_add_identity(request:Request,region:str,type:Literal["email","domain"],identity:str):
-   #logic
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   if type=="email":output=ses_client.verify_email_identity(EmailAddress=identity)
-   if type=="domain":output=ses_client.verify_domain_identity(Domain=identity)
-   #final
-   return {"status":1,"message":output}
-
-#root/ses-list-identity
-import boto3
-@app.get("/root/ses-list-identity")
-async def root_ses_list_identity(request:Request,region:str,type:Literal["EmailAddress","Domain"],limit:int,next_token:str=None):
-   #logic
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.list_identities(IdentityType=type,NextToken='' if not next_token else next_token,MaxItems=limit)
-   #final
-   return {"status":1,"message":output}
-
-#root/ses-identity-status
-import boto3
-@app.get("/root/ses-identity-status")
-async def root_ses_identity_status(request:Request,region:str,identity:str):
-   #logic
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.get_identity_verification_attributes(Identities=[identity])
-   #final
-   return {"status":1,"message":output}
-
-#root/ses-delete-identity
-import boto3
-@app.delete("/root/ses-delete-identity")
-async def root_ses_delete_identity(request:Request,region:str,identity:str):
-   #logic
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.delete_identity(Identity=identity)
+   #send otp
+   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
+   else:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
    #final
    return {"status":1,"message":output}
 
@@ -2661,6 +2455,63 @@ async def root_sns_delete_sandbox_mobile(request:Request,region:str,mobile:str):
    #logic
    sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
    output=sns_client.delete_sms_sandbox_phone_number(PhoneNumber=mobile)
+   #final
+   return {"status":1,"message":output}
+
+#public/ses-send-otp
+import boto3
+@app.get("/public/ses-send-otp")
+async def public_ses_send_otp(request:Request,region:str,sender:str,email:str):
+   #create otp
+   otp=random.randint(100000,999999)
+   query="insert into otp (otp,email) values (:otp,:email) returning *;"
+   query_param={"otp":otp,"email":email}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   #send otp
+   to,title,body=[email],"otp from atom",str(otp)
+   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+   #final
+   return {"status":1,"message":"done"}
+
+#root/ses-add-identity
+import boto3
+@app.post("/root/ses-add-identity")
+async def root_ses_add_identity(request:Request,region:str,type:Literal["email","domain"],identity:str):
+   #logic
+   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   if type=="email":output=ses_client.verify_email_identity(EmailAddress=identity)
+   if type=="domain":output=ses_client.verify_domain_identity(Domain=identity)
+   #final
+   return {"status":1,"message":output}
+
+#root/ses-list-identity
+import boto3
+@app.get("/root/ses-list-identity")
+async def root_ses_list_identity(request:Request,region:str,type:Literal["EmailAddress","Domain"],limit:int,next_token:str=None):
+   #logic
+   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=ses_client.list_identities(IdentityType=type,NextToken='' if not next_token else next_token,MaxItems=limit)
+   #final
+   return {"status":1,"message":output}
+
+#root/ses-identity-status
+import boto3
+@app.get("/root/ses-identity-status")
+async def root_ses_identity_status(request:Request,region:str,identity:str):
+   #logic
+   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=ses_client.get_identity_verification_attributes(Identities=[identity])
+   #final
+   return {"status":1,"message":output}
+
+#root/ses-delete-identity
+import boto3
+@app.delete("/root/ses-delete-identity")
+async def root_ses_delete_identity(request:Request,region:str,identity:str):
+   #logic
+   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   output=ses_client.delete_identity(Identity=identity)
    #final
    return {"status":1,"message":output}
 
@@ -2783,11 +2634,130 @@ async def root_sqlite_query_runner(request:Request,mode:str,query:str):
    sqlite_client.disconnect()
    return {"status":1,"message":output}
 
-#mode
+#public/html-single-chat
+from fastapi.responses import HTMLResponse
+@app.get("/public/html-single-chat/{user_id_1}/{user_id_2}")
+async def public_html_single_chat(user_id_1:int,user_id_2:int):
+   html=f"""
+   <!DOCTYPE html>
+   <html>
+      <head>
+         <title>Chat</title>
+      </head>
+      <body>
+         <h1>Single Chat</h1>
+         <h2>Your ID: <span id="client_id"></span></h2>
+         <form action="" onsubmit="sendMessage(event)">
+               <input type="text" id="messageText" autocomplete="off"/>
+               <button>Send</button>
+         </form>
+         <ul id='messages'>
+         </ul>
+         <script>
+               document.querySelector("#client_id").textContent = {user_id_1};
+               var ws = new WebSocket(`ws://localhost:8000/public/websocket-single-chat/{user_id_1}/{user_id_2}`);
+               ws.onmessage = function(event) {{
+                  var messages = document.getElementById('messages')
+                  var message = document.createElement('li')
+                  var content = document.createTextNode(event.data)
+                  message.appendChild(content)
+                  messages.appendChild(message)
+               }};
+               function sendMessage(event) {{
+                  var input = document.getElementById("messageText")
+                  ws.send(input.value)
+                  input.value = ''
+                  event.preventDefault()
+               }}
+         </script>
+      </body>
+   </html>
+   """
+   return HTMLResponse(html)
+
+#public/html-group-chat
+from fastapi.responses import HTMLResponse
+@app.get("/public/html-group-chat")
+async def public_html_group_chat():
+    html="""
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>Chat</title>
+        </head>
+        <body>
+            <h1>Group Chat</h1>
+            <h2>Your ID=<span id="client_id"></span></h2>
+            <form action="" onsubmit="sendMessage(event)">
+                <input type="text" id="messageText" autocomplete="off"/>
+                <button>Send</button>
+            </form>
+            <ul id='messages'>
+            </ul>
+            <script> 
+                var client_id = Date.now()
+                document.querySelector("#client_id").textContent = client_id;
+                var ws = new WebSocket(`ws://localhost:8000/public/websocket-group-chat/${client_id}`);
+                ws.onmessage = function(event) {
+                    var messages = document.getElementById('messages')
+                    var message = document.createElement('li')
+                    var content = document.createTextNode(event.data)
+                    message.appendChild(content)
+                    messages.appendChild(message)
+                };
+                function sendMessage(event) {
+                    var input = document.getElementById("messageText")
+                    ws.send(input.value)
+                    input.value = ''
+                    event.preventDefault()
+                }
+            </script>
+        </body>
+    </html>
+    """
+    return HTMLResponse(html)
+ 
+#websocket single chat
+from fastapi import WebSocket,WebSocketDisconnect
+websocket_connection_dict={}
+@app.websocket("/public/websocket-single-chat/{user_id_1}/{user_id_2}")
+async def public_websocket_single_chat(websocket:WebSocket,user_id_1:int,user_id_2:int):
+    await websocket.accept()
+    websocket_connection_dict[user_id_1]=websocket
+    try:
+        while True:
+            message=await websocket.receive_text()
+            if user_id_2 in websocket_connection_dict:
+               await websocket_connection_dict[user_id_1].send_text(f"{user_id_1}-{message}")
+               await websocket_connection_dict[user_id_2].send_text(f"{user_id_1}-{message}")
+            else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_2} offline")
+    except WebSocketDisconnect:
+       websocket_connection_dict.pop(user_id_1, None)
+       if user_id_2 in websocket_connection_dict:await websocket_connection_dict[user_id_2].send_text(f"{user_id_1} left the chat")
+       else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_1} left the chat")
+       
+#websocket group chat
+from fastapi import WebSocket,WebSocketDisconnect
+websocket_connection_list=[]
+@app.websocket("/public/websocket-group-chat/{client_id}")
+async def public_websocket_group_chat(websocket:WebSocket,client_id:int):
+    await websocket.accept()
+    websocket_connection_list.append(websocket)
+    try:
+        while True:
+            message=await websocket.receive_text()
+            for connection in websocket_connection_list:
+                await connection.send_text(message)
+    except WebSocketDisconnect:
+        websocket_connection_list.remove(websocket)
+        for connection in websocket_connection_list:
+             await connection.send_text(f"{client_id} left the chat")
+
+
+#main
 import sys
 mode=sys.argv
 
-#main fastapi app start
 import asyncio,uvicorn
 if __name__=="__main__" and len(mode)==1:
    try:
@@ -2795,15 +2765,13 @@ if __name__=="__main__" and len(mode)==1:
    except KeyboardInterrupt:
       print("exited")
 
-#main redis subscriber start
 import asyncio
 if __name__=="__main__" and len(mode)>1 and mode[1]=="redis-subscribe":
    try:
       asyncio.run(redis_subscriber_start(os.getenv("redis_server_url"),mode[2]))
    except KeyboardInterrupt:
       print("exited")
-   
-#main kafka consumer start
+
 import asyncio
 if __name__=="__main__" and len(mode)>1 and mode[1]=="kafka-consumer":
    try:
@@ -2811,7 +2779,6 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="kafka-consumer":
    except KeyboardInterrupt:
       print("exited")
 
-#main lavinmq consumer start
 import asyncio,pika
 if __name__=="__main__" and len(mode)>1 and mode[1]=="lavinmq-consumer":
    try:
@@ -2824,7 +2791,6 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="lavinmq-consumer":
       lavinmq_client.close()
       print("exited")
 
-#main rabbitmq consumer start
 import asyncio,pika
 if __name__=="__main__" and len(mode)>1 and mode[1]=="rabbitmq-consumer":
    try:
@@ -2837,7 +2803,6 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="rabbitmq-consumer":
       rabbitmq_client.close()
       print("exited")
 
-#main gemini chat start
 import google.generativeai as genai
 if __name__=="__main__" and len(mode)>1 and mode[1]=="gemini-chat":
    try:
@@ -2852,4 +2817,3 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="gemini-chat":
       print("exited")
 
  
-   

@@ -83,6 +83,7 @@ How to enable redis caching in atom:-
 
 1. add key "redis_server_url" in .env file
 2. add decorator @cache(expire=60) in any api you want to cache with expiry time in seconds (example api below)
+3. atom has support to upload bulk data in the redis cache
 
 @app.get("/example-api")
 @cache(expire=60)
@@ -232,4 +233,134 @@ Atom has location search apis using postgis extension. PostGIS is a PostgreSQL e
 
 ### s3 apis
 ```
+Atom has all the neccessary s3 apis to handle the blob storage use-cases.
+
+1. upload binary
+2. presigned url
+3. empty/delete bucket
+4. delete key
+```
+
+### admin apis
+```
+Atom has rback control to the deepest level to control rbac.
+You can create further logics to build your own access control.
+Atom inlcludes all the basics admin apis to control the business operations.
+```
+
+### gemini integration
+```
+Atom has all the basics gemini apis to start with for AI use-cases.
+
+1. promot text generation
+2. image analysis
+3. audio analysis
+4. embeddings
+```
+
+### chromadb integration
+```
+Atom has integrated chromadb for vector search use-cases like Embeddings, vector search, document storage, full-text search, metadata filtering, and multi-modal. 
+```
+
+### openai integration
+```
+Atom has baisc openai intregration for chat completion,create embedding etc.
+```
+
+### langchain
+```
+atom has basics langchain apis to do operations on data for ai use-cases.
+1. chunk splitting
+2. webpage loader
+3. csv loader
+4. pdf/txt loader
+```
+
+### opensearch apis
+```
+OpenSearch is an open-source, enterprise-grade search and observability suite that brings order to unstructured data at scale.
+Atom has all the basics apis to start with OpenSearch. You can extend your search use-cases on top of that.
+```
+
+### memcached integration
+```
+Atom has integration for memcached where you can build high-performance, distributed memory object caching system, generic in nature, but intended for use in speeding up dynamic web applications by alleviating database load.
+```
+
+### valkey integration
+```
+Valkey is an open source (BSD) high-performance key/value datastore that supports a variety of workloads such as caching, message queues, and can act as a primary database. Valkey can run as either a standalone daemon or in a cluster, with options for replication and high availability.
+Atom supports valkey integration
+```
+
+### mongodb integration
+```
+The document data model maps to how you think and code. Break out of rigid, tabular data structures with flexible documents that map directly to objects in your code. Embed related data into a single document to increase performance and minimize computational cost.
+Atom supports mongodb integrations for all crud needs.
+```
+
+### pub-sub module
+```
+Atom has integrations with all major pub-sub vendors. Atom has both producer+consumer apis for below stacks.
+
+1. kafka
+2. redis
+3. rabbitmq
+4. lavinmq
+```
+
+### ftp
+```
+Atom has connection apis with ftp server with below aps.
+
+1. create,rename,delete file,dir
+2. upload file
+```
+
+### timescaledb
+```
+For ingesting and querying vast amounts of live data, atom has apis for timescaledb integration.
+```
+
+### meilisearch
+```
+Meilisearch is a flexible and powerful user-focused search engine that can be added to any website or application.
+
+Atom has basic integration with meilisearch which  can be easily extended.
+```
+
+### sns integration
+```
+Amazon Simple Notification Service (Amazon SNS) is a web service that makes it easy to set up, operate, and send notifications from the cloud.
+
+Atom has pre-built api to use aws sns.
+```
+
+### ses integration
+```
+Amazon Simple Email Service (SES) is a cost-effective email service built on the reliable and scalable infrastructure that Amazon.com developed to serve its own customer base. With Amazon SES, you can send transactional email, marketing messages, or any other type of high-quality content to your customers
+
+Atom has pre-built api to use aws ses.
+```
+
+### ses integration
+```
+Rekognition Image is an image recognition service that detects objects, scenes, activities, landmarks, faces, dominant colors, and image quality. Rekognition Image also extracts text, recognizes celebrities, and identifies inappropriate content in images.
+
+Atom has pre-built api to use aws Rekognition.
+```
+
+### dynamodb integration
+```
+Rekognition Image is an image recognition service that detects objects, scenes, activities, landmarks, faces, dominant colors, and image quality. Rekognition Image also extracts text, recognizes celebrities, and identifies inappropriate content in images.
+
+Atom has pre-built api to use aws dynamodb.
+```
+
+### sqlite integration
+```
+SQLite is a C-language library that implements a small, fast, self-contained, high-reliability, full-featured, SQL database engine. SQLite is the most used database engine in the world. SQLite is built into all mobile phones and most computers and comes bundled inside countless other applications that people use every day.
+
+Atom has pre-built api to use aws sqlite.
 ```
