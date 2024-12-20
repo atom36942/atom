@@ -43,7 +43,7 @@ atom36942@gmail.com
 ### how to run using docker
 ```
 1. docker build -t atom .
-docker run -p 8000:8000 atom
+2. docker run -p 8000:8000 atom
 ```
 
 ### env file
