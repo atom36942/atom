@@ -2458,10 +2458,10 @@ async def root_sns_delete_sandbox_mobile(request:Request,region:str,mobile:str):
    #final
    return {"status":1,"message":output}
 
-#public/ses-send-otp
+#public/ses-otp-send
 import boto3
-@app.get("/public/ses-send-otp")
-async def public_ses_send_otp(request:Request,region:str,sender:str,email:str):
+@app.get("/public/ses-otp-send")
+async def public_ses_otp_send(request:Request,region:str,sender:str,email:str):
    #create otp
    otp=random.randint(100000,999999)
    query="insert into otp (otp,email) values (:otp,:email) returning *;"
