@@ -40,6 +40,12 @@ atom36942@gmail.com
 5. run python main.py
 ```
 
+### how to run using docker
+```
+1. docker build -t atom .
+docker run -p 8000:8000 atom
+```
+
 ### env file
 ```
 postgres_database_url=null
