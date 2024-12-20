@@ -42,27 +42,36 @@ atom36942@gmail.com
 
 ### env file
 ```
-postgres_database_url=credential
-redis_server_url=credential
-secret_key_jwt=credential
-secret_key_root=credential
-secret_key_pinecone=credential
-secret_key_gemini=credential
-secret_key_openai=credential
-aws_access_key_id=credential
-aws_secret_access_key=credential
-cassandra_scb_path=credential
-cassandra_client_id=credential
-cassandra_secret_key=credential
-valkey_server_url=credential
-lavinmq_server_url=credential
-rabbitmq_server_url=credential
-mongodb_cluster_url=credential
-ftp_host=credential
-ftp_username=credential
-ftp_password=credential
-ftp_port=credential
-USER_AGENT=credential
+postgres_database_url=null
+redis_server_url=null
+secret_key_jwt=null
+secret_key_root=null
+token_expiry_second=null
+aws_access_key_id=null
+aws_secret_access_key=null
+secret_key_gemini=null
+secret_key_openai=null
+sentry_dsn=null
+opensearch_url=null
+valkey_server_url=null
+mongodb_cluster_url=null
+lavinmq_server_url=null
+rabbitmq_server_url=null
+kafka_server_url=null
+kafka_path_cafile=null
+kafka_path_certfile=null
+kafka_path_keyfile=null
+ftp_host=null
+ftp_username=null
+ftp_password=null
+ftp_port=null
+timescaledb_url=null
+meilisearch_url=null
+meilisearch_key=null
+cassandra_scb_path=null
+cassandra_client_id=null
+cassandra_secret_key=null
+USER_AGENT=null
 ```
 
 ### sentry logs
