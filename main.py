@@ -1458,16 +1458,6 @@ async def root_s3_download_url(request:Request,url:str,path:str):
 async def admin_admin_check(request:Request):
    return {"status":1,"message":"yes"}
 
-#admin/mark-user-admin
-@app.put("/admin/mark-user-admin")
-async def admin_mark_user_admin(request:Request,user_id:int):
-   #logic
-   query="update users set api_access=:api_access where id=:id returning *"
-   query_param={"id":user_id,"api_access":"/admin/admin-check"}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
 #admin/update-api-access
 from pydantic import BaseModel
 class schema_update_api_access(BaseModel):
