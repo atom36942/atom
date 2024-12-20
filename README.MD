@@ -379,3 +379,13 @@ SQLite is a C-language library that implements a small, fast, self-contained, hi
 
 Atom has pre-built api to use aws sqlite.
 ```
+
+### streamlit
+```
+Streamlit is an open-source Python library that makes it easy to create and share custom web apps for machine learning and data science.
+
+Atom has a basic form to take user data using streamlit.
+
+How to run:- 
+streamlit run main.py st
+```
