@@ -2813,7 +2813,7 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="gemini-chat":
    except KeyboardInterrupt:
       print("exited")
 
-#streamlit
+#streamlit (streamlit run main.py st)
 import streamlit as st
 if __name__=="__main__" and len(mode)>1 and mode[1]=="st":
    st.markdown("<h4>welcome to atom</h4>",unsafe_allow_html=True)
