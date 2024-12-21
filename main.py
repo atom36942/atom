@@ -1971,61 +1971,44 @@ async def root_valkey_get_object(request:Request,key:str):
    return {"status":1,"message":output}
 
 #root/redis-set-object
-import redis.asyncio as redis
 @app.post("/root/redis-set-object")
 async def root_redis_set_object(request:Request,key:str,expiry:int=None):
-   redis_client=redis.from_url(os.getenv("redis_server_url"))
    object=await request.json()
    object=json.dumps(object)
    if expiry:output=await redis_client.setex(key,expiry,object)
    else:output=await redis_client.set(key,object)
-   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-get-object
-import redis.asyncio as redis
 @app.get("/root/redis-get-object")
 async def root_redis_get_object(request:Request,key:str):
-   redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.get("post_1")
    if output:output=json.loads(output)
-   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-flush
-import redis.asyncio as redis
 @app.delete("/root/redis-flush")
 async def root_redis_flush(request:Request):
-   redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.flushall()
-   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-info
-import redis.asyncio as redis
 @app.get("/root/redis-info")
 async def root_redis_info(request:Request):
-   redis_client=redis.from_url(os.getenv("redis_server_url"))
    output=await redis_client.info()
-   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-publish
-import redis.asyncio as redis
 @app.post("/root/redis-publish")
 async def root_redis_publish(request:Request,channel:str):
-   redis_client=redis.from_url(os.getenv("redis_server_url"))
    object=await request.json()
    object=json.dumps(object)
    output=await redis_client.publish(channel,object)
-   await redis_client.aclose()
    return {"status":1,"message":output}
 
 #root/redis-transaction
-import redis.asyncio as redis
 @app.post("/root/redis-transaction")
 async def root_redis_transaction(request:Request,expiry:int=None):
-   redis_client=redis.from_url(os.getenv("redis_server_url"))
    body=await request.json()
    object_list=body["data"]
    key_list=body["key"]
@@ -2034,14 +2017,11 @@ async def root_redis_transaction(request:Request,expiry:int=None):
          if expiry:pipe.setex(key_list[index],expiry,json.dumps(object))
          else:pipe.set(key_list[index],json.dumps(object))
       await pipe.execute()
-   await redis_client.aclose()
    return {"status":1,"message":"done"}
 
 #root/redis-csv-set
-import redis.asyncio as redis
 @app.post("/root/redis-csv-set")
 async def root_redis_csv_set(request:Request,file:UploadFile,table:str,expiry:int=None):
-   redis_client=redis.from_url(os.getenv("redis_server_url"))
    file_csv=csv.DictReader(codecs.iterdecode(file.file,'utf-8'))
    object_list=[]
    for row in file_csv:object_list.append(row)
@@ -2052,7 +2032,6 @@ async def root_redis_csv_set(request:Request,file:UploadFile,table:str,expiry:in
          if expiry:pipe.setex(key,expiry,json.dumps(object))
          else:pipe.set(key,json.dumps(object))
       await pipe.execute()
-   await redis_client.aclose()
    return {"status":1,"message":"done"}
 
 #root/mongodb-delete
