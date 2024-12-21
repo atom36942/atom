@@ -2812,13 +2812,14 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="gemini-chat":
          for chunk in response:print(chunk.text)
    except KeyboardInterrupt:
       print("exited")
-
+      
 #streamlit (streamlit run main.py st)
 import streamlit as st
+import requests
 if __name__=="__main__" and len(mode)>1 and mode[1]=="st":
    st.markdown("<h4>welcome to atom</h4>",unsafe_allow_html=True)
    with st.form("jobseeker_form"):
-      st.header("Personal Information")
+      st.header("are you looking for a job?")
       name=st.text_input("name")
       email=st.text_input("email")
       mobile=st.text_input("mobile")
@@ -2829,4 +2830,8 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="st":
       submitted=st.form_submit_button("Submit")
       if submitted:
          if not name or not email or not mobile:st.error("name/email/mobile is mandatory")
-         else:st.success("Thank you for your application, {}!".format(name))
+         else:
+            object={"name":name,"email":email,"mobile":mobile,"linkedin_url":linkedin,"type":job_type,"experience":experience,"skill":skills}
+            requests.post(f"{os.getenv("baseurl_prod")}/public/object-create?table=human",json=object)
+            st.success("Thank you for your application, {}!".format(name))
+            
