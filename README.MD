@@ -9,11 +9,13 @@
 ```
 
 ### coding paradigm
+```
 Atom follows procedural+functional programming paradigm with focus on solid principles.
 
 Procedural programming is a programming paradigm built around the idea that programs are sequences of instructions to be executed.
 They focus heavily on splitting up programs into named sets of instructions called procedures, analogous to functions.
 A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
+```
 
 ### api docs
 ```
@@ -76,6 +78,7 @@ cassandra_scb_path=null
 cassandra_client_id=null
 cassandra_secret_key=null
 USER_AGENT=null
+baseurl_prod=null
 ```
 
 ### sentry logs
@@ -118,7 +121,9 @@ Currently added logics:-
 
 ### ratelimiter
 ```
-A Rate Limiter limits the number of client requests allowed to be sent over a specified period. If the API request count exceeds the threshold defined by the rate limiter, all the excess calls are blocked.
+A Rate Limiter limits the number of client requests allowed to be sent over a specified period. 
+
+If the API request count exceeds the threshold defined by the rate limiter, all the excess calls are blocked.
 Atom support ratelimiting for any api with a simple query param.
 
 How to use
