@@ -2832,6 +2832,7 @@ if __name__=="__main__" and len(mode)>1 and mode[1]=="st":
          if not name or not email or not mobile:st.error("name/email/mobile is mandatory")
          else:
             object={"name":name,"email":email,"mobile":mobile,"linkedin_url":linkedin,"type":job_type,"experience":experience,"skill":skills}
-            requests.post(f"{os.getenv("baseurl_prod")}/public/object-create?table=human",json=object)
+            url=f"{os.getenv("baseurl_prod")}/public/object-create?table=human"
+            requests.post(url,json=object)
             st.success("Thank you for your application, {}!".format(name))
             
