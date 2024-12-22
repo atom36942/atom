@@ -17,18 +17,15 @@ They focus heavily on splitting up programs into named sets of instructions call
 A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
 ```
 
-### api docs
-```
-1. http://localhost:8000/redoc
-
-2. http://127.0.0.1:8000/docs
-
-3. sample hsoted docs = https://atom-tbsk.onrender.com/docs
-```
-
 ### contact
 ```
 atom36942@gmail.com
+```
+
+
+### live apis docs
+```
+https://atom-tbsk.onrender.com/docs
 ```
 
 ### how to run
@@ -38,6 +35,11 @@ atom36942@gmail.com
 3. create venv
 4. install requirements.txt
 5. run python main.py
+
+api docs urls:-
+
+1. http://localhost:8000/redoc
+2. http://127.0.0.1:8000/docs
 ```
 
 ### how to run using docker
@@ -78,7 +80,6 @@ cassandra_scb_path=null
 cassandra_client_id=null
 cassandra_secret_key=null
 USER_AGENT=null
-baseurl_prod=null
 ```
 
 ### sentry logs
