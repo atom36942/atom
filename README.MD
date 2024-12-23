@@ -17,7 +17,7 @@ If you are looking to use atom to make your scalable backend superfast, mail at 
 atom36942@gmail.com
 
 ### api docs
-1. live versin = https://atom-tbsk.onrender.com/docs
+1. live = https://atom-tbsk.onrender.com/docs
 2. localhost = http://localhost:8000/redoc
 3. localhost =  http://127.0.0.1:8000/docs
 
@@ -32,9 +32,11 @@ atom36942@gmail.com
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
 
-
-
-
+### features
+```
+1. sentry logs
+2. redis caching layer
+```
 
 ### env file
 ```
@@ -70,32 +72,13 @@ cassandra_secret_key=null
 USER_AGENT=null
 ```
 
-### sentry logs
-```
-Atom has inbuilt sentry logs logic which provides end-to-end distributed tracing, enabling developers to identify and debug performance issues and errors across their systems and services.
 
-How to enable sentry logs in atom:-
 
-1. add key "sentry_dsn" in .env file
-2. check your sentry account for logs
-```
 
-### redis caching layer
-```
-Atom has inbuild redis caching layer for any api including request query params+token.
 
-How to enable redis caching in atom:-
 
-1. add key "redis_server_url" in .env file
-2. add decorator @cache(expire=60) in any api you want to cache with expiry time in seconds (example api below)
-3. atom has support to upload bulk data in the redis cache
 
-@app.get("/example-api")
-@cache(expire=60)
-async def example_api(request:Request):
-   api logic
-   return response
-```
+
 
 ### lifespan
 ```
