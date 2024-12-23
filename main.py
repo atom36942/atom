@@ -89,7 +89,7 @@ async def function_add_creator_data(postgres_client,object_list):
                break
    return {"status":1,"message":object_list}
 
-#set
+#set global variable
 postgres_client=None
 from databases import Database
 async def set_postgres_client():
@@ -979,15 +979,15 @@ async def my_message_delete_single(request:Request,id:int):
 
 #my/object-create
 @app.post("/my/object-create")
-async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:str=None):
+async def my_object_create(request:Request,background:BackgroundTasks,table:str,is_serialize:int=1,queue:str=None):
    #object set
    object=await request.json()
    object["created_by_id"]=request.state.user["id"]
    #object check
    for k,v in object.items():
       if k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
-   #serialize
-   if is_serialize and not queue:
+   #object serialize
+   if is_serialize and queue in [None,"background"]:
       response=await function_object_serialize(postgres_column_datatype,[object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
@@ -996,16 +996,20 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
       response=await function_postgres_cud(postgres_client,"create",table,[object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
-   #queue
-   if queue:data={"mode":"create","table":table,"object":object}
-   if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
-   if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
+   #background
+   if queue=="background":background.add_task(await function_postgres_cud(postgres_client,"create",table,[object]))
+   #amqp
+   if queue in ["rabbitmq","lavinmq"]:
+      data={"mode":"create","table":table,"object":object}
+      if queue=="rabbitmq":rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
+      if queue=="lavinmq":lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
    #final
+   if "output" not in locals():output="done"
    return {"status":1,"message":output}
 
 #my/object-update
 @app.put("/my/object-update")
-async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:str=None):
+async def my_object_update(request:Request,background:BackgroundTasks,table:str,is_serialize:int=1,queue:str=None):
    #object set
    object=await request.json()
    object["updated_by_id"]=request.state.user["id"]
@@ -1023,8 +1027,8 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:st
       output=await postgres_client.fetch_all(query=query,values=query_param)
       if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no object"})
       if output[0]["created_by_id"]!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"object ownership issue"})
-   #serialize
-   if is_serialize and not queue:
+   #object serialize
+   if is_serialize and queue in [None,"background"]:
       response=await function_object_serialize(postgres_column_datatype,[object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
@@ -1033,19 +1037,23 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:st
       response=await function_postgres_cud(postgres_client,"update",table,[object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
-   #queue
-   if queue:data={"mode":"update","table":table,"object":object}
-   if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
-   if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
+   #background
+   if queue=="background":background.add_task(await function_postgres_cud(postgres_client,"update",table,[object]))
+   #amqp
+   if queue in ["rabbitmq","lavinmq"]:
+      data={"mode":"update","table":table,"object":object}
+      if queue=="rabbitmq":rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
+      if queue=="lavinmq":lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
    #final
+   if "output" not in locals():output="done"
    return {"status":1,"message":output}
 
 #my/object-delete
 @app.delete("/my/object-delete")
-async def my_object_delete(request:Request,table:str,id:int,queue:str=None):
+async def my_object_delete(request:Request,background:BackgroundTasks,table:str,id:int,queue:str=None):
    #check
    if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   #ownwership check
+   #object ownwership check
    query=f"select created_by_id from {table} where id=:id;"
    query_param={"id":id}
    output=await postgres_client.fetch_all(query=query,values=query_param)
@@ -1056,10 +1064,13 @@ async def my_object_delete(request:Request,table:str,id:int,queue:str=None):
       query=f"delete from {table} where id=:id and created_by_id=:created_by_id;"
       query_param={"id":id,"created_by_id":request.state.user["id"]}
       await postgres_client.fetch_all(query=query,values=query_param)
-   #queue
-   if queue:data={"mode":"delete","table":table,"object":{"id":id}}
-   if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
-   if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
+   #background
+   if queue=="background":background.add_task(await function_postgres_cud(postgres_client,"delete",table,[{"id":id}]))
+   #amqp
+   if queue in ["rabbitmq","lavinmq"]:
+      data={"mode":"delete","table":table,"object":{"id":id}}
+      if queue=="rabbitmq":rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
+      if queue=="lavinmq":lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
    #final
    return {"status":1,"message":"done"}
 

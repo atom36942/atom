@@ -5,6 +5,7 @@
 4. atom is non-opionanted as it is written on object level with no affection to type of object
 5. core tech stack=python,fastapi,postgres,redis
 6. atom doesn't rely on any orm and uses raw sql entirely
+7. atom supports large scale data ingestion using rabbitmq/lavinmq/kafka
 
 ### coding paradigm
 Atom follows procedural+functional programming paradigm with focus on solid principles.  
@@ -18,8 +19,8 @@ atom36942@gmail.com
 
 ### api docs
 1. live = https://atom-tbsk.onrender.com/docs
-2. localhost = http://localhost:8000/redoc
-3. localhost =  http://127.0.0.1:8000/docs
+2. localhost = http://localhost:8000/docs
+3. localhost =  http://127.0.0.1:8000/redoc
 
 ### how to run
 1. download atom repo
@@ -108,23 +109,5 @@ USER_AGENT=null
 38. aws dynamodb integration
 39. sqlite integration
 40. streamlit forms
+41. postgres read replicas
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
