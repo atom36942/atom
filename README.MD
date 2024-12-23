@@ -6,6 +6,7 @@
 5. core tech stack=python,fastapi,postgres,redis
 6. atom doesn't rely on any orm and uses raw sql entirely
 7. atom supports large scale data ingestion using rabbitmq/lavinmq/kafka
+8. atom has object-level crud by directly interacting with databaese schema for serialization
 
 ### coding paradigm
 Atom follows procedural+functional programming paradigm with focus on solid principles.  
@@ -18,7 +19,7 @@ If you are looking to use atom to make your scalable backend superfast,email you
 atom36942@gmail.com
 
 ### api docs
-1. live = https://atom-tbsk.onrender.com/docs
+1. live = https://www.atom42.org/docs
 2. localhost = http://localhost:8000/docs
 3. localhost =  http://127.0.0.1:8000/redoc
 
