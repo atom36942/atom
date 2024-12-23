@@ -6,15 +6,12 @@
 5. core tech stack=python,fastapi,postgres,redis
 6. atom doesn't rely on any orm and uses raw sql entirely
 
-
 ### coding paradigm
-```
 Atom follows procedural+functional programming paradigm with focus on solid principles.
-
 Procedural programming is a programming paradigm built around the idea that programs are sequences of instructions to be executed.
 They focus heavily on splitting up programs into named sets of instructions called procedures, analogous to functions.
 A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
-```
+
 
 ### contact
 ```
