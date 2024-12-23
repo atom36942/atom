@@ -17,9 +17,9 @@ If you are looking to use atom to make your scalable backend superfast, mail at 
 atom36942@gmail.com
 
 ### api docs
-You can check all the generic apis atom provides by visiting below url:-  
-https://atom-tbsk.onrender.com/docs
-
+1. live versin = https://atom-tbsk.onrender.com/docs
+2. localhost = http://localhost:8000/redoc
+3. localhost =  http://127.0.0.1:8000/docs
 
 ### how to run
 1. download atom repo
@@ -28,17 +28,13 @@ https://atom-tbsk.onrender.com/docs
 4. install requirements.txt
 5. run python main.py
 
-You can see the localhost api server at:-  
-
-1. http://localhost:8000/redoc  
-2. http://127.0.0.1:8000/docs  
-
-
 ### how to run using docker
-```
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
-```
+
+
+
+
 
 ### env file
 ```
