@@ -13,7 +13,7 @@ They focus heavily on splitting up programs into named sets of instructions call
 A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
 
 ### contact
-If you are looking to use atom to make your scalable backend superfast, mail at below email id:-
+If you are looking to use atom to make your scalable backend superfast,email your requirement @:-
 atom36942@gmail.com
 
 ### api docs
