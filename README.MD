@@ -13,13 +13,16 @@ They focus heavily on splitting up programs into named sets of instructions call
 A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
 
 ### contact
+```
 If you are looking to use atom to make your scalable backend superfast, mail at below email id:-
 atom36942@gmail.com
+```
 
 ### api docs
-You can check all the generic apis atom provides by visiting below url:-
+```
+You can check all the generic apis atom provides by visiting below url:-  
 https://atom-tbsk.onrender.com/docs
-
+```
 
 ### how to run
 1. download atom repo
@@ -28,10 +31,10 @@ https://atom-tbsk.onrender.com/docs
 4. install requirements.txt
 5. run python main.py
 
-You can see the localhost api server at:-
+You can see the localhost api server at:-  
 
-1. http://localhost:8000/redoc
-2. http://127.0.0.1:8000/docs
+1. http://localhost:8000/redoc  
+2. http://127.0.0.1:8000/docs  
 
 
 ### how to run using docker
