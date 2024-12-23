@@ -1,12 +1,11 @@
 ### about atom
-```
 1. atom is an open-source backend that has pre-built modules which are most commonly used
 2. atom can reduce develoment time to a large extent
 3. primary vision is to help entreprenurs to laucnh their ideas faster
 4. atom is non-opionanted as it is written on object level with no affection to type of object
 5. core tech stack=python,fastapi,postgres,redis
 6. atom doesn't rely on any orm and uses raw sql entirely
-```
+
 
 ### coding paradigm
 ```
