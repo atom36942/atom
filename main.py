@@ -177,12 +177,12 @@ async def lifespan(app:FastAPI):
    FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
    #disconnect
    yield
-   await postgres_client.disconnect()
-   await redis_client.aclose()
-   if os.getenv("rabbitmq_server_url"):await rabbitmq_channel.close()
-   if os.getenv("rabbitmq_server_url"):await rabbitmq_client.close()
-   if os.getenv("lavinmq_server_url"):await lavinmq_channel.close()
-   if os.getenv("lavinmq_server_url"):await lavinmq_client.close()
+   if postgres_client:await postgres_client.disconnect()
+   if redis_client:await redis_client.aclose()
+   if rabbitmq_channel:rabbitmq_channel.close()
+   if rabbitmq_client:rabbitmq_client.close()
+   if lavinmq_channel:lavinmq_channel.close()
+   if lavinmq_client:lavinmq_client.close()
    
 from fastapi import FastAPI
 app=FastAPI(lifespan=lifespan)
@@ -1629,14 +1629,30 @@ async def root_gemini_prompt_image_url(request:Request,model:str,prompt:str,url:
    output=model.generate_content([{'mime_type':'image/jpeg', 'data': base64.b64encode(image.content).decode('utf-8')},prompt])
    return {"status":1,"message":output.text}
 
-#root/gemini-prompt-image-path
+#root/gemini-prompt-image-path-large
 import google.generativeai as genai
-@app.get("/root/gemini-prompt-image-path")
-async def root_gemini_prompt_image_path(request:Request,model:str,prompt:str,file_path:str):
+@app.get("/root/gemini-prompt-image-path-large")
+async def root_gemini_prompt_image_path_large(request:Request,model:str,prompt:str,path:str):
    genai.configure(api_key=os.getenv("secret_key_gemini"))
    model=genai.GenerativeModel(model)
-   image=genai.upload_file(file_path)
-   output=model.generate_content([image,prompt])
+   file_uploaded=genai.upload_file(path)
+   output=model.generate_content([file_uploaded,prompt])
+   file_uploaded.delete()
+   return {"status":1,"message":output.text}
+
+#root/gemini-prompt-image-path-multiple
+import google.generativeai as genai
+import PIL.Image,os
+@app.get("/root/gemini-prompt-image-path-multiple")
+async def root_gemini_prompt_image_path_multiple(request:Request,model:str,prompt:str,path_csv:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   data=[]
+   for file in path_csv.split(","):
+      image=PIL.Image.open(file)
+      data.append(image)
+   data.insert(0,prompt)
+   output=model.generate_content(data)
    return {"status":1,"message":output.text}
 
 #root/gemini-prompt-image-upload
@@ -1661,8 +1677,8 @@ async def root_gemini_prompt_audio_upload(request:Request,model:str,prompt:str,f
    model=genai.GenerativeModel(model)
    path=f"./{file.filename}"
    with open(path,"wb") as f:f.write(file.file.read())
-   file_uploaded=genai.upload_file(path)
-   output=model.generate_content([file_uploaded,prompt])
+   uploaded_file=genai.upload_file(path)
+   output=model.generate_content([uploaded_file,prompt])
    os.remove(path)
    return {"status":1,"message":output.text}
 
@@ -1673,6 +1689,87 @@ async def root_gemini_create_embedding(request:Request,model:str,text:str):
    genai.configure(api_key=os.getenv("secret_key_gemini"))
    output=genai.embed_content(model=model,content=text)
    return {"status":1,"message":str(output['embedding'])}
+
+#root/gemini-code-execution
+import google.generativeai as genai
+@app.get("/root/gemini-code-execution")
+async def root_gemini_code_execution(request:Request,model:str,prompt:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model_name=model)
+   output=model.generate_content((prompt),tools='code_execution')
+   return {"status":1,"message":output.text}
+
+#root/gemini-generate-json
+import google.generativeai as genai
+import typing_extensions as typing
+class Startup(typing.TypedDict):
+   name:str
+   company:list[str]
+@app.get("/root/gemini-generate-json")
+async def root_gemini_generate_json(request:Request,model:str,prompt:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model_name=model)
+   output=model.generate_content(prompt,generation_config=genai.GenerationConfig(response_mime_type="application/json",response_schema=list[Startup]),)
+   print (output)
+   return {"status":1,"message":"done"}
+
+#root/gemini-list-uploaded-file
+import google.generativeai as genai
+@app.get("/root/gemini-list-uploaded-file")
+async def root_gemini_list_uploaded_file(request:Request):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   output=[]
+   for f in genai.list_files():output.append(f.name)
+   return {"status":1,"message":output}
+
+#root/gemini-prompt-pdf-url
+import google.generativeai as genai
+import httpx,base64
+@app.get("/root/gemini-prompt-pdf-url")
+async def root_gemini_prompt_pdf_url(request:Request,model:str,prompt:str,url:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   pdf_data=base64.standard_b64encode(httpx.get(url).content).decode("utf-8")
+   output = model.generate_content([{'mime_type':'application/pdf','data':pdf_data},prompt])
+   return {"status":1,"message":output.text}
+
+#root/gemini-prompt-pdf-url-multiple
+import google.generativeai as genai
+import httpx,base64
+@app.get("/root/gemini-prompt-pdf-url-multiple")
+async def root_gemini_prompt_pdf_url_multiple(request:Request,model:str,prompt:str,url_csv:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   doc_list=[]
+   for url in url_csv.split(","):
+      url_data=io.BytesIO(httpx.get(url).content)
+      doc=genai.upload_file(url_data,mime_type='application/pdf')
+      doc_list.append(doc)
+   doc_list.insert(len(doc_list),prompt)
+   output=model.generate_content(doc_list)
+   return {"status":1,"message":output.text}
+
+#root/gemini-prompt-pdf-path
+import google.generativeai as genai
+import httpx,base64
+@app.get("/root/gemini-prompt-pdf-path")
+async def root_gemini_prompt_pdf_path(request:Request,model:str,prompt:str,path:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   with open(path,"rb") as doc_file:doc_data=base64.standard_b64encode(doc_file.read()).decode("utf-8")
+   output=model.generate_content([{'mime_type':'application/pdf','data':doc_data},prompt])
+   return {"status":1,"message":output.text}
+
+#root/gemini-prompt-pdf-path-large
+import google.generativeai as genai
+import httpx,io
+@app.get("/root/gemini-prompt-pdf-path-large")
+async def root_gemini_prompt_pdf_path_large(request:Request,model:str,prompt:str,path:str):
+   genai.configure(api_key=os.getenv("secret_key_gemini"))
+   model=genai.GenerativeModel(model)
+   uploaded_file=genai.upload_file(path)
+   output=model.generate_content([prompt,uploaded_file])
+   return {"status":1,"message":output.text}
 
 #root/openai-chat-completion
 from openai import OpenAI
@@ -2739,6 +2836,7 @@ async def root_request_post(request:Request,url:str):
 #main
 import sys
 mode=sys.argv
+print(mode)
 
 #fastapi - python main.py
 import asyncio
