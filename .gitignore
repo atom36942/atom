@@ -176,3 +176,4 @@ env.py
 *.csv
 *.json
 *.mp3
+*.ipynb
