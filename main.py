@@ -10,43 +10,37 @@ t as (select * from information_schema.tables where table_schema='public' and ta
 c as (select * from information_schema.columns where table_schema='public')
 select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
 '''
-
-s3_client=None
-s3_resource=None
-import boto3
-if os.getenv("aws_access_key_id"):
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-
 postgres_client=None
+postgres_schema=None
+postgres_column_datatype=None
 from databases import Database
-async def set_postgres_client():
+async def set_postgres():
    global postgres_client
+   global postgres_schema
+   global postgres_column_datatype
    if not postgres_client:
       postgres_client=Database(os.getenv("postgres_database_url"),min_size=1,max_size=100)
       await postgres_client.connect()
-   return None
-
-postgres_column_datatype=None
-async def set_postgres_column_datatype():
-   global postgres_column_datatype
-   if not postgres_column_datatype:
-      output=await postgres_client.fetch_all(query=query_schema,values={})
-      postgres_column_datatype={item["column_name"]:item["data_type"] for item in output}
+   if not postgres_schema:postgres_schema=await postgres_client.fetch_all(query=query_schema,values={})
+   postgres_column_datatype={item["column_name"]:item["data_type"] for item in postgres_schema}
    return None
 
 redis_client=None
+redis_pubsub=None
 import redis.asyncio as redis
-async def set_redis_client():
+async def set_redis():
    global redis_client
+   global redis_pubsub
    if not redis_client:
-      redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url")))
+      redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url"),decode_responses=True))
+      redis_pubsub=redis_client.pubsub()
+      await redis_pubsub.subscribe("postgres_cud")
    return None
 
 rabbitmq_client=None
 rabbitmq_channel=None
 import pika
-async def set_rabbitmq_channel():
+async def set_rabbitmq():
    global rabbitmq_client
    global rabbitmq_channel
    if not rabbitmq_client:
@@ -58,13 +52,47 @@ async def set_rabbitmq_channel():
 lavinmq_client=None
 lavinmq_channel=None
 import pika
-async def set_lavinmq_channel():
+async def set_lavinmq():
    global lavinmq_client
    global lavinmq_channel
    if not lavinmq_client:
       lavinmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("lavinmq_server_url")))
       lavinmq_channel=lavinmq_client.channel()
       lavinmq_channel.queue_declare(queue="postgres_cud")
+   return None
+
+s3_client=None
+s3_resource=None
+import boto3
+if os.getenv("aws_access_key_id"):
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+
+sns_client=None
+import boto3
+if os.getenv("aws_sns_region_name"):sns_client=boto3.client("sns",region_name=os.getenv("aws_sns_region_name"),aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+
+ses_client=None
+import boto3
+if os.getenv("aws_ses_region_name"):ses_client=boto3.client("ses",region_name=os.getenv("aws_ses_region_name"),aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+
+mongodb_client=None
+import motor.motor_asyncio
+if os.getenv("mongodb_cluster_url"):mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
+
+kafka_producer_client=None
+kafka_consumer_client=None
+from aiokafka import AIOKafkaProducer
+from aiokafka import AIOKafkaConsumer
+from aiokafka.helpers import create_ssl_context
+async def set_kafka():
+   global kafka_producer_client
+   global kafka_consumer_client
+   context=create_ssl_context(cafile=os.getenv("kafka_path_cafile"),certfile=os.getenv("kafka_path_certfile"),keyfile=os.getenv("kafka_path_keyfile"))
+   kafka_producer_client=AIOKafkaProducer(bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=context)
+   kafka_consumer_client=AIOKafkaConsumer("postgres_cud",bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+   await kafka_producer_client.start()
+   await kafka_consumer_client.start()
    return None
 
 postgres_schema_defualt={
@@ -183,22 +211,6 @@ async def postgres_cud(postgres_client,mode,table,object_list):
          output="done"
    return {"status":1,"message":output}
 
-import hashlib,datetime,json
-async def object_serialize(postgres_column_datatype,object_list):
-   for index,object in enumerate(object_list):
-      for k,v in object.items():
-         if k in postgres_column_datatype:datatype=postgres_column_datatype[k]
-         else:return {"status":0,"message":f"{k} column not in postgres_column_datatype"}
-         if not v:object_list[index][k]=None
-         if k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(v.encode()).hexdigest() if v else None
-         if "int" in datatype:object_list[index][k]=int(v) if v else None
-         if datatype in ["numeric"]:object_list[index][k]=round(float(v),3) if v else None
-         if "time" in datatype:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
-         if datatype in ["date"]:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
-         if datatype in ["jsonb"]:object_list[index][k]=json.dumps(v) if v else None
-         if datatype in ["ARRAY"]:object_list[index][k]=v.split(",") if v else None
-   return {"status":1,"message":object_list}
-
 async def add_action_count(postgres_client,action,table,object_list):
    if not object_list:return {"status":1,"message":object_list}
    key_name=f"{action}_count"
@@ -288,6 +300,21 @@ async def ownership_check(table,id,user_id):
       if user_id!=output[0]["created_by_id"]:return {"status":0,"message":"object ownership issue"}
    return {"status":1,"message":"done"}
 
+import hashlib,datetime,json
+async def object_serialize(object_list):
+   for index,object in enumerate(object_list):
+      for k,v in object.items():
+         datatype=postgres_column_datatype[k]
+         if not v:object_list[index][k]=None
+         if k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(v.encode()).hexdigest() if v else None
+         if "int" in datatype:object_list[index][k]=int(v) if v else None
+         if datatype in ["numeric"]:object_list[index][k]=round(float(v),3) if v else None
+         if "time" in datatype:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
+         if datatype in ["date"]:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
+         if datatype in ["jsonb"]:object_list[index][k]=json.dumps(v) if v else None
+         if datatype in ["ARRAY"]:object_list[index][k]=v.split(",") if v else None
+   return {"status":1,"message":object_list}
+
 async def create_where_string(object):
    object={k:v for k,v in object.items() if k in postgres_column_datatype}
    object={k:v for k,v in object.items() if k not in ["location","metadata"]}
@@ -301,6 +328,33 @@ async def create_where_string(object):
    where_value=object_value
    return {"status":1,"message":[where_string,where_value]}
 
+async def queue_push(queue,queue_name,data):
+   if queue=="redis":output=await redis_client.publish(queue_name,json.dumps(data))
+   if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key=queue_name,body=json.dumps(data))
+   if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key=queue_name,body=json.dumps(data))
+   if queue=="kafka":output=await kafka_producer_client.send_and_wait(queue_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
+   return {"status":1,"message":output}
+
+async def queue_pull_postgres_cud(data):
+   try:
+      mode,table,object,is_serialize=data["mode"],data["table"],data["object"],data["is_serialize"]
+      if is_serialize:
+         response=await object_serialize([object])
+         if response["status"]==0:print(response)
+         object=response["message"][0]
+      response=await postgres_cud(postgres_client,mode,table,[object])
+      if response["status"]==0:print(response)
+      print(mode,table,response)
+   except Exception:pass
+   return None
+
+import asyncio
+def aqmp_callback(ch,method,properties,body):
+   data=json.loads(body)
+   loop=asyncio.get_event_loop()
+   loop.run_until_complete(queue_pull_postgres_cud(data))
+   return None
+
 #app
 import sentry_sdk
 sentry_dsn=os.getenv("sentry_dsn")
@@ -313,11 +367,11 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-   await set_postgres_client()
-   await set_postgres_column_datatype()
-   await set_redis_client()
-   if os.getenv("rabbitmq_server_url"):await set_rabbitmq_channel()
-   if os.getenv("lavinmq_server_url"):await set_lavinmq_channel()
+   await set_postgres()
+   await set_redis()
+   if os.getenv("rabbitmq_server_url"):await set_rabbitmq()
+   if os.getenv("lavinmq_server_url"):await set_lavinmq()
+   if os.getenv("kafka_server_url"):await set_kafka()
    await FastAPILimiter.init(redis_client)
    FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
    yield
@@ -327,6 +381,7 @@ async def lifespan(app:FastAPI):
    if rabbitmq_client:rabbitmq_client.close()
    if lavinmq_channel:lavinmq_channel.close()
    if lavinmq_client:lavinmq_client.close()
+   if kafka_producer_client:await kafka_producer_client.stop()
 
 from fastapi import FastAPI
 app=FastAPI(lifespan=lifespan)
@@ -376,10 +431,11 @@ for item in file_name_list_without_extension:
       app.include_router(router)
       
 #api
-from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks
-import hashlib,datetime,json,uuid,time,jwt,csv,codecs,copy,requests,os
+from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks,WebSocket,WebSocketDisconnect
+import hashlib,datetime,json,uuid,time,jwt,csv,codecs,copy,requests,os,random
 from io import BytesIO
 from typing import Literal
+from bson.objectid import ObjectId
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
@@ -837,7 +893,7 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
       if k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
    #object serialize
    if is_serialize and not queue:
-      response=await object_serialize(postgres_column_datatype,[object])
+      response=await object_serialize([object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
    #logic
@@ -845,31 +901,7 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
       response=await postgres_cud(postgres_client,"create",table,[object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
-   #queue=amqp
-   if queue in ["rabbitmq","lavinmq"]:
-      data={"mode":"create","table":table,"object":object}
-      if queue=="rabbitmq":rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
-      if queue=="lavinmq":lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
-      output="done"
-   #final
-   return {"status":1,"message":output}
-
-@app.get("/my/object-read")
-@cache(expire=60)
-async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #create where string
-   query_param=dict(request.query_params)
-   query_param["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await create_where_string(query_param)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await object_serialize(postgres_column_datatype,[where_value])
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   output=await postgres_client.fetch_all(query=query,values=where_value)
+   else:output=await queue_push(queue,"postgres_cud",{"mode":"create","table":table,"object":object,"is_serialize":is_serialize})
    #final
    return {"status":1,"message":output}
 
@@ -888,7 +920,7 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:st
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #object serialize
    if is_serialize and not queue:
-      response=await object_serialize(postgres_column_datatype,[object])
+      response=await object_serialize([object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
    #logic
@@ -896,12 +928,7 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:st
       response=await postgres_cud(postgres_client,"update",table,[object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
-   #queue=amqp
-   if queue in ["rabbitmq","lavinmq"]:
-      data={"mode":"update","table":table,"object":object}
-      if queue=="rabbitmq":rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
-      if queue=="lavinmq":lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
-      output="done"
+   else:output=await queue_push(queue,"postgres_cud",{"mode":"update","table":table,"object":object,"is_serialize":is_serialize})
    #final
    return {"status":1,"message":output}
 
@@ -916,14 +943,29 @@ async def my_object_delete(request:Request,table:str,id:int,queue:str=None):
    if not queue:
       query=f"delete from {table} where id=:id and created_by_id=:created_by_id;"
       query_param={"id":id,"created_by_id":request.state.user["id"]}
-      await postgres_client.execute(query=query,values=query_param)
-   #queue=amqp
-   if queue in ["rabbitmq","lavinmq"]:
-      data={"mode":"delete","table":table,"object":{"id":id}}
-      if queue=="rabbitmq":rabbitmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
-      if queue=="lavinmq":lavinmq_channel.basic_publish(exchange='',routing_key="postgres_cud",body=json.dumps(data))
+      output=await postgres_client.execute(query=query,values=query_param)
+   else:output=await queue_push(queue,"postgres_cud",{"mode":"delete","table":table,"object":{"id":id},"is_serialize":0})
    #final
-   return {"status":1,"message":"done"}
+   return {"status":1,"message":output}
+
+@app.get("/my/object-read")
+@cache(expire=60)
+async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
+   #create where string
+   query_param=dict(request.query_params)
+   query_param["created_by_id"]=f"=,{request.state.user['id']}"
+   response=await create_where_string(query_param)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   #serialize
+   response=await object_serialize([where_value])
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   #logic
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   output=await postgres_client.fetch_all(query=query,values=where_value)
+   #final
+   return {"status":1,"message":output}
 
 @app.delete("/my/object-delete-any")
 async def my_object_delete_any(request:Request,table:str):
@@ -936,7 +978,7 @@ async def my_object_delete_any(request:Request,table:str):
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
-   response=await object_serialize(postgres_column_datatype,[where_value])
+   response=await object_serialize([where_value])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
    #logic
@@ -1034,7 +1076,7 @@ async def my_message_thread(request:Request,background:BackgroundTasks,user_id:i
 @app.delete("/my/message-delete-single")
 async def my_message_delete_single(request:Request,id:int):
    #logic
-   query="delete from message where id=:id and (created_by_id=:created_by_id or user_id=:user_id) returning *;;"
+   query="delete from message where id=:id and (created_by_id=:created_by_id or user_id=:user_id);;"
    query_param={"id":id,"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
    output=await postgres_client.execute(query=query,values=query_param)
    #final
@@ -1043,7 +1085,7 @@ async def my_message_delete_single(request:Request,id:int):
 @app.delete("/my/message-delete-created")
 async def my_message_delete_created(request:Request):
    #logic
-   query="delete from message where created_by_id=:created_by_id returning *;"
+   query="delete from message where created_by_id=:created_by_id;"
    query_param={"created_by_id":request.state.user["id"]}
    output=await postgres_client.execute(query=query,values=query_param)
    #final
@@ -1052,7 +1094,7 @@ async def my_message_delete_created(request:Request):
 @app.delete("/my/message-delete-received")
 async def my_message_delete_received(request:Request):
    #logic
-   query="delete from message where user_id=:user_id returning *;"
+   query="delete from message where user_id=:user_id;"
    query_param={"user_id":request.state.user["id"]}
    output=await postgres_client.execute(query=query,values=query_param)
    #final
@@ -1061,7 +1103,7 @@ async def my_message_delete_received(request:Request):
 @app.delete("/my/message-delete-all")
 async def my_message_delete_all(request:Request):
    #logic
-   query="delete from message where (created_by_id=:created_by_id or user_id=:user_id) returning *;"
+   query="delete from message where (created_by_id=:created_by_id or user_id=:user_id);"
    query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
    output=await postgres_client.execute(query=query,values=query_param)
    #final
@@ -1073,7 +1115,7 @@ async def my_action_create(request:Request,action:str,parent_table:str,parent_id
    query_param=dict(request.query_params)
    query_param["created_by_id"]=request.state.user["id"]
    object={k:v for k,v in query_param.items() if k in postgres_column_datatype}
-   response=await object_serialize(postgres_column_datatype,[object])
+   response=await object_serialize([object])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    object=response["message"][0]
    response=await postgres_cud(postgres_client,"create",action,[object])
@@ -1216,7 +1258,7 @@ async def public_object_create(request:Request,table:Literal["helpdesk","human"]
    object=await request.json()
    #serialize
    if is_serialize:
-      response=await object_serialize(postgres_column_datatype,[object])
+      response=await object_serialize([object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
    #logic
@@ -1234,7 +1276,7 @@ async def public_object_read(request:Request,table:Literal["users","post","atom"
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
-   response=await object_serialize(postgres_column_datatype,[where_value])
+   response=await object_serialize([where_value])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
    #read object
@@ -1270,7 +1312,7 @@ async def public_location_search(request:Request,table:Literal["users","post","a
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
-   response=await object_serialize(postgres_column_datatype,[where_value])
+   response=await object_serialize([where_value])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
    #logic
@@ -1293,7 +1335,7 @@ async def private_object_read(request:Request,table:Literal["users","post","atom
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
-   response=await object_serialize(postgres_column_datatype,[where_value])
+   response=await object_serialize([where_value])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
    #logic
@@ -1333,7 +1375,7 @@ async def admin_object_read(request:Request,table:str,order:str="id desc",limit:
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
-   response=await object_serialize(postgres_column_datatype,[where_value])
+   response=await object_serialize([where_value])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
    #read object
@@ -1350,7 +1392,7 @@ async def admin_object_update(request:Request,table:str,is_serialize:int=1):
    object["updated_by_id"]=request.state.user["id"]
    #serialize
    if is_serialize:
-      response=await object_serialize(postgres_column_datatype,[object])
+      response=await object_serialize([object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
    #logic
@@ -1375,7 +1417,7 @@ async def admin_csv_uploader(request:Request,mode:str,table:str,file:UploadFile,
    file.file.close()
    #serialize
    if is_serialize:
-      response=await object_serialize(postgres_column_datatype,object_list)
+      response=await object_serialize(object_list)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object_list=response["message"]
    #logic
@@ -1393,6 +1435,33 @@ async def admin_postgres_query_runner(request:Request,query:str):
   output=await postgres_client.fetch_all(query=query,values={})
   #final
   return {"status":1,"message":output}
+
+@app.get("/root/s3-list-all-bucket")
+async def root_s3_list_all_bucket(request:Request):
+   output=s3_client.list_buckets()
+   return {"status":1,"message":output}
+
+@app.post("/root/s3-create-bucket")
+async def root_s3_create_bucket(request:Request,region:str,name:str):
+   output=s3_client.create_bucket(Bucket=name,CreateBucketConfiguration={'LocationConstraint':region})
+   return {"status":1,"message":output}
+
+@app.put("/root/s3-make-bucket-public")
+async def root_s3_make_bucket_public(request:Request,bucket:str):
+   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-empty-bucket")
+async def root_s3_empty_bucket(request:Request,bucket:str):
+   output=s3_resource.Bucket(bucket).objects.all().delete()
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-delete-bucket")
+async def root_s3_delete_bucket(request:Request,bucket:str):
+   output=s3_client.delete_bucket(Bucket=bucket)
+   return {"status":1,"message":output}
 
 @app.post("/private/s3-upload-file")
 async def private_s3_upload_file(request:Request,bucket:str,key:str,file:UploadFile):
@@ -1427,31 +1496,62 @@ async def root_s3_delete_url(request:Request,url:str):
    output=s3_resource.Object(bucket,key).delete()
    return {"status":1,"message":output}
 
-@app.get("/root/s3-list-all-bucket")
-async def root_s3_list_all_bucket(request:Request):
-   output=s3_client.list_buckets()
+@app.get("/public/sns-otp-send")
+async def public_sns_otp_send(request:Request,mobile:str,entity_id:str=None,sender_id:str=None,template_id:str=None,message:str=None):
+   otp=random.randint(100000,999999)
+   await postgres_client.execute(query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;",values={"otp":otp,"mobile":mobile})
+   if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
+   else:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
    return {"status":1,"message":output}
 
-@app.post("/root/s3-create-bucket")
-async def root_s3_create_bucket(request:Request,region:str,name:str):
-   output=s3_client.create_bucket(Bucket=name,CreateBucketConfiguration={'LocationConstraint':region})
+@app.get("/root/sns-check-opted-out")
+async def root_sns_check_opted_out(request:Request,mobile:str):
+   output=sns_client.check_if_phone_number_is_opted_out(phoneNumber=mobile)
    return {"status":1,"message":output}
 
-@app.put("/root/s3-make-bucket-public")
-async def root_s3_make_bucket_public(request:Request,bucket:str):
-   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+@app.get("/root/sns-list-opted-mobile")
+async def root_sns_list_opted_mobile(request:Request,next_token:str=None):
+   output=sns_client.list_phone_numbers_opted_out(nextToken='' if not next_token else next_token)
    return {"status":1,"message":output}
 
-@app.delete("/root/s3-empty-bucket")
-async def root_s3_empty_bucket(request:Request,bucket:str):
-   output=s3_resource.Bucket(bucket).objects.all().delete()
+@app.put("/root/sns-optin-mobile")
+async def root_sns_optin_mobile(request:Request,mobile:str):
+   output=sns_client.opt_in_phone_number(phoneNumber=mobile)
    return {"status":1,"message":output}
 
-@app.delete("/root/s3-delete-bucket")
-async def root_s3_delete_bucket(request:Request,bucket:str):
-   output=s3_client.delete_bucket(Bucket=bucket)
+@app.get("/root/sns-list-sandbox-mobile")
+async def root_sns_list_sandbox_mobile(request:Request,limit:int=100,next_token:str=None):
+   if not next_token:output=sns_client.list_sms_sandbox_phone_numbers(MaxResults=limit)
+   else:output=sns_client.list_sms_sandbox_phone_numbers(NextToken=next_token,MaxResults=limit)
+   return {"status":1,"message":output}
+
+@app.get("/public/ses-otp-send")
+async def public_ses_otp_send(request:Request,sender:str,email:str):
+   otp=random.randint(100000,999999)
+   await postgres_client.fetch_all(query="insert into otp (otp,email) values (:otp,:email) returning *;",values={"otp":otp,"email":email})
+   to,title,body=[email],"otp from atom",str(otp)
+   ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+   return {"status":1,"message":"done"}
+
+@app.get("/root/ses-list-identity")
+async def root_ses_list_identity(request:Request,type:Literal["EmailAddress","Domain"],limit:int,next_token:str=None):
+   output=ses_client.list_identities(IdentityType=type,NextToken='' if not next_token else next_token,MaxItems=limit)
+   return {"status":1,"message":output}
+
+@app.post("/root/ses-add-identity")
+async def root_ses_add_identity(request:Request,type:Literal["email","domain"],identity:str):
+   if type=="email":output=ses_client.verify_email_identity(EmailAddress=identity)
+   if type=="domain":output=ses_client.verify_domain_identity(Domain=identity)
+   return {"status":1,"message":output}
+
+@app.get("/root/ses-identity-status")
+async def root_ses_identity_status(request:Request,identity:str):
+   output=ses_client.get_identity_verification_attributes(Identities=[identity])
+   return {"status":1,"message":output}
+
+@app.delete("/root/ses-delete-identity")
+async def root_ses_delete_identity(request:Request,identity:str):
+   output=ses_client.delete_identity(Identity=identity)
    return {"status":1,"message":output}
 
 @app.get("/root/redis-info")
@@ -1492,24 +1592,24 @@ async def root_redis_csv_set(request:Request,table:str,file:UploadFile,expiry:in
       await pipe.execute()
    return {"status":1,"message":"done"}
 
-#root/mongodb-delete
-import motor.motor_asyncio
-from bson.objectid import ObjectId
-@app.delete("/root/mongodb-delete")
-async def root_mongodb_delete(request:Request,database:str,collection:str,_id:str):
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
+@app.post("/root/mongodb-create")
+async def root_mongodb_create(request:Request,database:str,collection:str):
+   database=mongodb_client[database]
+   collection=database[collection]
+   object=await request.json()
+   output=await collection.insert_many([object])
+   return {"status":1,"message":str(output)}
+
+@app.get("/root/mongodb-read")
+async def root_mongodb_read(request:Request,database:str,collection:str,_id:str):
    database=mongodb_client[database]
    collection=database[collection]
    _id=ObjectId(_id)
-   output=await collection.delete_one({"_id":_id})
+   output=await collection.find_one({"_id":_id})
    return {"status":1,"message":str(output)}
 
-#root/mongodb-update
-import motor.motor_asyncio
-from bson.objectid import ObjectId
 @app.put("/root/mongodb-update")
 async def root_mongodb_update(request:Request,database:str,collection:str,_id:str):
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
    database=mongodb_client[database]
    collection=database[collection]
    _id=ObjectId(_id)
@@ -1517,706 +1617,23 @@ async def root_mongodb_update(request:Request,database:str,collection:str,_id:st
    output=await collection.update_one({"_id":_id},{"$set":object})
    return {"status":1,"message":str(output)}
 
-#root/mongodb-read
-import motor.motor_asyncio
-from bson.objectid import ObjectId
-@app.get("/root/mongodb-read")
-async def root_mongodb_read(request:Request,database:str,collection:str,_id:str):
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
+@app.delete("/root/mongodb-delete")
+async def root_mongodb_delete(request:Request,database:str,collection:str,_id:str):
    database=mongodb_client[database]
    collection=database[collection]
    _id=ObjectId(_id)
-   output=await collection.find_one({"_id":_id})
+   output=await collection.delete_one({"_id":_id})
    return {"status":1,"message":str(output)}
-
-#root/mongodb-create
-import motor.motor_asyncio
-@app.post("/root/mongodb-create")
-async def root_mongodb_create(request:Request,database:str,collection:str):
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
-   database=mongodb_client[database]
-   collection=database[collection]
-   object=await request.json()
-   output=await collection.insert_many([object])
-   return {"status":1,"message":str(output)}
-
-#root/kafka-producer
-from aiokafka import AIOKafkaProducer
-from aiokafka.helpers import create_ssl_context
-@app.post("/root/kafka-producer")
-async def root_kafka_producer(request:Request,topic:str):
-   kafka_producer_client=AIOKafkaProducer(bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=create_ssl_context(cafile=os.getenv("kafka_path_cafile"),certfile=os.getenv("kafka_path_certfile"),keyfile=os.getenv("kafka_path_keyfile")))
-   await kafka_producer_client.start()
-   object=await request.json()
-   object=json.dumps(object,indent=2).encode('utf-8')
-   output=await kafka_producer_client.send_and_wait(topic,object,partition=0)
-   await kafka_producer_client.stop()
-   return {"status":1,"message":output}
-
-#root/ftp-list-dir-item
-import ftplib
-@app.get("/root/ftp-list-dir-item")
-async def root_ftp_list_dir_item(request:Request,dir_path:str):
-   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
-   ftp_client.cwd(dir_path)
-   output=ftp_client.nlst()
-   ftp_client.quit()
-   return {"status":1,"message":output}
-
-#root/ftp-mkdir
-import ftplib
-@app.post("/root/ftp-mkdir")
-async def root_ftp_mkdir(request:Request,dir_path:str,dir_name:str):
-   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
-   ftp_client.cwd(dir_path)
-   ftp_client.mkd(dir_name)
-   ftp_client.quit()
-   return {"status":1,"message":"done"}
-
-#root/ftp-upload-file
-import ftplib
-@app.post("/root/ftp-upload-file")
-async def root_ftp_upload_file(request:Request,dir_path:str,file:UploadFile):
-   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
-   ftp_client.cwd(dir_path)
-   ftp_client.storbinary(f"STOR {file.filename}",file.file)
-   ftp_client.quit()
-   return {"status":1,"message":"done"}
-
-#root/ftp-rename-file
-import ftplib
-@app.put("/root/ftp-rename-file")
-async def root_ftp_rename_file(request:Request,dir_path:str,filename_old:str,filename_new:str):
-   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
-   ftp_client.cwd(dir_path)
-   ftp_client.rename(filename_old,filename_new) 
-   ftp_client.quit()
-   return {"status":1,"message":"done"}
-
-#root/ftp-delete-file
-import ftplib
-@app.delete("/root/ftp-delete-file")
-async def root_ftp_delete_file(request:Request,dir_path:str,filename:str):
-   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
-   ftp_client.cwd(dir_path)
-   ftp_client.delete(filename)
-   ftp_client.quit()
-   return {"status":1,"message":"done"}
-
-#root/ftp-delete-dir
-import ftplib
-@app.delete("/root/ftp-delete-dir")
-async def root_ftp_delete_dir(request:Request,dir_path:str,dir_name:str):
-   ftp_client=ftplib.FTP(os.getenv("ftp_host"),os.getenv("ftp_username"),os.getenv("ftp_password"),os.getenv("ftp_port"))
-   ftp_client.cwd(dir_path)
-   ftp_client.rmd(dir_name)
-   ftp_client.quit()
-   return {"status":1,"message":"done"}
-
-#root/timescaledb-create-table
-from databases import Database
-@app.get("/root/timescaledb-create-table")
-async def root_timescaledb_create_table(request:Request):
-   timescaledb_client=Database(os.getenv("timescaledb_url"),min_size=1,max_size=100) 
-   timescaledb_client.connect()
-   query="create table event (created_at timestamptz default now() not null, type text not null, data jsonb not null);"
-   await timescaledb_client.execute(query=query,values={})
-   query="select create_hypertable('event', by_range('created_at'));"
-   output=await timescaledb_client.fetch_all(query=query,values={})
-   return {"status":1,"message":output}
-
-#root/timescaledb-create-event
-from databases import Database
-@app.post("/root/timescaledb-create-event")
-async def root_timescaledb_create_event(request:Request,type:str):
-   timescaledb_client=Database(os.getenv("timescaledb_url"),min_size=1,max_size=100) 
-   timescaledb_client.connect()
-   object=await request.json()
-   object_json=json.dumps(object)
-   query="insert into event (type,data) values (:type,:data) returning *;"
-   query_param={"type":type,"data":object_json}
-   output=await timescaledb_client.fetch_all(query=query,values=query_param)
-   timescaledb_client.disconnect()
-   return {"status":1,"message":output}
-
-#public/meilisearch-search
-import meilisearch
-@app.get("/public/meilisearch-search")
-async def public_meilisearch_search(request:Request,index:str,keyword:str):
-   meilisearch_client=meilisearch.Client(os.getenv("meilisearch_url"),os.getenv("meilisearch_key"))
-   index=meilisearch_client.index(index)
-   output=index.search(keyword)
-   return {"status":1,"message":output}
-
-# #public/cassandra-version
-# from cassandra.cluster import Cluster
-# from cassandra.auth import PlainTextAuthProvider
-# @app.get("/public/cassandra-version")
-# async def public_cassandra_version(request:Request):
-#    #logic
-#    cassandra_cluster=Cluster(cloud={'secure_connect_bundle':os.getenv("cassandra_scb_path")},auth_provider=PlainTextAuthProvider(os.getenv("cassandra_client_id"),os.getenv("cassandra_secret_key")))
-#    cassandra_client=cassandra_cluster.connect()
-#    row=cassandra_client.execute("select release_version from system.local").one()
-#    if row:output=row[0]
-#    #final
-#    return {"status":1,"message":output}
-
-#root/rekognition-compare-face
-import boto3
-@app.post("/root/rekognition-compare-face")
-async def root_rekognition_compare_face(request:Request,region:str,file:list[UploadFile]):
-   #logic
-   rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   source_image={"Bytes":file[0].file.read()}
-   target_image={"Bytes":file[1].file.read()}
-   output=rekognition_client.compare_faces(SourceImage=source_image,TargetImage=target_image,SimilarityThreshold=80,QualityFilter='AUTO')
-   #final
-   return {"status":1,"message":output}
-
-#root/rekognition-detect-label
-import boto3
-@app.post("/root/rekognition-detect-label")
-async def root_rekognition_detect_label(request:Request,region:str,file:UploadFile):
-   #logic
-   rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   image={"Bytes":file.file.read()}
-   output=rekognition_client.detect_labels(Image=image,MaxLabels=10,MinConfidence=90)
-   #final
-   return {"status":1,"message":output}
-
-#root/rekognition-detect-face
-import boto3
-@app.post("/root/rekognition-detect-face")
-async def root_rekognition_detect_face(request:Request,region:str,file:UploadFile):
-   #logic
-   rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   image={"Bytes":file.file.read()}
-   output=rekognition_client.detect_faces(Image=image,Attributes=['BEARD','EYEGLASSES'])
-   #final
-   return {"status":1,"message":output}
-
-#root/rekognition-detect-moderation
-import boto3
-@app.post("/root/rekognition-detect-moderation")
-async def root_rekognition_detect_moderation(request:Request,region:str,file:UploadFile):
-   #logic
-   rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   image={"Bytes":file.file.read()}
-   output=rekognition_client.detect_moderation_labels(Image=image,MinConfidence=80)
-   #final
-   return {"status":1,"message":output}
-
-#root/rekognition-detect-text
-import boto3
-@app.post("/root/rekognition-detect-text")
-async def root_rekognition_detect_text(request:Request,region:str,file:UploadFile):
-   #logic
-   rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   image={"Bytes":file.file.read()}
-   output=rekognition_client.detect_text(Image=image)
-   #final
-   return {"status":1,"message":output}
-
-#root/rekognition-celebrity-info
-import boto3
-@app.post("/root/rekognition-celebrity-info")
-async def root_rekognition_celebrity_info(request:Request,region:str,celebrity_id:str):
-   #logic
-   rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=rekognition_client.get_celebrity_info(Id=celebrity_id)
-   #final
-   return {"status":1,"message":output}
-
-#root/rekognition-job-start
-import boto3
-@app.post("/root/rekognition-job-start")
-async def root_rekognition_job_start(request:Request,region:str,mode:Literal["celebrity","text","segment","label","face","content"],video_url:str):
-   #logic
-   rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   bucket=video_url.split("//",1)[1].split(".",1)[0]
-   key=video_url.rsplit("/",1)[1]
-   video={'S3Object':{'Bucket':bucket,'Name':key}}
-   if mode=="celebrity":output=rekognition_client.start_celebrity_recognition(Video=video)
-   if mode=="text":output=rekognition_client.start_text_detection(Video=video)
-   if mode=="segment":output=rekognition_client.start_segment_detection(Video=video,SegmentTypes=['TECHNICAL_CUE'])
-   if mode=="label":output=rekognition_client.start_label_detection(Video=video)
-   if mode=="face":output=rekognition_client.start_face_detection(Video=video)
-   if mode=="content":output=rekognition_client.start_content_moderation(Video=video)
-   #final
-   return {"status":1,"message":output}
-
-#root/rekognition-job-status
-import boto3
-@app.post("/root/rekognition-job-status")
-async def root_rekognition_job_status(request:Request,region:str,mode:Literal["celebrity","text","segment","label","face","content"],job_id:str,next_token:str=None):
-   #logic
-   rekognition_client=boto3.client("rekognition",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   if mode=="celebrity":
-      if next_token:output=rekognition_client.get_celebrity_recognition(JobId=job_id,MaxResults=100,NextToken=next_token)
-      else:output=rekognition_client.get_celebrity_recognition(JobId=job_id,MaxResults=100)
-   if mode=="text":
-      if next_token:output=rekognition_client.get_text_detection(JobId=job_id,MaxResults=100,NextToken=next_token)
-      else:output=rekognition_client.get_text_detection(JobId=job_id,MaxResults=100)
-   if mode=="segment":
-      if next_token:output=rekognition_client.get_segment_detection(JobId=job_id,MaxResults=100,NextToken=next_token)
-      else:output=rekognition_client.get_segment_detection(JobId=job_id,MaxResults=100)
-   if mode=="label":
-      if next_token:output=rekognition_client.get_label_detection(JobId=job_id,MaxResults=100,NextToken=next_token)
-      else:output=rekognition_client.get_label_detection(JobId=job_id,MaxResults=100)
-   if mode=="face":
-      if next_token:output=rekognition_client.get_face_detection(JobId=job_id,MaxResults=100,NextToken=next_token)
-      else:output=rekognition_client.get_face_detection(JobId=job_id,MaxResults=100)
-   if mode=="content":
-      if next_token:output=rekognition_client.get_content_moderation(JobId=job_id,MaxResults=100,NextToken=next_token)
-      else:output=rekognition_client.get_content_moderation(JobId=job_id,MaxResults=100)
-   #final
-   return {"status":1,"message":output}
-
-#public/sns-otp-send
-import boto3,random
-@app.get("/public/sns-otp-send")
-async def public_sns_otp_send(request:Request,region:str,mobile:str,entity_id:str=None,sender_id:str=None,template_id:str=None,message:str=None):
-   #create otp
-   otp=random.randint(100000,999999)
-   query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
-   query_param={"otp":otp,"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #send otp
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
-   else:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
-   #final
-   return {"status":1,"message":output}
-
-#root/sns-check-opted-out
-import boto3
-@app.get("/root/sns-check-opted-out")
-async def root_sns_check_opted_out(request:Request,region:str,mobile:str):
-   #logic
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=sns_client.check_if_phone_number_is_opted_out(phoneNumber=mobile)
-   #final
-   return {"status":1,"message":output}
-
-#root/sns-list-opted-mobile
-import boto3
-@app.get("/root/sns-list-opted-mobile")
-async def root_sns_list_opted_mobile(request:Request,region:str,next_token:str=None):
-   #logic
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=sns_client.list_phone_numbers_opted_out(nextToken='' if not next_token else next_token)
-   #final
-   return {"status":1,"message":output}
-
-#root/sns-list-sandbox-mobile
-import boto3
-@app.get("/root/sns-list-sandbox-mobile")
-async def root_sns_list_sandbox_mobile(request:Request,region:str,limit:int=100,next_token:str=None):
-   #logic
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   if not next_token:output=sns_client.list_sms_sandbox_phone_numbers(MaxResults=limit)
-   else:output=sns_client.list_sms_sandbox_phone_numbers(NextToken=next_token,MaxResults=limit)
-   #final
-   return {"status":1,"message":output}
-
-#root/sns-add-sandbox-mobile
-import boto3
-@app.get("/root/sns-add-sandbox-mobile")
-async def root_sns_add_sandbox_mobile(request:Request,region:str,mobile:str):
-   #logic
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=sns_client.create_sms_sandbox_phone_number(PhoneNumber=mobile,LanguageCode='en-US')
-   #final
-   return {"status":1,"message":output}
-
-#root/sns-verify-sandbox-mobile
-import boto3
-@app.put("/root/sns-verify-sandbox-mobile")
-async def root_sns_verify_sandbox_mobile(request:Request,region:str,mobile:str,otp:str):
-   #logic
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=sns_client.verify_sms_sandbox_phone_number(PhoneNumber=mobile,OneTimePassword=otp)
-   #final
-   return {"status":1,"message":output}
-
-#root/sns-optin-mobile
-import boto3
-@app.put("/root/sns-optin-mobile")
-async def root_sns_optin_mobile(request:Request,region:str,mobile:str):
-   #logic
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=sns_client.opt_in_phone_number(phoneNumber=mobile)
-   #final
-   return {"status":1,"message":output}
-
-#root/sns-delete-sandbox-mobile
-import boto3
-@app.delete("/root/sns-delete-sandbox-mobile")
-async def root_sns_delete_sandbox_mobile(request:Request,region:str,mobile:str):
-   #logic
-   sns_client=boto3.client("sns",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=sns_client.delete_sms_sandbox_phone_number(PhoneNumber=mobile)
-   #final
-   return {"status":1,"message":output}
-
-#public/ses-otp-send
-import boto3
-@app.get("/public/ses-otp-send")
-async def public_ses_otp_send(request:Request,region:str,sender:str,email:str):
-   #create otp
-   otp=random.randint(100000,999999)
-   query="insert into otp (otp,email) values (:otp,:email) returning *;"
-   query_param={"otp":otp,"email":email}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #send otp
-   to,title,body=[email],"otp from atom",str(otp)
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
-   #final
-   return {"status":1,"message":"done"}
-
-#root/ses-add-identity
-import boto3
-@app.post("/root/ses-add-identity")
-async def root_ses_add_identity(request:Request,region:str,type:Literal["email","domain"],identity:str):
-   #logic
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   if type=="email":output=ses_client.verify_email_identity(EmailAddress=identity)
-   if type=="domain":output=ses_client.verify_domain_identity(Domain=identity)
-   #final
-   return {"status":1,"message":output}
-
-#root/ses-list-identity
-import boto3
-@app.get("/root/ses-list-identity")
-async def root_ses_list_identity(request:Request,region:str,type:Literal["EmailAddress","Domain"],limit:int,next_token:str=None):
-   #logic
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.list_identities(IdentityType=type,NextToken='' if not next_token else next_token,MaxItems=limit)
-   #final
-   return {"status":1,"message":output}
-
-#root/ses-identity-status
-import boto3
-@app.get("/root/ses-identity-status")
-async def root_ses_identity_status(request:Request,region:str,identity:str):
-   #logic
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.get_identity_verification_attributes(Identities=[identity])
-   #final
-   return {"status":1,"message":output}
-
-#root/ses-delete-identity
-import boto3
-@app.delete("/root/ses-delete-identity")
-async def root_ses_delete_identity(request:Request,region:str,identity:str):
-   #logic
-   ses_client=boto3.client("ses",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=ses_client.delete_identity(Identity=identity)
-   #final
-   return {"status":1,"message":output}
-
-#root/dynamodb-create-table
-import boto3,json
-@app.post("/root/dynamodb-create-table")
-async def root_dynamodb_create_table(request:Request,region:str,name:str,hash:str,range:str,hash_data_type:str,range_data_type:str,read:int,write:int):
-   #logic
-   dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   table=dynamodb_resource.create_table(TableName=name,KeySchema=[{"AttributeName":hash,"KeyType":"HASH"},{"AttributeName":range,"KeyType":"RANGE"}],AttributeDefinitions=[{"AttributeName":hash,"AttributeType":hash_data_type},{"AttributeName":range,"AttributeType":range_data_type}],ProvisionedThroughput={'ReadCapacityUnits':read,'WriteCapacityUnits':write})
-   table.wait_until_exists()
-   #final
-   return {"status":1,"message":"done"}
-
-#root/dynamodb-delete-table
-import boto3,json
-@app.delete("/root/dynamodb-delete-table")
-async def root_dynamodb_delete_table(request:Request,region:str,name:str):
-   #logic
-   dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   table=dynamodb_resource.Table(name)
-   output=table.delete()
-   #final
-   return {"status":1,"message":output}
-
-#root/dynamodb-create-item
-import boto3
-from decimal import Decimal
-@app.post("/root/dynamodb-create-item")
-async def root_dynamodb_create_item(request:Request,region:str,table:str):
-   #logic
-   dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   table=dynamodb_resource.Table(table)
-   object=await request.json()
-   object={k:Decimal(str(v)) if type(v).__name__=="float" else v for k,v in object.items()}
-   output=table.put_item(Item=object)
-   #final
-   return {"status":1,"message":output}
-
-#root/dynamodb-create-item-batch
-import boto3
-@app.post("/root/dynamodb-create-item-batch")
-async def root_dynamodb_create_item_batch(request:Request,region:str,table:str,hash:str,range:str):
-   #logic
-   dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   table=dynamodb_resource.Table(table)
-   object=await request.json()
-   with table.batch_writer(overwrite_by_pkeys=[hash,range]) as batch:
-      for item in object["data"]:batch.put_item(Item=item)
-   #final
-   return {"status":1,"message":"done"}
-
-#root/dynamodb-read-item-pk
-import boto3
-@app.post("/root/dynamodb-read-item-pk")
-async def root_dynamodb_read_item_pk(request:Request,region:str,table:str,hash:str,range:str):
-   #logic
-   dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   table=dynamodb_resource.Table(table)
-   object=await request.json()
-   hash_value,range_value=object["hash_value"],object["range_value"]
-   output=table.get_item(Key={hash:hash_value,range:range_value})
-   #final
-   return {"status":1,"message":output}
-
-#root/dynamodb-read-item-attribute
-import boto3
-from boto3.dynamodb.conditions import Attr
-@app.post("/root/dynamodb-read-item-attribute")
-async def root_dynamodb_read_item_attribute(request:Request,region:str,table:str):
-   #logic
-   dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   table=dynamodb_resource.Table(table)
-   object=await request.json()
-   attribute,value=object["attribute"],object["value"]
-   output=table.scan(FilterExpression=Attr(attribute).eq(value))
-   #final
-   return {"status":1,"message":output}
-
-#root/dynamodb-update-item
-import boto3
-@app.put("/root/dynamodb-update-item")
-async def root_dynamodb_update_item(request:Request,region:str,table:str,hash:str,range:str):
-   #logic
-   dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   table=dynamodb_resource.Table(table)
-   object=await request.json()
-   hash_value,range_value=object["hash_value"],object["range_value"]
-   query,value=object["query"],object["value"]
-   output=table.update_item(Key={hash:hash_value,range:range_value},UpdateExpression=query,ExpressionAttributeValues=value)
-   #final
-   return {"status":1,"message":output}
-
-#root/dynamodb-delete-item
-import boto3
-@app.delete("/root/dynamodb-delete-item")
-async def root_dynamodb_delete_item(request:Request,region:str,table:str,hash:str,range:str):
-   #logic
-   dynamodb_resource=boto3.resource("dynamodb",region_name=region,aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   table=dynamodb_resource.Table(table)
-   object=await request.json()
-   hash_value,range_value=object["hash_value"],object["range_value"]
-   output=table.delete_item(Key={hash:hash_value,range:range_value})
-   #final
-   return {"status":1,"message":output}
-
-#public/html-single-chat
-from fastapi.responses import HTMLResponse
-@app.get("/public/html-single-chat/{user_id_1}/{user_id_2}")
-async def public_html_single_chat(user_id_1:int,user_id_2:int):
-   html=f"""
-   <!DOCTYPE html>
-   <html>
-      <head>
-         <title>Chat</title>
-      </head>
-      <body>
-         <h1>Single Chat</h1>
-         <h2>Your ID: <span id="client_id"></span></h2>
-         <form action="" onsubmit="sendMessage(event)">
-               <input type="text" id="messageText" autocomplete="off"/>
-               <button>Send</button>
-         </form>
-         <ul id='messages'>
-         </ul>
-         <script>
-               document.querySelector("#client_id").textContent = {user_id_1};
-               var ws = new WebSocket(`ws://localhost:8000/public/websocket-single-chat/{user_id_1}/{user_id_2}`);
-               ws.onmessage = function(event) {{
-                  var messages = document.getElementById('messages')
-                  var message = document.createElement('li')
-                  var content = document.createTextNode(event.data)
-                  message.appendChild(content)
-                  messages.appendChild(message)
-               }};
-               function sendMessage(event) {{
-                  var input = document.getElementById("messageText")
-                  ws.send(input.value)
-                  input.value = ''
-                  event.preventDefault()
-               }}
-         </script>
-      </body>
-   </html>
-   """
-   return HTMLResponse(html)
-
-#public/html-group-chat
-from fastapi.responses import HTMLResponse
-@app.get("/public/html-group-chat")
-async def public_html_group_chat():
-    html="""
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Chat</title>
-        </head>
-        <body>
-            <h1>Group Chat</h1>
-            <h2>Your ID=<span id="client_id"></span></h2>
-            <form action="" onsubmit="sendMessage(event)">
-                <input type="text" id="messageText" autocomplete="off"/>
-                <button>Send</button>
-            </form>
-            <ul id='messages'>
-            </ul>
-            <script> 
-                var client_id = Date.now()
-                document.querySelector("#client_id").textContent = client_id;
-                var ws = new WebSocket(`ws://localhost:8000/public/websocket-group-chat/${client_id}`);
-                ws.onmessage = function(event) {
-                    var messages = document.getElementById('messages')
-                    var message = document.createElement('li')
-                    var content = document.createTextNode(event.data)
-                    message.appendChild(content)
-                    messages.appendChild(message)
-                };
-                function sendMessage(event) {
-                    var input = document.getElementById("messageText")
-                    ws.send(input.value)
-                    input.value = ''
-                    event.preventDefault()
-                }
-            </script>
-        </body>
-    </html>
-    """
-    return HTMLResponse(html)
- 
-#websocket single chat
-from fastapi import WebSocket,WebSocketDisconnect
-websocket_connection_dict={}
-@app.websocket("/public/websocket-single-chat/{user_id_1}/{user_id_2}")
-async def public_websocket_single_chat(websocket:WebSocket,user_id_1:int,user_id_2:int):
-    await websocket.accept()
-    websocket_connection_dict[user_id_1]=websocket
-    try:
-        while True:
-            message=await websocket.receive_text()
-            if user_id_2 in websocket_connection_dict:
-               await websocket_connection_dict[user_id_1].send_text(f"{user_id_1}-{message}")
-               await websocket_connection_dict[user_id_2].send_text(f"{user_id_1}-{message}")
-            else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_2} offline")
-    except WebSocketDisconnect:
-       websocket_connection_dict.pop(user_id_1, None)
-       if user_id_2 in websocket_connection_dict:await websocket_connection_dict[user_id_2].send_text(f"{user_id_1} left the chat")
-       else:await websocket_connection_dict[user_id_1].send_text(f"{user_id_1} left the chat")
-       
-#websocket group chat
-from fastapi import WebSocket,WebSocketDisconnect
-websocket_connection_list=[]
-@app.websocket("/public/websocket-group-chat/{client_id}")
-async def public_websocket_group_chat(websocket:WebSocket,client_id:int):
-    await websocket.accept()
-    websocket_connection_list.append(websocket)
-    try:
-        while True:
-            message=await websocket.receive_text()
-            for connection in websocket_connection_list:
-                await connection.send_text(message)
-    except WebSocketDisconnect:
-        websocket_connection_list.remove(websocket)
-        for connection in websocket_connection_list:
-             await connection.send_text(f"{client_id} left the chat")
-
-#root/sqlite-query-runner
-from databases import Database
-@app.get("/root/sqlite-query-runner")
-async def root_sqlite_query_runner(request:Request,mode:str,query:str):
-   #client
-   sqlite_client=Database('sqlite+aiosqlite:///atom.db')
-   sqlite_client.connect()
-   query_list=query.split("---")
-   output="done"
-   #logic
-   if mode=="read":output=await sqlite_client.fetch_all(query=query,values={})
-   if mode=="write":[await sqlite_client.execute(query=item,values={}) for item in query_list]
-   #final
-   sqlite_client.disconnect()
-   return {"status":1,"message":output}
-
-# #root/package-size
-# import os,pkg_resources
-# @app.get("/root/package-size")
-# async def root_package_size(request:Request):
-#    output={}
-#    for package in pkg_resources.working_set:
-#       package_path=os.path.join(package.location,package.project_name)
-#       output[package.project_name]=0
-#       for dirpath, _,filenames in os.walk(package_path):
-#          for file in filenames:
-#                package_file_path=os.path.join(dirpath,file)
-#                output[package.project_name]+=os.path.getsize(package_file_path)
-#    output={k:v/1000000 for k,v in output.items()}
-#    output=dict(sorted(output.items(), key=lambda item: item[1],reverse=True))
-#    return {"status":1,"message":output}
-
-#root/postgres-prepared-statement
-@app.get("/root/postgres-prepared-statement")
-async def root_postgres_prepared_statement(request:Request):
-   query="select * from pg_prepared_statements where name='read_user';"
-   output=await postgres_client.fetch_all(query=query,values={})
-   if not output:
-      query="prepare read_user (int) as select * from users where id=$1;"
-      await postgres_client.fetch_all(query=query,values={})
-   query="explain analyze select * from users where id=1;"
-   output_1=await postgres_client.fetch_all(query=query,values={})
-   query="explain analyze execute read_user(1);"
-   output_2=await postgres_client.fetch_all(query=query,values={})
-   output={"simple":output_1,"prepared":output_2}
-   return {"status":1,"message":output}
-
-#public/text-to-txt-file
-@app.get("/public/text-to-txt-file")
-async def public_text_to_txt_file(request:Request,text:str,file_path:str):
-   with open(file_path,"w",encoding="utf-8") as file:file.write(text)
-   return {"status":1,"message":"done"}
-
-#root/request-get
-@app.get("/root/request-get")
-async def root_request_get(request:Request,url:str):
-   output=requests.get(url,params={},headers={})
-   return {"status":1,"message":output.json()}
-
-#root/request-post
-@app.post("/root/request-post")
-async def root_request_post(request:Request,url:str):
-   body=await request.json()
-   output=requests.post(url,json=body)
-   return {"status":1,"message":output.json()}
-
-#root/request-put
-@app.post("/root/request-post")
-async def root_request_post(request:Request,url:str):
-   body=await request.json()
-   output=requests.post(url,json=body)
-   return {"status":1,"message":output.json()}
 
 #main
 import sys
-mode=sys.argv
-
-#fastapi - python main.py
 import asyncio
+import nest_asyncio
+import json
+mode=sys.argv
+nest_asyncio.apply()
+
+#python main.py
 import uvicorn
 async def main_fastapi():
    config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
@@ -2224,146 +1641,70 @@ async def main_fastapi():
    await server.serve()
 if __name__=="__main__" and len(mode)==1:
    try:asyncio.run(main_fastapi())
-   except KeyboardInterrupt:print("exited")
+   except KeyboardInterrupt:print("exit")
 
-#redis subscriber - python main.py redis-subscriber atom
-import asyncio
-import redis.asyncio as redis
-import asyncio
-import async_timeout
-async def main_redis_subscriber():
-   channel=mode[2]
-   redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url")))
-   redis_pubsub=redis_client.pubsub()
-   await redis_pubsub.psubscribe(channel)
-   while True:
-      try:
-         async with async_timeout.timeout(1):
-               message=await redis_pubsub.get_message(ignore_subscribe_messages=True)
-               if message is not None:
-                  print(message)
-                  if message["data"].decode()=="stop":break
-      except asyncio.TimeoutError:pass
-if __name__=="__main__" and len(mode)>1 and mode[1]=="redis-subscriber":
-   try:asyncio.run(main_redis_subscriber())
-   except KeyboardInterrupt:print("exited")
-
-#kafka consumer - python main.py kafka-consumer atom
-import asyncio
-from aiokafka import AIOKafkaConsumer
-from aiokafka.helpers import create_ssl_context
-async def main_kafka_consumer(topic):
-   topic=mode[2]
-   context=create_ssl_context(cafile=os.getenv("kafka_path_cafile"),certfile=os.getenv("kafka_path_certfile"),keyfile=os.getenv("kafka_path_keyfile"))
-   consumer=AIOKafkaConsumer(topic,bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
-   await consumer.start()
+#python main.py redis
+async def main_redis():
+   await set_postgres()
+   await set_redis()
    try:
-      async for msg in consumer:
-         print("consumed:",msg.topic, msg.partition, msg.offset,msg.key, msg.value, msg.timestamp)
+      async for message in redis_pubsub.listen():
+         if message["type"]=="message" and message["channel"]=="postgres_cud":
+            data=json.loads(message['data'])
+            await queue_pull_postgres_cud(data)
+   except asyncio.CancelledError:print("subscription cancelled")
    finally:
-      await consumer.stop()
-if __name__=="__main__" and len(mode)>1 and mode[1]=="kafka-consumer":
-   try:asyncio.run(main_kafka_consumer())
-   except KeyboardInterrupt:print("exited")
-
-#gemini chat - python main.py gemini-chat
-import google.generativeai as genai
-if __name__=="__main__" and len(mode)>1 and mode[1]=="gemini-chat":
+      await postgres_client.disconnect()
+      await redis_pubsub.unsubscribe("postgres_cud")
+      await redis_client.aclose()
+if __name__ == "__main__" and len(mode)>1 and mode[1]=="redis":
+    try:asyncio.run(main_redis())
+    except KeyboardInterrupt:print("exit")
+    
+#python main.py rabbitmq
+async def main_rabbitmq():
+   await set_postgres()
+   await set_rabbitmq()
    try:
-      genai.configure(api_key=os.getenv("secret_key_gemini"))
-      model=genai.GenerativeModel("gemini-1.5-flash")
-      chat=model.start_chat(history=[])
-      while True:
-         user_input=input("You: ")
-         response=chat.send_message(user_input,stream=True)
-         for chunk in response:print(chunk.text)
-   except KeyboardInterrupt:print("exited")
-
-#streamlit - streamlit run main.py streamlit-form
-import streamlit as st
-import requests
-if __name__=="__main__" and len(mode)>1 and mode[1]=="streamlit-form":
-   st.markdown("<h4>welcome to atom</h4>",unsafe_allow_html=True)
-   with st.form("jobseeker_form"):
-      st.header("are you looking for a job?")
-      name=st.text_input("name")
-      email=st.text_input("email")
-      mobile=st.text_input("mobile")
-      linkedin=st.text_input("linkedin")
-      job_type=st.selectbox("job type",["Full-time", "Part-time", "Internship", "Contract"])
-      experience=st.slider("experience", 0, 30, 1)
-      skills=st.text_area("skills",placeholder="separate multiple skills by commas")
-      submitted=st.form_submit_button("Submit")
-      if submitted:
-         if not name or not email or not mobile:st.error("name/email/mobile is mandatory")
-         else:
-            object={"name":name,"email":email,"mobile":mobile,"linkedin_url":linkedin,"type":job_type,"experience":experience,"skill":skills}
-            url="https://atom-tbsk.onrender.com/public/object-create?table=human"
-            requests.post(url,json=object)
-            st.success("Thank you for your application, {}!".format(name))
-
-#rabbitmq - python main.py rabbitmq-consumer postgres_cud
-import asyncio
-import nest_asyncio
-import pika
-nest_asyncio.apply()
-
-def rabbitmq_callback(ch,method,properties,body):
-   try:
-      data=json.loads(body)
-      mode,table,object=data["mode"],data["table"],data["object"]
-      loop=asyncio.get_event_loop()
-      response=loop.run_until_complete(object_serialize(postgres_column_datatype,[object]))
-      if response["status"]==0:print(response)
-      object=response["message"][0]
-      response=loop.run_until_complete(postgres_cud(postgres_client,mode,table,[object]))
-      if response["status"]==0:print(response)
-      print(mode,table,response)
-   except:pass
-
-async def main_rabbitmq_consumer():
-   queue=mode[2]
-   [await item for item in [set_postgres_client(),set_postgres_column_datatype(),set_rabbitmq_channel()]]
-   rabbitmq_channel.basic_consume(queue,rabbitmq_callback,auto_ack=True)
-   rabbitmq_channel.start_consuming()
-   
-if __name__=="__main__" and len(mode)>1 and mode[1]=="rabbitmq-consumer":
-   try:asyncio.run(main_rabbitmq_consumer())
+      rabbitmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
+      rabbitmq_channel.start_consuming()
    except KeyboardInterrupt:
-      loop=asyncio.get_event_loop()
-      loop.run_until_complete(postgres_client.disconnect())
+      await postgres_client.disconnect()
       rabbitmq_channel.close()
       rabbitmq_client.close()
-      
-#lavinmq - python main.py lavinmq-consumer postgres_cud
-import asyncio
-import nest_asyncio
-import pika
-nest_asyncio.apply()
+if __name__ == "__main__" and len(mode)>1 and mode[1]=="rabbitmq":
+    try:asyncio.run(main_rabbitmq())
+    except KeyboardInterrupt:print("exit")
 
-def lavinmq_callback(ch,method,properties,body):
+#python main.py lavinmq
+async def main_lavinmq():
+   await set_postgres()
+   await set_lavinmq()
    try:
-      data=json.loads(body)
-      mode,table,object=data["mode"],data["table"],data["object"]
-      loop=asyncio.get_event_loop()
-      response=loop.run_until_complete(object_serialize(postgres_column_datatype,[object]))
-      if response["status"]==0:print(response)
-      object=response["message"][0]
-      response=loop.run_until_complete(postgres_cud(postgres_client,mode,table,[object]))
-      if response["status"]==0:print(response)
-      print(mode,table,response)
-   except:pass
-
-async def main_lavinmq_consumer():
-   queue=mode[2]
-   [await item for item in [set_postgres_client(),set_postgres_column_datatype(),set_lavinmq_channel()]]
-   lavinmq_channel.basic_consume(queue,lavinmq_callback,auto_ack=True)
-   lavinmq_channel.start_consuming()
-   
-if __name__=="__main__" and len(mode)>1 and mode[1]=="lavinmq-consumer":
-   try:asyncio.run(main_lavinmq_consumer())
+      lavinmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
+      lavinmq_channel.start_consuming()
    except KeyboardInterrupt:
-      loop=asyncio.get_event_loop()
-      loop.run_until_complete(postgres_client.disconnect())
+      await postgres_client.disconnect()
       lavinmq_channel.close()
       lavinmq_client.close()
+if __name__ == "__main__" and len(mode)>1 and mode[1]=="lavinmq":
+    try:asyncio.run(main_lavinmq())
+    except KeyboardInterrupt:print("exit")
+   
+#python main.py kafka
+async def main_kafka():
+   await set_postgres()
+   await set_kafka()
+   try:
+      async for message in kafka_consumer_client:
+         if message.topic=="postgres_cud":
+            data=json.loads(message.value.decode('utf-8'))
+            await queue_pull_postgres_cud(data)
+   except asyncio.CancelledError:print("subscription cancelled")
+   finally:
+      await postgres_client.disconnect()
+      await kafka_consumer_client.stop()
+if __name__ == "__main__" and len(mode)>1 and mode[1]=="kafka":
+    try:asyncio.run(main_kafka())
+    except KeyboardInterrupt:print("exit")
+

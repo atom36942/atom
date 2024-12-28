@@ -55,6 +55,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 pip freeze > requirements.txt
+pip list --outdated | tail -n +3 | awk '{print $1}' | xargs -n1 pip install --upgrade
 
 #redis
 brew install redis
@@ -76,5 +77,4 @@ pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 \copy post(type,title) from 'path' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 ```
-
 
