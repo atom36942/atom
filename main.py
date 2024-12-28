@@ -1628,10 +1628,8 @@ async def root_mongodb_delete(request:Request,database:str,collection:str,_id:st
 #main
 import sys
 import asyncio
-import nest_asyncio
 import json
 mode=sys.argv
-nest_asyncio.apply()
 
 #python main.py
 import uvicorn
@@ -1642,6 +1640,10 @@ async def main_fastapi():
 if __name__=="__main__" and len(mode)==1:
    try:asyncio.run(main_fastapi())
    except KeyboardInterrupt:print("exit")
+
+#nest
+import nest_asyncio
+nest_asyncio.apply()
 
 #python main.py redis
 async def main_redis():
