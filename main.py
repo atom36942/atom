@@ -3,92 +3,6 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-#function
-async def postgres_cud(postgres_client,mode,table,object_list):
-   if mode=="create":
-      column_insert_list=[*object_list[0]]
-      query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
-   if mode=="update":
-      column_update_list=[*object_list[0]]
-      column_update_list.remove("id")
-      query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_update_list])} where id=:id returning *;"
-   if mode=="delete":
-      query=f"delete from {table} where id=:id;"
-   if len(object_list)==1:
-      output=await postgres_client.execute(query=query,values=object_list[0])
-   else:
-      try:
-         transaction=await postgres_client.transaction()
-         output=await postgres_client.execute_many(query=query,values=object_list)
-      except Exception as e:
-         await transaction.rollback()
-         return {"status":0,"message":e.args}
-      else:
-         await transaction.commit()
-         output="done"
-   return {"status":1,"message":output}
-
-async def object_where_parse(postgres_column_datatype,object_where):
-   object_where={k:v for k,v in object_where.items() if k in postgres_column_datatype}
-   object_where={k:v for k,v in object_where.items() if k not in ["location","metadata"]}
-   object_where={k:v for k,v in object_where.items() if k not in ["table","order","limit","page"]}
-   object_operator={k:v.split(',',1)[0] for k,v in object_where.items()}
-   object_value={k:v.split(',',1)[1] for k,v in object_where.items()}
-   column_read_list=[*object_where]
-   where_column_single_list=[f"({column} {object_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
-   where_column_joined=' and '.join(where_column_single_list)
-   where_string=f"where {where_column_joined}" if where_column_joined else ""
-   where_value=object_value
-   return {"status":1,"message":[where_string,where_value]}
-
-import hashlib,datetime,json
-async def object_serialize(postgres_column_datatype,object_list):
-   for index,object in enumerate(object_list):
-      for k,v in object.items():
-         if k in postgres_column_datatype:datatype=postgres_column_datatype[k]
-         else:return {"status":0,"message":f"{k} column not in postgres_column_datatype"}
-         if not v:object_list[index][k]=None
-         if k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(v.encode()).hexdigest() if v else None
-         if "int" in datatype:object_list[index][k]=int(v) if v else None
-         if datatype in ["numeric"]:object_list[index][k]=round(float(v),3) if v else None
-         if "time" in datatype:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
-         if datatype in ["date"]:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
-         if datatype in ["jsonb"]:object_list[index][k]=json.dumps(v) if v else None
-         if datatype in ["ARRAY"]:object_list[index][k]=v.split(",") if v else None
-   return {"status":1,"message":object_list}
-
-async def add_action_count(postgres_client,action,table,object_list):
-   if not object_list:return {"status":1,"message":object_list}
-   key_name=f"{action}_count"
-   object_list=[dict(item)|{key_name:0} for item in object_list]
-   parent_ids_list=[str(item["id"]) for item in object_list if item["id"]]
-   parent_ids_string=",".join(parent_ids_list)
-   if parent_ids_string:
-      query=f"select parent_id,count(*) from {action} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
-      query_param={"parent_table":table}
-      object_list_action=await postgres_client.fetch_all(query=query,values=query_param)
-      for x in object_list:
-         for y in object_list_action:
-               if x["id"]==y["parent_id"]:
-                  x[key_name]=y["count"]
-                  break
-   return {"status":1,"message":object_list}
-
-async def add_creator_data(postgres_client,object_list):
-   if not object_list:return {"status":1,"message":object_list}
-   object_list=[dict(item)|{"created_by_username":None} for item in object_list]
-   created_by_ids_list=[str(item["created_by_id"]) for item in object_list if item["created_by_id"]]
-   created_by_ids_string=",".join(created_by_ids_list)
-   if created_by_ids_string:
-      query=f"select * from users where id in ({created_by_ids_string});"
-      object_list_user=await postgres_client.fetch_all(query=query,values={})
-      for x in object_list:
-         for y in object_list_user:
-            if x["created_by_id"]==y["id"]:
-               x["created_by_username"]=y["username"]
-               break
-   return {"status":1,"message":object_list}
-
 #globals
 query_schema='''
 with
@@ -96,6 +10,13 @@ t as (select * from information_schema.tables where table_schema='public' and ta
 c as (select * from information_schema.columns where table_schema='public')
 select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
 '''
+
+s3_client=None
+s3_resource=None
+import boto3
+if os.getenv("aws_access_key_id"):
+   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
+   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
 
 postgres_client=None
 from databases import Database
@@ -122,7 +43,8 @@ async def set_redis_client():
       redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url")))
    return None
 
-rabbitmq_client,rabbitmq_channel=None,None
+rabbitmq_client=None
+rabbitmq_channel=None
 import pika
 async def set_rabbitmq_channel():
    global rabbitmq_client
@@ -133,7 +55,8 @@ async def set_rabbitmq_channel():
       rabbitmq_channel.queue_declare(queue="postgres_cud")
    return None
 
-lavinmq_client,lavinmq_channel=None,None
+lavinmq_client=None
+lavinmq_channel=None
 import pika
 async def set_lavinmq_channel():
    global lavinmq_client
@@ -235,6 +158,79 @@ postgres_schema_defualt={
 }
 }
 
+#function
+async def postgres_cud(postgres_client,mode,table,object_list):
+   if mode=="create":
+      column_insert_list=[*object_list[0]]
+      query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
+   if mode=="update":
+      column_update_list=[*object_list[0]]
+      column_update_list.remove("id")
+      query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_update_list])} where id=:id returning *;"
+   if mode=="delete":
+      query=f"delete from {table} where id=:id;"
+   if len(object_list)==1:
+      output=await postgres_client.execute(query=query,values=object_list[0])
+   else:
+      try:
+         transaction=await postgres_client.transaction()
+         output=await postgres_client.execute_many(query=query,values=object_list)
+      except Exception as e:
+         await transaction.rollback()
+         return {"status":0,"message":e.args}
+      else:
+         await transaction.commit()
+         output="done"
+   return {"status":1,"message":output}
+
+import hashlib,datetime,json
+async def object_serialize(postgres_column_datatype,object_list):
+   for index,object in enumerate(object_list):
+      for k,v in object.items():
+         if k in postgres_column_datatype:datatype=postgres_column_datatype[k]
+         else:return {"status":0,"message":f"{k} column not in postgres_column_datatype"}
+         if not v:object_list[index][k]=None
+         if k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(v.encode()).hexdigest() if v else None
+         if "int" in datatype:object_list[index][k]=int(v) if v else None
+         if datatype in ["numeric"]:object_list[index][k]=round(float(v),3) if v else None
+         if "time" in datatype:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
+         if datatype in ["date"]:object_list[index][k]=datetime.datetime.strptime(v,'%Y-%m-%dT%H:%M:%S') if v else None
+         if datatype in ["jsonb"]:object_list[index][k]=json.dumps(v) if v else None
+         if datatype in ["ARRAY"]:object_list[index][k]=v.split(",") if v else None
+   return {"status":1,"message":object_list}
+
+async def add_action_count(postgres_client,action,table,object_list):
+   if not object_list:return {"status":1,"message":object_list}
+   key_name=f"{action}_count"
+   object_list=[dict(item)|{key_name:0} for item in object_list]
+   parent_ids_list=[str(item["id"]) for item in object_list if item["id"]]
+   parent_ids_string=",".join(parent_ids_list)
+   if parent_ids_string:
+      query=f"select parent_id,count(*) from {action} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
+      query_param={"parent_table":table}
+      object_list_action=await postgres_client.fetch_all(query=query,values=query_param)
+      for x in object_list:
+         for y in object_list_action:
+               if x["id"]==y["parent_id"]:
+                  x[key_name]=y["count"]
+                  break
+   return {"status":1,"message":object_list}
+
+async def add_creator_data(postgres_client,object_list):
+   if not object_list:return {"status":1,"message":object_list}
+   object_list=[dict(item)|{"created_by_username":None} for item in object_list]
+   created_by_ids_list=[str(item["created_by_id"]) for item in object_list if item["created_by_id"]]
+   created_by_ids_string=",".join(created_by_ids_list)
+   if created_by_ids_string:
+      query=f"select * from users where id in ({created_by_ids_string});"
+      object_list_user=await postgres_client.fetch_all(query=query,values={})
+      for x in object_list:
+         for y in object_list_user:
+            if x["created_by_id"]==y["id"]:
+               x["created_by_username"]=y["username"]
+               break
+   return {"status":1,"message":object_list}
+
 #helper
 from fastapi import Request,Response
 def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Response=None,**kwargs):
@@ -265,7 +261,6 @@ async def auth_check(request):
    return {"status":1,"message":user}
 
 object_list_log=[]
-import asyncio
 async def create_api_log(request,response,response_time_ms,user):
    global object_list_log
    object={"created_by_id":user["id"] if user else None,"api":request.url.path,"status_code":response.status_code,"response_time_ms":response_time_ms}
@@ -292,6 +287,19 @@ async def ownership_check(table,id,user_id):
       if not output:return {"status":0,"message":"no object"}
       if user_id!=output[0]["created_by_id"]:return {"status":0,"message":"object ownership issue"}
    return {"status":1,"message":"done"}
+
+async def create_where_string(object):
+   object={k:v for k,v in object.items() if k in postgres_column_datatype}
+   object={k:v for k,v in object.items() if k not in ["location","metadata"]}
+   object={k:v for k,v in object.items() if k not in ["table","order","limit","page"]}
+   object_operator={k:v.split(',',1)[0] for k,v in object.items()}
+   object_value={k:v.split(',',1)[1] for k,v in object.items()}
+   column_read_list=[*object]
+   where_column_single_list=[f"({column} {object_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
+   where_column_joined=' and '.join(where_column_single_list)
+   where_string=f"where {where_column_joined}" if where_column_joined else ""
+   where_value=object_value
+   return {"status":1,"message":[where_string,where_value]}
 
 #app
 import sentry_sdk
@@ -369,16 +377,16 @@ for item in file_name_list_without_extension:
       
 #api
 from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks
+import hashlib,datetime,json,uuid,time,jwt,csv,codecs,copy,requests,os
+from io import BytesIO
+from typing import Literal
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
-import hashlib,datetime,json,uuid,time,jwt,csv,codecs,copy,requests,os
 
-#index
 @app.get("/")
 async def root(request:Request):
    return {"status":1,"message":"welcome to atom"}
 
-#root/postgres-schema-init
 @app.post("/root/postgres-schema-init")
 async def root_postgres_schema_init(request:Request,mode:str):
    #schema define
@@ -387,14 +395,14 @@ async def root_postgres_schema_init(request:Request,mode:str):
    #extension (config)
    for item in schema["extension"]:
       query=f"create extension if not exists {item}"
-      await postgres_client.fetch_all(query=query,values={})
+      await postgres_client.execute(query=query,values={})
    #table (config)
-   output=await postgres_client.fetch_all(query="select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
-   table_name_list=[item["table_name"] for item in output]
+   output=await postgres_client.fetch_all(query=query_schema,values={})
+   table_name_list=list(set([item["table_name"] for item in output]))
    for item in schema["table"]:
       if item not in table_name_list:
          query=f"create table if not exists {item} (id bigint primary key generated always as identity not null);"
-         await postgres_client.fetch_all(query=query,values={})
+         await postgres_client.execute(query=query,values={})
    #column (config)
    output=await postgres_client.fetch_all(query=query_schema,values={})
    table_column_list=[f"{item['table_name']}_{item['column_name']}" for item in output]
@@ -402,7 +410,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
       for item in v[1]:
          if f"{item}_{k}" not in table_column_list:
             query=f"alter table {item} add column if not exists {k} {v[0]};"
-            await postgres_client.fetch_all(query=query,values={})
+            await postgres_client.execute(query=query,values={})
    #index (config)
    output=await postgres_client.fetch_all(query="select indexname from pg_indexes where schemaname='public';",values={})
    index_name_list=[item["indexname"] for item in output]
@@ -411,7 +419,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
          index_name=f"index_{item}_{k}"
          if index_name not in index_name_list:
             query=f"create index concurrently if not exists {index_name} on {item} using {v[0]} ({k});"
-            await postgres_client.fetch_all(query=query,values={}) 
+            await postgres_client.execute(query=query,values={}) 
    #notnull (config)
    output=await postgres_client.fetch_all(query=query_schema,values={})
    table_column_nullable_mapping={f"{item['table_name']}_{item['column_name']}":item["is_nullable"] for item in output}
@@ -419,7 +427,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
       for item in v:
          if table_column_nullable_mapping[f"{item}_{k}"]=="YES":
             query=f"alter table {item} alter column {k} set not null;"
-            await postgres_client.fetch_all(query=query,values={})
+            await postgres_client.execute(query=query,values={})
    #unique (config)
    output=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
    constraint_name_list=[item["constraint_name"] for item in output]
@@ -429,14 +437,14 @@ async def root_postgres_schema_init(request:Request,mode:str):
          else:constraint_name=f"constraint_unique_{item}_{''.join([item[0] for item in k.split(',')])}"
          if constraint_name not in constraint_name_list:
             query=f"alter table {item} add constraint {constraint_name} unique ({k});"
-            await postgres_client.fetch_all(query=query,values={})
+            await postgres_client.execute(query=query,values={})
    #bulk delete disable (config)
    function_delete_disable_bulk="create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;"
    await postgres_client.fetch_all(query=function_delete_disable_bulk,values={})
    for k,v in schema["bulk_delete_disable"].items():
       trigger_name=f"trigger_delete_disable_bulk_{k}"
       query=f"create or replace trigger {trigger_name} after delete on {k} referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk({v});"
-      await postgres_client.fetch_all(query=query,values={})
+      await postgres_client.execute(query=query,values={})
    #query (config)
    output=await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={})
    constraint_name_list=[item["constraint_name"] for item in output]
@@ -448,9 +456,9 @@ async def root_postgres_schema_init(request:Request,mode:str):
    for item in output:
       if item["column_name"]=="created_at" and not item["column_default"]:
          query=f"alter table only {item['table_name']} alter column created_at set default now();"
-         await postgres_client.fetch_all(query=query,values={})
+         await postgres_client.execute(query=query,values={})
    #set updated at now (auto)
-   await postgres_client.fetch_all(query="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",values={})
+   await postgres_client.execute(query="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",values={})
    output=await postgres_client.fetch_all(query="select trigger_name from information_schema.triggers;",values={})
    trigger_name_list=[item["trigger_name"] for item in output]
    output=await postgres_client.fetch_all(query=query_schema,values={})
@@ -459,7 +467,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
          trigger_name=f"trigger_set_updated_at_now_{item['table_name']}"
          if trigger_name not in trigger_name_list:
             query=f"create or replace trigger {trigger_name} before update on {item['table_name']} for each row execute procedure function_set_updated_at_now();"
-            await postgres_client.fetch_all(query=query,values={})
+            await postgres_client.execute(query=query,values={})
    #create rule protection (auto)
    output=await postgres_client.fetch_all(query="select rulename from pg_rules;",values={})
    rule_name_list=[item["rulename"] for item in output]
@@ -469,10 +477,10 @@ async def root_postgres_schema_init(request:Request,mode:str):
          rule_name=f"rule_protect_{item['table_name']}"
          if rule_name not in rule_name_list:
             query=f"create or replace rule {rule_name} as on delete to {item['table_name']} where old.is_protected=1 do instead nothing;"
-            await postgres_client.fetch_all(query=query,values={})
+            await postgres_client.execute(query=query,values={})
    #root user (auto)
-   await postgres_client.fetch_all(query="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",values={})
-   await postgres_client.fetch_all(query=  "create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",values={})
+   await postgres_client.execute(query="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",values={})
+   await postgres_client.execute(query=  "create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",values={})
    #log password change (auto)
    function_log_password_change='''
    CREATE OR REPLACE FUNCTION function_log_password_change() 
@@ -487,7 +495,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    END; 
    $$;
    '''
-   await postgres_client.fetch_all(query=function_log_password_change,values={})
+   await postgres_client.execute(query=function_log_password_change,values={})
    trigger_log_password_change='''
    CREATE OR REPLACE TRIGGER trigger_log_password_change 
    AFTER UPDATE ON users 
@@ -495,7 +503,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    WHEN (OLD.password IS DISTINCT FROM NEW.password) 
    EXECUTE FUNCTION function_log_password_change();
    '''
-   await postgres_client.fetch_all(query=trigger_log_password_change,values={})
+   await postgres_client.execute(query=trigger_log_password_change,values={})
    #procedure delete user (auto)
    query='''
    create or replace procedure procedure_delete_user(a int)
@@ -517,7 +525,7 @@ async def root_postgres_schema_init(request:Request,mode:str):
    end;
    $$;
    '''
-   await postgres_client.fetch_all(query=query,values={})
+   await postgres_client.execute(query=query,values={})
    #refresh mat all (auto)
    query='''
    DO
@@ -529,11 +537,10 @@ async def root_postgres_schema_init(request:Request,mode:str):
    END LOOP;
    END $$;
    '''
-   await postgres_client.fetch_all(query=query,values={})
+   await postgres_client.execute(query=query,values={})
    #final
    return {"status":1,"message":"done"}
 
-#root/grant all api access
 @app.put("/root/grant-all-api-access")
 async def root_grant_all_api_access(request:Request,user_id:int):
    #api list
@@ -547,27 +554,28 @@ async def root_grant_all_api_access(request:Request,user_id:int):
    #final
    return {"status":1,"message":output}
 
-#root/postgres clean
 @app.delete("/root/postgres-clean")
 async def root_pclean(request:Request):
-   #table name
+   #creator null
    output=await postgres_client.fetch_all(query=query_schema,values={})
-   table_name_list=list(set([item["table_name"] for item in output]))
-   table_name_list_action=[item for item in table_name_list if "action_" in item]
-   #parent_table name
+   table_name_list=[item["table_name"] for item in output if item["column_name"]=="created_by_id"]
+   for item in table_name_list:
+      query=f"delete from {item} where created_by_id not in (select id from users);"
+      await postgres_client.execute(query=query,values={})
+   #parent null
+   action_table_list=[item for item in table_name_list if "action_" in item]
    parent_table_list=[]
-   for item in table_name_list_action:
+   for item in action_table_list:
       output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {item};",values={})
       parent_table_list=parent_table_list+[item["parent_table"] for item in output]
-   parent_table_name_list=list(set(parent_table_list))
-   #clean creator null
-   [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in ["post","message"]+table_name_list_action]
-   #clean parent null
-   [await postgres_client.execute(query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});",values={}) for table in table_name_list_action for parent_table in parent_table_name_list]
+   parent_table_list=list(set(parent_table_list))
+   for table in action_table_list:
+      for parent_table in parent_table_list:
+         query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
+         await postgres_client.execute(query=query,values={})
    #final
    return {"status":1,"message":"done"}
 
-#root/postgres-query-runner
 @app.get("/root/postgres-query-runner")
 async def root_postgres_query_runner(request:Request,query:str):
    query_list=query.split("---")
@@ -583,7 +591,6 @@ async def root_postgres_query_runner(request:Request,query:str):
          output="done"
    return {"status":1,"message":output}
 
-#auth/signup
 @app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
 async def auth_signup(request:Request,username:str,password:str):
    #create user
@@ -598,7 +605,6 @@ async def auth_signup(request:Request,username:str,password:str):
    #final
    return {"status":1,"message":token}
 
-#auth/login
 @app.get("/auth/login")
 async def auth_login(request:Request,username:str,password:str,is_admin:int=None):
    #read user
@@ -616,7 +622,6 @@ async def auth_login(request:Request,username:str,password:str,is_admin:int=None
    #final
    return {"status":1,"message":token}
 
-#auth/login-google
 @app.get("/auth/login-google")
 async def auth_login_google(request:Request,google_id:str,is_admin:int=None):
    #read user
@@ -643,7 +648,6 @@ async def auth_login_google(request:Request,google_id:str,is_admin:int=None):
    #final
    return {"status":1,"message":token}
 
-#auth/login-email-otp
 @app.get("/auth/login-email-otp")
 async def auth_login_email_otp(request:Request,email:str,otp:int,is_admin:int=None,is_exist:int=None):
    #verify otp
@@ -678,7 +682,6 @@ async def auth_login_email_otp(request:Request,email:str,otp:int,is_admin:int=No
    #final
    return {"status":1,"message":token}
 
-#auth/login-mobile-otp
 @app.get("/auth/login-mobile-otp")
 async def auth_login_mobile_otp(request:Request,mobile:str,otp:int,is_admin:int=None,is_exist:int=None):
    #verify otp
@@ -713,7 +716,6 @@ async def auth_login_mobile_otp(request:Request,mobile:str,otp:int,is_admin:int=
    #final
    return {"status":1,"message":token}
 
-#auth/login-email-password
 @app.get("/auth/login-email-password")
 async def auth_login_email_password(request:Request,email:str,password:str):
    #read user
@@ -729,7 +731,6 @@ async def auth_login_email_password(request:Request,email:str,password:str):
    #final
    return {"status":1,"message":token}
 
-#auth/login-mobile-password
 @app.get("/auth/login-mobile-password")
 async def auth_login_mobile_password(request:Request,mobile:str,password:str):
    #read user
@@ -745,7 +746,6 @@ async def auth_login_mobile_password(request:Request,mobile:str,password:str):
    #final
    return {"status":1,"message":token}
 
-#my/profile
 @app.get("/my/profile")
 async def my_profile(request:Request,background:BackgroundTasks):
    #read user
@@ -761,7 +761,6 @@ async def my_profile(request:Request,background:BackgroundTasks):
    #final
    return {"status":1,"message":user}
 
-#my/token-refresh
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
    #read user
@@ -777,17 +776,15 @@ async def my_token_refresh(request:Request):
    #final
    return {"status":1,"message":token}
 
-#my/update-password
 @app.put("/my/update-password")
 async def my_update_password(request:Request,password:str):
    #logic
    query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
    query_param={"id":request.state.user["id"],"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
+   output=await postgres_client.execute(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
 
-#my/update-email
 @app.put("/my/update-email")
 async def my_update_email(request:Request,email:str,otp:int):
    #verify otp
@@ -799,11 +796,10 @@ async def my_update_email(request:Request,email:str,otp:int):
    #logic
    query="update users set email=:email,updated_by_id=:updated_by_id where id=:id returning *;"
    query_param={"id":request.state.user["id"],"email":email,"updated_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
+   output=await postgres_client.execute(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
 
-#my/update-mobile
 @app.put("/my/update-mobile")
 async def my_update_mobile(request:Request,mobile:str,otp:int):
    #verify otp
@@ -815,11 +811,10 @@ async def my_update_mobile(request:Request,mobile:str,otp:int):
    #logic
    query="update users set mobile=:mobile,updated_by_id=:updated_by_id where id=:id returning *;"
    query_param={"id":request.state.user["id"],"mobile":mobile,"updated_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
+   output=await postgres_client.execute(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
 
-#my/delete-ids
 @app.delete("/my/delete-ids")
 async def my_delete_ids(request:Request,table:str,ids:str):
    #check      
@@ -828,11 +823,10 @@ async def my_delete_ids(request:Request,table:str,ids:str):
    #logic
    query=f"delete from {table} where created_by_id=:created_by_id and id in ({ids});"
    query_param={"created_by_id":request.state.user["id"]}
-   await postgres_client.fetch_all(query=query,values=query_param)
+   await postgres_client.execute(query=query,values=query_param)
    #final
    return {"status":1,"message":"done"}
 
-#my/object-create
 @app.post("/my/object-create")
 async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:str=None):
    #object set
@@ -860,14 +854,13 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
    #final
    return {"status":1,"message":output}
 
-#my/object-read
 @app.get("/my/object-read")
 @cache(expire=60)
 async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #object where parse
-   object_where=dict(request.query_params)
-   object_where["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await object_where_parse(postgres_column_datatype,object_where)
+   #create where string
+   query_param=dict(request.query_params)
+   query_param["created_by_id"]=f"=,{request.state.user['id']}"
+   response=await create_where_string(query_param)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
@@ -880,7 +873,6 @@ async def my_object_read(request:Request,table:str,order:str="id desc",limit:int
    #final
    return {"status":1,"message":output}
 
-#my/object-update
 @app.put("/my/object-update")
 async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:str=None):
    #object set
@@ -913,7 +905,6 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:st
    #final
    return {"status":1,"message":output}
 
-#my/object-delete
 @app.delete("/my/object-delete")
 async def my_object_delete(request:Request,table:str,id:int,queue:str=None):
    #check
@@ -934,15 +925,14 @@ async def my_object_delete(request:Request,table:str,id:int,queue:str=None):
    #final
    return {"status":1,"message":"done"}
 
-#my/object-delete-any
 @app.delete("/my/object-delete-any")
 async def my_object_delete_any(request:Request,table:str):
    #check
    if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   #object where parse
+   #create where string
    object_where=dict(request.query_params)
    object_where["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await object_where_parse(postgres_column_datatype,object_where)
+   response=await create_where_string(object_where)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
@@ -955,7 +945,6 @@ async def my_object_delete_any(request:Request,table:str):
    #final
    return {"status":1,"message":"done"}
 
-#my/delete-account
 @app.delete("/my/delete-account")
 async def my_delete_account(request:Request,mode:str=None):
    #read user
@@ -979,7 +968,6 @@ async def my_delete_account(request:Request,mode:str=None):
    #final
    return {"status":1,"message":"account deleted"}
 
-#my/message-create
 @app.post("/my/message-create")
 async def my_message_create(request:Request,user_id:int,description:str):
    #delete ids
@@ -989,7 +977,6 @@ async def my_message_create(request:Request,user_id:int,description:str):
    #final
    return {"status":1,"message":output}
 
-#my/message-received
 @app.get("/my/message-received")
 async def my_message_received(request:Request,background:BackgroundTasks,order:str="id desc",limit:int=100,page:int=1,is_unread:int=None):
    #read message
@@ -1008,7 +995,6 @@ async def my_message_received(request:Request,background:BackgroundTasks,order:s
    #final
    return {"status":1,"message":output}
 
-#my/message-inbox
 @app.get("/my/message-inbox")
 async def my_message_inbox(request:Request,order:str="id desc",limit:int=100,page:int=1,is_unread:int=None):
    #read inbox
@@ -1032,7 +1018,6 @@ async def my_message_inbox(request:Request,order:str="id desc",limit:int=100,pag
    #final
    return {"status":1,"message":output}
 
-#my/message-thread
 @app.get("/my/message-thread")
 async def my_message_thread(request:Request,background:BackgroundTasks,user_id:int,order:str="id desc",limit:int=100,page:int=1):
    #read message thread
@@ -1046,7 +1031,6 @@ async def my_message_thread(request:Request,background:BackgroundTasks,user_id:i
    #final
    return {"status":1,"message":output}
 
-#my/message-delete-single
 @app.delete("/my/message-delete-single")
 async def my_message_delete_single(request:Request,id:int):
    #logic
@@ -1056,7 +1040,6 @@ async def my_message_delete_single(request:Request,id:int):
    #final
    return {"status":1,"message":output}
 
-#my/message-delete-created
 @app.delete("/my/message-delete-created")
 async def my_message_delete_created(request:Request):
    #logic
@@ -1066,7 +1049,6 @@ async def my_message_delete_created(request:Request):
    #final
    return {"status":1,"message":output}
 
-#my/message-delete-received
 @app.delete("/my/message-delete-received")
 async def my_message_delete_received(request:Request):
    #logic
@@ -1076,7 +1058,6 @@ async def my_message_delete_received(request:Request):
    #final
    return {"status":1,"message":output}
 
-#my/message-delete-all
 @app.delete("/my/message-delete-all")
 async def my_message_delete_all(request:Request):
    #logic
@@ -1086,28 +1067,19 @@ async def my_message_delete_all(request:Request):
    #final
    return {"status":1,"message":output}
 
-#my/action-create
-from typing import Literal
 @app.post("/my/action-create")
-async def my_action_create(request:Request,action:str,parent_table:str,parent_id:int,description:str=None,file_url:str=None,rating:float=None):
+async def my_action_create(request:Request,action:str,parent_table:str,parent_id:int):
    #logic
-   if action in ["action_like","action_bookmark","action_report","action_block","action_follow"]:
-      query=f"insert into {action} (created_by_id,parent_table,parent_id) values (:created_by_id,:parent_table,:parent_id) returning *;"
-      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
-   if action in ["action_comment"]:
-      if not description and not file_url:return responses.JSONResponse(status_code=400,content={"status":0,"message":"description/file_url any one is must"})
-      query=f"insert into {action} (created_by_id,parent_table,parent_id,description,file_url) values (:created_by_id,:parent_table,:parent_id,:description,:file_url) returning *;"
-      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id,"description":description,"file_url":file_url}
-   if action in ["action_rating"]:
-      if not rating:return responses.JSONResponse(status_code=400,content={"status":0,"message":"rating is must"})
-      query=f"insert into {action} (created_by_id,parent_table,parent_id,rating) values (:created_by_id,:parent_table,:parent_id,:rating) returning *;"
-      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id,"rating":rating}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
+   query_param=dict(request.query_params)
+   query_param["created_by_id"]=request.state.user["id"]
+   object={k:v for k,v in query_param.items() if k in postgres_column_datatype}
+   response=await object_serialize(postgres_column_datatype,[object])
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   object=response["message"][0]
+   response=await postgres_cud(postgres_client,"create",action,[object])
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   return response
 
-#ex=my liked post
-#my/action-read-parent
 @app.get("/my/action-read-parent")
 async def my_action_read_parent(request:Request,action:str,parent_table:str,order:str="id desc",limit:int=100,page:int=1):
    #logic
@@ -1121,17 +1093,15 @@ async def my_action_read_parent(request:Request,action:str,parent_table:str,orde
    #final
    return {"status":1,"message":output}
 
-#my/action-delete-parent
 @app.delete("/my/action-delete-parent")
 async def my_action_delete_parent(request:Request,action:str,parent_table:str,parent_id:int):
    #logic
    query=f"delete from {action} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;"
    query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
+   output=await postgres_client.execute(query=query,values=query_param)
    #final
    return {"status":1,"message":"done"}
 
-#my/action-check-parent
 @app.get("/my/action-check-parent")
 async def my_action_check_parent(request:Request,action:str,parent_table:str,parent_ids:str):
    #filter parent_ids
@@ -1146,8 +1116,6 @@ async def my_action_check_parent(request:Request,action:str,parent_table:str,par
    #final
    return {"status":1,"message":mapping}
 
-#ex=users following me
-#my/action-on-me-creator-read
 @app.get("/my/action-on-me-creator-read")
 async def my_action_on_me_creator_read(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
    #logic
@@ -1162,8 +1130,6 @@ async def my_action_on_me_creator_read(request:Request,action:str,order:str="id 
    #final
    return {"status":1,"message":output}
 
-#ex=users i action_follow and following me
-#my/action-on-me-creator-read-mutual
 @app.get("/my/action-on-me-creator-read-mutual")
 async def my_action_on_me_creator_read_mutual(request:Request,action:str,order:str="id desc",limit:int=100,page:int=1):
    #logic
@@ -1178,7 +1144,6 @@ async def my_action_on_me_creator_read_mutual(request:Request,action:str,order:s
    #final
    return {"status":1,"message":output}
 
-#public/api-list
 @app.get("/public/api-list")
 async def public_api_list(request:Request,mode:str=None):
    #api list
@@ -1190,12 +1155,23 @@ async def public_api_list(request:Request,mode:str=None):
    #final
    return {"status":1,"message":output}
 
-#public/table-column
+@app.get("/public/project-meta")
+@cache(expire=60)
+async def public_project_meta(request:Request):
+   #logic
+   query_dict={
+   "user_count":"select count(*) from users;"
+   }
+   temp={k:await postgres_client.fetch_all(query=v,values={}) for k,v in query_dict.items()}
+   response={"status":1,"message":temp}
+   #final
+   return response
+
 @app.get("/public/table-column")
 async def public_table_column(request:Request,is_main_column:int=None,table:str=None):
    #table
-   output=await postgres_client.fetch_all(query="select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE';",values={})
-   table_name_list=[item["table_name"] for item in output]
+   output=await postgres_client.fetch_all(query=query_schema,values={})
+   table_name_list=list(set([item["table_name"] for item in output]))
    temp={}
    for item in table_name_list:temp[item]={}
    #columm
@@ -1212,18 +1188,28 @@ async def public_table_column(request:Request,is_main_column:int=None,table:str=
    #final
    return {"status":1,"message":temp}
 
-#public/project meta
-@app.get("/public/project-meta")
-@cache(expire=60)
-async def public_project_meta(request:Request):
+@app.get("/public/verify-otp-email")
+async def public_verify_otp_email(request:Request,otp:int,email:str):
    #logic
-   query_dict={"user_count":"select count(*) from users;"}
-   temp={k:await postgres_client.fetch_all(query=v,values={}) for k,v in query_dict.items()}
-   response={"status":1,"message":temp}
+   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+   query_param={"email":email}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
    #final
-   return response
+   return {"status":1,"message":"done"}
 
-#public/object-create
+@app.get("/public/verify-otp-mobile")
+async def public_verify_otp_mobile(request:Request,otp:int,mobile:str):
+   #logic
+   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+   query_param={"mobile":mobile}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   #final
+   return {"status":1,"message":"done"}
+
 @app.post("/public/object-create")
 async def public_object_create(request:Request,table:Literal["helpdesk","human"],is_serialize:int=1):
    #object set
@@ -1239,15 +1225,12 @@ async def public_object_create(request:Request,table:Literal["helpdesk","human"]
    #final
    return response
 
-#public/object read
 @app.get("/public/object-read")
 @cache(expire=60)
-async def public_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #check table
-   if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   #object where parse
-   object_where=dict(request.query_params)
-   response=await object_where_parse(postgres_column_datatype,object_where)
+async def public_object_read(request:Request,table:Literal["users","post","atom"],order:str="id desc",limit:int=100,page:int=1):
+   #create where string
+   query_param=dict(request.query_params)
+   response=await create_where_string(query_param)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
@@ -1261,71 +1244,29 @@ async def public_object_read(request:Request,table:str,order:str="id desc",limit
    select x.*,u.username as created_by_id_username from x left join users as u on x.created_by_id=u.id;
    '''
    object_list=await postgres_client.fetch_all(query=query,values=where_value)
-   #add action_like count
+   #action_like count
    response=await add_action_count(postgres_client,"action_like",table,object_list)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    object_list=response["message"]
-   #add action_bookmark count
+   #action_bookmark count
    response=await add_action_count(postgres_client,"action_bookmark",table,object_list)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   object_list=response["message"]
+   #action_comment count
+   response=await add_action_count(postgres_client,"action_comment",table,object_list)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    object_list=response["message"]
    #final
    return {"status":1,"message":object_list}
 
-#public/verify-otp-email
-@app.get("/public/verify-otp-email")
-async def public_verify_otp_email(request:Request,email:str,otp:int):
-   #logic
-   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
-   query_param={"email":email}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #final
-   return {"status":1,"message":"done"}
-
-#public/verify-otp-mobile
-@app.get("/public/verify-otp-mobile")
-async def public_verify_otp_mobile(request:Request,mobile:str,otp:int):
-   #logic
-   query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
-   query_param={"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-   if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #final
-   return {"status":1,"message":"done"}
-
-#private/object read
-@app.get("/private/object-read")
-@cache(expire=60)
-async def private_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #check table
-   if table not in ["users","post","atom","box"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   #object where parse
-   object_where=dict(request.query_params)
-   response=await object_where_parse(postgres_column_datatype,object_where)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await object_serialize(postgres_column_datatype,[where_value])
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   output=await postgres_client.fetch_all(query=query,values=where_value)
-   #final
-   return {"status":1,"message":output}
-
-#private/search-location
-@app.get("/private/search-location")
-async def private_location_search(request:Request,table:str,location:str,within:str,order:str="id desc",limit:int=100,page:int=1):
+@app.get("/public/search-location")
+async def public_location_search(request:Request,table:Literal["users","post","atom"],location:str,within:str,order:str="id desc",limit:int=100,page:int=1):
    #start
    long,lat=float(location.split(",")[0]),float(location.split(",")[1])
    min_meter,max_meter=int(within.split(",")[0]),int(within.split(",")[1])
-   #object where parse
+   #create where string
    object_where=dict(request.query_params)
-   response=await object_where_parse(postgres_column_datatype,object_where)
+   response=await create_where_string(object_where)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
@@ -1343,128 +1284,24 @@ async def private_location_search(request:Request,table:str,location:str,within:
    #final
    return {"status":1,"message":output}
 
-#private/s3 upload file
-import boto3
-@app.post("/private/s3-upload-file")
-async def private_s3_upload_file(request:Request,bucket:str,file:UploadFile):
+@app.get("/private/object-read")
+@cache(expire=60)
+async def private_object_read(request:Request,table:Literal["users","post","atom"],order:str="id desc",limit:int=100,page:int=1):
+   #create where string
+   query_param=dict(request.query_params)
+   response=await create_where_string(query_param)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   #serialize
+   response=await object_serialize(postgres_column_datatype,[where_value])
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
    #logic
-   key=str(uuid.uuid4())+"-"+file.filename
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.upload_fileobj(file.file,bucket,key)
-   url=f"https://{bucket}.s3.amazonaws.com/{key}"
-   #final
-   return {"status":1,"message":url}
-
-#private/s3 create presigned url
-import boto3
-@app.get("/private/s3-create-presigned-url")
-async def private_s3_create_presigned_url(request:Request,region:str,bucket:str,filename:str):
-   #logic
-   if "." not in filename:return {"status":0,"message":"filename extension must"}
-   key=str(uuid.uuid4())+"-"+filename
-   expiry_sec=1000
-   size_kb=250
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   output=await postgres_client.fetch_all(query=query,values=where_value)
    #final
    return {"status":1,"message":output}
 
-#private/s3 upload file multipart
-import boto3
-from boto3.s3.transfer import TransferConfig
-@app.post("/private/s3-upload-file-multipart")
-async def private_s3_upload_file_multipart(request:Request,bucket:str,file_path:str):
-   #logic
-   file_name=file_path.rsplit("/",1)[-1]
-   key=str(uuid.uuid4())+"-"+file_name
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.upload_file(file_path,bucket,key,Config=TransferConfig(multipart_threshold=8000000))
-   url=f"https://{bucket}.s3.amazonaws.com/{key}"
-   #final
-   return {"status":1,"message":url}
-
-#root/s3-delete-url
-import boto3
-@app.delete("/root/s3-delete-url")
-async def root_s3_delete_url(request:Request,url:str):
-   #logic
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_resource.Object(bucket,key).delete()
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-delete-bucket
-import boto3
-@app.delete("/root/s3-delete-bucket")
-async def root_s3_delete_bucket(request:Request,bucket:str):
-   #logic
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.delete_bucket(Bucket=bucket)
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-empty-bucket
-import boto3
-@app.delete("/root/s3-empty-bucket")
-async def root_s3_empty_bucket(request:Request,bucket:str):
-   #logic
-   s3_resource=boto3.resource("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_resource.Bucket(bucket).objects.all().delete()
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-list-all-bucket
-import boto3
-@app.get("/root/s3-list-all-bucket")
-async def root_s3_list_all_bucket(request:Request):
-   #logic
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.list_buckets()
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-create-bucket
-import boto3
-@app.post("/root/s3-create-bucket")
-async def root_s3_create_bucket(request:Request,region:str,name:str):
-   #logic
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   output=s3_client.create_bucket(Bucket=name,CreateBucketConfiguration={'LocationConstraint':region})
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-make-bucket-public
-import boto3
-@app.put("/root/s3-make-bucket-public")
-async def root_s3_make_bucket_public(request:Request,bucket:str):
-   #logic
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
-   #final
-   return {"status":1,"message":output}
-
-#root/s3-download-url
-import boto3
-@app.get("/root/s3-download-url")
-async def root_s3_download_url(request:Request,url:str,path:str):
-   #logic
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   s3_client=boto3.client("s3",aws_access_key_id=os.getenv("aws_access_key_id"),aws_secret_access_key=os.getenv("aws_secret_access_key"))
-   s3_client.download_file(bucket,key,path)
-   #final
-   return {"status":1,"message":"done"}
-
-#admin/admin-check
-@app.get("/admin/admin-check")
-async def admin_admin_check(request:Request):
-   return {"status":1,"message":"yes"}
-
-#admin/update-api-access
 from pydantic import BaseModel
 class schema_update_api_access(BaseModel):
    user_id:int
@@ -1474,26 +1311,25 @@ async def admin_update_api_access(request:Request,body:schema_update_api_access)
    #api list
    api_list=[route.path for route in request.app.routes]
    api_list_admin=[item for item in api_list if "/admin" in item]
-   api_list_admin_str=",".join(api_list_admin)
-   #check body
+   #check api access string
    if body.api_access:
       for item in body.api_access.split(","):
-         if item not in api_list_admin_str:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
+         if item not in api_list_admin:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
    #body modify
    if body.api_access=="":body.api_access=None
    #logic
    query="update users set api_access=:api_access where id=:id returning *"
    query_param={"id":body.user_id,"api_access":body.api_access}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
+   output=await postgres_client.execute(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
 
-#admin/object-read
 @app.get("/admin/object-read")
+@cache(expire=60)
 async def admin_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #object where parse
+   #create where string
    object_where=dict(request.query_params)
-   response=await object_where_parse(postgres_column_datatype,object_where)
+   response=await create_where_string(object_where)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_string,where_value=response["message"][0],response["message"][1]
    #serialize
@@ -1507,7 +1343,6 @@ async def admin_object_read(request:Request,table:str,order:str="id desc",limit:
    #final
    return response
 
-#admin/object-update
 @app.put("/admin/object-update")
 async def admin_object_update(request:Request,table:str,is_serialize:int=1):
    #object set
@@ -1524,28 +1359,14 @@ async def admin_object_update(request:Request,table:str,is_serialize:int=1):
    #final
    return response
 
-#admin/delete ids
 @app.put("/admin/delete-ids")
 async def admin_delete_ids(request:Request,table:str,ids:str):
-   #logic
    query=f"delete from {table} where id in ({ids});"
-   await postgres_client.fetch_all(query=query,values={})
-   #final
+   await postgres_client.execute(query=query,values={})
    return {"status":1,"message":"done"}
 
-#admin/update-password
-@app.put("/admin/update-password")
-async def admin_update_password(request:Request,user_id:int,password:str):
-   #logic
-   query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
-   query_param={"id":user_id,"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
-
-#admin/csv-uploader 
 @app.post("/admin/csv-uploader")
-async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,is_serialize:int=1):
+async def admin_csv_uploader(request:Request,mode:str,table:str,file:UploadFile,is_serialize:int=1):
    #object list
    if file.content_type!="text/csv":return {"status":0,"message":"file extension must be csv"}
    file_csv=csv.DictReader(codecs.iterdecode(file.file,'utf-8'))
@@ -1563,7 +1384,6 @@ async def admin_csv_uploader(request:Request,file:UploadFile,mode:str,table:str,
    #final
    return response
 
-#admin/postgres-query-runner
 @app.get("/admin/postgres-query-runner")
 async def admin_postgres_query_runner(request:Request,query:str):
   #stop keywords
@@ -1574,445 +1394,76 @@ async def admin_postgres_query_runner(request:Request,query:str):
   #final
   return {"status":1,"message":output}
 
-#root/gemini-prompt
-import google.generativeai as genai
-@app.get("/root/gemini-prompt")
-async def root_gemini_prompt(request:Request,model:str,prompt:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   output=model.generate_content(prompt)
-   return {"status":1,"message":output.text}
-
-#root/gemini-prompt-image-url
-import google.generativeai as genai
-import httpx,os,base64
-@app.get("/root/gemini-prompt-image-url")
-async def root_gemini_prompt_image_url(request:Request,model:str,prompt:str,url:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   image=httpx.get(url)
-   output=model.generate_content([{'mime_type':'image/jpeg', 'data': base64.b64encode(image.content).decode('utf-8')},prompt])
-   return {"status":1,"message":output.text}
-
-#root/gemini-prompt-image-path-large
-import google.generativeai as genai
-@app.get("/root/gemini-prompt-image-path-large")
-async def root_gemini_prompt_image_path_large(request:Request,model:str,prompt:str,path:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   file_uploaded=genai.upload_file(path)
-   output=model.generate_content([file_uploaded,prompt])
-   file_uploaded.delete()
-   return {"status":1,"message":output.text}
-
-#root/gemini-prompt-image-path-multiple
-import google.generativeai as genai
-import PIL.Image,os
-@app.get("/root/gemini-prompt-image-path-multiple")
-async def root_gemini_prompt_image_path_multiple(request:Request,model:str,prompt:str,path_csv:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   data=[]
-   for file in path_csv.split(","):
-      image=PIL.Image.open(file)
-      data.append(image)
-   data.insert(0,prompt)
-   output=model.generate_content(data)
-   return {"status":1,"message":output.text}
-
-#root/gemini-prompt-image-upload
-import google.generativeai as genai
-import PIL.Image
-@app.post("/root/gemini-prompt-image-upload")
-async def root_gemini_prompt_image_upload(request:Request,model:str,prompt:str,file:UploadFile):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   path=f"./{file.filename}"
-   with open(path,"wb") as f:f.write(file.file.read())
-   media=PIL.Image.open(path)
-   output=model.generate_content([prompt,media])
-   os.remove(path)
-   return {"status":1,"message":output.text}
-
-#root/gemini-prompt-audio-upload
-import google.generativeai as genai
-@app.post("/root/gemini-prompt-audio-upload")
-async def root_gemini_prompt_audio_upload(request:Request,model:str,prompt:str,file:UploadFile):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   path=f"./{file.filename}"
-   with open(path,"wb") as f:f.write(file.file.read())
-   uploaded_file=genai.upload_file(path)
-   output=model.generate_content([uploaded_file,prompt])
-   os.remove(path)
-   return {"status":1,"message":output.text}
-
-#root/gemini-create-embedding
-import google.generativeai as genai
-@app.get("/root/gemini-create-embedding")
-async def root_gemini_create_embedding(request:Request,model:str,text:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   output=genai.embed_content(model=model,content=text)
-   return {"status":1,"message":str(output['embedding'])}
-
-#root/gemini-code-execution
-import google.generativeai as genai
-@app.get("/root/gemini-code-execution")
-async def root_gemini_code_execution(request:Request,model:str,prompt:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model_name=model)
-   output=model.generate_content((prompt),tools='code_execution')
-   return {"status":1,"message":output.text}
-
-#root/gemini-generate-json
-import google.generativeai as genai
-import typing_extensions as typing
-class Startup(typing.TypedDict):
-   name:str
-   company:list[str]
-@app.get("/root/gemini-generate-json")
-async def root_gemini_generate_json(request:Request,model:str,prompt:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model_name=model)
-   output=model.generate_content(prompt,generation_config=genai.GenerationConfig(response_mime_type="application/json",response_schema=list[Startup]),)
-   print (output)
+@app.post("/private/s3-upload-file")
+async def private_s3_upload_file(request:Request,bucket:str,key:str,file:UploadFile):
+   file_content=await file.read()
+   file_stream=BytesIO(file_content)
+   s3_client.upload_fileobj(file_stream,bucket,key)
    return {"status":1,"message":"done"}
 
-#root/gemini-list-uploaded-file
-import google.generativeai as genai
-@app.get("/root/gemini-list-uploaded-file")
-async def root_gemini_list_uploaded_file(request:Request):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   output=[]
-   for f in genai.list_files():output.append(f.name)
+@app.get("/private/s3-create-presigned-url")
+async def private_s3_create_presigned_url(request:Request,bucket:str,key:str):
+   expiry_sec,size_kb=1000,250
+   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
    return {"status":1,"message":output}
 
-#root/gemini-prompt-pdf-url
-import google.generativeai as genai
-import httpx,base64
-@app.get("/root/gemini-prompt-pdf-url")
-async def root_gemini_prompt_pdf_url(request:Request,model:str,prompt:str,url:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   pdf_data=base64.standard_b64encode(httpx.get(url).content).decode("utf-8")
-   output = model.generate_content([{'mime_type':'application/pdf','data':pdf_data},prompt])
-   return {"status":1,"message":output.text}
-
-#root/gemini-prompt-pdf-url-multiple
-import google.generativeai as genai
-import httpx,base64
-@app.get("/root/gemini-prompt-pdf-url-multiple")
-async def root_gemini_prompt_pdf_url_multiple(request:Request,model:str,prompt:str,url_csv:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   doc_list=[]
-   for url in url_csv.split(","):
-      url_data=io.BytesIO(httpx.get(url).content)
-      doc=genai.upload_file(url_data,mime_type='application/pdf')
-      doc_list.append(doc)
-   doc_list.insert(len(doc_list),prompt)
-   output=model.generate_content(doc_list)
-   return {"status":1,"message":output.text}
-
-#root/gemini-prompt-pdf-path
-import google.generativeai as genai
-import httpx,base64
-@app.get("/root/gemini-prompt-pdf-path")
-async def root_gemini_prompt_pdf_path(request:Request,model:str,prompt:str,path:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   with open(path,"rb") as doc_file:doc_data=base64.standard_b64encode(doc_file.read()).decode("utf-8")
-   output=model.generate_content([{'mime_type':'application/pdf','data':doc_data},prompt])
-   return {"status":1,"message":output.text}
-
-#root/gemini-prompt-pdf-path-large
-import google.generativeai as genai
-import httpx,io
-@app.get("/root/gemini-prompt-pdf-path-large")
-async def root_gemini_prompt_pdf_path_large(request:Request,model:str,prompt:str,path:str):
-   genai.configure(api_key=os.getenv("secret_key_gemini"))
-   model=genai.GenerativeModel(model)
-   uploaded_file=genai.upload_file(path)
-   output=model.generate_content([prompt,uploaded_file])
-   return {"status":1,"message":output.text}
-
-#root/openai-chat-completion
-from openai import OpenAI
-@app.get("/root/openai-chat-completion")
-async def root_openai_chat_completion(request:Request,model:str,system:str,user:str):
-   openai_client=OpenAI(api_key=os.getenv("secret_key_openai"))
-   output=openai_client.chat.completions.create(model=model,messages=[{"role":"system","content":system},{"role":"user","content":user}])
-   return {"status":1,"message":output}
-
-#root/openai-create-embedding
-from openai import OpenAI
-@app.get("/root/openai-create-embedding")
-async def root_openai_create_embedding(request:Request,model:str,text:str):
-   openai_client=OpenAI(api_key=os.getenv("secret_key_openai"))
-   output=openai_client.embeddings.create(model=model,input=text,encoding_format="float")
-   return {"status":1,"message":output}
-
-#root/chromadb-create-collection
-import chromadb
-@app.post("/root/chromadb-create-collection")
-async def root_chromadb_create_collection(request:Request,name:str):
-   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
-   collection=chromadb_client.get_or_create_collection(name=name)
+from boto3.s3.transfer import TransferConfig
+@app.post("/private/s3-upload-file-multipart")
+async def private_s3_upload_file_multipart(request:Request,bucket:str,key:str,file_path:str):
+   s3_client.upload_file(file_path,bucket,key,Config=TransferConfig(multipart_threshold=8000000))
    return {"status":1,"message":"done"}
 
-#root/chromadb-delete-collection
-import chromadb
-@app.delete("/root/chromadb-delete-collection")
-async def root_chromadb_delete_collection(request:Request,name:str):
-   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
-   collection=chromadb_client.delete_collection(name=name)
+@app.get("/root/s3-download-url")
+async def root_s3_download_url(request:Request,url:str,path:str):
+   bucket=url.split("//",1)[1].split(".",1)[0]
+   key=url.rsplit("/",1)[1]
+   s3_client.download_file(bucket,key,path)
    return {"status":1,"message":"done"}
 
-#root/chromadb-rename-collection
-import chromadb
-@app.put("/root/chromadb-rename-collection")
-async def root_chromadb_rename_collection(request:Request,name_old:str,name_new:str):
-   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
-   collection=chromadb_client.get_collection(name=name_old)
-   collection.modify(name=name_new)
-   return {"status":1,"message":"done"}
-
-#root/chromadb-delete-database
-import chromadb
-from chromadb.config import Settings
-@app.delete("/root/chromadb-delete-database")
-async def root_chromadb_delete_database(request:Request):
-   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads",settings=Settings(allow_reset=True))
-   chromadb_client.reset()
-   return {"status":1,"message":"done"}
-
-#root/chromadb-pdf-store
-import chromadb
-from pypdf import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-@app.post("/root/chromadb-pdf-store")
-async def root_chromadb_pdf_store(request:Request,collection_name:str,file_path:str):
-   #pdf load
-   reader=PdfReader(file_path)
-   text=" ".join([page.extract_text() for page in reader.pages])
-   #text split
-   splitter=RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=20)
-   text_chunk_list=splitter.split_text(text)
-   #pdf store
-   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
-   collection=chromadb_client.get_or_create_collection(name=collection_name)
-   collection.add(documents=text_chunk_list,metadatas=[{"source":file_path} for item in text_chunk_list],ids=[str(index) for index,item in enumerate(text_chunk_list)])
-   return {"status":1,"message":"done"}
-
-#root/chromadb-csv-store
-import chromadb
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-@app.post("/root/chromadb-csv-store")
-async def root_chromadb_csv_store(request:Request,collection_name:str,file_path:str):
-   #csv load
-   loader=CSVLoader(file_path=file_path)
-   document=loader.load()
-   data=document[0].page_content
-   #chunk store
-   return {"status":1,"message":document}
-
-#root/chromadb-search
-import chromadb
-@app.get("/root/chromadb-search")
-async def root_chromadb_search(request:Request,collection_name:str,text:str,limit:int=3):
-   chromadb_client=chromadb.PersistentClient(path="/Users/atom/Downloads")
-   collection=chromadb_client.get_or_create_collection(name=collection_name)
-   output=collection.query(query_texts=[text],n_results=limit)
+@app.delete("/root/s3-delete-url")
+async def root_s3_delete_url(request:Request,url:str):
+   bucket=url.split("//",1)[1].split(".",1)[0]
+   key=url.rsplit("/",1)[1]
+   output=s3_resource.Object(bucket,key).delete()
    return {"status":1,"message":output}
 
-#public/langchain-txt-file-token-splitter
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import TokenTextSplitter
-@app.get("/public/langchain-txt-file-token-splitter")
-async def public_langchain_txt_file_token_splitter(request:Request,file_path:str):
-   loader=TextLoader(file_path)
-   document=loader.load()
-   text=" ".join([item.page_content for item in document])
-   splitter=TokenTextSplitter(encoding_name="cl100k_base",chunk_size=1000,chunk_overlap=100)
-   chunk=splitter.split_text(text)
-   return {"status":1,"message":chunk}
-
-#public/langchain-txt-file-chunk-splitter-recursive
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-@app.get("/public/langchain-txt-file-chunk-splitter-recursive")
-async def public_langchain_txt_file_chunk_splitter_recursive(request:Request,file_path:str):
-   loader=TextLoader(file_path)
-   document=loader.load()
-   text=" ".join([item.page_content for item in document])
-   splitter=RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " ", ""],chunk_size=1000,chunk_overlap=200,length_function=len)
-   chunk=splitter.split_text(text)
-   return {"status":1,"message":chunk}
-
-#public/langchain-pdf-file-chunk-splitter-recursive
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-@app.get("/public/langchain-pdf-file-chunk-splitter-recursive")
-async def public_langchain_pdf_file_chunk_splitter_recursive(request:Request,file_path:str):
-   loader=PyPDFLoader(file_path)
-   document=loader.load()
-   text=" ".join([item.page_content for item in document])
-   splitter=RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=100)
-   chunk=splitter.split_text(text)
-   return {"status":1,"message":chunk}
-
-#public/langchain-txt-file-chunk-splitter
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import CharacterTextSplitter
-@app.get("/public/langchain-txt-file-chunk-splitter")
-async def public_langchain_txt_file_chunk_splitter(request:Request,file_path:str):
-   loader=TextLoader(file_path)
-   document=loader.load()
-   text=" ".join([item.page_content for item in document])
-   splitter=CharacterTextSplitter(separator="\n\n",chunk_size=1000,chunk_overlap=200)
-   chunk=splitter.split_text(text)
-   return {"status":1,"message":chunk}
-
-#public/langchain-webpage-loader
-import os,bs4
-from langchain_community.document_loaders import WebBaseLoader
-@app.get("/public/langchain-webpage-loader")
-async def public_langchain_webpage_loader(request:Request,webpage_url:str):
-   os.environ['USER_AGENT']='myagent'
-   loader=WebBaseLoader(web_paths=[webpage_url],bs_kwargs={"parse_only": bs4.SoupStrainer(class_="theme-doc-markdown markdown"),},bs_get_text_kwargs={"separator": " | ", "strip": True},)
-   document_list=[]
-   async for doc in loader.alazy_load():document_list.append(doc)
-   return {"status":1,"message":document_list}
-
-#public/langchain-html-loader
-from langchain_community.document_loaders import BSHTMLLoader
-@app.get("/public/langchain-html-loader")
-async def public_langchain_html_loader(request:Request,file_path:str):
-   loader=BSHTMLLoader(file_path)
-   data=loader.load()
-   return {"status":1,"message":data}
-
-#public/langchain-json-loader
-from langchain_community.document_loaders import JSONLoader
-@app.get("/public/langchain-json-loader")
-async def public_langchain_json_loader(request:Request,file_path:str):
-   loader=JSONLoader(file_path=file_path,jq_schema='.data',text_content=False)
-   data=loader.load()
-   return {"status":1,"message":data}
-
-#public/langchain-pdf-loader
-from langchain_community.document_loaders import PyPDFLoader
-@app.get("/public/langchain-pdf-loader")
-async def public_langchain_pdf_loader(request:Request,file_path:str):
-   loader=PyPDFLoader(file_path)
-   document_list=[]
-   async for page in loader.alazy_load():document_list.append(page)
-   return {"status":1,"message":document_list}
-
-#public/langchain-csv-loader
-from langchain_community.document_loaders.csv_loader import CSVLoader
-@app.get("/public/langchain-csv-loader")
-async def public_langchain_csv_loader(request:Request,file_path:str):
-   loader=CSVLoader(file_path=file_path)
-   document=loader.load()
-   data=document[0].page_content
-   return {"status":1,"message":document}
-
-#public/langchain-directory-loader
-from langchain_community.document_loaders import TextLoader,DirectoryLoader
-@app.get("/public/langchain-directory-loader")
-async def public_langchain_directory_loader(request:Request,directory_path:str,glob:str):
-   loader=DirectoryLoader(directory_path,glob=glob,loader_cls=TextLoader,use_multithreading=True,show_progress=True)
-   documents=loader.load()
-   return {"status":1,"message":len(documents)}
-
-#public/langchain-txt-file-loader
-from langchain_community.document_loaders import TextLoader
-@app.get("/public/langchain-txt-file-loader")
-async def public_langchain_txt_file_loader(request:Request,file_path:str):
-   loader=TextLoader(file_path)
-   document=loader.load()
-   text=document[0].page_content
-   return {"status":1,"message":text}
-
-#root/opensearch-read-document
-from opensearchpy import OpenSearch
-@app.get("/root/opensearch-read-document")
-async def root_opensearch_read_document(request:Request,index:str,keyword:str):
-   opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
-   query={'size':5,'query':{'multi_match':{'query':keyword}}}
-   output=opensearch_client.search(body=query,index=index)
+@app.get("/root/s3-list-all-bucket")
+async def root_s3_list_all_bucket(request:Request):
+   output=s3_client.list_buckets()
    return {"status":1,"message":output}
 
-#root/opensearch-delete-document
-from opensearchpy import OpenSearch
-@app.delete("/root/opensearch-delete-document")
-async def root_opensearch_delete_document(request:Request,index:str,_id:str):
-   opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
-   output=opensearch_client.delete(index=index,id=_id)
+@app.post("/root/s3-create-bucket")
+async def root_s3_create_bucket(request:Request,region:str,name:str):
+   output=s3_client.create_bucket(Bucket=name,CreateBucketConfiguration={'LocationConstraint':region})
    return {"status":1,"message":output}
 
-#root/opensearch-create-document
-from opensearchpy import OpenSearch
-@app.post("/root/opensearch-create-document")
-async def root_opensearch_create_document(request:Request,index:str):
-   opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
-   object=await request.json()
-   object_json=json.dumps(object)
-   output=opensearch_client.index(index=index,body=object_json,refresh=True)
+@app.put("/root/s3-make-bucket-public")
+async def root_s3_make_bucket_public(request:Request,bucket:str):
+   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
    return {"status":1,"message":output}
 
-#root/opensearch-create-index
-from opensearchpy import OpenSearch
-@app.get("/root/opensearch-create-index")
-async def root_opensearch_create_index(request:Request,index:str):
-   opensearch_client=OpenSearch(os.getenv("opensearch_url"),use_ssl=True)
-   output=opensearch_client.indices.create(index,body={'settings':{'index':{'number_of_shards':4}}})
+@app.delete("/root/s3-empty-bucket")
+async def root_s3_empty_bucket(request:Request,bucket:str):
+   output=s3_resource.Bucket(bucket).objects.all().delete()
    return {"status":1,"message":output}
 
-#root/memcached-set-object
-from pymemcache.client.hash import HashClient
-@app.post("/root/memcached-set-object")
-async def root_memcached_set_object(request:Request,key:str,expiry:int=None):
-   memcached_client=HashClient(['127.0.0.1:11211','127.0.0.1:11212',])
-   object=await request.json()
-   object=json.dumps(object)
-   if expiry:output=memcached_client.set(key,object,expiry)
-   else:output=memcached_client.set(key,object)
+@app.delete("/root/s3-delete-bucket")
+async def root_s3_delete_bucket(request:Request,bucket:str):
+   output=s3_client.delete_bucket(Bucket=bucket)
    return {"status":1,"message":output}
 
-#root/memcached-get-object
-from pymemcache.client.hash import HashClient
-@app.get("/root/memcached-get-object")
-async def root_memcached_get_object(request:Request,key:str):
-   memcached_client=HashClient(['127.0.0.1:11211','127.0.0.1:11212',])
-   output=memcached_client.get("post_1")
-   if output:output=json.loads(output)
+@app.get("/root/redis-info")
+async def root_redis_info(request:Request):
+   output=await redis_client.info()
    return {"status":1,"message":output}
 
-#root/valkey-set-object
-import valkey
-@app.post("/root/valkey-set-object")
-async def root_valkey_set_object(request:Request,key:str,expiry:int=None):
-   valkey_client=valkey.from_url(os.getenv("valkey_server_url"))
-   object=await request.json()
-   object=json.dumps(object)
-   if expiry:output=valkey_client.setex(key,expiry,object)
-   else:output=valkey_client.set(key,object)
-   valkey_client.close()
+@app.delete("/root/redis-flush")
+async def root_redis_flush(request:Request):
+   output=await redis_client.flushall()
    return {"status":1,"message":output}
 
-#root/valkey-get-object
-import valkey
-@app.get("/root/valkey-get-object")
-async def root_valkey_get_object(request:Request,key:str):
-   valkey_client=valkey.from_url(os.getenv("valkey_server_url"))
-   output=valkey_client.get("post_1")
-   if output:output=json.loads(output)
-   valkey_client.close()
-   return {"status":1,"message":output}
-
-#root/redis-set-object
 @app.post("/root/redis-set-object")
 async def root_redis_set_object(request:Request,key:str,expiry:int=None):
    object=await request.json()
@@ -2021,49 +1472,14 @@ async def root_redis_set_object(request:Request,key:str,expiry:int=None):
    else:output=await redis_client.set(key,object)
    return {"status":1,"message":output}
 
-#root/redis-get-object
-@app.get("/root/redis-get-object")
-async def root_redis_get_object(request:Request,key:str):
-   output=await redis_client.get("post_1")
+@app.get("/public/redis-get-object")
+async def public_redis_get_object(request:Request,key:str):
+   output=await redis_client.get(key)
    if output:output=json.loads(output)
    return {"status":1,"message":output}
 
-#root/redis-flush
-@app.delete("/root/redis-flush")
-async def root_redis_flush(request:Request):
-   output=await redis_client.flushall()
-   return {"status":1,"message":output}
-
-#root/redis-info
-@app.get("/root/redis-info")
-async def root_redis_info(request:Request):
-   output=await redis_client.info()
-   return {"status":1,"message":output}
-
-#root/redis-publish
-@app.post("/root/redis-publish")
-async def root_redis_publish(request:Request,channel:str):
-   object=await request.json()
-   object=json.dumps(object)
-   output=await redis_client.publish(channel,object)
-   return {"status":1,"message":output}
-
-#root/redis-transaction
-@app.post("/root/redis-transaction")
-async def root_redis_transaction(request:Request,expiry:int=None):
-   body=await request.json()
-   object_list=body["data"]
-   key_list=body["key"]
-   async with redis_client.pipeline(transaction=True) as pipe:
-      for index,object in enumerate(object_list):
-         if expiry:pipe.setex(key_list[index],expiry,json.dumps(object))
-         else:pipe.set(key_list[index],json.dumps(object))
-      await pipe.execute()
-   return {"status":1,"message":"done"}
-
-#root/redis-csv-set
 @app.post("/root/redis-csv-set")
-async def root_redis_csv_set(request:Request,file:UploadFile,table:str,expiry:int=None):
+async def root_redis_csv_set(request:Request,table:str,file:UploadFile,expiry:int=None):
    file_csv=csv.DictReader(codecs.iterdecode(file.file,'utf-8'))
    object_list=[]
    for row in file_csv:object_list.append(row)

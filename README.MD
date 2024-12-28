@@ -65,6 +65,7 @@ redis-cli -u redis://localhost
 brew install postgresql@17
 brew services start postgresql@17
 psql postgresql://atom:123@localhost/postgres
+drop schema public cascade;---create schema public;
 
 #postgres export
 \copy post to 'path'  delimiter ',' csv header;
@@ -75,3 +76,5 @@ pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 \copy post(type,title) from 'path' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 ```
+
+
