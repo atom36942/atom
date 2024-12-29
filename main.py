@@ -152,9 +152,10 @@ postgres_schema_defualt={
 "linkedin_url":["text",["human"]],
 "github_url":["text",["human"]],
 "website_url":["text",["human"]],
+"resume_url":["text",["human"]],
 "salary":["text",["human"]],
 "work_profile":["text",["human"]],
-"company_worked":["text",["human"]],
+"company_past":["text",["human"]],
 "company_current":["text",["human"]],
 "achievement":["text",["human"]],
 },
@@ -211,7 +212,7 @@ async def postgres_cud(postgres_client,mode,table,object_list):
          output="done"
    return {"status":1,"message":output}
 
-async def add_action_count(postgres_client,action,table,object_list):
+async def postgres_add_action_count(postgres_client,action,table,object_list):
    if not object_list:return {"status":1,"message":object_list}
    key_name=f"{action}_count"
    object_list=[dict(item)|{key_name:0} for item in object_list]
@@ -228,7 +229,7 @@ async def add_action_count(postgres_client,action,table,object_list):
                   break
    return {"status":1,"message":object_list}
 
-async def add_creator_data(postgres_client,object_list):
+async def postgres_add_creator_data(postgres_client,object_list):
    if not object_list:return {"status":1,"message":object_list}
    object_list=[dict(item)|{"created_by_username":None} for item in object_list]
    created_by_ids_list=[str(item["created_by_id"]) for item in object_list if item["created_by_id"]]
@@ -1287,15 +1288,15 @@ async def public_object_read(request:Request,table:Literal["users","post","atom"
    '''
    object_list=await postgres_client.fetch_all(query=query,values=where_value)
    #action_like count
-   response=await add_action_count(postgres_client,"action_like",table,object_list)
+   response=await postgres_add_action_count(postgres_client,"action_like",table,object_list)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    object_list=response["message"]
    #action_bookmark count
-   response=await add_action_count(postgres_client,"action_bookmark",table,object_list)
+   response=await postgres_add_action_count(postgres_client,"action_bookmark",table,object_list)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    object_list=response["message"]
    #action_comment count
-   response=await add_action_count(postgres_client,"action_comment",table,object_list)
+   response=await postgres_add_action_count(postgres_client,"action_comment",table,object_list)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    object_list=response["message"]
    #final

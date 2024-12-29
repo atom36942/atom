@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>atom42.org</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-transform: lowercase; /* Apply lowercase transformation */
+        }
+
+        .card {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 100%;
+            text-align: left;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 15px;
+        }
+
+        p {
+            font-size: 1em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 30px; /* Increased space from description */
+            margin-bottom: 5px; /* Decreased padding from bottom */
+        }
+
+        button {
+            padding: 10px;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #333333; /* Dark background color */
+            color: #ffffff; /* White text color */
+            transition: background-color 0.3s ease;
+            flex-grow: 1;
+            text-transform: lowercase; /* Apply lowercase transformation */
+        }
+
+        button:hover {
+            background-color: #555555; /* Darker hover color */
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .form-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        input, textarea {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #404040;
+            background-color: #2e2e2e;
+            color: #ffffff;
+            font-size: 1em;
+            width: 100%; /* Ensured full width alignment */
+            box-sizing: border-box;
+            text-transform: lowercase; /* Apply lowercase transformation */
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        .submit-button, .cancel-button {
+            padding: 10px;
+            font-size: 1em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #333333; /* Dark background color */
+            color: #ffffff; /* White text color */
+            transition: background-color 0.3s ease;
+            text-transform: lowercase; /* Apply lowercase transformation */
+        }
+
+        .submit-button:hover, .cancel-button:hover {
+            background-color: #555555; /* Darker hover color */
+        }
+
+        .submit-button:active, .cancel-button:active {
+            transform: scale(0.98);
+        }
+
+        .button-inline {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 15px; /* Increased space between form buttons and last field */
+        }
+
+        .form-title {
+            font-size: 1em;
+            line-height: 1.6;
+            margin-bottom: 10px;
+            font-weight: bold; /* Made the form title bold */
+            text-transform: lowercase; /* Apply lowercase transformation */
+        }
+    </style>
+    <script>
+        function showForm() {
+            document.querySelector('.form-container').style.display = 'block';
+        }
+
+        function hideForm() {
+            document.querySelector('.form-container').style.display = 'none';
+        }
+    </script>
+</head>
+<body>
+    <div class="card">
+        <h1>accelerating human evolution</h1>
+        <p>our mission is to empower individuals to unlock their highest potential and contribute meaningfully to the world. 
+           by connecting ambition with opportunity, we aim to foster progress, inspire innovation, and create a brighter future for all.</p>
+        <p>we are dedicated to building pathways for growth by offering support in career development, startup creation, access to funding, and skill enhancement. 
+           we believe that early opportunities can set the foundation for extraordinary achievements and a greater collective purpose.</p>
+        <p>if you are someone seeking guidance in your career, startup journey, or personal growth, submit your details, and we will strive to assist you.</p>
+
+        <div class="button-container">
+            <button onclick="alert('get career guidance and opportunities.')">career</button>
+            <button onclick="alert('get expert guidance on building and scaling your startup.')">startup</button>
+            <button onclick="showForm()">others</button>
+        </div>
+
+        <div class="form-container">
+            <p class="form-title">you can submit your details for any other help if you need.</p>
+            <form>
+                <input type="text" name="name" placeholder="name" required>
+                <input type="email" name="email" placeholder="email" required>
+                <input type="tel" name="mobile" placeholder="mobile" required>
+                <input type="text" name="city" placeholder="city" required>
+                <textarea name="description" placeholder="description" rows="4" required></textarea>
+                <div class="button-inline">
+                    <button type="button" class="cancel-button" onclick="hideForm()">cancel</button>
+                    <button type="submit" class="submit-button">submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
