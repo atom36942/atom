@@ -842,7 +842,7 @@ async def my_update_password(request:Request,password:str):
    return {"status":1,"message":output}
 
 @app.put("/my/update-email")
-async def my_update_email(request:Request,email:str,otp:int):
+async def my_update_email(request:Request,otp:int,email:str):
    #verify otp
    query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
    query_param={"email":email}
@@ -857,7 +857,7 @@ async def my_update_email(request:Request,email:str,otp:int):
    return {"status":1,"message":output}
 
 @app.put("/my/update-mobile")
-async def my_update_mobile(request:Request,mobile:str,otp:int):
+async def my_update_mobile(request:Request,otp:int,mobile:str):
    #verify otp
    query="select * from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
    query_param={"mobile":mobile}
