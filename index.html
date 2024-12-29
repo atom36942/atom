@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mission to help humans</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #121212;  /* Pure dark background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #e0e0e0;  /* Light text for better contrast */
+            padding: 20px;
+            margin: 0;
+        }
+
+        .card {
+            background: #1e1e1e;  /* Darker card background */
+            border-radius: 16px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.7), 0 8px 8px rgba(0, 0, 0, 0.6);
+            width: 100%;
+            max-width: 600px;
+            padding: 30px 40px;
+            text-align: left;
+        }
+
+        .card h1 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: #f2b631;  /* Soft gold color for the title */
+            text-transform: none; /* Removing uppercase for lowercase text */
+            display: flex;
+            align-items: center;
+        }
+
+        .card h1 img {
+            height: 40px;
+            margin-right: 15px;
+        }
+
+        .card p {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #b0b0b0;  /* Lighter text for better readability */
+        }
+
+        .card a {
+            display: inline-block;
+            padding: 12px 30px;
+            color: #fff;
+            background: linear-gradient(135deg, #007acb, #00b0d9);
+            text-decoration: none;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background 0.3s ease;
+        }
+
+        .card a:hover {
+            background: linear-gradient(135deg, #006fa2, #0097bf);
+        }
+
+        /* Job Application Form Styles */
+        .form-container {
+            display: none;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
+        }
+
+        .form-container input,
+        .form-container button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background-color: #333;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 8px;
+        }
+
+        /* General button style for Cancel and Submit buttons */
+        .cancel-btn,
+        .submit-btn {
+            background-color: #007acb; /* Blue background for both buttons */
+            color: #fff;
+            font-weight: bold;
+            font-size: 1rem;
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #444;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            width: 48%;
+        }
+
+        /* Hover effect for both buttons */
+        .cancel-btn:hover,
+        .submit-btn:hover {
+            background-color: #006fa2; /* Darker blue on hover */
+            transform: scale(1.05);  /* Slight hover effect */
+        }
+
+        /* Flexbox for buttons in the same line */
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px; /* Add space between buttons */
+        }
+
+        /* Job Button Styles (Are you looking for a job?) */
+        .job-btn {
+            background-color: #007acb;  /* Same as submit button */
+            text-align: center;
+            display: inline-block;
+            width: 100%;
+            font-size: 1.1rem;
+            margin-top: 20px;
+            border-radius: 8px; /* Rounded corners like the Submit Application button */
+            padding: 12px 30px; /* Adjusted to match button padding */
+        }
+
+        /* Responsive styling */
+        @media (max-width: 768px) {
+            .card {
+                padding: 25px 35px;
+            }
+
+            .card h1 {
+                font-size: 1.8rem;
+            }
+
+            .card p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1><img src="logo.png" alt="atom42 logo">atom42.org</h1>
+        <p>our mission is to accelerate human evolution by empowering individuals to achieve their highest potential.</p>
+        <p>by bridging the gap between ambition and opportunity, we strive to drive meaningful change and inspire a better future for all.</p>
+        <p>we focus on creating opportunities by providing help in career development, funding access, and skill-building.</p>
+        <p>our first problem we aim to solve is hiring. we believe that a streamlined hiring process minimizes delays, enabling talented individuals to quickly contribute to innovations. if you're looking for a job, please apply through the link below.</p>
+        
+        <!-- Button styled like submit -->
+        <a href="#" class="job-btn" id="learnMoreBtn">are you looking for a job?</a>
+
+        <!-- Job Application Form -->
+        <div class="form-container" id="jobForm">
+            <h2>job application</h2>
+            <form id="applicationForm">
+                <input type="text" name="name" placeholder="your name" required>
+                <input type="email" name="email" placeholder="your email" required>
+                <div class="button-container">
+                    <!-- Cancel Button to hide the form -->
+                    <a href="#" class="cancel-btn" id="cancelBtn">cancel</a>
+                    <button type="submit" class="submit-btn">submit application</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Show/hide the job form when the "Are you looking for a job?" button is clicked
+        document.getElementById('learnMoreBtn').addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent the default action of the link
+            document.getElementById('jobForm').style.display = 'block'; // Show the form
+        });
+
+        // Hide the job form when the "Cancel" button is clicked
+        document.getElementById('cancelBtn').addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent the default action of the link
+            document.getElementById('jobForm').style.display = 'none'; // Hide the form
+        });
+
+        // Handle form submission (for demonstration purposes, you can customize further)
+        document.getElementById('applicationForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent form submission to server for demo purposes
+            alert('Thank you for your application!'); // Display a message
+            document.getElementById('jobForm').style.display = 'none'; // Hide the form after submission
+        });
+    </script>
+</body>
+</html>
