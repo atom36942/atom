@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="viewport=device-width, initial-scale=1.0">
     <title>atom42.org</title>
     <style>
         body {
@@ -175,6 +175,42 @@
             100% { transform: rotate(360deg); }
         }
 
+        .feed-card {
+            background-color: #2e2e2e;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            margin-bottom: 10px;
+        }
+
+        .feed-card h2 {
+            font-size: 1.2em;
+            margin: 0 0 10px 0;
+            color: #FFD700;
+        }
+
+        .feed-card p {
+            font-size: 1em;
+            line-height: 1.4;
+            margin: 0 0 10px 0;
+            color: #ccc;
+        }
+
+        .feed-card a {
+            color: #00FF00;
+            text-decoration: none;
+        }
+
+        .feed-card .tag {
+            display: inline-block;
+            background-color: #444;
+            color: #fff;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
         .toast {
             visibility: hidden;
             min-width: 250px;
@@ -222,19 +258,72 @@
         }
     </style>
     <script>
-        function showForm(formType) {
+        async function fetchFeed(page = 1) {
+            try {
+                const feedContainer = document.querySelector('.feed-container');
+                const loader = document.querySelector('.loader');
+                loader.style.display = 'block'; // Show loader
+                const response = await fetch(`https://www.atom42.org/public/object-read?table=atom&limit=100&page=${page}`);
+                loader.style.display = 'none'; // Hide loader
+                if (response.status !== 200) {
+                    feedContainer.innerHTML = '<p>something went wrong</p>';
+                    return;
+                }
+
+                const data = await response.json();
+                const feedData = data.message;
+
+                feedData.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'feed-card';
+                    card.innerHTML = `
+                        <h2>${item.title}</h2>
+                        <p>${item.description}</p>
+                        <a href="${item.link}" target="_blank">Learn more</a>
+                        <div class="tag">${item.tag}</div>
+                    `;
+                    feedContainer.appendChild(card);
+                });
+
+                // Add a button to load more feed if there are more pages
+                const loadMoreButton = document.createElement('button');
+                loadMoreButton.textContent = 'Load More';
+                loadMoreButton.onclick = () => {
+                    loadMoreButton.remove();
+                    fetchFeed(page + 1);
+                };
+                feedContainer.appendChild(loadMoreButton);
+
+            } catch (error) {
+                console.error('Error fetching feed:', error);
+                document.querySelector('.feed-container').innerHTML = '<p>something went wrong</p>';
+            }
+        }
+
+        function showFeed() {
+            const feedContainer = document.querySelector('.feed-container');
             const contactFormContainer = document.querySelector('.contact-form-container');
             const formTitleContainer = document.querySelector('.form-title-container');
 
-            // Toggle the contact form visibility when the contact button is clicked
+            // Hide contact form and show feed
+            contactFormContainer.style.display = 'none';
+            formTitleContainer.style.display = 'none';
+            feedContainer.style.display = 'block';
+            feedContainer.innerHTML = '';
+            fetchFeed();
+        }
+
+        function showForm(formType) {
+            const contactFormContainer = document.querySelector('.contact-form-container');
+            const formTitleContainer = document.querySelector('.form-title-container');
+            const feedContainer = document.querySelector('.feed-container');
+
+            // Hide feed and show contact form
+            feedContainer.style.display = 'none';
             if (formType === 'contact') {
-                if (contactFormContainer.style.display === 'none' || contactFormContainer.style.display === '') {
-                    formTitleContainer.innerHTML = `
-                        <p class="form-title">We're here to support you! Fill out the form below for assistance with jobs, internships, funding, software development, and more.</p>`;
-                    contactFormContainer.style.display = 'block';
-                } else {
-                    contactFormContainer.style.display = 'none';
-                }
+                formTitleContainer.innerHTML = `
+                    <p class="form-title">We're here to support you! Fill out the form below for assistance with jobs, internships, funding, software development, and more.</p>`;
+                contactFormContainer.style.display = 'block';
             }
         }
 
@@ -354,7 +443,7 @@
 
         <div class="button-container">
             <button onclick="showForm('contact'); selectButton(this)">contact</button>
-            <button onclick="alert('View our latest feeds and updates.'); selectButton(this)">feed</button>
+            <button onclick="showFeed(); selectButton(this)">feed</button>
         </div>
 
         <div class="form-container contact-form-container">
@@ -388,7 +477,7 @@
             </form>
         </div>
 
-        <div class="table-container"></div>
+        <div class="feed-container" style="display: none;"></div>
 
         <div class="loader"></div>
     </div>

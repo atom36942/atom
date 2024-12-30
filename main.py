@@ -1655,7 +1655,7 @@ async def main_redis():
    await set_redis()
    try:
       async for message in redis_pubsub.listen():
-         if message["type"]=="message" and message["channel"]=="postgres_cud":
+         if message["type"]=="message" and message["channel"]==b'postgres_cud':
             data=json.loads(message['data'])
             await queue_pull_postgres_cud(data)
    except asyncio.CancelledError:print("subscription cancelled")
