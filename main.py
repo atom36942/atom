@@ -32,7 +32,7 @@ async def set_redis():
    global redis_client
    global redis_pubsub
    if not redis_client:
-      redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url"),decode_responses=True))
+      redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url")))
       redis_pubsub=redis_client.pubsub()
       await redis_pubsub.subscribe("postgres_cud")
    return None

@@ -20,7 +20,7 @@
 
         .card {
             background-color: #1e1e1e;
-            padding: 20px 20px 10px 20px; /* Increased top padding */
+            padding: 20px; /* Apply consistent padding to all sides */
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
             max-width: 600px;
@@ -30,8 +30,8 @@
 
         .card-header {
             display: flex;
-            align-items: center;
-            gap: 10px; /* Space between logo, company name, and title */
+            align-items: center; /* Align items with the center of the logo */
+            gap: 10px; /* Space between logo and text */
             white-space: nowrap; /* Ensure text stays on one line */
         }
 
@@ -42,7 +42,7 @@
 
         h1 {
             font-size: 1.5em; /* Made the font size smaller to fit the card width */
-            margin: 5px 0 0 0; /* Added a small top margin */
+            margin: 0; /* Removed top margin */
             color: #00FF00; /* Matrix green color */
         }
 
@@ -54,10 +54,10 @@
 
         .button-container {
             display: flex;
-            justify-content: space-between;
+            justify-content: space-between; /* Distribute buttons evenly */
             gap: 10px;
             margin-top: 30px; /* Increased space from description */
-            margin-bottom: 2px; /* Adjusted margin-bottom to 2px */
+            margin-bottom: 0.5px; /* Reduced space below the buttons by 50% */
         }
 
         button {
@@ -69,7 +69,7 @@
             background-color: #333333; /* Dark background color */
             color: #ffffff; /* White text color */
             transition: background-color 0.3s ease;
-            flex-grow: 1;
+            flex: 1; /* Ensure buttons occupy half the width of the card */
             text-transform: lowercase; /* Apply lowercase transformation */
         }
 
@@ -156,7 +156,7 @@
         }
 
         .table-container {
-            margin-top: 20px;
+            margin-top: 1px;
         }
 
         .loader {
@@ -224,47 +224,27 @@
     <script>
         function showForm(formType) {
             const contactFormContainer = document.querySelector('.contact-form-container');
-            const careerFormContainer = document.querySelector('.career-form-container');
             const formTitleContainer = document.querySelector('.form-title-container');
 
-            contactFormContainer.style.display = 'none';
-
-            // Toggle the career form visibility when the career button is clicked
-            if (formType === 'career') {
-                if (careerFormContainer.style.display === 'none' || careerFormContainer.style.display === '') {
+            // Toggle the contact form visibility when the contact button is clicked
+            if (formType === 'contact') {
+                if (contactFormContainer.style.display === 'none' || contactFormContainer.style.display === '') {
                     formTitleContainer.innerHTML = `
-                        <p class="form-title">please fill out the form below if you are seeking a job, internship, or freelancing opportunities. we collect minimal information and will leverage our network to assist you.</p>`;
-                    careerFormContainer.style.display = 'block';
+                        <p class="form-title">We're here to support you! Fill out the form below for assistance with jobs, internships, funding, software development, and more.</p>`;
+                    contactFormContainer.style.display = 'block';
                 } else {
-                    careerFormContainer.style.display = 'none';
+                    contactFormContainer.style.display = 'none';
                 }
-            } else if (formType === 'contact') {
-                formTitleContainer.innerHTML = '<p class="form-title">pls contact us for any other help</p>';
-                contactFormContainer.style.display = 'block';
-                careerFormContainer.style.display = 'none';
             }
-
-            selectButton(event.target);
         }
 
         function hideForm() {
             document.querySelector('.contact-form-container').style.display = 'none';
-            document.querySelector('.career-form-container').style.display = 'none';
             document.querySelector('.form-title-container').style.display = 'none';
             deselectButtons();
         }
 
         function validateForm(formData, formType) {
-            const currentYear = new Date().getFullYear();
-            const yearOfBirth = parseInt(formData.get('year_of_birth'));
-
-            if (formType === 'career') {
-                if (isNaN(yearOfBirth) || yearOfBirth > currentYear) {
-                    showToast('error', 'Year of birth must be less than or equal to ' + currentYear);
-                    return false;
-                }
-            }
-
             return true;
         }
 
@@ -275,11 +255,11 @@
             const formData = new FormData(form);
             const description = formData.get('description');
 
-            // Check for maximum 200 words in description
+            // Check for maximum 300 words in description
             if (description) {
                 const wordCount = description.split(/\s+/).length;
-                if (wordCount > 200) {
-                    showToast('error', 'Description must not exceed 200 words');
+                if (wordCount > 300) {
+                    showToast('error', 'Description must not exceed 300 words');
                     form.style.display = 'block'; // Show form again
                     return;
                 }
@@ -293,30 +273,17 @@
             }
 
             let data = {};
-            if (formType === 'career') {
+            if (formType === 'contact') {
                 data = {
-                    work_type: formData.get('work_type'), // New field added
+                    type: formData.get('type'),
                     name: formData.get('name'),
                     email: formData.get('email'),
                     mobile: formData.get('mobile'),
                     city: formData.get('city'),
-                    year_of_birth: formData.get('year_of_birth'),
-                    interest: formData.get('interest'),
-                    college: formData.get('college'),
-                    work_profile: formData.get('work_profile'),
                     experience: formData.get('experience'),
-                    skill: formData.get('skill'),  // Updated key
-                    link_url: formData.get('link'),  // Updated key
-                    description: description,
-                    type: 'career'
-                };
-            } else if (formType === 'contact') {
-                data = {
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    city: formData.get('city'),
-                    description: description,
-                    type: 'contact'
+                    skill: formData.get('skill'),
+                    link_url: formData.get('link_url'),
+                    description: description
                 };
             }
 
@@ -386,51 +353,34 @@
         <p>if you are someone seeking guidance in your career, startup journey, or personal growth, submit your details, and we will strive to assist you.</p>
 
         <div class="button-container">
-            <button onclick="showForm('career'); selectButton(this)">career</button>
-            <button onclick="alert('get expert guidance on building and scaling your startup.'); selectButton(this)">startup</button>
             <button onclick="showForm('contact'); selectButton(this)">contact</button>
+            <button onclick="alert('View our latest feeds and updates.'); selectButton(this)">feed</button>
         </div>
 
         <div class="form-container contact-form-container">
-            <p class="form-title"></p>
-            <form onsubmit="submitForm(event)" data-type="contact">
-                <input type="text" name="name" placeholder="name" required>
-                <input type="email" name="email" placeholder="email" required>
-                <input type="text" name="city" placeholder="city" required>
-                <textarea name="description" placeholder="description" rows="4" required></textarea>
-                <div class="button-inline">
-                    <button type="button" class="cancel-button" onclick="hideForm()">cancel</button>
-                    <button type="submit" class="submit-button">submit</button>
-                </div>
-            </form>
-        </div>
-
-        <div class="form-container career-form-container">
             <div class="form-title-container">
                 <p class="form-title">
-                    please fill out the form below if you are seeking a job, internship, or freelancing opportunities. we collect minimal information and will leverage our network to assist you.
+                    We're here to support you! Fill out the form below for assistance with jobs, internships, funding, software development, and more.
                 </p>
             </div>
-            <form onsubmit="submitForm(event)" data-type="career">
-                <select name="work_type" required>
-                    <option value="" disabled selected>select your work type</option>
-                    <option value="intern">intern</option>
-                    <option value="fulltime">fulltime</option>
-                    <option value="consultant">consultant</option>
-                    <option value="freelancer">freelancer</option>
+            <form onsubmit="submitForm(event)" data-type="contact">
+                <select name="type" required>
+                    <option value="" disabled selected>select type of help you need</option>
+                    <option value="i need a job">i need a job</option>
+                    <option value="i need internship">i need internship</option>
+                    <option value="i need freelancing work">i need freelancing work</option>
+                    <option value="i need funding">i need funding</option>
+                    <option value="software development help">software development help</option>
+                    <option value="others">others</option>
                 </select>
                 <input type="text" name="name" placeholder="name" required>
                 <input type="email" name="email" placeholder="email" required>
                 <input type="text" name="mobile" placeholder="mobile">
                 <input type="text" name="city" placeholder="city" required>
-                <input type="number" name="year_of_birth" placeholder="year of birth (1990)" required>
-                <input type="text" name="interest" placeholder="interest (movies, reading, etc)">
-                <input type="text" name="college" placeholder="college (use comma to separate multiple names)">
-                <input type="text" name="work_profile" placeholder="work profile (product manager, backend developer, etc)" required>
-                <input type="number" name="experience" placeholder="experience in years">
-                <input type="text" name="skill" placeholder="skills (python, sql, machine learning, etc)"> <!-- New skill field -->
-                <input type="text" name="link" placeholder="link (linkedin, github, portfolio, resume etc)"> <!-- Updated field name and placeholder -->
-                <textarea name="description" placeholder="description (write something about your work profile in ~200 words)" rows="4" required></textarea> <!-- Moved description field -->
+                <input type="number" name="experience" placeholder="experience in years" required>
+                <input type="text" name="skill" placeholder="skills (python, sql, machine learning, etc)" required>
+                <input type="text" name="link_url" placeholder="link (linkedin, website, portfolio, resume etc)">
+                <textarea name="description" placeholder="description (explain your need in ~300 words)" rows="4" required></textarea>
                 <div class="button-inline">
                     <button type="button" class="cancel-button" onclick="hideForm()">cancel</button>
                     <button type="submit" class="submit-button">submit</button>
