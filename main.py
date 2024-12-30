@@ -154,6 +154,7 @@ postgres_schema_defualt={
 "website_url":["text",["human"]],
 "resume_url":["text",["human"]],
 "salary":["text",["human"]],
+"work_type":["text",["human"]],
 "work_profile":["text",["human"]],
 "company_past":["text",["human"]],
 "company_current":["text",["human"]],
@@ -442,7 +443,9 @@ from fastapi_limiter.depends import RateLimiter
 
 @app.get("/")
 async def root(request:Request):
-   return {"status":1,"message":"welcome to atom"}
+   if os.getenv("secret_key_root").split("_")[0]=="atom":response=responses.HTMLResponse(content=index_html,status_code=200)
+   else:response={"status":1,"message":"welcome to atom"}
+   return response
 
 @app.post("/root/postgres-schema-init")
 async def root_postgres_schema_init(request:Request,mode:str):

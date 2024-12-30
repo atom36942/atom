@@ -14,13 +14,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             text-transform: lowercase; /* Apply lowercase transformation */
         }
 
         .card {
             background-color: #1e1e1e;
-            padding: 20px;
+            padding: 20px 20px 10px 20px; /* Increased top padding */
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
             max-width: 600px;
@@ -28,9 +28,22 @@
             text-align: left;
         }
 
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px; /* Space between logo, company name, and title */
+            white-space: nowrap; /* Ensure text stays on one line */
+        }
+
+        .card-header img {
+            max-width: 40px; /* Adjusted this value to make the logo smaller */
+            height: auto;
+        }
+
         h1 {
-            font-size: 2em;
-            margin-bottom: 15px;
+            font-size: 1.5em; /* Made the font size smaller to fit the card width */
+            margin: 5px 0 0 0; /* Added a small top margin */
+            color: #00FF00; /* Matrix green color */
         }
 
         p {
@@ -44,7 +57,7 @@
             justify-content: space-between;
             gap: 10px;
             margin-top: 30px; /* Increased space from description */
-            margin-bottom: 5px; /* Decreased padding from bottom */
+            margin-bottom: 2px; /* Adjusted margin-bottom to 2px */
         }
 
         button {
@@ -68,6 +81,10 @@
             transform: scale(0.98);
         }
 
+        .selected {
+            background-color: #777777; /* Lighter background color for selected state */
+        }
+
         .form-container {
             display: none;
             margin-top: 20px;
@@ -79,7 +96,7 @@
             gap: 10px;
         }
 
-        input, textarea {
+        input, textarea, select {
             padding: 10px;
             border-radius: 5px;
             border: 1px solid #404040;
@@ -122,27 +139,246 @@
             margin-top: 15px; /* Increased space between form buttons and last field */
         }
 
+        .form-title-container {
+            background-color: #2e2e2e; /* Dark background color for the container */
+            padding: 10px; /* Reduced padding */
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
         .form-title {
             font-size: 1em;
             line-height: 1.6;
-            margin-bottom: 10px;
-            font-weight: bold; /* Made the form title bold */
+            color: #FFD700; /* Changed color to bright yellow */
             text-transform: lowercase; /* Apply lowercase transformation */
+            text-align: left; /* Left-align the title */
+            margin: 0;
+        }
+
+        .table-container {
+            margin-top: 20px;
+        }
+
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #333333;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            margin-left: -125px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 2px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            font-size: 17px;
+        }
+
+        .toast.show {
+            visibility: visible;
+            -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+        .toast.error {
+            background-color: #ff0000; /* Red background for error toast */
+        }
+
+        @-webkit-keyframes fadein {
+            from {bottom: 0; opacity: 0;}
+            to {bottom: 30px; opacity: 1;}
+        }
+
+        @keyframes fadein {
+            from {bottom: 0; opacity: 0;}
+            to {bottom: 30px; opacity: 1;}
+        }
+
+        @-webkit-keyframes fadeout {
+            from {bottom: 30px; opacity: 1;}
+            to {bottom: 0; opacity: 0;}
+        }
+
+        @keyframes fadeout {
+            from {bottom: 30px; opacity: 1;}
+            to {bottom: 0; opacity: 0;}
         }
     </style>
     <script>
-        function showForm() {
-            document.querySelector('.form-container').style.display = 'block';
+        function showForm(formType) {
+            const contactFormContainer = document.querySelector('.contact-form-container');
+            const careerFormContainer = document.querySelector('.career-form-container');
+            const formTitleContainer = document.querySelector('.form-title-container');
+
+            contactFormContainer.style.display = 'none';
+
+            // Toggle the career form visibility when the career button is clicked
+            if (formType === 'career') {
+                if (careerFormContainer.style.display === 'none' || careerFormContainer.style.display === '') {
+                    formTitleContainer.innerHTML = `
+                        <p class="form-title">please fill out the form below if you are seeking a job, internship, or freelancing opportunities. we collect minimal information and will leverage our network to assist you.</p>`;
+                    careerFormContainer.style.display = 'block';
+                } else {
+                    careerFormContainer.style.display = 'none';
+                }
+            } else if (formType === 'contact') {
+                formTitleContainer.innerHTML = '<p class="form-title">pls contact us for any other help</p>';
+                contactFormContainer.style.display = 'block';
+                careerFormContainer.style.display = 'none';
+            }
+
+            selectButton(event.target);
         }
 
         function hideForm() {
-            document.querySelector('.form-container').style.display = 'none';
+            document.querySelector('.contact-form-container').style.display = 'none';
+            document.querySelector('.career-form-container').style.display = 'none';
+            document.querySelector('.form-title-container').style.display = 'none';
+            deselectButtons();
+        }
+
+        function validateForm(formData, formType) {
+            const currentYear = new Date().getFullYear();
+            const yearOfBirth = parseInt(formData.get('year_of_birth'));
+
+            if (formType === 'career') {
+                if (isNaN(yearOfBirth) || yearOfBirth > currentYear) {
+                    showToast('error', 'Year of birth must be less than or equal to ' + currentYear);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function submitForm(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const description = formData.get('description');
+
+            // Check for maximum 200 words in description
+            if (description) {
+                const wordCount = description.split(/\s+/).length;
+                if (wordCount > 200) {
+                    showToast('error', 'Description must not exceed 200 words');
+                    form.style.display = 'block'; // Show form again
+                    return;
+                }
+            }
+
+            const formType = form.dataset.type;
+
+            if (!validateForm(formData, formType)) {
+                form.style.display = 'block'; // Show form again
+                return;
+            }
+
+            let data = {};
+            if (formType === 'career') {
+                data = {
+                    work_type: formData.get('work_type'), // New field added
+                    name: formData.get('name'),
+                    email: formData.get('email'),
+                    mobile: formData.get('mobile'),
+                    city: formData.get('city'),
+                    year_of_birth: formData.get('year_of_birth'),
+                    interest: formData.get('interest'),
+                    college: formData.get('college'),
+                    work_profile: formData.get('work_profile'),
+                    experience: formData.get('experience'),
+                    skill: formData.get('skill'),  // Updated key
+                    link_url: formData.get('link'),  // Updated key
+                    description: description,
+                    type: 'career'
+                };
+            } else if (formType === 'contact') {
+                data = {
+                    name: formData.get('name'),
+                    email: formData.get('email'),
+                    city: formData.get('city'),
+                    description: description,
+                    type: 'contact'
+                };
+            }
+
+            document.querySelector('.loader').style.display = 'block'; // Show loader
+            form.style.display = 'none'; // Hide form
+
+            fetch('https://www.atom42.org/public/object-create?table=human', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                document.querySelector('.loader').style.display = 'none'; // Hide loader
+                if (response.status === 200) {
+                    showToast('success', 'Form submitted successfully');
+                    form.reset(); // Clear form data
+                    hideForm(); // Hide form and title
+                } else {
+                    response.json().then(data => {
+                        showToast('error', data.message || 'Form submission error, please try again later');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'Form submission error, please try again later');
+                document.querySelector('.loader').style.display = 'none';
+                form.style.display = 'block'; // Show form again
+            });
+        }
+
+        function selectButton(button) {
+            deselectButtons();
+            button.classList.add('selected');
+        }
+
+        function deselectButtons() {
+            const buttons = document.querySelectorAll('.button-container button');
+            buttons.forEach(button => button.classList.remove('selected'));
+        }
+
+        function showToast(type, message) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+                document.body.removeChild(toast);
+            }, 3000);
         }
     </script>
 </head>
 <body>
     <div class="card">
-        <h1>accelerating human evolution</h1>
+        <div class="card-header">
+            <img src='logo.png' alt='logo'/>
+            <h1>atom42.org - accelerating human evolution</h1>
+        </div>
         <p>our mission is to empower individuals to unlock their highest potential and contribute meaningfully to the world. 
            by connecting ambition with opportunity, we aim to foster progress, inspire innovation, and create a brighter future for all.</p>
         <p>we are dedicated to building pathways for growth by offering support in career development, startup creation, access to funding, and skill enhancement. 
@@ -150,17 +386,16 @@
         <p>if you are someone seeking guidance in your career, startup journey, or personal growth, submit your details, and we will strive to assist you.</p>
 
         <div class="button-container">
-            <button onclick="alert('get career guidance and opportunities.')">career</button>
-            <button onclick="alert('get expert guidance on building and scaling your startup.')">startup</button>
-            <button onclick="showForm()">others</button>
+            <button onclick="showForm('career'); selectButton(this)">career</button>
+            <button onclick="alert('get expert guidance on building and scaling your startup.'); selectButton(this)">startup</button>
+            <button onclick="showForm('contact'); selectButton(this)">contact</button>
         </div>
 
-        <div class="form-container">
-            <p class="form-title">you can submit your details for any other help if you need.</p>
-            <form>
+        <div class="form-container contact-form-container">
+            <p class="form-title"></p>
+            <form onsubmit="submitForm(event)" data-type="contact">
                 <input type="text" name="name" placeholder="name" required>
                 <input type="email" name="email" placeholder="email" required>
-                <input type="tel" name="mobile" placeholder="mobile" required>
                 <input type="text" name="city" placeholder="city" required>
                 <textarea name="description" placeholder="description" rows="4" required></textarea>
                 <div class="button-inline">
@@ -169,6 +404,43 @@
                 </div>
             </form>
         </div>
+
+        <div class="form-container career-form-container">
+            <div class="form-title-container">
+                <p class="form-title">
+                    please fill out the form below if you are seeking a job, internship, or freelancing opportunities. we collect minimal information and will leverage our network to assist you.
+                </p>
+            </div>
+            <form onsubmit="submitForm(event)" data-type="career">
+                <select name="work_type" required>
+                    <option value="" disabled selected>select your work type</option>
+                    <option value="intern">intern</option>
+                    <option value="fulltime">fulltime</option>
+                    <option value="consultant">consultant</option>
+                    <option value="freelancer">freelancer</option>
+                </select>
+                <input type="text" name="name" placeholder="name" required>
+                <input type="email" name="email" placeholder="email" required>
+                <input type="text" name="mobile" placeholder="mobile">
+                <input type="text" name="city" placeholder="city" required>
+                <input type="number" name="year_of_birth" placeholder="year of birth (1990)" required>
+                <input type="text" name="interest" placeholder="interest (movies, reading, etc)">
+                <input type="text" name="college" placeholder="college (use comma to separate multiple names)">
+                <input type="text" name="work_profile" placeholder="work profile (product manager, backend developer, etc)" required>
+                <input type="number" name="experience" placeholder="experience in years">
+                <input type="text" name="skill" placeholder="skills (python, sql, machine learning, etc)"> <!-- New skill field -->
+                <input type="text" name="link" placeholder="link (linkedin, github, portfolio, resume etc)"> <!-- Updated field name and placeholder -->
+                <textarea name="description" placeholder="description (write something about your work profile in ~200 words)" rows="4" required></textarea> <!-- Moved description field -->
+                <div class="button-inline">
+                    <button type="button" class="cancel-button" onclick="hideForm()">cancel</button>
+                    <button type="submit" class="submit-button">submit</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-container"></div>
+
+        <div class="loader"></div>
     </div>
 </body>
 </html>
