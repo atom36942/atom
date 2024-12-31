@@ -74,7 +74,8 @@ drop schema public cascade;---create schema public;
 pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 
 #postgres import
-\copy post(type,title) from 'path' delimiter ',' csv header;
+\copy atom(title,description,link_url,tag) from '/Users/atom/Downloads/post.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 ```
+
 
