@@ -181,7 +181,7 @@ postgres_schema_defualt={
 "user_id":["btree",["message"]],
 "parent_table":["btree",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
 "parent_id":["btree",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
-"type":["btree",["users","post","helpdesk","atom","human"]],
+"type":["btree",["users","post","helpdesk","atom","human","feed","project"]],
 "status":["btree",["action_report","helpdesk"]],
 "email":["btree",["users","otp"]],
 "mobile":["btree",["users","otp"]],
@@ -199,6 +199,12 @@ postgres_schema_defualt={
 "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema='public'));",
 }
 }
+
+import google.generativeai as genai
+if os.getenv("secret_key_gemini"):genai.configure(api_key=os.getenv("secret_key_gemini"))
+
+api_list=None
+api_list_admin=None
 
 #function
 async def postgres_cud(postgres_client,mode,table,object_list):
@@ -409,8 +415,13 @@ import time,traceback
 from starlette.background import BackgroundTask
 @app.middleware("http")
 async def middleware(request:Request,api_function):
+   global api_list
+   global api_list_admin
    try:
       start=time.time()
+      if not api_list:
+         api_list=[route.path for route in request.app.routes]
+         api_list_admin=[item for item in api_list if "/admin" in item]
       response=await auth_check(request)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       user=response["message"]
@@ -617,13 +628,9 @@ async def root_postgres_schema_init(request:Request,mode:str):
 
 @app.put("/root/grant-all-api-access")
 async def root_grant_all_api_access(request:Request,user_id:int):
-   #api list
-   api_list=[route.path for route in request.app.routes]
-   api_list_admin=[item for item in api_list if "/admin" in item]
-   api_list_admin_str=",".join(api_list_admin)
    #logic
    query="update users set api_access=:api_access where id=:id returning *"
-   query_param={"api_access":api_list_admin_str,"id":user_id}
+   query_param={"api_access":",".join(api_list_admin),"id":user_id}
    output=await postgres_client.execute(query=query,values=query_param)
    #final
    return {"status":1,"message":output}
@@ -631,23 +638,18 @@ async def root_grant_all_api_access(request:Request,user_id:int):
 @app.delete("/root/postgres-clean")
 async def root_pclean(request:Request):
    #creator null
-   output=await postgres_client.fetch_all(query=query_schema,values={})
-   table_name_list_creator=[item["table_name"] for item in output if item["column_name"]=="created_by_id"]
-   for item in table_name_list_creator:
-      query=f"delete from {item} where created_by_id not in (select id from users);"
-      await postgres_client.execute(query=query,values={})
-   #parent null
-   output=await postgres_client.fetch_all(query=query_schema,values={})
-   table_name_list_action=list(set([item["table_name"] for item in output if "action_" in item["table_name"]]))
-   parent_table_list=[]
-   for item in table_name_list_action:
-      output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {item};",values={})
-      parent_table_list=parent_table_list+[item["parent_table"] for item in output]
-   parent_table_list=list(set(parent_table_list))
-   for table in table_name_list_action:
-      for parent_table in parent_table_list:
-         query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
+   for item in postgres_schema:
+      if item["column_name"]=="created_by_id":
+         query=f"delete from {item['table_name']} where created_by_id not in (select id from users);"
          await postgres_client.execute(query=query,values={})
+   #action parent null
+   for item in postgres_schema:
+      if "action_" in item["table_name"] and item ["column_name"]=="parent_table":
+         query=f"select distinct(parent_table) from {item['table_name']};"
+         output=await postgres_client.fetch_all(query=query,values={})
+         for parent_table in output:
+            query=f"delete from {item['table_name']} where parent_table='{parent_table['parent_table']}' and parent_id not in (select id from {parent_table['parent_table']});"
+            await postgres_client.execute(query=query,values={})      
    #final
    return {"status":1,"message":"done"}
 
@@ -664,6 +666,14 @@ async def root_postgres_query_runner(request:Request,query:str):
       else:
          await transaction.commit()
          output="done"
+   return {"status":1,"message":output}
+
+@app.get("/root/ai-prompt")
+async def root_ai_prompt(request:Request,ai:str,model:str,prompt:str):
+   if ai=="google":
+      model=genai.GenerativeModel(model)
+      output=model.generate_content(prompt)
+      output=output.text
    return {"status":1,"message":output}
 
 @app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
@@ -853,11 +863,9 @@ async def my_token_refresh(request:Request):
 
 @app.put("/my/update-password")
 async def my_update_password(request:Request,password:str):
-   #logic
    query="update users set password=:password,updated_by_id=:updated_by_id where id=:id returning *;"
    query_param={"id":request.state.user["id"],"password":hashlib.sha256(password.encode()).hexdigest(),"updated_by_id":request.state.user["id"]}
    output=await postgres_client.execute(query=query,values=query_param)
-   #final
    return {"status":1,"message":output}
 
 @app.put("/my/update-email")
@@ -911,7 +919,7 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
    for k,v in object.items():
       if k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
    #object serialize
-   if is_serialize:
+   if is_serialize and not queue:
       response=await object_serialize([object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
@@ -955,7 +963,7 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:st
    response=await ownership_check(table,object["id"],request.state.user["id"])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #object serialize
-   if is_serialize:
+   if is_serialize and not queue:
       response=await object_serialize([object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
@@ -1224,9 +1232,6 @@ async def my_action_on_me_creator_read_mutual(request:Request,action:str,order:s
 
 @app.get("/public/api-list")
 async def public_api_list(request:Request,mode:str=None):
-   #api list
-   api_list=[route.path for route in request.app.routes]
-   api_list_admin=[item for item in api_list if "/admin" in item]
    #logic
    if not mode:output=api_list
    else:output=api_list_admin
@@ -1386,15 +1391,10 @@ class schema_update_api_access(BaseModel):
    api_access:str|None=None
 @app.put("/admin/update-api-access")
 async def admin_update_api_access(request:Request,body:schema_update_api_access):
-   #api list
-   api_list=[route.path for route in request.app.routes]
-   api_list_admin=[item for item in api_list if "/admin" in item]
    #check api access string
    if body.api_access:
       for item in body.api_access.split(","):
          if item not in api_list_admin:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
-   #body modify
-   if body.api_access=="":body.api_access=None
    #logic
    query="update users set api_access=:api_access where id=:id returning *"
    query_param={"id":body.user_id,"api_access":body.api_access}
