@@ -13,6 +13,7 @@ select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default fro
 postgres_client=None
 postgres_schema=None
 postgres_column_datatype=None
+postgres_table_column={}
 from databases import Database
 async def set_postgres():
    global postgres_client
@@ -23,6 +24,17 @@ async def set_postgres():
       await postgres_client.connect()
    if not postgres_schema:postgres_schema=await postgres_client.fetch_all(query=query_schema,values={})
    postgres_column_datatype={item["column_name"]:item["data_type"] for item in postgres_schema}
+   for item in postgres_schema:
+      if item["table_name"] not in postgres_table_column:postgres_table_column[item["table_name"]]=[]
+      else:postgres_table_column[item["table_name"]]+=[item["column_name"]]
+   return None
+
+project_data=None
+async def set_project_data():
+   global project_data
+   if "project" in postgres_table_column:
+      query="select * from project limit 1000"
+      project_data=await postgres_client.fetch_all(query=query,values={})
    return None
 
 redis_client=None
@@ -97,7 +109,7 @@ async def set_kafka():
 
 postgres_schema_defualt={
 "extension":["postgis"],
-"table":["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_rating","action_comment","action_follow","log_api","log_password","atom","human"],
+"table":["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_rating","action_comment","action_follow","log_api","log_password","atom","human","feed","project"],
 "column":{
 "created_at":["timestamptz",["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password","atom","human"]],
 "created_by_id":["bigint",["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password","atom","human"]],
@@ -116,11 +128,16 @@ postgres_schema_defualt={
 "api":["text",["log_api"]],
 "status_code":["smallint",["log_api"]],
 "response_time_ms":["numeric",["log_api"]],
-"type":["text",["users","post","helpdesk","atom","human"]],
+"type":["text",["users","post","helpdesk","atom","human","feed","project"]],
+"title":["text",["users","post","atom","feed","project"]],
+"description":["text",["users","post","action_comment","message","helpdesk","atom","human","feed","project"]],
+"file_url":["text",["post","action_comment","atom","feed","project"]],
+"link_url":["text",["post","atom","human","feed","project"]],
+"tag":["text",["users","post","atom","human","feed","project"]],
 "status":["text",["action_report","helpdesk","atom","human"]],
 "remark":["text",["action_report","helpdesk","atom","human"]],
 "rating":["numeric",["post","action_rating","human"]],
-"metadata":["jsonb",["users","post"]],
+"metadata":["jsonb",["users","post","atom"]],
 "username":["text",["users"]],
 "password":["text",["users","log_password"]],
 "google_id":["text",["users"]],
@@ -137,11 +154,6 @@ postgres_schema_defualt={
 "date_of_birth":["date",["users"]],
 "year_of_birth":["smallint",["human"]],
 "gender":["text",["users","human"]],
-"title":["text",["users","post","atom"]],
-"description":["text",["users","post","action_comment","message","helpdesk","atom","human"]],
-"file_url":["text",["post","action_comment","atom"]],
-"link_url":["text",["post","atom","human"]],
-"tag":["text",["users","post","atom","human"]],
 "tag_array":["text[]",[]],
 "number":["numeric",["atom"]],
 "interest":["text",["users","human"]],
@@ -187,580 +199,6 @@ postgres_schema_defualt={
 "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema='public'));",
 }
 }
-
-index_html="""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <link rel="icon" href="data:,">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>atom42.org</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .card {
-            background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-            max-width: 600px;
-            width: calc(100% - 40px); /* Add margin to the left and right */
-            text-align: left;
-            margin: 0 20px; /* Add margin to the left and right */
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            white-space: nowrap;
-        }
-
-        .card-header img {
-            max-width: 40px;
-            height: auto;
-        }
-
-        h1 {
-            font-size: 1.5em;
-            margin: 0;
-            color: #00FF00;
-        }
-
-        p {
-            font-size: 1em;
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
-
-        .button-container {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            margin-top: 30px;
-            margin-bottom: 0.5px;
-        }
-
-        button {
-            padding: 10px;
-            font-size: 1em;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            background-color: #333333;
-            color: #ffffff;
-            transition: background-color 0.3s ease;
-            flex: 1;
-            text-transform: lowercase;
-        }
-
-        button:hover {
-            background-color: #555555;
-        }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        .selected {
-            font-weight: bold;
-        }
-
-        .form-container {
-            display: none;
-            margin-top: 20px;
-        }
-
-        form {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        input, textarea, select {
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #404040;
-            background-color: #2e2e2e;
-            color: #ffffff;
-            font-size: 1em;
-            width: 100%;
-            box-sizing: border-box;
-            text-transform: lowercase;
-        }
-
-        textarea {
-            resize: vertical;
-        }
-
-        .submit-button, .cancel-button {
-            padding: 10px;
-            font-size: 1em;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            background-color: #333333;
-            color: #ffffff;
-            transition: background-color 0.3s ease;
-            text-transform: lowercase;
-        }
-
-        .submit-button:hover, .cancel-button:hover {
-            background-color: #555555;
-        }
-
-        .submit-button:active, .cancel-button:active {
-            transform: scale(0.98);
-        }
-
-        .button-inline {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .form-title-container {
-            background-color: #2e2e2e;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-        }
-
-        .form-title {
-            font-size: 1em;
-            line-height: 1.6;
-            color: #FFD700;
-            text-align: left;
-            margin: 0;
-        }
-
-        .table-container {
-            margin-top: 1px;
-        }
-
-        .loader {
-            display: none;
-            border: 4px solid #f3f3f3;
-            border-radius: 50%;
-            border-top: 4px solid #333333;
-            width: 40px;
-            height: 40px;
-            animation: spin 2s linear infinite;
-            margin: 20px auto;
-            padding-bottom: 0.5px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .feed-card {
-            background-color: #2e2e2e;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            margin-bottom: 15px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        .feed-card:first-child {
-            margin-top: 20px;
-        }
-
-        .feed-card h2 {
-            font-size: 1.3em;
-            margin: 0 0 10px 0;
-            color: #FFD700;
-        }
-
-        .feed-card p {
-            font-size: 0.9em;
-            line-height: 1.4;
-            margin: 0 0 10px 0;
-            color: #ccc;
-        }
-
-        .feed-card a {
-            color: #00FF00;
-            text-decoration: none;
-        }
-
-        .feed-card .tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 5px;
-        }
-
-        .feed-card .tag {
-            display: inline-block;
-            background: linear-gradient(145deg, #2c2c2c, #1a1a1a); /* Gradient for 3D effect */
-            color: #ffffff;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.8em;
-            border: 1px solid #444444;
-            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3), -2px -2px 5px rgba(255, 255, 255, 0.1); /* Shadow for 3D effect */
-        }
-
-        .feed-card .tags-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .feed-card .learn-more {
-            margin-left: auto;
-            font-family: Arial, sans-serif;
-            font-size: 0.8em;
-        }
-
-        .load-more-container {
-            display: flex;
-            justify-content: center;
-            margin: 20px 0;
-        }
-
-        .toast {
-            visibility: hidden;
-            min-width: 250px;
-            margin-left: -125px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 2px;
-            padding: 16px;
-            position: fixed;
-            z-index: 1;
-            left: 50%;
-            bottom: 30px;
-            font-size: 17px;
-        }
-
-        .toast.show {
-            visibility: visible;
-            -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
-            animation: fadein 0.5s, fadeout 0.5s 2.5s;
-        }
-
-        .toast.error {
-            background-color: #ff0000;
-        }
-
-        @-webkit-keyframes fadein {
-            from {bottom: 0; opacity: 0;}
-            to {bottom: 30px; opacity: 1;}
-        }
-
-        @keyframes fadein {
-            from {bottom: 0; opacity: 0;}
-            to {bottom: 30px; opacity: 1;}
-        }
-
-        @-webkit-keyframes fadeout {
-            from {bottom: 30px; opacity: 1;}
-            to {bottom: 0; opacity: 0;}
-        }
-
-        @keyframes fadeout {
-            from {bottom: 30px; opacity: 1;}
-            to {bottom: 0; opacity: 0;}
-        }
-
-        /* Back to Top Button */
-        #back-to-top-btn {
-            display: none;
-            position: fixed;
-            bottom: 40px;
-            right: 40px;
-            z-index: 99;
-            font-size: 18px;
-            border: none;
-            outline: none;
-            background-color: #333;
-            color: white;
-            cursor: pointer;
-            padding: 15px;
-            border-radius: 0%;
-            transition: background-color 0.3s ease;
-        }
-
-        #back-to-top-btn:hover {
-            background-color: #555;
-        }
-
-        @media (max-width: 600px) {
-        .card {
-            padding-left: 20px;
-            padding-right: 20px;
-        }
-        
-        .card-header h1 {
-            font-size: 1.2em; /* Adjust font size for smaller screens */
-            word-wrap: break-word; /* Ensure the text wraps and doesn't overflow */
-            white-space: normal; /* Allow text to wrap */
-        }
-    }
-    </style>
-    <script>
-        async function fetchFeed(page = 1) {
-            try {
-                const feedContainer = document.querySelector('.feed-container');
-                const loader = document.querySelector('.loader');
-                loader.style.display = 'block';
-                const response = await fetch(`https://www.atom42.org/public/object-read?table=atom&limit=100&page=${page}`);
-                loader.style.display = 'none';
-                if (response.status !== 200) {
-                    feedContainer.innerHTML = '<p>Something went wrong</p>';
-                    return;
-                }
-
-                const data = await response.json();
-                const feedData = data.message;
-
-                feedData.forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'feed-card';
-                    card.innerHTML = `
-                        ${item.title ? `<h2>${item.title}</h2>` : ''}
-                        ${item.description ? `<p>${item.description.replace(/(^\w)|(\.\s*\w)|(\?\s*\w)|(!\s*\w)/g, c => c.toUpperCase())}</p>` : ''}
-                        <div class="tags-container">
-                            <div class="tags">
-                                ${item.tag ? item.tag.split(',').map(tag => `<span class="tag">${tag.trim()}</span>`).join('') : ''}
-                            </div>
-                            ${item.link_url ? `<a class="learn-more" href="${item.link_url}" target="_blank"><button class="read-more">Read More</button></a>` : ''}
-                        </div>
-                    `;
-                    feedContainer.appendChild(card);
-                });
-
-                const loadMoreButton = document.createElement('button');
-                loadMoreButton.textContent = 'Load More';
-                loadMoreButton.onclick = () => {
-                    loadMoreButton.remove();
-                    fetchFeed(page + 1);
-                };
-                const loadMoreContainer = document.createElement('div');
-                loadMoreContainer.className = 'load-more-container';
-                loadMoreContainer.appendChild(loadMoreButton);
-                feedContainer.appendChild(loadMoreContainer);
-
-            } catch (error) {
-                console.error('Error fetching feed:', error);
-                document.querySelector('.feed-container').innerHTML = '<p>Something went wrong</p>';
-            }
-        }
-
-        function showFeed() {
-            const feedContainer = document.querySelector('.feed-container');
-            const contactFormContainer = document.querySelector('.contact-form-container');
-            const formTitleContainer = document.querySelector('.form-title-container');
-
-            contactFormContainer.style.display = 'none';
-            formTitleContainer.style.display = 'none';
-            feedContainer.style.display = 'block';
-            feedContainer.innerHTML = '';
-            fetchFeed();
-            deselectButtons();
-            document.querySelector('.button-container button:nth-child(1)').classList.add('selected');
-        }
-
-        function showForm(formType) {
-            const contactFormContainer = document.querySelector('.contact-form-container');
-            const formTitleContainer = document.querySelector('.form-title-container');
-            const feedContainer = document.querySelector('.feed-container');
-
-            feedContainer.style.display = 'none';
-            contactFormContainer.style.display = 'block';
-            formTitleContainer.style.display = 'block';
-            contactFormContainer.reset();
-            deselectButtons();
-            document.querySelector('.button-container button:nth-child(2)').classList.add('selected');
-        }
-
-        function hideForm() {
-            document.querySelector('.contact-form-container').style.display = 'none';
-            document.querySelector('.form-title-container').style.display = 'none';
-            deselectButtons();
-        }
-
-        function validateForm(formData, formType) {
-            return true;
-        }
-
-        function submitForm(event) {
-            event.preventDefault();
-
-            const form = event.target;
-            const formData = new FormData(form);
-            const description = formData.get('description');
-
-            if (description) {
-                const wordCount = description.split(/\s+/).length;
-                if (wordCount > 300) {
-                    showToast('error', 'Description must not exceed 300 words');
-                    form.style.display = 'block';
-                    return;
-                }
-            }
-
-            const formType = form.dataset.type;
-
-            if (!validateForm(formData, formType)) {
-                form.style.display = 'block';
-                return;
-            }
-
-            let data = {};
-            if (formType === 'contact') {
-                data = {
-                    type: formData.get('type'),
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    mobile: formData.get('mobile'),
-                    city: formData.get('city'),
-                    experience: formData.get('experience'),
-                    skill: formData.get('skill'),
-                    link_url: formData.get('link_url'),
-                    description: description
-                };
-            }
-
-            document.querySelector('.loader').style.display = 'block';
-            form.style.display = 'none';
-
-            fetch('https://www.atom42.org/public/object-create?table=human', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => {
-                document.querySelector('.loader').style.display = 'none';
-                if (response.status === 200) {
-                    showToast('success', 'Form submitted successfully');
-                    form.reset();
-                    hideForm();
-                } else {
-                    response.json().then(data => {
-                        showToast('error', data.message || 'Form submission error, please try again later');
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('error', 'Form submission error, please try again later');
-                document.querySelector('.loader').style.display = 'none';
-                form.style.display = 'block';
-            });
-        }
-
-        function deselectButtons() {
-            const buttons = document.querySelectorAll('.button-container button');
-            buttons.forEach(button => button.classList.remove('selected'));
-        }
-
-        function showToast(type, message) {
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-                document.body.removeChild(toast);
-            }, 3000);
-        }
-
-        // Show or hide the back-to-top button based on scroll position
-        window.onscroll = function() {
-            const backToTopBtn = document.getElementById('back-to-top-btn');
-            if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
-                backToTopBtn.style.display = 'block';
-            } else {
-                backToTopBtn.style.display = 'none';
-            }
-        };
-
-        // Scroll to the top of the document when the button is clicked
-        function backToTop() {
-            document.body.scrollTop = 0;
-            document.documentElement.scrollTop = 0;
-        }
-    </script>
-</head>
-<body>
-    <div class="card">
-        <div class="card-header">
-            <img hidden src='' alt='logo'/>
-            <h1>atom42.org - accelerating human evolution</h1>
-        </div>
-        <p>Our mission is to empower individuals to unlock their highest potential and contribute meaningfully to the world. 
-           By connecting ambition with opportunity, we aim to foster progress, inspire innovation, and create a brighter future for all.</p>
-        <p>We are dedicated to building pathways for growth by offering support in career development, startup creation, access to funding, and skill enhancement. 
-           We believe that early opportunities can set the foundation for extraordinary achievements and a greater collective purpose.</p>
-        <p>If you are someone seeking guidance in your career, startup journey, or personal growth, submit your details, and we will strive to assist you.</p>
-
-        <div class="button-container">
-            <button onclick="showFeed();">feed</button>
-            <button onclick="showForm('contact');">contact</button>
-        </div>
-
-        <div class="form-container contact-form-container">
-            <div class="form-title-container">
-                <p class="form-title">
-                    We're here to support you! Fill out the form below for assistance with jobs, internships, funding, software development, and more.
-                </p>
-            </div>
-            <form onsubmit="submitForm(event)" data-type="contact">
-                <select name="type" required>
-                    <option value="" disabled selected>Select type of help you need</option>
-                    <option value="I need a job">I need a job</option>
-                    <option value="I need internship">I need internship</option>
-                    <option value="I need freelancing work">I need freelancing work</option>
-                    <option value="I need funding">I need funding</option>
-                    <option value="Software development help">Software development help</option>
-                    <option value="Others">Others</option>
-                </select>
-                <input type="text" name="name" placeholder="Name" required>
-                <input type="email" name="email" placeholder="Email" required>
-                <input type="text" name="mobile" placeholder="Mobile">
-                <input type="text" name="city" placeholder="City" required>
-                <input type="number" name="experience" placeholder="Experience in years" required>
-                <input type="text" name="skill" placeholder="Skills (Python, SQL, Machine Learning, etc)" required>
-                <input type="text" name="link_url" placeholder="Link (LinkedIn, website, portfolio, resume etc)">
-                <textarea name="description" placeholder="Description (Explain your need in ~300 words)" rows="4" required></textarea>
-                <div class="button-inline">
-                    <button type="button" class="cancel-button" onclick="hideForm()">Cancel</button>
-                    <button type="submit" class="submit-button">Submit</button>
-                </div>
-            </form>
-        </div>
-
-        <div class="feed-container
-
-        <div class="feed-container" style="display: none;"></div>
-
-        <div class="loader"></div>
-    </div>
-
-    <button id="back-to-top-btn" onclick="backToTop()">↑
-"""
 
 #function
 async def postgres_cud(postgres_client,mode,table,object_list):
@@ -950,6 +388,7 @@ async def lifespan(app:FastAPI):
    if os.getenv("kafka_server_url"):await set_kafka()
    await FastAPILimiter.init(redis_client)
    FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
+   await set_project_data()
    yield
    if postgres_client:await postgres_client.disconnect()
    if redis_client:await redis_client.aclose()
@@ -1017,7 +456,8 @@ from fastapi_limiter.depends import RateLimiter
 
 @app.get("/")
 async def root(request:Request):
-   if os.getenv("secret_key_root").split("_")[0]=="atom":response=responses.HTMLResponse(content=index_html,status_code=200)
+   index_html=[item["description"] for item in project_data if item["type"]=="index_html"]
+   if index_html:response=responses.HTMLResponse(content=index_html[0],status_code=200)
    else:response={"status":1,"message":"welcome to atom"}
    return response
 
@@ -1192,18 +632,19 @@ async def root_grant_all_api_access(request:Request,user_id:int):
 async def root_pclean(request:Request):
    #creator null
    output=await postgres_client.fetch_all(query=query_schema,values={})
-   table_name_list=[item["table_name"] for item in output if item["column_name"]=="created_by_id"]
-   for item in table_name_list:
+   table_name_list_creator=[item["table_name"] for item in output if item["column_name"]=="created_by_id"]
+   for item in table_name_list_creator:
       query=f"delete from {item} where created_by_id not in (select id from users);"
       await postgres_client.execute(query=query,values={})
    #parent null
-   action_table_list=[item for item in table_name_list if "action_" in item]
+   output=await postgres_client.fetch_all(query=query_schema,values={})
+   table_name_list_action=list(set([item["table_name"] for item in output if "action_" in item["table_name"]]))
    parent_table_list=[]
-   for item in action_table_list:
+   for item in table_name_list_action:
       output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {item};",values={})
       parent_table_list=parent_table_list+[item["parent_table"] for item in output]
    parent_table_list=list(set(parent_table_list))
-   for table in action_table_list:
+   for table in table_name_list_action:
       for parent_table in parent_table_list:
          query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
          await postgres_client.execute(query=query,values={})
@@ -1470,7 +911,7 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
    for k,v in object.items():
       if k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{k} not allowed"})
    #object serialize
-   if is_serialize and not queue:
+   if is_serialize:
       response=await object_serialize([object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
@@ -1480,6 +921,23 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
    else:output=await queue_push(queue,"postgres_cud",{"mode":"create","table":table,"object":object,"is_serialize":is_serialize})
+   #final
+   return {"status":1,"message":output}
+
+@app.post("/admin/object-create")
+async def admin_object_create(request:Request,table:str,is_serialize:int=1):
+   #object set
+   object=await request.json()
+   if "created_by_id" in postgres_table_column[table]:object["created_by_id"]=request.state.user["id"]
+   #object serialize
+   if is_serialize:
+      response=await object_serialize([object])
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object=response["message"][0]
+   #logic
+   response=await postgres_cud(postgres_client,"create",table,[object])
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   output=response["message"]
    #final
    return {"status":1,"message":output}
 
@@ -1497,7 +955,7 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:st
    response=await ownership_check(table,object["id"],request.state.user["id"])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #object serialize
-   if is_serialize and not queue:
+   if is_serialize:
       response=await object_serialize([object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object=response["message"][0]
@@ -1847,7 +1305,7 @@ async def public_object_create(request:Request,table:Literal["helpdesk","human"]
 
 @app.get("/public/object-read")
 @cache(expire=60)
-async def public_object_read(request:Request,table:Literal["users","post","atom"],order:str="id desc",limit:int=100,page:int=1,is_action_count:int=0):
+async def public_object_read(request:Request,table:Literal["users","post","atom","feed"],order:str="id desc",limit:int=100,page:int=1,is_creator_data:int=0,is_action_count:int=0):
    #create where string
    query_param=dict(request.query_params)
    response=await create_where_string(query_param)
@@ -1858,7 +1316,8 @@ async def public_object_read(request:Request,table:Literal["users","post","atom"
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
    #read object
-   query=f'''
+   if is_creator_data==0:query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   else:query=f'''
    with
    x as (select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit})
    select x.*,u.username as created_by_id_username from x left join users as u on x.created_by_id=u.id order by x.id desc;
@@ -1966,7 +1425,7 @@ async def admin_object_read(request:Request,table:str,order:str="id desc",limit:
 async def admin_object_update(request:Request,table:str,is_serialize:int=1):
    #object set
    object=await request.json()
-   object["updated_by_id"]=request.state.user["id"]
+   if "updated_by_id" in postgres_table_column[table]:object["updated_by_id"]=request.state.user["id"]
    #serialize
    if is_serialize:
       response=await object_serialize([object])
