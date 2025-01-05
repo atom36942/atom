@@ -1067,7 +1067,6 @@ async def my_message_create(request:Request,user_id:int,description:str):
 async def my_message_received(request:Request,background:BackgroundTasks,order:str="id desc",limit:int=100,page:int=1,is_unread:int=None):
    #read message
    query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {(page-1)*limit};"
-   print(query)
    if is_unread==1:query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
    query_param={"user_id":request.state.user["id"]}
    output=await postgres_client.fetch_all(query=query,values=query_param)
