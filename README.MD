@@ -1,19 +1,17 @@
 ### about atom
-1. atom is an open-source backend that has pre-built modules which are most commonly used
-2. atom can reduce develoment time to a large extent
-3. primary vision is to help entreprenurs to laucnh their ideas faster
-4. atom is non-opionanted and can be used to build backend for most of the ideas
-5. core tech stack=python,fastapi,postgres,redis
-6. atom doesn't rely on any orm and uses raw sql entirely
-7. atom supports large scale data ingestion using rabbitmq/lavinmq/kafka
-8. atom has object-level crud by directly interacting with databaese schema for serialization
-9. atom can generate entire business schema with a single json
+1. Atom is an open-source backend framework with pre-built, reusable modules for commonly required functionalities, reducing the need for repetitive development.
+2. Designed to significantly reduce development time, enabling faster project completion and iteration cycles.
+3. Atom’s mission is to empower entrepreneurs to launch and scale their ideas quickly without extensive backend overhead.
+4. Atom is highly flexible and unopinionated, making it suitable for building the backend of a wide variety of applications and domains.
+5. Built on a robust stack of Python, FastAPI, PostgreSQL, and Redis for high performance and scalability.
+6. Atom avoids traditional ORMs, leveraging raw SQL for greater control, optimized queries, and database flexibility.
+7. Supports high-throughput data ingestion pipelines using RabbitMQ, LavinMQ, or Kafka.
+8. Implements object-level CRUD operations by directly interacting with the database schema, ensuring efficient serialization and deserialization.
+9. Enables entire business schema generation from a single JSON configuration, simplifying initial setup and iterations.
+10. ex - linkedin backend can be built in apporx 2-3 weeks.
 
 ### coding paradigm
-Atom follows procedural+functional programming paradigm with focus on solid principles.  
-Procedural programming is a programming paradigm built around the idea that programs are sequences of instructions to be executed.
-They focus heavily on splitting up programs into named sets of instructions called procedures, analogous to functions.
-A procedure can store local data that is not accessible from outside the procedure's scope and can also access and modify global data variables.
+Atom leverages a hybrid programming paradigm, integrating procedural and functional principles while adhering to SOLID design principles for scalable and maintainable codebases. Procedural programming structures code into discrete, reusable units called procedures, akin to functions, which encapsulate local state and provide controlled access to global state. This paradigm emphasizes modularity, enabling clear separation of concerns and fostering efficient memory usage and data encapsulation. By combining these paradigms, Atom ensures robustness and flexibility for building large-scale,high-performance applications.
 
 ### contact
 If you have an idea and want to use atom to build tech super-fast,email your requirement @:-
