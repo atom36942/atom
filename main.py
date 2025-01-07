@@ -1251,14 +1251,10 @@ async def public_project_meta(request:Request):
 
 @app.get("/public/table-column")
 async def public_table_column(request:Request,is_main_column:int=None,table:str=None):
-   #table
-   output=await postgres_client.fetch_all(query=query_schema,values={})
-   table_name_list=list(set([item["table_name"] for item in output]))
+   #logic
    temp={}
-   for item in table_name_list:temp[item]={}
-   #columm
-   output=await postgres_client.fetch_all(query=query_schema,values={})
-   for item in output:temp[item["table_name"]][item["column_name"]]=item["data_type"]
+   for k in postgres_table_column:temp[k]={}
+   for item in postgres_schema:temp[item["table_name"]][item["column_name"]]=item["data_type"]
    #if is_main_column
    temp2=copy.deepcopy(temp)
    if is_main_column==1:
