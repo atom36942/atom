@@ -668,6 +668,11 @@ async def root_postgres_query_runner(request:Request,query:str):
          output="done"
    return {"status":1,"message":output}
 
+@app.put("/root/reset-global")
+async def root_reset_global(request:Request):
+   await set_project_data()
+   return {"status":1,"message":"done"}
+
 @app.get("/root/ai-prompt")
 async def root_ai_prompt(request:Request,ai:str,model:str,prompt:str):
    if ai=="google":
