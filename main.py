@@ -275,6 +275,23 @@ def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Resp
    key=api+"---"+str(user_id)+"---"+query_param
    return key
 
+object_list_log=[]
+async def create_api_log(request,response,response_time_ms,user):
+   global object_list_log
+   object={"created_by_id":user["id"] if user else None,"api":request.url.path,"status_code":response.status_code,"response_time_ms":response_time_ms}
+   object_list_log.append(object)
+   if len(object_list_log)>=3:
+      query="insert into log_api (created_by_id,api,status_code,response_time_ms) values (:created_by_id,:api,:status_code,:response_time_ms)"
+      await postgres_client.execute_many(query=query,values=object_list_log)
+      object_list_log=[]
+   return None
+
+import jwt,json
+async def create_token(user):
+   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"]},default=str)
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":data},os.getenv("secret_key_jwt"))
+   return {"status":1,"message":token}
+
 import jwt,json
 async def auth_check(request):
    user=None
@@ -291,23 +308,6 @@ async def auth_check(request):
       if not user["api_access"]:return {"status":0,"message":"user not admin"}
       if api not in user["api_access"].split(","):return {"status":0,"message":"api access denied"}
    return {"status":1,"message":user}
-
-object_list_log=[]
-async def create_api_log(request,response,response_time_ms,user):
-   global object_list_log
-   object={"created_by_id":user["id"] if user else None,"api":request.url.path,"status_code":response.status_code,"response_time_ms":response_time_ms}
-   object_list_log.append(object)
-   if len(object_list_log)>=3:
-      query="insert into log_api (created_by_id,api,status_code,response_time_ms) values (:created_by_id,:api,:status_code,:response_time_ms)"
-      await postgres_client.execute_many(query=query,values=object_list_log)
-      object_list_log=[]
-   return None
-
-import jwt,json
-async def create_token(user):
-   data=json.dumps({"id":user["id"],"is_active":user["is_active"],"type":user["type"],"is_protected":user["is_protected"],"api_access":user["api_access"]},default=str)
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":data},os.getenv("secret_key_jwt"))
-   return {"status":1,"message":token}
 
 async def ownership_check(table,id,user_id):
    if table=="users":
@@ -626,8 +626,8 @@ async def root_postgres_schema_init(request:Request,mode:str):
    #final
    return {"status":1,"message":"done"}
 
-@app.put("/root/grant-all-api-access")
-async def root_grant_all_api_access(request:Request,user_id:int):
+@app.put("/root/grant-api-access-all")
+async def root_grant_api_access_all(request:Request,user_id:int):
    #logic
    query="update users set api_access=:api_access where id=:id returning *"
    query_param={"api_access":",".join(api_list_admin),"id":user_id}
