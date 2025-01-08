@@ -465,9 +465,11 @@ from bson.objectid import ObjectId
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
+index_html=None
 @app.get("/")
 async def root(request:Request):
-   index_html=[item["description"] for item in project_data if item["type"]=="index_html"]
+   global index_html
+   if not index_html:index_html=[item["description"] for item in project_data if item["type"]=="index_html"]
    if index_html:response=responses.HTMLResponse(content=index_html[0],status_code=200)
    else:response={"status":1,"message":"welcome to atom"}
    return response
