@@ -30,11 +30,12 @@ async def set_postgres():
    return None
 
 project_data=None
+index_html=None
 async def set_project_data():
    global project_data
-   if "project" in postgres_table_column:
-      query="select * from project limit 1000"
-      project_data=await postgres_client.fetch_all(query=query,values={})
+   global index_html
+   if "project" in postgres_table_column:project_data=await postgres_client.fetch_all(query="select * from project limit 1000",values={})
+   index_html=[item["description"] for item in project_data if item["type"]=="index_html"]
    return None
 
 redis_client=None
@@ -465,11 +466,8 @@ from bson.objectid import ObjectId
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
-index_html=None
 @app.get("/")
 async def root(request:Request):
-   global index_html
-   if not index_html:index_html=[item["description"] for item in project_data if item["type"]=="index_html"]
    if index_html:response=responses.HTMLResponse(content=index_html[0],status_code=200)
    else:response={"status":1,"message":"welcome to atom"}
    return response
