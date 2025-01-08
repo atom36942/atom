@@ -670,6 +670,7 @@ async def root_postgres_query_runner(request:Request,query:str):
 
 @app.put("/root/reset-global")
 async def root_reset_global(request:Request):
+   await set_postgres()
    await set_project_data()
    return {"status":1,"message":"done"}
 
