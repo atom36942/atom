@@ -4,25 +4,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #globals
+postgres_client=None
+from databases import Database
+async def set_postgres():
+   global postgres_client
+   if not postgres_client:
+      postgres_client=Database(os.getenv("postgres_database_url"),min_size=1,max_size=100)
+      await postgres_client.connect()
+   return None
+
 query_schema='''
 with
 t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
 c as (select * from information_schema.columns where table_schema='public')
 select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
 '''
-postgres_client=None
 postgres_schema=None
 postgres_column_datatype=None
 postgres_table_column={}
-from databases import Database
-async def set_postgres():
-   global postgres_client
+async def set_postgres_schema():
    global postgres_schema
    global postgres_column_datatype
-   if not postgres_client:
-      postgres_client=Database(os.getenv("postgres_database_url"),min_size=1,max_size=100)
-      await postgres_client.connect()
-   if not postgres_schema:postgres_schema=await postgres_client.fetch_all(query=query_schema,values={})
+   postgres_schema=await postgres_client.fetch_all(query=query_schema,values={})
    postgres_column_datatype={item["column_name"]:item["data_type"] for item in postgres_schema}
    for item in postgres_schema:
       if item["table_name"] not in postgres_table_column:postgres_table_column[item["table_name"]]=[]
@@ -34,8 +37,9 @@ index_html=None
 async def set_project_data():
    global project_data
    global index_html
-   if "project" in postgres_table_column:project_data=await postgres_client.fetch_all(query="select * from project limit 1000",values={})
-   index_html=[item["description"] for item in project_data if item["type"]=="index_html"]
+   if "project" in postgres_table_column:
+      project_data=await postgres_client.fetch_all(query="select * from project limit 1000",values={})
+      index_html=[item["description"] for item in project_data if item["type"]=="index_html"]
    return None
 
 redis_client=None
@@ -389,6 +393,7 @@ from fastapi_cache.backends.redis import RedisBackend
 @asynccontextmanager
 async def lifespan(app:FastAPI):
    await set_postgres()
+   await set_postgres_schema()
    await set_redis()
    if os.getenv("rabbitmq_server_url"):await set_rabbitmq()
    if os.getenv("lavinmq_server_url"):await set_lavinmq()
@@ -670,7 +675,7 @@ async def root_postgres_query_runner(request:Request,query:str):
 
 @app.put("/root/reset-global")
 async def root_reset_global(request:Request):
-   await set_postgres()
+   await set_postgres_schema()
    await set_project_data()
    return {"status":1,"message":"done"}
 
@@ -1685,6 +1690,7 @@ nest_asyncio.apply()
 #python main.py redis
 async def main_redis():
    await set_postgres()
+   await set_postgres_schema()
    await set_redis()
    try:
       async for message in redis_pubsub.listen():
@@ -1703,6 +1709,7 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="redis":
 #python main.py rabbitmq
 async def main_rabbitmq():
    await set_postgres()
+   await set_postgres_schema()
    await set_rabbitmq()
    try:
       rabbitmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
@@ -1718,6 +1725,7 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="rabbitmq":
 #python main.py lavinmq
 async def main_lavinmq():
    await set_postgres()
+   await set_postgres_schema()
    await set_lavinmq()
    try:
       lavinmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
@@ -1733,6 +1741,7 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="lavinmq":
 #python main.py kafka
 async def main_kafka():
    await set_postgres()
+   await set_postgres_schema()
    await set_kafka()
    try:
       async for message in kafka_consumer_client:
