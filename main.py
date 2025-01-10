@@ -4,21 +4,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #globals
-postgres_client=None
-from databases import Database
-async def set_postgres():
-   global postgres_client
-   if not postgres_client:
-      postgres_client=Database(os.getenv("postgres_database_url"),min_size=1,max_size=100)
-      await postgres_client.connect()
-   return None
-
 query_schema='''
 with
 t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),
 c as (select * from information_schema.columns where table_schema='public')
 select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name
 '''
+
+postgres_client=None
+from databases import Database
+async def set_postgres():
+   global postgres_client
+   postgres_client=Database(os.getenv("postgres_database_url"),min_size=1,max_size=100)
+   await postgres_client.connect()
+   return None
+
 postgres_schema=None
 postgres_column_datatype=None
 postgres_table_column={}
@@ -96,6 +96,12 @@ if os.getenv("aws_ses_region_name"):ses_client=boto3.client("ses",region_name=os
 mongodb_client=None
 import motor.motor_asyncio
 if os.getenv("mongodb_cluster_url"):mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(os.getenv("mongodb_cluster_url"))
+
+api_list=None
+api_list_admin=None
+
+import google.generativeai as genai
+if os.getenv("secret_key_gemini"):genai.configure(api_key=os.getenv("secret_key_gemini"))
 
 kafka_producer_client=None
 kafka_consumer_client=None
@@ -204,12 +210,6 @@ postgres_schema_defualt={
 "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema='public'));",
 }
 }
-
-import google.generativeai as genai
-if os.getenv("secret_key_gemini"):genai.configure(api_key=os.getenv("secret_key_gemini"))
-
-api_list=None
-api_list_admin=None
 
 #function
 async def postgres_cud(postgres_client,mode,table,object_list):
@@ -1673,7 +1673,6 @@ import asyncio
 import json
 mode=sys.argv
 
-#python main.py
 import uvicorn
 async def main_fastapi():
    config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
@@ -1683,11 +1682,9 @@ if __name__=="__main__" and len(mode)==1:
    try:asyncio.run(main_fastapi())
    except KeyboardInterrupt:print("exit")
 
-#nest
 import nest_asyncio
 nest_asyncio.apply()
 
-#python main.py redis
 async def main_redis():
    await set_postgres()
    await set_postgres_schema()
@@ -1706,7 +1703,6 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="redis":
     try:asyncio.run(main_redis())
     except KeyboardInterrupt:print("exit")
     
-#python main.py rabbitmq
 async def main_rabbitmq():
    await set_postgres()
    await set_postgres_schema()
@@ -1722,7 +1718,6 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="rabbitmq":
     try:asyncio.run(main_rabbitmq())
     except KeyboardInterrupt:print("exit")
 
-#python main.py lavinmq
 async def main_lavinmq():
    await set_postgres()
    await set_postgres_schema()
@@ -1738,7 +1733,6 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="lavinmq":
     try:asyncio.run(main_lavinmq())
     except KeyboardInterrupt:print("exit")
    
-#python main.py kafka
 async def main_kafka():
    await set_postgres()
    await set_postgres_schema()
