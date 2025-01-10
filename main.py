@@ -208,6 +208,8 @@ postgres_schema_defualt={
 "query":{
 "view_schema":"create or replace view view_schema as (with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public') select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name);",
 "mat_table_row_count":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema='public'));",
+"procedure_delete_user_delete":"drop procedure if exists procedure_delete_user",
+"procedure_delete_user_create":"create or replace procedure procedure_delete_user(a int) language plpgsql as $$ begin delete from users where id=a;delete from post where created_by_id=a;delete from message where created_by_id=a;delete from message where user_id=a;delete from action_like where created_by_id=a;delete from action_bookmark where created_by_id=a;delete from action_report where created_by_id=a;delete from action_block where created_by_id=a;delete from action_follow where created_by_id=a;delete from action_rating where created_by_id=a;delete from action_comment where created_by_id=a;commit;end;$$;"
 }
 }
 
@@ -445,8 +447,9 @@ async def middleware(request:Request,api_function):
       else:
          response=await api_function(request)
          end=time.time()
-         task=BackgroundTask(create_api_log,request,response,(end-start)*1000,user)
-         response.background=task
+         if "log_api" in postgres_table_column:
+            task=BackgroundTask(create_api_log,request,response,(end-start)*1000,user)
+            response.background=task
    except Exception as e:
       print(traceback.format_exc())
       return responses.JSONResponse(status_code=400,content={"status":0,"message":str(e.args)})
@@ -470,6 +473,8 @@ from typing import Literal
 from bson.objectid import ObjectId
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
+
+print(index_html)
 
 @app.get("/")
 async def root(request:Request):
@@ -569,53 +574,44 @@ async def root_postgres_schema_init(request:Request,mode:str):
             query=f"create or replace rule {rule_name} as on delete to {item['table_name']} where old.is_protected=1 do instead nothing;"
             await postgres_client.execute(query=query,values={})
    #root user (auto)
-   await postgres_client.execute(query="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",values={})
-   await postgres_client.execute(query=  "create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
+   postgres_table_column={}
+   for item in postgres_schema:
+      if item["table_name"] not in postgres_table_column:postgres_table_column[item["table_name"]]=[]
+      else:postgres_table_column[item["table_name"]]+=[item["column_name"]]
+   if "users" in postgres_table_column:
+      if "username" in postgres_table_column["users"] and "password" in postgres_table_column["users"]:
+         await postgres_client.execute(query="insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",values={})
+         await postgres_client.execute(query=  "create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",values={})
    #log password change (auto)
-   function_log_password_change='''
-   CREATE OR REPLACE FUNCTION function_log_password_change() 
-   RETURNS TRIGGER LANGUAGE PLPGSQL 
-   AS $$ 
-   BEGIN 
-   IF OLD.password <> NEW.password 
-   THEN 
-   INSERT INTO log_password(created_by_id,user_id,password) VALUES(NEW.updated_by_id,OLD.id,OLD.password); 
-   END IF; 
-   RETURN NEW; 
-   END; 
-   $$;
-   '''
-   await postgres_client.execute(query=function_log_password_change,values={})
-   trigger_log_password_change='''
-   CREATE OR REPLACE TRIGGER trigger_log_password_change 
-   AFTER UPDATE ON users 
-   FOR EACH ROW 
-   WHEN (OLD.password IS DISTINCT FROM NEW.password) 
-   EXECUTE FUNCTION function_log_password_change();
-   '''
-   await postgres_client.execute(query=trigger_log_password_change,values={})
-   #procedure delete user (auto)
-   query='''
-   create or replace procedure procedure_delete_user(a int)
-   language plpgsql
-   as $$
-   begin 
-   delete from users where id=a;
-   delete from post where created_by_id=a;
-   delete from message where created_by_id=a;
-   delete from message where user_id=a;
-   delete from action_like where created_by_id=a;
-   delete from action_bookmark where created_by_id=a;
-   delete from action_report where created_by_id=a;
-   delete from action_block where created_by_id=a;
-   delete from action_follow where created_by_id=a;
-   delete from action_rating where created_by_id=a;
-   delete from action_comment where created_by_id=a;
-   commit;
-   end;
-   $$;
-   '''
-   await postgres_client.execute(query=query,values={})
+   output=await postgres_client.fetch_all(query=query_schema,values={})
+   postgres_table_column={}
+   for item in postgres_schema:
+      if item["table_name"] not in postgres_table_column:postgres_table_column[item["table_name"]]=[]
+      else:postgres_table_column[item["table_name"]]+=[item["column_name"]]
+   if "log_password" in postgres_table_column:
+      function_log_password_change='''
+      CREATE OR REPLACE FUNCTION function_log_password_change() 
+      RETURNS TRIGGER LANGUAGE PLPGSQL 
+      AS $$ 
+      BEGIN 
+      IF OLD.password <> NEW.password 
+      THEN 
+      INSERT INTO log_password(created_by_id,user_id,password) VALUES(NEW.updated_by_id,OLD.id,OLD.password); 
+      END IF; 
+      RETURN NEW;
+      END; 
+      $$;
+      '''
+      await postgres_client.execute(query=function_log_password_change,values={})
+      trigger_log_password_change='''
+      CREATE OR REPLACE TRIGGER trigger_log_password_change 
+      AFTER UPDATE ON users 
+      FOR EACH ROW 
+      WHEN (OLD.password IS DISTINCT FROM NEW.password) 
+      EXECUTE FUNCTION function_log_password_change();
+      '''
+      await postgres_client.execute(query=trigger_log_password_change,values={})
    #refresh mat all (auto)
    query='''
    DO
