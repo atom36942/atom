@@ -1,26 +1,35 @@
 ### about atom
-1. Atom is an open-source backend framework with pre-built, reusable modules for commonly required functionalities, reducing the need for repetitive development.
-2. Designed to significantly reduce development time, enabling faster project completion and iteration cycles.
-3. Atom’s mission is to empower entrepreneurs to launch and scale their ideas quickly without extensive backend overhead.
-4. Atom is highly flexible and unopinionated, making it suitable for building the backend of a wide variety of applications and domains.
-5. Built on a robust stack of Python, FastAPI, PostgreSQL, and Redis for high performance and scalability.
-6. Atom avoids traditional ORMs, leveraging raw SQL for greater control, optimized queries, and database flexibility.
-7. Supports high-throughput data ingestion pipelines using RabbitMQ, LavinMQ, or Kafka.
-8. Implements object-level CRUD operations by directly interacting with the database schema, ensuring efficient serialization and deserialization.
-9. Enables entire business schema generation from a single JSON configuration, simplifying initial setup and iterations.
-10. ex - linkedin backend can be built in apporx 2-3 weeks.
+```
+Open-source backend framework with reusable modules to minimize repetitive development.
+Speeds up development, enabling faster project delivery and iteration.
+Helps entrepreneurs launch and scale ideas quickly with minimal backend effort.
+Flexible and unopinionated, suitable for diverse applications.
+Built on Python, FastAPI, PostgreSQL, and Redis for performance and scalability.
+Uses raw SQL instead of ORMs for optimized queries and greater control.
+Supports high-throughput data pipelines with RabbitMQ, LavinMQ, or Kafka.
+Offers object-level CRUD operations by interacting directly with the database schema.
+Simplifies setup by generating business schemas from a single JSON configuration.
+Example: Build a LinkedIn-like backend in just 2-3 weeks.
+```
 
 ### coding paradigm
 Atom leverages a hybrid programming paradigm, integrating procedural and functional principles while adhering to SOLID design principles for scalable and maintainable codebases. Procedural programming structures code into discrete, reusable units called procedures, akin to functions, which encapsulate local state and provide controlled access to global state. This paradigm emphasizes modularity, enabling clear separation of concerns and fostering efficient memory usage and data encapsulation. By combining these paradigms, Atom ensures robustness and flexibility for building large-scale,high-performance applications.
 
 ### contact
-If you have an idea and want to use atom to build tech super-fast,email your requirement @:-
+````
+Have a startup idea? Build your backend faster with Atom! Share your requirements at:
 atom36942@gmail.com
+```
 
-### api docs
-1. live = https://www.atom42.org/docs
+### links
+```
+1. api docs = https://www.atom42.org/docs
 2. localhost = http://localhost:8000/docs
-3. localhost =  http://127.0.0.1:8000/redoc
+```
+
+
+
+
 
 ### how to run
 1. download atom repo
@@ -28,8 +37,7 @@ atom36942@gmail.com
 3. create venv
 4. install requirements.txt
 5. run python main.py
-
-### how to run using docker
+--using docker
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
 

@@ -473,8 +473,7 @@ from typing import Literal
 from bson.objectid import ObjectId
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
-
-print(index_html)
+from pydantic import BaseModel
 
 @app.get("/")
 async def root(request:Request):
@@ -1387,7 +1386,6 @@ async def private_object_read(request:Request,table:Literal["users","post","atom
    #final
    return {"status":1,"message":output}
 
-from pydantic import BaseModel
 class schema_update_api_access(BaseModel):
    user_id:int
    api_access:str|None=None
