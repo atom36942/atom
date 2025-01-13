@@ -53,6 +53,7 @@ atom36942@gmail.com
 2. localhost = http://localhost:8000/docs
 ```
 ### how to run
+```
 1. download atom repo
 2. create .env file inside downloaded folder(check env file section)
 3. create venv
@@ -61,7 +62,7 @@ atom36942@gmail.com
 --using docker
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
-
+```
 ### env
 ```
 postgres_database_url=null
