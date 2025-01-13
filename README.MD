@@ -13,34 +13,27 @@
 ```
 ### coding paradigm
 ```
-1. Atom combines procedural and functional programming
-2. Follows SOLID principles for scalability and maintainability.
-3. Procedural code is structured into reusable procedures.
+1. The entire code is contained in a single file, named main.py
+2. Atom combines procedural and functional programming
+3. Follows SOLID principles for scalability and maintainability.
 4. Procedures encapsulate local state and control global state access.
-5. Emphasizes modularity and separation of concerns.
-6. Promotes efficient memory usage and data encapsulation.
-7. Ensures robustness and flexibility for large-scale applications.
-8. Supports high-performance application development.
-9. Enhances code reusability and maintainability.
-10. The entire code is contained in a single file, named main.py
+5. Procedures encapsulate local state and control global state access.
+6. Emphasizes modularity and separation of concerns.
+7. Promotes efficient memory usage and data encapsulation.
+8. Ensures robustness and flexibility for large-scale applications.
+9. Supports high-performance application development.
+10. Enhances code reusability and maintainability.
 ```
-
 ### contact
-````
+```
 Have a startup idea? Build your backend faster with Atom! Share your requirements at:
 atom36942@gmail.com
 ```
-
 ### links
 ```
 1. api docs = https://www.atom42.org/docs
 2. localhost = http://localhost:8000/docs
 ```
-
-
-
-
-
 ### how to run
 1. download atom repo
 2. create .env file inside downloaded folder(check env file section)
@@ -58,8 +51,25 @@ redis_server_url=null
 secret_key_jwt=null
 secret_key_root=null
 ```
-
-### helpers
+### modules
+```
+1. auth
+2. logged in user apis
+3. object level crud
+4. admin apis with rbac
+5. s3/ses/sns/etc integaration
+6. one click depolyment using render
+7. root user apis
+8. bulk csv uploader
+9. api caching
+10.large scale data ingestion using kafka/rabbitmq/lavinmq/redis pub-sub
+11. rate limiter
+12. one click database schema setup api
+13. background jobs
+14. read/write database replicas
+15. mongodb integraton as secondary database
+```
+### helper commands
 ```
 #git init
 git init
