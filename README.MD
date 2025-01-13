@@ -44,9 +44,7 @@
 ```
 ### contact
 ```
-Have a startup idea?
-Build your backend faster with Atom!
-Share your requirements at:-
+Got a startup idea? Build your backend faster with Atom! Share your requirements at:
 atom36942@gmail.com
 ```
 ### links
