@@ -1,19 +1,29 @@
 ### about atom
 ```
-Open-source backend framework with reusable modules to minimize repetitive development.
-Speeds up development, enabling faster project delivery and iteration.
-Helps entrepreneurs launch and scale ideas quickly with minimal backend effort.
-Flexible and unopinionated, suitable for diverse applications.
-Built on Python, FastAPI, PostgreSQL, and Redis for performance and scalability.
-Uses raw SQL instead of ORMs for optimized queries and greater control.
-Supports high-throughput data pipelines with RabbitMQ, LavinMQ, or Kafka.
-Offers object-level CRUD operations by interacting directly with the database schema.
-Simplifies setup by generating business schemas from a single JSON configuration.
-Example: Build a LinkedIn-like backend in just 2-3 weeks.
+1. Open-source backend framework with reusable modules to reduce repetitive work.
+2. Accelerates development for faster delivery and iteration.
+3. Enables entrepreneurs to launch and scale ideas quickly with minimal backend work.
+4. Flexible and suitable for diverse applications.
+5. Built with Python, FastAPI, PostgreSQL, and Redis for scalability.
+6. Uses raw SQL for optimized queries and better control.
+7. Supports high-throughput pipelines with RabbitMQ, LavinMQ, or Kafka.
+8. Offers object-level CRUD operations directly on the database schema.
+9. Simplifies setup by generating business schemas from a single JSON config.
+10. Example: Build a LinkedIn-like backend in 2-3 weeks.
 ```
-
 ### coding paradigm
-Atom leverages a hybrid programming paradigm, integrating procedural and functional principles while adhering to SOLID design principles for scalable and maintainable codebases. Procedural programming structures code into discrete, reusable units called procedures, akin to functions, which encapsulate local state and provide controlled access to global state. This paradigm emphasizes modularity, enabling clear separation of concerns and fostering efficient memory usage and data encapsulation. By combining these paradigms, Atom ensures robustness and flexibility for building large-scale,high-performance applications.
+```
+1. Atom combines procedural and functional programming
+2. Follows SOLID principles for scalability and maintainability.
+3. Procedural code is structured into reusable procedures.
+4. Procedures encapsulate local state and control global state access.
+5. Emphasizes modularity and separation of concerns.
+6. Promotes efficient memory usage and data encapsulation.
+7. Ensures robustness and flexibility for large-scale applications.
+8. Supports high-performance application development.
+9. Enhances code reusability and maintainability.
+10. The entire code is contained in a single file, named main.py
+```
 
 ### contact
 ````
