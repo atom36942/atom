@@ -37,9 +37,12 @@ index_html=None
 async def set_project_data():
    global project_data
    global index_html
-   if "project" in postgres_table_column:
-      project_data=await postgres_client.fetch_all(query="select * from project limit 1000",values={})
-      index_html=[item["description"] for item in project_data if item["type"]=="index_html"]
+   if "project" in postgres_table_column:project_data=await postgres_client.fetch_all(query="select * from project limit 1000",values={})
+   if project_data:
+      for item in project_data:
+         if item["type"]=="index_html":
+            index_html=item["description"]
+            break
    return None
 
 redis_client=None
@@ -477,7 +480,7 @@ from pydantic import BaseModel
 
 @app.get("/")
 async def root(request:Request):
-   if index_html:response=responses.HTMLResponse(content=index_html[0],status_code=200)
+   if index_html:response=responses.HTMLResponse(content=index_html,status_code=200)
    else:response={"status":1,"message":"welcome to atom"}
    return response
 
