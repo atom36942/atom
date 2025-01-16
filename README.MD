@@ -1,3 +1,16 @@
+### coding paradigm
+```
+1. The entire code is contained in a single file, named main.py
+2. Atom combines procedural and functional programming
+3. Follows SOLID principles for scalability and maintainability.
+4. Procedures encapsulate local state and control global state access.
+5. Procedures encapsulate local state and control global state access.
+6. Emphasizes modularity and separation of concerns.
+7. Promotes efficient memory usage and data encapsulation.
+8. Ensures robustness and flexibility for large-scale applications.
+9. Supports high-performance application development.
+10. Enhances code reusability and maintainability.
+```
 ### about atom
 ```
 1. Open-source backend framework with reusable modules to reduce repetitive work.
@@ -28,19 +41,6 @@
 13. background jobs
 14. read/write database replicas
 15. mongodb integraton as secondary database
-```
-### coding paradigm
-```
-1. The entire code is contained in a single file, named main.py
-2. Atom combines procedural and functional programming
-3. Follows SOLID principles for scalability and maintainability.
-4. Procedures encapsulate local state and control global state access.
-5. Procedures encapsulate local state and control global state access.
-6. Emphasizes modularity and separation of concerns.
-7. Promotes efficient memory usage and data encapsulation.
-8. Ensures robustness and flexibility for large-scale applications.
-9. Supports high-performance application development.
-10. Enhances code reusability and maintainability.
 ```
 ### contact
 ```
