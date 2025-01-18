@@ -1,14 +1,15 @@
 ### coding paradigm
 ```
-1. The entire code is contained in a single file, named main.py  
-2. Atom combines procedural and functional programming  
-3. Follows SOLID principles for scalability and maintainability.  
-4. Procedures encapsulate local state and control global state access.  
-5. Atom uses pure functions for better predictability.   
-6. Emphasizes modularity and separation of concerns.  
-7. Promotes efficient memory usage and data encapsulation.  
-8. Ensures robustness and flexibility for large-scale applications.  
-9. Supports high-performance application development.  
+Atom entire codebase is in a single file, main.py.
+1. Atom combines procedural and functional programming
+2. Procedures ensures better global/local state access. 
+3. Functions ensures deterministic behavior of the code.
+4. Atom uses realtional dataabse at its core.
+5. Follows SOLID principles for scalability and maintainability.
+6. Emphasizes modularity and separation of concerns.
+7. Promotes efficient memory usage and data encapsulation.
+8. Ensures robustness and flexibility for large-scale applications.
+9. Supports high-performance application development.
 10. Enhances code reusability and maintainability.
 ```
 ### about atom
@@ -93,7 +94,7 @@ redis-cli -u redis://localhost
 brew install postgresql@17
 brew services start postgresql@17
 psql postgresql://atom:123@localhost/postgres
-drop schema public cascade;---create schema public;
+drop schema if exists public cascade;---create schema if not exists public;
 
 #postgres export
 \copy post to 'path'  delimiter ',' csv header;
@@ -104,5 +105,3 @@ pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 \copy atom(title,description,link_url,tag) from '/Users/atom/Downloads/post.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 ```
-
-
