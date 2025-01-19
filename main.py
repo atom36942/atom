@@ -4,17 +4,33 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #function
-secret_key_jwt=os.getenv("secret_key_jwt")
-from fastapi import Request,Response
-def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Response=None,**kwargs):
-   api=request.url.path
-   query_param=str(dict(sorted(request.query_params.items())))
-   user_id=0
-   gate=api.split("/")[1]
-   token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
-   if gate=="my":user_id=json.loads(jwt.decode(token,secret_key_jwt,algorithms="HS256")["data"])["id"]
-   key=api+"---"+str(user_id)+"---"+query_param
-   return key
+async def queue_postgres_cud(data,postgres_cud,postgres_client,object_serialize,postgres_column_datatype):
+   try:
+      mode,table,object,is_serialize=data["mode"],data["table"],data["object"],data["is_serialize"]
+      if is_serialize:
+         response=await object_serialize(postgres_column_datatype,[object])
+         if response["status"]==0:print(response)
+         object=response["message"][0]
+      response=await postgres_cud(postgres_client,mode,table,[object])
+      if response["status"]==0:print(response)
+      print(mode,table,response)
+   except Exception:pass
+   return None
+
+import json
+async def queue_push(queue,channel,data,redis_client,rabbitmq_channel,lavinmq_channel,kafka_producer_client):
+   if queue=="redis":output=await redis_client.publish(channel,json.dumps(data))
+   if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key=channel,body=json.dumps(data))
+   if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key=channel,body=json.dumps(data))
+   if queue=="kafka":output=await kafka_producer_client.send_and_wait(channel,json.dumps(data,indent=2).encode('utf-8'),partition=0)
+   return {"status":1,"message":output}
+
+async def login_user_check(request,user):
+   query_param=dict(request.query_params)
+   if query_param.get("is_exist",None)==1 and not user:return {"status":0,"message":"no user"}
+   if query_param.get("type",None)!=user["type"]:return {"status":0,"message":"user type mismatch"}
+   if query_param.get("is_admin",None)=="1" and user["api_access"] in [None,""," "]:return {"status":0,"message":"user not admin"}
+   return {"status":1,"message":"done"}
 
 async def create_where_string(postgres_column_datatype,object):
    object={k:v for k,v in object.items() if k in postgres_column_datatype}
@@ -242,8 +258,8 @@ project_data={}
 async def set_project_data():
    global project_data
    if "project" in postgres_schema:
-      output=await postgres_client.fetch_all(query="select * from project limit 1000",values={})
-      for item in output:project_data[item["type"]]=item["description"]
+      output=await postgres_client.fetch_all(query="select * from project limit 10000",values={})
+      for object in output:project_data[object["type"]]=object
    return None
 
 admin_data={}
@@ -426,50 +442,22 @@ postgres_config_default={
 }
 }
 
-#helper
-
-async def login_user_check(request,user):
-   query_param=dict(request.query_params)
-   if "is_exist" in query_param and query_param["is_exist"]=="1" and not user:return {"status":0,"message":"no user"}
-   if "type" in query_param and query_param["type"]!=user["type"]:return {"status":0,"message":"user type mismatch"}
-   if "is_admin" in query_param and query_param["is_admin"]=="1" and user["api_access"] in [None,""," "]:return {"status":0,"message":"user not admin"}
-   return {"status":1,"message":"done"}
-
-
-
-async def queue_push(queue,queue_name,data):
-   if queue=="redis":output=await redis_client.publish(queue_name,json.dumps(data))
-   if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key=queue_name,body=json.dumps(data))
-   if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key=queue_name,body=json.dumps(data))
-   if queue=="kafka":output=await kafka_producer_client.send_and_wait(queue_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
-   return {"status":1,"message":output}
-
-async def queue_pull_postgres_cud(data):
-   try:
-      mode,table,object,is_serialize=data["mode"],data["table"],data["object"],data["is_serialize"]
-      if is_serialize:
-         response=await object_serialize(postgres_column_datatype,[object])
-         if response["status"]==0:print(response)
-         object=response["message"][0]
-      response=await postgres_cud(postgres_client,mode,table,[object])
-      if response["status"]==0:print(response)
-      print(mode,table,response)
-   except Exception:pass
-   return None
-
-import asyncio
-def aqmp_callback(ch,method,properties,body):
-   data=json.loads(body)
-   loop=asyncio.get_event_loop()
-   loop.run_until_complete(queue_pull_postgres_cud(data))
-   return None
-
-
-
-#app
+#fastapi
 import sentry_sdk
 sentry_dsn=os.getenv("sentry_dsn")
 if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0)
+
+secret_key_jwt=os.getenv("secret_key_jwt")
+from fastapi import Request,Response
+def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Response=None,**kwargs):
+   api=request.url.path
+   query_param=str(dict(sorted(request.query_params.items())))
+   user_id=0
+   gate=api.split("/")[1]
+   token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
+   if gate=="my":user_id=json.loads(jwt.decode(token,secret_key_jwt,algorithms="HS256")["data"])["id"]
+   key=api+"---"+str(user_id)+"---"+query_param
+   return key
 
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
@@ -478,16 +466,16 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-   await set_postgres_client()
-   await set_postgres_schema()
-   await set_project_data()
-   await set_admin_data()
-   await set_redis_client()
+   if os.getenv("postgres_database_url"):await set_postgres_client()
+   if postgres_client:await set_postgres_schema()
+   if postgres_client:await set_project_data()
+   if postgres_client:await set_admin_data()
+   if os.getenv("redis_server_url"):await set_redis_client()
+   if redis_client:await FastAPILimiter.init(redis_client)
+   if redis_client:FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
    if os.getenv("rabbitmq_server_url"):await set_rabbitmq_client()
    if os.getenv("lavinmq_server_url"):await set_lavinmq_client()
    if os.getenv("kafka_server_url"):await set_kafka_client()
-   await FastAPILimiter.init(redis_client)
-   FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
    yield
    if postgres_client:await postgres_client.disconnect()
    if redis_client:await redis_client.aclose()
@@ -515,14 +503,14 @@ async def middleware(request:Request,api_function):
       user=response["message"]
       request.state.user=user
       query_param=dict(request.query_params)
-      if request.method!="GET" and "is_background" in query_param and int(query_param["is_background"])==1:
+      if request.method!="GET" and query_param.get("is_background",None)=="1":
          body=await request.body()
          async def receive():return {"type":"http.request","body":body}
          async def api_function_new():
             reques_new=Request(scope=request.scope,receive=receive)
             await api_function(reques_new)
          task=BackgroundTask(api_function_new)
-         response=responses.JSONResponse(status_code=200,content={"status":1,"message":"done"})
+         response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
          response.background=task
       else:
          response=await api_function(request)
@@ -538,11 +526,11 @@ async def middleware(request:Request,api_function):
 
 import os,glob
 current_directory_path=os.path.dirname(os.path.realpath(__file__))
-file_path_list=glob.glob(f"{current_directory_path}/*")
-file_name_list=[item.rsplit("/",1)[-1] for item in file_path_list]
-file_name_list_without_extension=[item.split(".")[0] for item in file_name_list]
-for item in file_name_list_without_extension:
-   if "api" in item:
+current_directory_file_path_list=glob.glob(f"{current_directory_path}/*")
+current_directory_file_name_list=[item.rsplit("/",1)[-1] for item in current_directory_file_path_list]
+current_directory_file_name_list_without_extension=[item.split(".")[0] for item in current_directory_file_name_list]
+for item in current_directory_file_name_list_without_extension:
+   if "api_" in item:
       router=__import__(item).router
       app.include_router(router)
       
@@ -558,7 +546,7 @@ from pydantic import BaseModel
 
 @app.get("/")
 async def root(request:Request):
-   if project_data.get("index_html",None):response=responses.HTMLResponse(content=project_data["index_html"],status_code=200)
+   if project_data.get("index_html",None):response=responses.HTMLResponse(content=project_data["index_html"]["description"],status_code=200)
    else:response={"status":1,"message":"welcome to atom"}
    return response
 
@@ -898,7 +886,8 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
       response=await postgres_cud(postgres_client,"create",table,[object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
-   else:output=await queue_push(queue,"postgres_cud",{"mode":"create","table":table,"object":object,"is_serialize":is_serialize})
+   #logic queue
+   if queue:output=await queue_push(queue,"postgres_cud",{"mode":"create","table":table,"object":object,"is_serialize":is_serialize},redis_client,rabbitmq_channel,lavinmq_channel,kafka_producer_client)
    #final
    return {"status":1,"message":output}
 
@@ -942,7 +931,8 @@ async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:st
       response=await postgres_cud(postgres_client,"update",table,[object])
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
-   else:output=await queue_push(queue,"postgres_cud",{"mode":"update","table":table,"object":object,"is_serialize":is_serialize})
+   #logic queue
+   if queue:output=await queue_push(queue,"postgres_cud",{"mode":"update","table":table,"object":object,"is_serialize":is_serialize},redis_client,rabbitmq_channel,lavinmq_channel,kafka_producer_client)
    #final
    return {"status":1,"message":output}
 
@@ -958,7 +948,8 @@ async def my_object_delete(request:Request,table:str,id:int,queue:str=None):
       query=f"delete from {table} where id=:id and created_by_id=:created_by_id;"
       query_param={"id":id,"created_by_id":request.state.user["id"]}
       output=await postgres_client.execute(query=query,values=query_param)
-   else:output=await queue_push(queue,"postgres_cud",{"mode":"delete","table":table,"object":{"id":id},"is_serialize":0})
+   #logic queue
+   if queue:output=await queue_push(queue,"postgres_cud",{"mode":"delete","table":table,"object":{"id":id},"is_serialize":0},redis_client,rabbitmq_channel,lavinmq_channel,kafka_producer_client)
    #final
    return {"status":1,"message":output}
 
@@ -1634,11 +1625,10 @@ async def root_mongodb_delete(request:Request,database:str,collection:str,_id:st
 
 #main
 import sys
-import asyncio
-import json
 mode=sys.argv
+import asyncio,json
 
-import uvicorn
+import asyncio,uvicorn
 async def main_fastapi():
    config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
    server=uvicorn.Server(config)
@@ -1651,14 +1641,14 @@ import nest_asyncio
 nest_asyncio.apply()
 
 async def main_redis():
+   await set_redis_client()
    await set_postgres_client()
    await set_postgres_schema()
-   await set_redis_client()
    try:
       async for message in redis_pubsub.listen():
          if message["type"]=="message" and message["channel"]==b'postgres_cud':
             data=json.loads(message['data'])
-            await queue_pull_postgres_cud(data)
+            await queue_postgres_cud(data,postgres_cud,postgres_client,object_serialize,postgres_column_datatype)
    except asyncio.CancelledError:print("subscription cancelled")
    finally:
       await postgres_client.disconnect()
@@ -1667,11 +1657,34 @@ async def main_redis():
 if __name__ == "__main__" and len(mode)>1 and mode[1]=="redis":
     try:asyncio.run(main_redis())
     except KeyboardInterrupt:print("exit")
-    
-async def main_rabbitmq():
+
+async def main_kafka():
+   await set_kafka_client()
    await set_postgres_client()
    await set_postgres_schema()
+   try:
+      async for message in kafka_consumer_client:
+         if message.topic=="postgres_cud":
+            data=json.loads(message.value.decode('utf-8'))
+            await queue_postgres_cud(data,postgres_cud,postgres_client,object_serialize,postgres_column_datatype)
+   except asyncio.CancelledError:print("subscription cancelled")
+   finally:
+      await postgres_client.disconnect()
+      await kafka_consumer_client.stop()
+if __name__ == "__main__" and len(mode)>1 and mode[1]=="kafka":
+    try:asyncio.run(main_kafka())
+    except KeyboardInterrupt:print("exit")
+
+def aqmp_callback(ch,method,properties,body):
+   data=json.loads(body)
+   loop=asyncio.get_event_loop()
+   loop.run_until_complete(queue_postgres_cud(data,postgres_cud,postgres_client,object_serialize,postgres_column_datatype))
+   return None
+
+async def main_rabbitmq():
    await set_rabbitmq_client()
+   await set_postgres_client()
+   await set_postgres_schema()
    try:
       rabbitmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
       rabbitmq_channel.start_consuming()
@@ -1684,9 +1697,9 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="rabbitmq":
     except KeyboardInterrupt:print("exit")
 
 async def main_lavinmq():
+   await set_lavinmq_client()
    await set_postgres_client()
    await set_postgres_schema()
-   await set_lavinmq_client()
    try:
       lavinmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
       lavinmq_channel.start_consuming()
@@ -1698,20 +1711,4 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="lavinmq":
     try:asyncio.run(main_lavinmq())
     except KeyboardInterrupt:print("exit")
    
-async def main_kafka():
-   await set_postgres_client()
-   await set_postgres_schema()
-   await set_kafka_client()
-   try:
-      async for message in kafka_consumer_client:
-         if message.topic=="postgres_cud":
-            data=json.loads(message.value.decode('utf-8'))
-            await queue_pull_postgres_cud(data)
-   except asyncio.CancelledError:print("subscription cancelled")
-   finally:
-      await postgres_client.disconnect()
-      await kafka_consumer_client.stop()
-if __name__ == "__main__" and len(mode)>1 and mode[1]=="kafka":
-    try:asyncio.run(main_kafka())
-    except KeyboardInterrupt:print("exit")
 
