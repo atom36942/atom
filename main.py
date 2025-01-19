@@ -578,26 +578,6 @@ async def root(request:Request):
    else:response={"status":1,"message":"welcome to atom"}
    return response
 
-@app.get("/public/backend-info")
-async def public_backend_info(request:Request,mode:str=None):
-   #logic
-   output={
-   "postgres_schema":postgres_schema,
-   "admin_data":admin_data,
-   "api_list":[route.path for route in request.app.routes],
-   "api_count":len([route.path for route in request.app.routes]),
-   "redis":await redis_client.info()
-   }
-   #user variable
-   globals_dict=globals()
-   user_defined_variable={name:value for name,value in globals_dict.items() if not name.startswith("__")}
-   user_defined_variable_size={f"{name} ({type(var).__name__})":sys.getsizeof(var)/1024 for name,var in user_defined_variable.items()}
-   user_defined_variable_size=dict(sorted(user_defined_variable_size.items(), key=lambda item: item[1],reverse=True))
-   output["user_variable"]=user_defined_variable_size
-   #final
-   if mode:output=output[mode]
-   return {"status":1,"message":output}
-
 @app.post("/root/postgres-schema-init")
 async def root_postgres_schema_init(request:Request,mode:str):
    if mode=="default":config=postgres_config_default
@@ -930,23 +910,6 @@ async def my_object_create(request:Request,table:str,is_serialize:int=1,queue:st
    #final
    return {"status":1,"message":output}
 
-@app.post("/admin/object-create")
-async def admin_object_create(request:Request,table:str,is_serialize:int=1):
-   #object set
-   object=await request.json()
-   if postgres_schema[table].get("created_by_id",None):object["created_by_id"]=request.state.user["id"]
-   #object serialize
-   if is_serialize:
-      response=await object_serialize(postgres_column_datatype,[object])
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object=response["message"][0]
-   #logic
-   response=await postgres_cud(postgres_client,"create",table,[object])
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   output=response["message"]
-   #final
-   return {"status":1,"message":output}
-
 @app.put("/my/object-update")
 async def my_object_update(request:Request,table:str,is_serialize:int=1,queue:str=None):
    #object set
@@ -1216,6 +1179,26 @@ async def my_action_on_me_creator_read_mutual(request:Request,action:str,order:s
    output=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":output}
 
+@app.get("/public/backend-info")
+async def public_backend_info(request:Request,mode:str=None):
+   #logic
+   output={
+   "postgres_schema":postgres_schema,
+   "admin_data":admin_data,
+   "api_list":[route.path for route in request.app.routes],
+   "api_count":len([route.path for route in request.app.routes])-4,
+   "redis":await redis_client.info()
+   }
+   #user variable
+   globals_dict=globals()
+   user_defined_variable={name:value for name,value in globals_dict.items() if not name.startswith("__")}
+   user_defined_variable_size={f"{name} ({type(var).__name__})":sys.getsizeof(var)/1024 for name,var in user_defined_variable.items()}
+   user_defined_variable_size=dict(sorted(user_defined_variable_size.items(), key=lambda item: item[1],reverse=True))
+   output["user_variable"]=user_defined_variable_size
+   #final
+   if mode:output=output[mode]
+   return {"status":1,"message":output}
+
 @app.get("/public/verify-otp-email")
 async def public_verify_otp_email(request:Request,email:str,otp:int):
    query="select * from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
@@ -1326,26 +1309,20 @@ async def private_object_read(request:Request,table:Literal["users","post","atom
    #final
    return {"status":1,"message":output}
 
-class schema_update_api_access(BaseModel):
-   user_id:int
-   api_access:str|None=None
-@app.put("/admin/update-api-access")
-async def admin_update_api_access(request:Request,body:schema_update_api_access):
-   #api list
-   api_list=[route.path for route in request.app.routes]
-   api_list_admin=[item for item in api_list if "/admin" in item]
-   #check body api access string
-   if body.api_access:
-      for item in body.api_access.split(","):
-         if item not in api_list_admin:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
-   #prepar eapi_access key
-   if not body.api_access:api_access=None
-   elif len(body.api_access)<=5:api_access=None
-   else:api_access=body.api_access
+@app.post("/admin/object-create")
+async def admin_object_create(request:Request,table:str,is_serialize:int=1):
+   #object set
+   object=await request.json()
+   if postgres_schema[table].get("created_by_id",None):object["created_by_id"]=request.state.user["id"]
+   #object serialize
+   if is_serialize:
+      response=await object_serialize(postgres_column_datatype,[object])
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object=response["message"][0]
    #logic
-   query="update users set api_access=:api_access where id=:id returning *"
-   query_param={"id":body.user_id,"api_access":api_access}
-   output=await postgres_client.execute(query=query,values=query_param)
+   response=await postgres_cud(postgres_client,"create",table,[object])
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   output=response["message"]
    #final
    return {"status":1,"message":output}
 
@@ -1383,6 +1360,29 @@ async def admin_object_update(request:Request,table:str,is_serialize:int=1):
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    #final
    return response
+
+class schema_update_api_access(BaseModel):
+   user_id:int
+   api_access:str|None=None
+@app.put("/admin/update-api-access")
+async def admin_update_api_access(request:Request,body:schema_update_api_access):
+   #api list
+   api_list=[route.path for route in request.app.routes]
+   api_list_admin=[item for item in api_list if "/admin" in item]
+   #check body api access string
+   if body.api_access:
+      for item in body.api_access.split(","):
+         if item not in api_list_admin:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong api access string"})
+   #prepar eapi_access key
+   if not body.api_access:api_access=None
+   elif len(body.api_access)<=5:api_access=None
+   else:api_access=body.api_access
+   #logic
+   query="update users set api_access=:api_access where id=:id returning *"
+   query_param={"id":body.user_id,"api_access":api_access}
+   output=await postgres_client.execute(query=query,values=query_param)
+   #final
+   return {"status":1,"message":output}
 
 @app.put("/admin/delete-ids")
 async def admin_delete_ids(request:Request,table:str,ids:str):
