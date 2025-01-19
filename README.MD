@@ -1,6 +1,15 @@
-### coding paradigm
+### main.py
 ```
 Atom entire codebase is in a single file, main.py.
+main.py have 5 different sections separted by ###{name}
+1. function:pure functions that can be called anywhere
+2. globals:pure functions that can be called anywhere
+3. app:fastapi app instance for webserver
+4. api:all apis
+5. main:__main__.py init lgoic
+```
+### coding paradigm
+```
 1. Atom combines procedural and functional programming
 2. Procedures ensures better global/local state access. 
 3. Functions ensures deterministic behavior of the code.
@@ -64,12 +73,9 @@ atom36942@gmail.com
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
 ```
-### env
+### .env
 ```
-postgres_database_url=null
-redis_server_url=null
-secret_key_jwt=null
-secret_key_root=null
+check gloabl section in main.py for env variables.
 ```
 ### helper commands
 ```
@@ -102,6 +108,9 @@ drop schema if exists public cascade;---create schema if not exists public;
 pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 
 #postgres import
-\copy atom(title,description,link_url,tag) from '/Users/atom/Downloads/post.csv' delimiter ',' csv header;
+\copy atom(type,title,location) from '/Users/atom/Downloads/city.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
+
+#misc
+lsof -ti :8000 | xargs kill -9
 ```
