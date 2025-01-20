@@ -1,12 +1,13 @@
 ### main.py
 ```
 Atom entire codebase is in a single file, main.py.
-main.py have 5 different sections separted by ###{name}
-1. function:pure functions that can be called anywhere
-2. globals:pure functions that can be called anywhere
-3. app:fastapi app instance for webserver
-4. api:root+auth+my+public+private+admin apis
-5. main:__main__.py init lgoic
+main.py have 5 different sections separted by comment - ###{name}
+
+1. function: pure functions that can be called anywhere
+2. globals: pure functions that can be called anywhere
+3. app: fastapi app instance for webserver
+4. api: root+auth+my+public+private+admin apis
+5. main: __main__.py logic
 ```
 ### coding paradigm
 ```
