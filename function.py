@@ -1,8 +1,3 @@
-async def read_postgres_schema(postgres_client):
-   postgres_schema={}
-   [postgres_schema.setdefault(item["table_name"],{}).update({item["column_name"]:{"datatype":item["data_type"], "nullable":item["is_nullable"], "default":item["column_default"]}}) for item in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
-   return postgres_schema
-    
 async def queue_pull(data,postgres_cud,postgres_client,object_serialize,postgres_column_datatype):
    try:
       mode,table,object,is_serialize=data["mode"],data["table"],data["object"],data["is_serialize"]
@@ -79,25 +74,7 @@ async def ownership_check(postgres_client,user_id,table,id):
       if user_id!=output[0]["created_by_id"]:return {"status":0,"message":"object ownership issue"}
    return {"status":1,"message":"done"}
 
-import jwt,json
-async def auth_check(request,secret_key_root,secret_key_jwt,admin_data):
-   user=None
-   token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
-   api=request.url.path
-   gate=api.split("/")[1]
-   if gate not in ["","docs","openapi.json","redoc","root","auth","my","public","private","admin"]:return {"status":0,"message":"gate not allowed"}
-   if gate=="root" and token!=secret_key_root:return {"status":0,"message":"token root mismatch"}
-   if gate in ["my","private","admin"]:user=json.loads(jwt.decode(token,secret_key_jwt,algorithms="HS256")["data"])
-   if gate in ["admin"]:
-      if False:
-         output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":user["id"]})
-         user=output[0] if output else None
-         if not user:return {"status":0,"message":"no user"}
-         user_api_access=user["api_access"]
-      if True:user_api_access=admin_data.get(user["id"],None)
-      if user_api_access in [None,""," "]:return {"status":0,"message":"user not admin"}
-      if api not in user_api_access.split(","):return {"status":0,"message":"api access denied"}
-   return {"status":1,"message":user}
+
 
 import jwt,json,time
 async def create_token(user,secret_key_jwt):
@@ -172,44 +149,22 @@ async def postgres_cud(postgres_client,mode,table,object_list):
          output="done"
    return {"status":1,"message":output}
 
-async def postgres_schema_init(postgres_client,read_postgres_schema,config):
-   #extension
-   for extension in config["extension"]:await postgres_client.execute(f"create extension if not exists {extension}",values={})
-   #table
-   postgres_schema=await read_postgres_schema(postgres_client)
-   for table in config["table"]:
-      if table not in postgres_schema:
-         await postgres_client.execute(f"create table if not exists {table} (id bigint primary key generated always as identity not null);", values={})
-   #column
-   postgres_schema=await read_postgres_schema(postgres_client)
-   for k,v in config["column"].items():
-      for table in v[1]:
-         if not postgres_schema.get(table,{}).get(k,None):
-            await postgres_client.execute(f"alter table {table} add column if not exists {k} {v[0]};", values={})
-   #not null
-   postgres_schema=await read_postgres_schema(postgres_client)
-   for k,v in config["not_null"].items():
-      for table in v:
-         if postgres_schema.get(table,{}).get(k,{}).get("nullable")=="YES":
-            await postgres_client.execute(f"alter table {table} alter column {k} set not null;", values={})
-   #unique
-   constraint_name_list=[item["constraint_name"] for item in (await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))]
-   for k,v in config["unique"].items():
-      for table in v:
-         constraint_name=f"constraint_unique_{table}_{k}" if len(k.split(",")) == 1 else f"constraint_unique_{table}_{''.join([item[0] for item in k.split(',')])}"
-         if constraint_name not in constraint_name_list:
-            await postgres_client.execute(f"alter table {table} add constraint {constraint_name} unique ({k});",values={})
-   #index
-   index_name_list=[item["indexname"] for item in (await postgres_client.fetch_all(query="select indexname from pg_indexes where schemaname='public';",values={}))]
-   for k,v in config["index"].items():
-      for table in v[1]:
-         index_name=f"index_{table}_{k}"
-         if index_name not in index_name_list:
-            await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {v[0]} ({k});",values={})
-   #query
-   constraint_name_list=[item["constraint_name"] for item in (await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))]
+async def postgres_schema_init(postgres_client,config):
+   postgres_schema={}
+   [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
+   index_name_list=[object["indexname"] for object in (await postgres_client.fetch_all(query="select indexname from pg_indexes where schemaname='public';",values={}))]
+   constraint_name_list=[object["constraint_name"] for object in (await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))]
+   for query in config["query"]["extension"].split("---"):await postgres_client.fetch_all(query=query,values={})
+   for table,v in config["table"].items():
+      if table not in postgres_schema:await postgres_client.execute(f"create table if not exists {table} (id bigint primary key generated always as identity not null);", values={})
+      for column in v:
+         column=column.split("-")
+         if not postgres_schema.get(table,{}).get(column[0],None):await postgres_client.execute(f"alter table {table} add column if not exists {column[0]} {column[1]};", values={})
+         [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
+         if column[2]=="1" and postgres_schema.get(table,{}).get(column[0],{}).get("nullable")=="YES":await postgres_client.execute(f"alter table {table} alter column {column[0]} set not null;", values={})
+         if column[3]!="0" and f"index_{table}_{column[0]}" not in index_name_list:await postgres_client.execute(query=f"create index concurrently if not exists index_{table}_{column[0]} on {table} using {column[3]} ({column[0]});",values={})
    for k,v in config["query"].items():
-      if "add constraint" in v and v.split()[5] in constraint_name_list:continue
-      await postgres_client.fetch_all(query=v,values={})
-   #final
+      for query in v.split("---"):
+         if "add constraint" in query and query.split()[5] in constraint_name_list:continue
+         await postgres_client.fetch_all(query=query,values={})
    return {"status":1,"message":"done"}

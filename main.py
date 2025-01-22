@@ -1,10 +1,29 @@
-###function
-from function import *
-
-###globals
+#env
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
+#function
+from function import *
+
+#import
+from fastapi import FastAPI,Request,Response
+from starlette.background import BackgroundTask
+from contextlib import asynccontextmanager
+from fastapi_limiter import FastAPILimiter
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from databases import Database
+import redis.asyncio as redis
+import motor.motor_asyncio
+from aiokafka import AIOKafkaProducer
+from aiokafka import AIOKafkaConsumer
+from aiokafka.helpers import create_ssl_context
+import google.generativeai as genai
+from fastapi.middleware.cors import CORSMiddleware
+import pika,boto3,sentry_sdk,time,traceback,jwt,json
+
+#globals
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
 secret_key_root=os.getenv("secret_key_root")
@@ -18,293 +37,187 @@ kafka_path_keyfile=os.getenv("kafka_path_keyfile")
 kafka_server_url=os.getenv("kafka_server_url")
 aws_access_key_id=os.getenv("aws_access_key_id")
 aws_secret_access_key=os.getenv("aws_secret_access_key")
-aws_sns_region_name=os.getenv("aws_sns_region_name")
-aws_sns_region_name=os.getenv("aws_sns_region_name")
-aws_ses_region_name=os.getenv("aws_ses_region_name")
+sns_region_name=os.getenv("sns_region_name")
+sns_region_name=os.getenv("sns_region_name")
+ses_region_name=os.getenv("ses_region_name")
 mongodb_cluster_url=os.getenv("mongodb_cluster_url")
 secret_key_gemini=os.getenv("secret_key_gemini")
-
 postgres_client=None
-from databases import Database
-async def set_postgres_client():
-   global postgres_client
-   postgres_client=Database(postgres_database_url,min_size=1,max_size=100)
-   await postgres_client.connect()
-   return None
-
 postgres_schema={}
 postgres_column_datatype={}
-async def set_postgres_schema():
-   global postgres_schema
-   global postgres_column_datatype
-   postgres_schema=await read_postgres_schema(postgres_client)
-   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
-   return None
-
 project_data={}
-async def set_project_data():
-   global project_data
-   project_data={}
-   if "project" in postgres_schema:
-      output=await postgres_client.fetch_all(query="select * from project limit 10000",values={})
-      for object in output:
-         if not project_data.get(object["type"],None):project_data[object["type"]]=[object]
-         else:project_data[object["type"]]+=object
-   return None
-
 admin_data={}
-async def set_admin_data():
-   global admin_data
-   admin_data={}
-   if postgres_schema.get("users",{}).get("api_access",None):
-      output=await postgres_client.fetch_all(query="select id,api_access from users where api_access is not null limit 10000",values={})
-      for item in output:admin_data[item["id"]]=item["api_access"]
-   return None
-
 redis_client=None
 redis_pubsub=None
-import redis.asyncio as redis
-async def set_redis_client():
-   global redis_client
-   global redis_pubsub
-   if not redis_client:
-      redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_server_url))
-      redis_pubsub=redis_client.pubsub()
-      await redis_pubsub.subscribe("postgres_cud")
-   return None
-
 rabbitmq_client=None
 rabbitmq_channel=None
-import pika
-async def set_rabbitmq_client():
-   global rabbitmq_client
-   global rabbitmq_channel
-   if not rabbitmq_client:
-      rabbitmq_client=pika.BlockingConnection(pika.URLParameters(rabbitmq_server_url))
-      rabbitmq_channel=rabbitmq_client.channel()
-      rabbitmq_channel.queue_declare(queue="postgres_cud")
-   return None
-
 lavinmq_client=None
 lavinmq_channel=None
-import pika
-async def set_lavinmq_client():
-   global lavinmq_client
-   global lavinmq_channel
-   if not lavinmq_client:
-      lavinmq_client=pika.BlockingConnection(pika.URLParameters(lavinmq_server_url))
-      lavinmq_channel=lavinmq_client.channel()
-      lavinmq_channel.queue_declare(queue="postgres_cud")
-   return None
-
 kafka_producer_client=None
 kafka_consumer_client=None
-from aiokafka import AIOKafkaProducer
-from aiokafka import AIOKafkaConsumer
-from aiokafka.helpers import create_ssl_context
-async def set_kafka_client():
-   global kafka_producer_client
-   global kafka_consumer_client
-   context=create_ssl_context(cafile=kafka_path_cafile,certfile=kafka_path_certfile,keyfile=kafka_path_keyfile)
-   kafka_producer_client=AIOKafkaProducer(bootstrap_servers=kafka_server_url,security_protocol="SSL",ssl_context=context)
-   kafka_consumer_client=AIOKafkaConsumer("postgres_cud",bootstrap_servers=kafka_server_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
-   await kafka_producer_client.start()
-   await kafka_consumer_client.start()
-   return None
-
 s3_client=None
 s3_resource=None
-import boto3
-if aws_access_key_id:
-   s3_client=boto3.client("s3",aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
-   s3_resource=boto3.resource("s3",aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
-
 sns_client=None
-import boto3
-if aws_sns_region_name:
-   sns_client=boto3.client("sns",region_name=aws_sns_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
-
 ses_client=None
-import boto3
-if aws_ses_region_name:
-   ses_client=boto3.client("ses",region_name=aws_ses_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
-
 mongodb_client=None
-import motor.motor_asyncio
-if mongodb_cluster_url:
-   mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(mongodb_cluster_url)
-
-import google.generativeai as genai
-if secret_key_gemini:genai.configure(api_key=secret_key_gemini)
-
 postgres_config_default={
-"extension":["postgis"],
-"table":["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_rating","action_comment","action_follow","log_api","log_password","atom","human","feed","project"],
-"column":{
-"created_at":["timestamptz",["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password","atom","human"]],
-"created_by_id":["bigint",["users","post","message","helpdesk","otp","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment","log_api","log_password","atom","human"]],
-"updated_at":["timestamptz",["users","post","message","helpdesk","action_report","action_comment","atom","human"]],
-"updated_by_id":["bigint",["users","post","message","helpdesk","action_report","action_comment","atom","human"]],
-"is_active":["smallint",["users","post","action_comment"]],
-"is_verified":["smallint",["users","post","action_comment"]],
-"is_protected":["smallint",["users","post"]],
-"is_read":["smallint",["message"]],
-"is_deleted":["smallint",[]],
-"otp":["integer",["otp"]],
-"user_id":["bigint",["message","log_password"]],
-"parent_table":["text",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
-"parent_id":["bigint",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
-"location":["geography(POINT)",["users","post","atom"]],
-"api":["text",["log_api"]],
-"status_code":["smallint",["log_api"]],
-"response_time_ms":["numeric(1000,3)",["log_api"]],
-"type":["text",["users","post","helpdesk","atom","human","feed","project"]],
-"title":["text",["users","post","atom","feed","project"]],
-"description":["text",["users","post","action_comment","action_report","message","helpdesk","atom","human","feed","project"]],
-"file_url":["text",["post","action_comment","atom","feed","project","message"]],
-"link_url":["text",["post","atom","human","feed","project"]],
-"tag":["text",["users","post","atom","human","feed","project"]],
-"status":["text",["action_report","helpdesk","atom","human"]],
-"remark":["text",["action_report","helpdesk","atom","human"]],
-"rating":["numeric(10,3)",["post","action_rating","human"]],
-"metadata":["jsonb",["users","post","atom"]],
-"username":["text",["users"]],
-"password":["text",["users","log_password"]],
-"google_id":["text",["users"]],
-"profile_pic_url":["text",["users"]],
-"last_active_at":["timestamptz",["users"]],
-"api_access":["text",["users"]],
-"name":["text",["users","human"]],
-"email":["text",["users","post","otp","helpdesk","human"]],
-"mobile":["text",["users","post","otp","helpdesk","human"]],
-"whatsapp":["text",["users","post","otp","helpdesk","human"]],
-"country":["text",["users","human"]],
-"state":["text",["users","human"]],
-"city":["text",["users","human"]],
-"date_of_birth":["date",["users"]],
-"year_of_birth":["smallint",["human"]],
-"gender":["text",["users","human"]],
-"tag_array":["text[]",[]],
-"number":["numeric",["atom"]],
-"interest":["text",["users","human"]],
-"skill":["text",["users","human"]],
-"experience":["numeric(10,1)",["human"]],
-"college":["text",["human"]],
-"education":["text",["human"]],
-"linkedin_url":["text",["human"]],
-"github_url":["text",["human"]],
-"website_url":["text",["human"]],
-"resume_url":["text",["human"]],
-"salary":["text",["human"]],
-"work_type":["text",["human"]],
-"work_profile":["text",["human"]],
-"company_past":["text",["human"]],
-"company_current":["text",["human"]],
-"achievement":["text",["human"]],
+"table":{
+"atom":["type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
+"project":["type-text-0-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
+"users":["created_at-timestamptz-0-brin","created_by_id-bigint-0-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","api_access-text-0-0","date_of_birth-date-0-0"],
+"post":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree"],
+"message":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","user_id-bigint-1-btree","is_read-smallint-0-btree"],
+"helpdesk":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0"],
+"otp":["created_at-timestamptz-0-0","otp-integer-0-0","email-text-0-btree","mobile-text-0-btree"],
+"log_api":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","api-text-0-0","status_code-smallint-0-0","response_time_ms-numeric(1000,3)-0-0"],
+"log_password":["created_at-timestamptz-0-0","user_id-bigint-0-0","password-text-0-0"],
+"action_like":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_bookmark":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_report":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_block":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_follow":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_rating":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-0-0"],
+"action_comment":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"human":["created_at-timestamptz-0-0","name-text-0-0"],
 },
-"not_null":{"created_by_id":["message"],"user_id":["message"],"parent_table":["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"],"parent_id":["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]},
-
-"unique":{"username":["users"],"created_by_id,parent_table,parent_id":["action_like","action_bookmark","action_report","action_block","action_follow"]},
-"bulk_delete_disable":{"users":1},
-"index":{
-"created_at":["brin",["users","post"]],
-"created_by_id":["btree",["users","post","message","helpdesk","otp","action_rating","action_comment","log_api"]],
-"is_active":["btree",["users","post","action_comment"]],
-"is_verified":["btree",["users","post","action_comment"]],
-"is_read":["btree",["message"]],
-"user_id":["btree",["message"]],
-"parent_table":["btree",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
-"parent_id":["btree",["action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]],
-"type":["btree",["users","post","helpdesk","atom","human","feed","project"]],
-"status":["btree",["action_report","helpdesk"]],
-"email":["btree",["users","otp"]],
-"mobile":["btree",["users","otp"]],
-"password":["btree",["users"]],
-"location":["gist",["users","post"]],
-"tag":["btree",["users","post","atom"]],
-"rating":["btree",["post","action_rating"]],
-"tag_array":["gin",[]]
-},
-
 "query":{
-"root_user_1":f"insert into users (created_at,username,password) values ('2025-01-01','atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",
-"root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
-"procedure_delete_user_1":"drop procedure if exists procedure_delete_user",
-"procedure_delete_user_2":"create or replace procedure procedure_delete_user(a int) language plpgsql as $$ begin delete from users where id=a;delete from post where created_by_id=a;delete from message where created_by_id=a;delete from message where user_id=a;delete from action_like where created_by_id=a;delete from action_bookmark where created_by_id=a;delete from action_report where created_by_id=a;delete from action_block where created_by_id=a;delete from action_follow where created_by_id=a;delete from action_rating where created_by_id=a;delete from action_comment where created_by_id=a;delete from action_report where parent_table='users' and parent_id=a;delete from action_block where parent_table='users' and parent_id=a;delete from action_follow where parent_table='users' and parent_id=a;delete from action_rating where parent_table='users' and parent_id=a;commit;end;$$;",
-"log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(created_by_id, user_id, password) VALUES(NEW.updated_by_id, OLD.id, OLD.password); END IF; RETURN NEW; END; $$;",
-"log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
-"view_1":"create or replace view view_schema as (with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public') select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name);",
-"mat_1":"create materialized view if not exists mat_table_row_count as (select table_name,(xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count from (select table_name, table_schema, query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '') as xml_count from information_schema.tables where table_schema='public'));",
-"mat_refresh_all":"DO $$ DECLARE r RECORD; BEGIN FOR r IN (select oid::regclass::text as mat_name from pg_class where relkind='m') LOOP EXECUTE 'refresh materialized view ' || quote_ident(r.mat_name); END LOOP; END $$;",
-"set_default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
-"set_default_updated_at_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
-"set_default_updated_at_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"rule_is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'is_protected' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"bulk_delete_disable_1":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
-"bulk_delete_disable_2":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
+"extension":"create extension if not exists postgis",
+"unique":"alter table users add constraint constraint_unique_users_username unique (username);---alter table action_like add constraint constraint_unique_action_like_cpp unique (created_by_id,parent_table,parent_id);---alter table action_bookmark add constraint constraint_unique_action_bookmark_cpp unique (created_by_id,parent_table,parent_id);---alter table action_report add constraint constraint_unique_action_report_cpp unique (created_by_id,parent_table,parent_id);---alter table action_block add constraint constraint_unique_action_block_cpp unique (created_by_id,parent_table,parent_id);---alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);",
+"default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
+"default_updated_at":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';---DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'is_protected' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"delete_disable_bulk":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;---create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
+"log_password":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;---CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
+"root_user":"insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;---create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
 }
 }
 
-###app
-import sentry_sdk
+#fastapi
 if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0)
 
-from fastapi import Request,Response
 def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Response=None,**kwargs):
    api=request.url.path
    query_param=str(dict(sorted(request.query_params.items())))
-   user_id=0
    gate=api.split("/")[1]
-   token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
-   if gate=="my":user_id=json.loads(jwt.decode(token,secret_key_jwt,algorithms="HS256")["data"])["id"]
-   key=api+"---"+str(user_id)+"---"+query_param
+   user_id=0
+   if gate=="my":user_id=json.loads(jwt.decode(request.headers.get("Authorization").split(" ",1)[1],secret_key_jwt,algorithms="HS256")["data"])["id"]
+   key=f"{api}---{query_param}---{str(user_id)}"
    return key
 
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-from fastapi_limiter import FastAPILimiter
-from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-   if postgres_database_url:await set_postgres_client()
-   if postgres_client:await set_postgres_schema()
-   if postgres_client:await set_project_data()
-   if postgres_client:await set_admin_data()
-   if redis_server_url:await set_redis_client()
-   if redis_client:await FastAPILimiter.init(redis_client)
-   if redis_client:FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
-   if rabbitmq_server_url:await set_rabbitmq_client()
-   if lavinmq_server_url:await set_lavinmq_client()
-   if kafka_server_url:await set_kafka_client()
+   #postgres client
+   global postgres_client
+   postgres_client=Database(postgres_database_url,min_size=1,max_size=100)
+   await postgres_client.connect()
+   #postgres schema
+   global postgres_schema,postgres_column_datatype
+   [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
+   #project data
+   global project_data
+   if postgres_schema.get("project",{}):[project_data.setdefault(object["type"],[]).append(object) for object in await postgres_client.fetch_all(query="select * from project limit 10000", values={})]
+   #admin data
+   global admin_data
+   if postgres_schema.get("users",{}).get("api_access",{}):
+      for object in await postgres_client.fetch_all(query="select id,api_access from users where api_access is not null limit 10000",values={}):admin_data[object["id"]]=object["api_access"]
+   #redis client
+   global redis_client,redis_pubsub
+   redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_server_url))
+   redis_pubsub=redis_client.pubsub()
+   await redis_pubsub.subscribe("postgres_cud")
+   await FastAPILimiter.init(redis_client)
+   FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
+   #s3
+   global s3_client,s3_resource
+   if aws_access_key_id:
+      s3_client=boto3.client("s3",aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+      s3_resource=boto3.resource("s3",aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   #sns
+   global sns_client
+   if sns_region_name:sns_client=boto3.client("sns",region_name=sns_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   #ses
+   global ses_client
+   if ses_region_name:ses_client=boto3.client("ses",region_name=ses_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   #mongodb
+   global mongodb_client
+   if mongodb_cluster_url:mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(mongodb_cluster_url)
+   #gemini
+   if secret_key_gemini:genai.configure(api_key=secret_key_gemini)
+   #rabbitmq client
+   global rabbitmq_client,rabbitmq_channel
+   if rabbitmq_server_url:
+      rabbitmq_client=pika.BlockingConnection(pika.URLParameters(rabbitmq_server_url))
+      rabbitmq_channel=rabbitmq_client.channel()
+      rabbitmq_channel.queue_declare(queue="postgres_cud")
+   #lavinmq client
+   global lavinmq_client,lavinmq_channel
+   if lavinmq_server_url:
+      lavinmq_client=pika.BlockingConnection(pika.URLParameters(lavinmq_server_url))
+      lavinmq_channel=lavinmq_client.channel()
+      lavinmq_channel.queue_declare(queue="postgres_cud")
+   #kafka client
+   global kafka_producer_client,kafka_consumer_client
+   if kafka_server_url:
+      context=create_ssl_context(cafile=kafka_path_cafile,certfile=kafka_path_certfile,keyfile=kafka_path_keyfile)
+      kafka_producer_client=AIOKafkaProducer(bootstrap_servers=kafka_server_url,security_protocol="SSL",ssl_context=context)
+      kafka_consumer_client=AIOKafkaConsumer("postgres_cud",bootstrap_servers=kafka_server_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+      await kafka_producer_client.start()
+      await kafka_consumer_client.start()
+   #disconnect
    yield
-   if postgres_client:await postgres_client.disconnect()
-   if redis_client:await redis_client.aclose()
-   if rabbitmq_channel:rabbitmq_channel.close()
-   if rabbitmq_client:rabbitmq_client.close()
-   if lavinmq_channel:lavinmq_channel.close()
-   if lavinmq_client:lavinmq_client.close()
-   if kafka_producer_client:await kafka_producer_client.stop()
+   await postgres_client.disconnect()
+   await redis_client.aclose()
+   if rabbitmq_server_url:rabbitmq_channel.close(),rabbitmq_client.close()
+   if lavinmq_server_url:lavinmq_channel.close(),lavinmq_client.close()
+   if kafka_server_url:await kafka_producer_client.stop()
 
-from fastapi import FastAPI
 app=FastAPI(lifespan=lifespan)
 
-from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
 
-from fastapi import Request,responses
-import time,traceback
-from starlette.background import BackgroundTask
+
+
+
+async def auth_check(request,secret_key_root,secret_key_jwt,admin_data):
+   
+   
+   
+   if gate=="root" and token!=secret_key_root:return {"status":0,"message":"token root mismatch"}
+   if gate in ["my","private","admin"]:user=json.loads(jwt.decode(token,secret_key_jwt,algorithms="HS256")["data"])
+   if gate in ["admin"]:
+      if False:
+         output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":user["id"]})
+         user=output[0] if output else None
+         if not user:return {"status":0,"message":"no user"}
+         user_api_access=user["api_access"]
+      if True:user_api_access=admin_data.get(user["id"],None)
+      if user_api_access in [None,""," "]:return {"status":0,"message":"user not admin"}
+      if api not in user_api_access.split(","):return {"status":0,"message":"api access denied"}
+   return {"status":1,"message":user}
+
 @app.middleware("http")
 async def middleware(request:Request,api_function):
+   start=time.time()
+   api=request.url.path
+   gate=api.split("/")[1]
+   method=request.method
+   query_param=dict(request.query_params)
+   token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
    try:
-      start=time.time()
+      #auth
+      user=None
+      if gate not in ["","docs","openapi.json","redoc","root","auth","my","public","private","admin"]:return responses.JSONResponse(status_code=200,content={"status":1,"message":"gate not allowed"})
+
+
+      
+      
       response=await auth_check(request,secret_key_root,secret_key_jwt,admin_data)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       user=response["message"]
       request.state.user=user
-      query_param=dict(request.query_params)
-      if request.method!="GET" and query_param.get("is_background",None)=="1":
+      #api response
+      if query_param.get("is_background",None)=="1" and method!="GET":
          body=await request.body()
          async def receive():return {"type":"http.request","body":body}
          async def api_function_new():
@@ -355,7 +268,7 @@ async def root(request:Request):
 async def root_postgres_schema_init(request:Request,mode:str):
    if mode=="default":config=postgres_config_default
    if mode=="self":config=await request.json()
-   await postgres_schema_init(postgres_client,read_postgres_schema,config)
+   await postgres_schema_init(postgres_client,config)
    return {"status":1,"message":"done"}
 
 @app.put("/root/grant-api-access-all")
@@ -369,8 +282,6 @@ async def root_grant_api_access_all(request:Request,user_id:int):
 
 @app.delete("/root/postgres-clean")
 async def root_pclean(request:Request):
-   #schema
-   postgres_schema=await read_postgres_schema(postgres_client)
    #creator null
    for table,column in postgres_schema.items():
       if column.get("created_by_id",None):
@@ -405,8 +316,10 @@ async def root_postgres_query_runner(request:Request,query:str):
 
 @app.put("/root/reset-global")
 async def root_reset_global(request:Request):
-   await set_postgres_schema()
-   await set_project_data()
+   global postgres_schema,postgres_column_datatype
+      [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
+   # await read_project_data()
    await set_admin_data()
    return {"status":1,"message":"done"}
 
@@ -1368,9 +1281,19 @@ import nest_asyncio
 nest_asyncio.apply()
 
 async def main_redis():
+   #postgres client
+   global postgres_client
+   postgres_client=Database(postgres_database_url,min_size=1,max_size=100)
+   await postgres_client.connect()
+   
+
+   
+   global postgres_schema,postgres_column_datatype
+   
+   
+      [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    await set_redis_client()
-   await set_postgres_client()
-   await set_postgres_schema()
    try:
       async for message in redis_pubsub.listen():
          if message["type"]=="message" and message["channel"]==b'postgres_cud':
@@ -1386,9 +1309,16 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="redis":
     except KeyboardInterrupt:print("exit")
 
 async def main_kafka():
+   #postgres client
+   global postgres_client
+   postgres_client=Database(postgres_database_url,min_size=1,max_size=100)
+   await postgres_client.connect()
+
+   
+   global postgres_schema,postgres_column_datatype
+      [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    await set_kafka_client()
-   await set_postgres_client()
-   await set_postgres_schema()
    try:
       async for message in kafka_consumer_client:
          if message.topic=="postgres_cud":
@@ -1409,9 +1339,16 @@ def aqmp_callback(ch,method,properties,body):
    return None
 
 async def main_rabbitmq():
+   #postgres client
+   global postgres_client
+   postgres_client=Database(postgres_database_url,min_size=1,max_size=100)
+   await postgres_client.connect()
+
+   
+   global postgres_schema,postgres_column_datatype
+   [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    await set_rabbitmq_client()
-   await set_postgres_client()
-   await set_postgres_schema()
    try:
       rabbitmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
       rabbitmq_channel.start_consuming()
@@ -1424,9 +1361,15 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="rabbitmq":
     except KeyboardInterrupt:print("exit")
 
 async def main_lavinmq():
+   #postgres client
+   global postgres_client
+   postgres_client=Database(postgres_database_url,min_size=1,max_size=100)
+   await postgres_client.connect()
+
+   global postgres_schema,postgres_column_datatype
+      [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    await set_lavinmq_client()
-   await set_postgres_client()
-   await set_postgres_schema()
    try:
       lavinmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
       lavinmq_channel.start_consuming()
