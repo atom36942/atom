@@ -56,17 +56,13 @@ atom36942@gmail.com
 ### how to run
 ```
 1. download atom repo
-2. create .env file inside downloaded folder(check env file section)
+2. create .env file
 3. create venv
 4. install requirements.txt
 5. run python main.py
 --using docker
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
-```
-### .env
-```
-check gloabl section in main.py for env variables.
 ```
 ### helper commands
 ```

@@ -19,21 +19,6 @@ async def queue_push(queue,channel,data,redis_client,rabbitmq_channel,lavinmq_ch
    if queue=="kafka":output=await kafka_producer_client.send_and_wait(channel,json.dumps(data,indent=2).encode('utf-8'),partition=0)
    return output
 
-async def login_access_check(request,user):
-   query_param=dict(request.query_params)
-   if query_param.get("is_exist",None)=="1":
-      if not user:return {"status":0,"message":"no user"}
-   if query_param.get("is_admin",None)=="1":
-      if not user:return {"status":0,"message":"no user"}
-      if user["api_access"] in [None,""," "]:return {"status":0,"message":"user not admin"}
-   if query_param.get("type",None):
-      if not user:return {"status":0,"message":"no user"}
-      if user["type"]!=query_param["type"]:return {"status":0,"message":"user type mismatch"}
-   if query_param.get("is_active",None):
-      if not user:return {"status":0,"message":"no user"}
-      if user["is_active"]==0:return {"status":0,"message":"user not active"}
-   return {"status":1,"message":"done"}
-
 async def create_where_string(postgres_column_datatype,object):
    object={k:v for k,v in object.items() if k in postgres_column_datatype}
    object={k:v for k,v in object.items() if k not in ["location","metadata"]}
@@ -75,23 +60,6 @@ async def ownership_check(postgres_client,user_id,table,id):
    return {"status":1,"message":"done"}
 
 
-
-import jwt,json,time
-async def create_token(user,secret_key_jwt):
-   data=json.dumps({"id":user["id"]},default=str)
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":data},secret_key_jwt)
-   return {"status":1,"message":token}
-
-object_list_log=[]
-async def create_api_log(postgres_client,user,request,response,response_time_ms):
-   global object_list_log
-   object={"created_by_id":user["id"] if user else None,"api":request.url.path,"status_code":response.status_code,"response_time_ms":response_time_ms}
-   object_list_log.append(object)
-   if len(object_list_log)>=3:
-      query="insert into log_api (created_by_id,api,status_code,response_time_ms) values (:created_by_id,:api,:status_code,:response_time_ms);"
-      await postgres_client.execute_many(query=query,values=object_list_log)
-      object_list_log=[]
-   return None
 
 async def add_action_count(postgres_client,action,object_table,object_list):
    if not object_list:return {"status":1,"message":object_list}
