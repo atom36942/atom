@@ -95,7 +95,7 @@ drop schema if exists public cascade;---create schema if not exists public;
 pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 
 #postgres import
-\copy atom(type,title,location) from '/Users/atom/Downloads/city.csv' delimiter ',' csv header;
+\copy users(username,password,city,location) from '/Users/atom/Downloads/location.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 
 #misc

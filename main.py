@@ -4,6 +4,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #function
+async def create_where_string(postgres_schema,table,object):
+   object={k:v for k,v in object.items() if k in postgres_schema.get(table,{})}
+   object_key_operator={k:v.split(',',1)[0] for k,v in object.items()}
+   object_key_value={k:v.split(',',1)[1] for k,v in object.items()}
+   column_read_list=[*object]
+   where_column_single_list=[f"({column} {object_key_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
+   where_column_joined=' and '.join(where_column_single_list)
+   where_string=f"where {where_column_joined}" if where_column_joined else ""
+   where_value=object_key_value
+   return [where_string,where_value]
+
 async def add_action_count(postgres_client,action,object_table,object_list):
    if not object_list:return {"status":1,"message":object_list}
    key_name=f"{action}_count"
@@ -144,9 +155,9 @@ postgres_config_default={
 "table":{
 "atom":["type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
 "project":["type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
-"users":["created_at-timestamptz-0-brin","created_by_id-bigint-0-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0"],
+"users":["created_at-timestamptz-0-brin","created_by_id-bigint-0-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0","city-text-0-0"],
 "post":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0"],
-"message":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-0-0","is_read-smallint-0-btree"],
+"message":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-1-0","is_read-smallint-0-btree"],
 "helpdesk":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","type-text-0-0","description-text-1-0"],
 "otp":["created_at-timestamptz-0-0","otp-integer-1-0","email-text-0-btree","mobile-text-0-btree"],
 "log_api":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","api-text-0-0","status_code-smallint-0-0","response_time_ms-numeric(1000,3)-0-0"],
@@ -156,8 +167,8 @@ postgres_config_default={
 "action_report":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
 "action_block":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
 "action_follow":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_rating":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-0-0"],
-"action_comment":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-0-0"],
+"action_rating":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-1-0"],
+"action_comment":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-1-0"],
 "human":["created_at-timestamptz-0-0","name-text-0-0"],
 },
 "query":{
@@ -509,7 +520,6 @@ async def object_create(request:Request,mode:Literal["public","self","admin"],ta
    object=await request.json()
    if request.state.user and postgres_schema.get(table,{}).get("created_by_id",None):object["created_by_id"]=request.state.user["id"]
    #auth
-   if table not in ["post","helpdesk","human","project","atom","message","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    if mode=="public":
       if table not in ["helpdesk","human"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
       if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400, content={"status":0,"message":"key denied"})
@@ -542,13 +552,11 @@ async def object_update(request:Request,mode:Literal["self","admin"],table:str,o
    object=await request.json()
    if request.state.user and postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
    #auth
-   if table not in ["users","post","helpdesk","human","project","atom","message","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    if mode=="self":
       if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
-      if table not in ["users","post","message","action_comment"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
       if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in object): return responses.JSONResponse(status_code=400, content={"status":0,"message":f"key denied"})
       if table=="users" and object["id"]!=request.state.user["id"]:return {"status":0,"message":"object ownership issue"}
-      if table!="users" and (not (output := await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;", values={"id": object["id"]})) or output[0]["created_by_id"] != request.state.user["id"]): return {"status": 0, "message": "no object" if not output else "object ownership issue"}
+      if table!="users" and (not (output:= await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;", values={"id": object["id"]})) or output[0]["created_by_id"] != request.state.user["id"]): return {"status": 0, "message": "no object" if not output else "object ownership issue"}
    if mode=="admin":
       if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
       if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
@@ -577,33 +585,29 @@ async def delete_ids(request:Request,mode:Literal["self","admin"],table:str,ids:
 
 @app.get("/object-read")
 @cache(expire=60)
-async def object_read(request:Request,mode:Literal["public","self","admin","location"],table:str,order:str="id desc",limit:int=100,page:int=1,is_creator_data:int=0,action_count:str=None,location_data:str=None):
-   #object
+async def object_read(request:Request,mode:Literal["public","self","admin"],table:str,order:str="id desc",limit:int=100,page:int=1,is_creator_data:int=0,action_count:str=None,location_filter:str=None):
    object=dict(request.query_params)
+   if location_filter:long,lat,min_meter,max_meter=float(location_filter.split(",")[0]),float(location_filter.split(",")[1]),int(location_filter.split(",")[2]),int(location_filter.split(",")[3])
    #auth
    if mode=="public":
-      query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+      if table not in ["users","post","project","atom"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+      where=await create_where_string(postgres_schema,table,object)
+      query=f"select * from {table} {where[0]} order by {order} limit {limit} offset {(page-1)*limit};"
+      if location_filter:query=f'''with x as (select * from {table} {where[0]}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
    if mode=="self":
       if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
       object["created_by_id"]=f"=,{request.state.user['id']}"
-      query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+      where=await create_where_string(postgres_schema,table,object)
+      query=f"select * from {table} {where[0]} order by {order} limit {limit} offset {(page-1)*limit};"
+      if location_filter:query=f'''with x as (select * from {table} {where[0]}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
    if mode=="admin":
       if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
       if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
-      query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   if mode=="location":
-      long,lat,min_meter,max_meter=float(location_data.split(",")[0]),float(location_data.split(",")[1]),int(location_data.split(",")[2]),int(location_data.split(",")[3])
-      query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
-   #where string
-   object={k:v for k,v in object.items() if k in postgres_schema.get(table,{})}
-   object_key_operator={k:v.split(',',1)[0] for k,v in object.items()}
-   object_key_value={k:v.split(',',1)[1] for k,v in object.items()}
-   column_read_list=[*object]
-   where_column_single_list=[f"({column} {object_key_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
-   where_column_joined=' and '.join(where_column_single_list)
-   where_string,where_value=f"where {where_column_joined}" if where_column_joined else "",object_key_value
+      where=await create_where_string(postgres_schema,table,object)
+      query=f"select * from {table} {where[0]} order by {order} limit {limit} offset {(page-1)*limit};"
+      if location_filter:query=f'''with x as (select * from {table} {where[0]}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
    #serialize
-   response=await postgres_object_serialize(postgres_column_datatype,[where_value])
+   response=await postgres_object_serialize(postgres_column_datatype,[where[1]])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
    #query run
@@ -634,13 +638,16 @@ async def object_read(request:Request,mode:Literal["public","self","admin","loca
 
 
 
-
-@app.post("/my/message-create")
-async def my_message_create(request:Request,user_id:int,description:str,file_url:str=None):
-   query=f"insert into message (created_by_id,user_id,description,file_url) values (:created_by_id,:user_id,:description,:file_url) returning *;"
-   query_param={"created_by_id":request.state.user["id"],"user_id":user_id,"description":description,"file_url":file_url}
-   output=await postgres_client.execute(query=query,values=query_param)
+@app.get("/message-inbox")
+async def message_inbox(request:Request,order:str="id desc",limit:int=100,page:int=1,is_unread:int=None):
+   query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {(page-1)*limit};'''
+   if is_unread==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {(page-1)*limit};'''
+   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":output}
+
+
+
 
 @app.get("/my/message-received")
 async def my_message_received(request:Request,background:BackgroundTasks,order:str="id desc",limit:int=100,page:int=1,is_unread:int=None):
@@ -659,28 +666,10 @@ async def my_message_received(request:Request,background:BackgroundTasks,order:s
    #final
    return {"status":1,"message":output}
 
-@app.get("/my/message-inbox")
-async def my_message_inbox(request:Request,order:str="id desc",limit:int=100,page:int=1,is_unread:int=None):
-   #read inbox
-   query=f'''
-   with
-   x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),
-   y as (select max(id) as id from x group by unique_id),
-   z as (select m.* from y left join message as m on y.id=m.id)
-   select * from z order by {order} limit {limit} offset {(page-1)*limit};
-   '''
-   if is_unread==1:query=f'''
-   with
-   x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),
-   y as (select max(id) as id from x group by unique_id),
-   z as (select m.* from y left join message as m on y.id=m.id),
-   a as (select * from z where user_id=:user_id and is_read!=1 is null)
-   select * from a order by {order} limit {limit} offset {(page-1)*limit};
-   '''
-   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   #final
-   return {"status":1,"message":output}
+
+
+
+
 
 @app.get("/my/message-thread")
 async def my_message_thread(request:Request,background:BackgroundTasks,user_id:int,order:str="id desc",limit:int=100,page:int=1):
@@ -694,6 +683,7 @@ async def my_message_thread(request:Request,background:BackgroundTasks,user_id:i
    background.add_task(postgres_client.execute,query=query,values=query_param)
    #final
    return {"status":1,"message":output}
+
 
 @app.delete("/my/message-delete-single")
 async def my_message_delete_single(request:Request,id:int):
