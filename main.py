@@ -4,7 +4,41 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #function
-async def postgres_cud(postgres_client,object_serialize,postgres_column_datatype,mode,table,object_list,is_serialize):
+async def add_action_count(postgres_client,action,object_table,object_list):
+   if not object_list:return {"status":1,"message":object_list}
+   key_name=f"{action}_count"
+   object_list=[dict(item)|{key_name:0} for item in object_list]
+   parent_ids_list=[str(item["id"]) for item in object_list if item["id"]]
+   parent_ids_string=",".join(parent_ids_list)
+   if parent_ids_string:
+      query=f"select parent_id,count(*) from {action} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
+      query_param={"parent_table":object_table}
+      object_list_action=await postgres_client.fetch_all(query=query,values=query_param)
+      for x in object_list:
+         for y in object_list_action:
+               if x["id"]==y["parent_id"]:
+                  x[key_name]=y["count"]
+                  break
+   return {"status":1,"message":object_list}
+
+async def add_creator_data(postgres_client,object_list):
+   if not object_list:return {"status":1,"message":object_list}
+   object_list=[dict(item)|{"created_by_username":None} for item in object_list]
+   created_by_ids_list=[str(item["created_by_id"]) for item in object_list if item["created_by_id"]]
+   created_by_ids_string=",".join(created_by_ids_list)
+   if created_by_ids_string:
+      query=f"select * from users where id in ({created_by_ids_string});"
+      object_list_user=await postgres_client.fetch_all(query=query,values={})
+      for x in object_list:
+         for y in object_list_user:
+            if x["created_by_id"]==y["id"]:
+               x["created_by_username"]=y["username"]
+               break
+   return {"status":1,"message":object_list}
+
+async def postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,mode,table,object_list,is_serialize):
+   missing_key=[key for key in object_list[0] if key not in postgres_schema[table].keys()]
+   if missing_key:return {"status":0,"message":f"{missing_key} not in {table}"}
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
@@ -26,6 +60,7 @@ async def postgres_cud(postgres_client,object_serialize,postgres_column_datatype
          output=await postgres_client.execute_many(query=query,values=object_list)
       except Exception as e:
          await transaction.rollback()
+         print(e.args)
          return {"status":0,"message":e.args}
       else:
          await transaction.commit()
@@ -71,8 +106,8 @@ async def postgres_schema_init(postgres_client,config):
 #globals
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
-secret_key_root=os.getenv("secret_key_root")
-secret_key_jwt=os.getenv("secret_key_jwt")
+key_root=os.getenv("key_root")
+key_jwt=os.getenv("key_jwt")
 sentry_dsn=os.getenv("sentry_dsn")
 rabbitmq_server_url=os.getenv("rabbitmq_server_url")
 lavinmq_server_url=os.getenv("lavinmq_server_url")
@@ -90,7 +125,7 @@ postgres_client=None
 postgres_schema={}
 postgres_column_datatype={}
 project_data={}
-admin_data={}
+users_type_ids={}
 redis_client=None
 redis_pubsub=None
 rabbitmq_client=None
@@ -108,32 +143,32 @@ object_list_log=[]
 postgres_config_default={
 "table":{
 "atom":["type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
-"project":["type-text-0-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
-"users":["created_at-timestamptz-0-brin","created_by_id-bigint-0-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","api_access-text-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0"],
-"post":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0"],
-"message":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","user_id-bigint-1-btree","description-text-0-0","is_read-smallint-0-btree"],
-"helpdesk":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","description-text-0-0"],
+"project":["type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
+"users":["created_at-timestamptz-0-brin","created_by_id-bigint-0-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0"],
+"post":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0"],
+"message":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-0-0","is_read-smallint-0-btree"],
+"helpdesk":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","type-text-0-0","description-text-1-0"],
 "otp":["created_at-timestamptz-0-0","otp-integer-1-0","email-text-0-btree","mobile-text-0-btree"],
 "log_api":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","api-text-0-0","status_code-smallint-0-0","response_time_ms-numeric(1000,3)-0-0"],
 "log_password":["created_at-timestamptz-0-0","user_id-bigint-0-0","password-text-0-0"],
-"action_like":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_bookmark":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_report":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_block":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_follow":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_rating":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-0-0"],
-"action_comment":["created_at-timestamptz-0-0","created_by_id-bigint-0-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-0-0"],
+"action_like":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_bookmark":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_report":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_block":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_follow":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_rating":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-0-0"],
+"action_comment":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-0-0"],
 "human":["created_at-timestamptz-0-0","name-text-0-0"],
 },
 "query":{
-"extension":"create extension if not exists postgis",
-"unique":"alter table users add constraint constraint_unique_users_username unique (username);---alter table action_like add constraint constraint_unique_action_like_cpp unique (created_by_id,parent_table,parent_id);---alter table action_bookmark add constraint constraint_unique_action_bookmark_cpp unique (created_by_id,parent_table,parent_id);---alter table action_report add constraint constraint_unique_action_report_cpp unique (created_by_id,parent_table,parent_id);---alter table action_block add constraint constraint_unique_action_block_cpp unique (created_by_id,parent_table,parent_id);---alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);",
 "default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
 "default_updated_at":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';---DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
 "is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'is_protected' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"extension":"create extension if not exists postgis",
 "delete_disable_bulk":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;---create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
 "log_password":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;---CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
 "root_user":"insert into users (username,password) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;---create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
+"unique":"alter table users add constraint constraint_unique_users_username unique (username);---alter table action_like add constraint constraint_unique_action_like_cpp unique (created_by_id,parent_table,parent_id);---alter table action_bookmark add constraint constraint_unique_action_bookmark_cpp unique (created_by_id,parent_table,parent_id);---alter table action_report add constraint constraint_unique_action_report_cpp unique (created_by_id,parent_table,parent_id);---alter table action_block add constraint constraint_unique_action_block_cpp unique (created_by_id,parent_table,parent_id);---alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);",
 }
 }
 
@@ -156,10 +191,11 @@ async def set_project_data():
    if postgres_schema.get("project",{}):[project_data.setdefault(object["type"],[]).append(object) for object in await postgres_client.fetch_all(query="select * from project limit 10000", values={})]
    return None
 
-async def set_admin_data():
-   global admin_data
-   if postgres_schema.get("users",{}).get("api_access",{}):
-      for object in await postgres_client.fetch_all(query="select id,api_access from users where api_access is not null limit 10000",values={}):admin_data[object["id"]]=object["api_access"]
+async def set_users_type_ids():
+   global users_type_ids
+   users_type_ids["admin"]=[]
+   if postgres_schema.get("users",{}).get("type",{}):
+      users_type_ids["admin"].extend(object["id"] for object in (await postgres_client.fetch_all(query="select id from users where type='admin' limit 1000000", values={})))
    return None
 
 import redis.asyncio as redis
@@ -228,7 +264,7 @@ def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Resp
    query_param=str(dict(sorted(request.query_params.items())))
    token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
    user_id=0
-   if "my/" in api:user_id=json.loads(jwt.decode(token,os.getenv("secret_key_jwt"),algorithms="HS256")["data"])["id"]
+   if token:user_id=json.loads(jwt.decode(token,os.getenv("key_jwt"),algorithms="HS256")["data"])["id"]
    key=f"{api}---{query_param}---{str(user_id)}"
    return key
 
@@ -244,7 +280,7 @@ async def lifespan(app:FastAPI):
    await set_postgres_client()
    await set_postgres_schema()
    await set_project_data()
-   await set_admin_data()
+   await set_users_type_ids()
    await set_redis_client()
    await set_aws_client()
    await set_mongodb_client()
@@ -281,15 +317,11 @@ async def middleware(request:Request,api_function):
    method=request.method
    query_param=dict(request.query_params)
    body=await request.body()
-   token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
    try:
-      #auth
+      #token
       user={}
-      if "root/" in api and token!=secret_key_root:return {"status":0,"message":"token root mismatch"}
-      if any(item in api for item in ["my/", "private/", "admin/"]):user=json.loads(jwt.decode(token,secret_key_jwt,algorithms="HS256")["data"])
-      if "admin/" in api:
-         api_access_user=admin_data.get(user["id"],None)
-         if not api_access_user or api not in api_access_user.split(","):return {"status":0,"message":"api access denied"}
+      token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
+      if token:user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
       request.state.user=user
       #api response background
       if query_param.get("is_background",None)=="1":
@@ -302,8 +334,8 @@ async def middleware(request:Request,api_function):
       #api response direct
       else:
          response=await api_function(request)
-         status_code=response.status_code
          end=time.time()
+         status_code=response.status_code
          response_time_ms=(end-start)*1000
          #api log
          if "log_api" in postgres_schema:
@@ -311,7 +343,7 @@ async def middleware(request:Request,api_function):
             object={"created_by_id":user.get("id",None),"api":api,"status_code":status_code,"response_time_ms":response_time_ms}
             object_list_log.append(object)
             if len(object_list_log)>=3:
-               response.background=BackgroundTask(postgres_cud,postgres_client,postgres_object_serialize,postgres_column_datatype,"create","log_api",object_list_log,0)
+               response.background=BackgroundTask(postgres_cud,postgres_client,postgres_schema,postgres_column_datatype,postgres_object_serialize,"create","log_api",object_list_log,0)
                object_list_log=[]
    #exception
    except Exception as e:
@@ -347,24 +379,16 @@ async def root():
    else:response={"status":1,"message":"welcome to atom"}
    return response
 
-@app.post("/root/postgres-schema-init")
-async def root_postgres_schema_init(request:Request,mode:str):
+@app.post("/schema-init")
+async def schema_init(request:Request,mode:str,key:str):
+   if key!=key_root:return {"status":0,"message":"key issue"}
    if mode=="default":config=postgres_config_default
    if mode=="self":config=await request.json()
    await postgres_schema_init(postgres_client,config)
    return {"status":1,"message":"done"}
 
-@app.get("/root/grant-api-access-all")
-async def root_grant_api_access_all(request:Request,user_id:int):
-   api_list=[route.path for route in request.app.routes]
-   api_list_admin=[item for item in api_list if "/admin" in item]
-   query="update users set api_access=:api_access where id=:id returning *"
-   query_param={"id":user_id,"api_access":",".join(api_list_admin)}
-   output=await postgres_client.execute(query=query,values=query_param)
-   return {"status":1,"message":output}
-
-@app.get("/root/postgres-clean")
-async def root_pclean():
+@app.get("/clean")
+async def clean():
    #creator null
    for table,column in postgres_schema.items():
       if column.get("created_by_id",None):
@@ -379,13 +403,12 @@ async def root_pclean():
             query=f"delete from {table} where parent_table='{item}' and parent_id not in (select id from {item});"
             await postgres_client.execute(query=query,values={})
    #misc
-   await postgres_client.execute(query="update users set api_access=null where length(api_access)<5;",values={})
    await postgres_client.execute(query="truncate table log_api;",values={})
    #final
    return {"status":1,"message":"done"}
 
-@app.get("/root/postgres-query-runner")
-async def root_postgres_query_runner(query:str):
+@app.get("/query-runner")
+async def query_runner(query:str):
    query_list=query.split("---")
    if len(query_list)==1:output=await postgres_client.fetch_all(query=query,values={})
    else:
@@ -398,22 +421,22 @@ async def root_postgres_query_runner(query:str):
          await transaction.commit()
    return {"status":1,"message":output}
 
-@app.get("/root/reset-global")
-async def root_reset_global():
+@app.get("/reset-global")
+async def reset_global():
    await set_postgres_schema()
    await set_project_data()
-   await set_admin_data()
+   await set_users_type_ids()
    return {"status":1,"message":"done"}
 
-@app.get("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
-async def auth_signup(username:str,password:str):
+@app.get("/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
+async def signup(username:str,password:str):
    query="insert into users (username,password) values (:username,:password) returning *;"
    query_param={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()}
    output=await postgres_client.execute(query=query,values=query_param)
    return {"status":1,"message":output}
 
-@app.get("/auth/login")
-async def auth_login(request:Request):
+@app.get("/login")
+async def login(request:Request):
    query_param=dict(request.query_params)
    mode,username,password,google_id,email,mobile,otp=query_param.get("mode",None),query_param.get("username",None),query_param.get("password",None),query_param.get("google_id",None),query_param.get("email",None),query_param.get("mobile",None),query_param.get("otp",None)
    #otp verify
@@ -451,32 +474,55 @@ async def auth_login(request:Request):
       if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
       user=output[0] if output else None
    #create token
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},secret_key_jwt)
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    #final
    return {"status":1,"message":token}
 
-@app.get("/my/profile")
-async def my_profile(request:Request,background:BackgroundTasks):
+@app.get("/profile")
+async def profile(request:Request,background:BackgroundTasks):
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token issue"})
    output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    user=output[0] if output else None
    if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    background.add_task(postgres_client.execute,query="update users set last_active_at=:last_active_at where id=:id",values={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()})
    return {"status":1,"message":user}
 
-@app.get("/my/token-refresh")
-async def my_token_refresh(request:Request):
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":request.state.user["id"]},default=str)},secret_key_jwt)
+@app.get("/token-refresh")
+async def token_refresh(request:Request):
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token issue"})
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":request.state.user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
-@app.post("/my/object-create")
-async def my_object_create(request:Request,table:str,queue:str=None):
-   #object set
+@app.get("/delete-account")
+async def delete_account(request:Request):
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   user=output[0] if output else None
+   if user["type"]=="admin":return responses.JSONResponse(status_code=200,content={"status":0,"message":"admin cant be deleted"})
+   output=await postgres_client.execute(query="delete from users where id=:id;",values={"id":request.state.user["id"]})
+   return {"status":1,"message":output}
+
+@app.post("/object-create")
+async def object_create(request:Request,mode:Literal["public","self","admin"],table:str,queue:str=None):
+   #object
    object=await request.json()
-   object["created_by_id"]=request.state.user["id"]
-   if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object): return responses.JSONResponse(status_code=400, content={"status":0,"message":f"wrong key in param"})
+   if request.state.user and postgres_schema.get(table,{}).get("created_by_id",None):object["created_by_id"]=request.state.user["id"]
+   #auth
+   if table not in ["post","helpdesk","human","project","atom","message","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+   if mode=="public":
+      if table not in ["helpdesk","human"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+      if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400, content={"status":0,"message":"key denied"})
+   if mode=="self":
+      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+      if table not in ["post","helpdesk","human","message","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+      if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400, content={"status":0,"message":"key denied"})
+   if mode=="admin":
+      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+      if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
    #logic
    if not queue:
-      response=await postgres_cud(postgres_client,postgres_object_serialize,postgres_column_datatype,"create",table,[object],1)
+      response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,postgres_object_serialize,"create",table,[object],1)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
    #queue
@@ -490,119 +536,104 @@ async def my_object_create(request:Request,table:str,queue:str=None):
    #final
    return {"status":1,"message":output}
 
-@app.put("/my/object-update")
-async def my_object_update(request:Request,table:str,otp:int=None):
-   #object set
+@app.put("/object-update")
+async def object_update(request:Request,mode:Literal["self","admin"],table:str,otp:int=None):
+   #object
    object=await request.json()
-   if postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
-   if any(k in ["created_at", "created_by_id", "is_active", "is_verified", "type", "google_id", "otp", "api_access"] for k in object): return responses.JSONResponse(status_code=400, content={"status":0,"message":f"wrong key in param"})
-   if table=="users":
-      if object.get("email",None) or object.get("mobile",None):pass
-   #object ownwership check
-   if table=="users" and object["id"]!=request.state.user["id"]:return {"status":0,"message":"object ownership issue"}
-   if table!="users":
-      output=await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;",values={"id":object["id"]})
-      if not output:return {"status":0,"message":"no object"}
-      if output[0]["created_by_id"]!=request.state.user["id"]:return {"status":0,"message":"object ownership issue"}
+   if request.state.user and postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
+   #auth
+   if table not in ["users","post","helpdesk","human","project","atom","message","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+   if mode=="self":
+      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+      if table not in ["users","post","message","action_comment"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+      if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in object): return responses.JSONResponse(status_code=400, content={"status":0,"message":f"key denied"})
+      if table=="users" and object["id"]!=request.state.user["id"]:return {"status":0,"message":"object ownership issue"}
+      if table!="users" and (not (output := await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;", values={"id": object["id"]})) or output[0]["created_by_id"] != request.state.user["id"]): return {"status": 0, "message": "no object" if not output else "object ownership issue"}
+   if mode=="admin":
+      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+      if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
    #otp verify
    email,mobile=object.get("email",None),object.get("mobile",None)
-   if table=="users" and  (email or mobile):
-      if not otp:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong param"})
+   if table=="users" and (email or mobile):
+      if not otp:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp must"})
       if email:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;",values={"email":email})
       if mobile:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
       if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
       if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
    #logic
-   response=await postgres_cud(postgres_client,postgres_object_serialize,postgres_column_datatype,"update",table,[object],1)
+   response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,postgres_object_serialize,"update",table,[object],1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    output=response["message"]
    #final
    return {"status":1,"message":output}
 
-@app.get("/my/delete-ids")
-async def my_delete_ids(request:Request,table:str,ids:str=None):
-   if table=="users":await postgres_client.execute(query=f"delete from {table} where id=:id;",values={"id":request.state.user["id"]})
-   else:await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+@app.get("/delete-ids")
+async def delete_ids(request:Request,mode:Literal["self","admin"],table:str,ids:str=None):
+   if table not in ["post","helpdesk","human","project","atom","message","action_like","action_bookmark","action_report","action_block","action_follow","action_rating","action_comment"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+   if mode=="admin":await postgres_client.execute(query=f"delete from {table} where id in ({ids});",values={})
+   if mode=="self":await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
    return {"status":1,"message":"done"}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@app.get("/my/object-read")
+@app.get("/object-read")
 @cache(expire=60)
-async def my_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #create where string
-   query_param=dict(request.query_params)
-   query_param["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await create_where_string(postgres_column_datatype,query_param)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
+async def object_read(request:Request,mode:Literal["public","self","admin","location"],table:str,order:str="id desc",limit:int=100,page:int=1,is_creator_data:int=0,action_count:str=None,location_data:str=None):
+   #object
+   object=dict(request.query_params)
+   #auth
+   if mode=="public":
+      query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   if mode=="self":
+      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+      object["created_by_id"]=f"=,{request.state.user['id']}"
+      query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   if mode=="admin":
+      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+      if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
+      query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   if mode=="location":
+      long,lat,min_meter,max_meter=float(location_data.split(",")[0]),float(location_data.split(",")[1]),int(location_data.split(",")[2]),int(location_data.split(",")[3])
+      query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
+   #where string
+   object={k:v for k,v in object.items() if k in postgres_schema.get(table,{})}
+   object_key_operator={k:v.split(',',1)[0] for k,v in object.items()}
+   object_key_value={k:v.split(',',1)[1] for k,v in object.items()}
+   column_read_list=[*object]
+   where_column_single_list=[f"({column} {object_key_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
+   where_column_joined=' and '.join(where_column_single_list)
+   where_string,where_value=f"where {where_column_joined}" if where_column_joined else "",object_key_value
    #serialize
    response=await postgres_object_serialize(postgres_column_datatype,[where_value])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
-   #logic
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   output=await postgres_client.fetch_all(query=query,values=where_value)
+   #query run
+   object_list=await postgres_client.fetch_all(query=query,values=where_value)
+   #addons
+   if is_creator_data==1:
+      response=await add_creator_data(postgres_client,object_list)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object_list=response["message"]
+   if action_count and "like" in action_count:
+      response=await add_action_count(postgres_client,"action_like",table,object_list)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object_list=response["message"]
+   if action_count and "bookmark" in action_count:
+      response=await add_action_count(postgres_client,"action_bookmark",table,object_list)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object_list=response["message"]
+   if action_count and "comment" in action_count:
+      response=await add_action_count(postgres_client,"action_comment",table,object_list)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object_list=response["message"]
    #final
-   return {"status":1,"message":output}
+   return {"status":1,"message":object_list}
 
-@app.delete("/my/object-delete-any")
-async def my_object_delete_any(request:Request,table:str):
-   #check
-   if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
-   #create where string
-   object_where=dict(request.query_params)
-   object_where["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await create_where_string(postgres_column_datatype,object_where)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_object_serialize(postgres_column_datatype,[where_value])
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f"delete from {table} {where_string};"
-   await postgres_client.fetch_all(query=query,values=where_value)
-   #final
-   return {"status":1,"message":"done"}
 
-@app.delete("/my/delete-account")
-async def my_delete_account(request:Request,mode:str=None):
-   #read user
-   query="select * from users where id=:id;"
-   query_param={"id":request.state.user["id"]}
-   output=await postgres_client.fetch_all(query=query,values=query_param)
-   user=output[0] if output else None
-   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-   #user check
-   if user["id"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"root user cant be deleted"})
-   if user["is_protected"]==1:return responses.JSONResponse(status_code=200,content={"status":0,"message":"protected user cant be deleted"})
-   if user["api_access"]:return responses.JSONResponse(status_code=200,content={"status":0,"message":"admin user cant be deleted"})
-   #logic
-   if not mode:
-      query="delete from users where id=:id;"
-      query_param={"id":request.state.user["id"]}
-      await postgres_client.fetch_all(query=query,values=query_param)
-   if mode=="procedure":
-      query=f"call procedure_delete_user({user['id']});"
-      await postgres_client.fetch_all(query=query,values={})
-   #final
-   return {"status":1,"message":"account deleted"}
+
+
+
+
+
 
 @app.post("/my/message-create")
 async def my_message_create(request:Request,user_id:int,description:str,file_url:str=None):
@@ -769,7 +800,7 @@ async def public_backend_info(request:Request,mode:str=None):
    #logic
    output={
    "postgres_schema":postgres_schema,
-   "admin_data":admin_data,
+   "users_type_ids":users_type_ids,
    "api_list":[route.path for route in request.app.routes],
    "api_count":len([route.path for route in request.app.routes])-4,
    "redis":await redis_client.info()
@@ -817,62 +848,8 @@ async def public_object_create(request:Request,table:Literal["helpdesk","human"]
    #final
    return response
 
-@app.get("/public/object-read")
-@cache(expire=60)
-async def public_object_read(request:Request,table:Literal["users","post","atom","feed"],order:str="id desc",limit:int=100,page:int=1,location_filter:str=None,is_creator_data:int=0,action_count:str=None):
-   #create where string
-   query_param=dict(request.query_params)
-   response=await create_where_string(postgres_column_datatype,query_param)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_object_serialize(postgres_column_datatype,[where_value])
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   if location_filter:
-      long,lat,min_meter,max_meter=float(location_filter.split(",")[0]),float(location_filter.split(",")[1]),int(location_filter.split(",")[2]),int(location_filter.split(",")[3])
-      query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
-   object_list=await postgres_client.fetch_all(query=query,values=where_value)
-   #addons
-   #if is_creator_data==1:query=f'''with x as (select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit}) select x.*,u.username as created_by_id_username from x left join users as u on x.created_by_id=u.id order by x.id desc;'''
-   if is_creator_data==1:
-      response=await add_creator_data(postgres_client,object_list)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
-   if action_count and "like" in action_count:
-      response=await add_action_count(postgres_client,"action_like",table,object_list)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
-   if action_count and "bookmark" in action_count:
-      response=await add_action_count(postgres_client,"action_bookmark",table,object_list)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
-   if action_count and "comment" in action_count:
-      response=await add_action_count(postgres_client,"action_comment",table,object_list)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
-   #final
-   return {"status":1,"message":object_list}
 
-@app.get("/private/object-read")
-@cache(expire=60)
-async def private_object_read(request:Request,table:Literal["users","post","atom"],order:str="id desc",limit:int=100,page:int=1):
-   #create where string
-   query_param=dict(request.query_params)
-   response=await create_where_string(postgres_column_datatype,query_param)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_object_serialize(postgres_column_datatype,[where_value])
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #logic
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   output=await postgres_client.fetch_all(query=query,values=where_value)
-   #final
-   return {"status":1,"message":output}
+
 
 @app.post("/admin/object-create")
 async def admin_object_create(request:Request,table:str,is_serialize:int=1):
@@ -890,25 +867,6 @@ async def admin_object_create(request:Request,table:str,is_serialize:int=1):
    output=response["message"]
    #final
    return {"status":1,"message":output}
-
-@app.get("/admin/object-read")
-@cache(expire=60)
-async def admin_object_read(request:Request,table:str,order:str="id desc",limit:int=100,page:int=1):
-   #create where string
-   object_where=dict(request.query_params)
-   response=await create_where_string(postgres_column_datatype,object_where)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   #serialize
-   response=await postgres_object_serialize(postgres_column_datatype,[where_value])
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_value=response["message"][0]
-   #read object
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   output=await postgres_client.fetch_all(query=query,values=where_value)
-   response={"status":1,"message":output}
-   #final
-   return response
 
 @app.put("/admin/object-update")
 async def admin_object_update(request:Request,table:str,is_serialize:int=1):
