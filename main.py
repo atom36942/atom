@@ -419,15 +419,16 @@ async def clean():
    return {"status":1,"message":"done"}
 
 @app.get("/query-runner")
-async def query_runner(request:Request,mode:str,query:str,key:str=None):
-   if mode=="root":
-      if key!=key_root:return {"status":0,"message":"key issue"}
-   if mode=="admin":
+async def query_runner(request:Request,auth:str,query:str,key:str=None):
+   #auth
+   if auth=="root" and key!=key_root:return {"status":0,"message":"key issue"}
+   if auth=="admin":
       if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
       if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
       for item in ["insert","update","delete","alter","drop"]:
          if item in query:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{item} not allowed in query"})
    query_list=query.split("---")
+   #logic
    if len(query_list)==1:output=await postgres_client.fetch_all(query=query,values={})
    else:
       transaction=await postgres_client.transaction()
@@ -440,8 +441,13 @@ async def query_runner(request:Request,mode:str,query:str,key:str=None):
    return {"status":1,"message":output}
 
 @app.post("/csv-uploader")
-async def csv_uploader(key:str,mode:str,table:str,file:UploadFile):
-   if key!=key_root:return {"status":0,"message":"key issue"}
+async def csv_uploader(request:Request,auth:str,mode:str,table:str,file:UploadFile,key:str=None):
+   #auth
+   if auth=="root" and key!=key_root:return {"status":0,"message":"key issue"}
+   if auth=="admin":
+      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+      if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
+   #logic
    object_list=[row for row in csv.DictReader(codecs.iterdecode(file.file, 'utf-8'))]
    file.file.close()
    response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,postgres_object_serialize,mode,table,object_list,1)
@@ -453,6 +459,7 @@ async def reset_global():
    await set_postgres_schema()
    await set_project_data()
    await set_users_type_ids()
+   await redis_client.flushall()
    return {"status":1,"message":"done"}
 
 @app.get("/info")
@@ -464,6 +471,7 @@ async def info(request:Request):
    "api_list":[route.path for route in request.app.routes],
    "api_count":len([route.path for route in request.app.routes]),
    "redis":await redis_client.info(),
+   "s3_bucket_list":s3_client.list_buckets() if s3_client else None,
    "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
    }
    return {"status":1,"message":output}
@@ -487,6 +495,7 @@ async def login(request:Request):
       if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
    #read user
    if mode=="up":
+      if not all([username,password]):return responses.JSONResponse(status_code=400,content={"status":0,"message":"param missing"})
       output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()})
       if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
       user=output[0] if output else None
@@ -579,13 +588,14 @@ async def object_update(request:Request,table:str,otp:int=None):
    return {"status":1,"message":output}
 
 @app.get("/object-read")
+@cache(expire=60)
 async def object_read(request:Request,mode:str,background:BackgroundTasks):
    if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
    object=dict(request.query_params)
    order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
    table,parent_table,user_id=object.get("table",None),object.get("parent_table",None),object.get("user_id",None)
    #logic
-   if mode=="object":
+   if mode=="default":
       if not table:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table must"})
       object["created_by_id"]=f"=,{request.state.user['id']}"
       output=await create_where_string(postgres_schema,table,object)
@@ -720,127 +730,94 @@ async def object_read_public(request:Request,table:str):
    #final
    return {"status":1,"message":object_list}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@app.get("/root/s3-list-all-bucket")
-async def root_s3_list_all_bucket(request:Request):
-   output=s3_client.list_buckets()
-   return {"status":1,"message":output}
-
-@app.post("/root/s3-create-bucket")
-async def root_s3_create_bucket(request:Request,region:str,name:str):
-   output=s3_client.create_bucket(Bucket=name,CreateBucketConfiguration={'LocationConstraint':region})
-   return {"status":1,"message":output}
-
-@app.put("/root/s3-make-bucket-public")
-async def root_s3_make_bucket_public(request:Request,bucket:str):
-   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-empty-bucket")
-async def root_s3_empty_bucket(request:Request,bucket:str):
-   output=s3_resource.Bucket(bucket).objects.all().delete()
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-delete-bucket")
-async def root_s3_delete_bucket(request:Request,bucket:str):
-   output=s3_client.delete_bucket(Bucket=bucket)
-   return {"status":1,"message":output}
-
-@app.post("/private/s3-upload-file")
-async def private_s3_upload_file(request:Request,bucket:str,key:str,file:UploadFile):
-   file_content=await file.read()
-   file_stream=BytesIO(file_content)
-   s3_client.upload_fileobj(file_stream,bucket,key)
+@app.post("/file-upload")
+async def file_upload(request:Request,mode:str,bucket:str,key:str,file:UploadFile=None):
+   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+   if mode=="s3_backend":
+      if not file:return responses.JSONResponse(status_code=400,content={"status":0,"message":"file must"})
+      file_content=await file.read()
+      file_stream=BytesIO(file_content)
+      s3_client.upload_fileobj(file_stream,bucket,key)
+   if mode=="s3_presigned":
+      expiry_sec,size_kb=1000,250
+      s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
    return {"status":1,"message":"done"}
 
-@app.get("/private/s3-create-presigned-url")
-async def private_s3_create_presigned_url(request:Request,bucket:str,key:str):
-   expiry_sec,size_kb=1000,250
-   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
-   return {"status":1,"message":output}
 
-from boto3.s3.transfer import TransferConfig
-@app.post("/private/s3-upload-file-multipart")
-async def private_s3_upload_file_multipart(request:Request,bucket:str,key:str,file_path:str):
-   s3_client.upload_file(file_path,bucket,key,Config=TransferConfig(multipart_threshold=8000000))
-   return {"status":1,"message":"done"}
 
-@app.get("/root/s3-download-url")
-async def root_s3_download_url(request:Request,url:str,path:str):
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   s3_client.download_file(bucket,key,path)
-   return {"status":1,"message":"done"}
 
-@app.delete("/root/s3-delete-url")
-async def root_s3_delete_url(request:Request,url:str):
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   output=s3_resource.Object(bucket,key).delete()
-   return {"status":1,"message":output}
 
-@app.get("/public/sns-otp-send")
-async def public_sns_otp_send(request:Request,mobile:str,entity_id:str=None,sender_id:str=None,template_id:str=None,message:str=None):
+
+
+
+
+
+
+
+@app.get("/otp-send")
+async def otp_send(request:Request,mode:str):
+   object=dict(request.query_params)
+   mobile,entity_id,sender_id,template_id,message=object.get("mobile",None),object.get("entity_id",None),object.get("sender_id",None),object.get("template_id",None),object.get("message",None)
    otp=random.randint(100000,999999)
    await postgres_client.execute(query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;",values={"otp":otp,"mobile":mobile})
-   if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
-   else:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   if mode=="sns":
+      if not mobile:return responses.JSONResponse(status_code=400,content={"status":0,"message":"mobile must"})
+      output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
+   if mode=="sns_template":
+      if not all([mobile,message,entity_id,sender_id,template_id]):return responses.JSONResponse(status_code=400,content={"status":0,"message":"param missing"})
+      output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
    return {"status":1,"message":output}
 
-@app.get("/root/sns-check-opted-out")
-async def root_sns_check_opted_out(request:Request,mobile:str):
-   output=sns_client.check_if_phone_number_is_opted_out(phoneNumber=mobile)
+
+
+
+
+@app.get("/misc")
+async def misc(request:Request,mode:str,key:str):
+   if key!=key_root:return {"status":0,"message":"key issue"}
+   object=dict(request.query_params)
+   region,bucket,url,mobile,next_token=object.get("region",None),object.get("bucket",None),object.get("url",None),object.get("mobile",None),object.get("next_token",None)
+   if mode=="s3_bucket_create":
+      if not region or not not bucket:return responses.JSONResponse(status_code=400,content={"status":0,"message":"region/bucket must"})
+      output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':region})
+   if mode=="s3_bucket_public":
+      if not bucket:return responses.JSONResponse(status_code=400,content={"status":0,"message":"bucket must"})
+      s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+      policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+      output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   if mode=="s3_url_delete":
+      if not url:return responses.JSONResponse(status_code=400,content={"status":0,"message":"url must"})
+      bucket,key=url.split("//",1)[1].split(".",1)[0],url.rsplit("/",1)[1]
+      output=s3_resource.Object(bucket,key).delete()
+   if mode=="s3_bucket_empty":
+      if not bucket:return responses.JSONResponse(status_code=400,content={"status":0,"message":"bucket must"})
+      output=s3_resource.Bucket(bucket).objects.all().delete()
+   if mode=="s3_bucket_delete":
+      if not bucket:return responses.JSONResponse(status_code=400,content={"status":0,"message":"bucket must"})
+      output=s3_client.delete_bucket(Bucket=bucket)
+   if mode=="sns_check_opted_out":
+      if not mobile:return responses.JSONResponse(status_code=400,content={"status":0,"message":"mobile must"})
+      output=sns_client.check_if_phone_number_is_opted_out(phoneNumber=mobile)
+   if mode=="sns_list_opted_mobile":
+      output=sns_client.list_phone_numbers_opted_out(nextToken='' if not next_token else next_token)
+   if mode=="sns_optin_mobile":
+      if not mobile:return responses.JSONResponse(status_code=400,content={"status":0,"message":"mobile must"})
+      output=sns_client.opt_in_phone_number(phoneNumber=mobile)
+   if mode=="sns_list_sandbox_mobile":
+      sns_client.list_sms_sandbox_phone_numbers(MaxResults=10000)
+      
+      
    return {"status":1,"message":output}
 
-@app.get("/root/sns-list-opted-mobile")
-async def root_sns_list_opted_mobile(request:Request,next_token:str=None):
-   output=sns_client.list_phone_numbers_opted_out(nextToken='' if not next_token else next_token)
-   return {"status":1,"message":output}
 
-@app.put("/root/sns-optin-mobile")
-async def root_sns_optin_mobile(request:Request,mobile:str):
-   output=sns_client.opt_in_phone_number(phoneNumber=mobile)
-   return {"status":1,"message":output}
 
-@app.get("/root/sns-list-sandbox-mobile")
-async def root_sns_list_sandbox_mobile(request:Request,limit:int=100,next_token:str=None):
-   if not next_token:output=sns_client.list_sms_sandbox_phone_numbers(MaxResults=limit)
-   else:output=sns_client.list_sms_sandbox_phone_numbers(NextToken=next_token,MaxResults=limit)
-   return {"status":1,"message":output}
+
+
+
+
+
+
+
 
 @app.get("/public/ses-otp-send")
 async def public_ses_otp_send(request:Request,sender:str,email:str):
@@ -850,31 +827,12 @@ async def public_ses_otp_send(request:Request,sender:str,email:str):
    ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
    return {"status":1,"message":"done"}
 
-@app.get("/root/ses-list-identity")
-async def root_ses_list_identity(request:Request,type:Literal["EmailAddress","Domain"],limit:int,next_token:str=None):
-   output=ses_client.list_identities(IdentityType=type,NextToken='' if not next_token else next_token,MaxItems=limit)
-   return {"status":1,"message":output}
 
-@app.post("/root/ses-add-identity")
-async def root_ses_add_identity(request:Request,type:Literal["email","domain"],identity:str):
-   if type=="email":output=ses_client.verify_email_identity(EmailAddress=identity)
-   if type=="domain":output=ses_client.verify_domain_identity(Domain=identity)
-   return {"status":1,"message":output}
 
-@app.get("/root/ses-identity-status")
-async def root_ses_identity_status(request:Request,identity:str):
-   output=ses_client.get_identity_verification_attributes(Identities=[identity])
-   return {"status":1,"message":output}
 
-@app.delete("/root/ses-delete-identity")
-async def root_ses_delete_identity(request:Request,identity:str):
-   output=ses_client.delete_identity(Identity=identity)
-   return {"status":1,"message":output}
 
-@app.delete("/root/redis-flush")
-async def root_redis_flush(request:Request):
-   output=await redis_client.flushall()
-   return {"status":1,"message":output}
+
+
 
 @app.post("/root/redis-set-object")
 async def root_redis_set_object(request:Request,key:str,expiry:int=None):
