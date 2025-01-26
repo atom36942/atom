@@ -25,6 +25,24 @@ Atom entire codebase is in a single file, main.py.
 9. Simplifies setup by generating business schemas from a single JSON config.
 10. Example: Build a LinkedIn-like backend in 2-3 weeks.
 ```
+### modules
+```
+1. auth
+2. logged in user apis
+3. object level crud
+4. admin apis with rbac
+5. s3/ses/sns/etc integaration
+6. one click depolyment using render
+7. root user apis
+8. bulk csv uploader
+9. api caching
+10.large scale data ingestion using kafka/rabbitmq/lavinmq/redis pub-sub
+11. rate limiter
+12. one click database schema setup api
+13. background jobs
+14. read/write database replicas
+15. mongodb integraton as secondary database
+```
 ### contact
 ```
 Got a startup idea? Build your backend faster with Atom! Share your requirements at:
