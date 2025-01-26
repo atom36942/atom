@@ -201,14 +201,19 @@ async def set_postgres_schema():
 async def set_project_data():
    global project_data
    project_data={}
-   if postgres_schema.get("project",{}):[project_data.setdefault(object["type"],[]).append(object) for object in await postgres_client.fetch_all(query="select * from project limit 10000", values={})]
+   output=await postgres_client.fetch_all(query="select * from project limit 10000;",values={})
+   for object in output:
+      if object["type"] not in project_data:project_data[object["type"]]=[object]
+      else:project_data[object["type"]]+=[object]
    return None
 
 async def set_users_type_ids():
    global users_type_ids
-   users_type_ids["admin"]=[]
-   if postgres_schema.get("users",{}).get("type",{}):
-      users_type_ids["admin"].extend(object["id"] for object in (await postgres_client.fetch_all(query="select id from users where type='admin' limit 1000000", values={})))
+   users_type_ids={}
+   output=await postgres_client.fetch_all(query="select id from users where type='admin' limit 10000",values={})
+   for object in output:
+      if "admin" not in users_type_ids:users_type_ids["admin"]=[object["id"]]
+      else:users_type_ids["admin"]+=[object["id"]]
    return None
 
 import redis.asyncio as redis
@@ -411,6 +416,7 @@ async def root_info(request:Request):
    globals_dict=globals()
    output={
    "users_type_admin":users_type_ids,
+   "project_data":project_data,
    "postgres_schema":postgres_schema,
    "users_type_ids":users_type_ids,
    "api_list":[route.path for route in request.app.routes],
