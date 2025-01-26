@@ -636,8 +636,12 @@ async def my_object_update(request:Request,table:str,otp:int=None):
    if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400,content={"status":0,"message":f"key denied"})      
    if postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
    #ownership check
-   if table=="users" and object["id"]!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"ownership issue"})
-   if table!="users" and (not (output:=await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;",values={"id":object["id"]})) or output[0]["created_by_id"]!=request.state.user["id"]):return responses.JSONResponse(status_code=400,content={"status":0,"message":"no object" if not output else "object ownership issue"})
+   if table=="users":
+      if object["id"]!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"ownership issue"})
+   if table!="users":
+      output=await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;",values={"id":object["id"]})
+      if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no object"})
+      if output[0]["created_by_id"]!=request.state.user["id"]:return {"status":0,"message":"object ownership issue"}
    #otp verify
    email,mobile=object.get("email",None),object.get("mobile",None)
    if table=="users" and (email or mobile):
