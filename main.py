@@ -13,7 +13,7 @@ async def create_where_string(postgres_schema,table,object):
    where_column_joined=' and '.join(where_column_single_list)
    where_string=f"where {where_column_joined}" if where_column_joined else ""
    where_value=object_key_value
-   return [where_string,where_value]
+   return {"status":1,"message":[where_string,where_value]}
 
 async def add_action_count(postgres_client,action,object_table,object_list):
    if not object_list:return {"status":1,"message":object_list}
@@ -152,13 +152,13 @@ mongodb_client=None
 object_list_log=[]
 postgres_config_default={
 "table":{
-"atom":["type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
+"atom":["type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","parent_table-text-0-btree","parent_id-bigint-0-btree"],
 "project":["type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
 "users":["created_at-timestamptz-0-brin","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0","city-text-0-0"],
 "post":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0"],
 "message":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-1-0","is_read-smallint-0-btree"],
 "helpdesk":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","type-text-0-0","description-text-1-0"],
-"otp":["created_at-timestamptz-0-0","otp-integer-1-0","email-text-0-btree","mobile-text-0-btree"],
+"otp":["created_at-timestamptz-0-brin","otp-integer-1-0","email-text-0-btree","mobile-text-0-btree"],
 "log_api":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","api-text-0-0","status_code-smallint-0-0","response_time_ms-numeric(1000,3)-0-0"],
 "log_password":["created_at-timestamptz-0-0","user_id-bigint-0-0","password-text-0-0"],
 "action_like":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
@@ -171,10 +171,10 @@ postgres_config_default={
 "human":["created_at-timestamptz-0-0","name-text-0-0"],
 },
 "query":{
+"extension":"create extension if not exists postgis",
 "default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
 "default_updated_at":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';---DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'is_protected' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"extension":"create extension if not exists postgis",
+"is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
 "delete_disable_bulk":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;---create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
 "log_password":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;---CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
 "root_user":"insert into users (type,username,password) values ('admin','atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;---create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
@@ -395,9 +395,9 @@ async def root():
    return response
 
 @app.post("/root/schema-init")
-async def root_schema_init(request:Request,mode:str):
-   if mode=="default":config=postgres_config_default
-   if mode=="self":config=await request.json()
+async def root_schema_init(request:Request,mode:str=None):
+   if not mode:config=postgres_config_default
+   if mode=="custom":config=await request.json()
    await postgres_schema_init(postgres_client,config)
    return {"status":1,"message":"done"}
 
@@ -405,6 +405,7 @@ async def root_schema_init(request:Request,mode:str):
 async def root_info(request:Request):
    globals_dict=globals()
    output={
+   "users_type_admin":users_type_ids,
    "postgres_schema":postgres_schema,
    "users_type_ids":users_type_ids,
    "api_list":[route.path for route in request.app.routes],
@@ -540,10 +541,10 @@ async def auth_login_password_mobile(password:str,mobile:str):
 #my
 @app.get("/my/profile")
 async def my_profile(request:Request,background:BackgroundTasks):
-   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    background.add_task(postgres_client.execute,query="update users set last_active_at=:last_active_at where id=:id",values={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()})
-   return {"status":1,"message":output[0]}
+   return {"status":1,"message":user[0]}
 
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
@@ -553,7 +554,7 @@ async def my_token_refresh(request:Request):
 @app.post("/my/object-create")
 async def my_object_create(request:Request,table:str,queue:str=None):
    object=await request.json()
-   if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400, content={"status":0,"message":"key denied"})
+   if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400,content={"status":0,"message":"key denied"})
    object["created_by_id"]=request.state.user["id"]
    #logic
    if not queue:
@@ -576,8 +577,8 @@ async def my_object_update(request:Request,table:str,otp:int=None):
    if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400,content={"status":0,"message":f"key denied"})      
    if postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
    #ownership check
-   if table=="users" and object["id"]!=request.state.user["id"]:return {"status":0,"message":"object ownership issue"}
-   if table!="users" and (not (output:= await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;", values={"id": object["id"]})) or output[0]["created_by_id"] != request.state.user["id"]): return {"status":0,"message":"no object" if not output else "object ownership issue"}
+   if table=="users" and object["id"]!=request.state.user["id"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"ownership issue"})
+   if table!="users" and (not (output:=await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;",values={"id":object["id"]})) or output[0]["created_by_id"]!=request.state.user["id"]):return responses.JSONResponse(status_code=400,content={"status":0,"message":"no object" if not output else "object ownership issue"})
    #otp verify
    email,mobile=object.get("email",None),object.get("mobile",None)
    if table=="users" and (email or mobile):
@@ -599,14 +600,14 @@ async def my_object_read(request:Request,table:str):
    object=dict(request.query_params)
    order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   output=await create_where_string(postgres_schema,table,object)
-   where_string,where_value=output[0],output[1]
+   response=await create_where_string(postgres_schema,table,object)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
    response=await postgres_object_serialize(postgres_column_datatype,[where_value])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    where_value=response["message"][0]
    query=f"select * from {table} {where_string} order by {order} limit {limit} offset {offset};"
-   query_param=where_value
-   object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   object_list=await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-inbox")
@@ -653,6 +654,22 @@ async def my_parent_read(request:Request,table:str,parent_table:str):
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":object_list}
 
+@app.get("/my/parent-check")
+async def my_parent_check(request:Request,table:str,parent_table:str,parent_ids:str):
+   query=f"select parent_id from {table} where parent_id in ({parent_ids}) and parent_table=:parent_table and created_by_id=:created_by_id;"
+   query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   parent_ids_output=[item["parent_id"] for item in output if item["parent_id"]]
+   parent_ids_input=parent_ids.split(",")
+   parent_ids_input=[int(item) for item in parent_ids_input]
+   output={item:1 if item in parent_ids_output else 0 for item in parent_ids_input}
+   return {"status":1,"message":output}
+
+@app.get("/my/parent-delete")
+async def my_parent_delete(request:Request,table:str,parent_table:str,parent_id:int):
+   await postgres_client.fetch_all(query=f"delete from {table} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;",values={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id})
+   return {"status":1,"message":"done"}
+
 @app.get("/my/action-on-me-creator-read")
 @cache(expire=60)
 async def my_action_on_me_creator_read(request:Request,table:str):
@@ -673,65 +690,84 @@ async def my_action_on_me_creator_read_mutual(request:Request,table:str):
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":object_list}
 
+@app.get("/my/message-delete-single")
+async def my_message_delete_single(request:Request,id:int):
+   await postgres_client.execute(query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);",values={"id":id,"user_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
 
+@app.get("/my/message-delete-created")
+async def my_message_delete_created(request:Request):
+   await postgres_client.execute(query="delete from message where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
 
+@app.get("/my/message-delete-received")
+async def my_message_delete_received(request:Request):
+   await postgres_client.execute(query="delete from message where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
 
+@app.get("/my/message-delete-all")
+async def my_message_delete_all(request:Request):
+   await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
 
+@app.get("/my/delete-ids")
+async def my_delete_ids(request:Request,table:str,ids:str):
+   if table in ["users"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+   if len(ids.split(","))>100:return responses.JSONResponse(status_code=400,content={"status":0,"message":"max 100 ids allowed"})
+   await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
 
+@app.get("/my/delete-account")
+async def my_delete_account(request:Request):
+   user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   if user[0]["type"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user type not allowed"})
+   await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
 
-
-
-
-@app.get("/object-delete")
-async def object_delete(request:Request,mode:str):
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+@app.get("/my/object-delete")
+async def my_object_delete(request:Request,table:str):
+   user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   if user[0]["type"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user type not allowed"})
    object=dict(request.query_params)
-   table,ids,parent_table,parent_id,id=object.get("table",None),object.get("ids",None),object.get("parent_table",None),object.get("parent_id",None),object.get("id",None)
-   if mode=="account":
-      output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-      if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-      if output[0]["type"]=="admin":return responses.JSONResponse(status_code=400,content={"status":0,"message":"admin cant be deleted"})
-      query="delete from users where id=:id;"
-      query_param={"id":request.state.user["id"]}
-   if mode=="ids":
-      if not table or not ids:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table/ids must"})
-      query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;"
-      query_param={"created_by_id":request.state.user["id"]}
-   if mode=="message_single":
-      if not id:return responses.JSONResponse(status_code=400,content={"status":0,"message":"id must"})
-      query="delete from message where id=:id and (created_by_id=:created_by_id or user_id=:user_id);"
-      query_param={"id":int(id),"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   if mode=="message_created":
-      query="delete from message where created_by_id=:created_by_id;"
-      query_param={"created_by_id":request.state.user["id"]}
-   if mode=="message_received":
-      query="delete from message where user_id=:user_id;"
-      query_param={"user_id":request.state.user["id"]}
-   if mode=="message_all":
-      query="delete from message where (created_by_id=:created_by_id or user_id=:user_id);"
-      query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   if mode=="parent_delete":
-      if not table or not parent_table or not parent_id:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table/parent_table/parent_id must"})
-      query=f"delete from {table} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;"
-      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":int(parent_id)}
-   output=await postgres_client.execute(query=query,values=query_param)
-   return {"status":1,"message":output}
+   object["created_by_id"]=f"=,{request.state.user['id']}"
+   response=await create_where_string(postgres_schema,table,object)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_string,where_value=response["message"][0],response["message"][1]
+   response=await postgres_object_serialize(postgres_column_datatype,[where_value])
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   query=f"delete from {table} {where_string};"
+   await postgres_client.fetch_all(query=query,values=where_value)
+   return {"status":1,"message":"done"}
 
-@app.get("/my-func")
-async def my_func(request:Request,mode:str):
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
-   object=dict(request.query_params)
-   table,parent_table,parent_ids=object.get("table",None),object.get("parent_table",None),object.get("parent_ids",None)
-   if mode=="parent_check":
-      if not table or not parent_table or not parent_ids:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table/parent_table/parent_ids must"})
-      query=f"select parent_id from {table} where parent_id in ({parent_ids}) and parent_table=:parent_table and created_by_id=:created_by_id;"
-      query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
-      output=await postgres_client.fetch_all(query=query,values=query_param)
-      parent_ids_output=[item["parent_id"] for item in output if item["parent_id"]]
-      parent_ids_input=parent_ids.split(",")
-      parent_ids_input=[int(item) for item in parent_ids_input]
-      output={item:1 if item in parent_ids_output else 0 for item in parent_ids_input}
-   return {"status":1,"message":output}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @app.get("/object-read-public")
 @cache(expire=60)
