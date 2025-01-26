@@ -117,7 +117,7 @@ async def postgres_schema_init(postgres_client,config):
 #globals
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
-key_jwt=os.getenv("key_jwt")
+jwt_key=os.getenv("jwt_key")
 sentry_dsn=os.getenv("sentry_dsn")
 rabbitmq_server_url=os.getenv("rabbitmq_server_url")
 lavinmq_server_url=os.getenv("lavinmq_server_url")
@@ -274,7 +274,7 @@ def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Resp
    query_param=str(dict(sorted(request.query_params.items())))
    token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
    user_id=0
-   if token:user_id=json.loads(jwt.decode(token,os.getenv("key_jwt"),algorithms="HS256")["data"])["id"]
+   if token:user_id=json.loads(jwt.decode(token,os.getenv("jwt_key"),algorithms="HS256")["data"])["id"]
    key=f"{api}---{query_param}---{str(user_id)}"
    return key
 
@@ -335,7 +335,7 @@ async def middleware(request:Request,api_function):
    try:
       #auth
       user={}
-      if token:user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
+      if token:user=json.loads(jwt.decode(token,jwt_key,algorithms="HS256")["data"])
       request.state.user=user
       if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not user: return responses.JSONResponse(status_code=400, content={"status": 0, "message": "token must"})
       if "root/" in api and user["id"]!=0:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only root allowed"})
@@ -351,13 +351,10 @@ async def middleware(request:Request,api_function):
       #api response direct
       else:
          response=await api_function(request)
-         end=time.time()
-         status_code=response.status_code
-         response_time_ms=(end-start)*1000
          #api log
          if "log_api" in postgres_schema:
             global object_list_log
-            object={"created_by_id":user.get("id",None),"api":api,"status_code":status_code,"response_time_ms":response_time_ms}
+            object={"created_by_id":user.get("id",None),"api":api,"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
             object_list_log.append(object)
             if len(object_list_log)>=3:
                response.background=BackgroundTask(postgres_cud,postgres_client,postgres_schema,postgres_column_datatype,postgres_object_serialize,"create","log_api",object_list_log,0)
@@ -485,7 +482,13 @@ async def auth_login(username:str,password:str):
    output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()})
    if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},jwt_key)
+   return {"status":1,"message":token}
+
+@app.get("/auth/login-root")
+async def auth_login_root(key:str):
+   if key!=jwt_key:return responses.JSONResponse(status_code=400,content={"status":0,"message":"key mismatch"})
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":0},default=str)},jwt_key)
    return {"status":1,"message":token}
 
 @app.get("/auth/login-google")
@@ -493,7 +496,7 @@ async def auth_login_google(google_id:str):
    output=await postgres_client.fetch_all(query="select id from users where google_id=:google_id order by id desc limit 1;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
    if not output:output=await postgres_client.fetch_all(query="insert into users (google_id) values (:google_id) returning *;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},jwt_key)
    return {"status":1,"message":token}
 
 @app.get("/auth/login-otp-email")
@@ -504,7 +507,7 @@ async def auth_login_otp_email(otp:int,email:str):
    output=await postgres_client.fetch_all(query="select id from users where email=:email order by id desc limit 1;",values={"email":email})
    if not output:output=await postgres_client.fetch_all(query="insert into users (email) values (:email) returning *;",values={"email":email})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},jwt_key)
    return {"status":1,"message":token}
 
 @app.get("/auth/login-otp-mobile")
@@ -515,7 +518,7 @@ async def auth_login_otp_mobile(otp:int,mobile:str):
    output=await postgres_client.fetch_all(query="select id from users where mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
    if not output:output=await postgres_client.fetch_all(query="insert into users (mobile) values (:mobile) returning *;",values={"mobile":mobile})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},jwt_key)
    return {"status":1,"message":token}
 
 @app.get("/auth/login-password-email")
@@ -523,7 +526,7 @@ async def auth_login_password_email(password:str,email:str):
    output=await postgres_client.fetch_all(query="select * from users where email=:email and password=:password order by id desc limit 1;",values={"email":email,"password":hashlib.sha256(password.encode()).hexdigest()})
    if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},jwt_key)
    return {"status":1,"message":token}
 
 @app.get("/auth/login-password-mobile")
@@ -531,63 +534,32 @@ async def auth_login_password_mobile(password:str,mobile:str):
    output=await postgres_client.fetch_all(query="select * from users where mobile=:mobile and password=:password order by id desc limit 1;",values={"mobile":mobile,"password":hashlib.sha256(password.encode()).hexdigest()})
    if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},jwt_key)
    return {"status":1,"message":token}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@app.get("/profile")
-async def profile(request:Request,background:BackgroundTasks):
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token issue"})
+#my
+@app.get("/my/profile")
+async def my_profile(request:Request,background:BackgroundTasks):
    output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   user=output[0] if output else None
-   if not user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
    background.add_task(postgres_client.execute,query="update users set last_active_at=:last_active_at where id=:id",values={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()})
-   return {"status":1,"message":user}
+   return {"status":1,"message":output[0]}
 
-@app.get("/token-refresh")
-async def token_refresh(request:Request):
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token issue"})
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":request.state.user["id"]},default=str)},key_jwt)
+@app.get("/my/token-refresh")
+async def my_token_refresh(request:Request):
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":request.state.user["id"]},default=str)},jwt_key)
    return {"status":1,"message":token}
 
-@app.post("/object-create")
-async def object_create(request:Request,table:str,queue:str=None):
-   if table not in ["helpdesk","human"] and not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+@app.post("/my/object-create")
+async def my_object_create(request:Request,table:str,queue:str=None):
    object=await request.json()
-   if request.state.user and postgres_schema.get(table,{}).get("created_by_id",None):object["created_by_id"]=request.state.user["id"]
    if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400, content={"status":0,"message":"key denied"})
+   object["created_by_id"]=request.state.user["id"]
    #logic
    if not queue:
       response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,postgres_object_serialize,"create",table,[object],1)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
-   #queue
    if queue:
       data={"mode":"create","table":table,"object":object}
       channel="postgres_cud"
@@ -598,12 +570,12 @@ async def object_create(request:Request,table:str,queue:str=None):
    #final
    return {"status":1,"message":output}
 
-@app.put("/object-update")
-async def object_update(request:Request,table:str,otp:int=None):
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+@app.put("/my/object-update")
+async def my_object_update(request:Request,table:str,otp:int=None):
    object=await request.json()
-   if request.state.user and postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
-   if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in object): return responses.JSONResponse(status_code=400, content={"status":0,"message":f"key denied"})      
+   if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400,content={"status":0,"message":f"key denied"})      
+   if postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
+   #ownership check
    if table=="users" and object["id"]!=request.state.user["id"]:return {"status":0,"message":"object ownership issue"}
    if table!="users" and (not (output:= await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;", values={"id": object["id"]})) or output[0]["created_by_id"] != request.state.user["id"]): return {"status":0,"message":"no object" if not output else "object ownership issue"}
    #otp verify
@@ -613,7 +585,7 @@ async def object_update(request:Request,table:str,otp:int=None):
       if email:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;",values={"email":email})
       if mobile:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
       if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-      if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+      if int(output[0]["otp"])!=otp:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
    #logic
    response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,postgres_object_serialize,"update",table,[object],1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
@@ -621,60 +593,94 @@ async def object_update(request:Request,table:str,otp:int=None):
    #final
    return {"status":1,"message":output}
 
-@app.get("/object-read")
+@app.get("/my/object-read")
 @cache(expire=60)
-async def object_read(request:Request,mode:str,background:BackgroundTasks):
-   if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
+async def my_object_read(request:Request,table:str):
    object=dict(request.query_params)
    order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
-   table,parent_table,user_id=object.get("table",None),object.get("parent_table",None),object.get("user_id",None)
-   #logic
-   if mode=="default":
-      if not table:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table must"})
-      object["created_by_id"]=f"=,{request.state.user['id']}"
-      output=await create_where_string(postgres_schema,table,object)
-      where_string,where_value=output[0],output[1]
-      response=await postgres_object_serialize(postgres_column_datatype,[where_value])
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      where_value=response["message"][0]
-      query=f"select * from {table} {where_string} order by {order} limit {limit} offset {offset};"
-      query_param=where_value
-   if mode=="message_inbox":
-      query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
-      query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   if mode=="message_inbox_unread":
-      query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
-      query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   if mode=="message_received":
-      query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
-      query_param={"user_id":request.state.user["id"]}
-   if mode=="message_received_unread":
-      query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
-      query_param={"user_id":request.state.user["id"]}
-   if mode=="message_thread":
-      if not user_id:return responses.JSONResponse(status_code=400,content={"status":0,"message":"user_id must"})
-      query=f"select * from message where ((created_by_id=:user_1 and user_id=:user_2) or (created_by_id=:user_2 and user_id=:user_1)) order by {order} limit {limit} offset {offset};"
-      query_param={"user_1":request.state.user["id"],"user_2":int(user_id)}
-   if mode=="parent_read":
-      if not table or not parent_table:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table/parent_table must"})
-      query=f'''with x as (select parent_id from {table} where created_by_id=:created_by_id and parent_table=:parent_table order by {order} limit {limit} offset {offset}) select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;'''
-      query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table}
-   if mode=="action_on_me_creator":
-      if not table:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table must"})
-      query=f'''with x as (select * from {table} where parent_table=:parent_table),y as (select created_by_id from x where parent_id=:parent_id order by {order} limit {limit} offset {offset}) select u.id,u.username from y left join users as u on y.created_by_id=u.id;'''
-      query_param={"parent_table":"users","parent_id":request.state.user["id"]}
-   if mode=="action_on_me_creator_mutual":
-      if not table:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table must"})
-      query=f'''with x as (select * from {table} where parent_table=:parent_table),y as (select created_by_id from {table} where created_by_id in (select parent_id from x where created_by_id=:created_by_id) and parent_id=:parent_id order by {order} limit {limit} offset {offset}) select u.id,u.username from y left join users as u on y.created_by_id=u.id;'''
-      query_param={"parent_table":"users","parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
+   object["created_by_id"]=f"=,{request.state.user['id']}"
+   output=await create_where_string(postgres_schema,table,object)
+   where_string,where_value=output[0],output[1]
+   response=await postgres_object_serialize(postgres_column_datatype,[where_value])
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   where_value=response["message"][0]
+   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {offset};"
+   query_param=where_value
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
-   #background
-   if object_list and mode in ["message_received","message_received_unread"]:
-      ids_string=",".join([str(item["id"]) for item in object_list])
-      background.add_task(postgres_client.execute,query=f"update message set is_read=1 where id in ({ids_string});",values={})
-   if object_list and mode=="message_thread":
-      background.add_task(postgres_client.execute,query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;",values={"created_by_id":user_id,"user_id":request.state.user["id"]})
    return {"status":1,"message":object_list}
+
+@app.get("/my/message-inbox")
+@cache(expire=60)
+async def my_message_inbox(request:Request,mode:str=None):
+   object=dict(request.query_params)
+   order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
+   query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
+   if mode=="unread":query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
+   query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
+   object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   return {"status":1,"message":object_list}
+
+@app.get("/my/message-received")
+@cache(expire=60)
+async def my_message_received(request:Request,background:BackgroundTasks,mode:str=None):
+   object=dict(request.query_params)
+   order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
+   query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
+   if mode=="unread":query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
+   query_param={"user_id":request.state.user["id"]}
+   object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   background.add_task(postgres_client.execute,query=f"update message set is_read=1 where id in ({",".join([str(item["id"]) for item in object_list])});",values={})
+   return {"status":1,"message":object_list}
+
+@app.get("/my/message-thread")
+@cache(expire=60)
+async def my_message_thread(request:Request,background:BackgroundTasks,user_id:int):
+   object=dict(request.query_params)
+   order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
+   query=f"select * from message where ((created_by_id=:user_1 and user_id=:user_2) or (created_by_id=:user_2 and user_id=:user_1)) order by {order} limit {limit} offset {offset};"
+   query_param={"user_1":request.state.user["id"],"user_2":user_id}
+   object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   background.add_task(postgres_client.execute,query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;",values={"created_by_id":user_id,"user_id":request.state.user["id"]})
+   return {"status":1,"message":object_list}
+
+@app.get("/my/parent-read")
+@cache(expire=60)
+async def my_parent_read(request:Request,table:str,parent_table:str):
+   object=dict(request.query_params)
+   order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
+   query=f'''with x as (select parent_id from {table} where created_by_id=:created_by_id and parent_table=:parent_table order by {order} limit {limit} offset {offset}) select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;'''
+   query_param={"created_by_id":request.state.user["id"],"parent_table":parent_table}
+   object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   return {"status":1,"message":object_list}
+
+@app.get("/my/action-on-me-creator-read")
+@cache(expire=60)
+async def my_action_on_me_creator_read(request:Request,table:str):
+   object=dict(request.query_params)
+   order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
+   query=f'''with x as (select * from {table} where parent_table=:parent_table),y as (select created_by_id from x where parent_id=:parent_id group by created_by_id order by max(id) desc limit {limit} offset {offset}) select u.id,u.username from y left join users as u on y.created_by_id=u.id;'''
+   query_param={"parent_table":"users","parent_id":request.state.user["id"]}
+   object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   return {"status":1,"message":object_list}
+
+@app.get("/my/action-on-me-creator-read-mutual")
+@cache(expire=60)
+async def my_action_on_me_creator_read_mutual(request:Request,table:str):
+   object=dict(request.query_params)
+   order,limit,offset=object.get("order","id desc"),int(object.get("limit",100)),(int(object.get("page",1))- 1) * int(object.get("limit",100))
+   query=f'''with x as (select * from {table} where parent_table=:parent_table),y as (select created_by_id from {table} where created_by_id in (select parent_id from x where created_by_id=:created_by_id) and parent_id=:parent_id group by created_by_id order by max(id) desc limit {limit} offset {offset}) select u.id,u.username from y left join users as u on y.created_by_id=u.id;'''
+   query_param={"parent_table":"users","parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
+   object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   return {"status":1,"message":object_list}
+
+
+
+
+
+
+
+
+
 
 @app.get("/object-delete")
 async def object_delete(request:Request,mode:str):
