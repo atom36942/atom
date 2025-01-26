@@ -117,7 +117,6 @@ async def postgres_schema_init(postgres_client,config):
 #globals
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
-key_root=os.getenv("key_root")
 key_jwt=os.getenv("key_jwt")
 sentry_dsn=os.getenv("sentry_dsn")
 rabbitmq_server_url=os.getenv("rabbitmq_server_url")
@@ -303,11 +302,15 @@ async def lifespan(app:FastAPI):
    FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
    #disconnect
    yield
-   await postgres_client.disconnect()
-   await redis_client.aclose()
-   if rabbitmq_server_url:rabbitmq_channel.close(),rabbitmq_client.close()
-   if lavinmq_server_url:lavinmq_channel.close(),lavinmq_client.close()
-   if kafka_server_url:await kafka_producer_client.stop()
+   try:
+      await postgres_client.disconnect()
+      await redis_client.aclose()
+      if rabbitmq_server_url and rabbitmq_channel.is_open:rabbitmq_channel.close()
+      if rabbitmq_client.is_open:rabbitmq_client.close()
+      if lavinmq_server_url and lavinmq_channel.is_open:lavinmq_channel.close()
+      if lavinmq_client.is_open:lavinmq_client.close()
+      if kafka_server_url:await kafka_producer_client.stop()
+   except Exception as e:print("app closed")
 
 #fastapi
 from fastapi import FastAPI
@@ -328,12 +331,15 @@ async def middleware(request:Request,api_function):
    method=request.method
    query_param=dict(request.query_params)
    body=await request.body()
+   token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
    try:
-      #token
+      #auth
       user={}
-      token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
       if token:user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
       request.state.user=user
+      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not user: return responses.JSONResponse(status_code=400, content={"status": 0, "message": "token must"})
+      if "root/" in api and user["id"]!=0:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only root allowed"})
+      if "admin/" in api and user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
       #api response background
       if query_param.get("is_background",None)=="1":
          async def receive():return {"type":"http.request","body":body}
@@ -374,9 +380,9 @@ for item in current_directory_file_name_list_without_extension:
       router=__import__(item).router
       app.include_router(router)
       
-#api
+#api import
 from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks
-import hashlib,datetime,json,time,jwt,csv,codecs,os,random
+import hashlib,datetime,json,time,jwt,csv,codecs,os,random,uuid
 from io import BytesIO
 from typing import Literal
 from bson.objectid import ObjectId
@@ -384,22 +390,48 @@ from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel
 
+#root
 @app.get("/")
 async def root():
    if project_data.get("index_html",None):response=responses.HTMLResponse(content=project_data["index_html"][0]["description"],status_code=200)
    else:response={"status":1,"message":"welcome to atom"}
    return response
 
-@app.post("/schema-init")
-async def schema_init(request:Request,mode:str,key:str):
-   if key!=key_root:return {"status":0,"message":"key issue"}
+@app.post("/root/schema-init")
+async def root_schema_init(request:Request,mode:str):
    if mode=="default":config=postgres_config_default
    if mode=="self":config=await request.json()
    await postgres_schema_init(postgres_client,config)
    return {"status":1,"message":"done"}
 
-@app.get("/clean")
-async def clean():
+@app.get("/root/info")
+async def root_info(request:Request):
+   globals_dict=globals()
+   output={
+   "postgres_schema":postgres_schema,
+   "users_type_ids":users_type_ids,
+   "api_list":[route.path for route in request.app.routes],
+   "api_count":len([route.path for route in request.app.routes]),
+   "redis":await redis_client.info(),
+   "s3_bucket_list":s3_client.list_buckets() if s3_client else None,
+   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
+   }
+   return {"status":1,"message":output}
+
+@app.get("/root/reset-global")
+async def root_reset_global():
+   await set_postgres_schema()
+   await set_project_data()
+   await set_users_type_ids()
+   return {"status":1,"message":"done"}
+
+@app.get("/root/reset-redis")
+async def root_reset_redis():
+   await redis_client.flushall()
+   return {"status":1,"message":"done"}
+
+@app.get("/root/clean")
+async def root_clean():
    #creator null
    for table,column in postgres_schema.items():
       if column.get("created_by_id",None):
@@ -418,17 +450,9 @@ async def clean():
    #final
    return {"status":1,"message":"done"}
 
-@app.get("/query-runner")
-async def query_runner(request:Request,auth:str,query:str,key:str=None):
-   #auth
-   if auth=="root" and key!=key_root:return {"status":0,"message":"key issue"}
-   if auth=="admin":
-      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
-      if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
-      for item in ["insert","update","delete","alter","drop"]:
-         if item in query:return responses.JSONResponse(status_code=400,content={"status":0,"message":f"{item} not allowed in query"})
+@app.get("/root/query-runner")
+async def root_query_runner(query:str):
    query_list=query.split("---")
-   #logic
    if len(query_list)==1:output=await postgres_client.fetch_all(query=query,values={})
    else:
       transaction=await postgres_client.transaction()
@@ -440,92 +464,102 @@ async def query_runner(request:Request,auth:str,query:str,key:str=None):
          await transaction.commit()
    return {"status":1,"message":output}
 
-@app.post("/csv-uploader")
-async def csv_uploader(request:Request,auth:str,mode:str,table:str,file:UploadFile,key:str=None):
-   #auth
-   if auth=="root" and key!=key_root:return {"status":0,"message":"key issue"}
-   if auth=="admin":
-      if not request.state.user:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token is must"})
-      if request.state.user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
-   #logic
+@app.post("/root/csv-uploader")
+async def root_csv_uploader(mode:str,table:str,file:UploadFile):
    object_list=[row for row in csv.DictReader(codecs.iterdecode(file.file, 'utf-8'))]
    file.file.close()
    response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,postgres_object_serialize,mode,table,object_list,1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
-@app.get("/reset-global")
-async def reset_global():
-   await set_postgres_schema()
-   await set_project_data()
-   await set_users_type_ids()
-   await redis_client.flushall()
-   return {"status":1,"message":"done"}
-
-@app.get("/info")
-async def info(request:Request):
-   globals_dict=globals()
-   output={
-   "postgres_schema":postgres_schema,
-   "users_type_ids":users_type_ids,
-   "api_list":[route.path for route in request.app.routes],
-   "api_count":len([route.path for route in request.app.routes]),
-   "redis":await redis_client.info(),
-   "s3_bucket_list":s3_client.list_buckets() if s3_client else None,
-   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
-   }
-   return {"status":1,"message":output}
-
-@app.get("/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
-async def signup(username:str,password:str):
+#auth
+@app.get("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
+async def auth_signup(username:str,password:str):
    query="insert into users (username,password) values (:username,:password) returning *;"
    query_param={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()}
    output=await postgres_client.execute(query=query,values=query_param)
    return {"status":1,"message":output}
 
-@app.get("/login")
-async def login(request:Request):
-   query_param=dict(request.query_params)
-   mode,username,password,google_id,email,mobile,otp=query_param.get("mode",None),query_param.get("username",None),query_param.get("password",None),query_param.get("google_id",None),query_param.get("email",None),query_param.get("mobile",None),query_param.get("otp",None)
-   #otp verify
-   if otp:
-      if email:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;",values={"email":email})
-      if mobile:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
-      if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
-      if int(output[0]["otp"])!=int(otp):return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
-   #read user
-   if mode=="up":
-      if not all([username,password]):return responses.JSONResponse(status_code=400,content={"status":0,"message":"param missing"})
-      output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()})
-      if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-      user=output[0] if output else None
-   if mode=="g":
-      if not google_id:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong param"})
-      output=await postgres_client.fetch_all(query="select id from users where google_id=:google_id order by id desc limit 1;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
-      if not output:output=await postgres_client.fetch_all(query="insert into users (google_id) values (:google_id) returning *;",values={"google_id":hashlib.sha256(query_param.get("google_id",None).encode()).hexdigest()})
-      user=output[0] if output else None
-   if mode=="eo":
-      if not email or not otp:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong param"})
-      output=await postgres_client.fetch_all(query="select id from users where email=:email order by id desc limit 1;",values={"email":email})
-      if not output:output=await postgres_client.fetch_all(query="insert into users (email) values (:email) returning *;",values={"email":email})
-      user=output[0] if output else None
-   if mode=="mo":
-      if not mobile or not otp:return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong param"})
-      output=await postgres_client.fetch_all(query="select id from users where mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
-      if not output:output=await postgres_client.fetch_all(query="insert into users (mobile) values (:mobile) returning *;",values={"mobile":mobile})
-      user=output[0] if output else None
-   if mode=="ep":
-      output=await postgres_client.fetch_all(query="select * from users where email=:email and password=:password order by id desc limit 1;",values={"email":email,"password":hashlib.sha256(password.encode()).hexdigest()})
-      if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-      user=output[0] if output else None
-   if mode=="mp":
-      output=await postgres_client.fetch_all(query="select * from users where mobile=:mobile and password=:password order by id desc limit 1;",values={"mobile":mobile,"password":hashlib.sha256(password.encode()).hexdigest()})
-      if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
-      user=output[0] if output else None
-   #create token
+@app.get("/auth/login")
+async def auth_login(username:str,password:str):
+   output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()})
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   user=output[0] if output else None
    token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
-   #final
    return {"status":1,"message":token}
+
+@app.get("/auth/login-google")
+async def auth_login_google(google_id:str):
+   output=await postgres_client.fetch_all(query="select id from users where google_id=:google_id order by id desc limit 1;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
+   if not output:output=await postgres_client.fetch_all(query="insert into users (google_id) values (:google_id) returning *;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
+   user=output[0] if output else None
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   return {"status":1,"message":token}
+
+@app.get("/auth/login-otp-email")
+async def auth_login_otp_email(otp:int,email:str):
+   output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;",values={"email":email})
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=otp:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   output=await postgres_client.fetch_all(query="select id from users where email=:email order by id desc limit 1;",values={"email":email})
+   if not output:output=await postgres_client.fetch_all(query="insert into users (email) values (:email) returning *;",values={"email":email})
+   user=output[0] if output else None
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   return {"status":1,"message":token}
+
+@app.get("/auth/login-otp-mobile")
+async def auth_login_otp_mobile(otp:int,mobile:str):
+   output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp not found"})
+   if int(output[0]["otp"])!=otp:return responses.JSONResponse(status_code=400,content={"status":0,"message":"otp mismatch"})
+   output=await postgres_client.fetch_all(query="select id from users where mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
+   if not output:output=await postgres_client.fetch_all(query="insert into users (mobile) values (:mobile) returning *;",values={"mobile":mobile})
+   user=output[0] if output else None
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   return {"status":1,"message":token}
+
+@app.get("/auth/login-password-email")
+async def auth_login_password_email(password:str,email:str):
+   output=await postgres_client.fetch_all(query="select * from users where email=:email and password=:password order by id desc limit 1;",values={"email":email,"password":hashlib.sha256(password.encode()).hexdigest()})
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   user=output[0] if output else None
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   return {"status":1,"message":token}
+
+@app.get("/auth/login-password-mobile")
+async def auth_login_password_mobile(password:str,mobile:str):
+   output=await postgres_client.fetch_all(query="select * from users where mobile=:mobile and password=:password order by id desc limit 1;",values={"mobile":mobile,"password":hashlib.sha256(password.encode()).hexdigest()})
+   if not output:return responses.JSONResponse(status_code=400,content={"status":0,"message":"no user"})
+   user=output[0] if output else None
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   return {"status":1,"message":token}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @app.get("/profile")
 async def profile(request:Request,background:BackgroundTasks):
