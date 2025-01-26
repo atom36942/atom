@@ -689,7 +689,7 @@ async def my_message_received(request:Request,background:BackgroundTasks,mode:st
    if mode=="unread":query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
    query_param={"user_id":request.state.user["id"]}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
-   background.add_task(postgres_client.execute,query=f"update message set is_read=1 where id in ({",".join([str(item["id"]) for item in object_list])});",values={})
+   background.add_task(postgres_client.execute,query=f"update message set is_read=1 where id in ({','.join([str(item['id']) for item in object_list])});",values={})
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-thread")
