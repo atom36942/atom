@@ -200,6 +200,7 @@ async def set_postgres_schema():
 
 async def set_project_data():
    global project_data
+   project_data={}
    if postgres_schema.get("project",{}):[project_data.setdefault(object["type"],[]).append(object) for object in await postgres_client.fetch_all(query="select * from project limit 10000", values={})]
    return None
 
