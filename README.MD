@@ -45,7 +45,7 @@ Atom entire codebase is in a single file, main.py.
 ```
 ### contact
 ```
-Got a startup idea? Build your backend faster with Atom! Share your requirements at:
+Build your backend faster with Atom! Share your requirements at:
 atom36942@gmail.com
 ```
 ### links
