@@ -168,21 +168,21 @@ postgres_config_default={
 "table":{
 "atom":["type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","parent_table-text-0-btree","parent_id-bigint-0-btree"],
 "project":["type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
-"users":["created_at-timestamptz-0-brin","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0","city-text-0-0"],
-"post":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0"],
-"message":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-1-0","is_read-smallint-0-btree"],
-"helpdesk":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","type-text-0-0","description-text-1-0"],
-"otp":["created_at-timestamptz-0-brin","otp-integer-1-0","email-text-0-btree","mobile-text-0-btree"],
-"log_api":["created_at-timestamptz-0-0","created_by_id-bigint-0-0","api-text-0-0","status_code-smallint-0-0","response_time_ms-numeric(1000,3)-0-0"],
-"log_password":["created_at-timestamptz-0-0","user_id-bigint-0-0","password-text-0-0"],
-"action_like":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_bookmark":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_report":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_block":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_follow":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_rating":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-1-0"],
-"action_comment":["created_at-timestamptz-0-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-1-0"],
-"human":["created_at-timestamptz-0-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-text-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0",],
+"users":["created_at-timestamptz-1-brin","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0","city-text-0-0"],
+"post":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0"],
+"message":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-1-0","is_read-smallint-0-btree"],
+"helpdesk":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","type-text-0-0","description-text-1-0"],
+"otp":["created_at-timestamptz-1-brin","otp-integer-1-0","email-text-0-btree","mobile-text-0-btree"],
+"log_api":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","api-text-0-0","status_code-smallint-0-0","response_time_ms-numeric(1000,3)-0-0"],
+"log_password":["created_at-timestamptz-1-0","user_id-bigint-0-0","password-text-0-0"],
+"action_like":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_bookmark":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_report":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_block":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_follow":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
+"action_rating":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-1-0"],
+"action_comment":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-1-0"],
+"human":["created_at-timestamptz-1-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-text-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0",],
 },
 "query":{
 "default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
@@ -210,15 +210,6 @@ async def set_postgres_schema():
    postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    return None
 
-async def set_project_data():
-   global project_data
-   project_data={}
-   output=await postgres_client.fetch_all(query="select * from project limit 10000;",values={})
-   for object in output:
-      if object["type"] not in project_data:project_data[object["type"]]=[object]
-      else:project_data[object["type"]]+=[object]
-   return None
-
 async def set_users_type_ids():
    global users_type_ids
    users_type_ids={}
@@ -226,6 +217,15 @@ async def set_users_type_ids():
       users_type_ids[type]=[]
       output=await postgres_client.fetch_all(query="select id from users where type=:type limit 10000",values={"type":type})
       for object in output:users_type_ids[type]+=[object["id"]]
+   return None
+
+async def set_project_data():
+   global project_data
+   project_data={}
+   output=await postgres_client.fetch_all(query="select * from project limit 10000;",values={})
+   for object in output:
+      if object["type"] not in project_data:project_data[object["type"]]=[object]
+      else:project_data[object["type"]]+=[object]
    return None
 
 import redis.asyncio as redis
@@ -309,8 +309,8 @@ async def lifespan(app:FastAPI):
    #setters
    await set_postgres_client()
    await set_postgres_schema()
-   await set_project_data()
    await set_users_type_ids()
+   await set_project_data()
    await set_redis_client()
    await set_aws_client()
    await set_mongodb_client()
@@ -332,9 +332,13 @@ async def lifespan(app:FastAPI):
       if kafka_server_url:await kafka_producer_client.stop()
    except Exception as e:print("app closed")
 
-#fastapi
+#app
 from fastapi import FastAPI
 app=FastAPI(lifespan=lifespan)
+
+#static file
+from fastapi.staticfiles import StaticFiles
+app.mount("/static",StaticFiles(directory="static"), name="static")
 
 #cors
 from fastapi.middleware.cors import CORSMiddleware
@@ -410,11 +414,7 @@ from pydantic import BaseModel
 #root
 @app.get("/")
 async def root():
-   if project_data.get("index_html",None):
-      response=responses.HTMLResponse(content=project_data["index_html"][0]["description"],status_code=200)
-   else:
-      response={"status":1,"message":"welcome to atom"}
-   return response
+   with open("static/h2.html", "r") as file:return responses.HTMLResponse(content=file.read())
 
 @app.post("/root/schema-init")
 async def root_schema_init(request:Request,mode:str=None):
@@ -990,7 +990,6 @@ async def main_kafka():
 if __name__ == "__main__" and len(mode)>1 and mode[1]=="kafka":
     try:asyncio.run(main_kafka())
     except KeyboardInterrupt:print("exit")
-
 
 #aqmp callback
 def aqmp_callback(ch,method,properties,body):

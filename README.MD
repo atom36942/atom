@@ -12,6 +12,7 @@ Atom entire codebase is in a single file, main.py.
 9. Supports high-performance application development.
 10. Enhances code reusability and maintainability.
 ```
+
 ### about atom
 ```
 1. Open-source backend framework with reusable modules to reduce repetitive work.
@@ -25,6 +26,7 @@ Atom entire codebase is in a single file, main.py.
 9. Simplifies setup by generating business schemas from a single JSON config.
 10. Example: Build a LinkedIn-like backend in 2-3 weeks.
 ```
+
 ### modules
 ```
 1. auth
