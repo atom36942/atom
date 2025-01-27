@@ -45,27 +45,32 @@ Atom entire codebase is in a single file, main.py.
 14. read/write database replicas
 15. mongodb integraton as secondary database
 ```
+
 ### contact
 ```
-Build your backend faster with Atom! Share your requirements at:
-atom36942@gmail.com
+Build your backend faster with atom! 
+Share your requirements at:atom36942@gmail.com
 ```
-### links
+
+### api docs
 ```
-1. api docs = https://www.atom42.org/docs
-2. localhost = http://localhost:8000/docs
+https://www.atom42.org/docs
 ```
+
 ### how to run
 ```
 1. download atom repo
-2. create .env file
-3. create venv
-4. install requirements.txt
-5. run python main.py
---using docker
+2. install requirements.txt
+3. create .env file
+4. run python main.py
+```
+
+### how to run using docker
+```
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
 ```
+
 ### helper commands
 ```
 #git init
