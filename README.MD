@@ -1,6 +1,7 @@
 ### coding paradigm
 ```
 Atom entire codebase is in a single file, main.py.
+
 1. Atom combines procedural and functional programming
 2. Procedures ensures better global/local state access. 
 3. Functions ensures deterministic behavior of the code.
