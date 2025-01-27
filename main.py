@@ -210,10 +210,10 @@ async def set_project_data():
 async def set_users_type_ids():
    global users_type_ids
    users_type_ids={}
-   output=await postgres_client.fetch_all(query="select id from users where type='admin' limit 10000",values={})
-   for object in output:
-      if "admin" not in users_type_ids:users_type_ids["admin"]=[object["id"]]
-      else:users_type_ids["admin"]+=[object["id"]]
+   for type in ["admin"]:
+      users_type_ids[type]=[]
+      output=await postgres_client.fetch_all(query="select id from users where type=:type limit 10000",values={"type":type})
+      for object in output:users_type_ids[type]+=[object["id"]]
    return None
 
 import redis.asyncio as redis
@@ -345,10 +345,10 @@ async def middleware(request:Request,api_function):
    try:
       #auth
       user={}
-      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return responses.JSONResponse(status_code=400, content={"status": 0, "message": "token must"})
       if token and "root/" not in api:user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
+      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return responses.JSONResponse(status_code=400, content={"status": 0, "message": "token must"})
       if "root/" in api and token!=key_root:return responses.JSONResponse(status_code=400,content={"status":0,"message":"root key mismatch"})
-      if "admin/" in api and user["id"] not in users_type_ids["admin"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
+      if "admin/" in api and user["id"] not in users_type_ids.get("admin",[]):return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
       request.state.user=user
       #api response background
       if query_param.get("is_background",None)=="1":
@@ -400,8 +400,10 @@ from pydantic import BaseModel
 #root
 @app.get("/")
 async def root():
-   if project_data.get("index_html",None):response=responses.HTMLResponse(content=project_data["index_html"][0]["description"],status_code=200)
-   else:response={"status":1,"message":"welcome to atom"}
+   if project_data.get("index_html",None):
+      response=responses.HTMLResponse(content=project_data["index_html"][0]["description"],status_code=200)
+   else:
+      response={"status":1,"message":"welcome to atom"}
    return response
 
 @app.post("/root/schema-init")
@@ -415,10 +417,9 @@ async def root_schema_init(request:Request,mode:str=None):
 async def root_info(request:Request):
    globals_dict=globals()
    output={
-   "users_type_admin":users_type_ids,
+   "users_type_ids":users_type_ids,
    "project_data":project_data,
    "postgres_schema":postgres_schema,
-   "users_type_ids":users_type_ids,
    "api_list":[route.path for route in request.app.routes],
    "api_count":len([route.path for route in request.app.routes]),
    "redis":await redis_client.info(),
