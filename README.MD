@@ -1,15 +1,3 @@
-### about atom
-```
-atom is an open-source backend framework that reduces repetitive work through reusable modules, enabling faster backend development and iteration. it is designed for entrepreneurs to build and scale their ideas quickly with minimal backend work.
-
-built with python, fastapi, postgresql, and redis for scalability.
-optimized queries using raw sql for better control.
-supports high-throughput pipelines with rabbitmq, lavinmq, or kafka.
-one-click deployment and database setup.
-easy integration with s3, ses, sns, and more.
-
-```
-
 ### coding paradigm
 ```
 Atom entire codebase is in a single file, main.py.
@@ -20,10 +8,24 @@ Atom entire codebase is in a single file, main.py.
 4. Atom uses realtional dataabse at its core.
 5. Follows SOLID principles for scalability and maintainability.
 6. Emphasizes modularity and separation of concerns.
-7. Promotes efficient memory usage and data encapsulation.
+7. Promotes efficient memory usage.
 8. Ensures robustness and flexibility for large-scale applications.
 9. Supports high-performance application development.
-10. Enhances code reusability and maintainability.
+10. Supports code reusability and maintainability.
+```
+
+### about atom
+```
+1. Open-source backend framework with reusable modules to reduce repetitive work.
+2. Accelerates development for faster delivery and iteration.
+3. Enables entrepreneurs to launch and scale ideas quickly with minimal backend work.
+4. Flexible and suitable for diverse applications.
+5. Built with Python, FastAPI, PostgreSQL, and Redis for scalability.
+6. Uses raw SQL for optimized queries and better control.
+7. Supports high-throughput pipelines with RabbitMQ, LavinMQ, or Kafka.
+8. Offers object-level CRUD operations directly on the database schema.
+9. Simplifies setup by generating business schemas from a single JSON config.
+10. Example: Build a LinkedIn-like backend in 2-3 weeks.
 ```
 
 ### modules
@@ -47,9 +49,8 @@ Atom entire codebase is in a single file, main.py.
 
 ### contact
 ```
-Have a startup idea! Build your backend faster with atom! 
-
-Share your requirements at: atom36942@gmail.com
+Build your backend faster with atom! 
+Share your requirements at:atom36942@gmail.com
 ```
 
 ### api docs
@@ -105,6 +106,6 @@ pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 \copy users(username,password,city,location) from '/Users/atom/Downloads/location.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 
-#kill python pids
+#misc
 lsof -ti :8000 | xargs kill -9
 ```
