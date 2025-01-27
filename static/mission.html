@@ -84,9 +84,10 @@
         const submitForm = e => {
             e.preventDefault();
             const formData = new FormData(e.target), formObject = {};
+            const baseUrl = window.location.origin;
             formData.forEach((v, k) => formObject[k] = v);
             document.getElementById('loader').style.display = 'block';
-            fetch('https://www.atom42.org/public/object-create?table=human&is_background=1', {
+            fetch(`${baseUrl}/public/object-create?table=human&is_background=1`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formObject),
@@ -105,6 +106,3 @@
     </script>
 </body>
 </html>
-
-
-

@@ -106,6 +106,6 @@ pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 \copy users(username,password,city,location) from '/Users/atom/Downloads/location.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 
-#misc
+#python stop pid
 lsof -ti :8000 | xargs kill -9
 ```
