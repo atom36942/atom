@@ -134,6 +134,7 @@ async def create_where_string(postgres_schema,table,object):
    return {"status":1,"message":[where_string,where_value]}
 
 async def postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,mode,table,object_list,is_serialize):
+   if not postgres_schema.get(table,None):return {"status":0,"message":f"{table} not in schema"}
    for k,v in object_list[0].items():
       if k=="parent_table" and not postgres_schema.get(v,None):return {"status":0,"message":f"{k} value {v} is not a table"}
       if k not in postgres_schema.get(table,None):return {"status":0,"message":f"{table} doesnot have column {k}"}
@@ -211,7 +212,7 @@ postgres_config_default={
 "users":["created_at-timestamptz-1-brin","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0","city-text-0-0"],
 "post":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0"],
 "message":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-1-0","is_read-smallint-0-btree"],
-"helpdesk":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","type-text-0-0","description-text-1-0"],
+"helpdesk":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","type-text-0-0","description-text-1-0","email-text-0-btree"],
 "otp":["created_at-timestamptz-1-brin","otp-integer-1-0","email-text-0-btree","mobile-text-0-btree"],
 "log_api":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","api-text-0-0","status_code-smallint-0-0","response_time_ms-numeric(1000,3)-0-0"],
 "log_password":["created_at-timestamptz-1-0","user_id-bigint-0-0","password-text-0-0"],
