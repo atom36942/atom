@@ -4,6 +4,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #function
+async def postgres_transaction(postgres_client,query_list):
+   transaction=await postgres_client.transaction()
+   try:
+      output=[await postgres_client.fetch_all(query=query,values={}) for query in query_list]
+   except Exception as e:
+      await transaction.rollback()
+      return {"status":0,"message":e.args}
+   else:
+      await transaction.commit()
+   return {"status":1,"message":output}
+
 async def postgres_schema_init(postgres_client,config):
    postgres_schema={}
    [postgres_schema.setdefault(object["table_name"],{}).update({object["column_name"]:{"datatype":object["data_type"], "nullable":object["is_nullable"], "default":object["column_default"]}}) for object in await postgres_client.fetch_all(query='''with t as (select * from information_schema.tables where table_schema='public' and table_type='BASE TABLE'),c as (select * from information_schema.columns where table_schema='public')select t.table_name,c.column_name,c.data_type,c.is_nullable,c.column_default from t left join c on t.table_name=c.table_name''', values={})]
@@ -114,7 +125,7 @@ async def create_where_string(postgres_schema,table,object):
    where_value=object_key_value
    return {"status":1,"message":[where_string,where_value]}
 
-#globals
+#globals env
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
 key_root=os.getenv("key_root")
@@ -132,7 +143,8 @@ sns_region_name=os.getenv("sns_region_name")
 sns_region_name=os.getenv("sns_region_name")
 ses_region_name=os.getenv("ses_region_name")
 mongodb_cluster_url=os.getenv("mongodb_cluster_url")
-mongodb_database_name=os.getenv("mongodb_database_name")
+
+#globals custom
 postgres_client=None
 postgres_schema={}
 postgres_column_datatype={}
@@ -150,7 +162,7 @@ s3_client=None
 s3_resource=None
 sns_client=None
 ses_client=None
-mongodb_database_client=None
+mongodb_client=None
 object_list_log=[]
 postgres_config_default={
 "table":{
@@ -235,10 +247,8 @@ async def set_aws_client():
 
 import motor.motor_asyncio
 async def set_mongodb_client():
-   global mongodb_database_client
-   if mongodb_cluster_url:
-      mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(mongodb_cluster_url)
-      mongodb_database_client=mongodb_client[mongodb_database_name]
+   global mongodb_client
+   if mongodb_cluster_url:mongodb_client=motor.motor_asyncio.AsyncIOMotorClient(mongodb_cluster_url)
    return None
 
 import pika
@@ -467,17 +477,9 @@ async def root_checklist():
 
 @app.get("/root/query-runner")
 async def root_query_runner(query:str):
-   query_list=query.split("---")
-   if len(query_list)==1:output=await postgres_client.fetch_all(query=query,values={})
-   else:
-      transaction=await postgres_client.transaction()
-      try:output=[(await postgres_client.fetch_all(query=item,values={})) for item in query_list]
-      except Exception as e:
-         await transaction.rollback()
-         return responses.JSONResponse(status_code=400,content={"status":0,"message":e.args})
-      else:
-         await transaction.commit()
-   return {"status":1,"message":output}
+   response=await postgres_transaction(postgres_client,query.split("---"))
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   return response
 
 @app.post("/root/csv-uploader")
 async def root_csv_uploader(mode:str,table:str,file:UploadFile):
@@ -627,7 +629,11 @@ async def my_object_create(request:Request,table:str,queue:str=None):
       if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key=channel,body=json.dumps(data))
       if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key=channel,body=json.dumps(data))
       if queue=="kafka":output=await kafka_producer_client.send_and_wait(channel,json.dumps(data,indent=2).encode('utf-8'),partition=0)
-      if queue=="mongodb":output=str(await mongodb_database_client[table].insert_many([object]))
+      if "mongodb" in queue:
+         mongodb_database_name=queue.split("_")[1]
+         mongodb_database_client=mongodb_client[mongodb_database_name]
+         output=await mongodb_database_client[table].insert_many([object])
+         output=str(output)
    #final
    return {"status":1,"message":output}
 
