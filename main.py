@@ -889,15 +889,15 @@ async def public_redis_get_object(key:str):
    return {"status":1,"message":output}
 
 #private
-@app.post("/private/upload-file-s3")
-async def private_upload_file_s3(bucket:str,key:str,file:UploadFile):
+@app.post("/private/file-upload-s3")
+async def private_file_upload_s3(bucket:str,key:str,file:UploadFile):
    file_content=await file.read()
    file_stream=BytesIO(file_content)
    s3_client.upload_fileobj(file_stream,bucket,key)
    return {"status":1,"message":"done"}
 
-@app.get("/private/upload-file-s3-presigned")
-async def private_upload_file_s3_presigned(bucket:str,key:str):
+@app.get("/private/file-upload-s3-presigned")
+async def private_file_upload_s3_presigned(bucket:str,key:str):
    expiry_sec,size_kb=1000,250
    output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
    return {"status":1,"message":output}
