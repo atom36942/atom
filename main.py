@@ -133,7 +133,7 @@ async def create_where_string(postgres_schema,table,object):
    where_value=object_key_value
    return {"status":1,"message":[where_string,where_value]}
 
-async def postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,mode,table,object_list,is_serialize):
+async def postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,mode,table,object_list,is_serialize):
    if not postgres_schema.get(table,None):return {"status":0,"message":f"{table} not in schema"}
    for k,v in object_list[0].items():
       if k=="parent_table" and not postgres_schema.get(v,None):return {"status":0,"message":f"{k} value {v} is not a table"}
@@ -274,7 +274,7 @@ async def set_redis_client():
    global redis_client,redis_pubsub
    redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url")))
    redis_pubsub=redis_client.pubsub()
-   await redis_pubsub.subscribe("postgres_cud")
+   await redis_pubsub.subscribe("postgres_crud")
    return None
 
 import boto3
@@ -298,7 +298,7 @@ async def set_rabbitmq_client():
    if rabbitmq_server_url:
       rabbitmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("rabbitmq_server_url")))
       rabbitmq_channel=rabbitmq_client.channel()
-      rabbitmq_channel.queue_declare(queue="postgres_cud")
+      rabbitmq_channel.queue_declare(queue="postgres_crud")
    return None
 
 import pika
@@ -307,7 +307,7 @@ async def set_lavinmq_client():
    if lavinmq_server_url:
       lavinmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("lavinmq_server_url")))
       lavinmq_channel=lavinmq_client.channel()
-      lavinmq_channel.queue_declare(queue="postgres_cud")
+      lavinmq_channel.queue_declare(queue="postgres_crud")
    return None
 
 from aiokafka import AIOKafkaProducer
@@ -318,7 +318,7 @@ async def set_kafka_client():
    if kafka_server_url:
       context=create_ssl_context(cafile=os.getenv("kafka_path_cafile"),certfile=os.getenv("kafka_path_certfile"),keyfile=os.getenv("kafka_path_keyfile"))
       kafka_producer_client=AIOKafkaProducer(bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=context)
-      kafka_consumer_client=AIOKafkaConsumer("postgres_cud",bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+      kafka_consumer_client=AIOKafkaConsumer("postgres_crud",bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
       await kafka_producer_client.start()
       await kafka_consumer_client.start()
    return None
@@ -374,10 +374,6 @@ async def lifespan(app:FastAPI):
 from fastapi import FastAPI
 app=FastAPI(lifespan=lifespan)
 
-#static file
-from fastapi.staticfiles import StaticFiles
-app.mount("/static",StaticFiles(directory="static"), name="static")
-
 #cors
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
@@ -419,7 +415,7 @@ async def middleware(request:Request,api_function):
             object={"created_by_id":user.get("id",None),"api":api,"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
             object_list_log.append(object)
             if len(object_list_log)>=3:
-               response.background=BackgroundTask(postgres_cud,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create","log_api",object_list_log,0)
+               response.background=BackgroundTask(postgres_crud,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create","log_api",object_list_log,0)
                object_list_log=[]
    #exception
    except Exception as e:
@@ -440,7 +436,7 @@ for item in current_directory_file_name_list_without_extension:
       app.include_router(router)
       
 #api import
-from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks
+from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks,File,Form
 import hashlib,datetime,json,time,jwt,csv,codecs,os,random,uuid
 from io import BytesIO
 from typing import Literal
@@ -454,11 +450,6 @@ from pydantic import BaseModel
 async def root():
    return {"status":1,"message":"welcome to atom"}
    
-@app.get("/{x}")
-async def root(x:str):
-   with open(f"./static/{x}.html","r") as file:
-      return responses.HTMLResponse(content=file.read())
-
 #root
 @app.post("/root/schema-init")
 async def root_schema_init(request:Request,mode:str=None):
@@ -514,13 +505,20 @@ async def root_query_runner(query:str):
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
-@app.post("/root/csv-uploader")
-async def root_csv_uploader(mode:str,table:str,file:UploadFile):
+@app.post("/root/postgres-crud-csv")
+async def root_postgres_crud_csv(mode:str,table:str,file:UploadFile):
    object_list=[row for row in csv.DictReader(codecs.iterdecode(file.file, 'utf-8'))]
    file.file.close()
-   response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,mode,table,object_list,1)
+   response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,mode,table,object_list,1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
+
+@app.post("/root/form-data")
+async def root_form_data(request:Request,file:list[UploadFile]=None):
+   form_data=await request.form()
+   file_names=[item.filename for item in file]
+   output={"form_data":form_data,"file_names":file_names}
+   return {"status":1,"message":output}
 
 @app.get("/root/s3-bucket-create")
 async def root_s3_bucket_create(region:str,bucket:str):
@@ -649,12 +647,12 @@ async def my_object_create(request:Request,table:str,queue:str=None):
    if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400,content={"status":0,"message":"key denied"})
    object["created_by_id"]=request.state.user["id"]
    if not queue:
-      response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create",table,[object],1)
+      response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create",table,[object],1)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
    if queue:
       data={"mode":"create","table":table,"object":object}
-      channel="postgres_cud"
+      channel="postgres_crud"
       if queue=="redis":output=await redis_client.publish(channel,json.dumps(data))
       if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key=channel,body=json.dumps(data))
       if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key=channel,body=json.dumps(data))
@@ -677,7 +675,7 @@ async def my_object_update(request:Request,table:str,otp:int=None):
    if table=="users" and (email or mobile):
       response=await verify_otp(postgres_client,otp,email,mobile)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"update",table,[object],1)
+   response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"update",table,[object],1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    output=response["message"]
    return {"status":1,"message":output}
@@ -835,7 +833,7 @@ async def my_object_delete(request:Request,table:str):
 async def public_object_create(request:Request,table:str):
    if table not in ["helpdesk","human"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    object=await request.json()
-   response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create",table,[object],1)
+   response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create",table,[object],1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
@@ -898,8 +896,8 @@ async def private_upload_file_s3(bucket:str,key:str,file:UploadFile):
    s3_client.upload_fileobj(file_stream,bucket,key)
    return {"status":1,"message":"done"}
 
-@app.get("/private/create-presigned-url-s3")
-async def private_create_presigned_url_s3(bucket:str,key:str):
+@app.get("/private/upload-file-s3-presigned")
+async def private_upload_file_s3_presigned(bucket:str,key:str):
    expiry_sec,size_kb=1000,250
    output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
    return {"status":1,"message":output}
@@ -923,7 +921,7 @@ async def admin_object_read(request:Request,table:str):
 async def admin_object_update(request:Request,table:str):
    object=await request.json()
    if postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
-   response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"update",table,[object],1)
+   response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"update",table,[object],1)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    output=response["message"]
    #final
@@ -969,14 +967,14 @@ async def main_redis():
    await set_redis_client()
    try:
       async for message in redis_pubsub.listen():
-         if message["type"]=="message" and message["channel"]==b'postgres_cud':
+         if message["type"]=="message" and message["channel"]==b'postgres_crud':
             data=json.loads(message['data'])
-            response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],1)
+            response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],1)
             print(response)
    except asyncio.CancelledError:print("subscription cancelled")
    finally:
       await postgres_client.disconnect()
-      await redis_pubsub.unsubscribe("postgres_cud")
+      await redis_pubsub.unsubscribe("postgres_crud")
       await redis_client.aclose()
 if __name__ == "__main__" and len(mode)>1 and mode[1]=="redis":
     try:asyncio.run(main_redis())
@@ -990,9 +988,9 @@ async def main_kafka():
    await set_kafka_client()
    try:
       async for message in kafka_consumer_client:
-         if message.topic=="postgres_cud":
+         if message.topic=="postgres_crud":
             data=json.loads(message.value.decode('utf-8'))
-            response=await postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],1)
+            response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],1)
             print(response)
    except asyncio.CancelledError:print("subscription cancelled")
    finally:
@@ -1006,7 +1004,7 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="kafka":
 def aqmp_callback(ch,method,properties,body):
    data=json.loads(body)
    loop=asyncio.get_event_loop()
-   response=loop.run_until_complete(postgres_cud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],1))
+   response=loop.run_until_complete(postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],1))
    print(response)
    return None
 
@@ -1017,7 +1015,7 @@ async def main_rabbitmq():
    await set_postgres_schema()
    await set_rabbitmq_client()
    try:
-      rabbitmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
+      rabbitmq_channel.basic_consume("postgres_crud",aqmp_callback,auto_ack=True)
       rabbitmq_channel.start_consuming()
    except KeyboardInterrupt:
       await postgres_client.disconnect()
@@ -1034,7 +1032,7 @@ async def main_lavinmq():
    await set_postgres_schema()
    await set_lavinmq_client()
    try:
-      lavinmq_channel.basic_consume("postgres_cud",aqmp_callback,auto_ack=True)
+      lavinmq_channel.basic_consume("postgres_crud",aqmp_callback,auto_ack=True)
       lavinmq_channel.start_consuming()
    except KeyboardInterrupt:
       await postgres_client.disconnect()
