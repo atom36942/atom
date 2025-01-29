@@ -896,10 +896,12 @@ async def public_redis_get_object(key:str):
 
 #private
 @app.post("/private/file-upload-s3")
-async def private_file_upload_s3(bucket:str,key:str,file:UploadFile):
-   file_content=await file.read()
-   file_stream=BytesIO(file_content)
-   s3_client.upload_fileobj(file_stream,bucket,key)
+async def private_file_upload_s3(bucket:str,key:str,file:list[UploadFile]):
+   key_list=key.split(",")
+   for index,item in enumerate(file):
+      file_content=await item.read()
+      file_stream=BytesIO(file_content)
+      s3_client.upload_fileobj(file_stream,bucket,key_list[index])
    return {"status":1,"message":"done"}
 
 @app.get("/private/file-upload-s3-presigned")
