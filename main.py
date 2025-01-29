@@ -201,20 +201,17 @@ async def create_where_string(postgres_column_datatype,object_serialize,object):
    where_value=response["message"][0]
    return {"status":1,"message":[where_string,where_value]}
 
-async def s3_file_upload(bucket,key,file_list):
-   if key=="filename":key_list=[item.filename for item in file_list]
-   elif key=="guid":key_list=[f"{uuid.uuid4().hex}.{item.filename.rsplit('.',1)[1]}" for item in file_list]
-   elif key=="guid-filename":key_list=[f"{uuid.uuid4().hex}-{item.filename}" for item in file_list]
-   else:
-      key_list=key.split("---")
-      if len(key_list)!=len(file_list):return {"status":0,"message":"key length mismatch"}
+import uuid
+async def s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list):
+   if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
    output={}
-   for index,item in enumerate(file_list):
-      file_content=await item.read()
+   for index,file in enumerate(file_list):
+      file_content=await file.read()
       file_stream=BytesIO(file_content)
       key=key_list[index]
+      if "." not in key:return {"status":0,"message":"extension must"}
       s3_client.upload_fileobj(file_stream,bucket,key)
-      output[item.filename]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
+      output[file.filename]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
    return {"status":1,"message":output}
 
 #globals env
@@ -568,14 +565,6 @@ async def root_postgres_crud_csv(mode:str,table:str,file:UploadFile):
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
-@app.post("/root/form-data")
-async def root_form_data(request:Request,file:list[UploadFile]=[]):
-   output={
-   "form_data":await request.form(),
-   "file_name_list":[item.filename for item in file]
-   }
-   return {"status":1,"message":output}
-
 @app.get("/root/s3-bucket-list")
 async def root_s3_bucket_list():
    output=s3_client.list_buckets()
@@ -889,6 +878,14 @@ async def public_object_create(request:Request,table:Literal["helpdesk","human"]
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
+@app.post("/root/form-data")
+async def root_form_data(request:Request,file:list[UploadFile]=[]):
+   output={
+   "form_data":await request.form(),
+   "file_name_list":[item.filename for item in file]
+   }
+   return {"status":1,"message":output}
+
 @app.get("/public/object-read")
 @cache(expire=60)
 async def public_object_read(request:Request,table:str):
@@ -923,20 +920,19 @@ async def public_redis_get_object(key:str):
 #private
 @app.post("/private/file-upload-s3")
 async def private_file_upload_s3(bucket:str,key:str,file:list[UploadFile]):
-   response=await s3_file_upload(bucket,key,file)
-   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   return response
-
-@app.post("/private/file-upload-s3-single")
-async def private_file_upload_s3_single(bucket:str,key:str,file:UploadFile):
-   response=await s3_file_upload(bucket,"filename",[file])
+   key_list=None if key=="uuid" else key.split("---")
+   response=await s3_file_upload(s3_client,s3_region_name,bucket,key_list,file)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
 @app.get("/private/file-upload-s3-presigned")
 async def private_file_upload_s3_presigned(bucket:str,key:str):
+   if "." not in key:return responses.JSONResponse(status_code=400,content={"status":0,"message":"extension must"})
    expiry_sec,size_kb=1000,250
    output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
+   for k,v in output["fields"].items():output[k]=v
+   del output["fields"]
+   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
    return {"status":1,"message":output}
 
 #admin
