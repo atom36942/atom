@@ -4,6 +4,71 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #function
+async def postgres_crud(mode,table,object_list,is_serialize,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count):
+   #check
+   if not postgres_schema.get(table,None):return {"status":0,"message":"table not allowed"}
+   if mode!="read":
+      for k,v in object_list[0].items():
+         if k not in postgres_schema.get(table,{}):return {"status":0,"message":f"column {k} not allowed"}
+         if k=="parent_table" and not postgres_schema.get(v,None):return {"status":0,"message":"parent_table not allowed"}
+   #serialize
+   if is_serialize:
+      response=await object_serialize(postgres_column_datatype,object_list)
+      if response["status"]==0:return response
+      object_list=response["message"]
+   #create
+   if mode=="create":
+      column_insert_list=[*object_list[0]]
+      query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
+   #read
+   if mode=="read":
+      object=object_list[0]
+      order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
+      location_filter=object.get("location_filter",None)
+      is_creator_data,action_count=object.get("is_creator_data",None),object.get("action_count",None)
+      response=await create_where_string(postgres_column_datatype,object_serialize,object)
+      if response["status"]==0:return response
+      where_string,where_value=response["message"][0],response["message"][1]
+      query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+      if location_filter:
+         long,lat,min_meter,max_meter=float(location_filter.split(",")[0]),float(location_filter.split(",")[1]),int(location_filter.split(",")[2]),int(location_filter.split(",")[3])
+         query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
+      query_param=where_value
+      object_list=await postgres_client.fetch_all(query=query,values=query_param)
+      if is_creator_data=="1":
+         response=await add_creator_data(postgres_client,object_list)
+         if response["status"]==0:return response
+         object_list=response["message"]
+      if action_count:
+         for item in action_count.split(","):
+            response=await add_action_count(postgres_client,f"action_{item}",table,object_list)
+            if response["status"]==0:return response
+            object_list=response["message"]
+      return {"status":1,"message":object_list}
+   #update
+   if mode=="update":
+      column_update_list=[*object_list[0]]
+      column_update_list.remove("id")
+      query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_update_list])} where id=:id returning *;"
+   #delete
+   if mode=="delete":
+      query=f"delete from {table} where id=:id;"
+   #query run
+   if len(object_list)==1:
+      output=await postgres_client.execute(query=query,values=object_list[0])
+   else:
+      try:
+         transaction=await postgres_client.transaction()
+         output=await postgres_client.execute_many(query=query,values=object_list)
+      except Exception as e:
+         await transaction.rollback()
+         print(e.args)
+         return {"status":0,"message":e.args}
+      else:
+         await transaction.commit()
+   #final
+   return {"status":1,"message":output}
+
 async def postgres_transaction(postgres_client,query_list):
    transaction=await postgres_client.transaction()
    try:
@@ -135,39 +200,6 @@ async def create_where_string(postgres_column_datatype,object_serialize,object):
    if response["status"]==0:return response
    where_value=response["message"][0]
    return {"status":1,"message":[where_string,where_value]}
-
-async def postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,mode,table,object_list,is_serialize):
-   if not postgres_schema.get(table,None):return {"status":0,"message":f"{table} not in schema"}
-   for k,v in object_list[0].items():
-      if k=="parent_table" and not postgres_schema.get(v,None):return {"status":0,"message":f"{k} value {v} is not a table"}
-      if k not in postgres_schema.get(table,None):return {"status":0,"message":f"{table} doesnot have column {k}"}
-   if is_serialize:
-      response=await object_serialize(postgres_column_datatype,object_list)
-      if response["status"]==0:return response
-      object_list=response["message"]
-   if mode=="create":
-      column_insert_list=[*object_list[0]]
-      query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
-   if mode=="update":
-      column_update_list=[*object_list[0]]
-      column_update_list.remove("id")
-      query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_update_list])} where id=:id returning *;"
-   if mode=="delete":
-      query=f"delete from {table} where id=:id;"
-   if len(object_list)==1:
-      output=await postgres_client.execute(query=query,values=object_list[0])
-   else:
-      try:
-         transaction=await postgres_client.transaction()
-         output=await postgres_client.execute_many(query=query,values=object_list)
-      except Exception as e:
-         await transaction.rollback()
-         print(e.args)
-         return {"status":0,"message":e.args}
-      else:
-         await transaction.commit()
-         output="done"
-   return {"status":1,"message":output}
 
 #globals env
 postgres_database_url=os.getenv("postgres_database_url")
@@ -418,7 +450,7 @@ async def middleware(request:Request,api_function):
             object={"created_by_id":user.get("id",None),"api":api,"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
             object_list_log.append(object)
             if len(object_list_log)>=3:
-               response.background=BackgroundTask(postgres_crud,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create","log_api",object_list_log,0)
+               response.background=BackgroundTask(postgres_crud,"create","log_api",object_list_log,0,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
                object_list_log=[]
    #exception
    except Exception as e:
@@ -510,9 +542,9 @@ async def root_query_runner(query:str):
 
 @app.post("/root/postgres-crud-csv")
 async def root_postgres_crud_csv(mode:str,table:str,file:UploadFile):
-   object_list=[row for row in csv.DictReader(codecs.iterdecode(file.file, 'utf-8'))]
+   object_list=[row for row in csv.DictReader(codecs.iterdecode(file.file,'utf-8'))]
    file.file.close()
-   response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,mode,table,object_list,1)
+   response=await postgres_crud(mode,table,object_list,1,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
@@ -651,7 +683,7 @@ async def my_object_create(request:Request,table:str,is_serialize:int=0,queue:st
    if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400,content={"status":0,"message":"key denied"})
    object["created_by_id"]=request.state.user["id"]
    if not queue:
-      response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create",table,[object],is_serialize)
+      response=await postgres_crud("create",table,[object],is_serialize,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       output=response["message"]
    if queue:
@@ -679,7 +711,7 @@ async def my_object_update(request:Request,table:str,otp:int=None):
    if table=="users" and (email or mobile):
       response=await verify_otp(postgres_client,otp,email,mobile)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"update",table,[object],1)
+   response=await postgres_crud("update",table,[object],1,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    output=response["message"]
    return {"status":1,"message":output}
@@ -688,42 +720,10 @@ async def my_object_update(request:Request,table:str,otp:int=None):
 @cache(expire=60)
 async def my_object_read(request:Request,table:str):
    object=dict(request.query_params)
-   order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
-   is_creator_data,action_count,location_filter=int(object.get("is_creator_data",None)),object.get("action_count",None),object.get("location_filter",None)
-   
-   response=await create_where_string(postgres_column_datatype,object_serialize,object)
-   where_string,where_value=response["message"][0],response["message"][1]
-   
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   if location_filter:
-      long,lat,min_meter,max_meter=float(location_filter.split(",")[0]),float(location_filter.split(",")[1]),int(location_filter.split(",")[2]),int(location_filter.split(",")[3])
-      query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
-   object_list=await postgres_client.fetch_all(query=query,values=where_value)
-   
-   if is_creator_data==1:
-      response=await add_creator_data(postgres_client,object_list)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
-   if action_count:
-      for item in action_count.split(","):
-         response=await add_action_count(postgres_client,f"action_{item}",table,object_list)
-         if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-         object_list=response["message"]
-   
-   return {"status":1,"message":object_list}
-
-@app.get("/my/object-read")
-@cache(expire=60)
-async def my_object_read(request:Request,table:str):
-   object=dict(request.query_params) 
-   order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await create_where_string(postgres_column_datatype,object_serialize,object)
+   response=await postgres_crud("read",table,[object],0,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   object_list=await postgres_client.fetch_all(query=query,values=where_value)
-   return {"status":1,"message":object_list}
+   return response
 
 @app.get("/my/message-inbox")
 @cache(expire=60)
@@ -859,7 +859,7 @@ async def my_object_delete(request:Request,table:str):
 async def public_object_create(request:Request,table:str):
    if table not in ["helpdesk","human"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    object=await request.json()
-   response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"create",table,[object],1)
+   response=await postgres_crud("create",table,[object],1,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
@@ -868,26 +868,9 @@ async def public_object_create(request:Request,table:str):
 async def public_object_read(request:Request,table:str):
    if table not in ["users","post","project","atom"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
    object=dict(request.query_params)
-   order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
-   is_creator_data,action_count,location_filter=object.get("is_creator_data",None),object.get("action_count",None),object.get("location_filter",None)
-   response=await create_where_string(postgres_column_datatype,object_serialize,object)
+   response=await postgres_crud("read",table,[object],0,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   if location_filter:
-      long,lat,min_meter,max_meter=float(location_filter.split(",")[0]),float(location_filter.split(",")[1]),int(location_filter.split(",")[2]),int(location_filter.split(",")[3])
-      query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
-   object_list=await postgres_client.fetch_all(query=query,values=where_value)
-   if is_creator_data=="1":
-      response=await add_creator_data(postgres_client,object_list)
-      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-      object_list=response["message"]
-   if action_count:
-      for item in action_count.split(","):
-         response=await add_action_count(postgres_client,f"action_{item}",table,object_list)
-         if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-         object_list=response["message"]
-   return {"status":1,"message":object_list}
+   return response
 
 @app.get("/public/otp-send-sns")
 async def public_otp_send_sns(mobile:str,entity_id:str=None,sender_id:str=None,template_id:str=None,message:str=None):
@@ -929,19 +912,15 @@ async def private_file_upload_s3_presigned(bucket:str,key:str):
 @app.get("/admin/object-read")
 async def admin_object_read(request:Request,table:str):
    object=dict(request.query_params)
-   order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
-   response=await create_where_string(postgres_column_datatype,object_serialize,object)
+   response=await postgres_crud("read",table,[object],0,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
-   where_string,where_value=response["message"][0],response["message"][1]
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   object_list=await postgres_client.fetch_all(query=query,values=where_value)
-   return {"status":1,"message":object_list}
+   return response
 
 @app.put("/admin/object-update")
 async def admin_object_update(request:Request,table:str):
    object=await request.json()
    if postgres_schema.get(table,{}).get("updated_by_id",None):object["updated_by_id"]=request.state.user["id"]
-   response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,"update",table,[object],1)
+   response=await postgres_crud("update",table,[object],1,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    output=response["message"]
    #final
@@ -990,7 +969,7 @@ async def main_redis():
          if message["type"]=="message" and message["channel"]==b'postgres_crud':
             data=json.loads(message['data'])
             try:
-               response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],data["is_serialize"])
+               response=await postgres_crud(data["mode"],data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
                print(response)
             except Exception as e:
                print(e.args)
@@ -1014,7 +993,7 @@ async def main_kafka():
          if message.topic=="postgres_crud":
             data=json.loads(message.value.decode('utf-8'))
             try:
-               response=await postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],data["is_serialize"])
+               response=await postgres_crud(data["mode"],data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
                print(response)
             except Exception as e:
                print(e.args)
@@ -1031,7 +1010,7 @@ def aqmp_callback(ch,method,properties,body):
    data=json.loads(body)
    loop=asyncio.get_event_loop()
    try:
-      response=loop.run_until_complete(postgres_crud(postgres_client,postgres_schema,postgres_column_datatype,object_serialize,data["mode"],data["table"],[data["object"]],data["is_serialize"]))
+      response=loop.run_until_complete(postgres_crud(data["mode"],data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count))
       print(response)
    except Exception as e:
       print(e.args)
