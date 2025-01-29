@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>atom42.org</title>
+    <link rel="icon" type="image/x-icon" href="https://i.postimg.cc/ZK7dC9bx/logo.png">
+    <style>
+        :root {--primary-color:#47bcae;--secondary-color:#333;--error-color:#f44336;--success-color:#f09a68;--background-color:#121212;--card-background:#1e1e1e;--border-color:#404040;--text-color:#fff;--font-family:Arial,sans-serif;}
+        body {margin:10px;padding:0;font-family:var(--font-family);background-color:var(--background-color);color:var(--text-color);display:flex;align-items:center;justify-content:center;min-height:100vh;}
+        .card {margin:20px;;background-color:var(--card-background);padding:20px;border-radius:10px;box-shadow:0 4px 6px rgba(0, 0, 0, 0.2);max-width:680px;width:calc(100% - 40px);text-align:left;}
+        @media (max-width:600px) {.card { padding:20px;} .card-header h1 {font-size:1.2em;word-wrap:break-word;white-space:normal;}}
+        .card-header {display:flex;align-items:center;gap:5px;}
+        .card-header img {max-width:35px;height:auto;}
+        h1 {color:var(--primary-color);font-size:1.3em;margin:0;}
+        p,a {font-size:1em;line-height:1.5;}
+        a {color:var(--primary-color);}
+        .cover-image {text-align:center;margin:10px auto;display:block;width:100%;display:none;}
+        .select-wrapper {position:relative;width:100%;}
+        .select-wrapper::after {content:'▼';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-color);font-size:1em;pointer-events:none;}
+        form {display:flex;flex-direction:column;gap:10px;}
+        .form-container {margin-top:20px;}
+        select,input,textarea {color:var(--primary-color);padding:15px;font-size:1.1em;background-color:#2e2e2e;border-radius:5px;border:1px solid var(--border-color);width:100%;box-sizing:border-box;}
+        textarea {resize:vertical;}
+        select {cursor:pointer;appearance:none;}
+        .submit-button {padding:15px;margin-bottom:20px;margin-top:10px;font-size:1.2em;border:none;border-radius:5px;cursor:pointer;background-color:var(--secondary-color);color:var(--text-color);transition:background-color 0.3s ease;width:100%;}
+        .submit-button:hover {background-color:var(--primary-color);}
+        .submit-button:active {transform:scale(0.98);}
+        .anchor-link {color:var(--primary-color);font-size:0.8em;margin:1px;text-align:center;justify-content:space-between;}
+        .loader {display:none;margin-top:20px;text-align:center;font-size:2em;color:var(--primary-color);}
+        .loader:after {content:'';display:block;width:50px;height:50px;border:5px solid var(--primary-color);border-radius:50%;border-top:5px solid transparent;animation:spin 1.5s linear infinite;margin:0 auto;}
+        @keyframes spin {0% { transform:rotate(0deg);}100% { transform:rotate(360deg);}}
+        .toast {margin:50px auto;visibility:hidden;min-width:250px;background-color:var(--secondary-color);color:var(--text-color);text-align:center;border-radius:5px;padding:16px;position:fixed;z-index:1;left:50%;bottom:30px;font-size:17px;opacity:0;transition:opacity 0.5s ease-in-out;transform:translateX(-50%);}
+        .toast.show {visibility:visible;opacity:5;}
+        .toast.success {background-color:var(--success-color);}
+        .toast.error {background-color:var(--error-color);}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="card-header">
+            <img src="https://i.postimg.cc/ZK7dC9bx/logo.png" loading="lazy" alt="logo">
+            <h1>Accelerating Human Innovation</h1>
+        </div>
+        <p>Our mission is to empower individuals to realize their full potential by connecting them with opportunities for career growth, access to funding, and personalized mentorship. We strive to create a supportive ecosystem where every individual can thrive and achieve their goals.</p>
+        <p>We believe that unlocking individual potential is the key to driving human innovation and progress. By enabling people to grow and succeed, we contribute to accelerating advancements in technology, creativity, and the collective evolution of society.</p>
+        <img class="cover-image" src="https://i.postimg.cc/fRQd1rXG/clark-tibbs-oq-Stl2-L5ox-I-unsplash-1-11zon.jpg" loading="lazy" alt="cover-image">
+        <div class="form-container">
+            <form onsubmit="submitForm(event)">
+                <div class="select-wrapper">
+                    <select name="type" required>
+                        <option value="">what type of help you need ?</option>
+                        <option value="job">I need a job</option>
+                        <option value="internship">I need an internship</option>
+                        <option value="freelancing">I need freelancing work</option>
+                        <option value="consultant">I need consulting work</option>
+                        <option value="funding">I need startup funding</option>
+                        <option value="other">Others</option>
+                    </select>
+                </div>
+                <input type="text" name="name" placeholder="* name" minlength="3" maxlength="50" required>
+                <input type="text" name="email" placeholder="email" minlength="3" maxlength="50">
+                <input type="text" name="mobile" placeholder="mobile (with country code)" minlength="3" maxlength="15">
+                <input type="text" name="city" placeholder="city" minlength="3" maxlength="50">
+                <input type="number" name="experience" placeholder="experience in years (ex. 3.5)" min="0" max="1000" step="0.1">
+                <input type="text" name="link_url" placeholder="any link (website,resume,linkedin etc)" minlength="3" maxlength="5000">
+                <input type="text" name="work_profile" placeholder="your core work profile (ex. product manager)" minlength="3" maxlength="100">
+                <textarea name="skill" placeholder="your core skills (python,sql, etc)" rows="3" minlength="3" maxlength="300" ></textarea>
+                <textarea name="description" placeholder="* description (explain your need in ~500 words)" rows="5" minlength="3" maxlength="5000" required></textarea>
+                <button type="submit" class="submit-button">Submit</button>
+            </form>
+            <div class="anchor-link">
+                <a style="margin-right:5px" target="_blank" href="https://atom42.notion.site/About-Us-17b9dff2f5df80faab12cce2e40ce07e">About Us</a>
+                <a style="margin-right:5px" target="_blank" href="https://atom42.notion.site/Privacy-Policy-17b9dff2f5df80d2b06bd4ce360da528?pvs=73">Privacy Policy</a>
+                <a target="_blank" href="https://atom42.notion.site/Terms-and-Conditions-17b9dff2f5df80e6b0c6fdfe27ffe254?pvs=73">Terms and Conditions</a>
+              </div>
+            <div class="loader" id="loader"></div>
+        </div>
+    </div>
+    <div id="toast" class="toast"></div>
+    <script>
+        const submitForm = e => {
+            e.preventDefault();
+            const formData = new FormData(e.target), formObject = {};
+            const url = 'http://127.0.0.1:8000/public/object-create?table=human&is_background=1'
+            formData.forEach((v, k) => {if (v !== null && v !== "") { formObject[k] = v;}});
+            document.getElementById('loader').style.display = 'block';
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(formObject),
+                mode: 'no-cors',
+            })
+            .then(() => { e.target.reset(); showToast('Success. We will contact you soon.', 'success'); })
+            .catch(() => showToast('There was an error submitting the form.', 'error'))
+            .finally(() => document.getElementById('loader').style.display = 'none');
+        };
+        const showToast = (msg, type) => {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast show ${type}`;
+            setTimeout(() => toast.className = toast.className.replace('show', ''), 3000);
+        };
+    </script>
+</body>
+</html>

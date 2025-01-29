@@ -705,6 +705,7 @@ async def my_token_refresh(request:Request):
 @app.post("/my/object-create")
 async def my_object_create(request:Request,table:str,is_serialize:int=0,queue:str=None):
    object=await request.json()
+   object={k:v for k,v in object.items() if v}
    if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in object):return responses.JSONResponse(status_code=400,content={"status":0,"message":"key denied"})
    object["created_by_id"]=request.state.user["id"]
    if not queue:
@@ -881,9 +882,9 @@ async def my_object_delete(request:Request,table:str):
 
 #public
 @app.post("/public/object-create")
-async def public_object_create(request:Request,table:str):
-   if table not in ["helpdesk","human"]:return responses.JSONResponse(status_code=400,content={"status":0,"message":"table not allowed"})
+async def public_object_create(request:Request,table:Literal["helpdesk","human"]):
    object=await request.json()
+   object={k:v for k,v in object.items() if v}
    response=await postgres_crud("create",table,[object],1,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
@@ -923,6 +924,12 @@ async def public_redis_get_object(key:str):
 @app.post("/private/file-upload-s3")
 async def private_file_upload_s3(bucket:str,key:str,file:list[UploadFile]):
    response=await s3_file_upload(bucket,key,file)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   return response
+
+@app.post("/private/file-upload-s3-single")
+async def private_file_upload_s3_single(bucket:str,key:str,file:UploadFile):
+   response=await s3_file_upload(bucket,"filename",[file])
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
