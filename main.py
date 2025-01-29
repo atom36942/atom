@@ -503,7 +503,6 @@ async def root_info(request:Request):
    "api_list":[route.path for route in request.app.routes],
    "api_count":len([route.path for route in request.app.routes]),
    "redis":await redis_client.info(),
-   "s3_bucket_list":s3_client.list_buckets() if s3_client else None,
    "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
    }
    return {"status":1,"message":output}
@@ -556,6 +555,11 @@ async def root_form_data(request:Request,file:list[UploadFile]=[]):
    }
    return {"status":1,"message":output}
 
+@app.get("/root/s3-bucket-list")
+async def root_s3_bucket_list():
+   output=s3_client.list_buckets()
+   return {"status":1,"message":output}
+
 @app.get("/root/s3-bucket-create")
 async def root_s3_bucket_create(region:str,bucket:str):
    output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':region})
@@ -578,8 +582,8 @@ async def root_s3_bucket_empty(bucket:str):
    output=s3_client.delete_bucket(Bucket=bucket)
    return {"status":1,"message":output}
 
-@app.get("/root/s3-key-delete")
-async def root_s3_key_empty(url:str):
+@app.get("/root/s3-url-delete")
+async def root_s3_url_empty(url:str):
    bucket=url.split("//",1)[1].split(".",1)[0]
    key=url.rsplit("/",1)[1]
    output=s3_resource.Object(bucket,key).delete()
@@ -901,8 +905,8 @@ async def private_file_upload_s3(bucket:str,key:str,file:list[UploadFile]):
    for index,item in enumerate(file):
       file_content=await item.read()
       file_stream=BytesIO(file_content)
-      s3_client.upload_fileobj(file_stream,bucket,key_list[index])
-   return {"status":1,"message":"done"}
+      output=s3_client.upload_fileobj(file_stream,bucket,key_list[index])
+   return {"status":1,"message":output}
 
 @app.get("/private/file-upload-s3-presigned")
 async def private_file_upload_s3_presigned(bucket:str,key:str):
