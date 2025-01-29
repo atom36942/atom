@@ -201,6 +201,22 @@ async def create_where_string(postgres_column_datatype,object_serialize,object):
    where_value=response["message"][0]
    return {"status":1,"message":[where_string,where_value]}
 
+async def s3_file_upload(bucket,key,file_list):
+   if key=="filename":key_list=[item.filename for item in file_list]
+   elif key=="guid":key_list=[f"{uuid.uuid4().hex}.{item.filename.rsplit('.',1)[1]}" for item in file_list]
+   elif key=="guid-filename":key_list=[f"{uuid.uuid4().hex}-{item.filename}" for item in file_list]
+   else:
+      key_list=key.split("---")
+      if len(key_list)!=len(file_list):return {"status":0,"message":"key length mismatch"}
+   output={}
+   for index,item in enumerate(file_list):
+      file_content=await item.read()
+      file_stream=BytesIO(file_content)
+      key=key_list[index]
+      s3_client.upload_fileobj(file_stream,bucket,key)
+      output[item.filename]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
+   return {"status":1,"message":output}
+
 #globals env
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
@@ -215,6 +231,7 @@ kafka_path_keyfile=os.getenv("kafka_path_keyfile")
 kafka_server_url=os.getenv("kafka_server_url")
 aws_access_key_id=os.getenv("aws_access_key_id")
 aws_secret_access_key=os.getenv("aws_secret_access_key")
+s3_region_name=os.getenv("s3_region_name")
 sns_region_name=os.getenv("sns_region_name")
 sns_region_name=os.getenv("sns_region_name")
 ses_region_name=os.getenv("ses_region_name")
@@ -315,10 +332,14 @@ async def set_redis_client():
 import boto3
 async def set_aws_client():
    global s3_client,s3_resource,sns_client,ses_client
-   if aws_access_key_id:s3_client=boto3.client("s3",aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
-   if aws_access_key_id:s3_resource=boto3.resource("s3",aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
-   if sns_region_name:sns_client=boto3.client("sns",region_name=sns_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
-   if ses_region_name:ses_client=boto3.client("ses",region_name=ses_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   if s3_region_name:
+      s3_client=boto3.client("s3",region_name=s3_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   if s3_region_name:
+      s3_resource=boto3.resource("s3",region_name=s3_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   if sns_region_name:
+      sns_client=boto3.client("sns",region_name=sns_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   if ses_region_name:
+      ses_client=boto3.client("ses",region_name=ses_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
    return None
 
 import motor.motor_asyncio
@@ -561,8 +582,8 @@ async def root_s3_bucket_list():
    return {"status":1,"message":output}
 
 @app.get("/root/s3-bucket-create")
-async def root_s3_bucket_create(region:str,bucket:str):
-   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':region})
+async def root_s3_bucket_create(bucket:str):
+   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
    return {"status":1,"message":output}
 
 @app.get("/root/s3-bucket-public")
@@ -584,9 +605,9 @@ async def root_s3_bucket_empty(bucket:str):
 
 @app.get("/root/s3-url-delete")
 async def root_s3_url_empty(url:str):
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   output=s3_resource.Object(bucket,key).delete()
+   for item in url.split("---"):
+      bucket,key=item.split("//",1)[1].split(".",1)[0],item.rsplit("/",1)[1]
+      output=s3_resource.Object(bucket,key).delete()
    return {"status":1,"message":output}
 
 @app.post("/root/redis-set-object")
@@ -901,12 +922,9 @@ async def public_redis_get_object(key:str):
 #private
 @app.post("/private/file-upload-s3")
 async def private_file_upload_s3(bucket:str,key:str,file:list[UploadFile]):
-   key_list=key.split(",")
-   for index,item in enumerate(file):
-      file_content=await item.read()
-      file_stream=BytesIO(file_content)
-      output=s3_client.upload_fileobj(file_stream,bucket,key_list[index])
-   return {"status":1,"message":output}
+   response=await s3_file_upload(bucket,key,file)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   return response
 
 @app.get("/private/file-upload-s3-presigned")
 async def private_file_upload_s3_presigned(bucket:str,key:str):
