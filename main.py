@@ -9,7 +9,7 @@ async def postgres_crud(mode,table,object_list,is_serialize,postgres_client,post
    if not postgres_schema.get(table,None):return {"status":0,"message":"table not allowed"}
    if mode!="read":
       for k,v in object_list[0].items():
-         if k not in postgres_schema.get(table,{}):return {"status":0,"message":f"column {k} not allowed"}
+         if k not in postgres_schema.get(table,{}):return {"status":0,"message":f"column {k} not in {table}"}
          if k=="parent_table" and not postgres_schema.get(v,None):return {"status":0,"message":"parent_table not allowed"}
    #serialize
    if is_serialize:
@@ -206,12 +206,15 @@ async def s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list):
    if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
    output={}
    for index,file in enumerate(file_list):
-      file_content=await file.read()
-      file_stream=BytesIO(file_content)
       key=key_list[index]
       if "." not in key:return {"status":0,"message":"extension must"}
+      file_content=await file.read()
+      file_size_kb=round(len(file_content)/1024)
+      if file_size_kb>100:return {"status":0,"message":f"{file.filename} has {file_size_kb} kb size which is not allowed"}
+      file_stream=BytesIO(file_content)
       s3_client.upload_fileobj(file_stream,bucket,key)
       output[file.filename]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
+      file.file.close()
    return {"status":1,"message":output}
 
 #globals env
@@ -272,7 +275,7 @@ postgres_config_default={
 "action_follow":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
 "action_rating":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-1-0"],
 "action_comment":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-1-0"],
-"human":["created_at-timestamptz-1-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-text-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0",],
+"human":["created_at-timestamptz-1-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-numeric(10,1)-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0","file_url-text-0-0"],
 },
 "query":{
 "default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
@@ -609,7 +612,8 @@ async def root_redis_set_object(request:Request,key:str,expiry:int=None):
 
 @app.post("/root/redis-set-csv")
 async def root_redis_set_csv(table:str,file:UploadFile,expiry:int=None):
-   object_list=[row for row in csv.DictReader(codecs.iterdecode(file.file, 'utf-8'))]
+   object_list=[row for row in csv.DictReader(codecs.iterdecode(file.file,'utf-8'))]
+   file.file.close()
    async with redis_client.pipeline(transaction=True) as pipe:
       for object in object_list:
          key=f"{table}_{object['id']}"
@@ -878,14 +882,21 @@ async def public_object_create(request:Request,table:Literal["helpdesk","human"]
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
 
-@app.post("/root/form-data")
-async def root_form_data(request:Request,file:list[UploadFile]=[]):
-   output={
-   "form_data":await request.form(),
-   "file_name_list":[item.filename for item in file]
-   }
-   return {"status":1,"message":output}
-
+@app.post("/public/object-create-form")
+async def public_object_create_form(request:Request,table:Literal["helpdesk","human"],bucket:str=None,file_column:str="file_url"):
+   form_data=await request.form()
+   object={k:v for k,v in form_data.items() if k!="file"}
+   file_list=form_data.getlist("file")
+   file_list=[file for file in file_list if file.filename]
+   if file_list:
+      if not bucket:return responses.JSONResponse(status_code=400,content={"status":0,"message":"bucket missing"})
+      response=await s3_file_upload(s3_client,s3_region_name,bucket,None,file_list)
+      if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+      object[file_column]=",".join([v for k,v in response["message"].items()])
+   response=await postgres_crud("create",table,[object],1,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   return response
+   
 @app.get("/public/object-read")
 @cache(expire=60)
 async def public_object_read(request:Request,table:str):
@@ -928,7 +939,7 @@ async def private_file_upload_s3(bucket:str,key:str,file:list[UploadFile]):
 @app.get("/private/file-upload-s3-presigned")
 async def private_file_upload_s3_presigned(bucket:str,key:str):
    if "." not in key:return responses.JSONResponse(status_code=400,content={"status":0,"message":"extension must"})
-   expiry_sec,size_kb=1000,250
+   expiry_sec,size_kb=1000,100
    output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
    for k,v in output["fields"].items():output[k]=v
    del output["fields"]

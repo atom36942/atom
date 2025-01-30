@@ -1,11 +1,17 @@
-<form action="http://127.0.0.1:8000/upload/" method="post" enctype="multipart/form-data">
+<form action="http://127.0.0.1:8000/public/object-create-form?table=human&bucket=master" method="post" enctype="multipart/form-data">
 
    <label>name:</label>
    <input type="text" name="name"><br><br>
-   
+
+   <label>email:</label>
+   <input type="text" name="email"><br><br>
+
+   <label>experience:</label>
+   <input type="number" name="experience"><br><br>
+
    <label>Upload Multiple Files:</label>
-   <input type="file" name="files" multiple><br><br>
+   <input type="file" name="file" multiple><br><br>
    
    <button type="submit">Submit</button>
-
+   
 </form>
