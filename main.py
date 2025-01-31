@@ -446,14 +446,19 @@ async def middleware(request:Request,api_function):
    method=request.method
    query_param=dict(request.query_params)
    body=await request.body()
-   token=request.headers.get("Authorization").split(" ",1)[1] if request.headers.get("Authorization") else None
+   auth_header=request.headers.get("Authorization")
+   token=auth_header.split("Bearer ",1)[1] if auth_header and "Bearer " in auth_header else None
    try:
       #auth
       user={}
-      if token and "root/" not in api:user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
-      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return responses.JSONResponse(status_code=400, content={"status": 0, "message": "token must"})
-      if "root/" in api and token!=key_root:return responses.JSONResponse(status_code=400,content={"status":0,"message":"root key mismatch"})
-      if "admin/" in api and user["id"] not in users_type_ids.get("admin",[]):return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
+      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token must"})
+      if token:
+         if "root/" in api:
+            if token!=key_root:return responses.JSONResponse(status_code=400,content={"status":0,"message":"root key mismatch"})
+         else:
+            user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
+            if not user.get("id",None):return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong token"})
+            if "admin/" in api and user["id"] not in users_type_ids.get("admin",[]):return responses.JSONResponse(status_code=400,content={"status":0,"message":"only admin allowed"})
       request.state.user=user
       #api response background
       if query_param.get("is_background",None)=="1":
