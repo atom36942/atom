@@ -1,80 +1,51 @@
-### coding paradigm
-```
-Atom entire codebase is in a single file, main.py.
+# about
+1. an open-source backend framework for faster development
+2. entire codebase is in a single file, main.py
+3. combines procedural and functional programming
+4. procedures ensures better global/local state access
+5. functions ensures deterministic behavior of the code
+6. follows SOLID principles
+7. supports high-performance application development
+8. uses realtional dataabse at its core
+9. Reduces repetitive work with reusable modules
+10. Enables rapid iteration and faster go-to-market
+11. Built with Python,FastAPI,PostgreSQL,Redis,Kafka,Rabbitmq,Mongodb
+12. Uses raw SQL for optimized queries and better control
+13. Supports high-throughput pipelines via RabbitMQ, LavinMQ, or Kafka
+14. Provides object-level CRUD operations by directly interacting with database schema
+15. Auto-generates entire business database schemas from a single JSON config
+16. ex. build a linkedIn-like backend in 2-3 weeks
 
-1. Atom combines procedural and functional programming
-2. Procedures ensures better global/local state access. 
-3. Functions ensures deterministic behavior of the code.
-4. Atom uses realtional dataabse at its core.
-5. Follows SOLID principles for scalability and maintainability.
-6. Emphasizes modularity and separation of concerns.
-7. Promotes efficient memory usage.
-8. Ensures robustness and flexibility for large-scale applications.
-9. Supports high-performance application development.
-10. Supports code reusability and maintainability.
-```
+# modules
+1. authentication module
+2. endpoints for authenticated users
+3. direct crud apis on database objects
+4. role-based access control for admin operations
+5. built-in apis for aws services like s3,ses,sns 
+6. deploy instantly using render
+7. privileged access for root users 
+8. import large datasets via csv 
+9. improve performance with redis caching
+10. kafka, rabbitmq, lavinmq, redis pub-sub
+11. prevent api abuse with request limiting 
+12. auto-generate schemas via api 
+13. asynchronous task execution 
+14. scale with read database replication  
+15. use mongodb as a secondary database
 
-### about atom
-```
-1. Open-source backend framework with reusable modules to reduce repetitive work.
-2. Accelerates development for faster delivery and iteration.
-3. Enables entrepreneurs to launch and scale ideas quickly with minimal backend work.
-4. Flexible and suitable for diverse applications.
-5. Built with Python, FastAPI, PostgreSQL, and Redis for scalability.
-6. Uses raw SQL for optimized queries and better control.
-7. Supports high-throughput pipelines with RabbitMQ, LavinMQ, or Kafka.
-8. Offers object-level CRUD operations directly on the database schema.
-9. Simplifies setup by generating business schemas from a single JSON config.
-10. Example: Build a LinkedIn-like backend in 2-3 weeks.
-```
-
-### modules
-```
-1. auth
-2. logged in user apis
-3. object level crud
-4. admin apis with rbac
-5. s3/ses/sns/etc integaration
-6. one click depolyment using render
-7. root user apis
-8. bulk csv uploader
-9. api caching
-10.large scale data ingestion using kafka/rabbitmq/lavinmq/redis pub-sub
-11. rate limiter
-12. one click database schema setup api
-13. background jobs
-14. read/write database replicas
-15. mongodb integraton as secondary database
-```
-
-### contact
-```
-Build your backend faster with atom! 
-Share your requirements at:atom36942@gmail.com
-```
-
-### api docs
-```
-https://www.atom42.org/docs
-```
-
-### how to run
-```
+# how to run
 1. download atom repo
 2. install requirements.txt
 3. create .env file
 4. run python main.py
-```
+5. using docker = 1. docker build -t atom . 2. docker run -p 8000:8000 atom
 
-### how to run using docker
-```
-1. docker build -t atom .
-2. docker run -p 8000:8000 atom
-```
+# misc
+1. Have an idea! email @ atom36942@gmail.com
+2. api docs = https://www.atom42.org/docs
 
-### helper commands
-```
-#git init
+# commands
+#git
 git init
 git remote add origin https://github.com/atom36942123/atom.git
 git branch -M main
@@ -106,6 +77,6 @@ pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 \copy post(created_by_id,type,title,location) from '/Users/atom/Downloads/location.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 
-#python stop pid
-lsof -ti :8000 | xargs kill -9
-```
+#misc
+pid kill = lsof -ti :8000 | xargs kill -9
+
