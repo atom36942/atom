@@ -1,7 +1,5 @@
+### index
 ```sh
-curl -X GET "https://api.example.com/data" -H "Authorization: Bearer YOUR_TOKEN"
+curl "http://127.0.0.1:8000"
 ```
 
-```sh
-curl -X GET "https://api.example.com/data" -H "Authorization: Bearer YOUR_TOKEN"
-```

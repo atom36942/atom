@@ -1010,7 +1010,7 @@ mode=sys.argv
 #fastapi
 import asyncio,uvicorn
 async def main_fastapi():
-   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
+   config=uvicorn.Config(app,host="127.0.0.1",port=8000,log_level="info",reload=True)
    server=uvicorn.Server(config)
    await server.serve()
 if __name__=="__main__" and len(mode)==1:
