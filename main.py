@@ -6,6 +6,7 @@ load_dotenv()
 #function
 async def postgres_crud(mode,table,object_list,is_serialize,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count):
    #check
+   if not object_list:return {"status":0,"message":"object null issue"}
    if not postgres_schema.get(table,None):return {"status":0,"message":"table not allowed"}
    if mode!="read":
       for k,v in object_list[0].items():
@@ -491,7 +492,7 @@ for item in current_directory_file_name_list_without_extension:
       router=__import__(item).router
       app.include_router(router)
       
-#api import
+#import
 from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks,File,Form
 import hashlib,datetime,json,time,jwt,csv,codecs,os,random,uuid
 from io import BytesIO
@@ -500,6 +501,8 @@ from bson.objectid import ObjectId
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel
+from PyPDF2 import PdfReader
+import fitz
 
 #index
 @app.get("/")
@@ -893,6 +896,23 @@ async def public_object_create_form(request:Request,table:Literal["helpdesk","hu
       response=await s3_file_upload(s3_client,s3_region_name,bucket,None,file_list)
       if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
       object[file_column]=",".join([v for k,v in response["message"].items()])
+   response=await postgres_crud("create",table,[object],1,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
+   if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
+   return response
+
+@app.post("/public/object-create-pdf-extract")
+async def public_object_create_pdf_extract(request:Request,table:Literal["helpdesk","human"],pdf_column:str="description"):
+   form_data=await request.form()
+   object={k:v for k,v in form_data.items() if k!="file"}
+   file_list=form_data.getlist("file")
+   file_list=[file for file in file_list if file.filename]
+   text=""
+   for file in  file_list:
+      if file.content_type!="application/pdf":return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong file type"})
+      pdf_file=await file.read()
+      doc=fitz.open(stream=pdf_file,filetype="pdf")
+      for page in doc:text+=page.get_text("text")
+      object[pdf_column]=text
    response=await postgres_crud("create",table,[object],1,postgres_client,postgres_schema,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
    if response["status"]==0:return responses.JSONResponse(status_code=400,content=response)
    return response
