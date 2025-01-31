@@ -1,4 +1,5 @@
 # about
+```
 1. an open-source backend framework for faster development
 2. entire codebase is in a single file, main.py
 3. combines procedural and functional programming
@@ -15,8 +16,10 @@
 14. Provides object-level CRUD operations by directly interacting with database schema
 15. Auto-generates entire business database schemas from a single JSON config
 16. ex. build a linkedIn-like backend in 2-3 weeks
+```
 
 # modules
+```
 1. authentication module
 2. endpoints for authenticated users
 3. direct crud apis on database objects
@@ -32,19 +35,25 @@
 13. asynchronous task execution 
 14. scale with read database replication  
 15. use mongodb as a secondary database
+```
 
 # how to run
+```
 1. download atom repo
 2. install requirements.txt
 3. create .env file
 4. run python main.py
 5. using docker = 1. docker build -t atom . 2. docker run -p 8000:8000 atom
+```
 
 # misc
+```
 1. Have an idea! email @ atom36942@gmail.com
 2. api docs = https://www.atom42.org/docs
+```
 
 # commands
+```
 #git
 git init
 git remote add origin https://github.com/atom36942123/atom.git
@@ -79,4 +88,4 @@ pg_restore -d url  /Users/atom/Downloads/atom.dump
 
 #misc
 pid kill = lsof -ti :8000 | xargs kill -9
-
+```
