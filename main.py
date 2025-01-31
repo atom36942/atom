@@ -218,6 +218,10 @@ async def s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list):
       file.file.close()
    return {"status":1,"message":output}
 
+from fastapi import responses
+def error(message):
+   return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
+
 #globals env
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
@@ -451,10 +455,10 @@ async def middleware(request:Request,api_function):
    try:
       #auth
       user={}
-      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return responses.JSONResponse(status_code=400,content={"status":0,"message":"token must"})
+      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return error("token must")
       if token:
          if "root/" in api:
-            if token!=key_root:return responses.JSONResponse(status_code=400,content={"status":0,"message":"root key mismatch"})
+            if token!=key_root:return error("root key mismatch")
          else:
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return responses.JSONResponse(status_code=400,content={"status":0,"message":"wrong token"})
@@ -497,8 +501,8 @@ for item in current_directory_file_name_list_without_extension:
       router=__import__(item).router
       app.include_router(router)
       
-#import
-from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks,File,Form
+#api import
+from fastapi import Request,UploadFile,responses,Depends,BackgroundTasks
 import hashlib,datetime,json,time,jwt,csv,codecs,os,random,uuid
 from io import BytesIO
 from typing import Literal
@@ -506,21 +510,25 @@ from bson.objectid import ObjectId
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel
-from PyPDF2 import PdfReader
 import fitz
 
-#index
+#api
 @app.get("/")
 async def root():
    return {"status":1,"message":"welcome to atom"}
    
-#root
-@app.post("/root/schema-init")
-async def root_schema_init(request:Request,mode:str=None):
-   if not mode:config=postgres_config_default
-   if mode=="custom":config=await request.json()
+@app.post("/root/postgres-schema-init-default")
+async def root_postgres_schema_init_default():
+   await postgres_schema_init(postgres_client,postgres_config_default)
+   return {"status":1,"message":"done"}
+
+@app.post("/root/postgres-schema-init-custom")
+async def root_postgres_schema_init_custom(request:Request):
+   config=await request.json()
+   if not config:return error("body missing")
    await postgres_schema_init(postgres_client,config)
    return {"status":1,"message":"done"}
+
 
 @app.get("/root/info")
 async def root_info(request:Request):
@@ -630,7 +638,6 @@ async def root_redis_set_csv(table:str,file:UploadFile,expiry:int=None):
       await pipe.execute()
    return {"status":1,"message":"done"}
 
-#auth
 @app.get("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
 async def auth_signup(username:str,password:str):
    query="insert into users (username,password) values (:username,:password) returning *;"
@@ -690,7 +697,6 @@ async def auth_login_password_mobile(password:str,mobile:str):
    token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
-#my
 @app.get("/my/profile")
 async def my_profile(request:Request,background:BackgroundTasks):
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
@@ -881,7 +887,6 @@ async def my_object_delete(request:Request,table:str):
    await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":"done"}
 
-#public
 @app.post("/public/object-create")
 async def public_object_create(request:Request,table:Literal["helpdesk","human"]):
    object=await request.json()
@@ -971,7 +976,6 @@ async def private_file_upload_s3_presigned(bucket:str,key:str):
    output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
    return {"status":1,"message":output}
 
-#admin
 @app.get("/admin/object-read")
 async def admin_object_read(request:Request,table:str):
    object=dict(request.query_params)
