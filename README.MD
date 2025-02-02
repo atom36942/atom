@@ -88,4 +88,5 @@ pg_restore -d url  /Users/atom/Downloads/atom.dump
 
 #misc
 pid kill = lsof -ti :8000 | xargs kill -9
+git commit delete = git reset --hard HEAD~3 / git push origin main --force
 ```
