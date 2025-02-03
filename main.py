@@ -333,8 +333,8 @@ object_list_log=[]
 channel_name="ch1"
 postgres_config_default={
 "table":{
-"atom":["type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","parent_table-text-0-btree","parent_id-bigint-0-btree"],
-"project":["type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
+"atom":["created_by_id-bigint-0-0","type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","parent_table-text-0-btree","parent_id-bigint-0-btree"],
+"project":["created_by_id-bigint-0-0","type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
 "users":["created_at-timestamptz-1-brin","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0","city-text-0-0"],
 "post":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0","is_protected-smallint-0-btree"],
 "message":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-1-0","is_read-smallint-0-btree"],
@@ -349,7 +349,7 @@ postgres_config_default={
 "action_follow":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
 "action_rating":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-1-0"],
 "action_comment":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-1-0"],
-"human":["created_at-timestamptz-1-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-numeric(10,1)-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0","file_url-text-0-0"],
+"human":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-numeric(10,1)-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0","file_url-text-0-0"],
 },
 "query":{
 "unique_users_username":"alter table users add constraint constraint_unique_users_username unique (username);",

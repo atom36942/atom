@@ -1,11 +1,16 @@
 #!/bin/bash
 
-# Curl file
+# env file
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
+#variable
 input_file="curl.txt"
 output_file="curl.csv"
-baseurl="http://127.0.0.1:8000"
-token_root="x"
-token="x"
+baseurl="${baseurl}"
+token_root="${token_root}"
+token="${token}"
 
 # Initialize CSV file with headers
 echo "API,Status Code,Response Time (ms)" > "$output_file"
