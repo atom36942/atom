@@ -1,50 +1,101 @@
-curl -X GET "http://127.0.0.1:8000"
+#!/bin/bash
 
-curl -X POST "http://127.0.0.1:8000/root/schema-init-default" -H "Authorization: Bearer token_root"
-curl -X POST "http://127.0.0.1:8000/root/schema-init-custom" -H "Authorization: Bearer token_root" -H "Content-Type: application/json" -d '{"table":{"atom":["title-text-0-btree"],"users":["username-text-1-btree","password-text-1-btree"]},"query":{}}'
+# Curl file
+input_file="curl.txt"
+output_file="curl.csv"
+baseurl="http://127.0.0.1:8000"
+token_root="x"
+token="x"
 
-curl -X GET "http://127.0.0.1:8000/root/info" -H "Authorization: Bearer token_root"
-curl -X PUT "http://127.0.0.1:8000/root/reset-global" -H "Authorization: Bearer token_root"
-curl -X PUT "http://127.0.0.1:8000/root/reset-redis" -H "Authorization: Bearer token_root"
-curl -X DELETE "http://127.0.0.1:8000/root/db-clean" -H "Authorization: Bearer token_root"
-curl -X PUT "http://127.0.0.1:8000/root/db-checklist" -H "Authorization: Bearer token_root"
+# Initialize CSV file with headers
+echo "API,Status Code,Response Time (ms)" > "$output_file"
 
-curl -X POST "http://127.0.0.1:8000/root/query-runner" -H "Authorization: Bearer token_root" -H "Content-Type: application/json" -d '{"query":"insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
+# Count variables
+count=0
+count_success=0
+count_fail=0
+total_response_time=0  # To calculate average response time
 
-curl -X POST "http://127.0.0.1:8000/root/csv-uploader" -H "Authorization: Bearer token_root" -F "file=@\"/Users/atom/Downloads/create.csv\"" -F "mode=create" -F "table=post"
-curl -X POST "http://127.0.0.1:8000/root/csv-uploader" -H "Authorization: Bearer token_root" -F "file=@\"/Users/atom/Downloads/update.csv\"" -F "mode=update" -F "table=post"
-curl -X POST "http://127.0.0.1:8000/root/csv-uploader" -H "Authorization: Bearer token_root" -F "file=@\"/Users/atom/Downloads/delete.csv\"" -F "mode=delete" -F "table=post"
+# Check if gdate (GNU date) is installed for nanosecond support
+if command -v gdate &>/dev/null; then
+    DATE_CMD="gdate"
+else
+    DATE_CMD="date"
+fi
 
-curl -X GET "http://127.0.0.1:8000/root/s3-bucket-list" -H "Authorization: Bearer token_root"
-curl -X POST "http://127.0.0.1:8000/root/s3-bucket-create" -H "Authorization: Bearer token_root" -H "Content-Type: application/json" -d '{"bucket":"master"}'
-curl -X PUT "http://127.0.0.1:8000/root/s3-bucket-public" -H "Authorization: Bearer token_root" -H "Content-Type: application/json" -d '{"bucket":"master"}'
-curl -X DELETE "http://127.0.0.1:8000/root/s3-bucket-empty" -H "Authorization: Bearer token_root" -H "Content-Type: application/json" -d '{"bucket":"master"}'
-curl -X DELETE "http://127.0.0.1:8000/root/s3-bucket-delete" -H "Authorization: Bearer token_root" -H "Content-Type: application/json" -d '{"bucket":"master"}'
-curl -X DELETE "http://127.0.0.1:8000/root/s3-url-delete" -H "Authorization: Bearer token_root" -H "Content-Type: application/json" -d '{"url":"www.abc.com"}'
+# Read the curl commands from the file and process each line
+while IFS= read -r line; do
+    # Check if the line contains a curl command
+    if [[ "$line" == curl* ]]; then
+        # Replace the placeholders with actual variable values
+        command=$(echo "$line" | sed "s|\${baseurl}|$baseurl|g" | sed "s|\${token_root}|$token_root|g" | sed "s|\${token}|$token|g")
 
-curl -X POST "http://127.0.0.1:8000/root/redis-set-object" -H "Authorization: Bearer token_root" -H "Content-Type: application/json" -d '{"key":"post_1","expiry":3600,"object":{"name":"atom"}}'
-curl -X POST "http://127.0.0.1:8000/root/redis-set-csv" -H "Authorization: Bearer token_root" -F "file=@\"/Users/atom/Downloads/update.csv\"" -F "table=post" -F "expiry=3600"
+        # Extract and print only the URL for readability
+        url=$(echo "$command" | sed -n 's/^curl -X [A-Z]* "\([^"]*\)".*/\1/p')
+        echo "🚀 $url"
 
-curl -X POST "http://127.0.0.1:8000/auth/signup" -H "Content-Type: application/json" -d '{"username":"atom","password":"123"}'
-curl -X POST "http://127.0.0.1:8000/auth/login" -H "Content-Type: application/json" -d '{"username":"atom","password":"123"}'
-curl -X POST "http://127.0.0.1:8000/auth/login-google" -H "Content-Type: application/json" -d '{"google_id":"atom"}'
-curl -X POST "http://127.0.0.1:8000/auth/login-otp-email" -H "Content-Type: application/json" -d '{"email":"abc","otp":123}'
-curl -X POST "http://127.0.0.1:8000/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"mobile":"abc","otp":123}'
-curl -X POST "http://127.0.0.1:8000/auth/login-password-email" -H "Content-Type: application/json" -d '{"email":"atom","password":"123"}'
-curl -X POST "http://127.0.0.1:8000/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"mobile":"atom","password":"123"}'
+        # Start time (use nanoseconds if gdate is available, otherwise fallback to seconds)
+        if [ "$DATE_CMD" == "gdate" ]; then
+            start_time=$($DATE_CMD +%s%N)  # Nanoseconds timestamp using gdate
+        else
+            start_time=$($DATE_CMD +%s)  # Seconds timestamp on macOS without gdate
+        fi
 
-curl -X GET "http://127.0.0.1:8000/my/profile" -H "Authorization: Bearer token"
-curl -X GET "http://127.0.0.1:8000/my/token-refresh" -H "Authorization: Bearer token"
+        # Run the curl command, capturing both response body and status code
+        response=$(eval "$command -s -w '\n%{http_code}'")
 
-curl -X GET "http://127.0.0.1:8000/my/message-inbox" -H "Authorization: Bearer token"
-curl -X GET "http://127.0.0.1:8000/my/message-inbox?mode=unread" -H "Authorization: Bearer token"
-curl -X GET "http://127.0.0.1:8000/my/message-received" -H "Authorization: Bearer token"
-curl -X GET "http://127.0.0.1:8000/my/message-received?mode=unread" -H "Authorization: Bearer token"
-curl -X GET "http://127.0.0.1:8000/my/message-thread?user_id=2" -H "Authorization: Bearer token"
+        # End time (use nanoseconds if gdate is available, otherwise fallback to seconds)
+        if [ "$DATE_CMD" == "gdate" ]; then
+            end_time=$($DATE_CMD +%s%N)  # Nanoseconds timestamp using gdate
+            execution_time=$(( (end_time - start_time) / 1000000 ))  # Convert to ms
+        else
+            end_time=$($DATE_CMD +%s)  # Seconds timestamp on macOS without gdate
+            execution_time=$(( (end_time - start_time) * 1000 ))  # Convert to ms
+        fi
 
-curl -X GET "http://127.0.0.1:8000/my/parent-read?table=action_comment&parent_table=post" -H "Authorization: Bearer token"
-curl -X GET "http://127.0.0.1:8000/my/parent-check?table=action_comment&parent_table=post&parent_ids=1,2,11" -H "Authorization: Bearer token"
-curl -X DELETE "http://127.0.0.1:8000/my/parent-delete?table=action_comment&parent_table=post&parent_id=11" -H "Authorization: Bearer token"
-curl -X GET "http://127.0.0.1:8000/my/action-on-me-creator-read?table=action_rating" -H "Authorization: Bearer token"
-curl -X GET "http://127.0.0.1:8000/my/action-on-me-creator-read-mutual?table=action_rating" -H "Authorization: Bearer token"
+        total_response_time=$((total_response_time + execution_time))  # Accumulate response time
 
+        # Extract HTTP status code (last line of response)
+        status_code=$(echo "$response" | awk 'END {print}')
+
+        # Extract response body (all lines except the last one)
+        body=$(echo "$response" | sed '$d')
+
+        # Increment the counter
+        ((count++))
+
+        # Log results in CSV file
+        echo "$url,$status_code,$execution_time" >> "$output_file"
+
+        # Check response status
+        if [[ "$status_code" -eq 200 ]]; then
+            echo "✅ Success (${execution_time}ms)"
+            ((count_success++))
+        else
+            echo "❌ Failed (HTTP $status_code, ${execution_time}ms)"
+            echo "Error Response:"
+            echo "$body"  # Print the error response body
+            ((count_fail++))
+        fi
+    else
+        # If it's not a curl command, skip it
+        continue
+    fi
+done < "$input_file"
+
+# Calculate average response time (avoid division by zero)
+if [[ $count -gt 0 ]]; then
+    avg_response_time=$((total_response_time / count))
+else
+    avg_response_time=0
+fi
+
+# Final summary message
+echo "--------------------------------------"
+echo "📊 API Execution Summary"
+echo "🚀 Total: $count"
+echo "✅ Success: $count_success"
+echo "❌ Fail: $count_fail"
+echo "⏳ Avg Response Time: ${avg_response_time}ms"
+echo "📄 Results saved in: $output_file"
+echo "--------------------------------------"

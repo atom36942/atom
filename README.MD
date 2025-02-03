@@ -17,7 +17,6 @@
 15. Auto-generates entire business database schemas from a single JSON config
 16. ex. build a linkedIn-like backend in 2-3 weeks
 ```
-
 # modules
 ```
 1. authentication module
@@ -36,7 +35,6 @@
 14. scale with read database replication  
 15. use mongodb as a secondary database
 ```
-
 # how to run
 ```
 1. download atom repo
@@ -45,14 +43,12 @@
 4. run python main.py
 5. using docker = 1. docker build -t atom . 2. docker run -p 8000:8000 atom
 ```
-
 # misc
 ```
 1. Have an idea! email @ atom36942@gmail.com
 2. api docs = https://www.atom42.org/docs
 ```
-
-# commands
+# helpers
 ```
 #git
 git init
@@ -89,4 +85,5 @@ pg_restore -d url  /Users/atom/Downloads/atom.dump
 #misc
 pid kill = lsof -ti :8000 | xargs kill -9
 git commit delete = git reset --hard HEAD~3 / git push origin main --force
+add curl.sh = chmod +x curl.sh
 ```
