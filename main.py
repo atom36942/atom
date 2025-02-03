@@ -234,16 +234,9 @@ async def postgres_schema_init_auto(postgres_client,postgres_schema_read):
       await postgres_client.execute(query=query,values={})
       query="create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;"
       await postgres_client.execute(query=query,values={})
-   #bulk delete disable
-   postgres_schema=await postgres_schema_read(postgres_client)
-   if postgres_schema.get("users",{}):
-      query="create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;"
-      await postgres_client.execute(query=query,values={})
-      query="create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);"
-      await postgres_client.execute(query=query,values={})
    #log password
    postgres_schema=await postgres_schema_read(postgres_client)
-   if "log_password" in postgres_schema:
+   if postgres_schema.get("users") and postgres_schema.get("users",{}).get("password",None) and postgres_schema.get("log_password"):
       query="CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;"
       await postgres_client.execute(query=query,values={})
       query="CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();"
@@ -352,6 +345,8 @@ postgres_config_default={
 "human":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-numeric(10,1)-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0","file_url-text-0-0"],
 },
 "query":{
+"function_delete_disable_bulk":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
+"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
 "unique_users_username":"alter table users add constraint constraint_unique_users_username unique (username);",
 "unique_acton_like":"alter table action_like add constraint constraint_unique_action_like_cpp unique (created_by_id,parent_table,parent_id);",
 "unique_acton_bookmark":"alter table action_bookmark add constraint constraint_unique_action_bookmark_cpp unique (created_by_id,parent_table,parent_id);",
