@@ -35,13 +35,23 @@
 14. scale with read database replication  
 15. use mongodb as a secondary database
 ```
+# curl testing
+```
+1. add .env key = baseurl+token_root+token
+2. chmod +x curl.sh
+3. ./curl.sh
+```
 # how to run
 ```
 1. download atom repo
 2. install requirements.txt
 3. create .env file
 4. run python main.py
-5. using docker = 1. docker build -t atom . 2. docker run -p 8000:8000 atom
+```
+# how to run using docker
+```
+1. docker build -t atom .
+2. docker run -p 8000:8000 atom
 ```
 # misc
 ```
@@ -85,5 +95,4 @@ pg_restore -d url  /Users/atom/Downloads/atom.dump
 #misc
 pid kill = lsof -ti :8000 | xargs kill -9
 git commit delete = git reset --hard HEAD~3 / git push origin main --force
-add curl.sh = chmod +x curl.sh
 ```
