@@ -265,10 +265,14 @@ mongodb_cluster_url=os.getenv("mongodb_cluster_url")
 #globals
 object_list_log=[]
 channel_name="ch1"
+token_expire_sec=1000000000000
 postgres_config={
 "table":{
 "atom":[
-"created_by_id-bigint-0-0",
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-btree",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
 "type-text-1-btree",
 "title-text-0-0",
 "description-text-0-0",
@@ -279,7 +283,10 @@ postgres_config={
 "parent_id-bigint-0-btree"
 ],
 "project":[
-"created_by_id-bigint-0-0",
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-btree",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
 "type-text-1-btree",
 "title-text-0-0",
 "description-text-0-0",
@@ -288,7 +295,7 @@ postgres_config={
 "tag-text-0-0"
 ],
 "users":[
-"created_at-timestamptz-1-brin",
+"created_at-timestamptz-0-0",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
 "is_active-smallint-0-btree",
@@ -307,8 +314,8 @@ postgres_config={
 "city-text-0-0"
 ],
 "post":[
-"created_at-timestamptz-1-0",
-"created_by_id-bigint-1-btree",
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
 "type-text-0-0","title-text-0-0",
@@ -321,15 +328,19 @@ postgres_config={
 "is_protected-smallint-0-btree"
 ],
 "message":[
-"created_at-timestamptz-1-0",
+"created_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
 "user_id-bigint-1-btree",
 "description-text-1-0",
 "is_read-smallint-0-btree"
 ],
 "helpdesk":[
-"created_at-timestamptz-1-0",
-"created_by_id-bigint-0-0",
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-btree",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
 "status-text-0-0",
 "remark-text-0-0",
 "type-text-0-0",
@@ -392,15 +403,19 @@ postgres_config={
 "rating-numeric(10,3)-1-0"
 ],
 "action_comment":[
-"created_at-timestamptz-1-0",
+"created_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
 "parent_table-text-1-btree",
 "parent_id-bigint-1-btree",
 "description-text-1-0"
 ],
 "human":[
-"created_at-timestamptz-1-0",
-"created_by_id-bigint-0-0",
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-btree",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
 "type-text-0-btree",
 "name-text-0-0",
 "email-text-0-0",
@@ -820,10 +835,10 @@ async def auth_login(request:Request):
    body_json=await request.json()
    username,password=body_json.get("username",None),body_json.get("password",None)
    if not username or not password:return error("body json username/password missing")
-   output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()})
+   output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()})
    if not output:return error("no user")
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-google")
@@ -834,82 +849,8 @@ async def auth_login_google(request:Request):
    output=await postgres_client.fetch_all(query="select id from users where google_id=:google_id order by id desc limit 1;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
    if not output:output=await postgres_client.fetch_all(query="insert into users (google_id) values (:google_id) returning *;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#misc
-@app.get("/root/s3-bucket-list")
-async def root_s3_bucket_list():
-   output=s3_client.list_buckets()
-   return {"status":1,"message":output}
-
-@app.post("/root/s3-bucket-create")
-async def root_s3_bucket_create(request:Request):
-   body_json=await request.json()
-   bucket=body_json.get("bucket",None)
-   if not bucket:return error("body json bucket missing")
-   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
-   return {"status":1,"message":output}
-
-@app.put("/root/s3-bucket-public")
-async def root_s3_bucket_public(request:Request):
-   body_json=await request.json()
-   bucket=body_json.get("bucket",None)
-   if not bucket:return error("body json bucket missing")
-   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-bucket-empty")
-async def root_s3_bucket_empty(request:Request):
-   body_json=await request.json()
-   bucket=body_json.get("bucket",None)
-   if not bucket:return error("body json bucket missing")
-   output=s3_resource.Bucket(bucket).objects.all().delete()
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-bucket-delete")
-async def root_s3_bucket_empty(request:Request):
-   body_json=await request.json()
-   bucket=body_json.get("bucket",None)
-   if not bucket:return error("body json bucket missing")
-   output=s3_client.delete_bucket(Bucket=bucket)
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-url-delete")
-async def root_s3_url_empty(request:Request):
-   body_json=await request.json()
-   url=body_json.get("url",None)
-   if not url:return error("body json url missing")
-   for item in url.split("---"):
-      bucket,key=item.split("//",1)[1].split(".",1)[0],item.rsplit("/",1)[1]
-      output=s3_resource.Object(bucket,key).delete()
-   return {"status":1,"message":output}
-
-
-
-
-
-
-
-
-
-
 
 @app.post("/auth/login-otp-email")
 async def auth_login_otp_email(request:Request):
@@ -921,7 +862,7 @@ async def auth_login_otp_email(request:Request):
    output=await postgres_client.fetch_all(query="select id from users where email=:email order by id desc limit 1;",values={"email":email})
    if not output:output=await postgres_client.fetch_all(query="insert into users (email) values (:email) returning *;",values={"email":email})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-mobile")
@@ -934,7 +875,7 @@ async def auth_login_otp_mobile(request:Request):
    output=await postgres_client.fetch_all(query="select id from users where mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
    if not output:output=await postgres_client.fetch_all(query="insert into users (mobile) values (:mobile) returning *;",values={"mobile":mobile})
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-email")
@@ -942,10 +883,10 @@ async def auth_login_password_email(request:Request):
    body_json=await request.json()
    email,password=body_json.get("email",None),body_json.get("password",None)
    if not email or not password:return error("body json email/password missing")
-   output=await postgres_client.fetch_all(query="select * from users where email=:email and password=:password order by id desc limit 1;",values={"email":email,"password":hashlib.sha256(password.encode()).hexdigest()})
+   output=await postgres_client.fetch_all(query="select * from users where email=:email and password=:password order by id desc limit 1;",values={"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()})
    if not output:return error("no user")
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-mobile")
@@ -953,10 +894,10 @@ async def auth_login_password_mobile(request:Request):
    body_json=await request.json()
    mobile,password=body_json.get("mobile",None),body_json.get("password",None)
    if not mobile or not password:return error("body json mobile/password missing")
-   output=await postgres_client.fetch_all(query="select * from users where mobile=:mobile and password=:password order by id desc limit 1;",values={"mobile":mobile,"password":hashlib.sha256(password.encode()).hexdigest()})
+   output=await postgres_client.fetch_all(query="select * from users where mobile=:mobile and password=:password order by id desc limit 1;",values={"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()})
    if not output:return error("no user")
    user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
 @app.get("/my/profile")
@@ -968,7 +909,7 @@ async def my_profile(request:Request,background:BackgroundTasks):
 
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":request.state.user["id"]},default=str)},key_jwt)
+   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":request.state.user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
 @app.get("/my/message-inbox")
@@ -991,7 +932,7 @@ async def my_message_received(request:Request,background:BackgroundTasks):
    if mode=="unread":query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
    query_param={"user_id":request.state.user["id"]}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
-   background.add_task(postgres_client.execute,query=f"update message set is_read=1 where id in ({','.join([str(item['id']) for item in object_list])});",values={})
+   background.add_task(postgres_client.execute,query=f"update message set is_read=1,updated_by_id=:updated_by_id where id in ({','.join([str(item['id']) for item in object_list])});",values={"updated_by_id":request.state.user["id"]})
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-thread")
@@ -1004,7 +945,7 @@ async def my_message_thread(request:Request,background:BackgroundTasks):
    query=f"select * from message where ((created_by_id=:user_1 and user_id=:user_2) or (created_by_id=:user_2 and user_id=:user_1)) order by {order} limit {limit} offset {(page-1)*limit};"
    query_param={"user_1":request.state.user["id"],"user_2":user_id}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
-   background.add_task(postgres_client.execute,query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;",values={"created_by_id":user_id,"user_id":request.state.user["id"]})
+   background.add_task(postgres_client.execute,query="update message set is_read=1,updated_by_id=:updated_by_id where created_by_id=:created_by_id and user_id=:user_id;",values={"created_by_id":user_id,"user_id":request.state.user["id"],"updated_by_id":request.state.user["id"]})
    return {"status":1,"message":object_list}
 
 @app.delete("/my/message-delete-single")
@@ -1012,8 +953,7 @@ async def my_message_delete_single(request:Request):
    query_param=dict(request.query_params)
    id=query_param.get("id",None)
    if not id:return error("query param id missing")
-   id=int(id)
-   await postgres_client.execute(query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);",values={"id":id,"user_id":request.state.user["id"]})
+   await postgres_client.execute(query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);",values={"id":int(id),"user_id":request.state.user["id"]})
    return {"status":1,"message":"done"}
 
 @app.delete("/my/message-delete-created")
@@ -1086,6 +1026,74 @@ async def my_action_on_me_creator_read_mutual(request:Request):
    query_param={"parent_table":"users","parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":object_list}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#misc
+@app.get("/root/s3-bucket-list")
+async def root_s3_bucket_list():
+   output=s3_client.list_buckets()
+   return {"status":1,"message":output}
+
+@app.post("/root/s3-bucket-create")
+async def root_s3_bucket_create(request:Request):
+   body_json=await request.json()
+   bucket=body_json.get("bucket",None)
+   if not bucket:return error("body json bucket missing")
+   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
+   return {"status":1,"message":output}
+
+@app.put("/root/s3-bucket-public")
+async def root_s3_bucket_public(request:Request):
+   body_json=await request.json()
+   bucket=body_json.get("bucket",None)
+   if not bucket:return error("body json bucket missing")
+   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-bucket-empty")
+async def root_s3_bucket_empty(request:Request):
+   body_json=await request.json()
+   bucket=body_json.get("bucket",None)
+   if not bucket:return error("body json bucket missing")
+   output=s3_resource.Bucket(bucket).objects.all().delete()
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-bucket-delete")
+async def root_s3_bucket_empty(request:Request):
+   body_json=await request.json()
+   bucket=body_json.get("bucket",None)
+   if not bucket:return error("body json bucket missing")
+   output=s3_client.delete_bucket(Bucket=bucket)
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-url-delete")
+async def root_s3_url_empty(request:Request):
+   body_json=await request.json()
+   url=body_json.get("url",None)
+   if not url:return error("body json url missing")
+   for item in url.split("---"):
+      bucket,key=item.split("//",1)[1].split(".",1)[0],item.rsplit("/",1)[1]
+      output=s3_resource.Object(bucket,key).delete()
+   return {"status":1,"message":output}
+
+
+
+
 
 @app.delete("/my/delete-ids")
 async def my_delete_ids(request:Request):

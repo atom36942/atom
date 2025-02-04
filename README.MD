@@ -46,7 +46,8 @@
 1. download atom repo
 2. install requirements.txt
 3. create .env file
-4. run python main.py
+4. run =  python main.py
+5. run with reload =  uvicorn main:app --reload 
 ```
 # how to run using docker
 ```
