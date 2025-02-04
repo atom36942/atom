@@ -11,6 +11,7 @@ output_file="curl.csv"
 baseurl="${baseurl}"
 token_root="${token_root}"
 token="${token}"
+username="$(uuidgen)"
 
 # Initialize CSV file with headers
 echo "API,Status Code,Response Time (ms)" > "$output_file"
@@ -33,7 +34,7 @@ while IFS= read -r line; do
     # Check if the line contains a curl command
     if [[ "$line" == curl* ]]; then
         # Replace the placeholders with actual variable values
-        command=$(echo "$line" | sed "s|\${baseurl}|$baseurl|g" | sed "s|\${token_root}|$token_root|g" | sed "s|\${token}|$token|g")
+        command=$(echo "$line" | sed "s|\${baseurl}|$baseurl|g" | sed "s|\${token_root}|$token_root|g" | sed "s|\${token}|$token|g" | sed "s|\${username}|$username|g")
 
         # Extract and print only the URL for readability
         url=$(echo "$command" | sed -n 's/^curl -X [A-Z]* "\([^"]*\)".*/\1/p')

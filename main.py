@@ -203,15 +203,6 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
    for query in config["query"].values():
       if "add constraint" in query and query.split()[5] in constraint_name_list:continue
       await postgres_client.fetch_all(query=query,values={})
-   #match
-   postgres_schema=await postgres_schema_read(postgres_client)
-   for table,columns in postgres_schema.items():
-      if table in config["table"]:
-         existing_columns={col.split("-")[0] for col in config["table"][table]}
-         for column_name in columns:
-            if column_name != "id" and column_name not in existing_columns:
-               await postgres_client.execute(f"ALTER TABLE {table} DROP COLUMN IF EXISTS {column_name};")
-               await postgres_client.execute(f"DROP INDEX IF EXISTS index_{table}_{column_name};")
    #final
    return {"status":1,"message":"done"}
 
@@ -274,25 +265,154 @@ mongodb_cluster_url=os.getenv("mongodb_cluster_url")
 #globals
 object_list_log=[]
 channel_name="ch1"
-postgres_config_default={
+postgres_config={
 "table":{
-"atom":["created_by_id-bigint-0-0","type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","parent_table-text-0-btree","parent_id-bigint-0-btree"],
-"project":["created_by_id-bigint-0-0","type-text-1-btree","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0"],
-"users":["created_at-timestamptz-1-brin","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","is_active-smallint-0-btree","is_protected-smallint-0-btree","type-text-0-btree","username-text-0-0","password-text-0-btree","location-geography(POINT)-0-gist","metadata-jsonb-0-0","google_id-text-0-btree","last_active_at-timestamptz-0-0","date_of_birth-date-0-0","email-text-0-btree","mobile-text-0-btree","name-text-0-0","city-text-0-0"],
-"post":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","updated_at-timestamptz-0-0","updated_by_id-bigint-0-0","type-text-0-0","title-text-0-0","description-text-0-0","file_url-text-0-0","link_url-text-0-0","tag-text-0-0","location-geography(POINT)-0-0","metadata-jsonb-0-0","is_protected-smallint-0-btree"],
-"message":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","user_id-bigint-1-btree","description-text-1-0","is_read-smallint-0-btree"],
-"helpdesk":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","status-text-0-0","remark-text-0-0","type-text-0-0","description-text-1-0","email-text-0-btree"],
-"otp":["created_at-timestamptz-1-brin","otp-integer-1-0","email-text-0-btree","mobile-text-0-btree"],
-"log_api":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","api-text-0-0","status_code-smallint-0-0","response_time_ms-numeric(1000,3)-0-0"],
-"log_password":["created_at-timestamptz-1-0","user_id-bigint-0-0","password-text-0-0"],
-"action_like":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_bookmark":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_report":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_block":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_follow":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree"],
-"action_rating":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","rating-numeric(10,3)-1-0"],
-"action_comment":["created_at-timestamptz-1-0","created_by_id-bigint-1-btree","parent_table-text-1-btree","parent_id-bigint-1-btree","description-text-1-0"],
-"human":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-numeric(10,1)-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0","file_url-text-0-0"],
+"atom":[
+"created_by_id-bigint-0-0",
+"type-text-1-btree",
+"title-text-0-0",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0",
+"parent_table-text-0-btree",
+"parent_id-bigint-0-btree"
+],
+"project":[
+"created_by_id-bigint-0-0",
+"type-text-1-btree",
+"title-text-0-0",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0"
+],
+"users":[
+"created_at-timestamptz-1-brin",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_protected-smallint-0-btree",
+"type-text-0-btree",
+"username-text-0-0",
+"password-text-0-btree",
+"location-geography(POINT)-0-gist",
+"metadata-jsonb-0-0",
+"google_id-text-0-btree",
+"last_active_at-timestamptz-0-0",
+"date_of_birth-date-0-0",
+"email-text-0-btree",
+"mobile-text-0-btree",
+"name-text-0-0",
+"city-text-0-0"
+],
+"post":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
+"type-text-0-0","title-text-0-0",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0",
+"location-geography(POINT)-0-0",
+"metadata-jsonb-0-0",
+"is_protected-smallint-0-btree"
+],
+"message":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"user_id-bigint-1-btree",
+"description-text-1-0",
+"is_read-smallint-0-btree"
+],
+"helpdesk":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-0-0",
+"status-text-0-0",
+"remark-text-0-0",
+"type-text-0-0",
+"description-text-1-0",
+"email-text-0-btree"
+],
+"otp":[
+"created_at-timestamptz-1-brin",
+"otp-integer-1-0",
+"email-text-0-btree",
+"mobile-text-0-btree"
+],
+"log_api":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-0-0",
+"api-text-0-0",
+"status_code-smallint-0-0",
+"response_time_ms-numeric(1000,3)-0-0"
+],
+"log_password":[
+"created_at-timestamptz-1-0",
+"user_id-bigint-0-0",
+"password-text-0-0"
+],
+"action_like":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"parent_table-text-1-btree",
+"parent_id-bigint-1-btree"
+],
+"action_bookmark":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"parent_table-text-1-btree",
+"parent_id-bigint-1-btree"
+],
+"action_report":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"parent_table-text-1-btree",
+"parent_id-bigint-1-btree"
+],
+"action_block":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"parent_table-text-1-btree",
+"parent_id-bigint-1-btree"
+],
+"action_follow":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"parent_table-text-1-btree",
+"parent_id-bigint-1-btree"
+],
+"action_rating":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"parent_table-text-1-btree",
+"parent_id-bigint-1-btree",
+"rating-numeric(10,3)-1-0"
+],
+"action_comment":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-1-btree",
+"parent_table-text-1-btree",
+"parent_id-bigint-1-btree",
+"description-text-1-0"
+],
+"human":[
+"created_at-timestamptz-1-0",
+"created_by_id-bigint-0-0",
+"type-text-0-btree",
+"name-text-0-0",
+"email-text-0-0",
+"mobile-text-0-0",
+"city-text-0-0",
+"experience-numeric(10,1)-0-0",
+"link_url-text-0-0",
+"work_profile-text-0-0",
+"skill-text-0-0",
+"description-text-0-0",
+"file_url-text-0-0"
+]
 },
 "query":{
 "created_at_default":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
@@ -310,7 +430,7 @@ postgres_config_default={
 "unique_acton_bookmark":"alter table action_bookmark add constraint constraint_unique_action_bookmark_cpp unique (created_by_id,parent_table,parent_id);",
 "unique_acton_report":"alter table action_report add constraint constraint_unique_action_report_cpp unique (created_by_id,parent_table,parent_id);",
 "unique_acton_block":"alter table action_block add constraint constraint_unique_action_block_cpp unique (created_by_id,parent_table,parent_id);",
-"unique_acton_follow":"alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);",
+"unique_acton_follow":"alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);"
 }
 }
 
@@ -565,47 +685,26 @@ from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 import fitz
 
-#index
+#api
 @app.get("/")
 async def root():
    return {"status":1,"message":"welcome to atom"}
 
-#root
-@app.post("/root/schema-init-default")
-async def root_schema_init_default():
-   await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config_default)
-   return {"status":1,"message":"done"}
+@app.post("/root/db-init")
+async def root_db_init(request:Request):
+   query_param=dict(request.query_params)
+   mode=query_param.get("mode",None)
+   if not mode:
+      output=await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config)
+   if mode=="custom":
+      body_json=await request.json()
+      output=await postgres_schema_init(postgres_client,postgres_schema_read,body_json)
+   return {"status":1,"message":output}
 
 @app.put("/root/db-checklist")
 async def root_db_checklist():
    await postgres_client.execute(query="update users set is_protected=1 where type='admin';",values={})
    return {"status":1,"message":"done"}
-
-@app.put("/root/reset-global")
-async def root_reset_global():
-   await set_postgres_schema()
-   await set_project_data()
-   await set_users_type_ids()
-   return {"status":1,"message":"done"}
-
-@app.delete("/root/reset-redis")
-async def root_reset_redis():
-   await redis_client.flushall()
-   return {"status":1,"message":"done"}
-
-@app.get("/root/info")
-async def root_info(request:Request):
-   globals_dict=globals()
-   output={
-   "users_type_ids":users_type_ids,
-   "project_data":project_data,
-   "postgres_schema":postgres_schema,
-   "api_list":[route.path for route in request.app.routes],
-   "api_count":len([route.path for route in request.app.routes]),
-   "redis":await redis_client.info(),
-   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
-   }
-   return {"status":1,"message":output}
 
 @app.delete("/root/db-clean")
 async def root_db_clean():
@@ -625,8 +724,23 @@ async def root_db_clean():
             await postgres_client.execute(query=query,values={})
    return {"status":1,"message":"done"}
 
-@app.post("/root/query-runner")
-async def root_query_runner(request:Request):
+@app.post("/root/db-uploader")
+async def root_db_uploader(request:Request):
+   body_form=await request.form()
+   body_form_key={key:value for key,value in body_form.items() if isinstance(value,str)}
+   body_form_file=[file for key,value in body_form.items() for file in body_form.getlist(key)  if key not in body_form_key and file.filename]
+   mode,table=body_form_key.get("mode",None),body_form_key.get("table",None)
+   if not mode or not table:return error("body form mode/table missing")
+   if not body_form_file:return error("body form file missing")
+   object_list=await file_to_object_list(body_form_file[-1])
+   if mode=="create":response=await postgres_create(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   return response
+
+@app.post("/root/db-runner")
+async def root_db_runner(request:Request):
    body_json=await request.json()
    query=body_json.get("query",None)
    if not query:return error("body json query missing")
@@ -637,45 +751,107 @@ async def root_query_runner(request:Request):
          output.append(result)
    return {"status":1,"message":output}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@app.post("/root/schema-init-custom")
-async def root_schema_init_custom(request:Request):
-   body_json=await request.json()
-   if not body_json:return error("body missing")
-   await postgres_schema_init(postgres_client,postgres_schema_read,body_json)
+@app.put("/root/reset-global")
+async def root_reset_global():
+   await set_postgres_schema()
+   await set_project_data()
+   await set_users_type_ids()
    return {"status":1,"message":"done"}
 
+@app.post("/root/redis-set-object")
+async def root_redis_set_object(request:Request):
+   query_param=dict(request.query_params)
+   key=query_param.get("key",None)
+   expiry=query_param.get("expiry",None)
+   if not key:return error("query param key missing")
+   body_json=await request.json()
+   if not expiry:output=await redis_client.set(key,json.dumps(body_json))
+   else:output=await redis_client.setex(key,expiry,json.dumps(body_json))
+   return {"status":1,"message":output}
 
-
-@app.post("/root/csv-uploader")
-async def root_csv_uploader(request:Request):
+@app.post("/root/redis-set-csv")
+async def root_redis_set_csv(request:Request):
    body_form=await request.form()
-   mode,table=body_form.get("mode",None),body_form.get("table",None)
-   file_list=[file for file in body_form.getlist("file") if file.filename]
-   if not file_list:return error("body form file missing")
-   if not mode or not table:return error("body form mode/table missing")
-   object_list=await file_to_object_list(file_list[-1])
-   if mode=="create":response=await postgres_create(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   return response
+   body_form_key={key:value for key,value in body_form.items() if isinstance(value,str)}
+   body_form_file=[file for key,value in body_form.items() for file in body_form.getlist(key)  if key not in body_form_key and file.filename]
+   table,expiry=body_form.get("table",None),body_form.get("expiry",None)
+   if not table:return error("body form table missing")
+   if not body_form_file:return error("body form file missing")
+   object_list=await file_to_object_list(body_form_file[-1])
+   async with redis_client.pipeline(transaction=True) as pipe:
+      for object in object_list:
+         key=f"{table}_{object['id']}"
+         if not expiry:pipe.set(key,json.dumps(object))
+         else:pipe.setex(key,expiry,json.dumps(object))
+      await pipe.execute()
+   return {"status":1,"message":"done"}
 
+@app.delete("/root/redis-reset")
+async def root_reset_redis():
+   await redis_client.flushall()
+   return {"status":1,"message":"done"}
+
+@app.get("/root/info")
+async def root_info(request:Request):
+   globals_dict=globals()
+   output={
+   "users_type_ids":users_type_ids,
+   "project_data":project_data,
+   "postgres_schema":postgres_schema,
+   "api_list":[route.path for route in request.app.routes],
+   "api_count":len([route.path for route in request.app.routes]),
+   "redis":await redis_client.info(),
+   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
+   }
+   return {"status":1,"message":output}
+
+@app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
+async def auth_signup(request:Request):
+   body_json=await request.json()
+   username,password=body_json.get("username",None),body_json.get("password",None)
+   if not username or not password:return error("body json username/password missing")
+   query="insert into users (username,password) values (:username,:password) returning *;"
+   query_param={"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await postgres_client.execute(query=query,values=query_param)
+   return {"status":1,"message":output}
+
+@app.post("/auth/login")
+async def auth_login(request:Request):
+   body_json=await request.json()
+   username,password=body_json.get("username",None),body_json.get("password",None)
+   if not username or not password:return error("body json username/password missing")
+   output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()})
+   if not output:return error("no user")
+   user=output[0] if output else None
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   return {"status":1,"message":token}
+
+@app.post("/auth/login-google")
+async def auth_login_google(request:Request):
+   body_json=await request.json()
+   google_id=body_json.get("google_id",None)
+   if not google_id:return error("body json google_id missing")
+   output=await postgres_client.fetch_all(query="select id from users where google_id=:google_id order by id desc limit 1;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
+   if not output:output=await postgres_client.fetch_all(query="insert into users (google_id) values (:google_id) returning *;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
+   user=output[0] if output else None
+   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
+   return {"status":1,"message":token}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#misc
 @app.get("/root/s3-bucket-list")
 async def root_s3_bucket_list():
    output=s3_client.list_buckets()
@@ -725,63 +901,15 @@ async def root_s3_url_empty(request:Request):
       output=s3_resource.Object(bucket,key).delete()
    return {"status":1,"message":output}
 
-@app.post("/root/redis-set-object")
-async def root_redis_set_object(request:Request):
-   body_json=await request.json()
-   expiry,key,object=body_json.get("expiry",None),body_json.get("key",None),body_json.get("object",None)
-   if not key or not object:return error("body json key/object missing")
-   object=json.dumps(object)
-   if expiry:output=await redis_client.setex(key,expiry,object)
-   else:output=await redis_client.set(key,object)
-   return {"status":1,"message":output}
 
-@app.post("/root/redis-set-csv")
-async def root_redis_set_csv(request:Request):
-   body_form=await request.form()
-   table,expiry=body_form.get("table",None),body_form.get("expiry",None)
-   file_list=[file for file in body_form.getlist("file") if file.filename]
-   if not file_list:return error("body form file missing")
-   if not table:return error("body form table missing")
-   object_list=await file_to_object_list(file_list[-1])
-   async with redis_client.pipeline(transaction=True) as pipe:
-      for object in object_list:
-         key=f"{table}_{object['id']}"
-         if expiry:pipe.setex(key,expiry,json.dumps(object))
-         else:pipe.set(key,json.dumps(object))
-      await pipe.execute()
-   return {"status":1,"message":"done"}
 
-@app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
-async def auth_signup(request:Request):
-   body_json=await request.json()
-   username,password=body_json.get("username",None),body_json.get("password",None)
-   if not username or not password:return error("body json username/password missing")
-   query="insert into users (username,password) values (:username,:password) returning *;"
-   query_param={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()}
-   output=await postgres_client.execute(query=query,values=query_param)
-   return {"status":1,"message":output}
 
-@app.post("/auth/login")
-async def auth_login(request:Request):
-   body_json=await request.json()
-   username,password=body_json.get("username",None),body_json.get("password",None)
-   if not username or not password:return error("body json username/password missing")
-   output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(password.encode()).hexdigest()})
-   if not output:return error("no user")
-   user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
-   return {"status":1,"message":token}
 
-@app.post("/auth/login-google")
-async def auth_login_google(request:Request):
-   body_json=await request.json()
-   google_id=body_json.get("google_id",None)
-   if not google_id:return error("body json google_id missing")
-   output=await postgres_client.fetch_all(query="select id from users where google_id=:google_id order by id desc limit 1;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
-   if not output:output=await postgres_client.fetch_all(query="insert into users (google_id) values (:google_id) returning *;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
-   user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+1000000000000,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
-   return {"status":1,"message":token}
+
+
+
+
+
 
 @app.post("/auth/login-otp-email")
 async def auth_login_otp_email(request:Request):

@@ -2,14 +2,24 @@
 curl -X GET "${baseurl}"
 
 #root
-curl -X POST "${baseurl}/root/schema-init-default" -H "Authorization: Bearer ${token_root}"
+curl -X POST "${baseurl}/root/db-init" -H "Authorization: Bearer ${token_root}"
+curl -X POST "${baseurl}/root/db-init?mode=custom" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"table":{"atom":["type-text-1-btree"]},"query":{}}'
 curl -X PUT "${baseurl}/root/db-checklist" -H "Authorization: Bearer ${token_root}"
-curl -X PUT "${baseurl}/root/reset-global" -H "Authorization: Bearer ${token_root}"
-curl -X DELETE "${baseurl}/root/reset-redis" -H "Authorization: Bearer ${token_root}"
-curl -X GET "${baseurl}/root/info" -H "Authorization: Bearer ${token_root}"
 curl -X DELETE "${baseurl}/root/db-clean" -H "Authorization: Bearer ${token_root}"
-curl -X POST "${baseurl}/root/query-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
-curl -X POST "${baseurl}/root/query-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
+curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=create" -F "table=atom" -F "file=@/Users/atom/Downloads/create.csv"
+curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=update" -F "table=atom" -F "file=@/Users/atom/Downloads/update.csv"
+curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=delete" -F "table=atom" -F "file=@/Users/atom/Downloads/delete.csv"
+curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
+curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
+curl -X PUT "${baseurl}/root/reset-global" -H "Authorization: Bearer ${token_root}"
+curl -X POST "${baseurl}/root/redis-set-object?key=post_1" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"atom","age":30}'
+curl -X POST "${baseurl}/root/redis-set-object?key=post_1&expiry=100" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"atom","age":30}'
+curl -X POST "${baseurl}/root/redis-set-csv" -H "Authorization: Bearer ${token_root}" -F "table=atom" -F "file=@/Users/atom/Downloads/update.csv"
+url -X DELETE "${baseurl}/root/redis-reset" -H "Authorization: Bearer ${token_root}"
+curl -X GET "${baseurl}/root/info" -H "Authorization: Bearer ${token_root}"
+curl -X POST "${baseurl}/auth/signup" -H "Content-Type: application/json" -d '{"username":"${username}","password":"123"}'
+curl -X POST "${baseurl}/auth/login" -H "Content-Type: application/json" -d '{"username":"${username}","password":"123"}'
+curl -X POST "${baseurl}/auth/login-google" -H "Content-Type: application/json" -d '{"google_id":"atom"}'
 
 
 
@@ -18,6 +28,14 @@ curl -X POST "${baseurl}/root/query-runner" -H "Authorization: Bearer ${token_ro
 
 
 
+
+# #s3
+# curl -X GET "${baseurl}/root/s3-bucket-list" -H "Authorization: Bearer ${token_root}"
+# curl -X POST "${baseurl}/root/s3-bucket-create" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+# curl -X PUT "${baseurl}/root/s3-bucket-public" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+# curl -X DELETE "${baseurl}/root/s3-bucket-empty" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+# curl -X DELETE "${baseurl}/root/s3-bucket-delete" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+# curl -X DELETE "${baseurl}/root/s3-url-delete" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"url":"https://s3.ap-south-1.amazonaws.com/sample/key1"}'
 
 
 
