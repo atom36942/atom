@@ -203,7 +203,7 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
    for query in config["query"].values():
       if "add constraint" in query and query.split()[5] in constraint_name_list:continue
       await postgres_client.fetch_all(query=query,values={})
-   #match column
+   #match
    postgres_schema=await postgres_schema_read(postgres_client)
    for table,columns in postgres_schema.items():
       if table in config["table"]:
@@ -213,56 +213,6 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
                await postgres_client.execute(f"ALTER TABLE {table} DROP COLUMN IF EXISTS {column_name};")
                await postgres_client.execute(f"DROP INDEX IF EXISTS index_{table}_{column_name};")
    #final
-   return {"status":1,"message":"done"}
-
-async def postgres_schema_init_auto(postgres_client,postgres_schema_read):
-   #created_at default
-   query="DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;"
-   await postgres_client.execute(query=query,values={})
-   #updated_at default
-   query="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';"
-   await postgres_client.execute(query=query,values={})
-   query="DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;"
-   await postgres_client.execute(query=query,values={})
-   #is_protected
-   query="DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;"
-   await postgres_client.execute(query=query,values={})
-   #root user
-   postgres_schema=await postgres_schema_read(postgres_client)
-   if postgres_schema.get("users",{}) and postgres_schema.get("users",{}).get("type",None) and postgres_schema.get("users",{}).get("username",None) and postgres_schema.get("users",{}).get("password",None):
-      query="insert into users (type,username,password) values ('admin','atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;"
-      await postgres_client.execute(query=query,values={})
-      query="create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;"
-      await postgres_client.execute(query=query,values={})
-   #log password
-   postgres_schema=await postgres_schema_read(postgres_client)
-   if postgres_schema.get("users") and postgres_schema.get("users",{}).get("password",None) and postgres_schema.get("log_password"):
-      query="CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;"
-      await postgres_client.execute(query=query,values={})
-      query="CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();"
-      await postgres_client.execute(query=query,values={})
-   #final
-   return {"status":1,"message":"done"}
-
-async def postgres_clean_creator(postgres_client,postgres_schema_read):
-   postgres_schema=await postgres_schema_read(postgres_client)
-   if postgres_schema.get("users"):
-      for table,column in postgres_schema.items():
-         if column.get("created_by_id"):
-            query=f"delete from {table} where created_by_id not in (select id from users);"
-            await postgres_client.execute(query=query,values={})
-   return {"status":1,"message":"done"}
-
-async def postgres_clean_parent(postgres_client,postgres_schema_read):
-   postgres_schema=await postgres_schema_read(postgres_client)
-   for table,column in postgres_schema.items():
-      if column.get("parent_table") and column.get("parent_id"):
-         output=await postgres_client.fetch_all(query=f"select distinct(parent_table) from {table} where parent_table is not null;",values={})
-         parent_table_list=[item['parent_table'] for item in output]
-         for parent_table in parent_table_list:
-            if parent_table not in postgres_schema:return {"status":0,"message":f"{table} has invalid parent_table {parent_table}"}
-            query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
-            await postgres_client.execute(query=query,values={})
    return {"status":1,"message":"done"}
 
 async def postgres_schema_read(postgres_client):
@@ -345,6 +295,14 @@ postgres_config_default={
 "human":["created_at-timestamptz-1-0","created_by_id-bigint-0-0","type-text-0-btree","name-text-0-0","email-text-0-0","mobile-text-0-0","city-text-0-0","experience-numeric(10,1)-0-0","link_url-text-0-0","work_profile-text-0-0","skill-text-0-0","description-text-0-0","file_url-text-0-0"],
 },
 "query":{
+"created_at_default":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
+"updated_at_default_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
+"updated_at_default_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"root_user_1":"insert into users (type,username,password) values ('admin','atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",
+"root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
+"log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
+"log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
 "function_delete_disable_bulk":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
 "delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
 "unique_users_username":"alter table users add constraint constraint_unique_users_username unique (username);",
@@ -550,7 +508,6 @@ async def middleware(request:Request,api_function):
    query_param=dict(request.query_params)
    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
    body=await request.body()
-   print(method,api,request.headers,query_param,body)
    try:
       #auth
       user={}
@@ -608,23 +565,32 @@ from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 import fitz
 
-#api
+#index
 @app.get("/")
 async def root():
    return {"status":1,"message":"welcome to atom"}
-   
+
+#root
 @app.post("/root/schema-init-default")
 async def root_schema_init_default():
    await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config_default)
-   await postgres_schema_init_auto(postgres_client,postgres_schema_read)
    return {"status":1,"message":"done"}
 
-@app.post("/root/schema-init-custom")
-async def root_schema_init_custom(request:Request):
-   body_json=await request.json()
-   if not body_json:return error("body missing")
-   await postgres_schema_init(postgres_client,postgres_schema_read,body_json)
-   await postgres_schema_init_auto(postgres_client,postgres_schema_read)
+@app.put("/root/db-checklist")
+async def root_db_checklist():
+   await postgres_client.execute(query="update users set is_protected=1 where type='admin';",values={})
+   return {"status":1,"message":"done"}
+
+@app.put("/root/reset-global")
+async def root_reset_global():
+   await set_postgres_schema()
+   await set_project_data()
+   await set_users_type_ids()
+   return {"status":1,"message":"done"}
+
+@app.delete("/root/reset-redis")
+async def root_reset_redis():
+   await redis_client.flushall()
    return {"status":1,"message":"done"}
 
 @app.get("/root/info")
@@ -641,30 +607,22 @@ async def root_info(request:Request):
    }
    return {"status":1,"message":output}
 
-@app.put("/root/reset-global")
-async def root_reset_global():
-   await set_postgres_schema()
-   await set_project_data()
-   await set_users_type_ids()
-   return {"status":1,"message":"done"}
-
-@app.delete("/root/reset-redis")
-async def root_reset_redis():
-   await redis_client.flushall()
-   return {"status":1,"message":"done"}
-
 @app.delete("/root/db-clean")
 async def root_db_clean():
-   response=await postgres_clean_creator(postgres_client,postgres_schema_read)
-   if response["status"]==0:return error(response["message"])
-   response=await postgres_clean_parent(postgres_client,postgres_schema_read)
-   if response["status"]==0:return error(response["message"])
-   await postgres_client.execute(query="truncate table log_api;",values={})
-   return {"status":1,"message":"done"}
-
-@app.put("/root/db-checklist")
-async def root_db_checklist():
-   await postgres_client.execute(query="update users set is_protected=1 where type='admin';",values={})
+   postgres_schema=await postgres_schema_read(postgres_client)
+   #creator
+   for table,column in postgres_schema.items():
+      if "action_" in table:
+         query=f"delete from {table} where created_by_id not in (select id from users);"
+         await postgres_client.execute(query=query,values={})
+   #parent
+   for table,column in postgres_schema.items():
+      if "action_" in table:
+         parent_table_list=[item['parent_table'] for item in (await postgres_client.fetch_all(query=f"select distinct(parent_table) from {table} where parent_table is not null;",values={}))]
+         for parent_table in parent_table_list:
+            if parent_table not in postgres_schema:return error(f"{table} has invalid parent_table {parent_table}")
+            query=f"delete from {table} where parent_table='{parent_table}' and parent_id not in (select id from {parent_table});"
+            await postgres_client.execute(query=query,values={})
    return {"status":1,"message":"done"}
 
 @app.post("/root/query-runner")
@@ -678,6 +636,31 @@ async def root_query_runner(request:Request):
          result=await postgres_client.fetch_all(query=query,values={})
          output.append(result)
    return {"status":1,"message":output}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@app.post("/root/schema-init-custom")
+async def root_schema_init_custom(request:Request):
+   body_json=await request.json()
+   if not body_json:return error("body missing")
+   await postgres_schema_init(postgres_client,postgres_schema_read,body_json)
+   return {"status":1,"message":"done"}
+
+
 
 @app.post("/root/csv-uploader")
 async def root_csv_uploader(request:Request):

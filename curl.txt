@@ -3,12 +3,19 @@ curl -X GET "${baseurl}"
 
 #root
 curl -X POST "${baseurl}/root/schema-init-default" -H "Authorization: Bearer ${token_root}"
-curl -X GET "${baseurl}/root/info" -H "Authorization: Bearer ${token_root}"
+curl -X PUT "${baseurl}/root/db-checklist" -H "Authorization: Bearer ${token_root}"
 curl -X PUT "${baseurl}/root/reset-global" -H "Authorization: Bearer ${token_root}"
 curl -X DELETE "${baseurl}/root/reset-redis" -H "Authorization: Bearer ${token_root}"
+curl -X GET "${baseurl}/root/info" -H "Authorization: Bearer ${token_root}"
 curl -X DELETE "${baseurl}/root/db-clean" -H "Authorization: Bearer ${token_root}"
-curl -X PUT "${baseurl}/root/db-checklist" -H "Authorization: Bearer ${token_root}"
+curl -X POST "${baseurl}/root/query-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
 curl -X POST "${baseurl}/root/query-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
+
+
+
+
+
+
 
 
 
