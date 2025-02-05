@@ -288,6 +288,18 @@ postgres_config={
 "description-text-0-0",
 "file_url-text-0-0"
 ],
+"test":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-btree",
+"updated_at-timestamptz-0-0",
+"updated_by_id-bigint-0-0",
+"type-text-0-btree",
+"title-text-0-0",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0"
+],
 "atom":[
 "created_at-timestamptz-0-0",
 "created_by_id-bigint-0-btree",
@@ -1104,7 +1116,7 @@ async def public_object_create(request:Request):
    query_param=dict(request.query_params)
    table,is_serialize=query_param.get("table",None),int(query_param.get("is_serialize",1))
    if not table:return error("query param table missing")
-   if table not in ["helpdesk","human"]:return error("table not allowed")
+   if table not in ["test","helpdesk","human"]:return error("table not allowed")
    body_json=await request.json()
    response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
