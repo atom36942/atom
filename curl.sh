@@ -89,7 +89,7 @@ while IFS= read -r line; do
         # Check response status
         if [[ "$status_code" -eq 200 ]]; then
             echo "✅ Success (${execution_time}ms)"
-            echo "📄 (${body})"
+             # echo "📄 (${body})"
             ((count_success++))
         else
             echo "❌ Failed (HTTP $status_code, ${execution_time}ms)"

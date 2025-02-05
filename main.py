@@ -268,6 +268,7 @@ log_api_reset_count=10
 channel_name="ch1"
 token_expire_sec=1000000000000
 is_account_delete=1
+max_ids_length_delete=3
 postgres_config={
 "table":{
 "human":[
@@ -1200,6 +1201,26 @@ async def admin_object_update(request:Request):
    output=response["message"]
    return {"status":1,"message":output}
 
+@app.delete("/my/delete-ids")
+async def my_delete_ids(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table",None),body_json.get("ids",None)
+   if not table or not ids:return error("body json table/ids missing")
+   if table in ["users"]:return error("table not allowed")
+   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
+   await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
+
+@app.delete("/admin/delete-ids")
+async def admin_delete_ids(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table",None),body_json.get("ids",None)
+   if not table or not ids:return error("body json table/ids missing")
+   if table in ["users"]:return error("table not allowed")
+   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
+   await postgres_client.execute(query=f"delete from {table} where id in ({ids});",values={})
+   return {"status":1,"message":"done"}
+
 @app.delete("/my/object-delete")
 async def my_object_delete(request:Request):
    query_param=dict(request.query_params)
@@ -1212,26 +1233,6 @@ async def my_object_delete(request:Request):
    where_string,where_value=response["message"][0],response["message"][1]
    query=f"delete from {table} {where_string};"
    await postgres_client.fetch_all(query=query,values=where_value)
-   return {"status":1,"message":"done"}
-
-@app.delete("/my/delete-ids")
-async def my_delete_ids(request:Request):
-   body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
-   if table in ["users"]:return error("table not allowed")
-   if len(ids.split(","))>3:return error("ids length not allowed")
-   await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-   return {"status":1,"message":"done"}
-
-@app.delete("/admin/delete-ids")
-async def admin_delete_ids(request:Request):
-   body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
-   if table in ["users"]:return error("table not allowed")
-   if len(ids.split(","))>3:return error("ids length not allowed")
-   await postgres_client.execute(query=f"delete from {table} where id in ({ids});",values={})
    return {"status":1,"message":"done"}
 
 @app.get("/public/redis-get-object")
@@ -1298,7 +1299,7 @@ async def admin_db_runner(request:Request):
    output=[]
    stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
    for item in stop_word:
-       if item in query:return error(f"{item} not allowed in query")
+       if item in query.lower():return error(f"{item} not allowed in query")
    output=await postgres_client.fetch_all(query=query,values={})
    return {"status":1,"message":output}
 

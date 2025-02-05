@@ -83,9 +83,9 @@ curl -X PUT "${baseurl}/my/object-update?table=post" -H "Authorization: Bearer $
 curl -X PUT "${baseurl}/admin/object-update?table=post" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"id":${post_id},"title":"admin update"}'
 
 #object delete
-curl -X DELETE "${baseurl}/my/object-delete?table=action_comment&id=>,1" -H "Authorization: Bearer ${token_admin}"
 curl -X DELETE "${baseurl}/my/delete-ids" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"action_comment","ids":"5,6,7"}'
 curl -X DELETE "${baseurl}/admin/delete-ids" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"action_comment","ids":"5,6,7"}'
+curl -X DELETE "${baseurl}/my/object-delete?table=action_comment&id=>,1" -H "Authorization: Bearer ${token_admin}"
 
 # public
 # curl -X POST "${baseurl}/public/otp-send-sns" -H "Content-Type: application/json" -d '{"mobile":"abc"}'
@@ -99,10 +99,3 @@ curl -X POST "${baseurl}/private/file-upload-s3" -H "Authorization: Bearer ${tok
 
 #admin
 curl -X POST "${baseurl}/admin/db-runner" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"query":"select username from users where id=1"}'
-
-
-
-
-
-
-
