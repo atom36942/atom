@@ -979,7 +979,7 @@ async def my_delete_account(request:Request):
    if is_account_delete==0:return error("account delete off")
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
-   if user[0]["type"]:return {"status":1,"message":f"user type {user[0]["type"]} not allowed"}
+   if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
    async with postgres_client.transaction():
       [await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
       [await postgres_client.execute(query=f"delete from {table} where parent_table='users' and parent_id=:user_id;",values={"user_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
