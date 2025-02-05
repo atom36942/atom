@@ -12,10 +12,10 @@ curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_roo
 curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"update users set email='\''abc'\'',mobile='\''abc'\'' where id=1;"}'
 curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
 curl -X PUT "${baseurl}/root/reset-global" -H "Authorization: Bearer ${token_root}"
-curl -X POST "${baseurl}/root/redis-set-object?key=post_1" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"atom","age":30}'
+curl -X POST "${baseurl}/root/redis-set-object?key=${username}" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"atom","age":30}'
 curl -X POST "${baseurl}/root/redis-set-object?key=post_1&expiry=100" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"atom","age":30}'
 curl -X POST "${baseurl}/root/redis-set-csv" -H "Authorization: Bearer ${token_root}" -F "table=atom" -F "file=@${file_update}"
-url -X DELETE "${baseurl}/root/redis-reset" -H "Authorization: Bearer ${token_root}"
+curl -X DELETE "${baseurl}/root/redis-reset" -H "Authorization: Bearer ${token_root}"
 curl -X GET "${baseurl}/root/info" -H "Authorization: Bearer ${token_root}"
 
 #auth
@@ -53,8 +53,23 @@ curl -X GET "${baseurl}/my/action-on-me-creator-read?table=action_rating" -H "Au
 curl -X GET "${baseurl}/my/action-on-me-creator-read-mutual?table=action_rating" -H "Authorization: Bearer ${token_admin}"
 
 #object
-curl -X POST "${baseurl}/my/object-create?table=post" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"atom","title":"atom"}'
+curl -X POST "${baseurl}/public/object-create?table=human" -H "Content-Type: application/json" -d '{"type":"public","name":"atom"}'
+curl -X POST "${baseurl}/my/object-create?table=post" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"my","title":"atom"}'
+curl -X POST "${baseurl}/my/object-create?table=action_rating&is_serialize=1" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"parent_table":"users","parent_id":"1","rating":5.444}'
 curl -X POST "${baseurl}/my/object-create?table=post&is_background=1" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"background","title":"atom"}'
+curl -X POST "${baseurl}/my/object-create?table=post&queue=mongodb_atom" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"mongodb","title":"atom"}'
+curl -X POST "${baseurl}/my/object-create?table=post&queue=redis" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"redis","title":"atom"}'
+curl -X POST "${baseurl}/my/object-create?table=post&queue=rabbitmq" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"rabbitmq","title":"atom"}'
+curl -X POST "${baseurl}/my/object-create?table=post&queue=lavinmq" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"lavinmq","title":"atom"}'
+curl -X GET "${baseurl}/my/object-read?table=post&page=1&limit=1" -H "Authorization: Bearer ${token_admin}"
+curl -X GET "${baseurl}/admin/object-read?table=post&limit=1" -H "Authorization: Bearer ${token_admin}"
+curl -X GET "${baseurl}/public/object-read?table=post&limit=1"
+curl -X GET "${baseurl}/public/object-read?table=users&id==,1"
+curl -X GET "${baseurl}/public/object-read?table=post&limit=1&creator_data=username,type"
+curl -X GET "${baseurl}/public/object-read?table=post&limit=1&action_count=action_like,action_comment"
+curl -X GET "${baseurl}/public/object-read?table=post&limit=1&location_filter=100.2321,21321.1232,100,1000"
+
+
 
 # misc
 # curl -X GET "${baseurl}/root/s3-bucket-list" -H "Authorization: Bearer ${token_root}"

@@ -5,12 +5,17 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-#variable
-input_file="curl.txt"
-output_file="curl.csv"
+#env var
 baseurl="${baseurl}"
 token_root="${token_root}"
 token_admin="${token_admin}"
+file_create="${file_create}"
+file_update="${file_update}"
+file_delete="${file_delete}"
+
+#fixed var
+input_file="curl.txt"
+output_file="curl.csv"
 username="$(uuidgen)"
 
 # Initialize CSV file with headers
@@ -82,6 +87,7 @@ while IFS= read -r line; do
         # Check response status
         if [[ "$status_code" -eq 200 ]]; then
             echo "✅ Success (${execution_time}ms)"
+            echo "📄 (${body})"
             ((count_success++))
         else
             echo "❌ Failed (HTTP $status_code, ${execution_time}ms)"

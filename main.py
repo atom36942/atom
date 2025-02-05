@@ -267,6 +267,7 @@ log_api_object_list=[]
 log_api_reset_count=10
 channel_name="ch1"
 token_expire_sec=1000000000000
+is_account_delete=1
 postgres_config={
 "table":{
 "human":[
@@ -935,6 +936,7 @@ async def my_delete_ids(request:Request):
 
 @app.delete("/my/delete-account")
 async def my_delete_account(request:Request):
+   if is_account_delete==0:return error("account delete off")
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
    if user[0]["type"]:return {"status":1,"message":f"user type {user[0]["type"]} not allowed"}
@@ -1057,6 +1059,17 @@ async def my_action_on_me_creator_read_mutual(request:Request):
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":object_list}
 
+@app.post("/public/object-create")
+async def public_object_create(request:Request):
+   query_param=dict(request.query_params)
+   table,is_serialize=query_param.get("table",None),int(query_param.get("is_serialize",1))
+   if not table:return error("query param table missing")
+   if table not in ["helpdesk","human"]:return error("table not allowed")
+   body_json=await request.json()
+   response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   return response
+
 @app.post("/my/object-create")
 async def my_object_create(request:Request):
    query_param=dict(request.query_params)
@@ -1083,6 +1096,38 @@ async def my_object_create(request:Request):
          output=await mongodb_database_client[table].insert_many([body_json])
          output=str(output)
    return {"status":1,"message":output}
+
+@app.get("/my/object-read")
+@cache(expire=60)
+async def my_object_read(request:Request):
+   query_param=dict(request.query_params)
+   table=query_param.get("table",None)
+   if not table:return error("query param table missing")
+   query_param["created_by_id"]=f"=,{request.state.user['id']}"
+   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
+   if response["status"]==0:return error(response["message"])
+   return response
+
+@app.get("/admin/object-read")
+@cache(expire=60)
+async def admin_object_read(request:Request):
+   query_param=dict(request.query_params)
+   table=query_param.get("table",None)
+   if not table:return error("query param table missing")
+   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
+   if response["status"]==0:return error(response["message"])
+   return response
+
+@app.get("/public/object-read")
+@cache(expire=60)
+async def public_object_read(request:Request):
+   query_param=dict(request.query_params)
+   table=query_param.get("table",None)
+   if not table:return error("query param table missing")
+   if table not in ["users","post","atom"]:return error("table not allowed")
+   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
+   if response["status"]==0:return error(response["message"])
+   return response
 
 #misc
 @app.get("/root/s3-bucket-list")
@@ -1139,10 +1184,6 @@ async def root_s3_url_empty(request:Request):
 
 
 
-
-
-
-
 @app.put("/my/object-update")
 async def my_object_update(request:Request):
    query_param=dict(request.query_params)
@@ -1177,75 +1218,21 @@ async def my_object_delete(request:Request):
    await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":"done"}
 
-@app.get("/my/object-read")
-@cache(expire=60)
-async def my_object_read(request:Request):
+@app.put("/admin/object-update")
+async def admin_object_update(request:Request):
    query_param=dict(request.query_params)
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
-   query_param["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
-   if response["status"]==0:return error(response["message"])
-   return response
-
-@app.post("/public/object-create")
-async def public_object_create(request:Request):
-   query_param=dict(request.query_params)
-   table,is_serialize=query_param.get("table",None),int(query_param.get("is_serialize",1))
-   if not table:return error("query param table missing")
-   if table not in ["helpdesk","human"]:return error("table not allowed")
    body_json=await request.json()
-   response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if postgres_schema.get(table,{}).get("updated_by_id",None):body_json["updated_by_id"]=request.state.user["id"]
+   response=await postgres_update(table,[body_json],1,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
-   return response
+   output=response["message"]
+   return {"status":1,"message":output}
 
-@app.post("/public/object-create-form")
-async def public_object_create_form(request:Request):
-   body_form=await request.form()
-   file_list=[file for file in body_form.getlist("file") if file.filename]
-   object={k:v for k,v in body_form.items() if k!="file"}
-   query_param=dict(request.query_params)
-   table,is_serialize,bucket,file_column=query_param.get("table",None),int(query_param.get("is_serialize",1)),query_param.get("bucket",None),query_param.get("file_column","file_url")
-   if not table:return error("query param table missing")
-   if table not in ["helpdesk","human"]:return error("table not allowed")
-   if file_list:
-      if not bucket:return error("query param bucket missing")
-      response=await s3_file_upload(s3_client,s3_region_name,bucket,None,file_list)
-      if response["status"]==0:return error(response["message"])
-      object[file_column]=",".join([v for k,v in response["message"].items()])
-   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   return response
 
-@app.post("/public/object-create-pdf-extract")
-async def public_object_create_pdf_extract(request:Request):
-   body_form=await request.form()
-   file_list=[file for file in body_form.getlist("file") if file.filename]
-   object={k:v for k,v in body_form.items() if k!="file"}
-   query_param=dict(request.query_params)
-   table,is_serialize,pdf_column=query_param.get("table",None),int(query_param.get("is_serialize",1)),query_param.get("pdf_column","description")
-   if not table:return error("query param table missing")
-   if table not in ["helpdesk","human"]:return error("table not allowed")
-   text=""
-   for file in  file_list:
-      pdf_file=await file.read()
-      doc=fitz.open(stream=pdf_file,filetype="pdf")
-      for page in doc:text+=page.get_text("text")
-      object[pdf_column]=text
-      file.file.close()
-   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   return response
 
-@app.get("/public/object-read")
-@cache(expire=60)
-async def public_object_read(request:Request):
-   query_param=dict(request.query_params)
-   table=query_param.get("table",None)
-   if not table:return error("query param table missing")
-   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
-   if response["status"]==0:return error(response["message"])
-   return response
+
 
 @app.post("/public/otp-send-sns")
 async def public_otp_send_sns(request:Request):
@@ -1302,26 +1289,7 @@ async def private_file_upload_s3_presigned(request:Request):
    output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
    return {"status":1,"message":output}
 
-@app.get("/admin/object-read")
-async def admin_object_read(request:Request):
-   query_param=dict(request.query_params)
-   table=query_param.get("table",None)
-   if not table:return error("query param table missing")
-   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count)
-   if response["status"]==0:return error(response["message"])
-   return response
 
-@app.put("/admin/object-update")
-async def admin_object_update(request:Request):
-   query_param=dict(request.query_params)
-   table=query_param.get("table",None)
-   if not table:return error("query param table missing")
-   body_json=await request.json()
-   if postgres_schema.get(table,{}).get("updated_by_id",None):body_json["updated_by_id"]=request.state.user["id"]
-   response=await postgres_update(table,[body_json],1,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   output=response["message"]
-   return {"status":1,"message":output}
 
 @app.delete("/admin/delete-ids")
 async def admin_delete_ids(request:Request):
