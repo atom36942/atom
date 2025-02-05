@@ -1129,6 +1129,36 @@ async def public_object_read(request:Request):
    if response["status"]==0:return error(response["message"])
    return response
 
+@app.put("/my/object-update")
+async def my_object_update(request:Request):
+   query_param=dict(request.query_params)
+   table,is_serialize,otp=query_param.get("table",None),int(query_param.get("is_serialize",1)),int(query_param.get("otp",0))
+   if not table:return error("query param table missing")
+   body_json=await request.json()
+   if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in body_json):return error("key not allowed")     
+   body_json["updated_by_id"]=request.state.user["id"]
+   response=await ownership_check(postgres_client,table,int(body_json["id"]),request.state.user["id"])
+   if response["status"]==0:return error(response["message"])
+   email,mobile=body_json.get("email",None),body_json.get("mobile",None)
+   if table=="users" and (email or mobile):
+      response=await verify_otp(postgres_client,otp,email,mobile)
+      if response["status"]==0:return error(response["message"])
+   response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   return response
+
+@app.put("/admin/object-update")
+async def admin_object_update(request:Request):
+   query_param=dict(request.query_params)
+   table,is_serialize=query_param.get("table",None),int(query_param.get("is_serialize",1))
+   if not table:return error("query param table missing")
+   body_json=await request.json()
+   body_json["updated_by_id"]=request.state.user["id"]
+   response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   output=response["message"]
+   return {"status":1,"message":output}
+
 #misc
 @app.get("/root/s3-bucket-list")
 async def root_s3_bucket_list():
@@ -1182,26 +1212,6 @@ async def root_s3_url_empty(request:Request):
 
 
 
-
-
-@app.put("/my/object-update")
-async def my_object_update(request:Request):
-   query_param=dict(request.query_params)
-   table,otp=query_param.get("table",None),query_param.get("otp",None)
-   if not table:return error("query param table missing")
-   body_json=await request.json()
-   if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in body_json):return error("key denied")     
-   if postgres_schema.get(table,{}).get("updated_by_id",None):body_json["updated_by_id"]=request.state.user["id"]
-   response=await ownership_check(postgres_client,table,int(body_json["id"]),request.state.user["id"])
-   if response["status"]==0:return error(response["message"])
-   email,mobile=body_json.get("email",None),body_json.get("mobile",None)
-   if table=="users" and (email or mobile):
-      response=await verify_otp(postgres_client,otp,email,mobile)
-      if response["status"]==0:return error(response["message"])
-   response=await postgres_update(table,[body_json],1,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   return response
-
 @app.delete("/my/object-delete")
 async def my_object_delete(request:Request):
    query_param=dict(request.query_params)
@@ -1217,19 +1227,6 @@ async def my_object_delete(request:Request):
    query=f"delete from {table} {where_string};"
    await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":"done"}
-
-@app.put("/admin/object-update")
-async def admin_object_update(request:Request):
-   query_param=dict(request.query_params)
-   table=query_param.get("table",None)
-   if not table:return error("query param table missing")
-   body_json=await request.json()
-   if postgres_schema.get(table,{}).get("updated_by_id",None):body_json["updated_by_id"]=request.state.user["id"]
-   response=await postgres_update(table,[body_json],1,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   output=response["message"]
-   return {"status":1,"message":output}
-
 
 
 

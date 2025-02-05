@@ -52,7 +52,7 @@ curl -X DELETE "${baseurl}/my/action-delete" -H "Authorization: Bearer ${token_a
 curl -X GET "${baseurl}/my/action-on-me-creator-read?table=action_rating" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/action-on-me-creator-read-mutual?table=action_rating" -H "Authorization: Bearer ${token_admin}"
 
-#object
+#object create
 curl -X POST "${baseurl}/public/object-create?table=human" -H "Content-Type: application/json" -d '{"type":"public","name":"atom"}'
 curl -X POST "${baseurl}/my/object-create?table=post" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"my","title":"atom"}'
 curl -X POST "${baseurl}/my/object-create?table=action_rating&is_serialize=1" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"parent_table":"users","parent_id":"1","rating":5.444}'
@@ -61,6 +61,8 @@ curl -X POST "${baseurl}/my/object-create?table=post&queue=mongodb_atom" -H "Aut
 curl -X POST "${baseurl}/my/object-create?table=post&queue=redis" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"redis","title":"atom"}'
 curl -X POST "${baseurl}/my/object-create?table=post&queue=rabbitmq" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"rabbitmq","title":"atom"}'
 curl -X POST "${baseurl}/my/object-create?table=post&queue=lavinmq" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"lavinmq","title":"atom"}'
+
+#object read
 curl -X GET "${baseurl}/my/object-read?table=post&page=1&limit=1" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/admin/object-read?table=post&limit=1" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/public/object-read?table=post&limit=1"
@@ -69,6 +71,9 @@ curl -X GET "${baseurl}/public/object-read?table=post&limit=1&creator_data=usern
 curl -X GET "${baseurl}/public/object-read?table=post&limit=1&action_count=action_like,action_comment"
 curl -X GET "${baseurl}/public/object-read?table=post&limit=1&location_filter=100.2321,21321.1232,100,1000"
 
+#object update
+curl -X PUT "${baseurl}/my/object-update?table=users" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"id":1,"name":"neo"}'
+curl -X PUT "${baseurl}/my/object-update?table=post" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"id":1,"title":"my object update"}'
 
 
 # misc
