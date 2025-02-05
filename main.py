@@ -831,6 +831,55 @@ async def root_info(request:Request):
    }
    return {"status":1,"message":output}
 
+@app.get("/root/s3-bucket-list")
+async def root_s3_bucket_list():
+   output=s3_client.list_buckets()
+   return {"status":1,"message":output}
+
+@app.post("/root/s3-bucket-create")
+async def root_s3_bucket_create(request:Request):
+   body_json=await request.json()
+   bucket=body_json.get("bucket",None)
+   if not bucket:return error("body json bucket missing")
+   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
+   return {"status":1,"message":output}
+
+@app.put("/root/s3-bucket-public")
+async def root_s3_bucket_public(request:Request):
+   body_json=await request.json()
+   bucket=body_json.get("bucket",None)
+   if not bucket:return error("body json bucket missing")
+   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-bucket-empty")
+async def root_s3_bucket_empty(request:Request):
+   body_json=await request.json()
+   bucket=body_json.get("bucket",None)
+   if not bucket:return error("body json bucket missing")
+   output=s3_resource.Bucket(bucket).objects.all().delete()
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-bucket-delete")
+async def root_s3_bucket_empty(request:Request):
+   body_json=await request.json()
+   bucket=body_json.get("bucket",None)
+   if not bucket:return error("body json bucket missing")
+   output=s3_client.delete_bucket(Bucket=bucket)
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-url-delete")
+async def root_s3_url_empty(request:Request):
+   body_json=await request.json()
+   url=body_json.get("url",None)
+   if not url:return error("body json url missing")
+   for item in url.split("---"):
+      bucket,key=item.split("//",1)[1].split(".",1)[0],item.rsplit("/",1)[1]
+      output=s3_resource.Object(bucket,key).delete()
+   return {"status":1,"message":output}
+
 @app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
 async def auth_signup(request:Request):
    body_json=await request.json()
@@ -923,16 +972,6 @@ async def my_profile(request:Request,background:BackgroundTasks):
 async def my_token_refresh(request:Request):
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":request.state.user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
-
-@app.delete("/my/delete-ids")
-async def my_delete_ids(request:Request):
-   body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
-   if table in ["users"]:return error("table not allowed user")
-   if len(ids.split(","))>3:return error("ids length not allowed")
-   await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-   return {"status":1,"message":"done"}
 
 @app.delete("/my/delete-account")
 async def my_delete_account(request:Request):
@@ -1137,9 +1176,11 @@ async def my_object_update(request:Request):
    body_json=await request.json()
    if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in body_json):return error("key not allowed")     
    body_json["updated_by_id"]=request.state.user["id"]
+   if "password" in body_json:is_serialize=1
    response=await ownership_check(postgres_client,table,int(body_json["id"]),request.state.user["id"])
    if response["status"]==0:return error(response["message"])
    email,mobile=body_json.get("email",None),body_json.get("mobile",None)
+   if email and mobile:return error("email/mobile both not allowed together")
    if table=="users" and (email or mobile):
       response=await verify_otp(postgres_client,otp,email,mobile)
       if response["status"]==0:return error(response["message"])
@@ -1159,67 +1200,12 @@ async def admin_object_update(request:Request):
    output=response["message"]
    return {"status":1,"message":output}
 
-#misc
-@app.get("/root/s3-bucket-list")
-async def root_s3_bucket_list():
-   output=s3_client.list_buckets()
-   return {"status":1,"message":output}
-
-@app.post("/root/s3-bucket-create")
-async def root_s3_bucket_create(request:Request):
-   body_json=await request.json()
-   bucket=body_json.get("bucket",None)
-   if not bucket:return error("body json bucket missing")
-   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
-   return {"status":1,"message":output}
-
-@app.put("/root/s3-bucket-public")
-async def root_s3_bucket_public(request:Request):
-   body_json=await request.json()
-   bucket=body_json.get("bucket",None)
-   if not bucket:return error("body json bucket missing")
-   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-bucket-empty")
-async def root_s3_bucket_empty(request:Request):
-   body_json=await request.json()
-   bucket=body_json.get("bucket",None)
-   if not bucket:return error("body json bucket missing")
-   output=s3_resource.Bucket(bucket).objects.all().delete()
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-bucket-delete")
-async def root_s3_bucket_empty(request:Request):
-   body_json=await request.json()
-   bucket=body_json.get("bucket",None)
-   if not bucket:return error("body json bucket missing")
-   output=s3_client.delete_bucket(Bucket=bucket)
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-url-delete")
-async def root_s3_url_empty(request:Request):
-   body_json=await request.json()
-   url=body_json.get("url",None)
-   if not url:return error("body json url missing")
-   for item in url.split("---"):
-      bucket,key=item.split("//",1)[1].split(".",1)[0],item.rsplit("/",1)[1]
-      output=s3_resource.Object(bucket,key).delete()
-   return {"status":1,"message":output}
-
-
-
-
 @app.delete("/my/object-delete")
 async def my_object_delete(request:Request):
    query_param=dict(request.query_params)
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
-   user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   if not user:return error("no user")
-   if user[0]["type"]:return error("user type not allowed")
+   if "action_" not in table:return error("table not allowed")
    query_param["created_by_id"]=f"=,{request.state.user['id']}"
    response=await create_where_string(postgres_column_datatype,object_serialize,query_param)
    if response["status"]==0:return error(response["message"])
@@ -1228,8 +1214,34 @@ async def my_object_delete(request:Request):
    await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":"done"}
 
+@app.delete("/my/delete-ids")
+async def my_delete_ids(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table",None),body_json.get("ids",None)
+   if not table or not ids:return error("body json table/ids missing")
+   if table in ["users"]:return error("table not allowed")
+   if len(ids.split(","))>3:return error("ids length not allowed")
+   await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
 
+@app.delete("/admin/delete-ids")
+async def admin_delete_ids(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table",None),body_json.get("ids",None)
+   if not table or not ids:return error("body json table/ids missing")
+   if table in ["users"]:return error("table not allowed")
+   if len(ids.split(","))>3:return error("ids length not allowed")
+   await postgres_client.execute(query=f"delete from {table} where id in ({ids});",values={})
+   return {"status":1,"message":"done"}
 
+@app.get("/public/redis-get-object")
+async def public_redis_get_object(request:Request):
+   query_param=dict(request.query_params)
+   key=query_param.get("key",None)
+   if not key:return error("query param key missing")
+   output=await redis_client.get(key)
+   if output:output=json.loads(output)
+   return {"status":1,"message":output}
 
 @app.post("/public/otp-send-sns")
 async def public_otp_send_sns(request:Request):
@@ -1253,23 +1265,15 @@ async def public_otp_send_ses(request:Request):
    ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
    return {"status":1,"message":"done"}
 
-@app.get("/public/redis-get-object")
-async def public_redis_get_object(request:Request):
-   query_param=dict(request.query_params)
-   key=query_param.get("key",None)
-   if not key:return error("query param key missing")
-   output=await redis_client.get(key)
-   if output:output=json.loads(output)
-   return {"status":1,"message":output}
-
 @app.post("/private/file-upload-s3")
 async def private_file_upload_s3(request:Request):
    body_form=await request.form()
-   file_list=[file for file in body_form.getlist("file") if file.filename]
-   bucket,key=body_form.get("bucket",None),body_form.get("key",None)
+   body_form_key={key:value for key,value in body_form.items() if isinstance(value,str)}
+   body_form_file=[file for key,value in body_form.items() for file in body_form.getlist(key)  if key not in body_form_key and file.filename]
+   bucket,key=body_form_key.get("bucket",None),body_form_key.get("key",None)
    if not bucket or not key:return error("body form bucket/key missing")
    key_list=None if key=="uuid" else key.split("---")
-   response=await s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list)
+   response=await s3_file_upload(s3_client,s3_region_name,bucket,key_list,body_form_file)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1286,28 +1290,16 @@ async def private_file_upload_s3_presigned(request:Request):
    output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
    return {"status":1,"message":output}
 
-
-
-@app.delete("/admin/delete-ids")
-async def admin_delete_ids(request:Request):
-   body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
-   await postgres_client.execute(query=f"delete from {table} where id in ({ids});",values={})
-   return {"status":1,"message":"done"}
-
-@app.post("/admin/query-runner")
-async def admin_query_runner(request:Request):
+@app.post("/admin/db-runner")
+async def admin_db_runner(request:Request):
    body_json=await request.json()
    query=body_json.get("query",None)
    if not query:return error("body json query missing")
-   for item in ["alter","drop"]:
-      if item in query:return error(f"{item} not allowed in query")
    output=[]
-   async with postgres_client.transaction():
-      for query in query.split("---"):
-         result=await postgres_client.fetch_all(query=query,values={})
-         output.append(result)
+   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
+   for item in stop_word:
+       if item in query:return error(f"{item} not allowed in query")
+   output=await postgres_client.fetch_all(query=query,values={})
    return {"status":1,"message":output}
 
 #mode
