@@ -30,6 +30,8 @@ curl -X POST "${baseurl}/auth/login-password-mobile" -H "Content-Type: applicati
 #my
 curl -X GET "${baseurl}/my/profile" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/token-refresh" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/delete-ids" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"action_comment","ids":"5,6,7"}'
+curl -X DELETE "${baseurl}/my/delete-account" -H "Authorization: Bearer ${token_admin}"
 
 #message
 curl -X GET "${baseurl}/my/message-inbox" -H "Authorization: Bearer ${token_admin}"
@@ -39,30 +41,20 @@ curl -X GET "${baseurl}/my/message-received?mode=unread" -H "Authorization: Bear
 curl -X GET "${baseurl}/my/message-thread?user_id=1" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/message-inbox?order=is_read&limit=1&page=1" -H "Authorization: Bearer ${token_admin}"
 curl -X DELETE "${baseurl}/my/message-delete-single?id=1" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/message-delete-created" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/message-delete-received" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/message-delete-all" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/message-delete-bulk?mode=created" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/message-delete-bulk?mode=received" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/message-delete-bulk?mode=all" -H "Authorization: Bearer ${token_admin}"
 
 #action
-curl -X GET "${baseurl}/my/parent-read?table=action_comment&parent_table=post" -H "Authorization: Bearer ${token_admin}"
-curl -X GET "${baseurl}/my/parent-check?table=action_comment&parent_table=post&parent_ids=1,2,3" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/parent-delete?table=action_comment&parent_table=post&parent_id=1" -H "Authorization: Bearer ${token_admin}"
+curl -X GET "${baseurl}/my/action-read?table=action_comment&parent_table=post" -H "Authorization: Bearer ${token_admin}"
+curl -X GET "${baseurl}/my/action-check?table=action_comment&parent_table=post&parent_ids=1,2,3" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/action-delete" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"action_comment","parent_table":"post","parent_id":1}'
 curl -X GET "${baseurl}/my/action-on-me-creator-read?table=action_rating" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/action-on-me-creator-read-mutual?table=action_rating" -H "Authorization: Bearer ${token_admin}"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+#object
+curl -X POST "${baseurl}/my/object-create?table=post" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"atom","title":"atom"}'
+curl -X POST "${baseurl}/my/object-create?table=post&is_background=1" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"background","title":"atom"}'
 
 # misc
 # curl -X GET "${baseurl}/root/s3-bucket-list" -H "Authorization: Bearer ${token_root}"
@@ -71,9 +63,6 @@ curl -X GET "${baseurl}/my/action-on-me-creator-read-mutual?table=action_rating"
 # curl -X DELETE "${baseurl}/root/s3-bucket-empty" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
 # curl -X DELETE "${baseurl}/root/s3-bucket-delete" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
 # curl -X DELETE "${baseurl}/root/s3-url-delete" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"url":"https://s3.ap-south-1.amazonaws.com/sample/key1"}'
-
-
-
 
 
 

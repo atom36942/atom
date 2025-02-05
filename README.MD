@@ -83,6 +83,7 @@ brew install postgresql@17
 brew services start postgresql@17
 psql postgresql://atom:123@localhost/postgres
 drop schema if exists public cascade;---create schema if not exists public;
+SELECT relname AS table_name,n_live_tup AS row_count FROM pg_stat_user_tables;
 
 #postgres export
 \copy post to 'path'  delimiter ',' csv header;
