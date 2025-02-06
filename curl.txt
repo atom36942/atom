@@ -3,7 +3,7 @@ curl -X GET "${baseurl}"
 
 #root
 curl -X POST "${baseurl}/root/db-init" -H "Authorization: Bearer ${token_root}"
-curl -X POST "${baseurl}/root/db-init?mode=custom" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"table":{"test":["type-text-0-btree"]},"query":{}}'
+curl -X POST "${baseurl}/root/db-init-extend" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"table":{"test":["type-text-0-btree"]},"query":{}}'
 curl -X PUT "${baseurl}/root/db-checklist" -H "Authorization: Bearer ${token_root}"
 curl -X DELETE "${baseurl}/root/db-clean" -H "Authorization: Bearer ${token_root}"
 curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=create" -F "table=test" -F "file=@${file_create}"
@@ -16,7 +16,6 @@ curl -X POST "${baseurl}/root/redis-set-object?key=post_1" -H "Authorization: Be
 curl -X POST "${baseurl}/root/redis-set-object?key=post_1&expiry=100" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
 curl -X POST "${baseurl}/root/redis-set-csv" -H "Authorization: Bearer ${token_root}" -F "table=test" -F "file=@${file_update}"
 curl -X DELETE "${baseurl}/root/redis-reset" -H "Authorization: Bearer ${token_root}"
-curl -X GET "${baseurl}/root/info" -H "Authorization: Bearer ${token_root}"
 # curl -X GET "${baseurl}/root/s3-bucket-list" -H "Authorization: Bearer ${token_root}"
 # curl -X POST "${baseurl}/root/s3-bucket-create" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
 # curl -X PUT "${baseurl}/root/s3-bucket-public" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
@@ -36,7 +35,7 @@ curl -X POST "${baseurl}/auth/login-password-mobile" -H "Content-Type: applicati
 #my
 curl -X GET "${baseurl}/my/profile" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/token-refresh" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/delete-account" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/account-delete" -H "Authorization: Bearer ${token_admin}"
 
 #message
 curl -X GET "${baseurl}/my/message-inbox" -H "Authorization: Bearer ${token_admin}"
@@ -46,22 +45,22 @@ curl -X GET "${baseurl}/my/message-received?mode=unread" -H "Authorization: Bear
 curl -X GET "${baseurl}/my/message-thread?user_id=1" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/message-inbox?order=is_read&limit=1&page=1" -H "Authorization: Bearer ${token_admin}"
 curl -X DELETE "${baseurl}/my/message-delete-single?id=1" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/message-delete-bulk?mode=created" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/message-delete-bulk?mode=received" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/message-delete-bulk?mode=all" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/message-delete-created" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/message-delete-received" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/message-delete-all" -H "Authorization: Bearer ${token_admin}"
 
 #action
-curl -X GET "${baseurl}/my/action-read?table=action_comment&parent_table=post" -H "Authorization: Bearer ${token_admin}"
-curl -X GET "${baseurl}/my/action-check?table=action_comment&parent_table=post&parent_ids=1,2,3" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/action-delete" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"action_comment","parent_table":"post","parent_id":1}'
+curl -X GET "${baseurl}/my/action-parent-read?table=action_like&parent_table=post" -H "Authorization: Bearer ${token_admin}"
+curl -X GET "${baseurl}/my/action-parent-check?table=action_comment&parent_table=post&parent_ids=1,2,3" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/action-parent-delete?table=action_comment&parent_table=post&parent_id=1" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/action-on-me-creator-read?table=action_rating" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/action-on-me-creator-read-mutual?table=action_rating" -H "Authorization: Bearer ${token_admin}"
 
 #object create
-curl -X POST "${baseurl}/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":"testing","title":"testing"}'
 curl -X POST "${baseurl}/my/object-create?table=test" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"testing","title":"testing"}'
-curl -X POST "${baseurl}/my/object-create?table=action_rating&is_serialize=1" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"parent_table":"users","parent_id":"1","rating":5.444}'
+curl -X POST "${baseurl}/my/object-create?table=action_rating" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"parent_table":44,"parent_id":1,"rating":5.444}'
 curl -X POST "${baseurl}/my/object-create?table=test&is_background=1" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"testing","title":"background"}'
+curl -X POST "${baseurl}/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":"testing","title":"testing"}'
 # curl -X POST "${baseurl}/my/object-create?table=test&queue=mongodb_atom" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"mongodb","title":"testing"}'
 # curl -X POST "${baseurl}/my/object-create?table=test&queue=redis" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"redis","title":"testing"}'
 # curl -X POST "${baseurl}/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"type":"rabbitmq","title":"testing"}'
@@ -72,9 +71,9 @@ curl -X GET "${baseurl}/my/object-read?table=post&page=1&limit=1" -H "Authorizat
 curl -X GET "${baseurl}/admin/object-read?table=post&limit=1" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/public/object-read?table=post&limit=1"
 curl -X GET "${baseurl}/public/object-read?table=users&id==,1"
-curl -X GET "${baseurl}/public/object-read?table=post&limit=1&creator_data=username,type"
-curl -X GET "${baseurl}/public/object-read?table=post&limit=1&action_count=action_like,action_comment"
-curl -X GET "${baseurl}/public/object-read?table=post&limit=1&location_filter=100.2321,21321.1232,100,1000"
+curl -X GET "${baseurl}/public/object-read?table=post&creator_data=username,type"
+curl -X GET "${baseurl}/public/object-read?table=post&action_count=action_like,action_comment"
+curl -X GET "${baseurl}/public/object-read?table=post&location_filter=100.2321,21321.1232,100,1000"
 
 #object update
 curl -X PUT "${baseurl}/my/object-update?table=users" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"id":1,"name":"neo"}'
@@ -88,9 +87,10 @@ curl -X DELETE "${baseurl}/admin/delete-ids" -H "Authorization: Bearer ${token_a
 curl -X DELETE "${baseurl}/my/object-delete?table=action_comment&id=>,1" -H "Authorization: Bearer ${token_admin}"
 
 # public
+curl -X GET "${baseurl}/public/info"
+curl -X GET "${baseurl}/public/redis-get-object?key=post_1"
 # curl -X POST "${baseurl}/public/otp-send-sns" -H "Content-Type: application/json" -d '{"mobile":"abc"}'
 # curl -X POST "${baseurl}/public/otp-send-ses" -H "Content-Type: application/json" -d '{"email":"abc","sender":"abc"}'
-curl -X GET "${baseurl}/public/redis-get-object?key=post_1"
 
 #private
 # curl -X POST "${baseurl}/private/file-upload-s3" -H "Authorization: Bearer ${token_admin}" -F "bucket=master" -F "key=uuid" -F "file=@${file_create}"
