@@ -12,7 +12,7 @@ async def postgres_create(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return {"status":1,"message":output}
 
-async def postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,generate_table_id):
+async def postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id):
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    creator_data,action_count,location_filter=object.get("creator_data",None),object.get("action_count",None),object.get("location_filter",None)
    response=await create_where_string(postgres_column_datatype,object_serialize,object)
@@ -22,17 +22,17 @@ async def postgres_read(table,object,postgres_client,postgres_column_datatype,ob
    if location_filter:
       long,lat,min_meter,max_meter=float(location_filter.split(",")[0]),float(location_filter.split(",")[1]),int(location_filter.split(",")[2]),int(location_filter.split(",")[3])
       query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
-   object=await postgres_client.fetch_all(query=query,values=where_value)
+   object_list=await postgres_client.fetch_all(query=query,values=where_value)
    if creator_data:
-      response=await add_creator_data(postgres_client,object,creator_data)
+      response=await add_creator_data(postgres_client,object_list,creator_data)
       if response["status"]==0:return response
-      object=response["message"]
+      object_list=response["message"]
    if action_count:
       for action_table in action_count.split(","):
-         response=await add_action_count(postgres_client,generate_table_id,action_table,table,object)
+         response=await add_action_count(postgres_client,table_id,action_table,table,object_list)
          if response["status"]==0:return response
-         object=response["message"]
-   return {"status":1,"message":object}
+         object_list=response["message"]
+   return {"status":1,"message":object_list}
 
 async def postgres_update(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
    if not object_list:return {"status":0,"message":"object null issue"}
@@ -74,7 +74,7 @@ async def add_creator_data(postgres_client,object_list,user_key):
          for key in user_key.split(","):object[f"creator_{key}"]=None    
    return {"status":1,"message":object_list}
 
-async def add_action_count(postgres_client,generate_table_id,action,object_table,object_list):
+async def add_action_count(postgres_client,table_id,action,object_table,object_list):
    if not object_list:return {"status":1,"message":object_list}
    key_name=f"{action}_count"
    object_list=[dict(item)|{key_name:0} for item in object_list]
@@ -82,7 +82,7 @@ async def add_action_count(postgres_client,generate_table_id,action,object_table
    parent_ids_string=",".join(parent_ids_list)
    if parent_ids_string:
       query=f"select parent_id,count(*) from {action} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
-      query_param={"parent_table":generate_table_id(object_table)}
+      query_param={"parent_table":table_id.get(object_table,0)}
       object_list_action=await postgres_client.fetch_all(query=query,values=query_param)
       for x in object_list:
          for y in object_list_action:
@@ -239,11 +239,8 @@ from fastapi import responses
 def error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
 
-def generate_table_id(table):
-   return (int(hashlib.md5(table.encode()).hexdigest(),16) % 255)+1
-
 #env
-import os
+import os,json
 from dotenv import load_dotenv
 load_dotenv()
 postgres_database_url=os.getenv("postgres_database_url")
@@ -264,11 +261,11 @@ sns_region_name=os.getenv("sns_region_name")
 sns_region_name=os.getenv("sns_region_name")
 ses_region_name=os.getenv("ses_region_name")
 mongodb_cluster_url=os.getenv("mongodb_cluster_url")
-channel_name=os.getenv("channel_name") if os.getenv("channel_name") else "ch1"
-log_api_reset_count=int(os.getenv("log_api_reset_count")) if os.getenv("log_api_reset_count") else 10
-token_expire_sec=int(os.getenv("token_expire_sec")) if os.getenv("token_expire_sec") else 1000000000000
-max_ids_length_delete=int(os.getenv("max_ids_length_delete")) if os.getenv("max_ids_length_delete") else 3
-account_delete_type=os.getenv("account_delete_type") if os.getenv("account_delete_type") else "hard"
+channel_name=os.getenv("channel_name","ch1")
+log_api_reset_count=int(os.getenv("log_api_reset_count",10))
+token_expire_sec=int(os.getenv("token_expire_sec",1000000000000))
+max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
+table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
 
 #globals
 log_api_object_list=[]
@@ -511,14 +508,6 @@ async def set_project_data():
          else:project_data[object["type"]]+=[object]
    return None
 
-table_id={}
-async def set_table_id():
-   global table_id
-   table_id={}
-   for table in [*postgres_schema]:
-      table_id[table]=generate_table_id(table)
-   return None
-
 redis_client=None
 redis_pubsub=None
 import redis.asyncio as redis
@@ -633,7 +622,6 @@ async def lifespan(app:FastAPI):
    await set_postgres_schema()
    await set_users_type_ids()
    await set_project_data()
-   await set_table_id()
    await set_redis_client()
    await set_s3_client()
    await set_sns_client()
@@ -758,7 +746,8 @@ async def root_db_clean():
    await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days'",values={})
    await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days'",values={})
    [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in [*postgres_schema] if "action_" in table]
-   [await postgres_client.execute(query=f"delete from {table} where parent_table={generate_table_id(parent_table)} and parent_id not in (select id from {parent_table});",values={}) for table in [*postgres_schema] for parent_table in ["users","post"] if "action_" in table]
+   [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in [*postgres_schema] for parent_table in [*table_id] if "action_" in table]
+   [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in [*postgres_schema] if "action_" in table]
    return {"status":1,"message":"done"}
 
 @app.post("/root/db-uploader")
@@ -972,25 +961,16 @@ async def my_token_refresh(request:Request):
 
 @app.delete("/my/account-delete")
 async def my_account_delete(request:Request):
-   if account_delete_type not in ["hard","soft"]:return error ("wrong account delete type")
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
    if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
-   if account_delete_type=="hard":
-      async with postgres_client.transaction():
-         [await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
-         [await postgres_client.execute(query=f"delete from {table} where parent_table='{generate_table_id('users')}' and parent_id=:user_id;",values={"user_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
-         await postgres_client.execute(query="delete from log_password where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-         await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
-         await postgres_client.execute(query="delete from post where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-         await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
-   if account_delete_type=="soft":
+   async with postgres_client.transaction():
       [await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
-      [await postgres_client.execute(query=f"delete from {table} where parent_table='{generate_table_id('users')}' and parent_id=:user_id;",values={"user_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
+      [await postgres_client.execute(query=f"delete from {table} where parent_table='{table_id.get('users',0)}' and parent_id=:user_id;",values={"user_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
       await postgres_client.execute(query="delete from log_password where user_id=:user_id;",values={"user_id":request.state.user["id"]})
       await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
-      await postgres_client.execute(query="update post set is_deleted=1 where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-      await postgres_client.execute(query="update users set is_deleted=1 where id=:id and type is null;",values={"id":request.state.user["id"]})
+      await postgres_client.execute(query="delete from post where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+      await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
    return {"status":1,"message":"done"}
 
 @app.get("/my/message-inbox")
@@ -1056,11 +1036,16 @@ async def my_message_delete_all(request:Request):
 async def my_action_parent_read(request:Request):
    query_param=dict(request.query_params)
    order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
-   table,parent_table=query_param.get("table",None),query_param.get("parent_table",None)
+   table,parent_table,action_count=query_param.get("table",None),query_param.get("parent_table",None),query_param.get("action_count",None)
    if not table or not parent_table:return error("query param table/parent_table missing")
-   query=f'''with x as (select parent_id from {table} where created_by_id=:created_by_id and parent_table='{generate_table_id(parent_table)}' order by {order} limit {limit} offset {(page-1)*limit}) select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;'''
+   query=f'''with x as (select parent_id from {table} where created_by_id=:created_by_id and parent_table={table_id.get(parent_table,0)} order by {order} limit {limit} offset {(page-1)*limit}) select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;'''
    query_param={"created_by_id":request.state.user["id"]}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   if action_count:
+      for action_table in action_count.split(","):
+         response=await add_action_count(postgres_client,table_id,action_table,parent_table,object_list)
+         if response["status"]==0:return response
+         object_list=response["message"]
    return {"status":1,"message":object_list}
 
 @app.get("/my/action-parent-check")
@@ -1069,7 +1054,7 @@ async def my_action_parent_check(request:Request):
    table,parent_table,parent_ids=query_param.get("table",None),query_param.get("parent_table",None),query_param.get("parent_ids",None)
    if not table or not parent_table or not parent_ids:return error("query param table/parent_table/parent_ids missing")
    query=f"select parent_id from {table} where parent_id in ({parent_ids}) and parent_table=:parent_table and created_by_id=:created_by_id;"
-   query_param={"parent_table":generate_table_id(parent_table),"created_by_id":request.state.user["id"]}
+   query_param={"parent_table":table_id.get(parent_table,0),"created_by_id":request.state.user["id"]}
    output=await postgres_client.fetch_all(query=query,values=query_param)
    parent_ids_output=[item["parent_id"] for item in output if item["parent_id"]]
    parent_ids_input=parent_ids.split(",")
@@ -1083,7 +1068,7 @@ async def my_action_parent_delete(request:Request):
    table,parent_table,parent_id=query_param.get("table",None),query_param.get("parent_table",None),query_param.get("parent_id",None)
    if not table or not parent_table or not parent_id:return error("body json table/parent_table/parent_id missing")
    if "action_" not in table:return error("table not allowed")
-   await postgres_client.fetch_all(query=f"delete from {table} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;",values={"created_by_id":request.state.user["id"],"parent_table":generate_table_id(parent_table),"parent_id":int(parent_id)})
+   await postgres_client.fetch_all(query=f"delete from {table} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;",values={"created_by_id":request.state.user["id"],"parent_table":table_id.get(parent_table,0),"parent_id":int(parent_id)})
    return {"status":1,"message":"done"}
 
 @app.get("/my/action-on-me-creator-read")
@@ -1093,7 +1078,7 @@ async def my_action_on_me_creator_read(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    query=f'''with x as (select * from {table} where parent_table=:parent_table),y as (select created_by_id from x where parent_id=:parent_id group by created_by_id order by max(id) desc limit {limit} offset {(page-1)*limit}) select u.id,u.username from y left join users as u on y.created_by_id=u.id;'''
-   query_param={"parent_table":generate_table_id("users"),"parent_id":request.state.user["id"]}
+   query_param={"parent_table":table_id.get('users',0),"parent_id":request.state.user["id"]}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":object_list}
 
@@ -1104,7 +1089,7 @@ async def my_action_on_me_creator_read_mutual(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    query=f'''with x as (select * from {table} where parent_table=:parent_table),y as (select created_by_id from {table} where created_by_id in (select parent_id from x where created_by_id=:created_by_id) and parent_id=:parent_id group by created_by_id order by max(id) desc limit {limit} offset {(page-1)*limit}) select u.id,u.username from y left join users as u on y.created_by_id=u.id;'''
-   query_param={"parent_table":generate_table_id("users"),"parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
+   query_param={"parent_table":table_id.get('users',0),"parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":object_list}
 
@@ -1155,7 +1140,7 @@ async def my_object_read(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    query_param["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,generate_table_id)
+   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1165,7 +1150,7 @@ async def admin_object_read(request:Request):
    query_param=dict(request.query_params)
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
-   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,generate_table_id)
+   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1176,7 +1161,7 @@ async def public_object_read(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table not in ["users","post","atom"]:return error("table not allowed")
-   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,generate_table_id)
+   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1258,7 +1243,7 @@ async def public_info(request:Request):
    "api_list":[route.path for route in request.app.routes],
    "api_count":len([route.path for route in request.app.routes]),
    "redis":await redis_client.info(),
-   "parent_table_id":{table:generate_table_id(table) for table in [*postgres_schema]},
+   "table_id":table_id,
    "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
    }
    return {"status":1,"message":output}
