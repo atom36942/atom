@@ -235,6 +235,12 @@ async def file_to_object_list(file):
    await file.close()
    return object_list
 
+async def read_body_form(request):
+   body_form=await request.form()
+   body_form_key={key:value for key,value in body_form.items() if isinstance(value,str)}
+   body_form_file=[file for key,value in body_form.items() for file in body_form.getlist(key)  if key not in body_form_key and file.filename]
+   return body_form_key,body_form_file
+
 from fastapi import responses
 def error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
@@ -752,9 +758,7 @@ async def root_db_clean():
 
 @app.post("/root/db-uploader")
 async def root_db_uploader(request:Request):
-   body_form=await request.form()
-   body_form_key={key:value for key,value in body_form.items() if isinstance(value,str)}
-   body_form_file=[file for key,value in body_form.items() for file in body_form.getlist(key)  if key not in body_form_key and file.filename]
+   body_form_key,body_form_file=await read_body_form(request)
    mode,table=body_form_key.get("mode",None),body_form_key.get("table",None)
    if not mode or not table:return error("body form mode/table missing")
    if not body_form_file:return error("body form file missing")
@@ -797,10 +801,8 @@ async def root_redis_set_object(request:Request):
 
 @app.post("/root/redis-set-csv")
 async def root_redis_set_csv(request:Request):
-   body_form=await request.form()
-   body_form_key={key:value for key,value in body_form.items() if isinstance(value,str)}
-   body_form_file=[file for key,value in body_form.items() for file in body_form.getlist(key)  if key not in body_form_key and file.filename]
-   table,expiry=body_form.get("table",None),body_form.get("expiry",None)
+   body_form_key,body_form_file=await read_body_form(request)
+   table,expiry=body_form_key.get("table",None),body_form_key.get("expiry",None)
    if not table:return error("body form table missing")
    if not body_form_file:return error("body form file missing")
    object_list=await file_to_object_list(body_form_file[-1])
@@ -1281,9 +1283,7 @@ async def public_otp_send_ses(request:Request):
 
 @app.post("/private/file-upload-s3")
 async def private_file_upload_s3(request:Request):
-   body_form=await request.form()
-   body_form_key={key:value for key,value in body_form.items() if isinstance(value,str)}
-   body_form_file=[file for key,value in body_form.items() for file in body_form.getlist(key)  if key not in body_form_key and file.filename]
+   body_form_key,body_form_file=await read_body_form(request)
    bucket,key=body_form_key.get("bucket",None),body_form_key.get("key",None)
    if not bucket or not key:return error("body form bucket/key missing")
    key_list=None if key=="uuid" else key.split("---")
