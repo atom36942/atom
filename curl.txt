@@ -35,7 +35,7 @@ curl -X POST "${baseurl}/auth/login-password-mobile" -H "Content-Type: applicati
 #my
 curl -X GET "${baseurl}/my/profile" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/token-refresh" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/account-delete?mode=soft" -H "Authorization: Bearer ${token_admin}"
+curl -X DELETE "${baseurl}/my/account-delete" -H "Authorization: Bearer ${token_admin}"
 curl -X DELETE "${baseurl}/my/account-delete?mode=hard" -H "Authorization: Bearer ${token_admin}"
 
 #message
