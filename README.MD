@@ -78,12 +78,10 @@ brew install redis
 brew services start redis
 redis-cli -u redis://localhost
 
-#postgres
+#postgres install
 brew install postgresql@17
 brew services start postgresql@17
 psql postgresql://atom:123@localhost/postgres
-drop schema if exists public cascade;---create schema if not exists public;
-SELECT relname AS table_name,n_live_tup AS row_count FROM pg_stat_user_tables;
 
 #postgres export
 \copy post to 'path'  delimiter ',' csv header;
@@ -93,6 +91,19 @@ pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 #postgres import
 \copy post(created_by_id,type,title,location) from '/Users/atom/Downloads/location.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
+
+#postgres role
+CREATE ROLE role1 WITH LOGIN PASSWORD '123';
+GRANT CONNECT ON DATABASE atom TO role1;
+GRANT USAGE, CREATE ON SCHEMA public TO role1;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO role1;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO role1;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO role1;
+
+#postgres imp sql
+drop schema if exists public cascade;
+create schema if not exists public;
+SELECT relname AS table_name,n_live_tup AS row_count FROM pg_stat_user_tables;
 
 #misc
 pid kill = lsof -ti :8000 | xargs kill -9

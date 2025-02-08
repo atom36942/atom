@@ -272,6 +272,7 @@ log_api_reset_count=int(os.getenv("log_api_reset_count",10))
 token_expire_sec=int(os.getenv("token_expire_sec",1000000000000))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
+is_account_hard_delete=int(os.getenv("is_account_hard_delete",1))
 
 #globals
 log_api_object_list=[]
@@ -282,6 +283,8 @@ postgres_config={
 "created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_protected-smallint-0-btree",
+"is_deleted-smallint-0-btree",
 "type-text-0-btree",
 "name-text-0-0",
 "email-text-0-0",
@@ -311,6 +314,7 @@ postgres_config={
 "created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_deleted-smallint-0-btree",
 "type-text-1-btree",
 "title-text-0-0",
 "description-text-0-0",
@@ -325,6 +329,8 @@ postgres_config={
 "created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_protected-smallint-0-btree",
+"is_deleted-smallint-0-btree",
 "type-text-1-btree",
 "title-text-0-0",
 "description-text-0-0",
@@ -373,6 +379,7 @@ postgres_config={
 "created_by_id-bigint-1-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_deleted-smallint-0-btree",
 "user_id-bigint-1-btree",
 "description-text-1-0",
 "is_read-smallint-0-btree"
@@ -382,6 +389,7 @@ postgres_config={
 "created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_deleted-smallint-0-btree",
 "status-text-0-0",
 "remark-text-0-0",
 "type-text-0-0",
@@ -410,36 +418,42 @@ postgres_config={
 "action_like":[
 "created_at-timestamptz-1-0",
 "created_by_id-bigint-1-btree",
+"is_deleted-smallint-0-btree",
 "parent_table-smallint-1-btree",
 "parent_id-bigint-1-btree"
 ],
 "action_bookmark":[
 "created_at-timestamptz-1-0",
 "created_by_id-bigint-1-btree",
+"is_deleted-smallint-0-btree",
 "parent_table-smallint-1-btree",
 "parent_id-bigint-1-btree"
 ],
 "action_report":[
 "created_at-timestamptz-1-0",
 "created_by_id-bigint-1-btree",
+"is_deleted-smallint-0-btree",
 "parent_table-smallint-1-btree",
 "parent_id-bigint-1-btree"
 ],
 "action_block":[
 "created_at-timestamptz-1-0",
 "created_by_id-bigint-1-btree",
+"is_deleted-smallint-0-btree",
 "parent_table-smallint-1-btree",
 "parent_id-bigint-1-btree"
 ],
 "action_follow":[
 "created_at-timestamptz-1-0",
 "created_by_id-bigint-1-btree",
+"is_deleted-smallint-0-btree",
 "parent_table-smallint-1-btree",
 "parent_id-bigint-1-btree"
 ],
 "action_rating":[
 "created_at-timestamptz-1-0",
 "created_by_id-bigint-1-btree",
+"is_deleted-smallint-0-btree",
 "parent_table-smallint-1-btree",
 "parent_id-bigint-1-btree",
 "rating-numeric(10,3)-1-0"
@@ -449,22 +463,29 @@ postgres_config={
 "created_by_id-bigint-1-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_deleted-smallint-0-btree",
 "parent_table-smallint-1-btree",
 "parent_id-bigint-1-btree",
 "description-text-1-0"
 ]
 },
 "query":{
-"created_at_default":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
-"updated_at_default_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
-"updated_at_default_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"delete_disable_bulk_function":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
+"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
+"delete_disable_bulk_human":"create or replace trigger trigger_delete_disable_bulk_human after delete on human referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(3);",
+"delete_disable_bulk_project":"create or replace trigger trigger_delete_disable_bulk_project after delete on project referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(3);",
+"delete_disable_bulk_post":"create or replace trigger trigger_delete_disable_bulk_post after delete on post referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(3);",
+"default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
+"default_updated_at_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
+"default_updated_at_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"default_is_protected_users":"ALTER TABLE users ALTER COLUMN is_protected SET DEFAULT 1;",
+"default_is_protected_project":"ALTER TABLE project ALTER COLUMN is_protected SET DEFAULT 1;",
+"default_is_protected_human":"ALTER TABLE human ALTER COLUMN is_protected SET DEFAULT 1;",
+"rule_is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
 "root_user_1":"insert into users (type,username,password) values ('admin','atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
 "log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
 "log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
-"function_delete_disable_bulk":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
-"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
 "unique_users_username":"alter table users add constraint constraint_unique_users_username unique (username);",
 "unique_acton_like":"alter table action_like add constraint constraint_unique_action_like_cpp unique (created_by_id,parent_table,parent_id);",
 "unique_acton_bookmark":"alter table action_bookmark add constraint constraint_unique_action_bookmark_cpp unique (created_by_id,parent_table,parent_id);",
@@ -733,14 +754,14 @@ async def root():
 
 @app.post("/root/db-init")
 async def root_db_init():
-   output=await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config)
-   return {"status":1,"message":output}
+   response=await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config)
+   return response
 
 @app.post("/root/db-init-extend")
 async def root_db_init_extend(request:Request):
    body_json=await request.json()
-   output=await postgres_schema_init(postgres_client,postgres_schema_read,body_json)
-   return {"status":1,"message":output}
+   response=await postgres_schema_init(postgres_client,postgres_schema_read,body_json)
+   return response
 
 @app.put("/root/db-checklist")
 async def root_db_checklist():
@@ -750,7 +771,9 @@ async def root_db_checklist():
 @app.delete("/root/db-clean")
 async def root_db_clean():
    await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days'",values={})
+   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days'",values={})
    await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days'",values={})
+   await postgres_client.execute(query="delete from message where created_at<now()-interval '1000 days'",values={})
    [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in [*postgres_schema] if "action_" in table]
    [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in [*postgres_schema] for parent_table in [*table_id] if "action_" in table]
    [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in [*postgres_schema] if "action_" in table]
@@ -963,16 +986,28 @@ async def my_token_refresh(request:Request):
 
 @app.delete("/my/account-delete")
 async def my_account_delete(request:Request):
+   query_param=dict(request.query_params)
+   mode=query_param.get("mode",None)
+   if mode not in ["soft","hard"]:return error("mode missing")
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
    if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
-   async with postgres_client.transaction():
-      [await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
-      [await postgres_client.execute(query=f"delete from {table} where parent_table='{table_id.get('users',0)}' and parent_id=:user_id;",values={"user_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
-      await postgres_client.execute(query="delete from log_password where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-      await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
-      await postgres_client.execute(query="delete from post where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-      await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
+   if mode=="soft":
+      for table,column in postgres_schema.items():
+         if column.get("created_by_id",{}) and column.get("is_deleted",{}):await postgres_client.execute(query=f"update {table} set is_deleted=1 where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+         if column.get("user_id",{}) and column.get("is_deleted",{}):await postgres_client.execute(query=f"update {table} set is_deleted=1 where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+         if column.get("parent_table",{}) and column.get("is_deleted",{}):await postgres_client.execute(query=f"update {table} set is_deleted=1 where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
+         await postgres_client.execute(query="update users set is_deleted=1 where id=:id and type is null;",values={"id":request.state.user["id"]})
+   if mode=="hard":
+      if is_account_hard_delete==0:return error ("account hard delete is off")
+      async with postgres_client.transaction():
+         [await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
+         [await postgres_client.execute(query=f"delete from {table} where parent_table='{table_id.get('users')}' and parent_id=:user_id;",values={"user_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
+         await postgres_client.execute(query="delete from log_password where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+         await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
+         await postgres_client.execute(query="delete from post where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+         await postgres_client.execute(query="update users set is_protected=null where id=:id and type is null;",values={"id":request.state.user["id"]})
+         await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
    return {"status":1,"message":"done"}
 
 @app.get("/my/message-inbox")
