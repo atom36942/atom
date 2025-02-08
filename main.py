@@ -302,6 +302,7 @@ postgres_config={
 "created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_deleted-smallint-0-btree",
 "type-text-0-btree",
 "title-text-0-0",
 "description-text-0-0",
@@ -408,12 +409,14 @@ postgres_config={
 "method-text-0-0",
 "api-text-0-0",
 "status_code-smallint-0-0",
-"response_time_ms-numeric(1000,3)-0-0"
+"response_time_ms-numeric(1000,3)-0-0",
+"is_deleted-smallint-0-btree"
 ],
 "log_password":[
 "created_at-timestamptz-1-0",
 "user_id-bigint-0-0",
-"password-text-0-0"
+"password-text-0-0",
+"is_deleted-smallint-0-btree"
 ],
 "action_like":[
 "created_at-timestamptz-1-0",
@@ -472,9 +475,7 @@ postgres_config={
 "query":{
 "delete_disable_bulk_function":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
 "delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
-"delete_disable_bulk_human":"create or replace trigger trigger_delete_disable_bulk_human after delete on human referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(3);",
-"delete_disable_bulk_project":"create or replace trigger trigger_delete_disable_bulk_project after delete on project referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(3);",
-"delete_disable_bulk_post":"create or replace trigger trigger_delete_disable_bulk_post after delete on post referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(3);",
+"delete_disable_bulk_human":"create or replace trigger trigger_delete_disable_bulk_human after delete on human referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
 "default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
 "default_updated_at_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
 "default_updated_at_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
@@ -986,27 +987,29 @@ async def my_token_refresh(request:Request):
 
 @app.delete("/my/account-delete")
 async def my_account_delete(request:Request):
-   query_param=dict(request.query_params)
-   mode=query_param.get("mode",None)
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
    if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
+   query_param=dict(request.query_params)
+   mode=query_param.get("mode",None)
    if not mode:
-      for table,column in postgres_schema.items():
-         if column.get("created_by_id",{}) and column.get("is_deleted",{}):await postgres_client.execute(query=f"update {table} set is_deleted=1 where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-         if column.get("user_id",{}) and column.get("is_deleted",{}):await postgres_client.execute(query=f"update {table} set is_deleted=1 where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-         if column.get("parent_table",{}) and column.get("is_deleted",{}):await postgres_client.execute(query=f"update {table} set is_deleted=1 where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
+      async with postgres_client.transaction():
+         for table,column in postgres_schema.items():
+            if table not in ["users"]:
+               if column.get("created_by_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+               if column.get("user_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+               if column.get("parent_table",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
          output=await postgres_client.execute(query="update users set is_deleted=1 where id=:id and type is null;",values={"id":request.state.user["id"]})
    if mode=="hard":
       if is_account_hard_delete==0:return error ("account hard delete is off")
       async with postgres_client.transaction():
-         [await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
-         [await postgres_client.execute(query=f"delete from {table} where parent_table='{table_id.get('users')}' and parent_id=:user_id;",values={"user_id":request.state.user["id"]}) for table in [*postgres_schema] if "action_" in table]
-         await postgres_client.execute(query="delete from log_password where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-         await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
-         await postgres_client.execute(query="delete from post where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+         for table,column in postgres_schema.items():
+            if table not in ["users","human"]:
+               if column.get("created_by_id",None):await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+               if column.get("user_id",None):await postgres_client.execute(query=f"delete from {table} where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+               if column.get("parent_table",None):await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
          await postgres_client.execute(query="update users set is_protected=null where id=:id and type is null;",values={"id":request.state.user["id"]})
-         output==await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
+         output=await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
    return {"status":1,"message":output}
 
 @app.get("/my/message-inbox")
