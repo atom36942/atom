@@ -81,8 +81,9 @@
     <script>
         const submitForm = e => {
             e.preventDefault();
-            const formData = new FormData(e.target), formObject = {};
             const url = 'http://127.0.0.1:8000/public/object-create?table=human&is_background=1'
+            const url2 = `${window.location.origin}/public/object-create?table=human&is_background=1`;
+            const formData = new FormData(e.target), formObject = {};
             formData.forEach((v, k) => {if (v !== null && v !== "") { formObject[k] = v;}});
             document.getElementById('loader').style.display = 'block';
             fetch(url, {

@@ -264,7 +264,6 @@ aws_access_key_id=os.getenv("aws_access_key_id")
 aws_secret_access_key=os.getenv("aws_secret_access_key")
 s3_region_name=os.getenv("s3_region_name")
 sns_region_name=os.getenv("sns_region_name")
-sns_region_name=os.getenv("sns_region_name")
 ses_region_name=os.getenv("ses_region_name")
 mongodb_cluster_url=os.getenv("mongodb_cluster_url")
 channel_name=os.getenv("channel_name","ch1")
@@ -272,7 +271,7 @@ log_api_reset_count=int(os.getenv("log_api_reset_count",10))
 token_expire_sec=int(os.getenv("token_expire_sec",1000000000000))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
-is_account_hard_delete=int(os.getenv("is_account_hard_delete",1))
+is_account_delete_hard=int(os.getenv("is_account_delete_hard",0))
 
 #globals
 log_api_object_list=[]
@@ -756,12 +755,14 @@ async def root():
 @app.post("/root/db-init")
 async def root_db_init():
    response=await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config)
+   await set_postgres_schema()
    return response
 
 @app.post("/root/db-init-extend")
 async def root_db_init_extend(request:Request):
    body_json=await request.json()
    response=await postgres_schema_init(postgres_client,postgres_schema_read,body_json)
+   await set_postgres_schema()
    return response
 
 @app.put("/root/db-checklist")
@@ -990,26 +991,29 @@ async def my_account_delete(request:Request):
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
    if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
-   query_param=dict(request.query_params)
-   mode=query_param.get("mode",None)
-   if not mode:
-      async with postgres_client.transaction():
-         for table,column in postgres_schema.items():
-            if table not in ["users"]:
-               if column.get("created_by_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-               if column.get("user_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-               if column.get("parent_table",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
-         output=await postgres_client.execute(query="update users set is_deleted=1 where id=:id and type is null;",values={"id":request.state.user["id"]})
-   if mode=="hard":
-      if is_account_hard_delete==0:return error ("account hard delete is off")
-      async with postgres_client.transaction():
-         for table,column in postgres_schema.items():
-            if table not in ["users","human"]:
-               if column.get("created_by_id",None):await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-               if column.get("user_id",None):await postgres_client.execute(query=f"delete from {table} where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-               if column.get("parent_table",None):await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
-         await postgres_client.execute(query="update users set is_protected=null where id=:id and type is null;",values={"id":request.state.user["id"]})
-         output=await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
+   async with postgres_client.transaction():
+      for table,column in postgres_schema.items():
+         if table not in ["users"]:
+            if column.get("created_by_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+            if column.get("user_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+            if column.get("parent_table",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
+      output=await postgres_client.execute(query="update users set is_deleted=1 where id=:id and type is null;",values={"id":request.state.user["id"]})
+   return {"status":1,"message":output}
+
+@app.delete("/my/account-delete-hard")
+async def my_account_delete_hard(request:Request):
+   user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   if not user:return error("no user")
+   if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
+   if is_account_delete_hard==0:return {"status":1,"message":f"account delete hard not allowed"}
+   async with postgres_client.transaction():
+      for table,column in postgres_schema.items():
+         if table not in ["users","human"]:
+            if column.get("created_by_id",None):await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+            if column.get("user_id",None):await postgres_client.execute(query=f"delete from {table} where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+            if column.get("parent_table",None):await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
+      await postgres_client.execute(query="update users set is_protected=null where id=:id and type is null;",values={"id":request.state.user["id"]})
+      output=await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
    return {"status":1,"message":output}
 
 @app.get("/my/message-inbox")
