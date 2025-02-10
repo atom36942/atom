@@ -30,10 +30,11 @@
 9. improve performance with redis caching
 10. kafka, rabbitmq, lavinmq, redis pub-sub
 11. prevent api abuse with request limiting 
-12. auto-generate schemas via api 
-13. asynchronous task execution 
+12. auto-generate database schemas via api 
+13. background task execution 
 14. scale with read database replication  
 15. use mongodb as a secondary database
+16. soft/hard delete on object level
 ```
 # curl testing
 ```

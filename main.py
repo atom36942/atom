@@ -986,8 +986,8 @@ async def my_token_refresh(request:Request):
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":request.state.user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
-@app.delete("/my/account-delete")
-async def my_account_delete(request:Request):
+@app.delete("/my/account-delete-soft")
+async def my_account_delete_soft(request:Request):
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
    if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
@@ -1242,8 +1242,17 @@ async def admin_object_update(request:Request):
    output=response["message"]
    return {"status":1,"message":output}
 
-@app.delete("/my/delete-ids")
-async def my_delete_ids(request:Request):
+@app.delete("/my/delete-ids-soft")
+async def my_delete_ids_soft(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table",None),body_json.get("ids",None)
+   if not table or not ids:return error("body json table/ids missing")
+   if table in ["users"]:return error("table not allowed")
+   await postgres_client.execute(query=f"update {table} set is_deleted=1 where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
+
+@app.delete("/my/delete-ids-hard")
+async def my_delete_ids_hard(request:Request):
    body_json=await request.json()
    table,ids=body_json.get("table",None),body_json.get("ids",None)
    if not table or not ids:return error("body json table/ids missing")
@@ -1252,8 +1261,17 @@ async def my_delete_ids(request:Request):
    await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
    return {"status":1,"message":"done"}
 
-@app.delete("/admin/delete-ids")
-async def admin_delete_ids(request:Request):
+@app.delete("/admin/delete-ids-soft")
+async def admin_delete_ids_soft(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table",None),body_json.get("ids",None)
+   if not table or not ids:return error("body json table/ids missing")
+   if table in ["users"]:return error("table not allowed")
+   await postgres_client.execute(query=f"update {table} set is_deleted=1 where id in ({ids});",values={})
+   return {"status":1,"message":"done"}
+
+@app.delete("/admin/delete-ids-hard")
+async def admin_delete_ids_hard(request:Request):
    body_json=await request.json()
    table,ids=body_json.get("table",None),body_json.get("ids",None)
    if not table or not ids:return error("body json table/ids missing")
