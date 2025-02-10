@@ -108,20 +108,21 @@ async def verify_otp(postgres_client,otp,email,mobile):
    if int(output[0]["otp"])!=int(otp):return {"status":0,"message":"otp mismatch"}
    return {"status":1,"message":"done"}
 
-import hashlib, datetime, json
+import hashlib,datetime,json
 async def object_serialize(postgres_column_datatype, object_list):
    for index, object in enumerate(object_list):
       for k, v in object.items():
          datatype = postgres_column_datatype.get(k)
          if not datatype:return{"status":0,"message":f"column {k} is not in postgres schema"}
          if not v: object_list[index][k] = None
-         elif k in ["password", "google_id"]: object_list[index][k] = hashlib.sha256(v.encode()).hexdigest()
+         elif "text" in datatype: object_list[index][k] = str(v)
          elif "int" in datatype: object_list[index][k] = int(v)
+         elif k in ["password", "google_id"]: object_list[index][k] = hashlib.sha256(v.encode()).hexdigest()
          elif datatype == "numeric": object_list[index][k] = round(float(v), 3)
          elif "time" in datatype or datatype == "date": object_list[index][k] = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
-         elif datatype == "jsonb": object_list[index][k] = json.dumps(v)
-         elif datatype == "ARRAY": object_list[index][k] = v.split(",")
-   return {"status": 1, "message": object_list}
+         elif datatype=="jsonb": object_list[index][k] = json.dumps(v)
+         elif datatype=="ARRAY": object_list[index][k] = v.split(",")
+   return {"status":1,"message":object_list}
 
 async def create_where_string(postgres_column_datatype,object_serialize,object):
    object={k:v for k,v in object.items() if k in postgres_column_datatype}
