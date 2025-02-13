@@ -273,7 +273,7 @@ token_expire_sec=int(os.getenv("token_expire_sec",1000000000000))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
 is_account_delete_hard=int(os.getenv("is_account_delete_hard",0))
-is_index_html=int(os.getenv("is_index_html",1))
+is_index_html=int(os.getenv("is_index_html",0))
 
 #globals
 log_api_object_list=[]
