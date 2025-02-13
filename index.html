@@ -59,14 +59,14 @@
                     </select>
                 </div>
                 <input type="text" name="name" placeholder="name" minlength="3" maxlength="50" required>
-                <input type="text" name="email" placeholder="email" >
+                <input type="text" name="email" placeholder="email" required>
                 <input type="text" name="mobile" placeholder="mobile">
-                <input type="text" name="city" placeholder="city">
-                <input type="text" name="work_profile" placeholder="work profile">
-                <input type="text" name="skill" placeholder="skill">
-                <input type="text" name="link_url" placeholder="link">
-                <input type="number" name="experience" placeholder="experience" step="0.1" min="0" max="1000">
-                <textarea name="description" placeholder="*description" rows="3" minlength="3" maxlength="5000" required></textarea>
+                <input type="text" name="city" placeholder="city" required>
+                <input type="text" name="link_url" placeholder="link (ex. linkedin,github etc)">
+                <input type="text" name="work_profile" placeholder="work profile (ex. product manager etc)" required>
+                <input type="number" name="experience" placeholder="experience in years" step="0.1" min="0" max="1000">
+                <textarea name="skill" placeholder="core work skills (ex. python,sql,etc)" rows="3" required></textarea>
+                <textarea name="description" placeholder="write about your profile/need" rows="5" minlength="3" maxlength="5000" required></textarea>
                 <button type="submit" class="submit-button">Submit</button>
             </form>
             <div class="anchor-link">
@@ -82,11 +82,11 @@
         const submitForm = e => {
             e.preventDefault();
             const url = 'http://127.0.0.1:8000/public/object-create?table=human&is_background=1'
-            const url2 = `${window.location.origin}/public/object-create?table=human&is_background=1`;
+            const url_2 = `${window.location.origin}/public/object-create?table=human&is_background=1`;
             const formData = new FormData(e.target), formObject = {};
             formData.forEach((v, k) => {if (v !== null && v !== "") { formObject[k] = v;}});
             document.getElementById('loader').style.display = 'block';
-            fetch(url, {
+            fetch(url_2, {
                 method: 'POST',
                 headers: {'Content-Type':'application/json'},
                 body: JSON.stringify(formObject),

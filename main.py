@@ -273,6 +273,7 @@ token_expire_sec=int(os.getenv("token_expire_sec",1000000000000))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
 is_account_delete_hard=int(os.getenv("is_account_delete_hard",0))
+is_index_html=int(os.getenv("is_index_html",1))
 
 #globals
 log_api_object_list=[]
@@ -742,7 +743,7 @@ for item in current_directory_file_name_list_without_extension:
       app.include_router(router)
       
 #api import
-from fastapi import Request,UploadFile,Depends,BackgroundTasks
+from fastapi import Request,UploadFile,Depends,BackgroundTasks,responses
 import hashlib,datetime,json,time,jwt,os,random
 from typing import Literal
 from fastapi_cache.decorator import cache
@@ -751,7 +752,7 @@ from fastapi_limiter.depends import RateLimiter
 #api
 @app.get("/")
 async def root():
-   return {"status":1,"message":"welcome to atom"}
+   return {"status":1,"message":"welcome to atom"} if is_index_html==0 else responses.FileResponse("index.html")
 
 @app.post("/root/db-init")
 async def root_db_init():
