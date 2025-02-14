@@ -40,7 +40,7 @@
 
 # curl testing
 ```
-1. add .env key = baseurl+token_root+token
+1. add .env key=baseurl,token_root,token_admin,file_create,file_update,file_delete,test_id
 2. chmod +x curl.sh
 3. ./curl.sh
 ```
