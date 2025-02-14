@@ -284,6 +284,7 @@ postgres_config={
 "created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
 "is_protected-smallint-0-btree",
 "is_deleted-smallint-0-btree",
 "type-text-0-btree",
