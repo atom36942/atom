@@ -102,4 +102,4 @@ curl -X GET "${baseurl}/public/redis-get-object?key=post_1"
 # curl -X POST "${baseurl}/private/file-upload-s3-presigned" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"bucket":"master","key":"key1.png"}'
 
 #admin
-curl -X POST "${baseurl}/admin/db-runner" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"query":"select username from users where id=1"}'
+curl -X POST "${baseurl}/admin/db-runner" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"query":"select id from post where id=1"}'

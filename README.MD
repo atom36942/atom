@@ -17,6 +17,7 @@
 15. Auto-generates entire business database schemas from a single JSON config
 16. ex. build a linkedIn-like backend in 2-3 weeks
 ```
+
 # modules
 ```
 1. authentication module
@@ -36,12 +37,14 @@
 15. use mongodb as a secondary database
 16. soft/hard delete on object level
 ```
+
 # curl testing
 ```
 1. add .env key = baseurl+token_root+token
 2. chmod +x curl.sh
 3. ./curl.sh
 ```
+
 # how to run
 ```
 1. download atom repo
@@ -50,17 +53,20 @@
 4. run =  python main.py
 5. run with reload =  uvicorn main:app --reload 
 ```
+
 # how to run using docker
 ```
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
 ```
+
 # misc
 ```
 1. Have an idea! email @ atom36942@gmail.com
 2. api docs = https://www.atom42.org/docs
 ```
-# helpers
+
+# commands
 ```
 #git
 git init
@@ -84,6 +90,10 @@ brew install postgresql@17
 brew services start postgresql@17
 psql postgresql://atom:123@localhost/postgres
 
+#postgres reset
+drop schema if exists public cascade;
+create schema if not exists public;
+
 #postgres export
 \copy post to 'path'  delimiter ',' csv header;
 \copy (query) to '/Users/atom/Downloads/xxx.csv' delimiter ',' csv header;
@@ -93,20 +103,8 @@ pg_dump --format=c  -d url > /Users/atom/Downloads/atom.dump
 \copy post(created_by_id,type,title,location) from '/Users/atom/Downloads/location.csv' delimiter ',' csv header;
 pg_restore -d url  /Users/atom/Downloads/atom.dump
 
-#postgres role
-CREATE ROLE role1 WITH LOGIN PASSWORD '123';
-GRANT CONNECT ON DATABASE atom TO role1;
-GRANT USAGE, CREATE ON SCHEMA public TO role1;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO role1;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO role1;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO role1;
-
-#postgres imp sql
-drop schema if exists public cascade;
-create schema if not exists public;
-SELECT relname AS table_name,n_live_tup AS row_count FROM pg_stat_user_tables;
-
 #misc
 pid kill = lsof -ti :8000 | xargs kill -9
 git commit delete = git reset --hard HEAD~3 / git push origin main --force
+postgres table count = SELECT relname AS table_name,n_live_tup AS row_count FROM pg_stat_user_tables;
 ```

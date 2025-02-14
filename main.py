@@ -358,7 +358,8 @@ postgres_config={
 "email-text-0-btree",
 "mobile-text-0-btree",
 "name-text-0-0",
-"city-text-0-0"
+"city-text-0-0",
+"api_access-text-0-btree"
 ],
 "post":[
 "created_at-timestamptz-0-0",
@@ -484,7 +485,7 @@ postgres_config={
 "default_is_protected_project":"ALTER TABLE project ALTER COLUMN is_protected SET DEFAULT 1;",
 "default_is_protected_human":"ALTER TABLE human ALTER COLUMN is_protected SET DEFAULT 1;",
 "rule_is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"root_user_1":"insert into users (type,username,password) values ('admin','atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3') on conflict do nothing;",
+"root_user_1":"insert into users (username,password,api_access) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10') on conflict do nothing;",
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
 "log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
 "log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
@@ -495,6 +496,13 @@ postgres_config={
 "unique_acton_block":"alter table action_block add constraint constraint_unique_action_block_cpp unique (created_by_id,parent_table,parent_id);",
 "unique_acton_follow":"alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);"
 }
+}
+api_id={
+"/admin/object-read":1,
+"/admin/object-update":2,
+"/admin/delete-ids-soft":3,
+"/admin/delete-ids-hard":4,
+"/admin/db-runner":5,
 }
 
 #setters
@@ -515,15 +523,13 @@ async def set_postgres_schema():
    postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    return None
 
-users_type_ids={}
-async def set_users_type_ids():
-   global users_type_ids
-   users_type_ids={}
-   if postgres_schema.get("users",{}).get("type",None):
-      for type in ["admin"]:
-         users_type_ids[type]=[]
-         output=await postgres_client.fetch_all(query="select id from users where type=:type limit 10000",values={"type":type})
-         for object in output:users_type_ids[type]+=[object["id"]]
+user_api_access={}
+async def set_user_api_access():
+   global user_api_access
+   user_api_access={}
+   if postgres_schema.get("users",{}).get("api_access",None):
+         output=await postgres_client.fetch_all(query="select id,api_access from users where api_access is not null limit 10000",values={})
+         user_api_access={object["id"]:[int(item) for item in object["api_access"].split(",")] for object in output if len(object["api_access"])>=1}
    return None
 
 project_data={}
@@ -649,7 +655,7 @@ from fastapi_cache.backends.redis import RedisBackend
 async def lifespan(app:FastAPI):
    await set_postgres_client()
    await set_postgres_schema()
-   await set_users_type_ids()
+   await set_user_api_access()
    await set_project_data()
    await set_redis_client()
    await set_s3_client()
@@ -691,8 +697,8 @@ async def middleware(request:Request,api_function):
    method=request.method
    api=request.url.path
    query_param=dict(request.query_params)
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
    body=await request.body()
+   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
    try:
       #auth
       user={}
@@ -703,7 +709,9 @@ async def middleware(request:Request,api_function):
          else:
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return error("user_id not in token")
-            if "admin/" in api and user["id"] not in users_type_ids.get("admin",[]):return error("only admin allowed")
+            if "admin/" in api:
+               if not api_id.get(api):return error("api id mapping not added")
+               if api_id[api] not in user_api_access.get(user["id"],[]):return error("api access denied")
       request.state.user=user
       #api response background
       if query_param.get("is_background",None)=="1":
@@ -715,6 +723,7 @@ async def middleware(request:Request,api_function):
          response.background=BackgroundTask(api_function_new)
       #api response direct
       else:
+         #api response
          response=await api_function(request)
          #api log
          if postgres_schema.get("log_api"):
@@ -812,7 +821,7 @@ async def root_db_runner(request:Request):
 async def root_reset_global():
    await set_postgres_schema()
    await set_project_data()
-   await set_users_type_ids()
+   await set_user_api_access()
    return {"status":1,"message":"done"}
 
 @app.post("/root/redis-set-object")
@@ -1300,11 +1309,16 @@ async def my_object_delete(request:Request):
 async def public_info(request:Request):
    globals_dict=globals()
    output={
-   "users_type_ids":users_type_ids,
+   "user_api_access":user_api_access,
    "project_data":project_data,
    "postgres_schema":postgres_schema,
    "api_list":[route.path for route in request.app.routes],
-   "api_count":len([route.path for route in request.app.routes]),
+   "api_list_root":[route.path for route in request.app.routes if "root/" in route.path],
+   "api_list_auth":[route.path for route in request.app.routes if "auth/" in route.path],
+   "api_list_my":[route.path for route in request.app.routes if "my/" in route.path],
+   "api_list_public":[route.path for route in request.app.routes if "public/" in route.path],
+   "api_list_private":[route.path for route in request.app.routes if "private/" in route.path],
+   "api_list_admin":[route.path for route in request.app.routes if "admin/" in route.path],
    "redis":await redis_client.info(),
    "table_id":table_id,
    "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
