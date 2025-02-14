@@ -1005,7 +1005,7 @@ async def my_token_refresh(request:Request):
 async def my_account_delete_soft(request:Request):
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
-   if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
+   if user[0]["api_access"]:return {"status":1,"message":"admin cant be deleted"}
    async with postgres_client.transaction():
       for table,column in postgres_schema.items():
          if table not in ["users"]:
@@ -1017,10 +1017,10 @@ async def my_account_delete_soft(request:Request):
 
 @app.delete("/my/account-delete-hard")
 async def my_account_delete_hard(request:Request):
+   if is_account_delete_hard==0:return {"status":1,"message":f"account delete hard not allowed"}
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
-   if user[0]["type"]:return {"status":1,"message":f"user type {user[0]['type']} not allowed"}
-   if is_account_delete_hard==0:return {"status":1,"message":f"account delete hard not allowed"}
+   if user[0]["api_access"]:return {"status":1,"message":"admin cant be deleted"}
    async with postgres_client.transaction():
       for table,column in postgres_schema.items():
          if table not in ["users","human"]:
