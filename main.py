@@ -987,7 +987,10 @@ async def auth_login_password_mobile(request:Request):
 @app.get("/my/profile")
 @cache(expire=60)
 async def my_profile(request:Request,background:BackgroundTasks):
-   user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   column="*"
+   query_param=dict(request.query_params)
+   if query_param.get("column"):column=query_param.get("column")
+   user=await postgres_client.fetch_all(query=f"select {column} from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
    background.add_task(postgres_client.execute,query="update users set last_active_at=:last_active_at where id=:id",values={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()})
    return {"status":1,"message":user[0]}
