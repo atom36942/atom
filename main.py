@@ -297,7 +297,8 @@ postgres_config={
 "work_profile-text-0-0",
 "skill-text-0-0",
 "description-text-0-0",
-"file_url-text-0-0"
+"file_url-text-0-0",
+"rating-numeric(10,3)-1-0"
 ],
 "test":[
 "created_at-timestamptz-0-0",
@@ -325,7 +326,8 @@ postgres_config={
 "link_url-text-0-0",
 "tag-text-0-0",
 "parent_table-smallint-0-btree",
-"parent_id-bigint-0-btree"
+"parent_id-bigint-0-btree",
+"rating-numeric(10,3)-1-0"
 ],
 "project":[
 "created_at-timestamptz-0-0",
@@ -360,7 +362,8 @@ postgres_config={
 "mobile-text-0-btree",
 "name-text-0-0",
 "city-text-0-0",
-"api_access-text-0-btree"
+"api_access-text-0-btree",
+"rating-numeric(10,3)-1-0"
 ],
 "post":[
 "created_at-timestamptz-0-0",
@@ -376,7 +379,8 @@ postgres_config={
 "link_url-text-0-0",
 "tag-text-0-0",
 "location-geography(POINT)-0-0",
-"metadata-jsonb-0-0"
+"metadata-jsonb-0-0",
+"rating-numeric(10,3)-1-0"
 ],
 "message":[
 "created_at-timestamptz-0-0",
