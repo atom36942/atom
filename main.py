@@ -993,8 +993,10 @@ async def my_profile(request:Request,background:BackgroundTasks):
    if query_param.get("column"):column=query_param.get("column")
    user=await postgres_client.fetch_all(query=f"select {column} from users where id=:id;",values={"id":request.state.user["id"]})
    if not user:return error("no user")
+   user=dict(user[0])
+   if user["is_active"]!=0:user["is_active"]=1
    background.add_task(postgres_client.execute,query="update users set last_active_at=:last_active_at where id=:id",values={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()})
-   return {"status":1,"message":user[0]}
+   return {"status":1,"message":user}
 
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
