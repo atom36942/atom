@@ -10,8 +10,7 @@ curl -X PUT "${baseurl}/root/reset-global" -H "Authorization: Bearer ${token_roo
 curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=create" -F "table=test" -F "file=@${file_create}"
 curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=update" -F "table=test" -F "file=@${file_update}"
 curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=delete" -F "table=test" -F "file=@${file_delete}"
-curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"update users set email='\''abc'\'',mobile='\''abc'\'' where id=1;"}'
-curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
+curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"update users set email='\''abc'\'',mobile='\''abc'\'' where id=1;---insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
 curl -X POST "${baseurl}/root/redis-set-object?key=post_1" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
 curl -X POST "${baseurl}/root/redis-set-object?key=post_1&expiry=100" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
 curl -X POST "${baseurl}/root/redis-set-csv" -H "Authorization: Bearer ${token_root}" -F "table=test" -F "file=@${file_update}"
