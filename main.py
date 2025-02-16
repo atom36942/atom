@@ -769,15 +769,13 @@ async def root():
    return {"status":1,"message":"welcome to atom"} if is_index_html==0 else responses.FileResponse("index.html")
 
 @app.post("/root/db-init")
-async def root_db_init():
-   response=await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config)
-   await set_postgres_schema()
-   return response
-
-@app.post("/root/db-init-extend")
-async def root_db_init_extend(request:Request):
-   body_json=await request.json()
-   response=await postgres_schema_init(postgres_client,postgres_schema_read,body_json)
+async def root_db_init(request:Request):
+   query_param=dict(request.query_params)
+   mode=query_param.get("mode",None)
+   if not mode:return error("mode missing")
+   if mode=="default":config=postgres_config
+   if mode=="custom":config=await request.json()
+   response=await postgres_schema_init(postgres_client,postgres_schema_read,config)
    await set_postgres_schema()
    return response
 

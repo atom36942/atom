@@ -2,8 +2,8 @@
 curl -X GET "${baseurl}"
 
 #root
-curl -X POST "${baseurl}/root/db-init" -H "Authorization: Bearer ${token_root}"
-curl -X POST "${baseurl}/root/db-init-extend" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"table":{"test":["type-text-0-btree"]},"query":{}}'
+curl -X POST "${baseurl}/root/db-init?mode=default" -H "Authorization: Bearer ${token_root}"
+curl -X POST "${baseurl}/root/db-init?mode=custom" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"table":{"test":["type-text-0-btree"]},"query":{}}'
 curl -X PUT "${baseurl}/root/db-checklist" -H "Authorization: Bearer ${token_root}"
 curl -X DELETE "${baseurl}/root/db-clean" -H "Authorization: Bearer ${token_root}"
 curl -X PUT "${baseurl}/root/reset-global" -H "Authorization: Bearer ${token_root}"
