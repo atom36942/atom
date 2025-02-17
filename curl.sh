@@ -92,9 +92,7 @@ while IFS= read -r line; do
              # echo "📄 (${body})"
             ((count_success++))
         else
-            echo "❌ Failed (HTTP $status_code, ${execution_time}ms)"
-            echo "Error Response:"
-            echo "$body"  # Print the error response body
+            echo "❌ $body"
             ((count_fail++))
         fi
     else

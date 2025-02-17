@@ -269,7 +269,7 @@ ses_region_name=os.getenv("ses_region_name")
 mongodb_cluster_url=os.getenv("mongodb_cluster_url")
 channel_name=os.getenv("channel_name","ch1")
 log_api_reset_count=int(os.getenv("log_api_reset_count",10))
-token_expire_sec=int(os.getenv("token_expire_sec",1000000000000))
+token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
 is_account_delete_hard=int(os.getenv("is_account_delete_hard",0))
@@ -503,7 +503,7 @@ postgres_config={
 "unique_acton_follow":"alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);"
 }
 }
-api_id={
+api_id_mapping={
 "/admin/object-read":1,
 "/admin/object-update":2,
 "/admin/delete-ids-soft":3,
@@ -529,13 +529,20 @@ async def set_postgres_schema():
    postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    return None
 
-user_api_access={}
-async def set_user_api_access():
-   global user_api_access
-   user_api_access={}
-   if postgres_schema.get("users",{}).get("api_access",None):
-         output=await postgres_client.fetch_all(query="select id,api_access from users where api_access is not null limit 10000",values={})
-         user_api_access={object["id"]:[int(item) for item in object["api_access"].split(",")] for object in output if len(object["api_access"])>=1}
+users_api_access={}
+async def set_users_api_access():
+   global users_api_access
+   users_api_access={}
+   output=await postgres_client.fetch_all(query="select id,api_access from users where api_access is not null limit 1000000",values={})
+   users_api_access={object["id"]:[int(item) for item in object["api_access"].split(",")] for object in output if len(object["api_access"])>=1}
+   return None
+
+users_is_active={}
+async def set_users_is_active():
+   global users_is_active
+   users_is_active={}
+   output=await postgres_client.fetch_all(query="select id,is_active from users limit 1000000",values={})
+   users_is_active={object["id"]:object["is_active"] for object in output}
    return None
 
 project_data={}
@@ -661,7 +668,8 @@ from fastapi_cache.backends.redis import RedisBackend
 async def lifespan(app:FastAPI):
    await set_postgres_client()
    await set_postgres_schema()
-   await set_user_api_access()
+   await set_users_api_access()
+   await set_users_is_active()
    await set_project_data()
    await set_redis_client()
    await set_s3_client()
@@ -716,8 +724,26 @@ async def middleware(request:Request,api_function):
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return error("user_id not in token")
             if "admin/" in api:
-               if not api_id.get(api):return error("api id mapping not added")
-               if api_id[api] not in user_api_access.get(user["id"],[]):return error("api access denied")
+               api_id=api_id_mapping.get(api,None)
+               if not api_id:return error("api_id not mapped in backend")
+               user_api_access=users_api_access.get(user["id"],None)
+               if user_api_access:
+                  if api_id not in user_api_access:return error("api access denied")
+               else:
+                  output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user["id"]})
+                  if not output:return error("user not found")
+                  api_access_str=output[0]["api_access"]
+                  if not api_access_str:return error("api access denied")
+                  user_api_access=[int(item) for item in api_access_str.split(",")]
+                  if api_id not in user_api_access:return error("api access denied")
+            if api in ["/my/object-create"]:
+               user_is_active=users_is_active.get(user["id"],None)
+               if user_is_active:
+                  if user_is_active==0:return error ("you are not active")
+               else:
+                  output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
+                  if not output:return error("user not found")
+                  if output[0]["is_active"]==0:return error ("you are not active")
       request.state.user=user
       #api response background
       if query_param.get("is_background",None)=="1":
@@ -787,13 +813,15 @@ async def root_db_checklist():
 
 @app.delete("/root/db-clean")
 async def root_db_clean():
-   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days'",values={})
-   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days'",values={})
-   await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days'",values={})
-   await postgres_client.execute(query="delete from message where created_at<now()-interval '1000 days'",values={})
+   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days';",values={})
+   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days';",values={})
+   await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days';",values={})
+   await postgres_client.execute(query="delete from message where created_at<now()-interval '1000 days';",values={})
    [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in [*postgres_schema] if "action_" in table]
    [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in [*postgres_schema] for parent_table in [*table_id] if "action_" in table]
    [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in [*postgres_schema] if "action_" in table]
+   await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
+   [await postgres_client.execute(query="delete from human where id=:id;",values={"id":object["id"]}) for object in await postgres_client.fetch_all(query="select id from human where is_deleted=1 limit 100;",values={})]
    return {"status":1,"message":"done"}
 
 @app.post("/root/db-uploader")
@@ -825,7 +853,8 @@ async def root_db_runner(request:Request):
 async def root_reset_global():
    await set_postgres_schema()
    await set_project_data()
-   await set_user_api_access()
+   await set_users_api_access()
+   await set_users_is_active()
    return {"status":1,"message":"done"}
 
 @app.post("/root/redis-set-object")
@@ -924,7 +953,7 @@ async def auth_login(request:Request):
    username,password=body_json.get("username",None),body_json.get("password",None)
    if not username or not password:return error("body json username/password missing")
    output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()})
-   if not output:return error("no user")
+   if not output:return error("user not found")
    user=output[0] if output else None
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
@@ -972,7 +1001,7 @@ async def auth_login_password_email(request:Request):
    email,password=body_json.get("email",None),body_json.get("password",None)
    if not email or not password:return error("body json email/password missing")
    output=await postgres_client.fetch_all(query="select * from users where email=:email and password=:password order by id desc limit 1;",values={"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()})
-   if not output:return error("no user")
+   if not output:return error("user not found")
    user=output[0] if output else None
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
@@ -983,7 +1012,7 @@ async def auth_login_password_mobile(request:Request):
    mobile,password=body_json.get("mobile",None),body_json.get("password",None)
    if not mobile or not password:return error("body json mobile/password missing")
    output=await postgres_client.fetch_all(query="select * from users where mobile=:mobile and password=:password order by id desc limit 1;",values={"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()})
-   if not output:return error("no user")
+   if not output:return error("user not found")
    user=output[0] if output else None
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
@@ -995,7 +1024,7 @@ async def my_profile(request:Request,background:BackgroundTasks):
    query_param=dict(request.query_params)
    if query_param.get("column"):column=query_param.get("column")
    user=await postgres_client.fetch_all(query=f"select {column} from users where id=:id;",values={"id":request.state.user["id"]})
-   if not user:return error("no user")
+   if not user:return error("user not found")
    user=dict(user[0])
    if user["is_active"]!=0:user["is_active"]=1
    background.add_task(postgres_client.execute,query="update users set last_active_at=:last_active_at where id=:id",values={"id":request.state.user["id"],"last_active_at":datetime.datetime.now()})
@@ -1009,7 +1038,7 @@ async def my_token_refresh(request:Request):
 @app.delete("/my/account-delete-soft")
 async def my_account_delete_soft(request:Request):
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   if not user:return error("no user")
+   if not user:return error("user not found")
    if user[0]["api_access"]:return {"status":1,"message":"admin cant be deleted"}
    async with postgres_client.transaction():
       for table,column in postgres_schema.items():
@@ -1024,7 +1053,7 @@ async def my_account_delete_soft(request:Request):
 async def my_account_delete_hard(request:Request):
    if is_account_delete_hard==0:return {"status":1,"message":f"account delete hard not allowed"}
    user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   if not user:return error("no user")
+   if not user:return error("user not found")
    if user[0]["api_access"]:return {"status":1,"message":"admin cant be deleted"}
    async with postgres_client.transaction():
       for table,column in postgres_schema.items():
@@ -1318,7 +1347,7 @@ async def my_object_delete(request:Request):
 async def public_info(request:Request):
    globals_dict=globals()
    output={
-   "user_api_access":user_api_access,
+   "users_api_access":users_api_access,
    "project_data":project_data,
    "postgres_schema":postgres_schema,
    "api_list":[route.path for route in request.app.routes],
