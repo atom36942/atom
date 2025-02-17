@@ -298,7 +298,8 @@ postgres_config={
 "skill-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
-"rating-numeric(10,3)-0-btree"
+"rating-numeric(10,3)-0-btree",
+"remark-text-0-0"
 ],
 "test":[
 "created_at-timestamptz-0-0",
