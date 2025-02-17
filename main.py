@@ -1396,7 +1396,7 @@ async def admin_db_runner(request:Request):
    output=[]
    stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
    for item in stop_word:
-       if item in query.lower():return error(f"{item} not allowed in query")
+       if item in query.lower():return error(f"{item} keyword not allowed in query")
    output=await postgres_client.fetch_all(query=query,values={})
    return {"status":1,"message":output}
 

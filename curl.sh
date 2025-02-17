@@ -8,11 +8,11 @@ fi
 #env var
 baseurl="${baseurl}"
 token_root="${token_root}"
-test_id="${test_id}"
 token_admin="${token_admin}"
 file_create="${file_create}"
 file_update="${file_update}"
 file_delete="${file_delete}"
+test_id="${test_id}"
 
 #fixed var
 input_file="curl.txt"
