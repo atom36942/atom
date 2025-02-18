@@ -274,6 +274,7 @@ max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
 is_account_delete_hard=int(os.getenv("is_account_delete_hard",0))
 is_index_html=int(os.getenv("is_index_html",0))
+is_signup=int(os.getenv("is_signup",0))
 
 #globals
 log_api_object_list=[]
@@ -799,13 +800,14 @@ from typing import Literal
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
-#api
+#index
 @app.get("/")
 async def root():
    response={"status":1,"message":"welcome to atom"}
    if is_index_html==1:response=responses.FileResponse("index.html")
    return response
 
+#db
 @app.post("/root/db-init")
 async def root_db_init(request:Request):
    query_param=dict(request.query_params)
@@ -817,23 +819,20 @@ async def root_db_init(request:Request):
    await set_postgres_schema()
    return response
 
-@app.put("/root/db-checklist")
-async def root_db_checklist():
-   await postgres_client.execute(query="update users set is_protected=1 where type is not null;",values={})
-   return {"status":1,"message":"done"}
-
-@app.delete("/root/db-clean")
-async def root_db_clean():
-   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days';",values={})
-   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days';",values={})
-   await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days';",values={})
-   await postgres_client.execute(query="delete from message where created_at<now()-interval '1000 days';",values={})
-   [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in [*postgres_schema] if "action_" in table]
-   [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in [*postgres_schema] for parent_table in [*table_id] if "action_" in table]
-   [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in [*postgres_schema] if "action_" in table]
-   await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
-   [await postgres_client.execute(query="delete from human where id=:id;",values={"id":object["id"]}) for object in await postgres_client.fetch_all(query="select id from human where is_deleted=1 limit 100;",values={})]
-   return {"status":1,"message":"done"}
+@app.post("/root/db-runner")
+async def root_db_runner(request:Request):
+   body_json=await request.json()
+   query=body_json.get("query",None)
+   if not query:return error("body json query missing")
+   stop_word=["drop","truncate"]
+   for item in stop_word:
+       if item in query.lower():return error(f"{item} keyword not allowed in query")
+   output=[]
+   async with postgres_client.transaction():
+      for query in query.split("---"):
+         result=await postgres_client.fetch_all(query=query,values={})
+         output.append(result)
+   return {"status":1,"message":output}
 
 @app.post("/root/db-uploader")
 async def root_db_uploader(request:Request):
@@ -848,26 +847,25 @@ async def root_db_uploader(request:Request):
    if response["status"]==0:return error(response["message"])
    return response
 
-@app.post("/root/db-runner")
-async def root_db_runner(request:Request):
-   body_json=await request.json()
-   query=body_json.get("query",None)
-   if not query:return error("body json query missing")
-   output=[]
-   async with postgres_client.transaction():
-      for query in query.split("---"):
-         result=await postgres_client.fetch_all(query=query,values={})
-         output.append(result)
-   return {"status":1,"message":output}
-
-@app.put("/root/reset-global")
-async def root_reset_global():
-   await set_postgres_schema()
-   await set_project_data()
-   await set_users_api_access()
-   await set_users_is_active()
+@app.delete("/root/db-clean")
+async def root_db_clean():
+   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days';",values={})
+   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days';",values={})
+   await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days';",values={})
+   await postgres_client.execute(query="delete from message where created_at<now()-interval '1000 days';",values={})
+   [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in [*postgres_schema] if "action_" in table]
+   [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in [*postgres_schema] for parent_table in [*table_id] if "action_" in table]
+   [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in [*postgres_schema] if "action_" in table]
+   await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
+   [await postgres_client.execute(query="delete from human where id=:id;",values={"id":object["id"]}) for object in await postgres_client.fetch_all(query="select id from human where is_deleted=1 limit 100;",values={})]
    return {"status":1,"message":"done"}
 
+@app.put("/root/db-checklist")
+async def root_db_checklist():
+   await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
+   return {"status":1,"message":"done"}
+
+#redis
 @app.post("/root/redis-set-object")
 async def root_redis_set_object(request:Request):
    query_param=dict(request.query_params)
@@ -877,6 +875,15 @@ async def root_redis_set_object(request:Request):
    body_json=await request.json()
    if not expiry:output=await redis_client.set(key,json.dumps(body_json))
    else:output=await redis_client.setex(key,expiry,json.dumps(body_json))
+   return {"status":1,"message":output}
+
+@app.get("/public/redis-get-object")
+async def public_redis_get_object(request:Request):
+   query_param=dict(request.query_params)
+   key=query_param.get("key",None)
+   if not key:return error("query param key missing")
+   output=await redis_client.get(key)
+   if output:output=json.loads(output)
    return {"status":1,"message":output}
 
 @app.post("/root/redis-set-csv")
@@ -899,6 +906,16 @@ async def root_reset_redis():
    await redis_client.flushall()
    return {"status":1,"message":"done"}
 
+#ops
+@app.put("/root/reset-global")
+async def root_reset_global():
+   await set_postgres_schema()
+   await set_project_data()
+   await set_users_api_access()
+   await set_users_is_active()
+   return {"status":1,"message":"done"}
+
+#s3
 @app.get("/root/s3-bucket-list")
 async def root_s3_bucket_list():
    output=s3_client.list_buckets()
@@ -948,8 +965,33 @@ async def root_s3_url_empty(request:Request):
       output=s3_resource.Object(bucket,key).delete()
    return {"status":1,"message":output}
 
+@app.post("/private/s3-file-upload")
+async def private_s3_file_upload(request:Request):
+   body_form_key,body_form_file=await read_body_form(request)
+   bucket,key=body_form_key.get("bucket",None),body_form_key.get("key",None)
+   if not bucket or not key:return error("body form bucket/key missing")
+   key_list=None if key=="uuid" else key.split("---")
+   response=await s3_file_upload(s3_client,s3_region_name,bucket,key_list,body_form_file)
+   if response["status"]==0:return error(response["message"])
+   return response
+
+@app.post("/private/s3-file-upload-presigned")
+async def private_s3_file_upload_presigned(request:Request):
+   body_json=await request.json()
+   bucket,key=body_json.get("bucket",None),body_json.get("key",None)
+   if not bucket or not key:return error("body json bucket/key missing")
+   if "." not in key:return error("extension must")
+   expiry_sec,size_kb=1000,100
+   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
+   for k,v in output["fields"].items():output[k]=v
+   del output["fields"]
+   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
+   return {"status":1,"message":output}
+
+#auth
 @app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
 async def auth_signup(request:Request):
+   if is_signup==0:return error("signup disabled")
    body_json=await request.json()
    username,password=body_json.get("username",None),body_json.get("password",None)
    if not username or not password:return error("body json username/password missing")
@@ -958,75 +1000,62 @@ async def auth_signup(request:Request):
    output=await postgres_client.execute(query=query,values=query_param)
    return {"status":1,"message":output}
 
-@app.post("/auth/login")
+@app.post("/auth/login-password")
 async def auth_login(request:Request):
    body_json=await request.json()
-   username,password=body_json.get("username",None),body_json.get("password",None)
-   if not username or not password:return error("body json username/password missing")
-   output=await postgres_client.fetch_all(query="select id from users where username=:username and password=:password order by id desc limit 1;",values={"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()})
-   if not output:return error("user not found")
+   if len(body_json)!=2:return error("body length should be 2")
+   password=body_json.get("password")
+   if not password:return error("password missing")
+   del body_json["password"]
+   key,value=next(iter(body_json.items()))
+   if key not in ["username","email","mobile"]:return error(f"{key} column not allowed")
+   output=await postgres_client.fetch_all(query=f"select id from users where {key}=:key_value and password=:password order by id desc limit 1;",values={"key_value":value,"password":hashlib.sha256(str(password).encode()).hexdigest()})
    user=output[0] if output else None
+   if not user:return error("user not found")
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-google")
-async def auth_login_google(request:Request):
+@app.post("/auth/login-oauth")
+async def auth_login_oauth(request:Request):
    body_json=await request.json()
-   google_id=body_json.get("google_id",None)
-   if not google_id:return error("body json google_id missing")
-   output=await postgres_client.fetch_all(query="select id from users where google_id=:google_id order by id desc limit 1;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
-   if not output:output=await postgres_client.fetch_all(query="insert into users (google_id) values (:google_id) returning *;",values={"google_id":hashlib.sha256(google_id.encode()).hexdigest()})
+   if len(body_json)!=1:return error("body length should be 1")
+   key,value=next(iter(body_json.items()))
+   if key not in ["google_id","apple_id","twitter_id"]:return error("oauth column not allowed")
+   output=await postgres_client.fetch_all(query=f"select id from users where {key}=:key_value order by id desc limit 1;",values={"key_value":hashlib.sha256(value.encode()).hexdigest()})
    user=output[0] if output else None
+   if not user:
+      if is_signup==0:return error("user not found")
+      if is_signup==1:
+         output=await postgres_client.fetch_all(query=f"insert into users ({key}) values (:key_value) returning *;",values={"key_value":hashlib.sha256(value.encode()).hexdigest()})
+         user=output[0] if output else None
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-otp-email")
-async def auth_login_otp_email(request:Request):
+@app.post("/auth/login-otp")
+async def auth_login_otp(request:Request):
    body_json=await request.json()
-   email,otp=body_json.get("email",None),body_json.get("otp",None)
-   if not email or not otp:return error("body json email/otp missing")
-   response=await verify_otp(postgres_client,otp,email,None)
+   if len(body_json)!=2:return error("body length should be 2")
+   otp=body_json.get("otp")
+   if not otp:return error("otp missing")
+   del body_json["otp"]
+   key,value=next(iter(body_json.items()))
+   if key not in ["email","mobile"]:return error(f"{key} column not allowed")
+   if key=="email":response=await verify_otp(postgres_client,otp,value,None)
+   else:response=await verify_otp(postgres_client,otp,None,value)
    if response["status"]==0:return error(response["message"])
-   output=await postgres_client.fetch_all(query="select id from users where email=:email order by id desc limit 1;",values={"email":email})
-   if not output:output=await postgres_client.fetch_all(query="insert into users (email) values (:email) returning *;",values={"email":email})
+   output=await postgres_client.fetch_all(query=f"select id from users where {key}=:key_value order by id desc limit 1;",values={"key_value":value})
    user=output[0] if output else None
+   if not user:
+      if is_signup==0:return error("user not found")
+      if is_signup==1:
+         output=await postgres_client.fetch_all(query=f"insert into users ({key}) values (:key_value) returning *;",values={"key_value":value})
+         user=output[0] if output else None
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-otp-mobile")
-async def auth_login_otp_mobile(request:Request):
-   body_json=await request.json()
-   mobile,otp=body_json.get("mobile",None),body_json.get("otp",None)
-   if not mobile or not otp:return error("body json mobile/otp missing")
-   response=await verify_otp(postgres_client,otp,None,mobile)
-   if response["status"]==0:return error(response["message"])
-   output=await postgres_client.fetch_all(query="select id from users where mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
-   if not output:output=await postgres_client.fetch_all(query="insert into users (mobile) values (:mobile) returning *;",values={"mobile":mobile})
-   user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
-   return {"status":1,"message":token}
+#my
 
-@app.post("/auth/login-password-email")
-async def auth_login_password_email(request:Request):
-   body_json=await request.json()
-   email,password=body_json.get("email",None),body_json.get("password",None)
-   if not email or not password:return error("body json email/password missing")
-   output=await postgres_client.fetch_all(query="select * from users where email=:email and password=:password order by id desc limit 1;",values={"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()})
-   if not output:return error("user not found")
-   user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
-   return {"status":1,"message":token}
 
-@app.post("/auth/login-password-mobile")
-async def auth_login_password_mobile(request:Request):
-   body_json=await request.json()
-   mobile,password=body_json.get("mobile",None),body_json.get("password",None)
-   if not mobile or not password:return error("body json mobile/password missing")
-   output=await postgres_client.fetch_all(query="select * from users where mobile=:mobile and password=:password order by id desc limit 1;",values={"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()})
-   if not output:return error("user not found")
-   user=output[0] if output else None
-   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
-   return {"status":1,"message":token}
 
 @app.get("/my/profile")
 @cache(expire=60)
@@ -1379,15 +1408,6 @@ async def public_info(request:Request):
    }
    return {"status":1,"message":output}
 
-@app.get("/public/redis-get-object")
-async def public_redis_get_object(request:Request):
-   query_param=dict(request.query_params)
-   key=query_param.get("key",None)
-   if not key:return error("query param key missing")
-   output=await redis_client.get(key)
-   if output:output=json.loads(output)
-   return {"status":1,"message":output}
-
 @app.post("/public/otp-send-sns")
 async def public_otp_send_sns(request:Request):
    body_json=await request.json()
@@ -1410,35 +1430,11 @@ async def public_otp_send_ses(request:Request):
    ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
    return {"status":1,"message":"done"}
 
-@app.post("/private/file-upload-s3")
-async def private_file_upload_s3(request:Request):
-   body_form_key,body_form_file=await read_body_form(request)
-   bucket,key=body_form_key.get("bucket",None),body_form_key.get("key",None)
-   if not bucket or not key:return error("body form bucket/key missing")
-   key_list=None if key=="uuid" else key.split("---")
-   response=await s3_file_upload(s3_client,s3_region_name,bucket,key_list,body_form_file)
-   if response["status"]==0:return error(response["message"])
-   return response
-
-@app.post("/private/file-upload-s3-presigned")
-async def private_file_upload_s3_presigned(request:Request):
-   body_json=await request.json()
-   bucket,key=body_json.get("bucket",None),body_json.get("key",None)
-   if not bucket or not key:return error("body json bucket/key missing")
-   if "." not in key:return error("extension must")
-   expiry_sec,size_kb=1000,100
-   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
-   for k,v in output["fields"].items():output[k]=v
-   del output["fields"]
-   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
-   return {"status":1,"message":output}
-
 @app.post("/admin/db-runner")
 async def admin_db_runner(request:Request):
    body_json=await request.json()
    query=body_json.get("query",None)
    if not query:return error("body json query missing")
-   output=[]
    stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
    for item in stop_word:
        if item in query.lower():return error(f"{item} keyword not allowed in query")

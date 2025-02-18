@@ -1,35 +1,61 @@
 #index
 curl -X GET "${baseurl}"
 
-#root
+#db
 curl -X POST "${baseurl}/root/db-init?mode=default" -H "Authorization: Bearer ${token_root}"
-curl -X POST "${baseurl}/root/db-init?mode=custom" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"table":{"test":["type-text-0-btree"]},"query":{}}'
-curl -X PUT "${baseurl}/root/db-checklist" -H "Authorization: Bearer ${token_root}"
-curl -X DELETE "${baseurl}/root/db-clean" -H "Authorization: Bearer ${token_root}"
-curl -X PUT "${baseurl}/root/reset-global" -H "Authorization: Bearer ${token_root}"
+curl -X POST "${baseurl}/root/db-init?mode=custom" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"table":{"test":["type-text-0-0"]},"query":{}}'
+curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"update users set email='\''abc'\'',mobile='\''abc'\'' where id=1;---insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
 curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=create" -F "table=test" -F "file=@${file_create}"
 curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=update" -F "table=test" -F "file=@${file_update}"
 curl -X POST "${baseurl}/root/db-uploader" -H "Authorization: Bearer ${token_root}" -F "mode=delete" -F "table=test" -F "file=@${file_delete}"
-curl -X POST "${baseurl}/root/db-runner" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"query":"update users set email='\''abc'\'',mobile='\''abc'\'' where id=1;---insert into otp (otp,email,mobile) values (123,'\''abc'\'',null)---insert into otp (otp,email,mobile) values (123,null,'\''abc'\'')"}'
+curl -X DELETE "${baseurl}/root/db-clean" -H "Authorization: Bearer ${token_root}"
+curl -X PUT "${baseurl}/root/db-checklist" -H "Authorization: Bearer ${token_root}"
+
+#redis
 curl -X POST "${baseurl}/root/redis-set-object?key=post_1" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
 curl -X POST "${baseurl}/root/redis-set-object?key=post_1&expiry=100" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
+curl -X GET "${baseurl}/public/redis-get-object?key=post_1"
 curl -X POST "${baseurl}/root/redis-set-csv" -H "Authorization: Bearer ${token_root}" -F "table=test" -F "file=@${file_update}"
 curl -X DELETE "${baseurl}/root/redis-reset" -H "Authorization: Bearer ${token_root}"
-# curl -X GET "${baseurl}/root/s3-bucket-list" -H "Authorization: Bearer ${token_root}"
-# curl -X POST "${baseurl}/root/s3-bucket-create" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
-# curl -X PUT "${baseurl}/root/s3-bucket-public" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
-# curl -X DELETE "${baseurl}/root/s3-bucket-empty" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
-# curl -X DELETE "${baseurl}/root/s3-bucket-delete" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
-# curl -X DELETE "${baseurl}/root/s3-url-delete" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"url":"https://s3.ap-south-1.amazonaws.com/sample/key1"}'
+
+#ops
+curl -X PUT "${baseurl}/root/reset-global" -H "Authorization: Bearer ${token_root}"
+
+#s3
+curl -X GET "${baseurl}/root/s3-bucket-list" -H "Authorization: Bearer ${token_root}"
+curl -X POST "${baseurl}/root/s3-bucket-create" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+curl -X PUT "${baseurl}/root/s3-bucket-public" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+curl -X DELETE "${baseurl}/root/s3-bucket-empty" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+curl -X DELETE "${baseurl}/root/s3-bucket-delete" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+curl -X DELETE "${baseurl}/root/s3-url-delete" -H "Authorization: Bearer ${token_root}" -H "Content-Type: application/json" -d '{"url":"https://s3.ap-south-1.amazonaws.com/sample/key1"}'
+curl -X POST "${baseurl}/private/s3-file-upload" -H "Authorization: Bearer ${token_admin}" -F "bucket=master" -F "key=uuid" -F "file=@${file_create}"
+curl -X POST "${baseurl}/private/s3-file-upload" -H "Authorization: Bearer ${token_admin}" -F "bucket=master" -F "key=uuid" -F "file=@${file_create}" -F "file=@${file_update}" -F "file=@${file_delete}"
+curl -X POST "${baseurl}/private/s3-file-upload" -H "Authorization: Bearer ${token_admin}" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@${file_create}" -F "file=@${file_update}" -F "file=@${file_delete}"
+curl -X POST "${baseurl}/private/s3-file-upload-presigned" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"bucket":"master","key":"key1.png"}'
 
 #auth
 curl -X POST "${baseurl}/auth/signup" -H "Content-Type: application/json" -d '{"username":"${username}","password":"123"}'
-curl -X POST "${baseurl}/auth/login" -H "Content-Type: application/json" -d '{"username":"${username}","password":"123"}'
-curl -X POST "${baseurl}/auth/login-google" -H "Content-Type: application/json" -d '{"google_id":"testing"}'
-curl -X POST "${baseurl}/auth/login-otp-email" -H "Content-Type: application/json" -d '{"otp":123,"email":"abc"}'
-curl -X POST "${baseurl}/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"otp":123,"mobile":"abc"}'
-curl -X POST "${baseurl}/auth/login-password-email" -H "Content-Type: application/json" -d '{"password":"123","email":"abc"}'
-curl -X POST "${baseurl}/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"password":"123","mobile":"abc"}'
+curl -X POST "${baseurl}/auth/login-oauth" -H "Content-Type: application/json" -d '{"google_id":"testing"}'
+curl -X POST "${baseurl}/auth/login-password" -H "Content-Type: application/json" -d '{"username":"atom","password":"123"}'
+curl -X POST "${baseurl}/auth/login-password" -H "Content-Type: application/json" -d '{"email":"abc","password":"123"}'
+curl -X POST "${baseurl}/auth/login-password" -H "Content-Type: application/json" -d '{"mobile":"abc","password":"123"}'
+curl -X POST "${baseurl}/auth/login-otp" -H "Content-Type: application/json" -d '{"email":"abc","otp":123}'
+curl -X POST "${baseurl}/auth/login-otp" -H "Content-Type: application/json" -d '{"mobile":"abc","otp":123}'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #my
 curl -X GET "${baseurl}/my/profile" -H "Authorization: Bearer ${token_admin}"
@@ -91,15 +117,9 @@ curl -X DELETE "${baseurl}/my/object-delete?table=action_comment&id=>,1" -H "Aut
 # public
 curl -X GET "${baseurl}/public/mission"
 curl -X GET "${baseurl}/public/info"
-curl -X GET "${baseurl}/public/redis-get-object?key=post_1"
 # curl -X POST "${baseurl}/public/otp-send-sns" -H "Content-Type: application/json" -d '{"mobile":"abc"}'
 # curl -X POST "${baseurl}/public/otp-send-ses" -H "Content-Type: application/json" -d '{"email":"abc","sender":"abc"}'
 
-#private
-# curl -X POST "${baseurl}/private/file-upload-s3" -H "Authorization: Bearer ${token_admin}" -F "bucket=master" -F "key=uuid" -F "file=@${file_create}"
-# curl -X POST "${baseurl}/private/file-upload-s3" -H "Authorization: Bearer ${token_admin}" -F "bucket=master" -F "key=uuid" -F "file=@${file_create}" -F "file=@${file_update}" -F "file=@${file_delete}"
-# curl -X POST "${baseurl}/private/file-upload-s3" -H "Authorization: Bearer ${token_admin}" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@${file_create}" -F "file=@${file_update}" -F "file=@${file_delete}"
-# curl -X POST "${baseurl}/private/file-upload-s3-presigned" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"bucket":"master","key":"key1.png"}'
 
 #admin
 curl -X POST "${baseurl}/admin/db-runner" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"query":"select id from post where id=1"}'
