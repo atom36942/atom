@@ -510,6 +510,7 @@ api_id_mapping={
 "/admin/delete-ids-hard":4,
 "/admin/db-runner":5,
 }
+api_is_active_check=["/my/object-create"]
 
 #setters
 postgres_client=None
@@ -744,7 +745,7 @@ async def middleware(request:Request,api_function):
                   if not api_access_str:return error("api access denied")
                   user_api_access=[int(item) for item in api_access_str.split(",")]
                   if api_id not in user_api_access:return error("api access denied")
-            if api in ["/my/object-create"]:
+            if api in api_is_active_check:
                user_is_active=users_is_active.get(user["id"],None)
                if user_is_active:
                   if user_is_active==0:return error ("you are not active")
@@ -801,7 +802,9 @@ from fastapi_limiter.depends import RateLimiter
 #api
 @app.get("/")
 async def root():
-   return {"status":1,"message":"welcome to atom"} if is_index_html==0 else responses.FileResponse("index.html")
+   response={"status":1,"message":"welcome to atom"}
+   if is_index_html==1:response=responses.FileResponse("index.html")
+   return response
 
 @app.post("/root/db-init")
 async def root_db_init(request:Request):
