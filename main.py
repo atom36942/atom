@@ -61,7 +61,7 @@ async def postgres_delete(table,object_list,is_serialize,postgres_client,postgre
    return {"status":1,"message":output}
 
 async def add_creator_data(postgres_client,object_list,user_key):
-   if not object_list:return {"status":1,"message": object_list}
+   if not object_list:return {"status":1,"message":object_list}
    object_list=[dict(object) for object in object_list]
    created_by_ids={str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
    if created_by_ids:
@@ -112,16 +112,15 @@ import hashlib,datetime,json
 async def object_serialize(postgres_column_datatype, object_list):
    for index, object in enumerate(object_list):
       for k, v in object.items():
-         datatype = postgres_column_datatype.get(k)
+         datatype=postgres_column_datatype.get(k)
          if not datatype:return{"status":0,"message":f"column {k} is not in postgres schema"}
-         if not v: object_list[index][k] = None
-         elif "text" in datatype: object_list[index][k] = str(v)
-         elif "int" in datatype: object_list[index][k] = int(v)
-         elif k in ["password", "google_id"]: object_list[index][k] = hashlib.sha256(v.encode()).hexdigest()
-         elif datatype == "numeric": object_list[index][k] = round(float(v), 3)
-         elif "time" in datatype or datatype == "date": object_list[index][k] = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
-         elif datatype=="jsonb": object_list[index][k] = json.dumps(v)
-         elif datatype=="ARRAY": object_list[index][k] = v.split(",")
+         if not v:object_list[index][k]=None
+         elif k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(v.encode()).hexdigest()
+         elif "int" in datatype:object_list[index][k]=int(v)
+         elif datatype=="numeric":object_list[index][k]=round(float(v), 3)
+         elif "time" in datatype or datatype=="date":object_list[index][k]=datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
+         elif datatype=="jsonb":object_list[index][k]=json.dumps(v)
+         elif datatype=="ARRAY":object_list[index][k]=v.split(",")
    return {"status":1,"message":object_list}
 
 async def create_where_string(postgres_column_datatype,object_serialize,object):
@@ -200,7 +199,7 @@ async def postgres_schema_read(postgres_client):
    WITH t AS (SELECT * FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'), 
    c AS (
    SELECT table_name, column_name, data_type, 
-   CASE WHEN is_nullable = 'YES' THEN 1 ELSE 0 END AS is_nullable, 
+   CASE WHEN is_nullable='YES' THEN 1 ELSE 0 END AS is_nullable, 
    column_default 
    FROM information_schema.columns 
    WHERE table_schema='public'
@@ -209,20 +208,20 @@ async def postgres_schema_read(postgres_client):
    SELECT t.relname::text AS table_name, a.attname AS column_name, 
    CASE WHEN idx.indisprimary OR idx.indisunique OR idx.indisvalid THEN 1 ELSE 0 END AS is_index
    FROM pg_attribute a
-   JOIN pg_class t ON a.attrelid = t.oid
-   JOIN pg_namespace ns ON t.relnamespace = ns.oid
-   LEFT JOIN pg_index idx ON a.attrelid = idx.indrelid AND a.attnum = ANY(idx.indkey)
-   WHERE ns.nspname = 'public' AND a.attnum > 0 AND t.relkind = 'r'
+   JOIN pg_class t ON a.attrelid=t.oid
+   JOIN pg_namespace ns ON t.relnamespace=ns.oid
+   LEFT JOIN pg_index idx ON a.attrelid=idx.indrelid AND a.attnum=ANY(idx.indkey)
+   WHERE ns.nspname='public' AND a.attnum > 0 AND t.relkind='r'
    )
    SELECT t.table_name as table, c.column_name as column, c.data_type as datatype,c.column_default as default, c.is_nullable as is_null, COALESCE(i.is_index, 0) AS is_index 
    FROM t 
-   LEFT JOIN c ON t.table_name = c.table_name 
-   LEFT JOIN i ON t.table_name = i.table_name AND c.column_name = i.column_name;
+   LEFT JOIN c ON t.table_name=c.table_name 
+   LEFT JOIN i ON t.table_name=i.table_name AND c.column_name=i.column_name;
    '''
    output=await postgres_client.fetch_all(query=query,values={})
    for object in output:
       table,column=object["table"],object["column"]
-      column_data={"datatype": object["datatype"],"default": object["default"],"is_null": object["is_null"],"is_index": object["is_index"]}
+      column_data={"datatype":object["datatype"],"default":object["default"],"is_null":object["is_null"],"is_index":object["is_index"]}
       if table not in postgres_schema:postgres_schema[table]={}
       postgres_schema[table][column]=column_data
    return postgres_schema
@@ -272,7 +271,7 @@ log_api_reset_count=int(os.getenv("log_api_reset_count",10))
 token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
-is_account_delete_hard=int(os.getenv("is_account_delete_hard",0))
+account_delete_mode=os.getenv("account_delete_mode","soft")
 is_index_html=int(os.getenv("is_index_html",0))
 is_signup=int(os.getenv("is_signup",0))
 
@@ -485,13 +484,13 @@ postgres_config={
 "delete_disable_bulk_function":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
 "delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
 "delete_disable_bulk_human":"create or replace trigger trigger_delete_disable_bulk_human after delete on human referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
-"default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
+"default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
 "default_updated_at_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
-"default_updated_at_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'updated_at' AND table_schema = 'public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"default_updated_at_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
 "default_is_protected_users":"ALTER TABLE users ALTER COLUMN is_protected SET DEFAULT 1;",
 "default_is_protected_project":"ALTER TABLE project ALTER COLUMN is_protected SET DEFAULT 1;",
 "default_is_protected_human":"ALTER TABLE human ALTER COLUMN is_protected SET DEFAULT 1;",
-"rule_is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected = 1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"rule_is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
 "root_user_1":"insert into users (username,password,api_access) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10') on conflict do nothing;",
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
 "log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
@@ -935,7 +934,7 @@ async def root_s3_bucket_public(request:Request):
    bucket=body_json.get("bucket",None)
    if not bucket:return error("body json bucket missing")
    s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal": "*","Action": "s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
    output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
    return {"status":1,"message":output}
 
@@ -1054,9 +1053,6 @@ async def auth_login_otp(request:Request):
    return {"status":1,"message":token}
 
 #my
-
-
-
 @app.get("/my/profile")
 @cache(expire=60)
 async def my_profile(request:Request,background:BackgroundTasks):
@@ -1075,11 +1071,18 @@ async def my_token_refresh(request:Request):
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":request.state.user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
 
-@app.delete("/my/account-delete-soft")
-async def my_account_delete_soft(request:Request):
-   user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+@app.delete("/my/account-delete")
+async def my_account_delete(request:Request):
+   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
+   user=output[0] if output else None
    if not user:return error("user not found")
-   if user[0]["api_access"]:return {"status":1,"message":"admin cant be deleted"}
+   if user["api_access"]:return {"status":1,"message":"access denied as you are admin"}
+   if account_delete_mode=="soft":
+      
+      
+   
+   
+   
    async with postgres_client.transaction():
       for table,column in postgres_schema.items():
          if table not in ["users"]:
@@ -1404,7 +1407,7 @@ async def public_info(request:Request):
    "api_list_admin":[route.path for route in request.app.routes if "admin/" in route.path],
    "redis":await redis_client.info(),
    "table_id":table_id,
-   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item: item[1], reverse=True))
+   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True))
    }
    return {"status":1,"message":output}
 

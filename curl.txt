@@ -42,26 +42,27 @@ curl -X POST "${baseurl}/auth/login-password" -H "Content-Type: application/json
 curl -X POST "${baseurl}/auth/login-otp" -H "Content-Type: application/json" -d '{"email":"abc","otp":123}'
 curl -X POST "${baseurl}/auth/login-otp" -H "Content-Type: application/json" -d '{"mobile":"abc","otp":123}'
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #my
 curl -X GET "${baseurl}/my/profile" -H "Authorization: Bearer ${token_admin}"
 curl -X GET "${baseurl}/my/token-refresh" -H "Authorization: Bearer ${token_admin}"
 curl -X DELETE "${baseurl}/my/account-delete-soft" -H "Authorization: Bearer ${token_admin}"
 curl -X DELETE "${baseurl}/my/account-delete-hard" -H "Authorization: Bearer ${token_admin}"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #message
 curl -X GET "${baseurl}/my/message-inbox" -H "Authorization: Bearer ${token_admin}"
