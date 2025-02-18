@@ -533,24 +533,32 @@ users_api_access={}
 async def set_users_api_access():
    global users_api_access
    users_api_access={}
-   output=await postgres_client.fetch_all(query="select id,api_access from users where api_access is not null limit 1000000",values={})
-   users_api_access={object["id"]:[int(item) for item in object["api_access"].split(",")] for object in output if len(object["api_access"])>=1}
+   order,limit="id desc",10000
+   for page in range(1,101):
+      output=await postgres_client.fetch_all(query=f"select id,api_access from users where api_access is not null  order by {order} limit {limit} offset {(page-1)*limit};",values={})
+      if not output:break
+      users_api_access={object["id"]:[int(item) for item in object["api_access"].split(",")] for object in output if len(object["api_access"])>=1}
    return None
 
 users_is_active={}
 async def set_users_is_active():
    global users_is_active
    users_is_active={}
-   output=await postgres_client.fetch_all(query="select id,is_active from users limit 1000000",values={})
-   users_is_active={object["id"]:object["is_active"] for object in output}
+   order,limit="id desc",10000
+   for page in range(1,101):
+      output=await postgres_client.fetch_all(query=f"select id,is_active from users order by {order} limit {limit} offset {(page-1)*limit};",values={})
+      if not output:break
+      users_is_active={object["id"]:object["is_active"] for object in output}
    return None
 
 project_data={}
 async def set_project_data():
    global project_data
    project_data={}
-   if postgres_schema.get("project",None):
-      output=await postgres_client.fetch_all(query="select * from project limit 10000;",values={})
+   order,limit="id desc",10000
+   for page in range(1,11):
+      output=await postgres_client.fetch_all(query=f"select * from project order by {order} limit {limit} offset {(page-1)*limit};;",values={})
+      if not output:break
       for object in output:
          if object["type"] not in project_data:project_data[object["type"]]=[object]
          else:project_data[object["type"]]+=[object]
@@ -1342,6 +1350,11 @@ async def my_object_delete(request:Request):
    query=f"delete from {table} {where_string};"
    await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":"done"}
+
+@app.get("/public/mission")
+async def public_mission():
+   output=await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={})
+   return {"status":1,"message":output[0]["count"]}
 
 @app.get("/public/info")
 async def public_info(request:Request):
