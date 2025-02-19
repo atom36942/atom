@@ -277,7 +277,6 @@ is_signup=int(os.getenv("is_signup",0))
 
 #globals
 log_api_object_list=[]
-api_is_active_check=["/my/object-create"]
 api_id_mapping={
 "/admin/object-read":1,
 "/admin/object-update":2,
@@ -745,14 +744,15 @@ async def middleware(request:Request,api_function):
                   if not api_access_str:return error("api access denied")
                   user_api_access=[int(item) for item in api_access_str.split(",")]
                   if api_id not in user_api_access:return error("api access denied")
-            if api in api_is_active_check:
-               user_is_active=users_is_active.get(user["id"],None)
-               if user_is_active:
-                  if user_is_active==0:return error ("you are not active")
-               else:
-                  output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
-                  if not output:return error("user not found")
-                  if output[0]["is_active"]==0:return error ("you are not active")
+            for item in ["admin/","my/object-create"]:
+               if item in api:
+                  user_is_active=users_is_active.get(user["id"],None)
+                  if user_is_active:
+                     if user_is_active==0:return error ("you are not active")
+                  else:
+                     output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
+                     if not output:return error("user not found")
+                     if output[0]["is_active"]==0:return error ("you are not active")
       request.state.user=user
       #api response background
       if query_param.get("is_background",None)=="1":
