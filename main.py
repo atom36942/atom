@@ -1168,8 +1168,9 @@ async def my_action_parent_read(request:Request):
    query_param=dict(request.query_params)
    order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
    action_count=query_param.get("action_count",None)
-   table,parent_table=query_param.get("table",None),query_param.get("parent_table",None)
+   table,parent_table=query_param.get("table"),query_param.get("parent_table")
    if not table or not parent_table:return error("query param table/parent_table missing")
+   if parent_table not in table_id:return error("wrong parent_table")
    query=f'''with x as (select parent_id from {table} where created_by_id=:created_by_id and parent_table={table_id.get(parent_table,0)} order by {order} limit {limit} offset {(page-1)*limit}) select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;'''
    query_param={"created_by_id":request.state.user["id"]}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
@@ -1183,31 +1184,30 @@ async def my_action_parent_read(request:Request):
 @app.get("/my/action-parent-check")
 async def my_action_parent_check(request:Request):
    query_param=dict(request.query_params)
-   table,parent_table,parent_ids=query_param.get("table",None),query_param.get("parent_table",None),query_param.get("parent_ids",None)
+   table,parent_table,parent_ids=query_param.get("table"),int(query_param.get("parent_table")),query_param.get("parent_ids")
    if not table or not parent_table or not parent_ids:return error("query param table/parent_table/parent_ids missing")
    query=f"select parent_id from {table} where parent_id in ({parent_ids}) and parent_table=:parent_table and created_by_id=:created_by_id;"
-   query_param={"parent_table":table_id.get(parent_table,0),"created_by_id":request.state.user["id"]}
+   query_param={"parent_table":parent_table,"created_by_id":request.state.user["id"]}
    output=await postgres_client.fetch_all(query=query,values=query_param)
    parent_ids_output=[item["parent_id"] for item in output if item["parent_id"]]
-   parent_ids_input=parent_ids.split(",")
-   parent_ids_input=[int(item) for item in parent_ids_input]
-   output={item:1 if item in parent_ids_output else 0 for item in parent_ids_input}
+   parent_ids_input=[int(item) for item in parent_ids.split(",")]
+   output={id:1 if id in parent_ids_output else 0 for id in parent_ids_input}
    return {"status":1,"message":output}
 
 @app.delete("/my/action-parent-delete")
 async def my_action_parent_delete(request:Request):
    query_param=dict(request.query_params)
-   table,parent_table,parent_id=query_param.get("table",None),query_param.get("parent_table",None),query_param.get("parent_id",None)
+   table,parent_table,parent_id=query_param.get("table"),int(query_param.get("parent_table")),int(query_param.get("parent_id"))
    if not table or not parent_table or not parent_id:return error("body json table/parent_table/parent_id missing")
    if "action_" not in table:return error("table not allowed")
-   await postgres_client.fetch_all(query=f"delete from {table} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;",values={"created_by_id":request.state.user["id"],"parent_table":table_id.get(parent_table,0),"parent_id":int(parent_id)})
+   await postgres_client.fetch_all(query=f"delete from {table} where created_by_id=:created_by_id and parent_table=:parent_table and parent_id=:parent_id;",values={"created_by_id":request.state.user["id"],"parent_table":parent_table,"parent_id":parent_id})
    return {"status":1,"message":"done"}
 
 @app.get("/my/action-on-me-creator-read")
 async def my_action_on_me_creator_read(request:Request):
    query_param=dict(request.query_params)
    order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
-   table=query_param.get("table",None)
+   table=query_param.get("table")
    if not table:return error("query param table missing")
    query=f'''with x as (select * from {table} where parent_table=:parent_table),y as (select created_by_id from x where parent_id=:parent_id group by created_by_id order by max(id) desc limit {limit} offset {(page-1)*limit}) select u.id,u.username from y left join users as u on y.created_by_id=u.id;'''
    query_param={"parent_table":table_id.get('users',0),"parent_id":request.state.user["id"]}
@@ -1218,7 +1218,7 @@ async def my_action_on_me_creator_read(request:Request):
 async def my_action_on_me_creator_read_mutual(request:Request):
    query_param=dict(request.query_params)
    order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
-   table=query_param.get("table",None)
+   table=query_param.get("table")
    if not table:return error("query param table missing")
    query=f'''with x as (select * from {table} where parent_table=:parent_table),y as (select created_by_id from {table} where created_by_id in (select parent_id from x where created_by_id=:created_by_id) and parent_id=:parent_id group by created_by_id order by max(id) desc limit {limit} offset {(page-1)*limit}) select u.id,u.username from y left join users as u on y.created_by_id=u.id;'''
    query_param={"parent_table":table_id.get('users',0),"parent_id":request.state.user["id"],"created_by_id":request.state.user["id"]}
@@ -1230,7 +1230,7 @@ async def my_action_on_me_creator_read_mutual(request:Request):
 async def my_object_create(request:Request):
    query_param=dict(request.query_params)
    is_serialize,queue=int(query_param.get("is_serialize",1)),query_param.get("queue",None)
-   table=query_param.get("table",None)
+   table=query_param.get("table")
    if not table:return error("query param table missing")
    if table in ["users","spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
    body_json=await request.json()
