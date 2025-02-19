@@ -277,6 +277,14 @@ is_signup=int(os.getenv("is_signup",0))
 
 #globals
 log_api_object_list=[]
+api_is_active_check=["/my/object-create"]
+api_id_mapping={
+"/admin/object-read":1,
+"/admin/object-update":2,
+"/admin/ids-delete":3,
+"/admin/db-runner":4,
+"/admin/ids-update":5,
+}
 postgres_config={
 "table":{
 "human":[
@@ -503,13 +511,6 @@ postgres_config={
 "unique_acton_follow":"alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);"
 }
 }
-api_id_mapping={
-"/admin/object-read":1,
-"/admin/object-update":2,
-"/admin/delete-ids":3,
-"/admin/db-runner":5,
-}
-api_is_active_check=["/my/object-create"]
 
 #setters
 postgres_client=None
@@ -1365,21 +1366,41 @@ async def my_object_delete(request:Request):
    await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":"done"}
 
-@app.delete("/my/delete-ids")
-async def my_delete_ids(request:Request):
+#ids
+@app.put("/my/ids-update")
+async def my_ids_update(request:Request):
    body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
+   table,ids,column,value=body_json.get("table"),body_json.get("ids"),body_json.get("column"),body_json.get("value")
+   if not table or not ids or not column:return error("body json table/ids/column must")
+   if table in ["users","spatial_ref_sys"]:return error("table not allowed")
+   if column in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:return error("column not allowed")
+   await postgres_client.execute(query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"],"updated_by_id":request.state.user["id"],"value":value})
+   return {"status":1,"message":"done"}
+
+@app.put("/admin/ids-update")
+async def admin_ids_update(request:Request):
+   body_json=await request.json()
+   table,ids,column,value=body_json.get("table"),body_json.get("ids"),body_json.get("column"),body_json.get("value")
+   if not table or not ids or not column:return error("body json table/ids/column must")
+   if table in ["users","spatial_ref_sys"]:return error("table not allowed")
+   await postgres_client.execute(query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids});",values={"updated_by_id":request.state.user["id"],"value":value})
+   return {"status":1,"message":"done"}
+
+@app.delete("/my/ids-delete")
+async def my_ids_delete(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table"),body_json.get("ids")
+   if not table or not ids:return error("body json table/ids must")
    if table in ["users","spatial_ref_sys"]:return error("table not allowed")
    if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
    await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
    return {"status":1,"message":"done"}
 
-@app.delete("/admin/delete-ids")
-async def admin_delete_ids(request:Request):
+@app.delete("/admin/ids-delete")
+async def admin_ids_delete(request:Request):
    body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
+   table,ids=body_json.get("table"),body_json.get("ids")
+   if not table or not ids:return error("body json table/ids must")
    if table in ["users","spatial_ref_sys"]:return error("table not allowed")
    if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
    await postgres_client.execute(query=f"delete from {table} where id in ({ids});",values={})

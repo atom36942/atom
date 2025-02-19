@@ -83,8 +83,12 @@ curl -X PUT "${baseurl}/admin/object-update?table=test" -H "Authorization: Beare
 
 #object delete
 curl -X DELETE "${baseurl}/my/object-delete?table=action_comment&id=>,1" -H "Authorization: Bearer ${token_admin}"
-curl -X DELETE "${baseurl}/my/delete-ids" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"9,10,11"}'
-curl -X DELETE "${baseurl}/admin/delete-ids" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"15,16,17"}'
+
+#ids
+curl -X PUT "${baseurl}/my/ids-update" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":1}'
+curl -X PUT "${baseurl}/admin/ids-update" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":0}'
+curl -X DELETE "${baseurl}/my/ids-delete" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"9,10,11"}'
+curl -X DELETE "${baseurl}/admin/ids-delete" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"15,16,17"}'
 
 #public
 curl -X GET "${baseurl}/public/mission"
