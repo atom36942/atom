@@ -86,7 +86,7 @@ curl -X DELETE "${baseurl}/my/object-delete?table=action_comment&id=>,1" -H "Aut
 
 #ids
 curl -X PUT "${baseurl}/my/ids-update" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":1}'
-curl -X PUT "${baseurl}/admin/ids-update" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":0}'
+curl -X PUT "${baseurl}/admin/ids-update" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":null}'
 curl -X DELETE "${baseurl}/my/ids-delete" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"9,10,11"}'
 curl -X DELETE "${baseurl}/admin/ids-delete" -H "Authorization: Bearer ${token_admin}" -H "Content-Type: application/json" -d '{"table":"post","ids":"15,16,17"}'
 
