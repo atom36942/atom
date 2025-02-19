@@ -270,7 +270,7 @@ channel_name=os.getenv("channel_name","ch1")
 log_api_reset_count=int(os.getenv("log_api_reset_count",10))
 token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
-table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4}'))
+table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4,"human":5}'))
 account_delete_mode=os.getenv("account_delete_mode","soft")
 is_index_html=int(os.getenv("is_index_html",0))
 is_signup=int(os.getenv("is_signup",0))
@@ -506,8 +506,7 @@ postgres_config={
 api_id_mapping={
 "/admin/object-read":1,
 "/admin/object-update":2,
-"/admin/delete-ids-soft":3,
-"/admin/delete-ids-hard":4,
+"/admin/delete-ids":3,
 "/admin/db-runner":5,
 }
 api_is_active_check=["/my/object-create"]
@@ -806,7 +805,7 @@ async def root():
    if is_index_html==1:response=responses.FileResponse("index.html")
    return response
 
-#db
+#db init
 @app.post("/root/db-init")
 async def root_db_init(request:Request):
    query_param=dict(request.query_params)
@@ -818,6 +817,7 @@ async def root_db_init(request:Request):
    await set_postgres_schema()
    return response
 
+#db runner
 @app.post("/root/db-runner")
 async def root_db_runner(request:Request):
    body_json=await request.json()
@@ -833,6 +833,21 @@ async def root_db_runner(request:Request):
          output.append(result)
    return {"status":1,"message":output}
 
+@app.post("/admin/db-runner")
+async def admin_db_runner(request:Request):
+   body_json=await request.json()
+   query=body_json.get("query",None)
+   if not query:return error("body json query missing")
+   must_word=["select"]
+   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
+   for item in must_word:
+      if item not in query.lower():return error(f"{item} keyword must be present in query")
+   for item in stop_word:
+       if item in query.lower():return error(f"{item} keyword not allowed in query")
+   output=await postgres_client.fetch_all(query=query,values={})
+   return {"status":1,"message":output}
+
+#db uploader
 @app.post("/root/db-uploader")
 async def root_db_uploader(request:Request):
    body_form_key,body_form_file=await read_body_form(request)
@@ -846,6 +861,7 @@ async def root_db_uploader(request:Request):
    if response["status"]==0:return error(response["message"])
    return response
 
+#ops
 @app.delete("/root/db-clean")
 async def root_db_clean():
    await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days';",values={})
@@ -862,6 +878,14 @@ async def root_db_clean():
 @app.put("/root/db-checklist")
 async def root_db_checklist():
    await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
+   return {"status":1,"message":"done"}
+
+@app.put("/root/reset-global")
+async def root_reset_global():
+   await set_postgres_schema()
+   await set_project_data()
+   await set_users_api_access()
+   await set_users_is_active()
    return {"status":1,"message":"done"}
 
 #redis
@@ -903,15 +927,6 @@ async def root_redis_set_csv(request:Request):
 @app.delete("/root/redis-reset")
 async def root_reset_redis():
    await redis_client.flushall()
-   return {"status":1,"message":"done"}
-
-#ops
-@app.put("/root/reset-global")
-async def root_reset_global():
-   await set_postgres_schema()
-   await set_project_data()
-   await set_users_api_access()
-   await set_users_is_active()
    return {"status":1,"message":"done"}
 
 #s3
@@ -1073,41 +1088,31 @@ async def my_token_refresh(request:Request):
 
 @app.delete("/my/account-delete")
 async def my_account_delete(request:Request):
+   postgres_schema=await postgres_schema_read(postgres_client)
    output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
    user=output[0] if output else None
    if not user:return error("user not found")
    if user["api_access"]:return {"status":1,"message":"access denied as you are admin"}
    if account_delete_mode=="soft":
-      
-      
-   
-   
-   
-   async with postgres_client.transaction():
-      for table,column in postgres_schema.items():
-         if table not in ["users"]:
-            if column.get("created_by_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-            if column.get("user_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-            if column.get("parent_table",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
-      output=await postgres_client.execute(query="update users set is_deleted=1 where id=:id and type is null;",values={"id":request.state.user["id"]})
-   return {"status":1,"message":output}
+      async with postgres_client.transaction():
+         for table,column in postgres_schema.items():
+            if table not in ["users"]:
+               if column.get("created_by_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+               if column.get("user_id",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+               if column.get("parent_table",None):await postgres_client.execute(query=f"update {table} set is_deleted=1 where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
+         await postgres_client.execute(query="update users set is_deleted=1 where id=:id;",values={"id":request.state.user["id"]})
+   if account_delete_mode=="hard":
+      async with postgres_client.transaction():
+         for table,column in postgres_schema.items():
+            if table not in ["users"]:
+               if column.get("created_by_id",None):await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+               if column.get("user_id",None):await postgres_client.execute(query=f"delete from {table} where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+               if column.get("parent_table",None):await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
+         await postgres_client.execute(query="update users set is_protected=null where id=:id;",values={"id":request.state.user["id"]})
+         await postgres_client.execute(query="delete from users where id=:id;",values={"id":request.state.user["id"]})
+   return {"status":1,"message":f"{account_delete_mode} deletion of user {request.state.user['id']} done"}
 
-@app.delete("/my/account-delete-hard")
-async def my_account_delete_hard(request:Request):
-   if is_account_delete_hard==0:return {"status":1,"message":f"account delete hard not allowed"}
-   user=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":request.state.user["id"]})
-   if not user:return error("user not found")
-   if user[0]["api_access"]:return {"status":1,"message":"admin cant be deleted"}
-   async with postgres_client.transaction():
-      for table,column in postgres_schema.items():
-         if table not in ["users","human"]:
-            if column.get("created_by_id",None):await postgres_client.execute(query=f"delete from {table} where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-            if column.get("user_id",None):await postgres_client.execute(query=f"delete from {table} where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-            if column.get("parent_table",None):await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get('users')} and parent_id=:parent_id;",values={"parent_id":request.state.user["id"]})
-      await postgres_client.execute(query="update users set is_protected=null where id=:id and type is null;",values={"id":request.state.user["id"]})
-      output=await postgres_client.execute(query="delete from users where id=:id and type is null;",values={"id":request.state.user["id"]})
-   return {"status":1,"message":output}
-
+#message
 @app.get("/my/message-inbox")
 async def my_message_inbox(request:Request):
    query_param=dict(request.query_params)
@@ -1117,18 +1122,6 @@ async def my_message_inbox(request:Request):
    if mode=="unread":query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {(page-1)*limit};'''
    query_param={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
-   return {"status":1,"message":object_list}
-
-@app.get("/my/message-received")
-async def my_message_received(request:Request,background:BackgroundTasks):
-   query_param=dict(request.query_params)
-   order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
-   mode=query_param.get("mode",None)
-   query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {(page-1)*limit};"
-   if mode=="unread":query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
-   query_param={"user_id":request.state.user["id"]}
-   object_list=await postgres_client.fetch_all(query=query,values=query_param)
-   background.add_task(postgres_client.execute,query=f"update message set is_read=1,updated_by_id=:updated_by_id where id in ({','.join([str(item['id']) for item in object_list])});",values={"updated_by_id":request.state.user["id"]})
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-thread")
@@ -1144,34 +1137,38 @@ async def my_message_thread(request:Request,background:BackgroundTasks):
    background.add_task(postgres_client.execute,query="update message set is_read=1,updated_by_id=:updated_by_id where created_by_id=:created_by_id and user_id=:user_id;",values={"created_by_id":user_id,"user_id":request.state.user["id"],"updated_by_id":request.state.user["id"]})
    return {"status":1,"message":object_list}
 
-@app.delete("/my/message-delete-single")
-async def my_message_delete_single(request:Request):
+@app.get("/my/message-received")
+async def my_message_received(request:Request,background:BackgroundTasks):
    query_param=dict(request.query_params)
-   id=query_param.get("id",None)
-   if not id:return error("query param id missing")
-   output=await postgres_client.execute(query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);",values={"id":int(id),"user_id":request.state.user["id"]})
+   order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
+   mode=query_param.get("mode",None)
+   query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {(page-1)*limit};"
+   if mode=="unread":query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
+   query_param={"user_id":request.state.user["id"]}
+   object_list=await postgres_client.fetch_all(query=query,values=query_param)
+   background.add_task(postgres_client.execute,query=f"update message set is_read=1,updated_by_id=:updated_by_id where id in ({','.join([str(item['id']) for item in object_list])});",values={"updated_by_id":request.state.user["id"]})
+   return {"status":1,"message":object_list}
+
+@app.delete("/my/message-delete")
+async def my_message_delete(request:Request):
+   query_param=dict(request.query_params)
+   mode,id=query_param.get("mode",None),query_param.get("id",None)
+   if not mode:return error("query param mode missing")
+   if mode=="single":
+      if not id:return error("query param id missing")
+      output=await postgres_client.execute(query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);",values={"id":int(id),"user_id":request.state.user["id"]})
+   if mode=="created":output=await postgres_client.execute(query="delete from message where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+   if mode=="received":output=await postgres_client.execute(query="delete from message where user_id=:user_id;",values={"user_id":request.state.user["id"]})
+   if mode=="all":output=await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
    return {"status":1,"message":output}
 
-@app.delete("/my/message-delete-created")
-async def my_message_delete_created(request:Request):
-   output=await postgres_client.execute(query="delete from message where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-   return {"status":1,"message":output}
-
-@app.delete("/my/message-delete-received")
-async def my_message_delete_received(request:Request):
-   output=await postgres_client.execute(query="delete from message where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-   return {"status":1,"message":output}
-
-@app.delete("/my/message-delete-all")
-async def my_message_delete_all(request:Request):
-   output=await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
-   return {"status":1,"message":output}
-
+#action
 @app.get("/my/action-parent-read")
 async def my_action_parent_read(request:Request):
    query_param=dict(request.query_params)
    order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
-   table,parent_table,action_count=query_param.get("table",None),query_param.get("parent_table",None),query_param.get("action_count",None)
+   action_count=query_param.get("action_count",None)
+   table,parent_table=query_param.get("table",None),query_param.get("parent_table",None)
    if not table or not parent_table:return error("query param table/parent_table missing")
    query=f'''with x as (select parent_id from {table} where created_by_id=:created_by_id and parent_table={table_id.get(parent_table,0)} order by {order} limit {limit} offset {(page-1)*limit}) select pt.* from x left join {parent_table} as pt on x.parent_id=pt.id;'''
    query_param={"created_by_id":request.state.user["id"]}
@@ -1228,16 +1225,19 @@ async def my_action_on_me_creator_read_mutual(request:Request):
    object_list=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":object_list}
 
+#object create
 @app.post("/my/object-create")
 async def my_object_create(request:Request):
    query_param=dict(request.query_params)
-   table,is_serialize,queue=query_param.get("table",None),int(query_param.get("is_serialize",1)),query_param.get("queue",None)
+   is_serialize,queue=int(query_param.get("is_serialize",1)),query_param.get("queue",None)
+   table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["users","spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
    body_json=await request.json()
    if not body_json:return error("body missing")
+   for key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:
+      if key in body_json:return error(f"{key} not allowed in body")
    if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
-   if any(k in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"] for k in body_json):return error("key not allowed")
    body_json["created_by_id"]=request.state.user["id"]
    if not queue:
       response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
@@ -1259,7 +1259,8 @@ async def my_object_create(request:Request):
 @app.post("/public/object-create")
 async def public_object_create(request:Request):
    query_param=dict(request.query_params)
-   table,is_serialize=query_param.get("table",None),int(query_param.get("is_serialize",1))
+   is_serialize=int(query_param.get("is_serialize",1))
+   table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table not in ["test","helpdesk","human"]:return error("table not allowed")
    body_json=await request.json()
@@ -1268,6 +1269,7 @@ async def public_object_create(request:Request):
    if response["status"]==0:return error(response["message"])
    return response
 
+#object read
 @app.get("/my/object-read")
 @cache(expire=60)
 async def my_object_read(request:Request):
@@ -1275,6 +1277,17 @@ async def my_object_read(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    query_param["created_by_id"]=f"=,{request.state.user['id']}"
+   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
+   if response["status"]==0:return error(response["message"])
+   return response
+
+@app.get("/public/object-read")
+@cache(expire=60)
+async def public_object_read(request:Request):
+   query_param=dict(request.query_params)
+   table=query_param.get("table",None)
+   if not table:return error("query param table missing")
+   if table not in ["post","atom"]:return error("table not allowed")
    response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
    if response["status"]==0:return error(response["message"])
    return response
@@ -1289,32 +1302,29 @@ async def admin_object_read(request:Request):
    if response["status"]==0:return error(response["message"])
    return response
 
-@app.get("/public/object-read")
-@cache(expire=60)
-async def public_object_read(request:Request):
-   query_param=dict(request.query_params)
-   table=query_param.get("table",None)
-   if not table:return error("query param table missing")
-   if table not in ["users","post","atom"]:return error("table not allowed")
-   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
-   if response["status"]==0:return error(response["message"])
-   return response
-
+#object update
 @app.put("/my/object-update")
 async def my_object_update(request:Request):
    query_param=dict(request.query_params)
-   table,is_serialize,otp=query_param.get("table",None),int(query_param.get("is_serialize",1)),int(query_param.get("otp",0))
+   is_serialize,otp=int(query_param.get("is_serialize",1)),int(query_param.get("otp",0))
+   table=query_param.get("table",None)
    if not table:return error("query param table missing")
+   if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
    body_json=await request.json()
+   if "id" not in body_json:return error("body json id missing")
+   if "password" in body_json:is_serialize=1
+   for key in ["password","email","mobile"]:
+      if key in body_json and len(body_json)!=2:return error("body json key length should be 2 only")
+   for key in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:
+      if key in body_json:return error(f"{key} not allowed in body")
    if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
-   if any(k in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"] for k in body_json):return error("key not allowed")     
    if "password" in body_json:is_serialize=1
    body_json["updated_by_id"]=request.state.user["id"]
    response=await ownership_check(postgres_client,table,int(body_json["id"]),request.state.user["id"])
    if response["status"]==0:return error(response["message"])
    email,mobile=body_json.get("email",None),body_json.get("mobile",None)
-   if email and mobile:return error("email/mobile both not allowed together")
    if table=="users" and (email or mobile):
+      if not otp:return error("query param otp missing")
       response=await verify_otp(postgres_client,otp,email,mobile)
       if response["status"]==0:return error(response["message"])
    response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
@@ -1324,9 +1334,14 @@ async def my_object_update(request:Request):
 @app.put("/admin/object-update")
 async def admin_object_update(request:Request):
    query_param=dict(request.query_params)
-   table,is_serialize=query_param.get("table",None),int(query_param.get("is_serialize",1))
+   is_serialize=int(query_param.get("is_serialize",1))
+   table=query_param.get("table",None)
    if not table:return error("query param table missing")
+   if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
    body_json=await request.json()
+   if "id" not in body_json:return error("body json id missing")
+   for key in ["password"]:
+      if key in body_json and len(body_json)!=2:return error("body json key length should be 2 only")
    if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
    body_json["updated_by_id"]=request.state.user["id"]
    response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
@@ -1334,49 +1349,13 @@ async def admin_object_update(request:Request):
    output=response["message"]
    return {"status":1,"message":output}
 
-@app.delete("/my/delete-ids-soft")
-async def my_delete_ids_soft(request:Request):
-   body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
-   if table in ["users"]:return error("table not allowed")
-   await postgres_client.execute(query=f"update {table} set is_deleted=1 where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-   return {"status":1,"message":"done"}
-
-@app.delete("/my/delete-ids-hard")
-async def my_delete_ids_hard(request:Request):
-   body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
-   if table in ["users"]:return error("table not allowed")
-   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
-   await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-   return {"status":1,"message":"done"}
-
-@app.delete("/admin/delete-ids-soft")
-async def admin_delete_ids_soft(request:Request):
-   body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
-   if table in ["users"]:return error("table not allowed")
-   await postgres_client.execute(query=f"update {table} set is_deleted=1 where id in ({ids});",values={})
-   return {"status":1,"message":"done"}
-
-@app.delete("/admin/delete-ids-hard")
-async def admin_delete_ids_hard(request:Request):
-   body_json=await request.json()
-   table,ids=body_json.get("table",None),body_json.get("ids",None)
-   if not table or not ids:return error("body json table/ids missing")
-   if table in ["users"]:return error("table not allowed")
-   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
-   await postgres_client.execute(query=f"delete from {table} where id in ({ids});",values={})
-   return {"status":1,"message":"done"}
-
+#object delete
 @app.delete("/my/object-delete")
 async def my_object_delete(request:Request):
    query_param=dict(request.query_params)
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
+   if table in ["users","spatial_ref_sys"]:return error("table not allowed")
    if "action_" not in table:return error("table not allowed")
    query_param["created_by_id"]=f"=,{request.state.user['id']}"
    response=await create_where_string(postgres_column_datatype,object_serialize,query_param)
@@ -1386,6 +1365,27 @@ async def my_object_delete(request:Request):
    await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":"done"}
 
+@app.delete("/my/delete-ids")
+async def my_delete_ids(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table",None),body_json.get("ids",None)
+   if not table or not ids:return error("body json table/ids missing")
+   if table in ["users","spatial_ref_sys"]:return error("table not allowed")
+   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
+   await postgres_client.execute(query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
+   return {"status":1,"message":"done"}
+
+@app.delete("/admin/delete-ids")
+async def admin_delete_ids(request:Request):
+   body_json=await request.json()
+   table,ids=body_json.get("table",None),body_json.get("ids",None)
+   if not table or not ids:return error("body json table/ids missing")
+   if table in ["users","spatial_ref_sys"]:return error("table not allowed")
+   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
+   await postgres_client.execute(query=f"delete from {table} where id in ({ids});",values={})
+   return {"status":1,"message":"done"}
+
+#public
 @app.get("/public/mission")
 async def public_mission():
    output=await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={})
@@ -1411,6 +1411,7 @@ async def public_info(request:Request):
    }
    return {"status":1,"message":output}
 
+#otp
 @app.post("/public/otp-send-sns")
 async def public_otp_send_sns(request:Request):
    body_json=await request.json()
@@ -1432,17 +1433,6 @@ async def public_otp_send_ses(request:Request):
    to,title,body=[email],"otp from atom",str(otp)
    ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
    return {"status":1,"message":"done"}
-
-@app.post("/admin/db-runner")
-async def admin_db_runner(request:Request):
-   body_json=await request.json()
-   query=body_json.get("query",None)
-   if not query:return error("body json query missing")
-   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
-   for item in stop_word:
-       if item in query.lower():return error(f"{item} keyword not allowed in query")
-   output=await postgres_client.fetch_all(query=query,values={})
-   return {"status":1,"message":output}
 
 #mode
 import sys

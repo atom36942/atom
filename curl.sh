@@ -37,6 +37,7 @@ fi
 
 # Read the curl commands from the file and process each line
 while IFS= read -r line; do
+    # skip curl execution
     # Check if the line contains a curl command
     if [[ "$line" == curl* ]]; then
         # Replace the placeholders with actual variable values
