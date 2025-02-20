@@ -1271,6 +1271,20 @@ async def public_object_create(request:Request):
    if response["status"]==0:return error(response["message"])
    return response
 
+@app.post("/root/object-create")
+async def root_object_create(request:Request):
+   query_param=dict(request.query_params)
+   is_serialize=int(query_param.get("is_serialize",1))
+   table=query_param.get("table",None)
+   if not table:return error("query param table missing")
+   if table in ["spatial_ref_sys","log_api","log_password"]:return error("table not allowed")
+   body_json=await request.json()
+   if not body_json:return error("body missing")
+   if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
+   response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   return response
+
 #object read
 @app.get("/my/object-read")
 @cache(expire=60)
