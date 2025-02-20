@@ -1265,6 +1265,7 @@ async def public_object_create(request:Request):
    if not table:return error("query param table missing")
    if table not in ["test","helpdesk","human"]:return error("table not allowed")
    body_json=await request.json()
+   if not body_json:return error("body missing")
    if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
    response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
@@ -1340,6 +1341,7 @@ async def admin_object_update(request:Request):
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
    body_json=await request.json()
+   if "password" in body_json:is_serialize=1
    if "id" not in body_json:return error("body json id missing")
    for key in ["password"]:
       if key in body_json and len(body_json)!=2:return error("body json key length should be 2 only")
@@ -1347,8 +1349,24 @@ async def admin_object_update(request:Request):
    body_json["updated_by_id"]=request.state.user["id"]
    response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
-   output=response["message"]
-   return {"status":1,"message":output}
+   return response
+
+@app.put("/root/object-update")
+async def root_object_update(request:Request):
+   query_param=dict(request.query_params)
+   is_serialize=int(query_param.get("is_serialize",1))
+   table=query_param.get("table",None)
+   if not table:return error("query param table missing")
+   if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
+   body_json=await request.json()
+   if "password" in body_json:is_serialize=1
+   if "id" not in body_json:return error("body json id missing")
+   for key in ["password"]:
+      if key in body_json and len(body_json)!=2:return error("body json key length should be 2 only")
+   if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
+   response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   return response
 
 #object delete
 @app.delete("/my/object-delete")
