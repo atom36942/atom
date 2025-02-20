@@ -277,7 +277,7 @@ is_signup=int(os.getenv("is_signup",0))
 
 #globals
 log_api_object_list=[]
-api_id_mapping={
+api_id={
 "/admin/object-read":1,
 "/admin/object-update":2,
 "/admin/ids-delete":3,
@@ -732,23 +732,20 @@ async def middleware(request:Request,api_function):
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return error("user_id not in token")
             if "admin/" in api:
-               api_id=api_id_mapping.get(api,None)
-               if not api_id:return error("api_id not mapped in backend")
-               user_api_access=users_api_access.get(user["id"],None)
-               if user_api_access is not None:
-                  if api_id not in user_api_access:return error("api access denied")
+               if not api_id.get(api):return error("api_id not mapped in backend")
+               if user["id"] in users_api_access:
+                  if api_id.get(api) not in users_api_access[user["id"]]:return error("api access denied")
                else:
                   output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user["id"]})
                   if not output:return error("user not found")
                   api_access_str=output[0]["api_access"]
                   if not api_access_str:return error("api access denied")
-                  user_api_access=[int(item) for item in api_access_str.split(",")]
-                  if api_id not in user_api_access:return error("api access denied")
+                  user_api_access_list=[int(item) for item in api_access_str.split(",")]
+                  if api_id.get(api) not in user_api_access_list:return error("api access denied")
             for item in ["admin/","my/object-create"]:
                if item in api:
-                  user_is_active=users_is_active.get(user["id"],None)
-                  if user_is_active is not None:
-                     if user_is_active==0:return error ("you are not active")
+                  if user["id"] in users_is_active:
+                     if users_is_active[user["id"]]==0:return error ("you are not active")
                   else:
                      output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
                      if not output:return error("user not found")
