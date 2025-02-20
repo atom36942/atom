@@ -555,7 +555,7 @@ project_data={}
 async def set_project_data():
    global project_data
    project_data={}
-   order,limit="id desc",10000
+   order,limit="id desc",1000
    for page in range(1,11):
       output=await postgres_client.fetch_all(query=f"select * from project order by {order} limit {limit} offset {(page-1)*limit};;",values={})
       if not output:break
@@ -740,8 +740,8 @@ async def middleware(request:Request,api_function):
                   if not output:return error("user not found")
                   api_access_str=output[0]["api_access"]
                   if not api_access_str:return error("api access denied")
-                  user_api_access_list=[int(item) for item in api_access_str.split(",")]
-                  if api_id.get(api) not in user_api_access_list:return error("api access denied")
+                  user_api_access=[int(item) for item in api_access_str.split(",")]
+                  if api_id.get(api) not in user_api_access:return error("api access denied")
             for item in ["admin/","my/object-create"]:
                if item in api:
                   if user["id"] in users_is_active:
