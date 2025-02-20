@@ -6,13 +6,13 @@ if [ -f .env ]; then
 fi
 
 #env var
-baseurl="${baseurl}"
-token_root="${token_root}"
-token_admin="${token_admin}"
-file_create="${file_create}"
-file_update="${file_update}"
-file_delete="${file_delete}"
-test_id="${test_id}"
+baseurl="$baseurl"
+token_root="$token_root"
+token_admin="$token_admin"
+file_create="$file_create"
+file_update="$file_update"
+file_delete="$file_delete"
+test_id="$test_id"
 
 #fixed var
 input_file="curl.txt"
@@ -40,14 +40,14 @@ while IFS= read -r line; do
     # Check if the line contains a curl command
     if [[ "$line" == curl* ]]; then
         # Replace the placeholders with actual variable values
-        command=$(echo "$line" | sed -e "s|\${baseurl}|$baseurl|g" \
-                             -e "s|\${token_root}|$token_root|g" \
-                             -e "s|\${token_admin}|$token_admin|g" \
-                             -e "s|\${username}|$username|g" \
-                             -e "s|\${test_id}|$test_id|g" \
-                             -e "s|\${file_create}|$file_create|g" \
-                             -e "s|\${file_update}|$file_update|g" \
-                             -e "s|\${file_delete}|$file_delete|g"
+        command=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
+                             -e "s|\$token_root|$token_root|g" \
+                             -e "s|\$token_admin|$token_admin|g" \
+                             -e "s|\$username|$username|g" \
+                             -e "s|\$test_id|$test_id|g" \
+                             -e "s|\$file_create|$file_create|g" \
+                             -e "s|\$file_update|$file_update|g" \
+                             -e "s|\$file_delete|$file_delete|g"
                              )
         # Extract and print only the URL for readability
         url=$(echo "$command" | sed -n 's/^curl -X [A-Z]* "\([^"]*\)".*/\1/p')
