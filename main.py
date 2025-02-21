@@ -114,7 +114,6 @@ async def object_serialize(postgres_column_datatype, object_list):
       for k, v in object.items():
          datatype=postgres_column_datatype.get(k)
          if not datatype:return{"status":0,"message":f"column {k} is not in postgres schema"}
-         if v is None:object_list[index][k]=None
          elif k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(v.encode()).hexdigest()
          elif "int" in datatype:object_list[index][k]=int(v)
          elif datatype=="numeric":object_list[index][k]=round(float(v), 3)
