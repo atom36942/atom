@@ -13,12 +13,13 @@ async def postgres_create(table,object_list,is_serialize,postgres_client,postgre
    return {"status":1,"message":output}
 
 async def postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id):
+   column=object.get("column","*")
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    creator_data,action_count,location_filter=object.get("creator_data",None),object.get("action_count",None),object.get("location_filter",None)
    response=await create_where_string(postgres_column_datatype,object_serialize,object)
    if response["status"]==0:return response
    where_string,where_value=response["message"][0],response["message"][1]
-   query=f"select * from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
    if location_filter:
       long,lat,min_meter,max_meter=float(location_filter.split(",")[0]),float(location_filter.split(",")[1]),int(location_filter.split(",")[2]),int(location_filter.split(",")[3])
       query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
