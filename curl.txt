@@ -75,6 +75,7 @@ curl -X GET "$baseurl/public/object-read?table=post&action_count=action_like,act
 curl -X GET "$baseurl/public/object-read?table=post&location_filter=100.2321,21321.1232,100,1000"
 curl -X GET "$baseurl/admin/object-read?table=post" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/private/object-read?table=human" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/private/object-read?table=human&column=id,mobile,rating" -H "Authorization: Bearer $token_admin"
 
 #object update
 curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":$test_id,"title":"my update"}'
@@ -82,7 +83,7 @@ curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $t
 curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"password":"123"}'
 curl -X PUT "$baseurl/my/object-update?table=users&otp=123" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"email":"abc"}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":$test_id,"title":"admin update"}'
-curl -X PUT "$baseurl/root/object-update?table=test" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"id":$test_id,"title":"root update"}'
+curl -X PUT "$baseurl/root/object-update?table=users" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"id":1,"is_active":"1"}'
 
 #object delete
 curl -X DELETE "$baseurl/my/object-delete?table=action_comment&id=>,1" -H "Authorization: Bearer $token_admin"

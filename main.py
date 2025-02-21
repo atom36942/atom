@@ -876,6 +876,9 @@ async def root_db_clean():
 @app.put("/root/db-checklist")
 async def root_db_checklist():
    await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
+   await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
+   await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
+   await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
    return {"status":1,"message":"done"}
 
 @app.put("/root/reset-global")
@@ -1453,6 +1456,7 @@ async def public_mission():
    return {"status":1,"message":output[0]["count"]}
 
 @app.get("/public/info")
+@cache(expire=60)
 async def public_info(request:Request):
    globals_dict=globals()
    output={
@@ -1468,7 +1472,8 @@ async def public_info(request:Request):
    "api_list_admin":[route.path for route in request.app.routes if "admin/" in route.path],
    "redis":await redis_client.info(),
    "table_id":table_id,
-   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True))
+   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
+   "human_work_profile":await postgres_client.fetch_all(query="select distinct(work_profile) from human where is_active=1;",values={})
    }
    return {"status":1,"message":output}
 
