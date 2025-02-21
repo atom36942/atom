@@ -278,10 +278,10 @@ is_signup=int(os.getenv("is_signup",0))
 #globals
 log_api_object_list=[]
 api_id={
-"/admin/object-read":1,
+"/admin/db-runner":1,
 "/admin/object-update":2,
-"/admin/ids-delete":3,
-"/admin/db-runner":4,
+"/admin/object-read":3,
+"/admin/ids-delete":4,
 "/admin/ids-update":5,
 }
 postgres_config={
@@ -1311,6 +1311,17 @@ async def admin_object_read(request:Request):
    query_param=dict(request.query_params)
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
+   response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
+   if response["status"]==0:return error(response["message"])
+   return response
+
+@app.get("/private/object-read")
+@cache(expire=60)
+async def private_object_read(request:Request):
+   query_param=dict(request.query_params)
+   table=query_param.get("table",None)
+   if not table:return error("query param table missing")
+   if table not in ["post","atom","human"]:return error("table not allowed")
    response=await postgres_read(table,query_param,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
    if response["status"]==0:return error(response["message"])
    return response
