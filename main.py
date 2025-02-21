@@ -1471,16 +1471,8 @@ async def public_mission():
 async def public_info(request:Request):
    globals_dict=globals()
    output={
-   "users_api_access":users_api_access,
-   "project_data":project_data,
    "postgres_schema":postgres_schema,
    "api_list":[route.path for route in request.app.routes],
-   "api_list_root":[route.path for route in request.app.routes if "root/" in route.path],
-   "api_list_auth":[route.path for route in request.app.routes if "auth/" in route.path],
-   "api_list_my":[route.path for route in request.app.routes if "my/" in route.path],
-   "api_list_public":[route.path for route in request.app.routes if "public/" in route.path],
-   "api_list_private":[route.path for route in request.app.routes if "private/" in route.path],
-   "api_list_admin":[route.path for route in request.app.routes if "admin/" in route.path],
    "redis":await redis_client.info(),
    "table_id":table_id,
    "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
