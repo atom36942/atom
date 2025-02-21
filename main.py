@@ -1466,19 +1466,22 @@ async def public_mission():
    output=await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={})
    return {"status":1,"message":output[0]["count"]}
 
+output_info={}
 @app.get("/public/info")
-@cache(expire=60)
 async def public_info(request:Request):
-   globals_dict=globals()
-   output={
-   "postgres_schema":postgres_schema,
-   "api_list":[route.path for route in request.app.routes],
-   "redis":await redis_client.info(),
-   "table_id":table_id,
-   "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
-   "human_work_profile":await postgres_client.fetch_all(query="select distinct(work_profile) from human where is_active=1 limit 100000;",values={})
-   }
-   return {"status":1,"message":output}
+   global output_info
+   if not output_info or (time.time()-output_info.get("set_at")>60):
+      globals_dict=globals()
+      output_info={
+      "set_at":time.time(),
+      "postgres_schema":postgres_schema,
+      "api_list":[route.path for route in request.app.routes],
+      "redis":await redis_client.info(),
+      "table_id":table_id,
+      "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
+      "human_work_profile":await postgres_client.fetch_all(query="select distinct(work_profile) from human where is_active=1 limit 100000;",values={})
+      }
+   return {"status":1,"message":output_info}
 
 #otp
 @app.post("/public/otp-send-sns")
