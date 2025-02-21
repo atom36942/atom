@@ -1476,7 +1476,7 @@ async def public_info(request:Request):
    "redis":await redis_client.info(),
    "table_id":table_id,
    "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
-   "human_work_profile":await postgres_client.fetch_all(query="select distinct(work_profile) from human where is_active=1;",values={})
+   "human_work_profile":await postgres_client.fetch_all(query="select distinct(work_profile) from human where is_active=1 limit 100000;",values={})
    }
    return {"status":1,"message":output}
 
