@@ -61,6 +61,30 @@ async def postgres_delete(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return {"status":1,"message":output}
 
+async def object_prepare(mode,auth,request,table_id):
+   if mode not in ["create","update"]:return {"status":0,"message":"wrong mode"}
+   if auth not in ["root","auth","my","public","private","admin"]:return {"status":0,"message":"wrong auth"}
+   object=await request.json()
+   if not object:return {"status":0,"message":"object missing"}
+   if "work_profile" in object:object["work_profile"]=object["work_profile"].lower()
+   if "parent_table" in object and object.get("parent_table") not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
+   if mode=="create":
+      if auth in ["my","public","private"]:
+         for key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp","username"]:
+            if key in object:return {"status":0,"message":f"{key} not allowed in body"}
+      if auth in ["my","private","admin"]:object["created_by_id"]=request.state.user["id"]
+   if mode=="update":
+      if "id" not in object:return  {"status":0,"message":"id missing"}
+      if "password" in object and len(object)!=2:return {"status":0,"message":"object length should be 2 only"}
+      if auth in ["my","public","private"]:
+         for key in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:
+            if key in object:return {"status":0,"message":f"{key} not allowed in body"}
+      if auth in ["my"]:
+         for key in ["email","mobile"]:
+            if key in object and len(object)!=2:return {"status":0,"message":"object length should be 2 only"}
+      if auth in ["my","private","admin"]:object["updated_by_id"]=request.state.user["id"]
+   return {"status":1,"message":object}
+
 async def add_creator_data(postgres_client,object_list,user_key):
    if not object_list:return {"status":1,"message":object_list}
    object_list=[dict(object) for object in object_list]
@@ -1234,18 +1258,15 @@ async def my_object_create(request:Request):
    table=query_param.get("table")
    if not table:return error("query param table missing")
    if table in ["users","spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   body_json=await request.json()
-   if not body_json:return error("body missing")
-   for key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp"]:
-      if key in body_json:return error(f"{key} not allowed in body")
-   if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
-   body_json["created_by_id"]=request.state.user["id"]
+   response=await object_prepare("create","my",request,table_id)
+   if response["status"]==0:return error(response["message"])
+   object=response["message"]
    if not queue:
-      response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+      response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
       if response["status"]==0:return error(response["message"])
       output=response["message"]
    if queue:
-      data={"mode":"create","table":table,"object":body_json,"is_serialize":is_serialize}
+      data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
       if queue=="redis":output=await redis_client.publish(channel_name,json.dumps(data))
       if queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key=channel_name,body=json.dumps(data))
       if queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key=channel_name,body=json.dumps(data))
@@ -1253,7 +1274,7 @@ async def my_object_create(request:Request):
       if "mongodb" in queue:
          mongodb_database_name=queue.split("_")[1]
          mongodb_database_client=mongodb_client[mongodb_database_name]
-         output=await mongodb_database_client[table].insert_many([body_json])
+         output=await mongodb_database_client[table].insert_many([object])
          output=str(output)
    return {"status":1,"message":output}
 
@@ -1264,10 +1285,10 @@ async def public_object_create(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table not in ["test","helpdesk","human"]:return error("table not allowed")
-   body_json=await request.json()
-   if not body_json:return error("body missing")
-   if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
-   response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   response=await object_prepare("create","public",request,table_id)
+   if response["status"]==0:return error(response["message"])
+   object=response["message"]
+   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1278,10 +1299,11 @@ async def root_object_create(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","log_api","log_password"]:return error("table not allowed")
-   body_json=await request.json()
-   if not body_json:return error("body missing")
-   if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
-   response=await postgres_create(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   response=await object_prepare("create","root",request,table_id)
+   if response["status"]==0:return error(response["message"])
+   object=response["message"]
+   if "password" in object:is_serialize=1
+   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1337,24 +1359,18 @@ async def my_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   body_json=await request.json()
-   if "id" not in body_json:return error("body json id missing")
-   if "password" in body_json:is_serialize=1
-   for key in ["password","email","mobile"]:
-      if key in body_json and len(body_json)!=2:return error("body json key length should be 2 only")
-   for key in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:
-      if key in body_json:return error(f"{key} not allowed in body")
-   if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
-   if "password" in body_json:is_serialize=1
-   body_json["updated_by_id"]=request.state.user["id"]
-   response=await ownership_check(postgres_client,table,int(body_json["id"]),request.state.user["id"])
+   response=await object_prepare("update","my",request,table_id)
    if response["status"]==0:return error(response["message"])
-   email,mobile=body_json.get("email",None),body_json.get("mobile",None)
+   object=response["message"]
+   response=await ownership_check(postgres_client,table,int(object["id"]),request.state.user["id"])
+   if response["status"]==0:return error(response["message"])
+   email,mobile=object.get("email",None),object.get("mobile",None)
    if table=="users" and (email or mobile):
       if not otp:return error("query param otp missing")
       response=await verify_otp(postgres_client,otp,email,mobile)
       if response["status"]==0:return error(response["message"])
-   response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if "password" in object:is_serialize=1
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1365,14 +1381,11 @@ async def admin_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   body_json=await request.json()
-   if "password" in body_json:is_serialize=1
-   if "id" not in body_json:return error("body json id missing")
-   for key in ["password"]:
-      if key in body_json and len(body_json)!=2:return error("body json key length should be 2 only")
-   if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
-   body_json["updated_by_id"]=request.state.user["id"]
-   response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   response=await object_prepare("update","admin",request,table_id)
+   if response["status"]==0:return error(response["message"])
+   object=response["message"]
+   if "password" in object:is_serialize=1
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1383,13 +1396,11 @@ async def root_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   body_json=await request.json()
-   if "password" in body_json:is_serialize=1
-   if "id" not in body_json:return error("body json id missing")
-   for key in ["password"]:
-      if key in body_json and len(body_json)!=2:return error("body json key length should be 2 only")
-   if body_json.get("parent_table") and body_json.get("parent_table") not in list(table_id.values()):return error("wrong parent_table")
-   response=await postgres_update(table,[body_json],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   response=await object_prepare("update","root",request,table_id)
+   if response["status"]==0:return error(response["message"])
+   object=response["message"]
+   if "password" in object:is_serialize=1
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    return response
 
