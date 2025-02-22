@@ -68,7 +68,7 @@ async def object_prepare(mode,auth,request,table,table_id):
    if not object:return {"status":0,"message":"object missing"}
    for key in object:
       if isinstance(object[key],str):object[key]=object[key].strip()
-      if key in ["work_profile","skill","city","type"]:object[key]=object[key].lower()
+      if key in ["work_profile","skill","city","type","email","mobile","username"]:object[key]=object[key].lower()
       if key=="parent_table" and object[key] not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
       if mode=="create" and auth in ["my","public","private"] and key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp","username"]:return {"status":0,"message":f"{key} not allowed in body"}
       if mode=="update" and auth in ["my","private"] and key in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:return {"status":0,"message":f"{key} not allowed in body"}
@@ -130,10 +130,11 @@ async def verify_otp(postgres_client,otp,email,mobile):
 import hashlib,datetime,json
 async def object_serialize(postgres_column_datatype, object_list):
    for index, object in enumerate(object_list):
-      for k, v in object.items():
+      for k,v in object.items():
          datatype=postgres_column_datatype.get(k)
          if not datatype:return{"status":0,"message":f"column {k} is not in postgres schema"}
-         elif k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(v.encode()).hexdigest()
+         elif k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(str(v).encode()).hexdigest()
+         elif datatype=="text":object_list[index][k]=v.split(",")
          elif "int" in datatype:object_list[index][k]=int(v)
          elif datatype=="numeric":object_list[index][k]=round(float(v), 3)
          elif "time" in datatype or datatype=="date":object_list[index][k]=datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
@@ -203,7 +204,9 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
          index_name=f"index_{table}_{column_name}"
          is_index=postgres_schema.get(table,{}).get(column_name,{}).get("is_index",None)
          if column_index_type=="0" and is_index==1:await postgres_client.execute(query=f"drop index if exists {index_name};",values={})
-         if column_index_type!="0" and is_index==0:await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {column_index_type} ({column_name});",values={})
+         if column_index_type!="0" and is_index==0:
+            if column_index_type=="gin":await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {column_index_type} ({column_name} gin_trgm_ops);",values={})
+            else:await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {column_index_type} ({column_name});",values={})
    #query
    constraint_name_list={object["constraint_name"] for object in (await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
    for query in config["query"].values():
@@ -321,19 +324,19 @@ postgres_config={
 "is_protected-smallint-0-btree",
 "is_verified-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"type-text-0-0",
+"type-text-0-gin",
 "name-text-0-0",
 "email-text-0-0",
 "mobile-text-0-0",
-"city-text-0-0",
+"city-text-0-gin",
 "experience-numeric(10,1)-0-btree",
 "link_url-text-0-0",
-"work_profile-text-0-0",
-"skill-text-0-0",
+"work_profile-text-0-gin",
+"skill-text-0-gin",
 "description-text-0-0",
 "file_url-text-0-0",
 "rating-numeric(10,3)-0-btree",
-"remark-text-0-0"
+"remark-text-0-gin"
 ],
 "test":[
 "created_at-timestamptz-0-0",
@@ -341,7 +344,7 @@ postgres_config={
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
 "is_deleted-smallint-0-btree",
-"type-text-0-0",
+"type-text-0-gin",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -354,7 +357,7 @@ postgres_config={
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
 "is_deleted-smallint-0-btree",
-"type-text-1-0",
+"type-text-1-gin",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -371,7 +374,7 @@ postgres_config={
 "updated_by_id-bigint-0-0",
 "is_protected-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"type-text-1-0",
+"type-text-1-gin",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -386,7 +389,7 @@ postgres_config={
 "is_protected-smallint-0-btree",
 "is_verified-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"type-text-0-0",
+"type-text-0-gin",
 "username-text-0-btree",
 "password-text-0-btree",
 "location-geography(POINT)-0-gist",
@@ -397,7 +400,7 @@ postgres_config={
 "email-text-0-btree",
 "mobile-text-0-btree",
 "name-text-0-0",
-"city-text-0-0",
+"city-text-0-gin",
 "api_access-text-0-0",
 "rating-numeric(10,3)-0-0"
 ],
@@ -410,7 +413,7 @@ postgres_config={
 "is_active-smallint-0-btree",
 "is_verified-smallint-0-btree",
 "is_protected-smallint-0-btree",
-"type-text-0-0",
+"type-text-0-gin",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -439,7 +442,7 @@ postgres_config={
 "is_deleted-smallint-0-btree",
 "status-text-0-0",
 "remark-text-0-0",
-"type-text-0-0",
+"type-text-0-gin",
 "description-text-1-0",
 "email-text-0-0"
 ],
@@ -1045,8 +1048,9 @@ async def auth_signup(request:Request):
    body_json=await request.json()
    username,password=body_json.get("username",None),body_json.get("password",None)
    if not username or not password:return error("body json username/password missing")
+   username,password=username.strip().lower(),password.strip()
    query="insert into users (username,password) values (:username,:password) returning *;"
-   query_param={"username":username.strip(),"password":hashlib.sha256(str(password.strip()).encode()).hexdigest()}
+   query_param={"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.execute(query=query,values=query_param)
    return {"status":1,"message":output}
 
@@ -1098,7 +1102,7 @@ async def auth_login_otp(request:Request):
    if not user:
       if is_signup==0:return error("user not found")
       if is_signup==1:
-         output=await postgres_client.fetch_all(query=f"insert into users ({key}) values (:key_value) returning *;",values={"key_value":value})
+         output=await postgres_client.fetch_all(query=f"insert into users ({key}) values (:key_value) returning *;",values={"key_value":value.strip().lower()})
          user=output[0] if output else None
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
@@ -1518,6 +1522,7 @@ async def public_otp_send_sns(request:Request):
    body_json=await request.json()
    mobile,entity_id,sender_id,template_id,message=body_json.get("mobile",None),body_json.get("entity_id",None),body_json.get("sender_id",None),body_json.get("template_id",None),body_json.get("message",None)
    if not mobile:return error("body json mobile missing")
+   mobile=mobile.strip().lower()
    otp=random.randint(100000,999999)
    await postgres_client.execute(query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;",values={"otp":otp,"mobile":mobile})
    if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
@@ -1529,6 +1534,7 @@ async def public_otp_send_ses(request:Request):
    body_json=await request.json()
    email,sender=body_json.get("email",None),body_json.get("sender",None)
    if not email or not sender:return error("body json email/sender missing")
+   email=email.strip().lower()
    otp=random.randint(100000,999999)
    await postgres_client.fetch_all(query="insert into otp (otp,email) values (:otp,:email) returning *;",values={"otp":otp,"email":email})
    to,title,body=[email],"otp from atom",str(otp)
