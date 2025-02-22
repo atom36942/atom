@@ -61,28 +61,22 @@ async def postgres_delete(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return {"status":1,"message":output}
 
-async def object_prepare(mode,auth,request,table_id):
+async def object_prepare(mode,auth,request,table,table_id):
    if mode not in ["create","update"]:return {"status":0,"message":"wrong mode"}
    if auth not in ["root","auth","my","public","private","admin"]:return {"status":0,"message":"wrong auth"}
    object=await request.json()
    if not object:return {"status":0,"message":"object missing"}
-   if "work_profile" in object:object["work_profile"]=object["work_profile"].lower()
-   if "parent_table" in object and object.get("parent_table") not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
-   if mode=="create":
-      if auth in ["my","public","private"]:
-         for key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp","username"]:
-            if key in object:return {"status":0,"message":f"{key} not allowed in body"}
-      if auth in ["my","private","admin"]:object["created_by_id"]=request.state.user["id"]
-   if mode=="update":
-      if "id" not in object:return  {"status":0,"message":"id missing"}
-      if "password" in object and len(object)!=2:return {"status":0,"message":"object length should be 2 only"}
-      if auth in ["my","public","private"]:
-         for key in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:
-            if key in object:return {"status":0,"message":f"{key} not allowed in body"}
-      if auth in ["my"]:
-         for key in ["email","mobile"]:
-            if key in object and len(object)!=2:return {"status":0,"message":"object length should be 2 only"}
-      if auth in ["my","private","admin"]:object["updated_by_id"]=request.state.user["id"]
+   for key in object:
+      if isinstance(object[key],str):object[key]=object[key].strip()
+      if key in ["work_profile","skill","city","type"]:object[key]=object[key].lower()
+      if key=="parent_table" and object[key] not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
+      if mode=="create" and auth in ["my","public","private"] and key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp","username"]:return {"status":0,"message":f"{key} not allowed in body"}
+      if mode=="update" and auth in ["my","private"] and key in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:return {"status":0,"message":f"{key} not allowed in body"}
+      if key=="password" and table=="users" and mode=="update" and len(object)!=2:return {"status":0,"message":"object length should be 2 only"}
+      if key in ["email","mobile"] and table=="users" and mode=="update" and auth in ["my"] and len(object)!=2:return {"status":0,"message":"object length should be 2 only"}
+   if mode=="update" and "id" not in object:return  {"status":0,"message":"id missing"}
+   if mode=="create" and request.state.user:object["created_by_id"]=request.state.user["id"]
+   if mode=="update" and request.state.user:object["updated_by_id"]=request.state.user["id"]
    return {"status":1,"message":object}
 
 async def add_creator_data(postgres_client,object_list,user_key):
@@ -180,6 +174,7 @@ async def s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list):
 async def postgres_schema_init(postgres_client,postgres_schema_read,config):
    #extension
    await postgres_client.fetch_all(query="create extension if not exists postgis;",values={})
+   await postgres_client.fetch_all(query="create extension if not exists pg_trgm;",values={})
    #table
    postgres_schema=await postgres_schema_read(postgres_client)
    for table,column_list in config["table"].items():
@@ -300,7 +295,8 @@ is_index_html=int(os.getenv("is_index_html",0))
 is_signup=int(os.getenv("is_signup",0))
 
 #globals
-log_api_object_list=[]
+object_list_log_api=[]
+output_cache_info={}
 api_id={
 "/admin/db-runner":1,
 "/admin/object-update":2,
@@ -308,22 +304,29 @@ api_id={
 "/admin/ids-delete":4,
 "/admin/ids-update":5,
 }
+query_human_work_profile="select distinct(work_profile) from human where is_active=1 limit 100000;"
+query_human_skill='''
+with 
+x as (select distinct trim(unnest(string_to_array(skill, ','))) as skill from human where is_active=1 and skill is not null)
+select skill from x limit 100000;
+'''
 postgres_config={
 "table":{
 "human":[
-"created_at-timestamptz-0-0",
+"created_at-timestamptz-0-brin",
 "created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
 "is_active-smallint-0-btree",
 "is_protected-smallint-0-btree",
+"is_verified-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"type-text-0-btree",
+"type-text-0-0",
 "name-text-0-0",
 "email-text-0-0",
 "mobile-text-0-0",
 "city-text-0-0",
-"experience-numeric(10,1)-0-0",
+"experience-numeric(10,1)-0-btree",
 "link_url-text-0-0",
 "work_profile-text-0-0",
 "skill-text-0-0",
@@ -338,7 +341,7 @@ postgres_config={
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
 "is_deleted-smallint-0-btree",
-"type-text-0-btree",
+"type-text-0-0",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -351,7 +354,7 @@ postgres_config={
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
 "is_deleted-smallint-0-btree",
-"type-text-1-btree",
+"type-text-1-0",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -368,7 +371,7 @@ postgres_config={
 "updated_by_id-bigint-0-0",
 "is_protected-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"type-text-1-btree",
+"type-text-1-0",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -381,9 +384,10 @@ postgres_config={
 "updated_by_id-bigint-0-0",
 "is_active-smallint-0-btree",
 "is_protected-smallint-0-btree",
+"is_verified-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"type-text-0-btree",
-"username-text-0-0",
+"type-text-0-0",
+"username-text-0-btree",
 "password-text-0-btree",
 "location-geography(POINT)-0-gist",
 "metadata-jsonb-0-0",
@@ -394,7 +398,7 @@ postgres_config={
 "mobile-text-0-btree",
 "name-text-0-0",
 "city-text-0-0",
-"api_access-text-0-btree",
+"api_access-text-0-0",
 "rating-numeric(10,3)-0-0"
 ],
 "post":[
@@ -404,8 +408,10 @@ postgres_config={
 "updated_by_id-bigint-0-0",
 "is_deleted-smallint-0-btree",
 "is_active-smallint-0-btree",
+"is_verified-smallint-0-btree",
 "is_protected-smallint-0-btree",
-"type-text-0-0","title-text-0-0",
+"type-text-0-0",
+"title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
 "link_url-text-0-0",
@@ -429,12 +435,13 @@ postgres_config={
 "created_by_id-bigint-0-btree",
 "updated_at-timestamptz-0-0",
 "updated_by_id-bigint-0-0",
+"is_verified-smallint-0-btree",
 "is_deleted-smallint-0-btree",
 "status-text-0-0",
 "remark-text-0-0",
 "type-text-0-0",
 "description-text-1-0",
-"email-text-0-btree"
+"email-text-0-0"
 ],
 "otp":[
 "created_at-timestamptz-1-brin",
@@ -531,7 +538,11 @@ postgres_config={
 "unique_acton_bookmark":"alter table action_bookmark add constraint constraint_unique_action_bookmark_cpp unique (created_by_id,parent_table,parent_id);",
 "unique_acton_report":"alter table action_report add constraint constraint_unique_action_report_cpp unique (created_by_id,parent_table,parent_id);",
 "unique_acton_block":"alter table action_block add constraint constraint_unique_action_block_cpp unique (created_by_id,parent_table,parent_id);",
-"unique_acton_follow":"alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);"
+"unique_acton_follow":"alter table action_follow add constraint constraint_unique_action_follow_cpp unique (created_by_id,parent_table,parent_id);",
+"check_is_active":"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'is_active' AND table_schema = 'public') LOOP IF NOT EXISTS (SELECT 1 FROM information_schema.constraint_column_usage WHERE table_name = r.table_name AND constraint_name = format('check_is_active_%I', r.table_name)) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT check_is_active_%I CHECK (is_active IN (0, 1) OR is_active IS NULL);', r.table_name, r.table_name); END IF; END LOOP; END $$;",
+"check_is_protected":"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'is_protected' AND table_schema = 'public') LOOP IF NOT EXISTS (SELECT 1 FROM information_schema.constraint_column_usage WHERE table_name = r.table_name AND constraint_name = format('check_is_protected_%I', r.table_name)) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT check_is_protected_%I CHECK (is_protected IN (0, 1) OR is_protected IS NULL);', r.table_name, r.table_name); END IF; END LOOP; END $$;",
+"check_is_deleted":"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'is_deleted' AND table_schema = 'public') LOOP IF NOT EXISTS (SELECT 1 FROM information_schema.constraint_column_usage WHERE table_name = r.table_name AND constraint_name = format('check_is_deleted_%I', r.table_name)) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT check_is_deleted_%I CHECK (is_deleted IN (0, 1) OR is_deleted IS NULL);', r.table_name, r.table_name); END IF; END LOOP; END $$;",
+"check_is_verified":"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'is_verified' AND table_schema = 'public') LOOP IF NOT EXISTS (SELECT 1 FROM information_schema.constraint_column_usage WHERE table_name = r.table_name AND constraint_name = format('check_is_verified_%I', r.table_name)) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT check_is_verified_%I CHECK (is_verified IN (0, 1) OR is_verified IS NULL);', r.table_name, r.table_name); END IF; END LOOP; END $$;"
 }
 }
 
@@ -789,12 +800,12 @@ async def middleware(request:Request,api_function):
          response=await api_function(request)
          #api log
          if postgres_schema.get("log_api"):
-            global log_api_object_list
+            global object_list_log_api
             object={"created_by_id":user.get("id",None),"method":method,"api":api,"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
-            log_api_object_list.append(object)
-            if len(log_api_object_list)>=log_api_reset_count:
-               response.background=BackgroundTask(postgres_create,"log_api",log_api_object_list,0,postgres_client,postgres_column_datatype,object_serialize)
-               log_api_object_list=[]
+            object_list_log_api.append(object)
+            if len(object_list_log_api)>=log_api_reset_count:
+               response.background=BackgroundTask(postgres_create,"log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
+               object_list_log_api=[]
    #exception
    except Exception as e:
       print(traceback.format_exc())
@@ -1035,7 +1046,7 @@ async def auth_signup(request:Request):
    username,password=body_json.get("username",None),body_json.get("password",None)
    if not username or not password:return error("body json username/password missing")
    query="insert into users (username,password) values (:username,:password) returning *;"
-   query_param={"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   query_param={"username":username.strip(),"password":hashlib.sha256(str(password.strip()).encode()).hexdigest()}
    output=await postgres_client.execute(query=query,values=query_param)
    return {"status":1,"message":output}
 
@@ -1258,7 +1269,7 @@ async def my_object_create(request:Request):
    table=query_param.get("table")
    if not table:return error("query param table missing")
    if table in ["users","spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("create","my",request,table_id)
+   response=await object_prepare("create","my",request,table,table_id)
    if response["status"]==0:return error(response["message"])
    object=response["message"]
    if not queue:
@@ -1285,7 +1296,7 @@ async def public_object_create(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table not in ["test","helpdesk","human"]:return error("table not allowed")
-   response=await object_prepare("create","public",request,table_id)
+   response=await object_prepare("create","public",request,table,table_id)
    if response["status"]==0:return error(response["message"])
    object=response["message"]
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
@@ -1299,7 +1310,7 @@ async def root_object_create(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("create","root",request,table_id)
+   response=await object_prepare("create","root",request,table,table_id)
    if response["status"]==0:return error(response["message"])
    object=response["message"]
    if "password" in object:is_serialize=1
@@ -1351,6 +1362,25 @@ async def private_object_read(request:Request):
    if response["status"]==0:return error(response["message"])
    return response
 
+@app.get("/private/human-read")
+@cache(expire=60)
+async def private_human_read(request:Request):
+   query_param=dict(request.query_params)
+   column=query_param.get("column","*")
+   order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
+   query=f'''
+   select {column} from human 
+   where is_active=1 and
+   (type=:type or :type is null) and
+   (work_profile=:work_profile or :work_profile is null) and
+   (experience=:experience or :experience is null) and
+   (skill=:skill or :skill is null)
+   order by {order} limit {limit} offset {(page-1)*limit};
+   '''
+   query_param={"type":query_param.get("type"),"work_profile":query_param.get("work_profile"),"experience":query_param.get("experience"),"skill":query_param.get("skill")}
+   output=await postgres_client.fetch_all(query=query,values=query_param)
+   return {"status":1,"message":output}
+
 #object update
 @app.put("/my/object-update")
 async def my_object_update(request:Request):
@@ -1359,7 +1389,7 @@ async def my_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("update","my",request,table_id)
+   response=await object_prepare("update","my",request,table,table_id)
    if response["status"]==0:return error(response["message"])
    object=response["message"]
    response=await ownership_check(postgres_client,table,int(object["id"]),request.state.user["id"])
@@ -1381,7 +1411,7 @@ async def admin_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("update","admin",request,table_id)
+   response=await object_prepare("update","admin",request,table,table_id)
    if response["status"]==0:return error(response["message"])
    object=response["message"]
    if "password" in object:is_serialize=1
@@ -1396,7 +1426,7 @@ async def root_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("update","root",request,table_id)
+   response=await object_prepare("update","root",request,table,table_id)
    if response["status"]==0:return error(response["message"])
    object=response["message"]
    if "password" in object:is_serialize=1
@@ -1466,22 +1496,21 @@ async def public_mission():
    output=await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={})
    return {"status":1,"message":output[0]["count"]}
 
-output_info={}
 @app.get("/public/info")
 async def public_info(request:Request):
-   global output_info
-   if not output_info or (time.time()-output_info.get("set_at")>60):
-      globals_dict=globals()
-      output_info={
+   global output_cache_info
+   if not output_cache_info or (time.time()-output_cache_info.get("set_at")>60):
+      output_cache_info={
       "set_at":time.time(),
       "postgres_schema":postgres_schema,
       "api_list":[route.path for route in request.app.routes],
       "redis":await redis_client.info(),
       "table_id":table_id,
-      "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals_dict.items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
-      "human_work_profile":await postgres_client.fetch_all(query="select distinct(work_profile) from human where is_active=1 limit 100000;",values={})
+      "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
+      "human_work_profile":await postgres_client.fetch_all(query=query_human_work_profile,values={}),
+      "human_skill":await postgres_client.fetch_all(query=query_human_skill,values={})
       }
-   return {"status":1,"message":output_info}
+   return {"status":1,"message":output_cache_info}
 
 #otp
 @app.post("/public/otp-send-sns")
