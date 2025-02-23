@@ -17,7 +17,7 @@ test_id="$test_id"
 #fixed var
 input_file="curl.txt"
 output_file="curl.csv"
-username="$(uuidgen)"
+username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 
 # Initialize CSV file with headers
 echo "API,Status Code,Response Time (ms)" > "$output_file"

@@ -46,15 +46,15 @@ curl -X DELETE "$baseurl/my/message-delete?mode=received" -H "Authorization: Bea
 curl -X DELETE "$baseurl/my/message-delete?mode=all" -H "Authorization: Bearer $token_admin"
 
 #action
-curl -X GET "$baseurl/my/action-parent-read?table=action_like&parent_table=post" -H "Authorization: Bearer $token_admin"
-curl -X GET "$baseurl/my/action-parent-read?table=action_like&parent_table=post&action_count=action_comment,action_bookmark" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/my/action-parent-read?table=action_like&parent_table=2" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/my/action-parent-read?table=action_like&parent_table=2&action_count=action_comment,action_bookmark" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/action-parent-check?table=action_comment&parent_table=2&parent_ids=1,2,3" -H "Authorization: Bearer $token_admin"
 curl -X DELETE "$baseurl/my/action-parent-delete?table=action_comment&parent_table=2&parent_id=1" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/action-on-me-creator-read?table=action_rating" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/action-on-me-creator-read-mutual?table=action_rating" -H "Authorization: Bearer $token_admin"
 
 #object create
-curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"testing","title":"testing"}'
+curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"Testing","title":"testing"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"testing","title":"background"}'
 curl -X POST "$baseurl/my/object-create?table=action_rating" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"parent_table":1,"parent_id":1,"rating":5.444}'
 curl -X POST "$baseurl/my/object-create?table=action_rating" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"parent_table":1,"parent_id":1,"rating":5.444}'
