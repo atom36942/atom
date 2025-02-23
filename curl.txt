@@ -57,7 +57,7 @@ curl -X GET "$baseurl/my/action-on-me-creator-read-mutual?table=action_rating" -
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"testing","title":"testing"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"testing","title":"background"}'
 curl -X POST "$baseurl/my/object-create?table=action_rating" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"parent_table":1,"parent_id":1,"rating":5.444}'
-curl -X POST "$baseurl/my/object-create?table=action_rating&is_serialize=0" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"parent_table":1,"parent_id":1,"rating":5.444}'
+curl -X POST "$baseurl/my/object-create?table=action_rating" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"parent_table":1,"parent_id":1,"rating":5.444}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"redis","title":"testing"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"rabbitmq","title":"testing"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"lavinmq","title":"testing"}'

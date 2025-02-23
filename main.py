@@ -1,8 +1,8 @@
 #function
-async def postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
+async def postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id):
    if not object_list:return {"status":0,"message":"object null issue"}
    if is_serialize:
-      response=await object_serialize(postgres_column_datatype,object_list)
+      response=await object_serialize(postgres_column_datatype,table_id,object_list)
       if response["status"]==0:return response
       object_list=response["message"]
    column_insert_list=list(object_list[0].keys())
@@ -16,7 +16,7 @@ async def postgres_read(table,object,postgres_client,postgres_column_datatype,ob
    column=object.get("column","*")
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    creator_data,action_count,location_filter=object.get("creator_data",None),object.get("action_count",None),object.get("location_filter",None)
-   response=await create_where_string(postgres_column_datatype,object_serialize,object)
+   response=await create_where_string(postgres_column_datatype,table_id,object_serialize,object)
    if response["status"]==0:return response
    where_string,where_value=response["message"][0],response["message"][1]
    query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
@@ -35,10 +35,10 @@ async def postgres_read(table,object,postgres_client,postgres_column_datatype,ob
          object_list=response["message"]
    return {"status":1,"message":object_list}
 
-async def postgres_update(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
+async def postgres_update(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id):
    if not object_list:return {"status":0,"message":"object null issue"}
    if is_serialize:
-      response=await object_serialize(postgres_column_datatype,object_list)
+      response=await object_serialize(postgres_column_datatype,table_id,object_list)
       if response["status"]==0:return response
       object_list=response["message"]
    column_update_list=[*object_list[0]]
@@ -49,10 +49,10 @@ async def postgres_update(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return {"status":1,"message":output}
 
-async def postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
+async def postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id):
    if not object_list:return {"status":0,"message":"object null issue"}
    if is_serialize:
-      response=await object_serialize(postgres_column_datatype,object_list)
+      response=await object_serialize(postgres_column_datatype,table_id,object_list)
       if response["status"]==0:return response
       object_list=response["message"]
    query=f"delete from {table} where id=:id;"
@@ -61,23 +61,28 @@ async def postgres_delete(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return {"status":1,"message":output}
 
-async def object_prepare(mode,auth,request,table,table_id):
-   if mode not in ["create","update"]:return {"status":0,"message":"wrong mode"}
-   if auth not in ["root","auth","my","public","private","admin"]:return {"status":0,"message":"wrong auth"}
-   object=await request.json()
-   if not object:return {"status":0,"message":"object missing"}
-   for key in object:
-      if isinstance(object[key],str):object[key]=object[key].strip()
-      if key in ["work_profile","skill","city","type","email","mobile","username"]:object[key]=object[key].lower()
-      if key=="parent_table" and object[key] not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
-      if mode=="create" and auth in ["my","public","private"] and key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","password","google_id","otp","username"]:return {"status":0,"message":f"{key} not allowed in body"}
-      if mode=="update" and auth in ["my","private"] and key in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:return {"status":0,"message":f"{key} not allowed in body"}
-      if key=="password" and table=="users" and mode=="update" and len(object)!=2:return {"status":0,"message":"object length should be 2 only"}
-      if key in ["email","mobile"] and table=="users" and mode=="update" and auth in ["my"] and len(object)!=2:return {"status":0,"message":"object length should be 2 only"}
-   if mode=="update" and "id" not in object:return  {"status":0,"message":"id missing"}
-   if mode=="create" and request.state.user:object["created_by_id"]=request.state.user["id"]
-   if mode=="update" and request.state.user:object["updated_by_id"]=request.state.user["id"]
-   return {"status":1,"message":object}
+# async def object_prepare(mode,auth,request,table,table_id):
+#    for key in object:
+#       if key in ["work_profile","skill","city","type","email","mobile","username"]:object[key]=object[key].lower()
+#    return {"status":1,"message":object}
+
+import hashlib,datetime,json
+async def object_serialize(postgres_column_datatype,table_id,object_list):
+   for index, object in enumerate(object_list):
+      for k,v in object.items():
+         datatype=postgres_column_datatype.get(k)
+         if not datatype:return {"status":0,"message":f"column {k} is not in postgres schema"}
+         if k=="parent_table":
+            if table_id and v not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
+            object_list[index][k]=int(v)
+         elif k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(str(v).encode()).hexdigest()
+         elif datatype=="text":object_list[index][k]=v.strip()
+         elif "int" in datatype:object_list[index][k]=int(v)
+         elif datatype=="numeric":object_list[index][k]=round(float(v), 3)
+         elif "time" in datatype or datatype=="date":object_list[index][k]=datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
+         elif datatype=="ARRAY":object_list[index][k]=v.split(",")
+         elif datatype=="jsonb":object_list[index][k]=json.dumps(v)
+   return {"status":1,"message":object_list}
 
 async def add_creator_data(postgres_client,object_list,user_key):
    if not object_list:return {"status":1,"message":object_list}
@@ -127,22 +132,7 @@ async def verify_otp(postgres_client,otp,email,mobile):
    if int(output[0]["otp"])!=int(otp):return {"status":0,"message":"otp mismatch"}
    return {"status":1,"message":"done"}
 
-import hashlib,datetime,json
-async def object_serialize(postgres_column_datatype, object_list):
-   for index, object in enumerate(object_list):
-      for k,v in object.items():
-         datatype=postgres_column_datatype.get(k)
-         if not datatype:return{"status":0,"message":f"column {k} is not in postgres schema"}
-         elif k in ["password","google_id"]:object_list[index][k]=hashlib.sha256(str(v).encode()).hexdigest()
-         elif datatype=="text":object_list[index][k]=v.split(",")
-         elif "int" in datatype:object_list[index][k]=int(v)
-         elif datatype=="numeric":object_list[index][k]=round(float(v), 3)
-         elif "time" in datatype or datatype=="date":object_list[index][k]=datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
-         elif datatype=="jsonb":object_list[index][k]=json.dumps(v)
-         elif datatype=="ARRAY":object_list[index][k]=v.split(",")
-   return {"status":1,"message":object_list}
-
-async def create_where_string(postgres_column_datatype,object_serialize,object):
+async def create_where_string(postgres_column_datatype,table_id,object_serialize,object):
    object={k:v for k,v in object.items() if k in postgres_column_datatype}
    object={k:v for k,v in object.items() if k not in ["metadata","location","table","order","limit","page"]}
    object_key_operator={k:v.split(',',1)[0] for k,v in object.items()}
@@ -151,7 +141,7 @@ async def create_where_string(postgres_column_datatype,object_serialize,object):
    where_column_single_list=[f"({column} {object_key_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
    where_column_joined=' and '.join(where_column_single_list)
    where_string=f"where {where_column_joined}" if where_column_joined else ""
-   response=await object_serialize(postgres_column_datatype,[object_key_value])
+   response=await object_serialize(postgres_column_datatype,table_id,[object_key_value])
    if response["status"]==0:return response
    where_value=response["message"][0]
    return {"status":1,"message":[where_string,where_value]}
@@ -807,7 +797,7 @@ async def middleware(request:Request,api_function):
             object={"created_by_id":user.get("id",None),"method":method,"api":api,"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
             object_list_log_api.append(object)
             if len(object_list_log_api)>=log_api_reset_count:
-               response.background=BackgroundTask(postgres_create,"log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
+               response.background=BackgroundTask(postgres_create,"log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize,table_id)
                object_list_log_api=[]
    #exception
    except Exception as e:
@@ -891,9 +881,9 @@ async def root_db_uploader(request:Request):
    if not mode or not table:return error("body form mode/table missing")
    if not body_form_file:return error("body form file missing")
    object_list=await file_to_object_list(body_form_file[-1])
-   if mode=="create":response=await postgres_create(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="create":response=await postgres_create(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize,table_id)
+   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize,table_id)
+   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1051,7 +1041,7 @@ async def auth_signup(request:Request):
    username,password=username.strip().lower(),password.strip()
    query="insert into users (username,password) values (:username,:password) returning *;"
    query_param={"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
-   output=await postgres_client.execute(query=query,values=query_param)
+   output=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":output}
 
 @app.post("/auth/login-password")
@@ -1093,6 +1083,7 @@ async def auth_login_otp(request:Request):
    if not otp:return error("otp missing")
    del body_json["otp"]
    key,value=next(iter(body_json.items()))
+   value=value.strip().lower()
    if key not in ["email","mobile"]:return error(f"{key} column not allowed")
    if key=="email":response=await verify_otp(postgres_client,otp,value,None)
    else:response=await verify_otp(postgres_client,otp,None,value)
@@ -1102,7 +1093,7 @@ async def auth_login_otp(request:Request):
    if not user:
       if is_signup==0:return error("user not found")
       if is_signup==1:
-         output=await postgres_client.fetch_all(query=f"insert into users ({key}) values (:key_value) returning *;",values={"key_value":value.strip().lower()})
+         output=await postgres_client.fetch_all(query=f"insert into users ({key}) values (:key_value) returning *;",values={"key_value":value})
          user=output[0] if output else None
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    return {"status":1,"message":token}
@@ -1273,11 +1264,13 @@ async def my_object_create(request:Request):
    table=query_param.get("table")
    if not table:return error("query param table missing")
    if table in ["users","spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("create","my",request,table,table_id)
-   if response["status"]==0:return error(response["message"])
-   object=response["message"]
+   object=await request.json()
+   if not object:return error("object missing")
+   object["created_by_id"]=request.state.user["id"]
+   for key in object:
+      if key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","username","password","google_id","otp"]:return error(f"{key} not allowed in body")
    if not queue:
-      response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+      response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id)
       if response["status"]==0:return error(response["message"])
       output=response["message"]
    if queue:
@@ -1300,10 +1293,11 @@ async def public_object_create(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table not in ["test","helpdesk","human"]:return error("table not allowed")
-   response=await object_prepare("create","public",request,table,table_id)
-   if response["status"]==0:return error(response["message"])
-   object=response["message"]
-   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   object=await request.json()
+   if not object:return error("object missing")
+   for key in object:
+      if key in ["id","created_at","updated_at","updated_by_id","is_active","is_verified","is_deleted","username","password","google_id","otp"]:return error(f"{key} not allowed in body")
+   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1314,11 +1308,10 @@ async def root_object_create(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("create","root",request,table,table_id)
-   if response["status"]==0:return error(response["message"])
-   object=response["message"]
+   object=await request.json()
+   if not object:return error("object missing")
    if "password" in object:is_serialize=1
-   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1393,9 +1386,13 @@ async def my_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("update","my",request,table,table_id)
-   if response["status"]==0:return error(response["message"])
-   object=response["message"]
+   object=await request.json()
+   if not object:return error("object missing")
+   if "id" not in object:return error("id missing")
+   object["updated_by_id"]=request.state.user["id"]
+   for key in object:
+      if key in ["created_at","created_by_id","is_active","is_verified","type","google_id","otp"]:return error(f"{key} not allowed in body")
+      if key in ["email","mobile","password"] and table=="users" and len(object)!=3:return error("object length should be 2 only")
    response=await ownership_check(postgres_client,table,int(object["id"]),request.state.user["id"])
    if response["status"]==0:return error(response["message"])
    email,mobile=object.get("email",None),object.get("mobile",None)
@@ -1404,7 +1401,7 @@ async def my_object_update(request:Request):
       response=await verify_otp(postgres_client,otp,email,mobile)
       if response["status"]==0:return error(response["message"])
    if "password" in object:is_serialize=1
-   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1415,11 +1412,14 @@ async def admin_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("update","admin",request,table,table_id)
-   if response["status"]==0:return error(response["message"])
-   object=response["message"]
+   object=await request.json()
+   if not object:return error("object missing")
+   if "id" not in object:return error("id missing")
+   object["updated_by_id"]=request.state.user["id"]
+   for key in object:
+      if key in ["password"] and table=="users" and len(object)!=3:return error("object length should be 2 only")
    if "password" in object:is_serialize=1
-   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1430,11 +1430,13 @@ async def root_object_update(request:Request):
    table=query_param.get("table",None)
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_prepare("update","root",request,table,table_id)
-   if response["status"]==0:return error(response["message"])
-   object=response["message"]
+   object=await request.json()
+   if not object:return error("object missing")
+   if "id" not in object:return error("id missing")
+   for key in object:
+      if key in ["password"] and table=="users" and len(object)!=2:return error("object length should be 2 only")
    if "password" in object:is_serialize=1
-   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize,table_id)
    if response["status"]==0:return error(response["message"])
    return response
 
@@ -1447,7 +1449,7 @@ async def my_object_delete(request:Request):
    if table in ["users","spatial_ref_sys"]:return error("table not allowed")
    if "action_" not in table:return error("table not allowed")
    query_param["created_by_id"]=f"=,{request.state.user['id']}"
-   response=await create_where_string(postgres_column_datatype,object_serialize,query_param)
+   response=await create_where_string(postgres_column_datatype,table_id,object_serialize,query_param)
    if response["status"]==0:return error(response["message"])
    where_string,where_value=response["message"][0],response["message"][1]
    query=f"delete from {table} {where_string};"
@@ -1570,8 +1572,8 @@ async def main_redis():
          if message["type"]=="message" and message["channel"]==b'ch1':
             data=json.loads(message['data'])
             try:
-               if data["mode"]=="create":response=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
-               if data["mode"]=="update":response=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
+               if data["mode"]=="create":response=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize,table_id)
+               if data["mode"]=="update":response=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize,table_id)
                print(response)
             except Exception as e:
                print(e.args)
@@ -1595,8 +1597,8 @@ async def main_kafka():
          if message.topic==channel_name:
             data=json.loads(message.value.decode('utf-8'))
             try:
-               if data["mode"]=="create":response=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)   
-               if data["mode"]=="update":response=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
+               if data["mode"]=="create":response=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize,table_id)   
+               if data["mode"]=="update":response=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize,table_id)
                print(response)
             except Exception as e:
                print(e.args)
@@ -1613,8 +1615,8 @@ def aqmp_callback(ch,method,properties,body):
    data=json.loads(body)
    loop=asyncio.get_event_loop()
    try:
-      if data["mode"]=="create":response=loop.run_until_complete(postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize))
-      if data["mode"]=="update":response=loop.run_until_complete(postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize))
+      if data["mode"]=="create":response=loop.run_until_complete(postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize,table_id))
+      if data["mode"]=="update":response=loop.run_until_complete(postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize,table_id))
       print(response)
    except Exception as e:
       print(e.args)
