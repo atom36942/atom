@@ -1372,11 +1372,11 @@ async def private_human_read(request:Request):
    order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
    type=query_param.get("type")
    work_profile=query_param.get("work_profile")
-   experience_min=query_param.get("experience_min")
-   experience_max=query_param.get("experience_max")
    skill=query_param.get("skill")
-   rating_min=query_param.get("rating_min")
-   rating_max=query_param.get("rating_max")
+   experience_min=round(float(query_param.get("experience_min")),3) if query_param.get("experience_min") else None
+   experience_max=round(float(query_param.get("experience_max")),3) if query_param.get("experience_max") else None
+   rating_min=round(float(query_param.get("rating_min")),3) if query_param.get("rating_min") else None
+   rating_max=round(float(query_param.get("rating_max")),3) if query_param.get("rating_max") else None
    query=f'''
    select {column} from human 
    where is_active=1 and
@@ -1389,7 +1389,13 @@ async def private_human_read(request:Request):
    (skill ilike :skill or :skill is null)
    order by {order} limit {limit} offset {(page-1)*limit};
    '''
-   query_param={"type":type,"work_profile":work_profile,"experience_min":experience_min,"experience_max":experience_max,"skill":skill}
+   query_param={
+   "type":type,
+   "work_profile":work_profile,
+   "skill":skill,
+   "experience_min":experience_min,"experience_max":experience_max,
+   "rating_min":rating_min,"rating_max":rating_max,
+   }
    output=await postgres_client.fetch_all(query=query,values=query_param)
    return {"status":1,"message":output}
 
