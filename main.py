@@ -78,11 +78,26 @@ async def object_serialize(postgres_column_datatype,table_id,object_list):
          elif key in ["type","email","mobile","city","country","work_profile","skill","tag","api_access","status"]:object_list[index][key]=value.strip().lower()
          elif datatype=="text":object_list[index][key]=value.strip()
          elif "int" in datatype:object_list[index][key]=int(value)
-         elif datatype=="numeric":object_list[index][key]=round(float(value), 3)
+         elif datatype=="numeric":object_list[index][key]=round(float(value),3)
          elif "time" in datatype or datatype=="date":object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%dT%H:%M:%S')
          elif datatype=="ARRAY":object_list[index][key]=value.split(",")
          elif datatype=="jsonb":object_list[index][key]=json.dumps(value)
    return {"status":1,"message":object_list}
+
+async def create_where_string(postgres_column_datatype,table_id,object_serialize,object):
+   object={k:v for k,v in object.items() if k in postgres_column_datatype}
+   object={k:v for k,v in object.items() if v is not None}
+   object={k:v for k,v in object.items() if k not in ["metadata","location","table","order","limit","page"]}
+   object_key_operator={k:v.split(',',1)[0] for k,v in object.items()}
+   object_key_value={k:v.split(',',1)[1] for k,v in object.items()}
+   column_read_list=[*object]
+   where_column_single_list=[f"({column} {object_key_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
+   where_column_joined=' and '.join(where_column_single_list)
+   where_string=f"where {where_column_joined}" if where_column_joined else ""
+   response=await object_serialize(postgres_column_datatype,table_id,[object_key_value])
+   if response["status"]==0:return response
+   where_value=response["message"][0]
+   return {"status":1,"message":[where_string,where_value]}
 
 async def add_creator_data(postgres_client,object_list,user_key):
    if not object_list:return {"status":1,"message":object_list}
@@ -131,20 +146,6 @@ async def verify_otp(postgres_client,otp,email,mobile):
    if not output:return {"status":0,"message":"otp not found"}
    if int(output[0]["otp"])!=int(otp):return {"status":0,"message":"otp mismatch"}
    return {"status":1,"message":"done"}
-
-async def create_where_string(postgres_column_datatype,table_id,object_serialize,object):
-   object={k:v for k,v in object.items() if k in postgres_column_datatype}
-   object={k:v for k,v in object.items() if k not in ["metadata","location","table","order","limit","page"]}
-   object_key_operator={k:v.split(',',1)[0] for k,v in object.items()}
-   object_key_value={k:v.split(',',1)[1] for k,v in object.items()}
-   column_read_list=[*object]
-   where_column_single_list=[f"({column} {object_key_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
-   where_column_joined=' and '.join(where_column_single_list)
-   where_string=f"where {where_column_joined}" if where_column_joined else ""
-   response=await object_serialize(postgres_column_datatype,table_id,[object_key_value])
-   if response["status"]==0:return response
-   where_value=response["message"][0]
-   return {"status":1,"message":[where_string,where_value]}
 
 import uuid
 from io import BytesIO
