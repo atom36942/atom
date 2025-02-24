@@ -54,16 +54,16 @@ curl -X GET "$baseurl/my/action-on-me-creator-read?table=action_rating" -H "Auth
 curl -X GET "$baseurl/my/action-on-me-creator-read-mutual?table=action_rating" -H "Authorization: Bearer $token_admin"
 
 #object create
-curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"Testing","title":"testing"}'
-curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"testing","title":"background"}'
+curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"TEsting","title":"testing"}'
+curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"TEsting","title":"background"}'
 curl -X POST "$baseurl/my/object-create?table=action_rating" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"parent_table":1,"parent_id":1,"rating":5.444}'
 curl -X POST "$baseurl/my/object-create?table=action_rating" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"parent_table":1,"parent_id":1,"rating":5.444}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"redis","title":"testing"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"redis","title":"testing"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"rabbitmq","title":"testing"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"lavinmq","title":"testing"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_atom" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"mongodb","title":"testing"}'
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":"testing","title":"public create"}'
-curl -X POST "$baseurl/root/object-create?table=test" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"type":"testing","title":"root create"}'
+curl -X POST "$baseurl/root/object-create?table=test" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"type":"TEsting","title":"root create"}'
 
 #object read
 curl -X GET "$baseurl/my/object-read?table=post" -H "Authorization: Bearer $token_admin"
@@ -91,7 +91,7 @@ curl -X DELETE "$baseurl/my/object-delete?table=action_comment&id=>,1" -H "Autho
 
 #ids
 curl -X PUT "$baseurl/my/ids-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":1}'
-curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":null}'
+curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"test","ids":"69,70,71","column":"type","value":"ATOM"}'
 curl -X DELETE "$baseurl/my/ids-delete" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"post","ids":"9,10,11"}'
 curl -X DELETE "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"post","ids":"15,16,17"}'
 
