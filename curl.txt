@@ -96,7 +96,6 @@ curl -X DELETE "$baseurl/my/ids-delete" -H "Authorization: Bearer $token_admin" 
 curl -X DELETE "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"post","ids":"15,16,17"}'
 
 #public
-curl -X GET "$baseurl/public/mission"
 curl -X GET "$baseurl/public/info"
 
 #otp
