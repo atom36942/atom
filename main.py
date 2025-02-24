@@ -1114,7 +1114,6 @@ async def auth_login_otp(request:Request):
 
 #my
 @app.get("/my/profile")
-@cache(expire=60)
 async def my_profile(request:Request,background:BackgroundTasks):
    column="*"
    query_param=dict(request.query_params)
