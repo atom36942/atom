@@ -1554,11 +1554,6 @@ async def admin_ids_delete(request:Request):
    return {"status":1,"message":"done"}
 
 #public
-@app.get("/public/mission")
-async def public_mission():
-   output=await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={})
-   return {"status":1,"message":output[0]["count"]}
-
 @app.get("/public/info")
 async def public_info(request:Request):
    global output_cache_info
@@ -1571,6 +1566,7 @@ async def public_info(request:Request):
       "redis":await redis_client.info(),
       "table_id":table_id,
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
+      "mission":await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={}),
       "human_work_profile":await postgres_client.fetch_all(query=query_human_work_profile,values={}),
       "human_skill":await postgres_client.fetch_all(query=query_human_skill,values={})
       }
