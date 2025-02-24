@@ -1560,6 +1560,8 @@ async def public_info(request:Request):
    if not output_cache_info or (time.time()-output_cache_info.get("set_at")>60):
       output_cache_info={
       "set_at":time.time(),
+      "users_api_access_count":len(users_api_access),
+      "users_is_active_count":len(users_is_active),
       "postgres_column_datatype":postgres_column_datatype,
       "postgres_schema":postgres_schema,
       "api_list":[route.path for route in request.app.routes],
