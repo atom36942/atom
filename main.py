@@ -759,8 +759,10 @@ async def middleware(request:Request,api_function):
       if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return error("Bearer token must")
       #token decode
       if token:
+         #root check
          if "root/" in api:
             if token!=key_root:return error("key root mismatch")
+         #non root check
          else:
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return error("user_id not in token")
