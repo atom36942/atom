@@ -1386,15 +1386,19 @@ async def private_human_read(request:Request):
    type,work_profile,skill=query_param.get("type"),query_param.get("work_profile"),query_param.get("skill")
    experience_min,experience_max=query_param.get("experience_min"),query_param.get("experience_max")
    rating_min,rating_max=query_param.get("rating_min"),query_param.get("rating_max")
+   #none conversion
+   if experience_min in [""]:experience_min=None
+   if experience_max in [""]:experience_max=None
+   if rating_min in [""]:rating_min=None
+   if rating_max in [""]:rating_max=None
+   if type in ["","%%"]:type=None
+   if work_profile in ["","%%"]:work_profile=None
+   if skill in ["","%%"]:skill=None
    #datatype conversion
    if experience_min:experience_min=float(experience_min)
    if experience_max:experience_max=float(experience_max)
    if rating_min:rating_min=float(rating_min)
    if rating_max:rating_max=float(rating_max)
-   #none conversion
-   if type in ["","%%"]:type=None
-   if work_profile in ["","%%"]:work_profile=None
-   if skill in ["","%%"]:skill=None
    #query set
    query=f'''
    select {column} from human 
