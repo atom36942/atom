@@ -1371,7 +1371,7 @@ async def private_object_read(request:Request):
    return response
 
 @app.get("/private/human-read")
-@cache(expire=60)
+@cache(expire=100)
 async def private_human_read(request:Request):
    #query param
    query_param=dict(request.query_params)
@@ -1398,17 +1398,16 @@ async def private_human_read(request:Request):
    query=f'''
    select {column} from human 
    where is_active=1 and
+   type ilike any(array['%jobseeker%','%intern%','%freelancer%','%consultant%']) and
+   (work_profile ilike :work_profile or :work_profile is null) and
+   (skill ilike :skill or :skill is null) and
    (experience >= :experience_min or :experience_min is null) and
    (experience <= :experience_max or :experience_max is null) and
    (rating >= :rating_min or :rating_min is null) and
-   (rating <= :rating_max or :rating_max is null) and
-   (type ilike :type or :type is null) and
-   (work_profile ilike :work_profile or :work_profile is null) and
-   (skill ilike :skill or :skill is null)
+   (rating <= :rating_max or :rating_max is null)
    order by {order} limit {limit} offset {(page-1)*limit};
    '''
    query_param={
-   "type":type,
    "work_profile":work_profile,
    "skill":skill,
    "experience_min":experience_min,"experience_max":experience_max,
