@@ -294,10 +294,10 @@ api_id={
 "/admin/ids-delete":4,
 "/admin/ids-update":5,
 }
-query_human_work_profile="select distinct(work_profile) from human where is_active=1 limit 100000;"
+query_human_work_profile="select distinct(trim(work_profile)) from human where is_active=1 limit 100000;"
 query_human_skill='''
 with 
-x as (select distinct trim(unnest(string_to_array(skill, ','))) as skill from human where is_active=1 and skill is not null)
+x as (select distinct(trim(unnest(string_to_array(skill, ',')))) as skill from human where is_active=1 and skill is not null)
 select skill from x limit 100000;
 '''
 postgres_config={
