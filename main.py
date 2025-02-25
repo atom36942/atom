@@ -1,6 +1,6 @@
 #function
 async def postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if not object_list:return {"status":0,"message":"object missing"}
+   if not object_list[0]:return {"status":0,"message":"object missing"}
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
@@ -36,7 +36,7 @@ async def postgres_read(table,object,postgres_client,postgres_column_datatype,ob
    return {"status":1,"message":object_list}
 
 async def postgres_update(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if not object_list:return {"status":0,"message":"object missing"}
+   if not object_list[0]:return {"status":0,"message":"object missing"}
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
@@ -50,7 +50,7 @@ async def postgres_update(table,object_list,is_serialize,postgres_client,postgre
    return {"status":1,"message":output}
 
 async def postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if not object_list:return {"status":0,"message":"object missing"}
+   if not object_list[0]:return {"status":0,"message":"object missing"}
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
@@ -1278,6 +1278,7 @@ async def my_object_create(request:Request):
    if table in ["spatial_ref_sys","users","otp","log_api","log_password"]:return error("table not allowed")
    object=await request.json()
    object["created_by_id"]=request.state.user["id"]
+   if len(object)<=1:return error ("object issue")
    for key,value in object.items():
       if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in column_disabled_non_admin:return error(f"{key} not allowed")
@@ -1420,6 +1421,8 @@ async def my_object_update(request:Request):
    if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
    object=await request.json()
    object["updated_by_id"]=request.state.user["id"]
+   if len(object)<=2:return error ("object issue")
+   if "id" not in object:return error ("id missing")
    for key,value in object.items():
       if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in ["password"] and len(object)!=3:return error("object length should be 2 only")
@@ -1447,6 +1450,8 @@ async def admin_object_update(request:Request):
    if table in ["spatial_ref_sys"]:return error("table not allowed")
    object=await request.json()
    object["updated_by_id"]=request.state.user["id"]
+   if len(object)<=2:return error ("object issue")
+   if "id" not in object:return error ("id missing")
    for key,value in object.items():
       if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in ["password"] and len(object)!=3:return error("object length should be 2 only")
@@ -1464,6 +1469,8 @@ async def root_object_update(request:Request):
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys"]:return error("table not allowed")
    object=await request.json()
+   if len(object)<=1:return error ("object issue")
+   if "id" not in object:return error ("id missing")
    for key,value in object.items():
       if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in ["password"] and len(object)!=2:return error("object length should be 2 only")
