@@ -182,15 +182,18 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
          if column_is_mandatory=="1" and is_null==1:await postgres_client.execute(query=f"alter table {table} alter column {column_name} set not null;",values={})
    #index
    postgres_schema=await postgres_schema_read(postgres_client)
+   index_name_list=[object["indexname"] for object in (await postgres_client.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
    for table,column_list in config["table"].items():
       for column in column_list:
          column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
-         index_name=f"index_{table}_{column_name}"
-         is_index=postgres_schema.get(table,{}).get(column_name,{}).get("is_index",None)
-         if column_index_type=="0" and is_index==1:await postgres_client.execute(query=f"drop index if exists {index_name};",values={})
-         if column_index_type!="0" and is_index==0:
-            if column_index_type=="gin":await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {column_index_type} ({column_name} gin_trgm_ops);",values={})
-            else:await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {column_index_type} ({column_name});",values={})
+         if column_index_type=="0":await postgres_client.execute(query=f"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname ILIKE 'index_{table}_{column_name}_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;",values={})
+         else:
+            index_type_list=column_index_type.split(",")
+            for index_type in index_type_list:
+               index_name=f"index_{table}_{column_name}_{index_type}"
+               if index_name not in index_name_list:
+                  if index_type=="gin":await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name} gin_trgm_ops);",values={})
+                  else:await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});",values={})
    #query
    constraint_name_list={object["constraint_name"].lower() for object in (await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
    for query in config["query"].values():
@@ -311,7 +314,7 @@ postgres_config={
 "is_protected-smallint-0-btree",
 "is_verified-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"type-text-0-gin",
+"type-text-0-gin,btree",
 "name-text-0-0",
 "email-text-0-0",
 "mobile-text-0-0",
@@ -535,7 +538,8 @@ postgres_config={
 "validation_is_deleted":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_deleted' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_validation_%I_is_deleted', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_deleted IN (0,1) OR is_deleted IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
 "validation_is_verified":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_verified' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_validation_%I_is_verified', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_verified IN (0,1) OR is_verified IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
 "validation_is_read":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_read' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_validation_%I_is_read', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_read IN (0,1) OR is_read IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
-"validation_users_username":"alter table users add constraint constraint_validation_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);"
+"validation_users_username":"alter table users add constraint constraint_validation_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
+"drop_all_index":"0 DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
 }
 }
 
