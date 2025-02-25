@@ -1387,13 +1387,14 @@ async def private_human_read(request:Request):
    experience_min,experience_max=query_param.get("experience_min"),query_param.get("experience_max")
    rating_min,rating_max=query_param.get("rating_min"),query_param.get("rating_max")
    #none conversion
-   if experience_min in [""]:experience_min=None
-   if experience_max in [""]:experience_max=None
-   if rating_min in [""]:rating_min=None
-   if rating_max in [""]:rating_max=None
-   if type in ["","%%"]:type=None
-   if work_profile in ["","%%"]:work_profile=None
-   if skill in ["","%%"]:skill=None
+   char_disabled=["","null","%%"]
+   if type in char_disabled:type=None
+   if work_profile in char_disabled:work_profile=None
+   if skill in char_disabled:skill=None
+   if experience_min in char_disabled:experience_min=None
+   if experience_max in char_disabled:experience_max=None
+   if rating_min in char_disabled:rating_min=None
+   if rating_max in char_disabled:rating_max=None
    #datatype conversion
    if experience_min:experience_min=float(experience_min)
    if experience_max:experience_max=float(experience_max)
