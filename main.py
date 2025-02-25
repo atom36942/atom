@@ -81,13 +81,13 @@ async def create_where_string(postgres_column_datatype,object_serialize,object):
    object={k:v for k,v in object.items() if k in postgres_column_datatype}
    object={k:v for k,v in object.items() if v is not None}
    object={k:v for k,v in object.items() if k not in ["metadata","location","table","order","limit","page"]}
-   object_key_operator={k:v.split(',',1)[0] for k,v in object.items()}
-   object_key_value={k:v.split(',',1)[1] for k,v in object.items()}
+   where_operator={k:v.split(',',1)[0] for k,v in object.items()}
+   where_value={k:v.split(',',1)[1] for k,v in object.items()}
    column_read_list=[*object]
-   where_column_single_list=[f"({column} {object_key_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
+   where_column_single_list=[f"({column} {where_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
    where_column_joined=' and '.join(where_column_single_list)
    where_string=f"where {where_column_joined}" if where_column_joined else ""
-   response=await object_serialize(postgres_column_datatype,[object_key_value])
+   response=await object_serialize(postgres_column_datatype,[where_value])
    if response["status"]==0:return response
    where_value=response["message"][0]
    return {"status":1,"message":[where_string,where_value]}
@@ -538,6 +538,8 @@ postgres_config={
 "validation_is_deleted":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_deleted' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_validation_%I_is_deleted', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_deleted IN (0,1) OR is_deleted IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
 "validation_is_verified":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_verified' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_validation_%I_is_verified', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_verified IN (0,1) OR is_verified IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
 "validation_is_read":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_read' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_validation_%I_is_read', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_read IN (0,1) OR is_read IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
+"validation_rating_1":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'rating' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_validation_%I_rating', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (rating BETWEEN 0 AND 10);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
+"validation_rating_2":"0 DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public' AND tablename IN (SELECT table_name FROM information_schema.columns WHERE column_name = 'rating')) LOOP EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS constraint_validation_%I_rating;', r.tablename, r.tablename); END LOOP; END $$;",
 "validation_users_username":"alter table users add constraint constraint_validation_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
 "drop_all_index":"0 DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
 }
@@ -890,7 +892,8 @@ async def root_db_uploader(request:Request):
    object_list=await file_to_object_list(body_form_file[-1])
    for index,object in enumerate(object_list):
       for key,value in object.items():
-         if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+         if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+         # elif key=="rating" and value is not None and not 0<=float(value)<=10:return error("rating should be between 0-10")
          elif key in column_lowercase:object_list[index][key]=value.strip().lower()
    if mode=="create":response=await postgres_create(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
    if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
@@ -1278,7 +1281,7 @@ async def my_object_create(request:Request):
    object["created_by_id"]=request.state.user["id"]
    if len(object)<=1:return error ("object issue")
    for key,value in object.items():
-      if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in column_disabled_non_admin:return error(f"{key} not allowed")
       elif key in column_lowercase:object[key]=value.strip().lower()
    if not queue:
@@ -1307,7 +1310,7 @@ async def public_object_create(request:Request):
    if table not in ["test","helpdesk","human"]:return error("table not allowed")
    object=await request.json()
    for key,value in object.items():
-      if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in column_disabled_non_admin:return error(f"{key} not allowed")
       elif key in column_lowercase:object[key]=value.strip().lower()
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
@@ -1323,7 +1326,7 @@ async def root_object_create(request:Request):
    if table in ["spatial_ref_sys"]:return error("table not allowed")
    object=await request.json()
    for key,value in object.items():
-      if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in column_lowercase:object[key]=value.strip().lower()
    if "password" in object:is_serialize=1
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
@@ -1402,7 +1405,7 @@ async def private_human_read(request:Request):
    query=f'''
    select {column} from human 
    where is_active=1 and
-   type ilike any(array['%jobseeker%','%intern%','%freelancer%','%consultant%']) and
+   type in ('jobseeker','intern','freelancer','consultant') and
    (work_profile ilike :work_profile or :work_profile is null) and
    (skill ilike :skill or :skill is null) and
    (experience >= :experience_min or :experience_min is null) and
@@ -1435,7 +1438,7 @@ async def my_object_update(request:Request):
    if len(object)<=2:return error ("object issue")
    if "id" not in object:return error ("id missing")
    for key,value in object.items():
-      if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in ["password"] and len(object)!=3:return error("object length should be 2 only")
       elif key in ["email","mobile"] and table=="users" and len(object)!=3:return error("object length should be 2 only")
       elif key in column_disabled_non_admin:return error(f"{key} not allowed")
@@ -1464,7 +1467,7 @@ async def admin_object_update(request:Request):
    if len(object)<=2:return error ("object issue")
    if "id" not in object:return error ("id missing")
    for key,value in object.items():
-      if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in ["password"] and len(object)!=3:return error("object length should be 2 only")
       elif key in column_lowercase:object[key]=value.strip().lower()
    if "password" in object:is_serialize=1
@@ -1483,7 +1486,7 @@ async def root_object_update(request:Request):
    if len(object)<=1:return error ("object issue")
    if "id" not in object:return error ("id missing")
    for key,value in object.items():
-      if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in ["password"] and len(object)!=2:return error("object length should be 2 only")
       elif key in column_lowercase:object[key]=value.strip().lower()
    if "password" in object:is_serialize=1
@@ -1515,7 +1518,7 @@ async def my_ids_update(request:Request):
    if table in ["spatial_ref_sys","users","otp","log_api","log_password"]:return error("table not allowed")
    object={column:value}
    for key,value in object.items():
-      if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in column_disabled_non_admin:return error(f"{key} not allowed")
       elif key in column_lowercase:object[key]=value.strip().lower()
    response=await object_serialize(postgres_column_datatype,[object])
@@ -1532,7 +1535,7 @@ async def admin_ids_update(request:Request):
    if table in ["spatial_ref_sys"]:return error("table not allowed")
    object={column:value}
    for key,value in object.items():
-      if key=="parent_table" and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
+      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
       elif key in column_lowercase:object[key]=value.strip().lower()
    response=await object_serialize(postgres_column_datatype,[object])
    if response["status"]==0:return response
