@@ -1379,24 +1379,31 @@ async def private_object_read(request:Request):
 @app.get("/private/human-read")
 @cache(expire=60)
 async def private_human_read(request:Request):
+   #query param
    query_param=dict(request.query_params)
    column=query_param.get("column","*")
    order,limit,page=query_param.get("order","id desc"),int(query_param.get("limit",100)),int(query_param.get("page",1))
-   type=query_param.get("type") if query_param.get("type") not in [None,"%%"] else None
-   work_profile=query_param.get("work_profile") if query_param.get("work_profile") not in [None,"%%"] else None
-   skill=query_param.get("skill") if query_param.get("skill") not in [None,"%%"] else None
-   experience_min=round(float(query_param.get("experience_min")),3) if query_param.get("experience_min") else None
-   experience_max=round(float(query_param.get("experience_max")),3) if query_param.get("experience_max") else None
-   rating_min=round(float(query_param.get("rating_min")),3) if query_param.get("rating_min") else None
-   rating_max=round(float(query_param.get("rating_max")),3) if query_param.get("rating_max") else None
+   type,work_profile,skill=query_param.get("type"),query_param.get("work_profile"),query_param.get("skill")
+   experience_min,experience_max=query_param.get("experience_min"),query_param.get("experience_max")
+   rating_min,rating_max=query_param.get("rating_min"),query_param.get("rating_max")
+   #datatype conversion
+   if experience_min:experience_min=float(experience_min)
+   if experience_max:experience_max=float(experience_max)
+   if rating_min:rating_min=float(rating_min)
+   if rating_max:rating_max=float(rating_max)
+   #none conversion
+   if type in ["","%%"]:type=None
+   if work_profile in ["","%%"]:work_profile=None
+   if skill in ["","%%"]:skill=None
+   #query set
    query=f'''
    select {column} from human 
    where is_active=1 and
-   (type ilike :type or :type is null) and
    (experience >= :experience_min or :experience_min is null) and
    (experience <= :experience_max or :experience_max is null) and
    (rating >= :rating_min or :rating_min is null) and
    (rating <= :rating_max or :rating_max is null) and
+   (type ilike :type or :type is null) and
    (work_profile ilike :work_profile or :work_profile is null) and
    (skill ilike :skill or :skill is null)
    order by {order} limit {limit} offset {(page-1)*limit};
@@ -1408,7 +1415,9 @@ async def private_human_read(request:Request):
    "experience_min":experience_min,"experience_max":experience_max,
    "rating_min":rating_min,"rating_max":rating_max,
    }
+   #query run
    output=await postgres_client.fetch_all(query=query,values=query_param)
+   #final
    return {"status":1,"message":output}
 
 #object update
