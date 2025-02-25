@@ -752,21 +752,17 @@ async def middleware(request:Request,api_function):
    query_param=dict(request.query_params)
    body=await request.body()
    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
+   #try
    try:
       #auth
       user={}
-      #token must
       if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return error("Bearer token must")
-      #token decode
       if token:
-         #root check
          if "root/" in api:
             if token!=key_root:return error("key root mismatch")
-         #non root check
          else:
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return error("user_id not in token")
-            #admin check
             if "admin/" in api:
                if not api_id.get(api):return error("api_id not mapped in backend")
                if user["id"] in users_api_access:
@@ -778,7 +774,6 @@ async def middleware(request:Request,api_function):
                   if not api_access_str:return error("api access denied")
                   user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
                   if api_id.get(api) not in user_api_access:return error("api access denied")
-            #is_active check
             for item in ["admin/","my/object-create","private/human-read"]:
                if item in api:
                   if user["id"] in users_is_active:
@@ -798,7 +793,6 @@ async def middleware(request:Request,api_function):
          response.background=BackgroundTask(api_function_new)
       #api response direct
       else:
-         #api response
          response=await api_function(request)
          #api log
          if postgres_schema.get("log_api"):
@@ -811,7 +805,7 @@ async def middleware(request:Request,api_function):
    #exception
    except Exception as e:
       print(traceback.format_exc())
-      return error(str(e.args))
+      response=error(str(e.args)) 
    #final
    return response
 
