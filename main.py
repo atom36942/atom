@@ -69,6 +69,7 @@ async def object_serialize(postgres_column_datatype,object_list):
          if not datatype:return {"status":0,"message":f"column {key} is not in postgres schema"}
          elif value==None:continue
          elif key in ["password","google_id","apple_id","facebook_id","github_id","twitter_id"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
+         elif datatype=="text" and value=="":object_list[index][key]=None
          elif datatype=="text":object_list[index][key]=value.strip()
          elif "int" in datatype:object_list[index][key]=int(value)
          elif datatype=="numeric":object_list[index][key]=round(float(value),3)
@@ -313,7 +314,7 @@ postgres_config={
 "is_active-smallint-0-btree",
 "is_protected-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"remark-text-0-gin",
+"remark-text-0-gin,btree",
 "rating-numeric(10,3)-0-btree",
 "type-text-0-gin,btree",
 "name-text-0-0",
@@ -924,6 +925,7 @@ async def root_db_checklist():
    await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
    await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
    await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
+   await postgres_client.execute(query="update human set remark=null where remark='';",values={})
    return {"status":1,"message":"done"}
 
 @app.put("/root/reset-global")
