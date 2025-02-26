@@ -55,17 +55,21 @@
                         <option value="intern">I need an internship</option>
                         <option value="freelancer">I need freelancing work</option>
                         <option value="consultant">I need consulting work</option>
-                        <option value="founder">I need startup related help</option>
+                        <option value="fundseeker">I need funding for my idea</option>
+                        <option value="techseeker">I need tech for my idea</option>
                         <option value="other">Others</option>
                     </select>
                 </div>
                 <input type="text" name="name" placeholder="name" minlength="3" maxlength="50" required>
-                <input type="text" name="email" placeholder="email" required>
-                <input type="text" name="mobile" placeholder="mobile">
                 <input type="text" name="city" placeholder="city" required>
+                <input type="text" name="email" placeholder="email" required>
+                <input type="text" name="mobile" placeholder="mobile (optional)">
+                <input type="text" name="linkedin_url" placeholder="linkedin url (optional)">
+                <input type="text" name="resume_url" placeholder="resume url (optional)">
+                <input type="text" name="portfolio_url" placeholder="portfolio url (optional)">
+                <input type="text" name="website_url" placeholder="website url (optional)">
                 <input type="text" name="work_profile" placeholder="work profile (ex. product manager)" required>
-                <input type="number" name="experience" placeholder="experience in years (ex. 3, 3.5)" step="0.1" min="0" max="100">
-                <textarea name="link_url" placeholder="link separated by comma if multiple (ex. resume, linkedin, github etc)" rows="5"></textarea>
+                <input type="number" name="experience" placeholder="experience in years (ex. 3, 3.5)" step="0.1" min="0" max="100" required>
                 <textarea name="skill" placeholder="core work skills separated by comma (ex. python, sql,etc)" rows="5" required></textarea>
                 <textarea name="description" placeholder="write about your profile/need (max 5000 characters)" rows="10" minlength="3" maxlength="5000" required></textarea>
                 <button type="submit" class="submit-button">Submit</button>
