@@ -61,6 +61,14 @@ async def postgres_delete(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return {"status":1,"message":output}
 
+async def object_check(table_id,column_lowercase,object_list):
+   for index,object in enumerate(object_list):
+      for key,value in object.items():
+         if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
+         # elif key=="rating" and value is not None and not 0<=float(value)<=10:return {"status":0,"message":"rating should be between 1-10"}
+         elif key in column_lowercase:object_list[index][key]=value.strip().lower()
+   return {"status":1,"message":object_list}
+
 import hashlib,datetime,json
 async def object_serialize(postgres_column_datatype,object_list):
    for index,object in enumerate(object_list):
@@ -139,6 +147,46 @@ async def verify_otp(postgres_client,otp,email,mobile):
    if mobile:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
    if not output:return {"status":0,"message":"otp not found"}
    if int(output[0]["otp"])!=int(otp):return {"status":0,"message":"otp mismatch"}
+   return {"status":1,"message":"done"}
+
+import json,jwt
+async def auth_check(request,key_root,key_jwt):
+   user={}
+   api=request.url.path
+   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
+   token_decode=lambda t:json.loads(jwt.decode(t,key_jwt,algorithms="HS256")["data"])
+   if "root/" in api and token!=key_root:return {"status":0,"message":"root token mismatch"}
+   elif "my/" in api:user=token_decode(token)
+   elif "private/" in api:user=token_decode(token)
+   elif "admin/" in api:user=token_decode(token)
+   return {"status":1,"message":user}
+
+async def admin_check(user,api,api_id,users_api_access,postgres_client):
+   if "admin/" not in api:return {"status":1,"message":"not needed"}
+   if not api_id.get(api):return {"status":0,"message":"api_id not mapped in backend"}
+   api_id_value=api_id.get(api)
+   user_api_access=users_api_access.get(user["id"],"absent")
+   if user_api_access!="absent":
+      if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
+   else:
+      output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user["id"]})
+      if not output:return {"status":0,"message":"user not found"}
+      api_access_str=output[0]["api_access"]
+      if not api_access_str:return {"status":0,"message":"api access denied"}
+      user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
+      if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
+   return {"status":1,"message":"done"}
+
+async def is_active_check(user,api,api_is_active_check,users_is_active,postgres_client):
+   for item in api_is_active_check:
+      if item in api:
+         user_is_active=users_is_active.get(user["id"],"absent")
+         if user_is_active!="absent":
+            if user_is_active==0:return {"status":0,"message":"you are not active"}
+         else:
+            output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
+            if not output:return {"status":0,"message":"user not found"}
+            if output[0]["is_active"]==0:return {"status":0,"message":"you are not active"}
    return {"status":1,"message":"done"}
 
 import uuid
@@ -291,6 +339,7 @@ object_list_log_api=[]
 output_cache_info={}
 column_disabled_non_admin=["is_active","is_verified","api_access"]
 column_lowercase=["type","tag","status","email","mobile","country","state","city","work_profile","skill"]
+api_is_active_check=["admin/","my/object-create","private/human-read"]
 api_id={
 "/admin/db-runner":1,
 "/admin/object-update":2,
@@ -756,43 +805,20 @@ import time,traceback
 from starlette.background import BackgroundTask
 @app.middleware("http")
 async def middleware(request:Request,api_function):
-   start=time.time()
-   method=request.method
-   api=request.url.path
-   query_param=dict(request.query_params)
-   body=await request.body()
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-   #try
    try:
-      #auth
-      user={}
-      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return error("Bearer token must")
-      if token:
-         if "root/" in api:
-            if token!=key_root:return error("key root mismatch")
-         else:
-            user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
-            if not user.get("id",None):return error("user_id not in token")
-            if "admin/" in api:
-               if not api_id.get(api):return error("api_id not mapped in backend")
-               if user["id"] in users_api_access:
-                  if api_id.get(api) not in users_api_access[user["id"]]:return error("api access denied")
-               else:
-                  output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user["id"]})
-                  if not output:return error("user not found")
-                  api_access_str=output[0]["api_access"]
-                  if not api_access_str:return error("api access denied")
-                  user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
-                  if api_id.get(api) not in user_api_access:return error("api access denied")
-            for item in ["admin/","my/object-create","private/human-read"]:
-               if item in api:
-                  if user["id"] in users_is_active:
-                     if users_is_active[user["id"]]==0:return error ("you are not active")
-                  else:
-                     output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
-                     if not output:return error("user not found")
-                     if output[0]["is_active"]==0:return error ("you are not active")
+      start=time.time()
+      method=request.method
+      api=request.url.path
+      query_param=dict(request.query_params)
+      body=await request.body()
+      response=await auth_check(request,key_root,key_jwt)
+      if response["status"]==0:return error(response["message"])
+      user=response["message"]
       request.state.user=user
+      response=await admin_check(user,api,api_id,users_api_access,postgres_client)
+      if response["status"]==0:return error(response["message"])
+      response=await is_active_check(user,api,api_is_active_check,users_is_active,postgres_client)
+      if response["status"]==0:return error(response["message"])
       #api response background
       if query_param.get("is_background",None)=="1":
          async def receive():return {"type":"http.request","body":body}
@@ -894,11 +920,9 @@ async def root_db_uploader(request:Request):
    if not mode or not table:return error("body form mode/table missing")
    if not body_form_file:return error("body form file missing")
    object_list=await file_to_object_list(body_form_file[-1])
-   for index,object in enumerate(object_list):
-      for key,value in object.items():
-         if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-         # elif key=="rating" and value is not None and not 0<=float(value)<=10:return error("rating should be between 0-10")
-         elif key in column_lowercase:object_list[index][key]=value.strip().lower()
+   response=await object_check(table_id,column_lowercase,object_list)
+   if response["status"]==0:return error(response["message"])
+   object_list=response["message"]
    if mode=="create":response=await postgres_create(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
    if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
    if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
@@ -1285,10 +1309,11 @@ async def my_object_create(request:Request):
    object=await request.json()
    object["created_by_id"]=request.state.user["id"]
    if len(object)<=1:return error ("object issue")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
    for key,value in object.items():
-      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-      elif key in column_disabled_non_admin:return error(f"{key} not allowed")
-      elif key in column_lowercase:object[key]=value.strip().lower()
+      if key in column_disabled_non_admin:return error(f"{key} not allowed")
    if not queue:
       response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
       if response["status"]==0:return error(response["message"])
@@ -1314,10 +1339,11 @@ async def public_object_create(request:Request):
    if not table:return error("query param table missing")
    if table not in ["test","helpdesk","human"]:return error("table not allowed")
    object=await request.json()
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
    for key,value in object.items():
-      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-      elif key in column_disabled_non_admin:return error(f"{key} not allowed")
-      elif key in column_lowercase:object[key]=value.strip().lower()
+      if key in column_disabled_non_admin:return error(f"{key} not allowed")
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    return response
@@ -1330,9 +1356,11 @@ async def root_object_create(request:Request):
    if not table:return error("query param table missing")
    if table in ["spatial_ref_sys"]:return error("table not allowed")
    object=await request.json()
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
    for key,value in object.items():
-      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-      elif key in column_lowercase:object[key]=value.strip().lower()
+      if key in column_lowercase:object[key]=value.strip().lower()
    if "password" in object:is_serialize=1
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
@@ -1442,13 +1470,15 @@ async def my_object_update(request:Request):
    object["updated_by_id"]=request.state.user["id"]
    if len(object)<=2:return error ("object issue")
    if "id" not in object:return error ("id missing")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
    for key,value in object.items():
-      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-      elif key in ["password"] and len(object)!=3:return error("object length should be 2 only")
-      elif key in ["email","mobile"] and table=="users" and len(object)!=3:return error("object length should be 2 only")
-      elif key in column_disabled_non_admin:return error(f"{key} not allowed")
-      elif key in column_lowercase:object[key]=value.strip().lower()
+      if key in column_disabled_non_admin:return error(f"{key} not allowed")
    if "password" in object:is_serialize=1
+   if "password" in object and len(object)!=3:return error("object length should be 2 only")
+   if "email" in object and table=="users" and len(object)!=3:return error("object length should be 2 only")
+   if "mobile" in object and table=="users" and len(object)!=3:return error("object length should be 2 only")
    response=await ownership_check(postgres_client,table,int(object["id"]),request.state.user["id"])
    if response["status"]==0:return error(response["message"])
    email,mobile=object.get("email",None),object.get("mobile",None)
@@ -1471,10 +1501,10 @@ async def admin_object_update(request:Request):
    object["updated_by_id"]=request.state.user["id"]
    if len(object)<=2:return error ("object issue")
    if "id" not in object:return error ("id missing")
-   for key,value in object.items():
-      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-      elif key in ["password"] and len(object)!=3:return error("object length should be 2 only")
-      elif key in column_lowercase:object[key]=value.strip().lower()
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   if "password" in object and len(object)!=3:return error("object length should be 2 only")
    if "password" in object:is_serialize=1
    response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
@@ -1490,10 +1520,10 @@ async def root_object_update(request:Request):
    object=await request.json()
    if len(object)<=1:return error ("object issue")
    if "id" not in object:return error ("id missing")
-   for key,value in object.items():
-      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-      elif key in ["password"] and len(object)!=2:return error("object length should be 2 only")
-      elif key in column_lowercase:object[key]=value.strip().lower()
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   if "password" in object and len(object)!=2:return error("object length should be 2 only")
    if "password" in object:is_serialize=1
    response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
@@ -1522,10 +1552,11 @@ async def my_ids_update(request:Request):
    if not table or not ids or not column:return error("body json table/ids/column must")
    if table in ["spatial_ref_sys","users","otp","log_api","log_password"]:return error("table not allowed")
    object={column:value}
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
    for key,value in object.items():
-      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-      elif key in column_disabled_non_admin:return error(f"{key} not allowed")
-      elif key in column_lowercase:object[key]=value.strip().lower()
+      if key in column_disabled_non_admin:return error(f"{key} not allowed")
    response=await object_serialize(postgres_column_datatype,[object])
    if response["status"]==0:return response
    object=response["message"][0]
@@ -1539,9 +1570,9 @@ async def admin_ids_update(request:Request):
    if not table or not ids or not column:return error("body json table/ids/column must")
    if table in ["spatial_ref_sys"]:return error("table not allowed")
    object={column:value}
-   for key,value in object.items():
-      if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return error("parent_table id mismatch")
-      elif key in column_lowercase:object[key]=value.strip().lower()
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
    response=await object_serialize(postgres_column_datatype,[object])
    if response["status"]==0:return response
    object=response["message"][0]

@@ -76,7 +76,7 @@ curl -X GET "$baseurl/public/object-read?table=post&location_filter=100.2321,213
 curl -X GET "$baseurl/admin/object-read?table=post" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/private/object-read?table=human" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/private/object-read?table=human&column=id,mobile,rating" -H "Authorization: Bearer $token_admin"
-curl -X GET "$baseurl/private/human-read?type=job&work_profile=backend" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/private/human-read" -H "Authorization: Bearer $token_admin"
 
 #object update
 curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":$test_id,"title":"my update"}'
