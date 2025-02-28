@@ -161,32 +161,31 @@ async def auth_check(request,key_root,key_jwt):
    elif "admin/" in api:user=token_decode(token)
    return {"status":1,"message":user}
 
-async def admin_check(user,api,api_id,users_api_access,postgres_client):
+async def admin_check(user,request,api_id,users_api_access,postgres_client):
    if "admin/" not in api:return {"status":1,"message":"not needed"}
+   api=request.url.path
    if not api_id.get(api):return {"status":0,"message":"api_id not mapped in backend"}
    api_id_value=api_id.get(api)
    user_api_access=users_api_access.get(user["id"],"absent")
-   if user_api_access!="absent":
-      if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
-   else:
+   if user_api_access=="absent":
       output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user["id"]})
       if not output:return {"status":0,"message":"user not found"}
       api_access_str=output[0]["api_access"]
       if not api_access_str:return {"status":0,"message":"api access denied"}
       user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
-      if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
+   if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
    return {"status":1,"message":"done"}
 
-async def is_active_check(user,api,api_is_active_check,users_is_active,postgres_client):
+async def is_active_check(user,request,api_is_active_check,users_is_active,postgres_client):
+   api=request.url.path
    for item in api_is_active_check:
       if item in api:
          user_is_active=users_is_active.get(user["id"],"absent")
-         if user_is_active!="absent":
-            if user_is_active==0:return {"status":0,"message":"you are not active"}
-         else:
+         if user_is_active=="absent":
             output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
             if not output:return {"status":0,"message":"user not found"}
-            if output[0]["is_active"]==0:return {"status":0,"message":"you are not active"}
+            user_is_active=output[0]["is_active"]
+         if user_is_active==0:return {"status":0,"message":"you are not active"}
    return {"status":1,"message":"done"}
 
 import uuid
@@ -339,7 +338,6 @@ object_list_log_api=[]
 output_cache_info={}
 column_disabled_non_admin=["is_active","is_verified","api_access"]
 column_lowercase=["type","tag","status","email","mobile","country","state","city","work_profile","skill"]
-api_is_active_check=["admin/","my/object-create","private/human-read"]
 api_id={
 "/admin/db-runner":1,
 "/admin/object-update":2,
@@ -367,6 +365,7 @@ postgres_config={
 "rating-numeric(10,3)-0-btree",
 "type-text-0-gin,btree",
 "name-text-0-0",
+"gender-text-0-0",
 "email-text-0-0",
 "mobile-text-0-0",
 "country-text-0-0",
@@ -503,7 +502,8 @@ postgres_config={
 "query_param-text-0-0",
 "status_code-smallint-0-0",
 "response_time_ms-numeric(1000,3)-0-0",
-"is_deleted-smallint-0-btree"
+"is_deleted-smallint-0-btree",
+"description-text-0-0"
 ],
 "log_password":[
 "created_at-timestamptz-1-0",
@@ -799,50 +799,87 @@ app=FastAPI(lifespan=lifespan)
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
 
+from fastapi import responses
+from starlette.background import BackgroundTask
+async def add_api_background(request,api_function):
+   response=None
+   query_param=dict(request.query_params)
+   if query_param.get("is_background",None)=="1":
+      body=await request.body()
+      async def receive():return {"type":"http.request","body":body}
+      async def api_function_new():
+         request_new=Request(scope=request.scope,receive=receive)
+         await api_function(request_new)
+      response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
+      response.background=BackgroundTask(api_function_new)
+   return response
+
 #middleware
 from fastapi import Request,responses
 import time,traceback
 from starlette.background import BackgroundTask
 @app.middleware("http")
 async def middleware(request:Request,api_function):
+   start=time.time()
+   global object_list_log_api
+   method=request.method
+   api=request.url.path
+   query_param=dict(request.query_params)
+   body=await request.body()
+   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
+   user={}
+   error_text=None
+   #try
    try:
-      start=time.time()
-      method=request.method
-      api=request.url.path
-      query_param=dict(request.query_params)
-      body=await request.body()
-      response=await auth_check(request,key_root,key_jwt)
-      if response["status"]==0:return error(response["message"])
-      user=response["message"]
+      #auth
+      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return error("Bearer token must")
+      if token:
+         if "root/" in api:
+            if token!=key_root:return error("key root mismatch")
+         else:
+            user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
+            if not user.get("id",None):return error("user_id not in token")
+            if "admin/" in api:
+               if not api_id.get(api):return error("api_id not mapped in backend")
+               api_id_value=api_id.get(api)
+               user_api_access=users_api_access.get(user["id"],"absent")
+               if user_api_access=="absent":
+                  output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user["id"]})
+                  if not output:return error("user not found")
+                  api_access_str=output[0]["api_access"]
+                  if not api_access_str:return error("api access denied")
+                  user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
+               if api_id_value not in user_api_access:return error("api access denied") 
+            for item in ["admin/","my/object-create","private/human-read"]:
+               if item in api:
+                  user_is_active=users_is_active.get(user["id"],"absent")
+                  if user_is_active=="absent":
+                     output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
+                     if not output:return error("user not found")
+                     user_is_active=output[0]["is_active"]
+                  if user_is_active==0:return error ("user not active")
       request.state.user=user
-      response=await admin_check(user,api,api_id,users_api_access,postgres_client)
-      if response["status"]==0:return error(response["message"])
-      response=await is_active_check(user,api,api_is_active_check,users_is_active,postgres_client)
-      if response["status"]==0:return error(response["message"])
-      #api response background
-      if query_param.get("is_background",None)=="1":
+      #api response
+      if query_param.get("is_background")=="1":
          async def receive():return {"type":"http.request","body":body}
          async def api_function_new():
             request_new=Request(scope=request.scope,receive=receive)
             await api_function(request_new)
          response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
          response.background=BackgroundTask(api_function_new)
-      #api response direct
-      else:
-         response=await api_function(request)
-         #api log
-         if postgres_schema.get("log_api"):
-            global object_list_log_api
-            object={"created_by_id":user.get("id",None),"method":method,"api":api,"query_param":json.dumps(query_param),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
-            object_list_log_api.append(object)
-            if len(object_list_log_api)>=log_api_reset_count:
-               response.background=BackgroundTask(postgres_create,"log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
-               object_list_log_api=[]
+      else:response=await api_function(request) 
    #exception
    except Exception as e:
       print(traceback.format_exc())
-      response=error(str(e.args)) 
+      error_text=str(e.args)
+      response=error(error_text)
    #final
+   response_time_ms=(time.time()-start)*1000
+   object={"created_by_id":user.get("id",None),"method":method,"api":api,"query_param":json.dumps(query_param),"status_code":response.status_code,"response_time_ms":response_time_ms,"description":error_text}
+   object_list_log_api.append(object)
+   if postgres_schema.get("log_api") and len(object_list_log_api)>=log_api_reset_count and not query_param.get("is_background"):
+      response.background=BackgroundTask(postgres_create,"log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
+      object_list_log_api=[]
    return response
 
 #router
@@ -945,10 +982,10 @@ async def root_db_clean():
 
 @app.put("/root/db-checklist")
 async def root_db_checklist():
+   await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
    await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
    await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
    await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
-   await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
    await postgres_client.execute(query="update human set remark=null where remark='';",values={})
    return {"status":1,"message":"done"}
 
