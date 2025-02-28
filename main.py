@@ -784,6 +784,7 @@ async def lifespan(app:FastAPI):
    await set_kafka_client()
    if redis_client:await FastAPILimiter.init(redis_client)
    if redis_client_valkey:FastAPICache.init(RedisBackend(redis_client_valkey),key_builder=redis_key_builder)
+   else:FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
    yield
    try:
       await postgres_client.disconnect()
