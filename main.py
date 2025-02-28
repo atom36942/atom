@@ -309,6 +309,7 @@ from dotenv import load_dotenv
 load_dotenv()
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
+redis_server_url_valkey=os.getenv("redis_server_url_valkey")
 key_root=os.getenv("key_root")
 key_jwt=os.getenv("key_jwt")
 sentry_dsn=os.getenv("sentry_dsn")
@@ -335,7 +336,7 @@ is_signup=int(os.getenv("is_signup",0))
 
 #globals
 object_list_log_api=[]
-output_cache_info={}
+api_cache={}
 column_disabled_non_admin=["is_active","is_verified","api_access"]
 column_lowercase=["type","tag","status","email","mobile","country","state","city","work_profile","skill"]
 api_id={
@@ -603,7 +604,7 @@ postgres_client=None
 from databases import Database
 async def set_postgres_client():
    global postgres_client
-   postgres_client=Database(os.getenv("postgres_database_url"),min_size=1,max_size=100)
+   postgres_client=Database(postgres_database_url,min_size=1,max_size=100)
    await postgres_client.connect()
    return None
 
@@ -655,13 +656,16 @@ async def set_project_data():
    return None
 
 redis_client=None
+redis_client_valkey=None
 redis_pubsub=None
 import redis.asyncio as redis
 async def set_redis_client():
    global redis_client
+   global redis_client_valkey
    global redis_pubsub
-   if redis_server_url:
-      redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(os.getenv("redis_server_url")))
+   if redis_server_url:redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_server_url))
+   if redis_server_url_valkey:redis_client_valkey=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_server_url_valkey))
+   if redis_client:
       redis_pubsub=redis_client.pubsub()
       await redis_pubsub.subscribe(channel_name)
    return None
@@ -706,7 +710,7 @@ async def set_rabbitmq_client():
    global rabbitmq_client
    global rabbitmq_channel
    if rabbitmq_server_url:
-      rabbitmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("rabbitmq_server_url")))
+      rabbitmq_client=pika.BlockingConnection(pika.URLParameters(rabbitmq_server_url))
       rabbitmq_channel=rabbitmq_client.channel()
       rabbitmq_channel.queue_declare(queue=channel_name)
    return None
@@ -718,7 +722,7 @@ async def set_lavinmq_client():
    global lavinmq_client
    global lavinmq_channel
    if lavinmq_server_url:
-      lavinmq_client=pika.BlockingConnection(pika.URLParameters(os.getenv("lavinmq_server_url")))
+      lavinmq_client=pika.BlockingConnection(pika.URLParameters(lavinmq_server_url))
       lavinmq_channel=lavinmq_client.channel()
       lavinmq_channel.queue_declare(queue=channel_name)
    return None
@@ -732,9 +736,9 @@ async def set_kafka_client():
    global kafka_producer_client
    global kafka_consumer_client
    if kafka_server_url:
-      context=create_ssl_context(cafile=os.getenv("kafka_path_cafile"),certfile=os.getenv("kafka_path_certfile"),keyfile=os.getenv("kafka_path_keyfile"))
-      kafka_producer_client=AIOKafkaProducer(bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=context)
-      kafka_consumer_client=AIOKafkaConsumer(channel_name,bootstrap_servers=os.getenv("kafka_server_url"),security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+      context=create_ssl_context(cafile=kafka_path_cafile,certfile=kafka_path_certfile,keyfile=kafka_path_keyfile)
+      kafka_producer_client=AIOKafkaProducer(bootstrap_servers=kafka_server_url,security_protocol="SSL",ssl_context=context)
+      kafka_consumer_client=AIOKafkaConsumer(channel_name,bootstrap_servers=kafka_server_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
       await kafka_producer_client.start()
       await kafka_consumer_client.start()
    return None
@@ -746,14 +750,15 @@ if sentry_dsn:
 
 #redis key builder
 from fastapi import Request,Response
-import jwt,json
+import jwt,json,hashlib
 def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Response=None,**kwargs):
    api=request.url.path
-   query_param=str(dict(sorted(request.query_params.items())))
+   query_param_sorted=str(dict(sorted(request.query_params.items())))
    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
    user_id=0
-   if token and "my/" in api:user_id=json.loads(jwt.decode(token,os.getenv("key_jwt"),algorithms="HS256")["data"])["id"]
-   key=f"{api}---{query_param}---{str(user_id)}"
+   if token and "my/" in api:user_id=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])["id"]
+   key=f"{api}---{query_param_sorted}---{str(user_id)}".lower()
+   if False:key=hashlib.sha256(str(key).encode()).hexdigest()
    return key
 
 #lifespan
@@ -777,18 +782,18 @@ async def lifespan(app:FastAPI):
    await set_rabbitmq_client()
    await set_lavinmq_client()
    await set_kafka_client()
-   if redis_server_url:
-      await FastAPILimiter.init(redis_client)
-      FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
+   if redis_client:await FastAPILimiter.init(redis_client)
+   if redis_client_valkey:FastAPICache.init(RedisBackend(redis_client_valkey),key_builder=redis_key_builder)
    yield
    try:
       await postgres_client.disconnect()
-      if redis_server_url:await redis_client.aclose()
-      if rabbitmq_server_url and rabbitmq_channel.is_open:rabbitmq_channel.close()
-      if rabbitmq_server_url and rabbitmq_client.is_open:rabbitmq_client.close()
-      if lavinmq_server_url and lavinmq_channel.is_open:lavinmq_channel.close()
-      if lavinmq_server_url and lavinmq_client.is_open:lavinmq_client.close()
-      if kafka_server_url:await kafka_producer_client.stop()
+      if redis_client:await redis_client.aclose()
+      if redis_client_valkey:await redis_client_valkey.aclose()
+      if rabbitmq_client and rabbitmq_channel.is_open:rabbitmq_channel.close()
+      if rabbitmq_client and rabbitmq_client.is_open:rabbitmq_client.close()
+      if lavinmq_client and lavinmq_channel.is_open:lavinmq_channel.close()
+      if lavinmq_client and lavinmq_client.is_open:lavinmq_client.close()
+      if kafka_producer_client:await kafka_producer_client.stop()
    except Exception as e:print(e.args)
 
 #app
@@ -1637,11 +1642,14 @@ async def admin_ids_delete(request:Request):
    return {"status":1,"message":"done"}
 
 #public
+output_cache_public_info={}
 @app.get("/public/info")
 async def public_info(request:Request):
-   global output_cache_info
-   if not output_cache_info or (time.time()-output_cache_info.get("set_at")>60):
-      output_cache_info={
+   global output_cache_public_info
+   if output_cache_public_info and (time.time()-output_cache_public_info.get("set_at")<=100):
+      output=output_cache_public_info.get("output")
+   else:
+      output={
       "set_at":time.time(),
       "users_api_access_count":len(users_api_access),
       "users_is_active_count":len(users_is_active),
@@ -1655,7 +1663,9 @@ async def public_info(request:Request):
       "human_work_profile":await postgres_client.fetch_all(query=query_human_work_profile,values={}),
       "human_skill":await postgres_client.fetch_all(query=query_human_skill,values={})
       }
-   return {"status":1,"message":output_cache_info}
+      output_cache_public_info["set_at"]=time.time()
+      output_cache_public_info["output"]=output
+   return {"status":1,"message":output}
 
 #otp
 @app.post("/public/otp-send-sns")
