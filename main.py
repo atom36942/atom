@@ -66,6 +66,9 @@ async def object_check(table_id,column_lowercase,object_list):
       for key,value in object.items():
          if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
          # elif key=="rating" and value is not None and not 0<=float(value)<=10:return {"status":0,"message":"rating should be between 1-10"}
+         elif key in ["tag","skill"] and value:
+            for item in value.split(","):
+               if len(item)>50:return {"status":0,"message":f"{key} each value length exceeded"}
          elif key in column_lowercase:object_list[index][key]=value.strip().lower()
    return {"status":1,"message":object_list}
 
