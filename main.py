@@ -126,8 +126,7 @@ async def add_action_count(postgres_client,action_table,object_list,object_table
    parent_ids_string=",".join(parent_ids_list)
    if parent_ids_string:
       query=f"select parent_id,count(*) from {action_table} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
-      query_param={"parent_table":object_table_id}
-      object_list_action=await postgres_client.fetch_all(query=query,values=query_param)
+      object_list_action=await postgres_client.fetch_all(query=query,values={"parent_table":object_table_id})
       for x in object_list:
          for y in object_list_action:
                if x["id"]==y["parent_id"]:
@@ -350,7 +349,9 @@ api_id={
 "/admin/ids-delete":4,
 "/admin/ids-update":5,
 }
-query_human_work_profile="select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') limit 100000;"
+query_human_work_profile='''
+select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') limit 100000;
+'''
 query_human_skill='''
 with 
 x as (select distinct(trim(unnest(string_to_array(skill, ',')))) as skill from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') and skill is not null)
@@ -813,8 +814,7 @@ from fastapi import responses
 from starlette.background import BackgroundTask
 async def add_api_background(request,api_function):
    response=None
-   query_param=dict(request.query_params)
-   if query_param.get("is_background",None)=="1":
+   if request.query_params.get("is_background",None)=="1":
       body=await request.body()
       async def receive():return {"type":"http.request","body":body}
       async def api_function_new():
@@ -832,10 +832,7 @@ from starlette.background import BackgroundTask
 async def middleware(request:Request,api_function):
    start=time.time()
    global object_list_log_api
-   method=request.method
    api=request.url.path
-   query_param=dict(request.query_params)
-   body=await request.body()
    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
    user={}
    error_text=None
@@ -870,7 +867,8 @@ async def middleware(request:Request,api_function):
                   if user_is_active==0:return error ("user not active")
       request.state.user=user
       #api response
-      if query_param.get("is_background")=="1":
+      if request.query_params.get("is_background")=="1":
+         body=await request.body()
          async def receive():return {"type":"http.request","body":body}
          async def api_function_new():
             request_new=Request(scope=request.scope,receive=receive)
@@ -885,9 +883,9 @@ async def middleware(request:Request,api_function):
       response=error(error_text)
    #final
    response_time_ms=(time.time()-start)*1000
-   object={"created_by_id":user.get("id",None),"method":method,"api":api,"query_param":json.dumps(query_param),"status_code":response.status_code,"response_time_ms":response_time_ms,"description":error_text}
+   object={"created_by_id":user.get("id",None),"method":request.method,"api":api,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":response_time_ms,"description":error_text}
    object_list_log_api.append(object)
-   if postgres_schema.get("log_api") and len(object_list_log_api)>=log_api_reset_count and not query_param.get("is_background"):
+   if postgres_schema.get("log_api") and len(object_list_log_api)>=log_api_reset_count and request.query_params.get("is_background")!="1":
       response.background=BackgroundTask(postgres_create,"log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
       object_list_log_api=[]
    return response
@@ -913,50 +911,59 @@ from fastapi_limiter.depends import RateLimiter
 #index
 @app.get("/")
 async def root():
-   response={"status":1,"message":"welcome to atom"}
    if is_index_html==1:response=responses.FileResponse("index.html")
+   else:response={"status":1,"message":"welcome to atom"}
    return response
 
 #db init
 @app.post("/root/db-init")
 async def root_db_init(request:Request):
-   query_param=dict(request.query_params)
-   mode=query_param.get("mode",None)
+   #param
+   mode=request.query_params.get("mode")
    if not mode:return error("mode missing")
+   #config set
    if mode=="default":config=postgres_config
    if mode=="custom":config=await request.json()
+   #logic
    response=await postgres_schema_init(postgres_client,postgres_schema_read,config)
    await set_postgres_schema()
+   #final
    return response
-
+   
 #db runner
 @app.post("/root/db-runner")
 async def root_db_runner(request:Request):
-   body_json=await request.json()
-   query=body_json.get("query",None)
-   if not query:return error("body json query missing")
+   #param
+   query=(await request.json()).get("query")
+   if not query:return error("query missing")
+   #check
    stop_word=["drop","truncate"]
    for item in stop_word:
        if item in query.lower():return error(f"{item} keyword not allowed in query")
+   #logic
    output=[]
    async with postgres_client.transaction():
       for query in query.split("---"):
          result=await postgres_client.fetch_all(query=query,values={})
          output.append(result)
+   #final
    return {"status":1,"message":output}
 
 @app.post("/admin/db-runner")
 async def admin_db_runner(request:Request):
-   body_json=await request.json()
-   query=body_json.get("query",None)
-   if not query:return error("body json query missing")
+   #param
+   query=(await request.json()).get("query")
+   if not query:return error("query missing")
+   #check
    must_word=["select"]
    stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
    for item in must_word:
       if item not in query.lower():return error(f"{item} keyword must be present in query")
    for item in stop_word:
        if item in query.lower():return error(f"{item} keyword not allowed in query")
+   #logic
    output=await postgres_client.fetch_all(query=query,values={})
+   #final
    return {"status":1,"message":output}
 
 #db uploader
