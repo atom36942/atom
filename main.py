@@ -336,6 +336,7 @@ is_signup=int(os.getenv("is_signup",0))
 
 #globals
 object_list_log_api=[]
+output_cache_public_info={}
 api_cache={}
 column_disabled_non_admin=["is_active","is_verified","api_access"]
 column_lowercase=["type","tag","status","email","mobile","country","state","city","work_profile","skill"]
@@ -1643,7 +1644,6 @@ async def admin_ids_delete(request:Request):
    return {"status":1,"message":"done"}
 
 #public
-output_cache_public_info={}
 @app.get("/public/info")
 async def public_info(request:Request):
    global output_cache_public_info
