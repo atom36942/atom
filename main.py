@@ -1,67 +1,91 @@
 #function
 async def postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
+   #check
    if not object_list[0]:return {"status":0,"message":"object missing"}
+   #serialize
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
       object_list=response["message"]
+   #logic
    column_insert_list=list(object_list[0].keys())
    query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
-   if len(object_list)==1:output=await postgres_client.execute(query=query,values=object_list[0])
+   if len(object_list)==1:
+      output=await postgres_client.execute(query=query,values=object_list[0])
    else:
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
+   #final
    return {"status":1,"message":output}
 
 async def postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id):
-   column=object.get("column","*")
+   #param
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
-   creator_data,action_count,location_filter=object.get("creator_data",None),object.get("action_count",None),object.get("location_filter",None)
+   column=object.get("column","*")
+   creator_data=object.get("creator_data")
+   action_count=object.get("action_count")
+   location_filter=object.get("location_filter")
+   #where string
    response=await create_where_string(postgres_column_datatype,object_serialize,object)
    if response["status"]==0:return response
    where_string,where_value=response["message"][0],response["message"][1]
+   #logic
    query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
    if location_filter:
       long,lat,min_meter,max_meter=float(location_filter.split(",")[0]),float(location_filter.split(",")[1]),int(location_filter.split(",")[2]),int(location_filter.split(",")[3])
       query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
    object_list=await postgres_client.fetch_all(query=query,values=where_value)
+   #metadata 1
    if creator_data:
       response=await add_creator_data(postgres_client,object_list,creator_data)
       if response["status"]==0:return response
       object_list=response["message"]
+   #metadata 2
    if action_count:
       for action_table in action_count.split(","):
          response=await add_action_count(postgres_client,action_table,object_list,table_id.get(table))
          if response["status"]==0:return response
          object_list=response["message"]
+   #final
    return {"status":1,"message":object_list}
 
 async def postgres_update(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
+   #check
    if not object_list[0]:return {"status":0,"message":"object missing"}
+   #serialize
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
       object_list=response["message"]
+   #logic
    column_update_list=[*object_list[0]]
    column_update_list.remove("id")
    query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_update_list])} where id=:id returning *;"
-   if len(object_list)==1:output=await postgres_client.execute(query=query,values=object_list[0])
+   if len(object_list)==1:
+      output=await postgres_client.execute(query=query,values=object_list[0])
    else:
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
+   #final
    return {"status":1,"message":output}
 
 async def postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
+   #check
    if not object_list[0]:return {"status":0,"message":"object missing"}
+   #serialize
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
       object_list=response["message"]
+   #logic
    query=f"delete from {table} where id=:id;"
-   if len(object_list)==1:output=await postgres_client.execute(query=query,values=object_list[0])
+   if len(object_list)==1:
+      output=await postgres_client.execute(query=query,values=object_list[0])
    else:
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
+   #final
    return {"status":1,"message":output}
 
 async def object_check(table_id,column_lowercase,object_list):
+   #logic
    for index,object in enumerate(object_list):
       for key,value in object.items():
          if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
@@ -70,10 +94,12 @@ async def object_check(table_id,column_lowercase,object_list):
             for item in value.split(","):
                if len(item)>50:return {"status":0,"message":f"{key} each value length exceeded"}
          elif key in column_lowercase:object_list[index][key]=value.strip().lower()
+   #final
    return {"status":1,"message":object_list}
 
 import hashlib,datetime,json
 async def object_serialize(postgres_column_datatype,object_list):
+   #logic
    for index,object in enumerate(object_list):
       for key,value in object.items():
          datatype=postgres_column_datatype.get(key)
@@ -87,43 +113,56 @@ async def object_serialize(postgres_column_datatype,object_list):
          elif "time" in datatype or datatype=="date":object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%dT%H:%M:%S')
          elif datatype=="ARRAY":object_list[index][key]=value.split(",")
          elif datatype=="jsonb":object_list[index][key]=json.dumps(value)
+   #final
    return {"status":1,"message":object_list}
 
 async def create_where_string(postgres_column_datatype,object_serialize,object):
+   #param clean
    object={k:v for k,v in object.items() if k in postgres_column_datatype}
    object={k:v for k,v in object.items() if v is not None}
    object={k:v for k,v in object.items() if k not in ["metadata","location","table","order","limit","page"]}
+   #param parse
    where_operator={k:v.split(',',1)[0] for k,v in object.items()}
    where_value={k:v.split(',',1)[1] for k,v in object.items()}
+   #logic
    column_read_list=[*object]
    where_column_single_list=[f"({column} {where_operator[column]} :{column} or :{column} is null)" for column in column_read_list]
    where_column_joined=' and '.join(where_column_single_list)
    where_string=f"where {where_column_joined}" if where_column_joined else ""
+   #serialize
    response=await object_serialize(postgres_column_datatype,[where_value])
    if response["status"]==0:return response
    where_value=response["message"][0]
+   #final
    return {"status":1,"message":[where_string,where_value]}
 
 async def add_creator_data(postgres_client,object_list,user_key):
+   #check
    if not object_list:return {"status":1,"message":object_list}
+   #param
    object_list=[dict(object) for object in object_list]
    created_by_ids={str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
+   #logic
    if created_by_ids:
-      query=f"SELECT * FROM users WHERE id IN ({','.join(created_by_ids)});"
+      query=f"select * from users where id in ({','.join(created_by_ids)});"
       users={user["id"]:dict(user) for user in await postgres_client.fetch_all(query=query, values={})}
    for object in object_list:
       if object["created_by_id"] in users:
          for key in user_key.split(","):object[f"creator_{key}"]=users[object["created_by_id"]][key]
       else:
          for key in user_key.split(","):object[f"creator_{key}"]=None    
+   #final
    return {"status":1,"message":object_list}
 
 async def add_action_count(postgres_client,action_table,object_list,object_table_id):
+   #check
    if not object_list:return {"status":1,"message":object_list}
+   #param
    key_name=f"{action_table}_count"
    object_list=[dict(item)|{key_name:0} for item in object_list]
    parent_ids_list=[str(item["id"]) for item in object_list if item["id"]]
    parent_ids_string=",".join(parent_ids_list)
+   #logic
    if parent_ids_string:
       query=f"select parent_id,count(*) from {action_table} where parent_table=:parent_table and parent_id in ({parent_ids_string}) group by parent_id;"
       object_list_action=await postgres_client.fetch_all(query=query,values={"parent_table":object_table_id})
@@ -132,69 +171,42 @@ async def add_action_count(postgres_client,action_table,object_list,object_table
                if x["id"]==y["parent_id"]:
                   x[key_name]=y["count"]
                   break
+   #final
    return {"status":1,"message":object_list}
 
 async def ownership_check(postgres_client,table,id,user_id):
+   #logic
    if table=="users":
       if id!=user_id:return {"status":0,"message":"object ownership issue"}
    if table!="users":
       output=await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;",values={"id":id})
       if not output:return {"status":0,"message":"no object"}
       if output[0]["created_by_id"]!=user_id:return {"status":0,"message":"object ownership issue"}
+   #final
    return {"status":1,"message":"done"}
 
 async def verify_otp(postgres_client,otp,email,mobile):
+   #check
    if not otp:return {"status":0,"message":"otp must"}
-   if email:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;",values={"email":email})
-   if mobile:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
+   #logic
+   if email:
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+      output=await postgres_client.fetch_all(query=query,values={"email":email})
+   if mobile:
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+      output=await postgres_client.fetch_all(query=query,values={"mobile":mobile})
    if not output:return {"status":0,"message":"otp not found"}
    if int(output[0]["otp"])!=int(otp):return {"status":0,"message":"otp mismatch"}
-   return {"status":1,"message":"done"}
-
-import json,jwt
-async def auth_check(request,key_root,key_jwt):
-   user={}
-   api=request.url.path
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-   token_decode=lambda t:json.loads(jwt.decode(t,key_jwt,algorithms="HS256")["data"])
-   if "root/" in api and token!=key_root:return {"status":0,"message":"root token mismatch"}
-   elif "my/" in api:user=token_decode(token)
-   elif "private/" in api:user=token_decode(token)
-   elif "admin/" in api:user=token_decode(token)
-   return {"status":1,"message":user}
-
-async def admin_check(user,request,api_id,users_api_access,postgres_client):
-   if "admin/" not in api:return {"status":1,"message":"not needed"}
-   api=request.url.path
-   if not api_id.get(api):return {"status":0,"message":"api_id not mapped in backend"}
-   api_id_value=api_id.get(api)
-   user_api_access=users_api_access.get(user["id"],"absent")
-   if user_api_access=="absent":
-      output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user["id"]})
-      if not output:return {"status":0,"message":"user not found"}
-      api_access_str=output[0]["api_access"]
-      if not api_access_str:return {"status":0,"message":"api access denied"}
-      user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
-   if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
-   return {"status":1,"message":"done"}
-
-async def is_active_check(user,request,api_is_active_check,users_is_active,postgres_client):
-   api=request.url.path
-   for item in api_is_active_check:
-      if item in api:
-         user_is_active=users_is_active.get(user["id"],"absent")
-         if user_is_active=="absent":
-            output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user["id"]})
-            if not output:return {"status":0,"message":"user not found"}
-            user_is_active=output[0]["is_active"]
-         if user_is_active==0:return {"status":0,"message":"you are not active"}
+   #final
    return {"status":1,"message":"done"}
 
 import uuid
 from io import BytesIO
 async def s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list):
+   #param
    if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
    output={}
+   #logic
    for index,file in enumerate(file_list):
       key=key_list[index]
       if "." not in key:return {"status":0,"message":"extension must"}
@@ -204,6 +216,7 @@ async def s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list):
       s3_client.upload_fileobj(BytesIO(file_content),bucket,key)
       output[file.filename]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
       file.file.close()
+   #final
    return {"status":1,"message":output}
 
 async def postgres_schema_init(postgres_client,postgres_schema_read,config):
@@ -214,36 +227,50 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
    postgres_schema=await postgres_schema_read(postgres_client)
    for table,column_list in config["table"].items():
       is_table=postgres_schema.get(table,{})
-      if not is_table:await postgres_client.execute(query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);",values={})
+      if not is_table:
+         query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
+         await postgres_client.execute(query=query,values={})
    #column
    postgres_schema=await postgres_schema_read(postgres_client)
    for table,column_list in config["table"].items():
       for column in column_list:
          column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
          is_column=postgres_schema.get(table,{}).get(column_name,{})
-         if not is_column:await postgres_client.execute(query=f"alter table {table} add column if not exists {column_name} {column_datatype};",values={})
+         if not is_column:
+            query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
+            await postgres_client.execute(query=query,values={})
    #nullable
    postgres_schema=await postgres_schema_read(postgres_client)
    for table,column_list in config["table"].items():
       for column in column_list:
          column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
          is_null=postgres_schema.get(table,{}).get(column_name,{}).get("is_null",None)
-         if column_is_mandatory=="0" and is_null==0:await postgres_client.execute(query=f"alter table {table} alter column {column_name} drop not null;",values={})
-         if column_is_mandatory=="1" and is_null==1:await postgres_client.execute(query=f"alter table {table} alter column {column_name} set not null;",values={})
+         if column_is_mandatory=="0" and is_null==0:
+            query=f"alter table {table} alter column {column_name} drop not null;"
+            await postgres_client.execute(query=query,values={})
+         if column_is_mandatory=="1" and is_null==1:
+            query=f"alter table {table} alter column {column_name} set not null;"
+            await postgres_client.execute(query=query,values={})
    #index
    postgres_schema=await postgres_schema_read(postgres_client)
    index_name_list=[object["indexname"] for object in (await postgres_client.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
    for table,column_list in config["table"].items():
       for column in column_list:
          column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
-         if column_index_type=="0":await postgres_client.execute(query=f"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname ILIKE 'index_{table}_{column_name}_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;",values={})
+         if column_index_type=="0":
+            query=f"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname ILIKE 'index_{table}_{column_name}_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
+            await postgres_client.execute(query=query,values={})
          else:
             index_type_list=column_index_type.split(",")
             for index_type in index_type_list:
                index_name=f"index_{table}_{column_name}_{index_type}"
                if index_name not in index_name_list:
-                  if index_type=="gin":await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name} gin_trgm_ops);",values={})
-                  else:await postgres_client.execute(query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});",values={})
+                  if index_type=="gin":
+                     query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name} gin_trgm_ops);"
+                     await postgres_client.execute(query=query,values={})
+                  else:
+                     query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});"
+                     await postgres_client.execute(query=query,values={})
    #query
    constraint_name_list={object["constraint_name"].lower() for object in (await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
    for query in config["query"].values():
@@ -254,7 +281,9 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
    return {"status":1,"message":"done"}
 
 async def postgres_schema_read(postgres_client):
+   #param
    postgres_schema={}
+   #logic
    query='''
    WITH t AS (SELECT * FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'), 
    c AS (
@@ -279,26 +308,34 @@ async def postgres_schema_read(postgres_client):
    LEFT JOIN i ON t.table_name=i.table_name AND c.column_name=i.column_name;
    '''
    output=await postgres_client.fetch_all(query=query,values={})
+   #transform
    for object in output:
       table,column=object["table"],object["column"]
       column_data={"datatype":object["datatype"],"default":object["default"],"is_null":object["is_null"],"is_index":object["is_index"]}
       if table not in postgres_schema:postgres_schema[table]={}
       postgres_schema[table][column]=column_data
+   #final
    return postgres_schema
 
 import csv,io
 async def file_to_object_list(file):
+   #param
    content=await file.read()
-   csv_text=content.decode("utf-8")
-   reader=csv.DictReader(io.StringIO(csv_text))
+   content=content.decode("utf-8")
+   #logic
+   reader=csv.DictReader(io.StringIO(content))
    object_list=[row for row in reader]
    await file.close()
+   #final
    return object_list
 
 async def body_form_data(request):
+   #param
    body_form=await request.form()
+   #logic
    body_form_key={key:value for key,value in body_form.items() if isinstance(value,str)}
    body_form_file=[file for key,value in body_form.items() for file in body_form.getlist(key)  if key not in body_form_key and file.filename]
+   #final
    return body_form_key,body_form_file
 
 from fastapi import responses
@@ -629,7 +666,8 @@ async def set_users_api_access():
    order,limit="id desc",10000
    if postgres_schema.get("users"):
       for page in range(1,101):
-         output=await postgres_client.fetch_all(query=f"select id,api_access from users where api_access is not null  order by {order} limit {limit} offset {(page-1)*limit};",values={})
+         query=f"select id,api_access from users where api_access is not null  order by {order} limit {limit} offset {(page-1)*limit};"
+         output=await postgres_client.fetch_all(query=query,values={})
          if not output:break
          users_api_access={object["id"]:[int(item.strip()) for item in object["api_access"].split(",")] for object in output if len(object["api_access"])>=1}
    return None
@@ -641,7 +679,8 @@ async def set_users_is_active():
    order,limit="id desc",10000
    if postgres_schema.get("users"):
       for page in range(1,101):
-         output=await postgres_client.fetch_all(query=f"select id,is_active from users order by {order} limit {limit} offset {(page-1)*limit};",values={})
+         query=f"select id,is_active from users order by {order} limit {limit} offset {(page-1)*limit};"
+         output=await postgres_client.fetch_all(query=query,values={})
          if not output:break
          users_is_active={object["id"]:object["is_active"] for object in output}
    return None
@@ -653,7 +692,8 @@ async def set_project_data():
    order,limit="id desc",1000
    if postgres_schema.get("project"):
       for page in range(1,11):
-         output=await postgres_client.fetch_all(query=f"select * from project order by {order} limit {limit} offset {(page-1)*limit};;",values={})
+         query=f"select * from project order by {order} limit {limit} offset {(page-1)*limit};;"
+         output=await postgres_client.fetch_all(query=query,values={})
          if not output:break
          for object in output:
             if object["type"] not in project_data:project_data[object["type"]]=[object]
@@ -757,13 +797,16 @@ if sentry_dsn:
 from fastapi import Request,Response
 import jwt,json,hashlib
 def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Response=None,**kwargs):
+   #param
    api=request.url.path
    query_param_sorted=str(dict(sorted(request.query_params.items())))
    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
    user_id=0
    if token and "my/" in api:user_id=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])["id"]
+   #logic
    key=f"{api}---{query_param_sorted}---{str(user_id)}".lower()
    if False:key=hashlib.sha256(str(key).encode()).hexdigest()
+   #final
    return key
 
 #lifespan
@@ -774,22 +817,29 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 @asynccontextmanager
 async def lifespan(app:FastAPI):
+   #main
    await set_postgres_client()
    await set_postgres_schema()
    await set_users_api_access()
    await set_users_is_active()
    await set_project_data()
    await set_redis_client()
+   #aws
    await set_s3_client()
    await set_sns_client()
    await set_ses_client()
+   #mongodb
    await set_mongodb_client()
+   #queue
    await set_rabbitmq_client()
    await set_lavinmq_client()
    await set_kafka_client()
+   #rate limiter
    if redis_client:await FastAPILimiter.init(redis_client)
+   #cache
    if redis_client_valkey:FastAPICache.init(RedisBackend(redis_client_valkey),key_builder=redis_key_builder)
    else:FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
+   #disconnect
    yield
    try:
       await postgres_client.disconnect()
@@ -800,6 +850,7 @@ async def lifespan(app:FastAPI):
       if lavinmq_client and lavinmq_channel.is_open:lavinmq_channel.close()
       if lavinmq_client and lavinmq_client.is_open:lavinmq_client.close()
       if kafka_producer_client:await kafka_producer_client.stop()
+   #final
    except Exception as e:print(e.args)
 
 #app
@@ -810,26 +861,13 @@ app=FastAPI(lifespan=lifespan)
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
 
-from fastapi import responses
-from starlette.background import BackgroundTask
-async def add_api_background(request,api_function):
-   response=None
-   if request.query_params.get("is_background",None)=="1":
-      body=await request.body()
-      async def receive():return {"type":"http.request","body":body}
-      async def api_function_new():
-         request_new=Request(scope=request.scope,receive=receive)
-         await api_function(request_new)
-      response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
-      response.background=BackgroundTask(api_function_new)
-   return response
-
 #middleware
 from fastapi import Request,responses
 import time,traceback
 from starlette.background import BackgroundTask
 @app.middleware("http")
 async def middleware(request:Request,api_function):
+   #param
    start=time.time()
    global object_list_log_api
    api=request.url.path
@@ -881,13 +919,14 @@ async def middleware(request:Request,api_function):
       print(traceback.format_exc())
       error_text=str(e.args)
       response=error(error_text)
-   #final
+   #log
    response_time_ms=(time.time()-start)*1000
    object={"created_by_id":user.get("id",None),"method":request.method,"api":api,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":response_time_ms,"description":error_text}
    object_list_log_api.append(object)
    if postgres_schema.get("log_api") and len(object_list_log_api)>=log_api_reset_count and request.query_params.get("is_background")!="1":
       response.background=BackgroundTask(postgres_create,"log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
       object_list_log_api=[]
+   #final
    return response
 
 #router
@@ -1005,12 +1044,14 @@ async def root_db_clean():
 
 @app.put("/root/db-checklist")
 async def root_db_checklist():
+   #logix
    await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
    await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
    await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
    await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
    await postgres_client.execute(query="update human set remark=null where remark='';",values={})
    await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
+   #final
    return {"status":1,"message":"done"}
 
 @app.put("/root/reset-global")
@@ -1077,7 +1118,9 @@ async def root_reset_redis():
 #s3
 @app.get("/root/s3-bucket-list")
 async def root_s3_bucket_list():
+   #logic
    output=s3_client.list_buckets()
+   #final
    return {"status":1,"message":output}
 
 @app.post("/root/s3-bucket-create")
@@ -1200,6 +1243,7 @@ async def auth_login(request:Request):
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:return error("user not found")
+   #token
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    #final
    return {"status":1,"message":token}
@@ -1212,13 +1256,18 @@ async def auth_login_oauth(request:Request):
    key,value=next(iter(object.items()))
    if key not in ["google_id","apple_id","facebook_id","github_id","twitter_id"]:return error("oauth column not allowed")
    #logic
-   output=await postgres_client.fetch_all(query=f"select id from users where {key}=:key_value order by id desc limit 1;",values={"key_value":hashlib.sha256(value.encode()).hexdigest()})
+   query=f"select id from users where {key}=:key_value order by id desc limit 1;"
+   values={"key_value":hashlib.sha256(value.encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:
       if is_signup==0:return error("signup disabled")
       if is_signup==1:
-         output=await postgres_client.fetch_all(query=f"insert into users ({key}) values (:key_value) returning *;",values={"key_value":hashlib.sha256(value.encode()).hexdigest()})
+         query=f"insert into users ({key}) values (:key_value) returning *;"
+         values={"key_value":hashlib.sha256(value.encode()).hexdigest()}
+         output=await postgres_client.fetch_all(query=query,values=values)
          user=output[0] if output else None
+   #token
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    #final
    return {"status":1,"message":token}
@@ -1247,8 +1296,11 @@ async def auth_login_otp(request:Request):
    if not user:
       if is_signup==0:return error("signup disabled")
       if is_signup==1:
-         output=await postgres_client.fetch_all(query=f"insert into users ({key}) values (:key_value) returning *;",values={"key_value":value})
+         query=f"insert into users ({key}) values (:key_value) returning *;"
+         values={"key_value":value}
+         output=await postgres_client.fetch_all(query=query,values=values)
          user=output[0] if output else None
+   #token
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":user["id"]},default=str)},key_jwt)
    #final
    return {"status":1,"message":token}
@@ -1270,7 +1322,9 @@ async def my_profile(request:Request,background:BackgroundTasks):
 
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
+   #logic
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":json.dumps({"id":request.state.user["id"]},default=str)},key_jwt)
+   #final
    return {"status":1,"message":token}
 
 @app.delete("/my/account-delete")
@@ -1460,12 +1514,12 @@ async def my_object_create(request:Request):
    object=response["message"][0]
    for key,value in object.items():
       if key in column_disabled_non_admin:return error(f"{key} not allowed")
-   #logic 1
+   #logic direct insert
    if not queue:
       response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
       if response["status"]==0:return error(response["message"])
       output=response["message"]
-   #logic 2
+   #logic queue insert
    if queue:
       data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
       if queue=="redis":output=await redis_client.publish(channel_name,json.dumps(data))
