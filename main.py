@@ -374,6 +374,7 @@ is_index_html=int(os.getenv("is_index_html",0))
 is_signup=int(os.getenv("is_signup",0))
 
 #globals
+user_id_first=1
 object_list_log_api=[]
 output_cache_public_info={}
 api_cache={}
@@ -981,8 +982,8 @@ async def root_db_runner(request:Request):
    if not query:return error("query must")
    query_list=query.split("---")
    #check
-   stop_word=["drop","truncate"]
-   for item in stop_word:
+   danger_word=["drop","truncate"]
+   for item in danger_word:
        if item in query.lower():return error(f"{item} keyword not allowed in query")
    #logic
    output=[]
@@ -1000,12 +1001,16 @@ async def admin_db_runner(request:Request):
    query=(await request.json()).get("query")
    if not query:return error("query must")
    #check
-   must_word=["select"]
+   danger_word=["drop","truncate"]
    stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
-   for item in must_word:
-      if item not in query.lower():return error(f"{item} keyword must be present in query")
-   for item in stop_word:
+   must_word=["select"]
+   for item in danger_word:
        if item in query.lower():return error(f"{item} keyword not allowed in query")
+   if request.state.user["id"]!=user_id_first:
+      for item in stop_word:
+         if item in query.lower():return error(f"{item} keyword not allowed in query")
+      for item in must_word:
+         if item not in query.lower():return error(f"{item} keyword must be present in query")
    #logic
    output=await postgres_client.fetch_all(query=query,values={})
    #final
