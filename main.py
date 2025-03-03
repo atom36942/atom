@@ -488,6 +488,7 @@ postgres_config={
 "mobile-text-0-btree",
 "name-text-0-0",
 "city-text-0-gin",
+"company-text-0-0",
 "api_access-text-0-0",
 "rating-numeric(10,3)-0-0"
 ],
