@@ -36,9 +36,9 @@ create schema if not exists public;
 
 # postgres exim
 ```
-export_all=\copy post to 'path'  delimiter ',' csv header;
-export_column=\copy (query) to 'path'  delimiter ',' csv header;
-import_column=\copy post(column) from 'path' delimiter ',' csv header;
+export table all column=\copy post to 'path'  delimiter ',' csv header;
+export table selected column=\copy (query) to 'path'  delimiter ',' csv header;
+import table selected column=\copy post(column) from 'path' delimiter ',' csv header;
 ```
 
 # misc
@@ -47,4 +47,3 @@ pid kill = lsof -ti :8000 | xargs kill -9
 git commit delete = git reset --hard HEAD~3 / git push origin main --force
 postgres table rows count = SELECT relname AS table_name,n_live_tup AS row_count FROM pg_stat_user_tables;
 ```
-

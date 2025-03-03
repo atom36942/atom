@@ -383,10 +383,10 @@ column_lowercase=["type","tag","status","email","mobile","country","state","city
 api_id={
 "/admin/db-runner":1,
 "/admin/object-update":2,
-"/admin/object-read":3,
-"/admin/ids-delete":4,
-"/admin/ids-update":5,
-"/admin/object-create":6
+"/admin/object-create":3,
+"/admin/object-read":4,
+"/admin/ids-delete":5,
+"/admin/ids-update":6
 }
 query_human_work_profile='''
 select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') limit 100000;
