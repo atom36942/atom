@@ -492,7 +492,8 @@ postgres_config={
 "city-text-0-gin",
 "company-text-0-0",
 "api_access-text-0-0",
-"rating-numeric(10,3)-0-0"
+"rating-numeric(10,3)-0-0",
+"remark-text-0-0"
 ],
 "post":[
 "created_at-timestamptz-0-0",
