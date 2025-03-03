@@ -64,6 +64,7 @@ curl -X POST "$baseurl/my/object-create?table=action_rating" -H "Authorization: 
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"lavinmq","title":"testing"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_atom" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"mongodb","title":"testing"}'
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":"TESTING","title":"public create"}'
+curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"TEsting","title":"admin create"}'
 curl -X POST "$baseurl/root/object-create?table=test" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"type":"TEsting","title":"root create"}'
 
 #object read

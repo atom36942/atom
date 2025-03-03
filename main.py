@@ -385,6 +385,7 @@ api_id={
 "/admin/object-read":3,
 "/admin/ids-delete":4,
 "/admin/ids-update":5,
+"/admin/object-create":6
 }
 query_human_work_profile='''
 select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') limit 100000;
@@ -883,7 +884,7 @@ async def middleware(request:Request,api_function):
       if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return error("Bearer token must")
       if token:
          if "root/" in api:
-            if token!=key_root:return error("key root mismatch")
+            if token!=key_root:return error("token mismatch")
          else:
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return error("user_id not in token")
@@ -952,7 +953,7 @@ from fastapi_limiter.depends import RateLimiter
 
 #index
 @app.get("/")
-async def root():
+async def index():
    if is_index_html==1:response=responses.FileResponse("index.html")
    else:response={"status":1,"message":"welcome to atom"}
    return response
@@ -978,6 +979,7 @@ async def root_db_runner(request:Request):
    #param
    query=(await request.json()).get("query")
    if not query:return error("query must")
+   query_list=query.split("---")
    #check
    stop_word=["drop","truncate"]
    for item in stop_word:
@@ -985,10 +987,11 @@ async def root_db_runner(request:Request):
    #logic
    output=[]
    async with postgres_client.transaction():
-      for query in query.split("---"):
+      for query in query_list:
          result=await postgres_client.fetch_all(query=query,values={})
          output.append(result)
    #final
+   output=output[0] if len(query_list)==1 else output
    return {"status":1,"message":output}
 
 @app.post("/admin/db-runner")
@@ -1552,6 +1555,28 @@ async def public_object_create(request:Request):
    #transform
    for key,value in object.items():
       if key in column_disabled_non_admin:return error(f"{key} not allowed")
+   #logic
+   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.post("/admin/object-create")
+async def admin_object_create(request:Request):
+   #param
+   is_serialize=int(request.query_params.get("is_serialize",1))
+   table=request.query_params.get("table")
+   if not table:return error("table missing")
+   object=await request.json()
+   object["created_by_id"]=request.state.user["id"]
+   #check
+   if table in ["spatial_ref_sys"]:return error("table not allowed")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   for key,value in object.items():
+      if key in column_lowercase:object[key]=value.strip().lower()
+   if "password" in object:is_serialize=1
    #logic
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
