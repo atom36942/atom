@@ -12,7 +12,6 @@ token_admin="$token_admin"
 file_create="$file_create"
 file_update="$file_update"
 file_delete="$file_delete"
-test_id="$test_id"
 
 #fixed var
 input_file="curl.txt"
@@ -44,7 +43,6 @@ while IFS= read -r line; do
                              -e "s|\$token_root|$token_root|g" \
                              -e "s|\$token_admin|$token_admin|g" \
                              -e "s|\$username|$username|g" \
-                             -e "s|\$test_id|$test_id|g" \
                              -e "s|\$file_create|$file_create|g" \
                              -e "s|\$file_update|$file_update|g" \
                              -e "s|\$file_delete|$file_delete|g"

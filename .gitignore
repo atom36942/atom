@@ -177,4 +177,6 @@ env.py
 *.json
 *.mp3
 *.ipynb
+*.pdf
+*.docx
 zzz.py

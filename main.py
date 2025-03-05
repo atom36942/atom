@@ -375,6 +375,7 @@ is_signup=int(os.getenv("is_signup",0))
 
 #globals
 user_id_first=1
+table_banned=["spatial_ref_sys","otp","log_api","log_password"]
 object_list_log_api=[]
 output_cache_public_info={}
 api_cache={}
@@ -625,7 +626,7 @@ postgres_config={
 "default_is_protected_project":"ALTER TABLE project ALTER COLUMN is_protected SET DEFAULT 1;",
 "default_is_protected_human":"ALTER TABLE human ALTER COLUMN is_protected SET DEFAULT 1;",
 "rule_is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"root_user_1":"insert into users (username,password,api_access) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10') on conflict do nothing;",
+"root_user_1":"insert into users (username,password,api_access) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30') on conflict do nothing;",
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
 "log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
 "log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
@@ -960,7 +961,7 @@ async def index():
    else:response={"status":1,"message":"welcome to atom"}
    return response
 
-#db init
+#root
 @app.post("/root/db-init")
 async def root_db_init(request:Request):
    #param
@@ -971,100 +972,8 @@ async def root_db_init(request:Request):
    if mode=="custom":config=await request.json()
    #logic
    response=await postgres_schema_init(postgres_client,postgres_schema_read,config)
-   await set_postgres_schema()
    #final
    return response
-   
-#db runner
-@app.post("/root/db-runner")
-async def root_db_runner(request:Request):
-   #param
-   query=(await request.json()).get("query")
-   if not query:return error("query must")
-   query_list=query.split("---")
-   #check
-   danger_word=["drop","truncate"]
-   for item in danger_word:
-       if item in query.lower():return error(f"{item} keyword not allowed in query")
-   #logic
-   output=[]
-   async with postgres_client.transaction():
-      for query in query_list:
-         result=await postgres_client.fetch_all(query=query,values={})
-         output.append(result)
-   #final
-   output=output[0] if len(query_list)==1 else output
-   return {"status":1,"message":output}
-
-@app.post("/admin/db-runner")
-async def admin_db_runner(request:Request):
-   #param
-   query=(await request.json()).get("query")
-   if not query:return error("query must")
-   #check
-   danger_word=["drop","truncate"]
-   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
-   must_word=["select"]
-   for item in danger_word:
-       if item in query.lower():return error(f"{item} keyword not allowed in query")
-   if request.state.user["id"]!=user_id_first:
-      for item in stop_word:
-         if item in query.lower():return error(f"{item} keyword not allowed in query")
-      for item in must_word:
-         if item not in query.lower():return error(f"{item} keyword must be present in query")
-   #logic
-   output=await postgres_client.fetch_all(query=query,values={})
-   #final
-   return {"status":1,"message":output}
-
-#db uploader
-@app.post("/root/db-uploader")
-async def root_db_uploader(request:Request):
-   #param
-   body_form_key,file=await body_form_data(request)
-   mode=body_form_key.get("mode")
-   table=body_form_key.get("table")
-   is_serialize=int(body_form_key.get("is_serialize",1))
-   if not mode or not table or not file:return error("mode/table/file must")
-   #transform
-   object_list=await file_to_object_list(file[-1])
-   #check
-   response=await object_check(table_id,column_lowercase,object_list)
-   if response["status"]==0:return error(response["message"])
-   object_list=response["message"]
-   #logic
-   if mode=="create":response=await postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
-#ops
-@app.delete("/root/db-clean")
-async def root_db_clean():
-   #logic
-   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days';",values={})
-   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days';",values={})
-   await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days';",values={})
-   await postgres_client.execute(query="delete from message where created_at<now()-interval '100 days';",values={})
-   [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in postgres_schema if "action_" in table]
-   [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in postgres_schema if "action_" in table]
-   [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in postgres_schema for parent_table in table_id if "action_" in table]
-   #final
-   return {"status":1,"message":"done"}
-
-@app.put("/root/db-checklist")
-async def root_db_checklist():
-   #logix
-   await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
-   await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
-   await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
-   await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
-   await postgres_client.execute(query="update human set remark=null where remark='';",values={})
-   await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
-   #final
-   return {"status":1,"message":"done"}
 
 @app.put("/root/reset-global")
 async def root_reset_global():
@@ -1075,151 +984,6 @@ async def root_reset_global():
    await set_users_is_active()
    #final
    return {"status":1,"message":"done"}
-
-#redis
-@app.post("/root/redis-set-object")
-async def root_redis_set_object(request:Request):
-   #param
-   key=request.query_params.get("key")
-   expiry=request.query_params.get("mode")
-   if not key:return error("key missing")
-   object=json.dumps(await request.json())
-   #logic
-   if not expiry:output=await redis_client.set(key,object)
-   else:output=await redis_client.setex(key,expiry,object)
-   #final
-   return {"status":1,"message":output}
-
-@app.get("/public/redis-get-object")
-async def public_redis_get_object(request:Request):
-   #param
-   key=request.query_params.get("key")
-   if not key:return error("key missing")
-   #logic
-   output=await redis_client.get(key)
-   if output:output=json.loads(output)
-   #final
-   return {"status":1,"message":output}
-
-@app.post("/root/redis-set-csv")
-async def root_redis_set_csv(request:Request):
-   #param
-   body_form_key,file=await body_form_data(request)
-   table=body_form_key.get("table")
-   expiry=body_form_key.get("expiry")
-   if not table or not file:return error("table/file missing")
-   #transform
-   object_list=await file_to_object_list(file[-1])
-   #logic
-   async with redis_client.pipeline(transaction=True) as pipe:
-      for object in object_list:
-         key=f"{table}_{object['id']}"
-         if not expiry:pipe.set(key,json.dumps(object))
-         else:pipe.setex(key,expiry,json.dumps(object))
-      await pipe.execute()
-   #final
-   return {"status":1,"message":"done"}
-
-@app.delete("/root/redis-reset")
-async def root_reset_redis():
-   #logic
-   await redis_client.flushall()
-   #final
-   return {"status":1,"message":"done"}
-
-#s3
-@app.get("/root/s3-bucket-list")
-async def root_s3_bucket_list():
-   #logic
-   output=s3_client.list_buckets()
-   #final
-   return {"status":1,"message":output}
-
-@app.post("/root/s3-bucket-create")
-async def root_s3_bucket_create(request:Request):
-   #param
-   bucket=(await request.json()).get("bucket")
-   if not bucket:return error("bucket missing")
-   #logic
-   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
-   #final
-   return {"status":1,"message":output}
-
-@app.put("/root/s3-bucket-public")
-async def root_s3_bucket_public(request:Request):
-   #param
-   bucket=(await request.json()).get("bucket")
-   if not bucket:return error("bucket missing")
-   #logic
-   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
-   #final
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-bucket-empty")
-async def root_s3_bucket_empty(request:Request):
-   #param
-   bucket=(await request.json()).get("bucket")
-   if not bucket:return error("bucket missing")
-   #logic
-   output=s3_resource.Bucket(bucket).objects.all().delete()
-   #final
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-bucket-delete")
-async def root_s3_bucket_empty(request:Request):
-   #param
-   bucket=(await request.json()).get("bucket")
-   if not bucket:return error("bucket missing")
-   #logic
-   output=s3_client.delete_bucket(Bucket=bucket)
-   #final
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-url-delete")
-async def root_s3_url_empty(request:Request):
-   #param
-   url=(await request.json()).get("url")
-   if not url:return error("url missing")
-   #logic
-   for item in url.split("---"):
-      bucket,key=item.split("//",1)[1].split(".",1)[0],item.rsplit("/",1)[1]
-      output=s3_resource.Object(bucket,key).delete()
-   #final
-   return {"status":1,"message":output}
-
-@app.post("/private/s3-file-upload")
-async def private_s3_file_upload(request:Request):
-   #param
-   body_form_key,file=await body_form_data(request)
-   bucket=body_form_key.get("bucket")
-   key=body_form_key.get("key")
-   if not bucket or not key or not file:return error("bucket/key/file missing")
-   #logic
-   key_list=None if key=="uuid" else key.split("---")
-   response=await s3_file_upload(s3_client,s3_region_name,bucket,key_list,file)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
-@app.post("/private/s3-file-upload-presigned")
-async def private_s3_file_upload_presigned(request:Request):
-   #param
-   object=await request.json()
-   bucket=object.get("bucket")
-   key=object.get("key")
-   if not bucket or not key:return error("bucket/key missing")
-   #check
-   if "." not in key:return error("extension must")
-   #logic
-   expiry_sec,size_kb=1000,100
-   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
-   for k,v in output["fields"].items():output[k]=v
-   del output["fields"]
-   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
-   #final
-   return {"status":1,"message":output}
 
 #auth
 @app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
@@ -1512,26 +1276,26 @@ async def my_action_on_me_creator_read_mutual(request:Request):
 @app.post("/my/object-create")
 async def my_object_create(request:Request):
    #param
+   table=request.query_params.get("table")
    is_serialize=int(request.query_params.get("is_serialize",1))
    queue=request.query_params.get("queue")
-   table=request.query_params.get("table")
    if not table:return error("table missing")
    object=await request.json()
    object["created_by_id"]=request.state.user["id"]
    #check
-   if table in ["spatial_ref_sys","users","otp","log_api","log_password"]:return error("table not allowed")
+   if table in table_banned or table=="users":return error("table not allowed")
    if len(object)<=1:return error ("object issue")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
    object=response["message"][0]
    for key,value in object.items():
       if key in column_disabled_non_admin:return error(f"{key} not allowed")
-   #logic direct insert
+   #logic 1
    if not queue:
       response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
       if response["status"]==0:return error(response["message"])
       output=response["message"]
-   #logic queue insert
+   #logic 2
    if queue:
       data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
       if queue=="redis":output=await redis_client.publish(channel_name,json.dumps(data))
@@ -1549,8 +1313,8 @@ async def my_object_create(request:Request):
 @app.post("/public/object-create")
 async def public_object_create(request:Request):
    #param
-   is_serialize=int(request.query_params.get("is_serialize",1))
    table=request.query_params.get("table")
+   is_serialize=int(request.query_params.get("is_serialize",1))
    if not table:return error("table missing")
    object=await request.json()
    #check
@@ -1576,7 +1340,7 @@ async def admin_object_create(request:Request):
    object=await request.json()
    object["created_by_id"]=request.state.user["id"]
    #check
-   if table in ["spatial_ref_sys"]:return error("table not allowed")
+   if table in table_banned:return error("table not allowed")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
    object=response["message"][0]
@@ -1589,26 +1353,118 @@ async def admin_object_create(request:Request):
    #final
    return response
 
-@app.post("/root/object-create")
-async def root_object_create(request:Request):
+#object update
+@app.put("/my/object-update")
+async def my_object_update(request:Request):
+   #param
+   table=request.query_params.get("table")
+   is_serialize=int(request.query_params.get("is_serialize",1))
+   otp=int(request.query_params.get("otp",0))
+   if not table:return error("table missing")
+   object=await request.json()
+   object["updated_by_id"]=request.state.user["id"]
+   #check
+   if table in table_banned:return error("table not allowed")
+   if len(object)<=2:return error ("object issue")
+   if "id" not in object:return error ("id missing")
+   if "password" in object:is_serialize=1
+   if "password" in object and len(object)!=3:return error("object length should be 2 only")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   for key,value in object.items():
+      if key in column_disabled_non_admin:return error(f"{key} not allowed")
+   #ownership check
+   response=await ownership_check(postgres_client,table,int(object["id"]),request.state.user["id"])
+   if response["status"]==0:return error(response["message"])
+   #otp verify
+   email,mobile=object.get("email"),object.get("mobile")
+   if table=="users" and (email or mobile):
+      if len(object)!=3:return error("object length should be 2 only")
+      if not otp:return error("otp missing")
+      response=await verify_otp(postgres_client,otp,email,mobile)
+      if response["status"]==0:return error(response["message"])
+   #logic
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.put("/admin/object-update")
+async def admin_object_update(request:Request):
    #param
    is_serialize=int(request.query_params.get("is_serialize",1))
    table=request.query_params.get("table")
    if not table:return error("table missing")
    object=await request.json()
+   object["updated_by_id"]=request.state.user["id"]
    #check
-   if table in ["spatial_ref_sys"]:return error("table not allowed")
+   if table in table_banned:return error("table not allowed")
+   if len(object)<=2:return error ("object issue")
+   if "id" not in object:return error ("id missing")
+   if "password" in object and len(object)!=3:return error("object length should be 2 only")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   #logic
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.put("/my/object-update-ids")
+async def my_object_update_ids(request:Request):
+   #param
+   object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
+   column=object.get("column")
+   value=object.get("value")
+   if not table or not ids or not column:return error("table/ids/column must")
+   object={column:value}
+   #check
+   if table in table_banned or table=="users":return error("table not allowed")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
    object=response["message"][0]
    for key,value in object.items():
-      if key in column_lowercase:object[key]=value.strip().lower()
-   if "password" in object:is_serialize=1
+      if key in column_disabled_non_admin:return error(f"{key} not allowed")
+   #serialize
+   response=await object_serialize(postgres_column_datatype,[object])
+   if response["status"]==0:return response
+   object=response["message"][0]
    #logic
-   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
+   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and created_by_id=:created_by_id;"
+   values={"created_by_id":request.state.user["id"],"updated_by_id":request.state.user["id"],"value":object.get(column)}
+   await postgres_client.execute(query=query,values=values)
    #final
-   return response
+   return {"status":1,"message":"done"}
+ 
+@app.put("/admin/object-update-ids")
+async def admin_object_update_ids(request:Request):
+   #param
+   object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
+   column=object.get("column")
+   value=object.get("value")
+   if not table or not ids or not column:return error("table/ids/column must")
+   object={column:value}
+   #check
+   if table in table_banned:return error("table not allowed")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   #serialize
+   response=await object_serialize(postgres_column_datatype,[object])
+   if response["status"]==0:return response
+   object=response["message"][0]
+   #logic
+   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids});"
+   values={"updated_by_id":request.state.user["id"],"value":object.get(column)}
+   await postgres_client.execute(query=query,values=values)
+   #final
+   return {"status":1,"message":"done"}
 
 #object read
 @app.get("/my/object-read")
@@ -1619,21 +1475,6 @@ async def my_object_read(request:Request):
    if not table:return error("table missing")
    object=dict(request.query_params)
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   #logic
-   response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
-@app.get("/public/object-read")
-@cache(expire=60)
-async def public_object_read(request:Request):
-   #param
-   table=request.query_params.get("table")
-   if not table:return error("table missing")
-   object=request.query_params
-   #check
-   if table not in ["post","atom"]:return error("table not allowed")
    #logic
    response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
    if response["status"]==0:return error(response["message"])
@@ -1653,8 +1494,23 @@ async def admin_object_read(request:Request):
    #final
    return response
 
+@app.get("/public/object-read")
+@cache(expire=100)
+async def public_object_read(request:Request):
+   #param
+   table=request.query_params.get("table")
+   if not table:return error("table missing")
+   object=request.query_params
+   #check
+   if table not in ["post","atom"]:return error("table not allowed")
+   #logic
+   response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string,add_creator_data,add_action_count,table_id)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
 @app.get("/private/object-read")
-@cache(expire=60)
+@cache(expire=100)
 async def private_object_read(request:Request):
    #param
    table=request.query_params.get("table")
@@ -1718,91 +1574,9 @@ async def private_human_read(request:Request):
    #final
    return {"status":1,"message":output}
 
-#object update
-@app.put("/my/object-update")
-async def my_object_update(request:Request):
-   #param
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   otp=int(request.query_params.get("otp",0))
-   table=request.query_params.get("table")
-   if not table:return error("table missing")
-   object=await request.json()
-   object["updated_by_id"]=request.state.user["id"]
-   #check
-   if table in ["spatial_ref_sys","otp","log_api","log_password"]:return error("table not allowed")
-   if len(object)<=2:return error ("object issue")
-   if "id" not in object:return error ("id missing")
-   if "password" in object:is_serialize=1
-   if "password" in object and len(object)!=3:return error("object length should be 2 only")
-   response=await object_check(table_id,column_lowercase,[object])
-   if response["status"]==0:return error(response["message"])
-   object=response["message"][0]
-   for key,value in object.items():
-      if key in column_disabled_non_admin:return error(f"{key} not allowed")
-   #ownership check
-   response=await ownership_check(postgres_client,table,int(object["id"]),request.state.user["id"])
-   if response["status"]==0:return error(response["message"])
-   #otp verify
-   email,mobile=object.get("email"),object.get("mobile")
-   if table=="users" and (email or mobile):
-      if len(object)!=3:return error("object length should be 2 only")
-      if not otp:return error("otp missing")
-      response=await verify_otp(postgres_client,otp,email,mobile)
-      if response["status"]==0:return error(response["message"])
-   #logic
-   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
-@app.put("/admin/object-update")
-async def admin_object_update(request:Request):
-   #param
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   table=request.query_params.get("table")
-   if not table:return error("table missing")
-   object=await request.json()
-   object["updated_by_id"]=request.state.user["id"]
-   #check
-   if table in ["spatial_ref_sys"]:return error("table not allowed")
-   if len(object)<=2:return error ("object issue")
-   if "id" not in object:return error ("id missing")
-   if "password" in object and len(object)!=3:return error("object length should be 2 only")
-   if "password" in object:is_serialize=1
-   response=await object_check(table_id,column_lowercase,[object])
-   if response["status"]==0:return error(response["message"])
-   object=response["message"][0]
-   #logic
-   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
-@app.put("/root/object-update")
-async def root_object_update(request:Request):
-   #param
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   table=request.query_params.get("table")
-   if not table:return error("table missing")
-   object=await request.json()
-   #check
-   if table in ["spatial_ref_sys"]:return error("table not allowed")
-   if len(object)<=1:return error ("object issue")
-   if "id" not in object:return error ("id missing")
-   if "password" in object and len(object)!=2:return error("object length should be 2 only")
-   if "password" in object:is_serialize=1
-   response=await object_check(table_id,column_lowercase,[object])
-   if response["status"]==0:return error(response["message"])
-   object=response["message"][0]
-   #logic
-   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
 #object delete
-@app.delete("/my/object-delete")
-async def my_object_delete(request:Request):
+@app.delete("/my/object-delete-any")
+async def my_object_delete_any(request:Request):
    #param
    table=request.query_params.get("table")
    if not table:return error("table missing")
@@ -1820,70 +1594,15 @@ async def my_object_delete(request:Request):
    #final
    return {"status":1,"message":"done"}
 
-#ids
-@app.put("/my/ids-update")
-async def my_ids_update(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   column=object.get("column")
-   value=object.get("value")
-   if not table or not ids or not column:return error("table/ids/column must")
-   object={column:value}
-   #check
-   if table in ["spatial_ref_sys","users","otp","log_api","log_password"]:return error("table not allowed")
-   response=await object_check(table_id,column_lowercase,[object])
-   if response["status"]==0:return error(response["message"])
-   object=response["message"][0]
-   for key,value in object.items():
-      if key in column_disabled_non_admin:return error(f"{key} not allowed")
-   #serialize
-   response=await object_serialize(postgres_column_datatype,[object])
-   if response["status"]==0:return response
-   object=response["message"][0]
-   #logic
-   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and created_by_id=:created_by_id;"
-   values={"created_by_id":request.state.user["id"],"updated_by_id":request.state.user["id"],"value":object.get(column)}
-   await postgres_client.execute(query=query,values=values)
-   #final
-   return {"status":1,"message":"done"}
- 
-@app.put("/admin/ids-update")
-async def admin_ids_update(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   column=object.get("column")
-   value=object.get("value")
-   if not table or not ids or not column:return error("table/ids/column must")
-   object={column:value}
-   #check
-   if table in ["spatial_ref_sys"]:return error("table not allowed")
-   response=await object_check(table_id,column_lowercase,[object])
-   if response["status"]==0:return error(response["message"])
-   object=response["message"][0]
-   #serialize
-   response=await object_serialize(postgres_column_datatype,[object])
-   if response["status"]==0:return response
-   object=response["message"][0]
-   #logic
-   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids});"
-   values={"updated_by_id":request.state.user["id"],"value":object.get(column)}
-   await postgres_client.execute(query=query,values=values)
-   #final
-   return {"status":1,"message":"done"}
-
-@app.delete("/my/ids-delete")
-async def my_ids_delete(request:Request):
+@app.delete("/my/object-delete-ids")
+async def my_object_delete_ids(request:Request):
    #param
    object=await request.json()
    table=object.get("table")
    ids=object.get("ids")
    if not table or not ids:return error("table/ids must")
    #check
-   if table in ["spatial_ref_sys","users"]:return error("table not allowed")
+   if table in table_banned or table=="users":return error("table not allowed")
    if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
    #logic
    query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;"
@@ -1892,15 +1611,15 @@ async def my_ids_delete(request:Request):
    #final
    return {"status":1,"message":"done"}
 
-@app.delete("/admin/ids-delete")
-async def admin_ids_delete(request:Request):
+@app.delete("/admin/object-delete-ids")
+async def admin_object_delete_ids(request:Request):
    #param
    object=await request.json()
    table=object.get("table")
    ids=object.get("ids")
    if not table or not ids:return error("table/ids must")
    #check
-   if table in ["spatial_ref_sys","users"]:return error("table not allowed")
+   if table in table_banned or table=="users":return error("table not allowed")
    if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
    #logic
    query=f"delete from {table} where id in ({ids});"
@@ -1935,7 +1654,6 @@ async def public_info(request:Request):
    #final
    return {"status":1,"message":output}
 
-#otp
 @app.post("/public/otp-send-sns")
 async def public_otp_send_sns(request:Request):
    #param
@@ -1974,6 +1692,220 @@ async def public_otp_send_ses(request:Request):
    ses_client.send_email(Source=sender,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
    #final
    return {"status":1,"message":"done"}
+
+#admin
+@app.post("/admin/db-runner")
+async def admin_db_runner(request:Request):
+   #param
+   query=(await request.json()).get("query")
+   if not query:return error("query must")
+   #check
+   danger_word=["drop","truncate"]
+   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
+   must_word=["select"]
+   for item in danger_word:
+       if item in query.lower():return error(f"{item} keyword not allowed in query")
+   if request.state.user["id"]!=user_id_first:
+      for item in stop_word:
+         if item in query.lower():return error(f"{item} keyword not allowed in query")
+      for item in must_word:
+         if item not in query.lower():return error(f"{item} keyword must be present in query")
+   #logic
+   output=await postgres_client.fetch_all(query=query,values={})
+   #final
+   return {"status":1,"message":output}
+
+@app.post("/admin/db-uploader")
+async def admin_db_uploader(request:Request):
+   #param
+   body_form_key,file=await body_form_data(request)
+   mode=body_form_key.get("mode")
+   table=body_form_key.get("table")
+   is_serialize=int(body_form_key.get("is_serialize",1))
+   if not mode or not table or not file:return error("mode/table/file must")
+   #transform
+   object_list=await file_to_object_list(file[-1])
+   #check
+   response=await object_check(table_id,column_lowercase,object_list)
+   if response["status"]==0:return error(response["message"])
+   object_list=response["message"]
+   #logic
+   if mode=="create":response=await postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.delete("/admin/db-clean")
+async def admin_db_clean():
+   #logic
+   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days';",values={})
+   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days';",values={})
+   await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days';",values={})
+   await postgres_client.execute(query="delete from message where created_at<now()-interval '100 days';",values={})
+   [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in postgres_schema if "action_" in table]
+   [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in postgres_schema if "action_" in table]
+   [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in postgres_schema for parent_table in table_id if "action_" in table]
+   #final
+   return {"status":1,"message":"done"}
+
+@app.put("/admin/db-checklist")
+async def admin_db_checklist():
+   #logix
+   await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
+   await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
+   await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
+   await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
+   await postgres_client.execute(query="update human set remark=null where remark='';",values={})
+   await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
+   #final
+   return {"status":1,"message":"done"}
+
+#redis
+@app.post("/admin/redis-set-object")
+async def admin_redis_set_object(request:Request):
+   #param
+   key=request.query_params.get("key")
+   expiry=request.query_params.get("mode")
+   if not key:return error("key missing")
+   object=json.dumps(await request.json())
+   #logic
+   if not expiry:output=await redis_client.set(key,object)
+   else:output=await redis_client.setex(key,expiry,object)
+   #final
+   return {"status":1,"message":output}
+
+@app.get("/public/redis-get-object")
+async def public_redis_get_object(request:Request):
+   #param
+   key=request.query_params.get("key")
+   if not key:return error("key missing")
+   #logic
+   output=await redis_client.get(key)
+   if output:output=json.loads(output)
+   #final
+   return {"status":1,"message":output}
+
+@app.post("/admin/redis-set-csv")
+async def admin_redis_set_csv(request:Request):
+   #param
+   body_form_key,file=await body_form_data(request)
+   table=body_form_key.get("table")
+   expiry=body_form_key.get("expiry")
+   if not table or not file:return error("table/file missing")
+   #transform
+   object_list=await file_to_object_list(file[-1])
+   #logic
+   async with redis_client.pipeline(transaction=True) as pipe:
+      for object in object_list:
+         key=f"{table}_{object['id']}"
+         if not expiry:pipe.set(key,json.dumps(object))
+         else:pipe.setex(key,expiry,json.dumps(object))
+      await pipe.execute()
+   #final
+   return {"status":1,"message":"done"}
+
+@app.delete("/admin/redis-reset")
+async def admin_reset_redis():
+   #logic
+   await redis_client.flushall()
+   #final
+   return {"status":1,"message":"done"}
+
+#s3
+@app.get("/admin/s3-bucket-list")
+async def admin_s3_bucket_list():
+   #logic
+   output=s3_client.list_buckets()
+   #final
+   return {"status":1,"message":output}
+
+@app.post("/admin/s3-bucket-create")
+async def admin_s3_bucket_create(request:Request):
+   #param
+   bucket=(await request.json()).get("bucket")
+   if not bucket:return error("bucket missing")
+   #logic
+   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
+   #final
+   return {"status":1,"message":output}
+
+@app.put("/admin/s3-bucket-public")
+async def admin_s3_bucket_public(request:Request):
+   #param
+   bucket=(await request.json()).get("bucket")
+   if not bucket:return error("bucket missing")
+   #logic
+   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   #final
+   return {"status":1,"message":output}
+
+@app.delete("/admin/s3-bucket-empty")
+async def admin_s3_bucket_empty(request:Request):
+   #param
+   bucket=(await request.json()).get("bucket")
+   if not bucket:return error("bucket missing")
+   #logic
+   output=s3_resource.Bucket(bucket).objects.all().delete()
+   #final
+   return {"status":1,"message":output}
+
+@app.delete("/admin/s3-bucket-delete")
+async def admin_s3_bucket_empty(request:Request):
+   #param
+   bucket=(await request.json()).get("bucket")
+   if not bucket:return error("bucket missing")
+   #logic
+   output=s3_client.delete_bucket(Bucket=bucket)
+   #final
+   return {"status":1,"message":output}
+
+@app.delete("/admin/s3-url-delete")
+async def admin_s3_url_empty(request:Request):
+   #param
+   url=(await request.json()).get("url")
+   if not url:return error("url missing")
+   #logic
+   for item in url.split("---"):
+      bucket,key=item.split("//",1)[1].split(".",1)[0],item.rsplit("/",1)[1]
+      output=s3_resource.Object(bucket,key).delete()
+   #final
+   return {"status":1,"message":output}
+
+@app.post("/private/s3-file-upload")
+async def private_s3_file_upload(request:Request):
+   #param
+   body_form_key,file=await body_form_data(request)
+   bucket=body_form_key.get("bucket")
+   key=body_form_key.get("key")
+   if not bucket or not key or not file:return error("bucket/key/file missing")
+   #logic
+   key_list=None if key=="uuid" else key.split("---")
+   response=await s3_file_upload(s3_client,s3_region_name,bucket,key_list,file)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.post("/private/s3-file-upload-presigned")
+async def private_s3_file_upload_presigned(request:Request):
+   #param
+   object=await request.json()
+   bucket=object.get("bucket")
+   key=object.get("key")
+   if not bucket or not key:return error("bucket/key missing")
+   #check
+   if "." not in key:return error("extension must")
+   #logic
+   expiry_sec,size_kb=1000,100
+   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
+   for k,v in output["fields"].items():output[k]=v
+   del output["fields"]
+   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
+   #final
+   return {"status":1,"message":output}
 
 #mode
 import sys

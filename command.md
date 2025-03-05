@@ -47,3 +47,12 @@ pid kill = lsof -ti :8000 | xargs kill -9
 git commit delete = git reset --hard HEAD~3 / git push origin main --force
 postgres table rows count = SELECT relname AS table_name,n_live_tup AS row_count FROM pg_stat_user_tables;
 ```
+
+# olama
+```
+brew install ollama
+brew services start ollama
+ollama pull mistral
+ollama run mistral
+ollama list
+```
