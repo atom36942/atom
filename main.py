@@ -374,7 +374,7 @@ is_index_html=int(os.getenv("is_index_html",0))
 is_signup=int(os.getenv("is_signup",0))
 
 #globals
-user_id_first=1
+user_id_super_admin=[1]
 table_banned=["spatial_ref_sys","otp","log_api","log_password"]
 object_list_log_api=[]
 output_cache_public_info={}
@@ -383,11 +383,23 @@ column_disabled_non_admin=["is_active","is_verified","api_access"]
 column_lowercase=["type","tag","status","email","mobile","country","state","city","work_profile","skill"]
 api_id={
 "/admin/db-runner":1,
-"/admin/object-update":2,
-"/admin/object-create":3,
-"/admin/object-read":4,
-"/admin/ids-delete":5,
-"/admin/ids-update":6
+"/admin/object-create":2,
+"/admin/object-read":3,
+"/admin/object-update":4,
+"/admin/object-update-ids":5,
+"/admin/object-delete-ids":6,
+"/admin/db-uploader":7,
+"/admin/db-clean":8,
+"/admin/db-checklist":9,
+"/admin/redis-set-object":10,
+"/admin/redis-set-csv":11,
+"/admin/redis-reset":12,
+"/admin/s3-bucket-list":13,
+"/admin/s3-bucket-create":14,
+"/admin/s3-bucket-public":15,
+"/admin/s3-bucket-empty":16,
+"/admin/s3-bucket-delete":17,
+"/admin/s3-url-delete":18
 }
 query_human_work_profile='''
 select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') limit 100000;
@@ -1341,12 +1353,10 @@ async def admin_object_create(request:Request):
    object["created_by_id"]=request.state.user["id"]
    #check
    if table in table_banned:return error("table not allowed")
+   if table in ["users"] and request.state.user["id"] not in user_id_super_admin:return error("not allowed")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
    object=response["message"][0]
-   for key,value in object.items():
-      if key in column_lowercase:object[key]=value.strip().lower()
-   if "password" in object:is_serialize=1
    #logic
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
@@ -1644,6 +1654,7 @@ async def public_info(request:Request):
       "api_list":[route.path for route in request.app.routes],
       "redis":await redis_client.info(),
       "table_id":table_id,
+      "api_id":api_id,
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
       "mission":await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={}),
       "human_work_profile":await postgres_client.fetch_all(query=query_human_work_profile,values={}),
@@ -1705,7 +1716,7 @@ async def admin_db_runner(request:Request):
    must_word=["select"]
    for item in danger_word:
        if item in query.lower():return error(f"{item} keyword not allowed in query")
-   if request.state.user["id"]!=user_id_first:
+   if request.state.user["id"] not in user_id_super_admin:
       for item in stop_word:
          if item in query.lower():return error(f"{item} keyword not allowed in query")
       for item in must_word:
