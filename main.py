@@ -1781,7 +1781,6 @@ async def admin_db_checklist():
    await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
    await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
    await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
-   await postgres_client.execute(query="update human set remark=null where remark='';",values={})
    await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
    #final
    return {"status":1,"message":"done"}
