@@ -106,7 +106,7 @@ async def object_serialize(postgres_column_datatype,object_list):
          if not datatype:return {"status":0,"message":f"column {key} is not in postgres schema"}
          elif value==None:continue
          elif key in ["password","google_id","apple_id","facebook_id","github_id","twitter_id"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
-         elif datatype=="text" and value=="":object_list[index][key]=None
+         elif datatype=="text" and value in ["","null"]:object_list[index][key]=None
          elif datatype=="text":object_list[index][key]=value.strip()
          elif "int" in datatype:object_list[index][key]=int(value)
          elif datatype=="numeric":object_list[index][key]=round(float(value),3)

@@ -38,13 +38,6 @@
 16. soft/hard delete on object level
 ```
 
-# curl testing
-```
-1. add .env key=baseurl,token_root,token_admin,file_create,file_update,file_delete,test_id
-2. chmod +x curl.sh
-3. ./curl.sh
-```
-
 # how to run
 ```
 1. download atom repo
@@ -58,6 +51,13 @@
 ```
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
+```
+
+# curl testing
+```
+1. add .env key=baseurl,token_root,token_admin,file_create,file_update,file_delete,test_id
+2. chmod +x curl.sh
+3. ./curl.sh
 ```
 
 # api docs
