@@ -384,22 +384,24 @@ column_lowercase=["type","tag","status","email","mobile","country","state","city
 api_id={
 "/admin/db-runner":1,
 "/admin/object-create":2,
-"/admin/object-read":3,
-"/admin/object-update":4,
-"/admin/object-update-ids":5,
-"/admin/object-delete-ids":6,
-"/admin/db-uploader":7,
-"/admin/db-clean":8,
-"/admin/db-checklist":9,
-"/admin/redis-set-object":10,
-"/admin/redis-set-csv":11,
-"/admin/redis-reset":12,
-"/admin/s3-bucket-list":13,
-"/admin/s3-bucket-create":14,
-"/admin/s3-bucket-public":15,
-"/admin/s3-bucket-empty":16,
-"/admin/s3-bucket-delete":17,
-"/admin/s3-url-delete":18
+"/admin/object-create-users":3,
+"/admin/object-read":4,
+"/admin/object-update":5,
+"/admin/object-update-users":6,
+"/admin/object-update-ids":7,
+"/admin/object-delete-ids":8,
+"/admin/db-uploader":9,
+"/admin/db-clean":10,
+"/admin/db-checklist":11,
+"/admin/redis-set-object":12,
+"/admin/redis-set-csv":13,
+"/admin/redis-reset":14,
+"/admin/s3-bucket-list":15,
+"/admin/s3-bucket-create":16,
+"/admin/s3-bucket-public":17,
+"/admin/s3-bucket-empty":18,
+"/admin/s3-bucket-delete":19,
+"/admin/s3-url-delete":20
 }
 query_human_work_profile='''
 select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') limit 100000;
@@ -899,7 +901,7 @@ async def middleware(request:Request,api_function):
       if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return error("Bearer token must")
       if token:
          if "root/" in api:
-            if token!=key_root:return error("token mismatch")
+            if token!=key_root:return error("root token mismatch")
          else:
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return error("user_id not in token")
@@ -1295,7 +1297,7 @@ async def my_object_create(request:Request):
    object=await request.json()
    object["created_by_id"]=request.state.user["id"]
    #check
-   if table in table_banned or table=="users":return error("table not allowed")
+   if table in table_banned or table in ["users","atom"]:return error("table not allowed")
    if len(object)<=1:return error ("object issue")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
@@ -1352,13 +1354,27 @@ async def admin_object_create(request:Request):
    object=await request.json()
    object["created_by_id"]=request.state.user["id"]
    #check
-   if table in table_banned:return error("table not allowed")
-   if table in ["users"] and request.state.user["id"] not in user_id_super_admin:return error("only super admin allowed")
+   if table in table_banned or table=="users":return error("table not allowed")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
    object=response["message"][0]
    #logic
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.post("/admin/object-create-users")
+async def admin_object_create_users(request:Request):
+   #param
+   is_serialize=int(request.query_params.get("is_serialize",1))
+   object=await request.json()
+   #check
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   #logic
+   response=await postgres_create("users",[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1409,8 +1425,7 @@ async def admin_object_update(request:Request):
    object=await request.json()
    object["updated_by_id"]=request.state.user["id"]
    #check
-   if table in table_banned:return error("table not allowed")
-   if table in ["users"] and request.state.user["id"] not in user_id_super_admin:return error("only super admin allowed")
+   if table in table_banned or table=="users":return error("table not allowed")
    if len(object)<=2:return error ("object issue")
    if "id" not in object:return error ("id missing")
    if "password" in object and len(object)!=3:return error("object length should be 2 only")
@@ -1419,6 +1434,25 @@ async def admin_object_update(request:Request):
    object=response["message"][0]
    #logic
    response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.put("/admin/object-update-users")
+async def admin_object_update_users(request:Request):
+   #param
+   is_serialize=int(request.query_params.get("is_serialize",1))
+   object=await request.json()
+   object["updated_by_id"]=request.state.user["id"]
+   #check
+   if len(object)<=2:return error ("object issue")
+   if "id" not in object:return error ("id missing")
+   if "password" in object and len(object)!=3:return error("object length should be 2 only")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   #logic
+   response=await postgres_update("users",[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1462,8 +1496,7 @@ async def admin_object_update_ids(request:Request):
    if not table or not ids or not column:return error("table/ids/column must")
    object={column:value}
    #check
-   if table in table_banned:return error("table not allowed")
-   if table in ["users"] and request.state.user["id"] not in user_id_super_admin:return error("only super admin allowed")
+   if table in table_banned or table=="users":return error("table not allowed")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
    object=response["message"][0]
@@ -1728,28 +1761,6 @@ async def admin_db_runner(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.post("/admin/db-uploader")
-async def admin_db_uploader(request:Request):
-   #param
-   body_form_key,file=await body_form_data(request)
-   mode=body_form_key.get("mode")
-   table=body_form_key.get("table")
-   is_serialize=int(body_form_key.get("is_serialize",1))
-   if not mode or not table or not file:return error("mode/table/file must")
-   #transform
-   object_list=await file_to_object_list(file[-1])
-   #check
-   response=await object_check(table_id,column_lowercase,object_list)
-   if response["status"]==0:return error(response["message"])
-   object_list=response["message"]
-   #logic
-   if mode=="create":response=await postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
 @app.delete("/admin/db-clean")
 async def admin_db_clean():
    #logic
@@ -1774,6 +1785,28 @@ async def admin_db_checklist():
    await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
    #final
    return {"status":1,"message":"done"}
+
+@app.post("/admin/db-uploader")
+async def admin_db_uploader(request:Request):
+   #param
+   body_form_key,file=await body_form_data(request)
+   mode=body_form_key.get("mode")
+   table=body_form_key.get("table")
+   is_serialize=int(body_form_key.get("is_serialize",1))
+   if not mode or not table or not file:return error("mode/table/file must")
+   #transform
+   object_list=await file_to_object_list(file[-1])
+   #check
+   response=await object_check(table_id,column_lowercase,object_list)
+   if response["status"]==0:return error(response["message"])
+   object_list=response["message"]
+   #logic
+   if mode=="create":response=await postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
 
 #redis
 @app.post("/admin/redis-set-object")
