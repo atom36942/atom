@@ -109,4 +109,3 @@ curl -X DELETE "$baseurl/admin/redis-reset" -H "Authorization: Bearer $token_adm
 0 curl -X POST "$baseurl/private/s3-file-upload" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=uuid" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
 0 curl -X POST "$baseurl/private/s3-file-upload" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
 0 curl -X POST "$baseurl/private/s3-file-upload-presigned" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"bucket":"master","key":"key1.png"}'
-

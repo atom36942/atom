@@ -1003,6 +1003,7 @@ async def root_db_init(request:Request):
    if mode=="custom":config=await request.json()
    #logic
    response=await postgres_schema_init(postgres_client,postgres_schema_read,config)
+   await set_postgres_schema()
    #final
    return response
 
@@ -1010,9 +1011,9 @@ async def root_db_init(request:Request):
 async def root_reset_global():
    #logic
    await set_postgres_schema()
-   await set_project_data()
    await set_users_api_access()
    await set_users_is_active()
+   await set_project_data()
    #final
    return {"status":1,"message":"done"}
 
