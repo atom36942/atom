@@ -57,7 +57,6 @@ curl -X PUT "$baseurl/my/object-update?table=users&otp=123" -H "Authorization: B
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"title":"admin update"}'
 curl -X PUT "$baseurl/admin/object-update-users" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"name":"neo"}'
 curl -X PUT "$baseurl/my/object-update-ids" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":1}'
-curl -X PUT "$baseurl/my/object-update-ids" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"post","ids":"1,2,3","column":"is_deleted","value":1}'
 curl -X PUT "$baseurl/admin/object-update-ids" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"test","ids":"69,70,71","column":"type","value":"ATOM"}'
 
 #object read
