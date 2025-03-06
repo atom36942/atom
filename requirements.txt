@@ -60,3 +60,4 @@ uritemplate==4.1.1
 urllib3==2.3.0
 uvicorn==0.34.0
 yarg==0.1.10
+asyncpg

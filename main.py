@@ -664,10 +664,14 @@ postgres_config={
 
 #setters
 postgres_client=None
+postgres_client_asyncpg=None
 from databases import Database
+import asyncpg
 async def set_postgres_client():
    global postgres_client
+   global postgres_client_asyncpg
    postgres_client=Database(postgres_database_url,min_size=1,max_size=100)
+   postgres_client_asyncpg=await asyncpg.connect(postgres_database_url)
    await postgres_client.connect()
    return None
 
@@ -683,37 +687,49 @@ async def set_postgres_schema():
 users_api_access={}
 async def set_users_api_access():
    global users_api_access
-   users_api_access={}
-   order,limit="id desc",10000
+   local_users_api_access={}
    if postgres_schema.get("users"):
-      for page in range(1,101):
-         query=f"select id,api_access from users where api_access is not null  order by {order} limit {limit} offset {(page-1)*limit};"
-         output=await postgres_client.fetch_all(query=query,values={})
-         if not output:break
-         users_api_access={object["id"]:[int(item.strip()) for item in object["api_access"].split(",")] for object in output if len(object["api_access"])>=1}
+      try:
+         async with postgres_client_asyncpg.transaction():
+            cursor=await postgres_client_asyncpg.cursor('SELECT id, api_access FROM users where api_access is not null ORDER BY id DESC')
+            count=0
+            while count < 10000000:
+               batch=await cursor.fetch(10000)
+               if not batch:break
+               local_users_api_access.update({record['id']:[int(item.strip()) for item in record["api_access"].split(",")] for record in batch})
+               if False:await redis_client.mset({f"users_api_access_{record['id']}":record['api_access'] for record in batch})
+               count+=len(batch)
+      except Exception as e:print(f"Error in set_users_api_access: {e}")
+      users_api_access=local_users_api_access
    return None
 
 users_is_active={}
 async def set_users_is_active():
    global users_is_active
-   users_is_active={}
-   order,limit="id desc",10000
+   local_users_is_active={}
    if postgres_schema.get("users"):
-      for page in range(1,101):
-         query=f"select id,is_active from users order by {order} limit {limit} offset {(page-1)*limit};"
-         output=await postgres_client.fetch_all(query=query,values={})
-         if not output:break
-         users_is_active={object["id"]:object["is_active"] for object in output}
+      try:
+         async with postgres_client_asyncpg.transaction():
+            cursor=await postgres_client_asyncpg.cursor('SELECT id, is_active FROM users ORDER BY id DESC')
+            count=0
+            while count < 10000000:
+               batch=await cursor.fetch(10000)
+               if not batch:break
+               local_users_is_active.update({record['id']: record['is_active'] for record in batch})
+               if False:await redis_client.mset({f"users_is_active_{record['id']}":0 if record['is_active']==0 else 1 for record in batch})
+               count+=len(batch)
+      except Exception as e:print(f"Error in set_users_is_active: {e}")
+      users_is_active=local_users_is_active
    return None
 
 project_data={}
 async def set_project_data():
    global project_data
    project_data={}
-   order,limit="id desc",1000
+   limit=1000
    if postgres_schema.get("project"):
       for page in range(1,11):
-         query=f"select * from project order by {order} limit {limit} offset {(page-1)*limit};;"
+         query=f"select * from project order by id desc limit {limit} offset {(page-1)*limit};;"
          output=await postgres_client.fetch_all(query=query,values={})
          if not output:break
          for object in output:
@@ -838,32 +854,33 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-   #main
-   await set_postgres_client()
-   await set_postgres_schema()
-   await set_users_api_access()
-   await set_users_is_active()
-   await set_project_data()
-   await set_redis_client()
-   #aws
-   await set_s3_client()
-   await set_sns_client()
-   await set_ses_client()
-   #mongodb
-   await set_mongodb_client()
-   #queue
-   await set_rabbitmq_client()
-   await set_lavinmq_client()
-   await set_kafka_client()
-   #rate limiter
-   if redis_client:await FastAPILimiter.init(redis_client)
-   #cache
-   if redis_client_valkey:FastAPICache.init(RedisBackend(redis_client_valkey),key_builder=redis_key_builder)
-   else:FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
-   #disconnect
-   yield
    try:
+      #main
+      await set_postgres_client()
+      await set_redis_client()
+      await set_postgres_schema()
+      await set_users_api_access()
+      await set_users_is_active()
+      await set_project_data()
+      #aws
+      await set_s3_client()
+      await set_sns_client()
+      await set_ses_client()
+      #mongodb
+      await set_mongodb_client()
+      #queue
+      await set_rabbitmq_client()
+      await set_lavinmq_client()
+      await set_kafka_client()
+      #rate limiter
+      if redis_client:await FastAPILimiter.init(redis_client)
+      #cache
+      if redis_client_valkey:FastAPICache.init(RedisBackend(redis_client_valkey),key_builder=redis_key_builder)
+      else:FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
+      #disconnect
+      yield
       await postgres_client.disconnect()
+      await postgres_client_asyncpg.close()
       if redis_client:await redis_client.aclose()
       if redis_client_valkey:await redis_client_valkey.aclose()
       if rabbitmq_client and rabbitmq_channel.is_open:rabbitmq_channel.close()
@@ -916,7 +933,7 @@ async def middleware(request:Request,api_function):
                   if not api_access_str:return error("api access denied")
                   user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
                if api_id_value not in user_api_access:return error("api access denied") 
-            for item in ["admin/","my/object-create","private/human-read"]:
+            for item in ["admin/","private","my/object-create"]:
                if item in api:
                   user_is_active=users_is_active.get(user["id"],"absent")
                   if user_is_active=="absent":
