@@ -383,13 +383,13 @@ column_disabled_non_admin=["is_active","is_verified","api_access"]
 column_lowercase=["type","tag","status","email","mobile","country","state","city","work_profile","skill"]
 api_id={
 "/admin/db-runner":1,
-"/admin/object-create":2,
-"/admin/object-create-users":3,
-"/admin/object-read":4,
+"/admin/object-create-users":2,
+"/admin/object-create":3,
+"/admin/object-update-users":4,
 "/admin/object-update":5,
-"/admin/object-update-users":6,
-"/admin/object-update-ids":7,
-"/admin/object-delete-ids":8,
+"/admin/object-update-ids":6,
+"/admin/object-delete-ids":7,
+"/admin/object-read":8,
 "/admin/db-uploader":9,
 "/admin/db-clean":10,
 "/admin/db-checklist":11,
@@ -1345,6 +1345,21 @@ async def public_object_create(request:Request):
    #final
    return response
 
+@app.post("/admin/object-create-users")
+async def admin_object_create_users(request:Request):
+   #param
+   is_serialize=int(request.query_params.get("is_serialize",1))
+   object=await request.json()
+   #check
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   #logic
+   response=await postgres_create("users",[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
 @app.post("/admin/object-create")
 async def admin_object_create(request:Request):
    #param
@@ -1360,21 +1375,6 @@ async def admin_object_create(request:Request):
    object=response["message"][0]
    #logic
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
-@app.post("/admin/object-create-users")
-async def admin_object_create_users(request:Request):
-   #param
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   object=await request.json()
-   #check
-   response=await object_check(table_id,column_lowercase,[object])
-   if response["status"]==0:return error(response["message"])
-   object=response["message"][0]
-   #logic
-   response=await postgres_create("users",[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1416,47 +1416,6 @@ async def my_object_update(request:Request):
    #final
    return response
 
-@app.put("/admin/object-update")
-async def admin_object_update(request:Request):
-   #param
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   table=request.query_params.get("table")
-   if not table:return error("table missing")
-   object=await request.json()
-   object["updated_by_id"]=request.state.user["id"]
-   #check
-   if table in table_banned or table=="users":return error("table not allowed")
-   if len(object)<=2:return error ("object issue")
-   if "id" not in object:return error ("id missing")
-   if "password" in object and len(object)!=3:return error("object length should be 2 only")
-   response=await object_check(table_id,column_lowercase,[object])
-   if response["status"]==0:return error(response["message"])
-   object=response["message"][0]
-   #logic
-   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
-@app.put("/admin/object-update-users")
-async def admin_object_update_users(request:Request):
-   #param
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   object=await request.json()
-   object["updated_by_id"]=request.state.user["id"]
-   #check
-   if len(object)<=2:return error ("object issue")
-   if "id" not in object:return error ("id missing")
-   if "password" in object and len(object)!=3:return error("object length should be 2 only")
-   response=await object_check(table_id,column_lowercase,[object])
-   if response["status"]==0:return error(response["message"])
-   object=response["message"][0]
-   #logic
-   response=await postgres_update("users",[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
 @app.put("/my/object-update-ids")
 async def my_object_update_ids(request:Request):
    #param
@@ -1484,7 +1443,48 @@ async def my_object_update_ids(request:Request):
    await postgres_client.execute(query=query,values=values)
    #final
    return {"status":1,"message":"done"}
- 
+
+@app.put("/admin/object-update-users")
+async def admin_object_update_users(request:Request):
+   #param
+   is_serialize=int(request.query_params.get("is_serialize",1))
+   object=await request.json()
+   object["updated_by_id"]=request.state.user["id"]
+   #check
+   if len(object)<=2:return error ("object issue")
+   if "id" not in object:return error ("id missing")
+   if "password" in object and len(object)!=3:return error("object length should be 2 only")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   #logic
+   response=await postgres_update("users",[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.put("/admin/object-update")
+async def admin_object_update(request:Request):
+   #param
+   is_serialize=int(request.query_params.get("is_serialize",1))
+   table=request.query_params.get("table")
+   if not table:return error("table missing")
+   object=await request.json()
+   object["updated_by_id"]=request.state.user["id"]
+   #check
+   if table in table_banned or table=="users":return error("table not allowed")
+   if len(object)<=2:return error ("object issue")
+   if "id" not in object:return error ("id missing")
+   if "password" in object and len(object)!=3:return error("object length should be 2 only")
+   response=await object_check(table_id,column_lowercase,[object])
+   if response["status"]==0:return error(response["message"])
+   object=response["message"][0]
+   #logic
+   response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
 @app.put("/admin/object-update-ids")
 async def admin_object_update_ids(request:Request):
    #param
@@ -1508,6 +1508,59 @@ async def admin_object_update_ids(request:Request):
    query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids});"
    values={"updated_by_id":request.state.user["id"],"value":object.get(column)}
    await postgres_client.execute(query=query,values=values)
+   #final
+   return {"status":1,"message":"done"}
+
+#object delete
+@app.delete("/my/object-delete-any")
+async def my_object_delete_any(request:Request):
+   #param
+   table=request.query_params.get("table")
+   if not table:return error("table missing")
+   object=dict(request.query_params)
+   object["created_by_id"]=f"=,{request.state.user['id']}"
+   #check
+   if "action_" not in table:return error("table not allowed")
+   #create where
+   response=await create_where_string(postgres_column_datatype,object_serialize,object)
+   if response["status"]==0:return error(response["message"])
+   where_string,where_value=response["message"][0],response["message"][1]
+   #logic
+   query=f"delete from {table} {where_string};"
+   await postgres_client.fetch_all(query=query,values=where_value)
+   #final
+   return {"status":1,"message":"done"}
+
+@app.delete("/my/object-delete-ids")
+async def my_object_delete_ids(request:Request):
+   #param
+   object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
+   if not table or not ids:return error("table/ids must")
+   #check
+   if table in table_banned or table=="users":return error("table not allowed")
+   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
+   #logic
+   query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;"
+   values={"created_by_id":request.state.user["id"]}
+   await postgres_client.execute(query=query,values=values)
+   #final
+   return {"status":1,"message":"done"}
+
+@app.delete("/admin/object-delete-ids")
+async def admin_object_delete_ids(request:Request):
+   #param
+   object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
+   if not table or not ids:return error("table/ids must")
+   #check
+   if table in table_banned or table=="users":return error("table not allowed")
+   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
+   #logic
+   query=f"delete from {table} where id in ({ids});"
+   await postgres_client.execute(query=query,values={})
    #final
    return {"status":1,"message":"done"}
 
@@ -1618,59 +1671,6 @@ async def private_human_read(request:Request):
    output=await postgres_client.fetch_all(query=query,values=values)
    #final
    return {"status":1,"message":output}
-
-#object delete
-@app.delete("/my/object-delete-any")
-async def my_object_delete_any(request:Request):
-   #param
-   table=request.query_params.get("table")
-   if not table:return error("table missing")
-   object=dict(request.query_params)
-   object["created_by_id"]=f"=,{request.state.user['id']}"
-   #check
-   if "action_" not in table:return error("table not allowed")
-   #create where
-   response=await create_where_string(postgres_column_datatype,object_serialize,object)
-   if response["status"]==0:return error(response["message"])
-   where_string,where_value=response["message"][0],response["message"][1]
-   #logic
-   query=f"delete from {table} {where_string};"
-   await postgres_client.fetch_all(query=query,values=where_value)
-   #final
-   return {"status":1,"message":"done"}
-
-@app.delete("/my/object-delete-ids")
-async def my_object_delete_ids(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   if not table or not ids:return error("table/ids must")
-   #check
-   if table in table_banned or table=="users":return error("table not allowed")
-   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
-   #logic
-   query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;"
-   values={"created_by_id":request.state.user["id"]}
-   await postgres_client.execute(query=query,values=values)
-   #final
-   return {"status":1,"message":"done"}
-
-@app.delete("/admin/object-delete-ids")
-async def admin_object_delete_ids(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   if not table or not ids:return error("table/ids must")
-   #check
-   if table in table_banned or table=="users":return error("table not allowed")
-   if len(ids.split(","))>max_ids_length_delete:return error("ids length not allowed")
-   #logic
-   query=f"delete from {table} where id in ({ids});"
-   await postgres_client.execute(query=query,values={})
-   #final
-   return {"status":1,"message":"done"}
 
 #public
 @app.get("/public/info")
