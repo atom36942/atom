@@ -1410,6 +1410,7 @@ async def admin_object_update(request:Request):
    object["updated_by_id"]=request.state.user["id"]
    #check
    if table in table_banned:return error("table not allowed")
+   if table in ["users"] and request.state.user["id"] not in user_id_super_admin:return error("not allowed")
    if len(object)<=2:return error ("object issue")
    if "id" not in object:return error ("id missing")
    if "password" in object and len(object)!=3:return error("object length should be 2 only")
@@ -1462,6 +1463,7 @@ async def admin_object_update_ids(request:Request):
    object={column:value}
    #check
    if table in table_banned:return error("table not allowed")
+   if table in ["users"] and request.state.user["id"] not in user_id_super_admin:return error("not allowed")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
    object=response["message"][0]
