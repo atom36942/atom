@@ -492,6 +492,8 @@ postgres_config={
 "email-text-0-btree",
 "mobile-text-0-btree",
 "name-text-0-0",
+"country-text-0-0",
+"state-text-0-0",
 "city-text-0-gin",
 "company-text-0-0",
 "api_access-text-0-0",
