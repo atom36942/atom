@@ -86,6 +86,7 @@ async def postgres_delete(table,object_list,is_serialize,postgres_client,postgre
 
 async def object_check(table_id,column_lowercase,object_list):
    #logic
+   if len(object_list)==1 and all(value in [None,""] for value in object_list[0].values()):return {"status":0,"message":"object null issue"}
    for index,object in enumerate(object_list):
       for key,value in object.items():
          if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
