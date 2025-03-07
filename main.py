@@ -390,12 +390,8 @@ api_id={
 "/admin/object-update-ids":6,
 "/admin/object-delete-ids":7,
 "/admin/object-read":8,
-"/admin/db-uploader":9,
-"/admin/db-clean":10,
-"/admin/db-checklist":11,
 "/admin/redis-set-object":12,
 "/admin/redis-set-csv":13,
-"/admin/redis-reset":14,
 "/admin/s3-bucket-list":15,
 "/admin/s3-bucket-create":16,
 "/admin/s3-bucket-public":17,
@@ -1016,6 +1012,52 @@ async def root_reset_global():
    await set_project_data()
    #final
    return {"status":1,"message":"done"}
+
+@app.put("/root/db-checklist")
+async def root_db_checklist():
+   #logix
+   await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
+   await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
+   await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
+   await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
+   await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
+   #final
+   return {"status":1,"message":"done"}
+
+@app.delete("/root/db-clean")
+async def root_db_clean():
+   #logic
+   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days';",values={})
+   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days';",values={})
+   await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days';",values={})
+   await postgres_client.execute(query="delete from message where created_at<now()-interval '100 days';",values={})
+   [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in postgres_schema if "action_" in table]
+   [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in postgres_schema if "action_" in table]
+   [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in postgres_schema for parent_table in table_id if "action_" in table]
+   #final
+   return {"status":1,"message":"done"}
+
+@app.post("/root/db-uploader")
+async def root_db_uploader(request:Request):
+   #param
+   body_form_key,file=await body_form_data(request)
+   mode=body_form_key.get("mode")
+   table=body_form_key.get("table")
+   is_serialize=int(body_form_key.get("is_serialize",1))
+   if not mode or not table or not file:return error("mode/table/file must")
+   #transform
+   object_list=await file_to_object_list(file[-1])
+   #check
+   response=await object_check(table_id,column_lowercase,object_list)
+   if response["status"]==0:return error(response["message"])
+   object_list=response["message"]
+   #logic
+   if mode=="create":response=await postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
 
 #auth
 @app.post("/auth/signup",dependencies=[Depends(RateLimiter(times=1,seconds=3))])
@@ -1683,7 +1725,6 @@ async def private_human_read(request:Request):
    (rating <= :rating_max or :rating_max is null)
    order by {order} limit {limit} offset {(page-1)*limit};
    '''
-   print(query)
    values={
    "work_profile":work_profile,
    "skill":skill,
@@ -1783,52 +1824,6 @@ async def admin_db_runner(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.delete("/admin/db-clean")
-async def admin_db_clean():
-   #logic
-   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '100 days';",values={})
-   await postgres_client.execute(query="delete from log_password where created_at<now()-interval '1000 days';",values={})
-   await postgres_client.execute(query="delete from otp where created_at<now()-interval '100 days';",values={})
-   await postgres_client.execute(query="delete from message where created_at<now()-interval '100 days';",values={})
-   [await postgres_client.execute(query=f"delete from {table} where created_by_id not in (select id from users);",values={}) for table in postgres_schema if "action_" in table]
-   [await postgres_client.execute(query=f"delete from {table} where parent_table not in ({','.join([str(id) for id in table_id.values()])});",values={}) for table in postgres_schema if "action_" in table]
-   [await postgres_client.execute(query=f"delete from {table} where parent_table={table_id.get(parent_table,0)} and parent_id not in (select id from {parent_table});",values={}) for table in postgres_schema for parent_table in table_id if "action_" in table]
-   #final
-   return {"status":1,"message":"done"}
-
-@app.put("/admin/db-checklist")
-async def admin_db_checklist():
-   #logix
-   await postgres_client.execute(query="update users set is_active=null,is_deleted=null where id=1;",values={})
-   await postgres_client.execute(query="update users set is_protected=1 where api_access is not null;",values={})
-   await postgres_client.execute(query="update users set is_active=0 where is_deleted=1;",values={})
-   await postgres_client.execute(query="update human set is_active=0 where is_deleted=1;",values={})
-   await postgres_client.execute(query="update human set is_protected=null where is_deleted=1;",values={})
-   #final
-   return {"status":1,"message":"done"}
-
-@app.post("/admin/db-uploader")
-async def admin_db_uploader(request:Request):
-   #param
-   body_form_key,file=await body_form_data(request)
-   mode=body_form_key.get("mode")
-   table=body_form_key.get("table")
-   is_serialize=int(body_form_key.get("is_serialize",1))
-   if not mode or not table or not file:return error("mode/table/file must")
-   #transform
-   object_list=await file_to_object_list(file[-1])
-   #check
-   response=await object_check(table_id,column_lowercase,object_list)
-   if response["status"]==0:return error(response["message"])
-   object_list=response["message"]
-   #logic
-   if mode=="create":response=await postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="delete":response=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
 #redis
 @app.post("/admin/redis-set-object")
 async def admin_redis_set_object(request:Request):
@@ -1873,8 +1868,8 @@ async def admin_redis_set_csv(request:Request):
    #final
    return {"status":1,"message":"done"}
 
-@app.delete("/admin/redis-reset")
-async def admin_reset_redis():
+@app.delete("/root/redis-reset")
+async def root_reset_redis():
    #logic
    await redis_client.flushall()
    await redis_client_valkey.flushall()
