@@ -389,15 +389,7 @@ api_id={
 "/admin/object-update":5,
 "/admin/object-update-ids":6,
 "/admin/object-delete-ids":7,
-"/admin/object-read":8,
-"/admin/redis-set-object":12,
-"/admin/redis-set-csv":13,
-"/admin/s3-bucket-list":15,
-"/admin/s3-bucket-create":16,
-"/admin/s3-bucket-public":17,
-"/admin/s3-bucket-empty":18,
-"/admin/s3-bucket-delete":19,
-"/admin/s3-url-delete":20
+"/admin/object-read":8
 }
 query_human_work_profile='''
 select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') limit 100000;
@@ -1825,8 +1817,8 @@ async def admin_db_runner(request:Request):
    return {"status":1,"message":output}
 
 #redis
-@app.post("/admin/redis-set-object")
-async def admin_redis_set_object(request:Request):
+@app.post("/root/redis-set-object")
+async def root_redis_set_object(request:Request):
    #param
    key=request.query_params.get("key")
    expiry=request.query_params.get("mode")
@@ -1849,8 +1841,8 @@ async def public_redis_get_object(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.post("/admin/redis-set-csv")
-async def admin_redis_set_csv(request:Request):
+@app.post("/root/redis-set-csv")
+async def root_redis_set_csv(request:Request):
    #param
    body_form_key,file=await body_form_data(request)
    table=body_form_key.get("table")
@@ -1877,15 +1869,15 @@ async def root_reset_redis():
    return {"status":1,"message":"done"}
 
 #s3
-@app.get("/admin/s3-bucket-list")
-async def admin_s3_bucket_list():
+@app.get("/root/s3-bucket-list")
+async def root_s3_bucket_list():
    #logic
    output=s3_client.list_buckets()
    #final
    return {"status":1,"message":output}
 
-@app.post("/admin/s3-bucket-create")
-async def admin_s3_bucket_create(request:Request):
+@app.post("/root/s3-bucket-create")
+async def root_s3_bucket_create(request:Request):
    #param
    bucket=(await request.json()).get("bucket")
    if not bucket:return error("bucket missing")
@@ -1894,8 +1886,8 @@ async def admin_s3_bucket_create(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.put("/admin/s3-bucket-public")
-async def admin_s3_bucket_public(request:Request):
+@app.put("/root/s3-bucket-public")
+async def root_s3_bucket_public(request:Request):
    #param
    bucket=(await request.json()).get("bucket")
    if not bucket:return error("bucket missing")
@@ -1906,8 +1898,8 @@ async def admin_s3_bucket_public(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.delete("/admin/s3-bucket-empty")
-async def admin_s3_bucket_empty(request:Request):
+@app.delete("/root/s3-bucket-empty")
+async def root_s3_bucket_empty(request:Request):
    #param
    bucket=(await request.json()).get("bucket")
    if not bucket:return error("bucket missing")
@@ -1916,8 +1908,8 @@ async def admin_s3_bucket_empty(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.delete("/admin/s3-bucket-delete")
-async def admin_s3_bucket_empty(request:Request):
+@app.delete("/root/s3-bucket-delete")
+async def root_s3_bucket_empty(request:Request):
    #param
    bucket=(await request.json()).get("bucket")
    if not bucket:return error("bucket missing")
@@ -1926,8 +1918,8 @@ async def admin_s3_bucket_empty(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.delete("/admin/s3-url-delete")
-async def admin_s3_url_empty(request:Request):
+@app.delete("/root/s3-url-delete")
+async def root_s3_url_empty(request:Request):
    #param
    url=(await request.json()).get("url")
    if not url:return error("url missing")

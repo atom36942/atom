@@ -92,19 +92,19 @@ curl -X GET "$baseurl/public/info"
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"query":"select id from post where id=1"}'
 
 #redis
-curl -X POST "$baseurl/admin/redis-set-object?key=post_1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
-curl -X POST "$baseurl/admin/redis-set-object?key=post_1&expiry=100" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
+curl -X POST "$baseurl/root/redis-set-object?key=post_1" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
+curl -X POST "$baseurl/root/redis-set-object?key=post_1&expiry=100" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"name":"testing","age":30}'
 curl -X GET "$baseurl/public/redis-get-object?key=post_1"
-curl -X POST "$baseurl/admin/redis-set-csv" -H "Authorization: Bearer $token_admin" -F "table=test" -F "file=@$file_update"
+curl -X POST "$baseurl/root/redis-set-csv" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@$file_update"
 curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root"
 
 #s3
-0 curl -X GET "$baseurl/admin/s3-bucket-list" -H "Authorization: Bearer $token_admin"
-0 curl -X POST "$baseurl/admin/s3-bucket-create" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
-0 curl -X PUT "$baseurl/admin/s3-bucket-public" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
-0 curl -X DELETE "$baseurl/admin/s3-bucket-empty" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
-0 curl -X DELETE "$baseurl/admin/s3-bucket-delete" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
-0 curl -X DELETE "$baseurl/admin/s3-url-delete" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"url":"https://s3.ap-south-1.amazonaws.com/sample/key1"}'
+0 curl -X GET "$baseurl/root/s3-bucket-list" -H "Authorization: Bearer $token_root"
+0 curl -X POST "$baseurl/root/s3-bucket-create" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+0 curl -X PUT "$baseurl/root/s3-bucket-public" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+0 curl -X DELETE "$baseurl/root/s3-bucket-empty" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+0 curl -X DELETE "$baseurl/root/s3-bucket-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"bucket":"masterssss"}'
+0 curl -X DELETE "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":"https://s3.ap-south-1.amazonaws.com/sample/key1"}'
 0 curl -X POST "$baseurl/private/s3-file-upload" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=uuid" -F "file=@$file_create"
 0 curl -X POST "$baseurl/private/s3-file-upload" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=uuid" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
 0 curl -X POST "$baseurl/private/s3-file-upload" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
