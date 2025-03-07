@@ -54,7 +54,7 @@ curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authoriz
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"lavinmq","title":"testing"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_atom" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"mongodb","title":"testing"}'
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":"TESTING","title":"public create"}'
-curl -X POST "$baseurl/admin/object-create-users" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"username":"$username","password":"123"}'
+curl -X POST "$baseurl/admin/object-create-users" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"username":"$username_2","password":"12345","is_active":0}'
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":"TEsting","title":"admin create"}'
 
 #object update
@@ -72,7 +72,6 @@ curl -X DELETE "$baseurl/admin/object-delete-ids" -H "Authorization: Bearer $tok
 
 #object read
 curl -X GET "$baseurl/my/object-read?table=post" -H "Authorization: Bearer $token_admin"
-curl -X GET "$baseurl/admin/object-read?table=post" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/public/object-read?table=post"
 curl -X GET "$baseurl/public/object-read?table=post&column=id,type,title"
 curl -X GET "$baseurl/public/object-read?table=post&page=1&limit=1&order=id+asc"
@@ -82,6 +81,7 @@ curl -X GET "$baseurl/public/object-read?table=post&action_count=action_like,act
 curl -X GET "$baseurl/public/object-read?table=post&location_filter=100.2321,21321.1232,100,1000"
 curl -X GET "$baseurl/private/object-read?table=human" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/private/human-read" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/admin/object-read?table=post" -H "Authorization: Bearer $token_admin"
 
 #public
 curl -X GET "$baseurl/public/info"

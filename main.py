@@ -634,7 +634,7 @@ postgres_config={
 "default_is_protected_human":"ALTER TABLE human ALTER COLUMN is_protected SET DEFAULT 1;",
 "default_is_active_users":"ALTER TABLE users ALTER COLUMN is_active SET DEFAULT 1;",
 "rule_is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"root_user_1":"insert into users (username,password,api_access) values ('atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30') on conflict do nothing;",
+"root_user_1":"insert into users (username,password,api_access) values ('atom','5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5','1,2,3,4,5,6,7,8,9,10') on conflict do nothing;",
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
 "log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
 "log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
@@ -926,7 +926,7 @@ async def middleware(request:Request,api_function):
                   api_access_str=output[0]["api_access"]
                   if not api_access_str:return error("api access denied")
                   user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
-               if api_id_value not in user_api_access:return error("api access denied") 
+               if api_id_value not in user_api_access:return error("api access denied")
             for item in ["admin/","private","my/object-create"]:
                if item in api:
                   user_is_active=users_is_active.get(user["id"],"absent")

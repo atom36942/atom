@@ -16,7 +16,8 @@ file_delete="$file_delete"
 #fixed var
 input_file="curl.txt"
 output_file="curl.csv"
-username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+uuid_1="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+uuid_2="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 
 # Initialize CSV file with headers
 echo "API,Status Code,Response Time (ms)" > "$output_file"
@@ -42,7 +43,8 @@ while IFS= read -r line; do
         command=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
                              -e "s|\$token_root|$token_root|g" \
                              -e "s|\$token_admin|$token_admin|g" \
-                             -e "s|\$username|$username|g" \
+                             -e "s|\$username|$uuid_1|g" \
+                             -e "s|\$username_2|$uuid_2|g" \
                              -e "s|\$file_create|$file_create|g" \
                              -e "s|\$file_update|$file_update|g" \
                              -e "s|\$file_delete|$file_delete|g"
