@@ -59,7 +59,7 @@ async def postgres_update(table,object_list,is_serialize,postgres_client,postgre
    #logic
    column_update_list=[*object_list[0]]
    column_update_list.remove("id")
-   query=f"update {table} set {','.join([f'{item}=coalesce(:{item},{item})' for item in column_update_list])} where id=:id returning *;"
+   query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id returning *;"
    if len(object_list)==1:
       output=await postgres_client.execute(query=query,values=object_list[0])
    else:
