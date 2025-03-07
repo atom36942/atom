@@ -1407,6 +1407,7 @@ async def admin_object_create_users(request:Request):
    is_serialize=int(request.query_params.get("is_serialize",1))
    object=await request.json()
    #check
+   if not object.get("username") or not object.get("password"):return error ("username/password must")
    response=await object_check(table_id,column_lowercase,[object])
    if response["status"]==0:return error(response["message"])
    object=response["message"][0]
