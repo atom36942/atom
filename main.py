@@ -90,6 +90,7 @@ async def object_check(table_id,column_lowercase,object_list):
    for index,object in enumerate(object_list):
       for key,value in object.items():
          if key=="parent_table" and value is not None and int(value) not in list(table_id.values()):return {"status":0,"message":"parent_table id mismatch"}
+         elif key=="password" and (not value or len(value)<5):return {"status":0,"message":"password should be min 5 char"}
          elif False and key=="rating" and value is not None and not 0<=float(value)<=10:return {"status":0,"message":"rating should be between 1-10"}
          elif False and key in ["tag","skill"] and value:
             for item in value.split(","):
