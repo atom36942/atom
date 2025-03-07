@@ -923,8 +923,8 @@ async def middleware(request:Request,api_function):
             user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
             if not user.get("id",None):return error("user_id not in token")
             if "admin/" in api:
-               if not api_id.get(api):return error("api_id not mapped in backend")
                api_id_value=api_id.get(api)
+               if not api_id_value:return error("api_id not mapped in backend")
                user_api_access=users_api_access.get(user["id"],"absent")
                if user_api_access=="absent":
                   output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user["id"]})
@@ -1644,15 +1644,18 @@ async def private_object_read(request:Request):
 @cache(expire=100)
 async def private_human_read(request:Request):
    #param
+   type=request.query_params.get("type")
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
    column=request.query_params.get("column","*")
-   type=request.query_params.get("type")
    work_profile=request.query_params.get("work_profile")
    skill=request.query_params.get("skill")
    experience_min=request.query_params.get("experience_min")
    experience_max=request.query_params.get("experience_max")
    rating_min=request.query_params.get("rating_min")
    rating_max=request.query_params.get("rating_max")
+   #mode
+   if type==None:type="'jobseeker','intern','freelancer','consultant'"
+   else:type=f"'{type}'"
    #conversion none
    char_disabled=["","null","%%"]
    if type in char_disabled:type=None
@@ -1671,7 +1674,7 @@ async def private_human_read(request:Request):
    query=f'''
    select {column} from human 
    where is_active=1 and
-   type in ('jobseeker','intern','freelancer','consultant') and
+   type in ({type}) and
    (work_profile ilike :work_profile or :work_profile is null) and
    (skill ilike :skill or :skill is null) and
    (experience >= :experience_min or :experience_min is null) and
@@ -1680,6 +1683,7 @@ async def private_human_read(request:Request):
    (rating <= :rating_max or :rating_max is null)
    order by {order} limit {limit} offset {(page-1)*limit};
    '''
+   print(query)
    values={
    "work_profile":work_profile,
    "skill":skill,
