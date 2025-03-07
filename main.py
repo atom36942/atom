@@ -1877,6 +1877,7 @@ async def admin_redis_set_csv(request:Request):
 async def admin_reset_redis():
    #logic
    await redis_client.flushall()
+   await redis_client_valkey.flushall()
    #final
    return {"status":1,"message":"done"}
 
