@@ -395,12 +395,12 @@ api_id={
 "/admin/object-delete-ids":7,
 "/admin/object-read":8
 }
-query_human_work_profile_type_work='''
-select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type='work' limit 100000;
+query_human_work_profile_type_workseeker='''
+select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type='workseeker' limit 100000;
 '''
-query_human_skill_type_work='''
+query_human_skill_type_workseeker='''
 with 
-x as (select distinct(trim(unnest(string_to_array(skill, ',')))) as skill from human where is_active=1 and type='work' and skill is not null)
+x as (select distinct(trim(unnest(string_to_array(skill, ',')))) as skill from human where is_active=1 and type='workseeker' and skill is not null)
 select skill from x limit 100000;
 '''
 postgres_config={
@@ -1755,8 +1755,8 @@ async def public_info(request:Request):
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
       "human_count":await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={}),
       "users_count":await postgres_client.fetch_all(query="select count(*) from users where is_active=1;",values={}),
-      "human_work_profile":await postgres_client.fetch_all(query=query_human_work_profile_type_work,values={}),
-      "human_skill":await postgres_client.fetch_all(query=query_human_skill_type_work,values={})
+      "human_work_profile":await postgres_client.fetch_all(query=query_human_work_profile_type_workseeker,values={}),
+      "human_skill":await postgres_client.fetch_all(query=query_human_skill_type_workseeker,values={})
       }
       output_cache_public_info["set_at"]=time.time()
       output_cache_public_info["output"]=output
