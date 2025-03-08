@@ -433,7 +433,8 @@ postgres_config={
 "linkedin_url-text-0-0",
 "portfolio_url-text-0-0",
 "website_url-text-0-0",
-"resume_url-text-0-0"
+"resume_url-text-0-0",
+"link_url-text-0-0"
 ],
 "test":[
 "created_at-timestamptz-0-0",
@@ -1691,6 +1692,7 @@ async def private_human_read(request:Request):
    if not type:return error("type missing")
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
    column=request.query_params.get("column","*")
+   #param filter
    work_profile=request.query_params.get("work_profile")
    skill=request.query_params.get("skill")
    experience_min=request.query_params.get("experience_min")
