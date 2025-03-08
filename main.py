@@ -93,10 +93,6 @@ async def object_check(table_id,column_lowercase,object_list):
          elif key=="api_access" and value and not (all(item.isdigit() for item in value.split(','))):return {"status":0,"message":"wrong api_access value"}
          elif key=="username" and value and len(value)<3:return {"status":0,"message":"password should be min 3 char"}
          elif key=="password" and (not value or len(value)<5):return {"status":0,"message":"password should be min 5 char"}
-         elif False and key=="rating" and value is not None and not 0<=float(value)<=10:return {"status":0,"message":"rating should be between 1-10"}
-         elif False and key in ["tag","skill"] and value:
-            for item in value.split(","):
-               if len(item)>50:return {"status":0,"message":f"{key} each value length exceeded"}
          elif key in column_lowercase:object_list[index][key]=value.strip().lower()
    #final
    return {"status":1,"message":object_list}
@@ -352,9 +348,8 @@ from dotenv import load_dotenv
 load_dotenv()
 postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
-redis_server_url_valkey=os.getenv("redis_server_url_valkey")
-key_root=os.getenv("key_root")
 key_jwt=os.getenv("key_jwt")
+key_root=os.getenv("key_root")
 sentry_dsn=os.getenv("sentry_dsn")
 rabbitmq_server_url=os.getenv("rabbitmq_server_url")
 lavinmq_server_url=os.getenv("lavinmq_server_url")
@@ -376,6 +371,7 @@ table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_c
 account_delete_mode=os.getenv("account_delete_mode","soft")
 is_index_html=int(os.getenv("is_index_html",0))
 is_signup=int(os.getenv("is_signup",0))
+redis_server_url_valkey=os.getenv("redis_server_url_valkey")
 
 #globals
 user_id_super_admin=[1]
@@ -1873,8 +1869,8 @@ async def root_redis_set_csv(request:Request):
 @app.delete("/root/redis-reset")
 async def root_reset_redis():
    #logic
-   await redis_client.flushall()
-   await redis_client_valkey.flushall()
+   if redis_client:await redis_client.flushall()
+   if redis_client_valkey:await redis_client_valkey.flushall()
    #final
    return {"status":1,"message":"done"}
 
