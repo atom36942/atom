@@ -1697,9 +1697,6 @@ async def private_human_read(request:Request):
    experience_max=request.query_params.get("experience_max")
    rating_min=request.query_params.get("rating_min")
    rating_max=request.query_params.get("rating_max")
-   #mode
-   if type==None:type="'jobseeker','intern','freelancer','consultant'"
-   else:type=f"'{type}'"
    #conversion none
    char_disabled=["","null","%%"]
    if work_profile in char_disabled:work_profile=None
