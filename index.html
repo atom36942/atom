@@ -42,22 +42,21 @@
             <img src="https://i.postimg.cc/ZK7dC9bx/logo.png" loading="lazy" alt="logo">
             <h1>Accelerating Human Innovation</h1>
         </div>
-        <p>We believe that unlocking individual potential is the key to driving human innovation and progress. By enabling people to grow and succeed, we contribute to accelerating advancements in technology, creativity, and the collective evolution of society.</p>
-        <p>Our mission is to empower individuals to realize their full potential by connecting them with opportunities for career growth, access to funding, and personalized mentorship.</p>
-        <p>Read more <a target="_blank" href='https://atom42.notion.site/About-Us-17b9dff2f5df80faab12cce2e40ce07e?pvs=4'>About Us</a></p>
+        <p>We believe that everyone has unique skills, talents, and aspirations that, when nurtured, can lead to remarkable achievements.</p>
+        <p>Our mission is to empower individuals to grow and succeed by connecting them with career opportunities, funding, mentorship, and resources, accelerating innovation.</p>
+        <p>We are addressing hiring first because the right people in the right roles drive innovation, business growth, and the future of work. By eliminating inefficiencies and connecting top talent directly with decision-makers, we make hiring faster, smarter, and more impactful.</p>
+        <p>Our Process <a target="_blank" href='https://atom42.notion.site/Our-Process-19d9dff2f5df80eaa158f2adc49e7635?pvs=4'>Click</a></p>
         <img class="cover-image" src="https://i.postimg.cc/fRQd1rXG/clark-tibbs-oq-Stl2-L5ox-I-unsplash-1-11zon.jpg" loading="lazy" alt="cover-image">
         <div class="form-container">
             <form onsubmit="submitForm(event)">
                 <div class="select-wrapper">
-                    <select name="type" required>
-                        <option value="">what type of help you need ?</option>
-                        <option value="jobseeker">I need a job</option>
-                        <option value="intern">I need an internship</option>
-                        <option value="freelancer">I need freelancing work</option>
-                        <option value="consultant">I need consulting work</option>
-                        <option value="fundseeker">I need funding for my idea</option>
-                        <option value="techseeker">I need tech for my idea</option>
-                        <option value="other">Other</option>
+                    <select name="work_type" required>
+                        <option value="">what type of work you are looking for?</option>
+                        <option value="full-time">full-time</option>
+                        <option value="internship">internship</option>
+                        <option value="freelancer">freelancer</option>
+                        <option value="consultant">consultant</option>
+                        <option value="other">other</option>
                     </select>
                 </div>
                 <input type="text" name="name" placeholder="name" minlength="3" maxlength="50" required>
@@ -72,11 +71,10 @@
                 <input type="text" name="work_profile" placeholder="work profile (ex. product manager)" required>
                 <input type="number" name="experience" placeholder="experience in years (ex. 3, 3.5)" step="0.1" min="0" max="100" required>
                 <textarea name="skill" placeholder="core work skills separated by comma (ex. python, sql,etc)" rows="5" required></textarea>
-                <textarea name="description" placeholder="write about your profile/need (max 5000 characters)" rows="10" minlength="3" maxlength="5000" required></textarea>
+                <textarea name="description" placeholder="write about your work profile (max 5000 characters)" rows="10" minlength="3" maxlength="5000" required></textarea>
                 <button type="submit" class="submit-button">Submit</button>
             </form>
             <div class="anchor-link">
-                <a style="margin-right:5px" target="_blank" href="https://atom42.notion.site/FAQ-19d9dff2f5df80eaa158f2adc49e7635">FAQ</a>
                 <a style="margin-right:5px" target="_blank" href="https://atom42.notion.site/Privacy-Policy-17b9dff2f5df80d2b06bd4ce360da528?pvs=73">Privacy Policy</a>
                 <a target="_blank" href="https://atom42.notion.site/Terms-and-Conditions-17b9dff2f5df80e6b0c6fdfe27ffe254?pvs=73">Terms & Conditions</a>
               </div>
@@ -89,8 +87,9 @@
             e.preventDefault();
             const url = 'http://127.0.0.1:8000/public/object-create?table=human&is_background=1'
             const url_2 = `${window.location.origin}/public/object-create?table=human&is_background=1`;
-            const formData = new FormData(e.target), formObject = {};
-            formData.forEach((v, k) => {if (v !== null && v !== "") { formObject[k] = v;}});
+            const formData = new FormData(e.target);
+            const formObject = { type: "work" };
+            formData.forEach((v, k) => v && (formObject[k] = v));
             document.getElementById('loader').style.display = 'block';
             fetch(url_2, {
                 method: 'POST',

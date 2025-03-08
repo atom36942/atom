@@ -13,10 +13,10 @@ curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" 
 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=delete" -F "table=test" -F "file=@$file_delete"
 
 #auth
-curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"username":"$username","password":"123"}'
-curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"username":"atom","password":"123"}'
-curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"email":"abc","password":"123"}'
-curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mobile":"abc","password":"123"}'
+curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"username":"$username","password":"12345"}'
+curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"username":"atom","password":"12345"}'
+curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"email":"abc","password":"12345"}'
+curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mobile":"abc","password":"12345"}'
 curl -X POST "$baseurl/auth/login-oauth" -H "Content-Type: application/json" -d '{"google_id":"testing"}'
 curl -X POST "$baseurl/auth/login-otp" -H "Content-Type: application/json" -d '{"email":"abc","otp":123}'
 curl -X POST "$baseurl/auth/login-otp" -H "Content-Type: application/json" -d '{"mobile":"abc","otp":123}'
@@ -79,9 +79,9 @@ curl -X GET "$baseurl/public/object-read?table=post&id=>,100"
 curl -X GET "$baseurl/public/object-read?table=post&creator_data=username,type"
 curl -X GET "$baseurl/public/object-read?table=post&action_count=action_like,action_comment"
 curl -X GET "$baseurl/public/object-read?table=post&location_filter=100.2321,21321.1232,100,1000"
-curl -X GET "$baseurl/private/object-read?table=human" -H "Authorization: Bearer $token_admin"
-curl -X GET "$baseurl/private/human-read" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/admin/object-read?table=post" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/private/object-read?table=human" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/private/human-read?type=work" -H "Authorization: Bearer $token_admin"
 
 #public
 curl -X GET "$baseurl/public/info"

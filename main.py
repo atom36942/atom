@@ -384,7 +384,7 @@ object_list_log_api=[]
 output_cache_public_info={}
 api_cache={}
 column_disabled_non_admin=["is_active","is_verified","api_access"]
-column_lowercase=["type","tag","status","email","mobile","country","state","city","work_profile","skill"]
+column_lowercase=["type","tag","status","email","mobile","country","state","city","work_type","work_profile","skill"]
 api_id={
 "/admin/db-runner":1,
 "/admin/object-create-users":2,
@@ -396,11 +396,11 @@ api_id={
 "/admin/object-read":8
 }
 query_human_work_profile_type_work='''
-select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') limit 100000;
+select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type='work' limit 100000;
 '''
 query_human_skill_type_work='''
 with 
-x as (select distinct(trim(unnest(string_to_array(skill, ',')))) as skill from human where is_active=1 and type in ('jobseeker','intern','freelancer','consultant') and skill is not null)
+x as (select distinct(trim(unnest(string_to_array(skill, ',')))) as skill from human where is_active=1 and type='work' and skill is not null)
 select skill from x limit 100000;
 '''
 postgres_config={
@@ -413,9 +413,9 @@ postgres_config={
 "is_active-smallint-0-btree",
 "is_protected-smallint-0-btree",
 "is_deleted-smallint-0-btree",
-"remark-text-0-gin,btree",
-"rating-numeric(10,3)-0-btree",
 "type-text-0-gin,btree",
+"rating-numeric(10,3)-0-btree",
+"remark-text-0-gin,btree",
 "name-text-0-0",
 "gender-text-0-0",
 "email-text-0-0",
@@ -426,6 +426,7 @@ postgres_config={
 "college-text-0-0",
 "edu-text-0-0",
 "experience-numeric(10,1)-0-btree",
+"work_type-text-0-gin",
 "work_profile-text-0-gin",
 "skill-text-0-gin",
 "description-text-0-0",
@@ -1687,6 +1688,7 @@ async def private_object_read(request:Request):
 async def private_human_read(request:Request):
    #param
    type=request.query_params.get("type")
+   if not type:return error("type missing")
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
    column=request.query_params.get("column","*")
    work_profile=request.query_params.get("work_profile")
@@ -1700,7 +1702,6 @@ async def private_human_read(request:Request):
    else:type=f"'{type}'"
    #conversion none
    char_disabled=["","null","%%"]
-   if type in char_disabled:type=None
    if work_profile in char_disabled:work_profile=None
    if skill in char_disabled:skill=None
    if experience_min in char_disabled:experience_min=None
@@ -1716,7 +1717,7 @@ async def private_human_read(request:Request):
    query=f'''
    select {column} from human 
    where is_active=1 and
-   type in ({type}) and
+   type=:type and
    (work_profile ilike :work_profile or :work_profile is null) and
    (skill ilike :skill or :skill is null) and
    (experience >= :experience_min or :experience_min is null) and
@@ -1726,6 +1727,7 @@ async def private_human_read(request:Request):
    order by {order} limit {limit} offset {(page-1)*limit};
    '''
    values={
+   "type":type,
    "work_profile":work_profile,
    "skill":skill,
    "experience_min":experience_min,"experience_max":experience_max,
