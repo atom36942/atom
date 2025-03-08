@@ -424,7 +424,7 @@ postgres_config={
 "state-text-0-0",
 "city-text-0-gin",
 "college-text-0-0",
-"edu-text-0-0",
+"education-text-0-0",
 "experience-numeric(10,1)-0-btree",
 "work_type-text-0-gin",
 "work_profile-text-0-gin",
