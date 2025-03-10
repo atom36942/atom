@@ -6,16 +6,16 @@ if [ -f .env ]; then
 fi
 
 #env var
-baseurl="$baseurl"
-token_root="$token_root"
+baseurl="http://127.0.0.1:8000"
+token_root="$key_root"
 token_admin="$token_admin"
 file_create="$file_create"
 file_update="$file_update"
 file_delete="$file_delete"
+output_file="$output_file"
 
 #fixed var
 input_file="curl.txt"
-output_file="curl.csv"
 uuid_1="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 uuid_2="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 
@@ -84,7 +84,7 @@ while IFS= read -r line; do
         ((count++))
 
         # Log results in CSV file
-        # echo "$url,$status_code,$execution_time" >> "$output_file"
+        echo "$url,$status_code,$execution_time" >> "$output_file"
 
         # Check response status
         if [[ "$status_code" -eq 200 ]]; then

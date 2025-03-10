@@ -350,6 +350,9 @@ postgres_database_url=os.getenv("postgres_database_url")
 redis_server_url=os.getenv("redis_server_url")
 key_jwt=os.getenv("key_jwt")
 key_root=os.getenv("key_root")
+redis_server_url_valkey=os.getenv("redis_server_url_valkey")
+is_index_html=int(os.getenv("is_index_html",0))
+is_signup=int(os.getenv("is_signup",0))
 sentry_dsn=os.getenv("sentry_dsn")
 rabbitmq_server_url=os.getenv("rabbitmq_server_url")
 lavinmq_server_url=os.getenv("lavinmq_server_url")
@@ -369,16 +372,9 @@ token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4,"human":5}'))
 account_delete_mode=os.getenv("account_delete_mode","soft")
-is_index_html=int(os.getenv("is_index_html",0))
-is_signup=int(os.getenv("is_signup",0))
-redis_server_url_valkey=os.getenv("redis_server_url_valkey")
 
 #globals
-user_id_super_admin=[1]
 table_banned=["spatial_ref_sys","otp","log_api","log_password"]
-object_list_log_api=[]
-output_cache_public_info={}
-api_cache={}
 column_disabled_non_admin=["is_active","is_verified","api_access"]
 column_lowercase=["type","tag","status","email","mobile","country","state","city","work_type","work_profile","skill"]
 api_id={
@@ -391,14 +387,6 @@ api_id={
 "/admin/object-delete-ids":7,
 "/admin/object-read":8
 }
-query_human_work_profile_type_workseeker='''
-select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type='workseeker' limit 100000;
-'''
-query_human_skill_type_workseeker='''
-with 
-x as (select distinct(trim(unnest(string_to_array(skill, ',')))) as skill from human where is_active=1 and type='workseeker' and skill is not null)
-select skill from x limit 100000;
-'''
 postgres_config={
 "table":{
 "human":[
@@ -896,6 +884,7 @@ app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,all
 from fastapi import Request,responses
 import time,traceback
 from starlette.background import BackgroundTask
+object_list_log_api=[]
 @app.middleware("http")
 async def middleware(request:Request,api_function):
    #param
@@ -1733,6 +1722,7 @@ async def private_human_read(request:Request):
    return {"status":1,"message":output}
 
 #public
+output_cache_public_info={}
 @app.get("/public/info")
 async def public_info(request:Request):
    #param
@@ -1753,8 +1743,8 @@ async def public_info(request:Request):
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
       "human_count":await postgres_client.fetch_all(query="select count(*) from human where is_active=1;",values={}),
       "users_count":await postgres_client.fetch_all(query="select count(*) from users where is_active=1;",values={}),
-      "human_work_profile_type_workseeker":await postgres_client.fetch_all(query=query_human_work_profile_type_workseeker,values={}),
-      "human_skill_type_workseeker":await postgres_client.fetch_all(query=query_human_skill_type_workseeker,values={})
+      "human_work_profile_type_workseeker":await postgres_client.fetch_all(query="select distinct(trim(work_profile)) as work_profile from human where is_active=1 and type='workseeker' limit 100000;",values={}),
+      "human_skill_type_workseeker":await postgres_client.fetch_all(query="with x as (select distinct(trim(unnest(string_to_array(skill, ',')))) as skill from human where is_active=1 and type='workseeker' and skill is not null) select skill from x limit 100000;",values={})
       }
       output_cache_public_info["set_at"]=time.time()
       output_cache_public_info["output"]=output
@@ -1812,7 +1802,7 @@ async def admin_db_runner(request:Request):
    must_word=["select"]
    for item in danger_word:
        if item in query.lower():return error(f"{item} keyword not allowed in query")
-   if request.state.user["id"] not in user_id_super_admin:
+   if request.state.user["id"]!=1:
       for item in stop_word:
          if item in query.lower():return error(f"{item} keyword not allowed in query")
       for item in must_word:
