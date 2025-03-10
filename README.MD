@@ -5,57 +5,46 @@
 3. combines procedural and functional programming
 4. procedures ensures better global/local state access
 5. functions ensures deterministic behavior of the code
-6. follows SOLID principles
+6. follows SOLID principles wherever possible
 7. supports high-performance application development
-8. uses realtional dataabse at its core
-9. Reduces repetitive work with reusable modules
-10. Enables rapid iteration and faster go-to-market
-11. Built with Python,FastAPI,PostgreSQL,Redis,Kafka,Rabbitmq,Mongodb
-12. Uses raw SQL for optimized queries and better control
-13. Supports high-throughput pipelines via RabbitMQ, LavinMQ, or Kafka
-14. Provides object-level CRUD operations by directly interacting with database schema
-15. Auto-generates entire business database schemas from a single JSON config
-16. ex. build a linkedIn-like backend in 2-3 weeks
+8. built with Python,FastAPI,PostgreSQL,Redis,Kafka,Rabbitmq,Mongodb
+9. uses realtional dataabse at its core
+10. uses raw SQL for better control
+11. high-throughput pipelines via RabbitMQ, LavinMQ, or Kafka
+12. object-level CRUD by directly interacting with database schema
+13. auto-generates entire business database schemas from a single JSON config
+14. ex. build a linkedIn-like backend in 2-3 weeks
 ```
 
 # modules
 ```
-1. authentication module
-2. endpoints for authenticated users
-3. direct crud apis on database objects
-4. role-based access control for admin operations
-5. built-in apis for aws services like s3,ses,sns 
-6. deploy instantly using render
-7. privileged access for root users 
-8. import large datasets via csv 
-9. improve performance with redis caching
-10. kafka, rabbitmq, lavinmq, redis pub-sub
-11. prevent api abuse with request limiting 
-12. auto-generate database schemas via api 
-13. background task execution 
-14. scale with read database replication  
-15. use mongodb as a secondary database
-16. soft/hard delete on object level
+1. auth module
+2. endpoints with rbac using object approach
+3. s3,ses,sns integration
+4. deploy instantly using render
+5. csv uploader
+6. redis caching
+7. kafka, rabbitmq, lavinmq, redis pub-sub integration
+8. rate-limiter
+9. database schema generator
+10. background tasks  
+11. read database replication  
+12. mongodb as a secondary database
+13. soft/hard delete on object level
 ```
 
 # how to run
 ```
-1. download atom repo
+1. download repo
 2. install requirements.txt
 3. create .env file
-4. run = python main.py
-5. run with reload =  uvicorn main:app --reload
-```
-
-# how to run using docker
-```
-1. docker build -t atom .
-2. docker run -p 8000:8000 atom
+4. python main.py / uvicorn main:app --reload
+5. run with docker =  docker build -t atom . / docker run -p 8000:8000 atom
 ```
 
 # curl testing
 ```
-1. add .env key=baseurl,token_root,token_admin,file_create,file_update,file_delete,test_id
+1. add .env file as per sh file
 2. chmod +x curl.sh
 3. ./curl.sh
 ```

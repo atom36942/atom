@@ -15,4 +15,3 @@ COPY ./ /code
 
 #run command
 CMD ["python","main.py"]
-

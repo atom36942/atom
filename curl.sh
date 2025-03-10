@@ -84,7 +84,7 @@ while IFS= read -r line; do
         ((count++))
 
         # Log results in CSV file
-        echo "$url,$status_code,$execution_time" >> "$output_file"
+        # echo "$url,$status_code,$execution_time" >> "$output_file"
 
         # Check response status
         if [[ "$status_code" -eq 200 ]]; then
