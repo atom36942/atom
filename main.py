@@ -372,6 +372,7 @@ token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
 max_ids_length_delete=int(os.getenv("max_ids_length_delete",3))
 table_id=json.loads(os.getenv("table_id",'{"users":1,"post":2,"atom":3,"action_comment":4,"human":5}'))
 account_delete_mode=os.getenv("account_delete_mode","soft")
+grok_key=os.getenv("grok_key")
 
 #globals
 table_banned=["spatial_ref_sys","otp","log_api","log_password"]
@@ -962,7 +963,7 @@ for item in current_directory_file_name_list_without_extension:
       
 #api import
 from fastapi import Request,UploadFile,Depends,BackgroundTasks,responses
-import hashlib,datetime,json,time,jwt,os,random
+import hashlib,datetime,json,time,jwt,os,random,httpx
 from typing import Literal
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
