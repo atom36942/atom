@@ -34,7 +34,8 @@
         .toast.show {visibility:visible;opacity:5;}
         .toast.success {background-color:var(--success-color);}
         .toast.error {background-color:var(--error-color);}
-        .cover-image { width: 100%; height: 250px; object-fit: cover; object-position: center; }
+        .cover-image { width: 100%; height: 250px; object-fit: cover; object-position: center; } @media (max-width: 600px) { .cover-image { height: 100px; } }
+
     </style>
 </head>
 <body>
@@ -45,7 +46,7 @@
         </div>
         <p>We believe that everyone has unique skills, talents, and aspirations that, when nurtured, can lead to remarkable achievements.</p>
         <p>Our mission is to empower individuals to grow and succeed by connecting them with career opportunities, funding, mentorship, and resources, accelerating innovation.</p>
-        <p>We've chosen hiring as our first challenge. Companies face delays in finding the right talent, slowing innovation and causing missed opportunities. Meanwhile, skilled professionals remain overlooked due to outdated processes.</p>
+        <p>We've chosen hiring as first problem to solve. Companies face delays in finding the right talent, slowing innovation and causing missed opportunities. Meanwhile, skilled professionals remain overlooked due to outdated processes.</p>
         <p>Our goal is to make hiring superfast and to reduce the average time from 2 months to max 7 days.</p>
         <p>If you're looking for a job, please fill out the form below.</p>
         <p>Our Process <a target="_blank" href='https://atom42.notion.site/Our-Process-1b29dff2f5df80bf93eedd842bd25713'>Click</a></p>
@@ -65,7 +66,7 @@
                 <input type="text" name="name" placeholder="name" minlength="3" maxlength="50" required>
                 <input type="text" name="city" placeholder="city" required>
                 <input type="text" name="email" placeholder="email" required>
-                <input type="text" name="mobile" placeholder="mobile number with country code (optional)">
+                <input type="text" name="mobile" placeholder="mobile no with country code (optional)">
                 <input type="text" name="linkedin_url" placeholder="linkedin url (optional)">
                 <input type="text" name="resume_url" placeholder="resume url (optional)">
                 <input type="text" name="portfolio_url" placeholder="portfolio url (optional)">
