@@ -674,7 +674,7 @@ async def set_users_api_access():
          async with postgres_client_asyncpg.transaction():
             cursor=await postgres_client_asyncpg.cursor('SELECT id, api_access FROM users where api_access is not null ORDER BY id DESC')
             count=0
-            while count < 10000000:
+            while count < 100000:
                batch=await cursor.fetch(10000)
                if not batch:break
                local_users_api_access.update({record['id']:[int(item.strip()) for item in record["api_access"].split(",")] for record in batch})
@@ -693,7 +693,7 @@ async def set_users_is_active():
          async with postgres_client_asyncpg.transaction():
             cursor=await postgres_client_asyncpg.cursor('SELECT id, is_active FROM users ORDER BY id DESC')
             count=0
-            while count < 10000000:
+            while count < 1000000:
                batch=await cursor.fetch(10000)
                if not batch:break
                local_users_is_active.update({record['id']: record['is_active'] for record in batch})
@@ -1098,7 +1098,7 @@ async def auth_login_oauth(request:Request):
    user=output[0] if output else None
    if not user:
       if is_signup==0:return error("signup disabled")
-      if is_signup==1:
+      else:
          query=f"insert into users ({key}) values (:key_value) returning *;"
          values={"key_value":hashlib.sha256(value.encode()).hexdigest()}
          output=await postgres_client.fetch_all(query=query,values=values)
@@ -1131,7 +1131,7 @@ async def auth_login_otp(request:Request):
    user=output[0] if output else None
    if not user:
       if is_signup==0:return error("signup disabled")
-      if is_signup==1:
+      else:
          query=f"insert into users ({key}) values (:key_value) returning *;"
          values={"key_value":value}
          output=await postgres_client.fetch_all(query=query,values=values)
