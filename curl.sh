@@ -6,18 +6,18 @@ if [ -f .env ]; then
 fi
 
 #env var
+input_file="api.txt"
 baseurl="http://127.0.0.1:8000"
 token_root="$key_root"
+password_root="$password_root"
 token_admin="$token_admin"
-file_create="$file_create"
-file_update="$file_update"
-file_delete="$file_delete"
-output_file="$output_file"
-
-#fixed var
-input_file="curl.txt"
-uuid_1="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-uuid_2="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+file_create="/Users/atom/Downloads/create.csv"
+file_update="/Users/atom/Downloads/update.csv"
+file_delete="/Users/atom/Downloads/delete.csv"
+output_file="/Users/atom/Downloads/curl.csv"
+username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+password="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+username_2="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 
 # Initialize CSV file with headers
 echo "API,Status Code,Response Time (ms)" > "$output_file"
@@ -43,11 +43,13 @@ while IFS= read -r line; do
         command=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
                              -e "s|\$token_root|$token_root|g" \
                              -e "s|\$token_admin|$token_admin|g" \
-                             -e "s|\$username|$uuid_1|g" \
-                             -e "s|\$username_2|$uuid_2|g" \
+                             -e "s|\$password_root|$password_root|g" \
                              -e "s|\$file_create|$file_create|g" \
                              -e "s|\$file_update|$file_update|g" \
-                             -e "s|\$file_delete|$file_delete|g"
+                             -e "s|\$file_delete|$file_delete|g" \
+                             -e "s|\$username|$username|g" \
+                             -e "s|\$password|$password|g" \
+                             -e "s|\$username_2|$username_2|g" \
                              )
         # Extract and print only the URL for readability
         url=$(echo "$command" | sed -n 's/^curl -X [A-Z]* "\([^"]*\)".*/\1/p')
