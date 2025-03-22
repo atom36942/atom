@@ -432,7 +432,7 @@ postgres_config={
 "username-text-0-btree",
 "password-text-0-btree",
 "google_id-text-0-btree",
-"google_email-text-0-btree",
+"google_data-jsonb-0-0",
 "email-text-0-btree",
 "mobile-text-0-btree",
 "api_access-text-0-0",
@@ -1286,8 +1286,8 @@ async def auth_login_oauth_google(request:Request):
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:
-      query=f"insert into users (type,google_id) values (:type,:google_id) returning *;"
-      values={"type":type,"google_id":google_user["sub"]}
+      query=f"insert into users (type,google_id,google_data) values (:type,:google_id,:google_data) returning *;"
+      values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
    token=await token_create(key_jwt,user)

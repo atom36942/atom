@@ -28,5 +28,6 @@
 28. relational object level programming with full scalability
 29. sentry integration
 30. one click deployment using render
+31. functional+procedural programming style
 
  
