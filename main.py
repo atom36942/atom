@@ -361,6 +361,7 @@ ses_region_name=os.getenv("ses_region_name")
 ses_sender_email=os.getenv("ses_sender_email")
 google_client_id=os.getenv("google_client_id")
 is_signup=int(os.getenv("is_signup",0))
+postgres_url_read=os.getenv("postgres_url_read")
 
 #config
 user_type_allowed=[1,2,3]
@@ -498,14 +499,17 @@ postgres_config={
 
 #setters
 postgres_client=None
+postgres_client_read=None
 postgres_client_asyncpg=None
 from databases import Database
 import asyncpg
 async def set_postgres_client():
    global postgres_client
    global postgres_client_asyncpg
+   global postgres_client_read
    postgres_client=Database(postgres_url,min_size=1,max_size=100)
    postgres_client_asyncpg=await asyncpg.connect(postgres_url)
+   if postgres_url_read:postgres_client_read=Database(postgres_url_read,min_size=1,max_size=100)
    await postgres_client.connect()
    return None
 
@@ -1040,43 +1044,6 @@ async def public_info(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.post("/public/object-create")
-async def public_object_create(request:Request):
-   #param
-   table=request.query_params.get("table")
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   if not table:return error("table missing")
-   object=await request.json()
-   #check
-   if table not in ["test"]:return error("table not allowed")
-   #logic
-   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-
-@app.get("/public/object-read")
-@cache(expire=100)
-async def public_object_read(request:Request):
-   #param
-   table=request.query_params.get("table")
-   creator_data=request.query_params.get("creator_data")
-   if not table:return error("table missing")
-   object=request.query_params
-   #check
-   if table not in ["test"]:return error("table not allowed")
-   #logic
-   response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
-   if response["status"]==0:return error(response["message"])
-   object_list=response["message"]
-   #add creator data
-   if creator_data:
-      response=await add_creator_data(postgres_client,object_list,creator_data)
-      if response["status"]==0:return response
-      object_list=response["message"]
-   #final
-   return {"status":1,"message":object_list}
-
 @app.post("/public/otp-send-mobile-sns")
 async def public_otp_send_mobile_sns(request:Request):
    #param
@@ -1114,6 +1081,44 @@ async def public_otp_send_email_ses(request:Request):
    ses_client.send_email(Source=ses_sender_email,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
    #final
    return {"status":1,"message":"done"}
+
+@app.post("/public/object-create")
+async def public_object_create(request:Request):
+   #param
+   table=request.query_params.get("table")
+   is_serialize=int(request.query_params.get("is_serialize",1))
+   if not table:return error("table missing")
+   object=await request.json()
+   #check
+   if table not in ["test"]:return error("table not allowed")
+   #logic
+   response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.get("/public/object-read")
+@cache(expire=100)
+async def public_object_read(request:Request):
+   #param
+   table=request.query_params.get("table")
+   creator_data=request.query_params.get("creator_data")
+   if not table:return error("table missing")
+   object=request.query_params
+   #check
+   if table not in ["test"]:return error("table not allowed")
+   #logic
+   if postgres_client_read:response=await postgres_read(table,object,postgres_client_read,postgres_column_datatype,object_serialize,create_where_string)
+   else:response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
+   if response["status"]==0:return error(response["message"])
+   object_list=response["message"]
+   #add creator data
+   if creator_data:
+      response=await add_creator_data(postgres_client,object_list,creator_data)
+      if response["status"]==0:return response
+      object_list=response["message"]
+   #final
+   return {"status":1,"message":object_list}
 
 #private
 @app.post("/private/file-upload-s3-presigned")
