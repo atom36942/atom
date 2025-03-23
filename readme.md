@@ -1,4 +1,7 @@
-1. one click database setup
+- functional+procedural programming style
+- 
+
+one click database setup
 2. csv uploader - create/edit/delete objects
 3. redis -  csv uploader / reset
 4. s3 integation
@@ -28,6 +31,6 @@
 28. relational object level programming with full scalability
 29. sentry integration
 30. one click deployment using render
-31. functional+procedural programming style
+31. 
 
  

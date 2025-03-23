@@ -452,6 +452,25 @@ postgres_config={
 "created_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
 "user_id-bigint-1-btree"
+],
+"workseeker":[
+"created_at-timestamptz-0-brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-1-btree",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_deleted-smallint-0-btree",
+"name-text-0-0",
+"gender-text-0-0",
+"dob-date-0-0",
+"email-text-0-0",
+"mobile-text-0-0",
+"country-text-0-0",
+"state-text-0-0",
+"city-text-0-0",
+"linkedin_url-text-0-0",
+"portfolio_url-text-0-0",
+
 ]
 },
 "query":{
@@ -1041,6 +1060,7 @@ async def public_object_create(request:Request):
 async def public_object_read(request:Request):
    #param
    table=request.query_params.get("table")
+   creator_data=request.query_params.get("creator_data")
    if not table:return error("table missing")
    object=request.query_params
    #check
@@ -1048,8 +1068,14 @@ async def public_object_read(request:Request):
    #logic
    response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
    if response["status"]==0:return error(response["message"])
+   object_list=response["message"]
+   #add creator data
+   if creator_data:
+      response=await add_creator_data(postgres_client,object_list,creator_data)
+      if response["status"]==0:return response
+      object_list=response["message"]
    #final
-   return response
+   return {"status":1,"message":object_list}
 
 @app.post("/public/otp-send-mobile-sns")
 async def public_otp_send_mobile_sns(request:Request):
@@ -1390,10 +1416,6 @@ async def my_object_read(request:Request):
    #logic
    response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
    if response["status"]==0:return error(response["message"])
-   object_list=response["message"]
-   #add creator data
-   response=await add_creator_data(postgres_client,object_list,"username,is_active")
-   if response["status"]==0:return response
    object_list=response["message"]
    #final
    return {"status":1,"message":object_list}
