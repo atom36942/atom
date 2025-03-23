@@ -1,7 +1,7 @@
 - functional+procedural programming style
 - entire codebase is in main.py
 - pure functions to reduce side effects
-- primary database in postgres
+- primary database is postgres
 - multiple drivers for postgres
 - one click database setup
 - bulk database uploader
