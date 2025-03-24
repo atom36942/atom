@@ -82,12 +82,13 @@ async def object_serialize(postgres_column_datatype,object_list):
          datatype=postgres_column_datatype.get(key)
          if not datatype:return {"status":0,"message":f"column {key} is not in postgres schema"}
          elif value==None:continue
-         elif key in ["password","google_id","apple_id","facebook_id","github_id","twitter_id"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
+         elif key in ["password"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
          elif datatype=="text" and value in ["","null"]:object_list[index][key]=None
          elif datatype=="text":object_list[index][key]=value.strip()
          elif "int" in datatype:object_list[index][key]=int(value)
          elif datatype=="numeric":object_list[index][key]=round(float(value),3)
-         elif "time" in datatype or datatype=="date":object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%dT%H:%M:%S')
+         elif datatype=="date":object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%d')
+         elif "time" in datatype:object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%dT%H:%M:%S')
          elif datatype=="ARRAY":object_list[index][key]=value.split(",")
          elif datatype=="jsonb":object_list[index][key]=json.dumps(value)
    return {"status":1,"message":object_list}
@@ -454,24 +455,51 @@ postgres_config={
 "created_by_id-bigint-1-btree",
 "user_id-bigint-1-btree"
 ],
+"work_profile":[
+"title-text-1-0"
+],
 "workseeker":[
 "created_at-timestamptz-0-brin",
 "updated_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
+"created_by_id-bigint-0-btree",
 "updated_by_id-bigint-0-0",
 "is_active-smallint-0-btree",
 "is_deleted-smallint-0-btree",
+"type-smallint-0-btree",
+"work_profile_id-int-0-btree",
+"experience-numeric(10,1)-0-btree",
+"skill-text-0-0",
+"description-text-0-0",
+"salary_currency-text-0-0",
+"salary_current-int-0-0",
+"salary_expected-int-0-0",
+"notice_period-smallint-0-0",
+"college-text-0-0",
+"degree-text-0-0",
+"industry-text-0-0",
+"certification-text-0-0",
+"achievement-text-0-0",
+"hobby-text-0-0",
+"life_goal-text-0-0",
+"strong_point-text-0-0",
+"weak_point-text-0-0",
 "name-text-0-0",
 "gender-text-0-0",
-"dob-date-0-0",
+"date_of_birth-date-0-0",
+"nationality-text-0-0",
+"language-text-0-0",
 "email-text-0-0",
 "mobile-text-0-0",
 "country-text-0-0",
 "state-text-0-0",
 "city-text-0-0",
+"current_location-text-0-0",
+"is_remote-smallint-0-0",
 "linkedin_url-text-0-0",
+"github_url-text-0-0",
 "portfolio_url-text-0-0",
-
+"website_url-text-0-0",
+"resume_url-text-0-0"
 ]
 },
 "query":{
@@ -491,6 +519,7 @@ postgres_config={
 "unique_3":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
 "unique_4":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
 "unique_5":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
+"unique_6":"alter table workseeker add constraint constraint_unique_created_by_id unique (created_by_id);",
 "default_1":"0 alter table users alter column is_active set default 1;",
 "check_1":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
 "check_2":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_active' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_check_%I_is_active', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_active IN (0,1) OR is_active IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;"
@@ -961,7 +990,7 @@ async def admin_object_update(request:Request):
    table=request.query_params.get("table")
    is_serialize=int(request.query_params.get("is_serialize",1))
    object=await request.json()
-   object["updated_by_id"]=request.state.user["id"]
+   if postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
    if not table:return error("table missing")
    #check
    if table in ["users"]:return error("table not allowed")
@@ -1166,6 +1195,34 @@ async def private_object_read(request:Request):
    if response["status"]==0:return error(response["message"])
    #final
    return response
+
+@app.get("/private/workseeker-read")
+@cache(expire=100)
+async def private_workseeker_read(request:Request):
+   #pagination
+   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
+   #filter
+   work_profile_id=int(request.query_params.get("work_profile_id")) if request.query_params.get("work_profile_id") else None
+   experience_min=int(request.query_params.get("experience_min")) if request.query_params.get("experience_min") else None
+   experience_max=int(request.query_params.get("experience_max")) if request.query_params.get("experience_max") else None
+   skill=f"%{request.query_params.get("skill")}%" if request.query_params.get("skill") else None
+   #logic
+   query=f'''
+   select * from workseeker where
+   (work_profile_id=:work_profile_id or :work_profile_id is null) and
+   (experience >= :experience_min or :experience_min is null) and
+   (experience <= :experience_max or :experience_max is null) and
+   (skill ilike :skill or :skill is null)
+   order by {order} limit {limit} offset {(page-1)*limit};
+   '''
+   values={
+   "work_profile_id":work_profile_id,
+   "experience_min":experience_min,"experience_max":experience_max,
+   "skill":skill
+   }
+   output=await postgres_client.fetch_all(query=query,values=values)
+   #final
+   return {"status":1,"message":output}
 
 #auth
 @app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=100,seconds=1))])
@@ -1390,7 +1447,7 @@ async def my_object_create(request:Request):
    object["created_by_id"]=request.state.user["id"]
    data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
    #check
-   if table not in ["test","message","report_user"]:return error("table not allowed")
+   if table not in ["test","message","report_user","workseeker"]:return error("table not allowed")
    if len(object)<=1:return error ("object issue")
    if any(key in column_disabled_non_admin for key in object):return error(" object key not allowed")
    #logic

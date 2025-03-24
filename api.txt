@@ -41,6 +41,7 @@ curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=uuid" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
 curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/private/workseeker-read?work_profile_id=1" -H "Authorization: Bearer $token_admin"
 
 #auth
 curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
@@ -58,6 +59,7 @@ curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token_admin"
 0 curl -X DELETE "$baseurl/my/account-delete-hard" -H "Authorization: Bearer $token_admin"
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
+curl -X POST "$baseurl/my/object-create?table=workseeker" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"work_profile_id":1,"date_of_birth":"2000-11-30"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
