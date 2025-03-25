@@ -1591,8 +1591,8 @@ async def my_parent_read(request:Request):
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
    table=request.query_params.get("table")
    table_parent=table.split("_",1)[-1]
+   column=f"{table_parent}_id"
    if table_parent=="user":table_parent="users"
-   column=f"{table.split("_",1)[-1]}_id"
    if not table:return error("table missing")
    #logic
    query=f'''
