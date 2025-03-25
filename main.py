@@ -455,6 +455,11 @@ postgres_config={
 "created_by_id-bigint-1-btree",
 "user_id-bigint-1-btree"
 ],
+"bookmark_workseeker":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-1-btree",
+"workseeker_id-bigint-1-btree"
+],
 "work_profile":[
 "title-text-1-0"
 ],
@@ -514,13 +519,14 @@ postgres_config={
 "log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
 "root_user_1":"insert into users (type,username,password,api_access) values (1,'atom','5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5','1,2,3,4,5,6,7,8,9,10') on conflict do nothing;",
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
-"unique_1":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
-"unique_2":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
-"unique_3":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
-"unique_4":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
-"unique_5":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
-"unique_6":"alter table workseeker add constraint constraint_unique_created_by_id unique (created_by_id);",
 "default_1":"0 alter table users alter column is_active set default 1;",
+"unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
+"unique_2":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
+"unique_3":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
+"unique_4":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
+"unique_5":"alter table workseeker add constraint constraint_unique_created_by_id unique (created_by_id);",
+"unique_6":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
+"unique_7":"alter table bookmark_workseeker add constraint constraint_unique_bookmark_workseeker unique (created_by_id,workseeker_id);",
 "check_1":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
 "check_2":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_active' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_check_%I_is_active', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_active IN (0,1) OR is_active IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;"
 }
@@ -1431,6 +1437,7 @@ async def my_account_delete_hard(request:Request):
    #logic
    async with postgres_client.transaction():
       await postgres_client.execute(query="delete from report_user where created_by_id=:user_id or user_id=:user_id;",values={"user_id":request.state.user["id"]})
+      await postgres_client.execute(query="delete from bookmark_workseeker where created_by_id=:user_id",values={"user_id":request.state.user["id"]})
       await postgres_client.execute(query="delete from message where created_by_id=:user_id or user_id=:user_id;",values={"user_id":request.state.user["id"]})
       await postgres_client.execute(query="delete from users where id=:id;",values={"id":request.state.user["id"]})
    #final
@@ -1447,7 +1454,7 @@ async def my_object_create(request:Request):
    object["created_by_id"]=request.state.user["id"]
    data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
    #check
-   if table not in ["test","message","report_user","workseeker"]:return error("table not allowed")
+   if table not in ["test","message","report_user","bookmark_workseeker","workseeker"]:return error("table not allowed")
    if len(object)<=1:return error ("object issue")
    if any(key in column_disabled_non_admin for key in object):return error(" object key not allowed")
    #logic
@@ -1552,7 +1559,7 @@ async def my_object_delete_any(request:Request):
    object=dict(request.query_params)
    object["created_by_id"]=f"=,{request.state.user['id']}"
    #check
-   if table not in ["test","report_user"]:return error("table not allowed")
+   if table not in ["test","report_user","bookmark_workseeker"]:return error("table not allowed")
    #create where
    response=await create_where_string(object,object_serialize,postgres_column_datatype)
    if response["status"]==0:return error(response["message"])
@@ -1570,13 +1577,33 @@ async def my_ids_delete(request:Request):
    ids=request.query_params.get("ids")
    if not table or not ids:return error("table/ids must")
    #check
-   if table not in ["test","report_user"]:return error("table not allowed")
+   if table not in ["test","report_user","bookmark_workseeker"]:return error("table not allowed")
    #logic
    query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;"
    values={"created_by_id":request.state.user["id"]}
    await postgres_client.execute(query=query,values=values)
    #final
    return {"status":1,"message":"done"}
+
+@app.get("/my/parent-read")
+async def my_parent_read(request:Request):
+   #param
+   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
+   table=request.query_params.get("table")
+   table_parent=table.split("_",1)[-1]
+   if table_parent=="user":table_parent="users"
+   column=f"{table.split("_",1)[-1]}_id"
+   if not table:return error("table missing")
+   #logic
+   query=f'''
+   with 
+   x as (select {column} from {table} where created_by_id=:created_by_id order by {order} limit {limit} offset {(page-1)*limit}) 
+   select ct.* from x left join {table_parent}  as ct on x.{column}=ct.id;
+   '''
+   values={"created_by_id":request.state.user["id"]}
+   object_list=await postgres_client.fetch_all(query=query,values=values)
+   #final
+   return {"status":1,"message":object_list}
 
 #message
 @app.get("/my/message-inbox")
