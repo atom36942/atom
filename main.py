@@ -1467,7 +1467,7 @@ async def my_object_create(request:Request):
    elif queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key=channel_name,body=json.dumps(data))
    elif queue=="kafka":output=await kafka_producer_client.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
    elif "mongodb" in queue:
-      mongodb_database_name=queue.split("_")[1]
+      mongodb_database_name=queue.split('_')[1]
       mongodb_database_client=mongodb_client[mongodb_database_name]
       output=await mongodb_database_client[table].insert_many([object])
       output=str(output)
@@ -1590,7 +1590,7 @@ async def my_parent_read(request:Request):
    #param
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
    table=request.query_params.get("table")
-   table_parent=table.split("_",1)[-1]
+   table_parent=table.split('_',1)[-1]
    column=f"{table_parent}_id"
    if table_parent=="user":table_parent="users"
    if not table:return error("table missing")
