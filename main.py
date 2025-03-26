@@ -1211,7 +1211,7 @@ async def private_workseeker_read(request:Request):
    work_profile_id=int(request.query_params.get("work_profile_id")) if request.query_params.get("work_profile_id") else None
    experience_min=int(request.query_params.get("experience_min")) if request.query_params.get("experience_min") else None
    experience_max=int(request.query_params.get("experience_max")) if request.query_params.get("experience_max") else None
-   skill=f"%{request.query_params.get("skill")}%" if request.query_params.get("skill") else None
+   skill=f"%{request.query_params.get('skill')}%" if request.query_params.get('skill') else None
    #logic
    query=f'''
    select * from workseeker where
