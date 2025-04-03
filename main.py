@@ -1482,6 +1482,8 @@ async def my_object_read(request:Request):
    if not table:return error("table missing")
    object=dict(request.query_params)
    object["created_by_id"]=f"=,{request.state.user['id']}"
+   #check
+   if table in ["users"]:return error("table not allowed")
    #logic
    response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
    if response["status"]==0:return error(response["message"])
