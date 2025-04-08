@@ -18,31 +18,6 @@ curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root
 0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=empty&bucket=master" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=delete&bucket=master" -H "Authorization: Bearer $token_root"
 
-#admin
-curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
-curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"username":"$username_2","password":"$password","api_access":"1,2,3"}'
-curl -X PUT "$baseurl/admin/user-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"api_access":"1,2,3,4,5,6,7,8,9,10"}'
-curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
-curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":435,"title":"updated333"}'
-curl -X PUT "$baseurl/admin/ids-update?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":0}'
-curl -X DELETE "$baseurl/admin/ids-delete?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":1}'
-curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Bearer $token_admin"
-
-#public
-curl -X GET "$baseurl/public/info"
-0 curl -X POST "$baseurl/public/otp-send-mobile-sns" -H "Content-Type: application/json" -d '{"mobile":"abc"}'
-0 curl -X POST "$baseurl/public/otp-send-email-ses" -H "Content-Type: application/json" -d '{"email":"abc"}'
-curl -X GET "$baseurl/public/object-read?table=test"
-curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"testing"}'
-curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
-
-#private
-0 curl -X POST "$baseurl/private/file-upload-s3-presigned?bucket=master&key=test.png" -H "Authorization: Bearer $token_admin"
-0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
-0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=uuid" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
-curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer $token_admin"
-curl -X GET "$baseurl/private/workseeker-read?work_profile_id=1" -H "Authorization: Bearer $token_admin"
-
 #auth
 curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
 curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
@@ -72,8 +47,6 @@ curl -X DELETE "$baseurl/my/object-delete-any?table=test&id=>,1" -H "Authorizati
 curl -X DELETE "$baseurl/my/ids-delete?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":1}'
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/parent-read?table=bookmark_workseeker" -H "Authorization: Bearer $token_admin"
-
-#message
 curl -X GET "$baseurl/my/message-inbox" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/message-inbox?mode=unread" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/message-received" -H "Authorization: Bearer $token_admin"
@@ -83,5 +56,30 @@ curl -X DELETE "$baseurl/my/message-delete?mode=single&id=1" -H "Authorization: 
 curl -X DELETE "$baseurl/my/message-delete?mode=created" -H "Authorization: Bearer $token_admin"
 curl -X DELETE "$baseurl/my/message-delete?mode=received" -H "Authorization: Bearer $token_admin"
 curl -X DELETE "$baseurl/my/message-delete?mode=all" -H "Authorization: Bearer $token_admin"
+
+#public
+curl -X GET "$baseurl/public/info"
+0 curl -X POST "$baseurl/public/otp-send-mobile-sns" -H "Content-Type: application/json" -d '{"mobile":"abc"}'
+0 curl -X POST "$baseurl/public/otp-send-email-ses" -H "Content-Type: application/json" -d '{"email":"abc"}'
+curl -X GET "$baseurl/public/object-read?table=test"
+curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"testing"}'
+curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
+
+#private
+0 curl -X POST "$baseurl/private/file-upload-s3-presigned?bucket=master&key=test.png" -H "Authorization: Bearer $token_admin"
+0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
+0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=uuid" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
+curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/private/workseeker-read?work_profile_id=1" -H "Authorization: Bearer $token_admin"
+
+#admin
+curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
+curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"username":"$username_2","password":"$password","api_access":"1,2,3"}'
+curl -X PUT "$baseurl/admin/user-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"api_access":"1,2,3,4,5,6,7,8,9,10"}'
+curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
+curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":435,"title":"updated333"}'
+curl -X PUT "$baseurl/admin/ids-update?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":0}'
+curl -X DELETE "$baseurl/admin/ids-delete?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":1}'
+curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Bearer $token_admin"
 
 

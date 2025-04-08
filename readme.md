@@ -1,3 +1,4 @@
+- entire codebase is in main.py
 - functional+procedural programming style
 - pure functions to reduce side effects
 - primary database is postgres
@@ -32,6 +33,3 @@
 - rate limiter
 - api caching
 - middleware functions
-
-
- 

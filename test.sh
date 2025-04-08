@@ -6,7 +6,7 @@ if [ -f .env ]; then
 fi
 
 #env var
-input_file="api.txt"
+input_file="curl.txt"
 baseurl="http://127.0.0.1:8000"
 token_root="$key_root"
 password_root="$password_root"
