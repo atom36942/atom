@@ -1,3 +1,29 @@
+async def get_users_is_active(postgres_client_asyncpg,limit):
+   users_is_active={}
+   async with postgres_client_asyncpg.transaction():
+      cursor=await postgres_client_asyncpg.cursor('SELECT id,is_active FROM users ORDER BY id DESC')
+      count=0
+      while count < limit:
+         batch=await cursor.fetch(10000)
+         if not batch:break
+         users_is_active.update({record['id']: record['is_active'] for record in batch})
+         if False:await redis_client.mset({f"users_is_active_{record['id']}":0 if record['is_active']==0 else 1 for record in batch})
+         count+=len(batch)
+   return users_is_active
+
+async def get_users_api_access(postgres_client_asyncpg,limit):
+   users_api_access={}
+   async with postgres_client_asyncpg.transaction():
+      cursor=await postgres_client_asyncpg.cursor('SELECT id,api_access FROM users where api_access is not null ORDER BY id DESC')
+      count=0
+      while count < limit:
+         batch=await cursor.fetch(10000)
+         if not batch:break
+         users_api_access.update({record['id']:[int(item.strip()) for item in record["api_access"].split(",")] for record in batch})
+         if False:await redis_client.mset({f"users_api_access_{record['id']}":record['api_access'] for record in batch})
+         count+=len(batch)
+   return users_api_access
+
 from databases import Database
 async def client_postgres(postgres_url):
    postgres_client=Database(postgres_url,min_size=1,max_size=100)
