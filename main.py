@@ -1,30 +1,17 @@
 #function
 from function import *
 
-#setters
+#globals
 postgres_client=None
 postgres_client_asyncpg=None
 postgres_client_read=None
-from databases import Database
-import asyncpg
-async def set_postgres_client(postgres_url,postgres_url_read):
-   global postgres_client
-   global postgres_client_asyncpg
-   global postgres_client_read
-   postgres_client=Database(postgres_url,min_size=1,max_size=100)
-   postgres_client_asyncpg=await asyncpg.connect(postgres_url)
-   if postgres_url_read:postgres_client_read=Database(postgres_url_read,min_size=1,max_size=100)
-   await postgres_client.connect()
-   return None
-
 postgres_schema={}
 postgres_column_datatype={}
-async def set_postgres_schema(postgres_client,postgres_schema_read):
-   global postgres_schema
-   global postgres_column_datatype
-   postgres_schema=await postgres_schema_read(postgres_client)
-   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
-   return None
+
+
+
+
+
 
 users_api_access={}
 async def set_users_api_access(postgres_client_asyncpg,postgres_schema):
@@ -374,9 +361,24 @@ from fastapi_cache.backends.redis import RedisBackend
 @asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
-      #set
-      await set_postgres_client(postgres_url,postgres_url_read)
-      await set_postgres_schema(postgres_client,postgres_schema_read)
+      #postgres client
+      global postgres_client
+      postgres_client=await client_postgres(postgres_url)
+      #postgres client asyncpg
+      global postgres_client_asyncpg
+      postgres_client_asyncpg=await client_postgres_asyncpg(postgres_url)
+      #postgres client read
+      global postgres_client_read
+      postgres_client_read=await client_postgres(postgres_url)
+      #postgres schema
+      global postgres_schema
+      postgres_schema=await postgres_schema_read(postgres_client)
+      #postgres column datatype
+      global postgres_column_datatype
+      postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
+      
+      
+      
       await set_users_api_access(postgres_client_asyncpg,postgres_schema)
       await set_users_is_active(postgres_client_asyncpg,postgres_schema)
       await set_redis_client(redis_url,valkey_url,channel_name)
@@ -489,14 +491,24 @@ async def root_db_init(request:Request):
    #logic
    if mode=="default":await postgres_schema_init(postgres_client,postgres_schema_read,postgres_schema_default)
    if mode=="custom":await postgres_schema_init(postgres_client,postgres_schema_read,await request.json())
-   await set_postgres_schema(postgres_client,postgres_schema_read)
+   #postgres schema
+   global postgres_schema
+   postgres_schema=await postgres_schema_read(postgres_client)
+   #postgres column datatype
+   global postgres_column_datatype
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
    #final
    return {"status":1,"message":"done"}
 
 @app.put("/root/reset-global")
 async def root_reset_global():
-   #logic
-   await set_postgres_schema(postgres_client,postgres_schema_read)
+   #postgres schema
+   global postgres_schema
+   postgres_schema=await postgres_schema_read(postgres_client)
+   #postgres column datatype
+   global postgres_column_datatype
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
+   
    await set_users_api_access(postgres_client_asyncpg,postgres_schema)
    await set_users_is_active(postgres_client_asyncpg,postgres_schema)
    #final
@@ -1360,8 +1372,8 @@ nest_asyncio.apply()
 #redis
 import asyncio,json
 async def main_redis():
-   await set_postgres_client(postgres_url,postgres_url_read)
-   await set_postgres_schema(postgres_client,postgres_schema_read)
+   postgres_client=await client_postgres(postgres_url)
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
    await set_redis_client(redis_url,valkey_url,channel_name)
    try:
       async for message in redis_pubsub.listen():
@@ -1385,8 +1397,8 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="redis":
 #kafka
 import asyncio,json
 async def main_kafka():
-   await set_postgres_client(postgres_url,postgres_url_read)
-   await set_postgres_schema(postgres_client,postgres_schema_read)
+   postgres_client=await client_postgres(postgres_url)
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
    await set_kafka_client(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
    try:
       async for message in kafka_consumer_client:
@@ -1421,8 +1433,8 @@ def aqmp_callback(ch,method,properties,body):
 #rabbitmq
 import asyncio,json
 async def main_rabbitmq():
-   await set_postgres_client(postgres_url,postgres_url_read)
-   await set_postgres_schema(postgres_client,postgres_schema_read)
+   postgres_client=await client_postgres(postgres_url)
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
    await set_rabbitmq_client(rabbitmq_url,channel_name)
    try:
       rabbitmq_channel.basic_consume(channel_name,aqmp_callback,auto_ack=True)
@@ -1438,8 +1450,8 @@ if __name__ == "__main__" and len(mode)>1 and mode[1]=="rabbitmq":
 #lavinmq
 import asyncio,json
 async def main_lavinmq():
-   await set_postgres_client(postgres_url,postgres_url_read)
-   await set_postgres_schema(postgres_client,postgres_schema_read)
+   postgres_client=await client_postgres(postgres_url)
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
    await set_lavinmq_client(lavinmq_url,channel_name)
    try:
       lavinmq_channel.basic_consume(channel_name,aqmp_callback,auto_ack=True)

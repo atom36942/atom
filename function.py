@@ -1,3 +1,14 @@
+from databases import Database
+async def client_postgres(postgres_url):
+   postgres_client=Database(postgres_url,min_size=1,max_size=100)
+   await postgres_client.connect()
+   return postgres_client
+
+import asyncpg
+async def client_postgres_asyncpg(postgres_url):
+   postgres_client_asyncpg=await asyncpg.connect(postgres_url)
+   return postgres_client_asyncpg
+
 async def postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
    if not object_list[0]:return {"status":0,"message":"object missing"}
    if is_serialize:
@@ -148,6 +159,11 @@ async def postgres_schema_read(postgres_client):
       if table not in postgres_schema:postgres_schema[table]={}
       postgres_schema[table][column]=column_data
    return postgres_schema
+
+async def postgres_column_datatype_read(postgres_client,postgres_schema_read):
+   postgres_schema=await postgres_schema_read(postgres_client)
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
+   return postgres_column_datatype
 
 async def postgres_schema_init(postgres_client,postgres_schema_read,config):
    #extension
