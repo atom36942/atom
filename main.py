@@ -653,7 +653,6 @@ users_api_access={}
 users_is_active={}
 redis_client=None
 valkey_client=None
-redis_pubsub=None
 mongodb_client=None
 s3_client=None
 s3_resource=None
