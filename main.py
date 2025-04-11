@@ -1596,19 +1596,14 @@ async def admin_user_create(request:Request):
    #param
    object=await request.json()
    type=object.get("type")
-   username=object.get("username")
-   password=object.get("password")
-   api_access=object.get("api_access")
-   if not type or not username or not password:return error("type/username/password missing")
-   password=hashlib.sha256(str(password).encode()).hexdigest()
+   if not type:return error("type missing")
    #check
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   query="insert into users (type,username,password,api_access) values (:type,:username,:password,:api_access) returning *;"
-   values={"type":type,"username":username,"password":password,"api_access":api_access}
-   output=await postgres_client.execute(query=query,values=values)
+   response=await postgres_create("users",[object],1,postgres_client,postgres_column_datatype,object_serialize)
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":output}
+   return response
 
 @app.put("/admin/user-update")
 async def admin_user_update(request:Request):

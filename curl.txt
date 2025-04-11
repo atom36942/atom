@@ -74,12 +74,10 @@ curl -X GET "$baseurl/private/workseeker-read?work_profile_id=1" -H "Authorizati
 
 #admin
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
-curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"username":"$username_2","password":"$password","api_access":"1,2,3"}'
+curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"username":"$username_2","password":"$password","api_access":"1,2,3,4,5"}'
 curl -X PUT "$baseurl/admin/user-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"api_access":"1,2,3,4,5,6,7,8,9,10"}'
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":435,"title":"updated333"}'
 curl -X PUT "$baseurl/admin/ids-update?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":0}'
 curl -X DELETE "$baseurl/admin/ids-delete?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":1}'
 curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Bearer $token_admin"
-
-
