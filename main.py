@@ -375,7 +375,7 @@ async def redis_get_object(redis_client,key):
 import jwt,json,time
 async def token_create(key_jwt,user):
    token_expire_sec=365*24*60*60
-   user={"id":user["id"],"type":user["type"]}
+   user={"id":user["id"]}
    user=json.dumps(user,default=str)
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":user},key_jwt)
    return token
@@ -389,13 +389,10 @@ async def request_user_read(request,postgres_client):
    if not user:response={"status":0,"message":"user not found"}
    return response
 
-async def admin_check(request,api,api_id,users_api_access,postgres_client):
-   if "admin/" not in api:return {"status":1,"message":"done"}
-   api_id_value=api_id.get(api)
-   if not api_id_value:return {"status":0,"message":"api id not mapped in backend"}
-   user_api_access=users_api_access.get(request.state.user["id"],"absent")
+async def admin_check(user_id,api_id_value,postgres_client,users_api_access):
+   user_api_access=users_api_access.get(user_id,"absent")
    if user_api_access=="absent":
-      output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":request.state.user["id"]})
+      output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user_id})
       user=output[0] if output else None
       if not user:return {"status":0,"message":"user not found"}
       api_access_str=user["api_access"]
@@ -786,8 +783,9 @@ async def middleware(request:Request,api_function):
             if token!=key_root:return error("token root mismatch")
          else:
             request.state.user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
-            response=await admin_check(request,api,api_id,users_api_access,postgres_client)
-            if response["status"]==0:return error(response["message"])
+            if "admin/" in api:
+               response=await admin_check(request.state.user["id"],api_id[api],postgres_client,users_api_access)
+               if response["status"]==0:return error(response["message"])
             response=await is_active_check(request,api,users_is_active,postgres_client)
             if response["status"]==0:return error(response["message"])   
       #api response
