@@ -8,8 +8,7 @@
 - sql query runner
 - database read/write replica
 - one click deployment using render
-- object level programming with scalability
-- api testing using curl.sh
+- object level programming
 - inbuilt api logs
 - auth module with n number of login types
 - login methods - username,email,mobile,oauth
@@ -33,3 +32,4 @@
 - rate limiter
 - api caching
 - middleware functions
+- curl testing using tets.sh
