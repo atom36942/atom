@@ -380,6 +380,18 @@ async def token_create(key_jwt,user):
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":user},key_jwt)
    return token
 
+import jwt,json
+async def token_check(request,key_root,key_jwt):
+   user={}
+   api=request.url.path
+   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
+   if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return {"status":0,"message":"token must"}
+   if token:
+      if "root/" in api:
+         if token!=key_root:return {"status":0,"message":"token root mismatch"}
+      else:user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
+   return {"status":1,"message":user}
+
 async def request_user_read(request,postgres_client):
    query="select * from users where id=:id;"
    values={"id":request.state.user["id"]}
@@ -389,7 +401,7 @@ async def request_user_read(request,postgres_client):
    if not user:response={"status":0,"message":"user not found"}
    return response
 
-async def admin_check(user_id,api_id_value,postgres_client,users_api_access):
+async def admin_check(user_id,api_id_value,users_api_access,postgres_client):
    user_api_access=users_api_access.get(user_id,"absent")
    if user_api_access=="absent":
       output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user_id})
@@ -401,16 +413,14 @@ async def admin_check(user_id,api_id_value,postgres_client,users_api_access):
    if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
    return {"status":1,"message":"done"}
 
-async def is_active_check(request,api,users_is_active,postgres_client):
-   for item in ["admin/","private","my/object-create"]:
-      if item in api:
-         user_is_active=users_is_active.get(request.state.user["id"],"absent")
-         if user_is_active=="absent":
-            output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":request.state.user["id"]})
-            user=output[0] if output else None
-            if not user:return {"status":0,"message":"user not found"}
-            user_is_active=user["is_active"]
-         if user_is_active==0:return {"status":0,"message":"user not active"}
+async def is_active_check(user_id,users_is_active,postgres_client):
+   user_is_active=users_is_active.get(user_id,"absent")
+   if user_is_active=="absent":
+      output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":request.state.user["id"]})
+      user=output[0] if output else None
+      if not user:return {"status":0,"message":"user not found"}
+      user_is_active=user["is_active"]
+   if user_is_active==0:return {"status":0,"message":"user not active"}
    return {"status":1,"message":"done"}
 
 async def users_is_active_read(postgres_client_asyncpg,limit):
@@ -440,11 +450,41 @@ async def users_api_access_read(postgres_client_asyncpg,limit):
    return users_api_access
 
 from fastapi import responses
+from starlette.background import BackgroundTask
+async def api_response_background(request,api_function):
+   body=await request.body()
+   async def receive():return {"type":"http.request","body":body}
+   async def api_function_new():
+      request_new=Request(scope=request.scope,receive=receive)
+      await api_function(request_new)
+   response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
+   response.background=BackgroundTask(api_function_new)
+   return response
+
+import json
+object_list_log_api=[]
+async def batch_create_log_api(object,batch,postgres_create,postgres_client,postgres_column_datatype,object_serialize):
+   global object_list_log_api
+   object_list_log_api.append(object)
+   if len(object_list_log_api)>=batch:
+      await postgres_create("log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
+      object_list_log_api=[]
+   return None
+
+from fastapi_limiter import FastAPILimiter
+async def ratelimiter_init(redis_client):
+   await FastAPILimiter.init(redis_client)
+   
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+async def cache_init(redis_client,redis_key_builder):
+   FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
+
+from fastapi import responses
 def error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
 
-#config
-#env
+#config env
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -475,7 +515,7 @@ user_type_allowed=[int(x) for x in os.getenv("user_type_allowed","1,2,3").split(
 column_disabled_non_admin=os.getenv("column_disabled_non_admin","is_active,is_verified,api_access").split(",")
 postgres_url_read_replica=os.getenv("postgres_url_read_replica")
 
-#variable
+#config hardcoded
 api_id={
 "/admin/db-runner":1,
 "/admin/user-create":2,
@@ -515,8 +555,7 @@ postgres_schema_default={
 "method-text-0-0",
 "query_param-text-0-0",
 "status_code-smallint-0-0",
-"response_time_ms-numeric(1000,3)-0-0",
-"description-text-0-0"
+"response_time_ms-numeric(1000,3)-0-0"
 ],
 "otp":[
 "created_at-timestamptz-0-brin",
@@ -629,9 +668,9 @@ postgres_schema_default={
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
 "default_1":"0 alter table users alter column is_active set default 1;",
 "unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
-"unique_2":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
-"unique_3":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
-"unique_4":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
+"unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
+"unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
+"unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
 "unique_5":"alter table workseeker add constraint constraint_unique_created_by_id unique (created_by_id);",
 "unique_6":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
 "unique_7":"alter table bookmark_workseeker add constraint constraint_unique_bookmark_workseeker unique (created_by_id,workseeker_id);",
@@ -681,9 +720,6 @@ def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Resp
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from fastapi_limiter import FastAPILimiter
-from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
 @asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
@@ -735,16 +771,16 @@ async def lifespan(app:FastAPI):
       #kafka producer client
       global kafka_producer_client
       if kafka_url:kafka_producer_client=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
-      #ratelimiter
-      if redis_client:await FastAPILimiter.init(redis_client)
-      #cache
-      if valkey_client:FastAPICache.init(RedisBackend(valkey_client),key_builder=redis_key_builder)
-      elif redis_url:FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
-      #disconnect
+      #ratelimiter init
+      if redis_client:await ratelimiter_init(redis_client)
+      #cache init
+      if valkey_client:await cache_init(valkey_client,redis_key_builder)
+      elif redis_url:await cache_init(redis_client,redis_key_builder)
+      #app close
       yield
       await postgres_client.disconnect()
       await postgres_client_asyncpg.close()
-      if postgres_client_read:await postgres_client_read.close()
+      if postgres_client_read_replica:await postgres_client_read_replica.close()
       if redis_client:await redis_client.aclose()
       if valkey_client:await valkey_client.aclose()
       if rabbitmq_client and rabbitmq_channel.is_open:rabbitmq_channel.close()
@@ -764,51 +800,33 @@ app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,all
 
 #middleware
 from fastapi import Request,responses
-import time,traceback
-from starlette.background import BackgroundTask
-object_list_log_api=[]
+import time,traceback,asyncio
 @app.middleware("http")
 async def middleware(request:Request,api_function):
-   global object_list_log_api
-   start=time.time()
-   api=request.url.path
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-   request.state.user={}
-   error_text=None
    try:
-      #auth check
-      if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return error("Bearer token must")
-      if token:
-         if "root/" in api:
-            if token!=key_root:return error("token root mismatch")
-         else:
-            request.state.user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
-            if "admin/" in api:
-               response=await admin_check(request.state.user["id"],api_id[api],postgres_client,users_api_access)
-               if response["status"]==0:return error(response["message"])
-            response=await is_active_check(request,api,users_is_active,postgres_client)
-            if response["status"]==0:return error(response["message"])   
+      start=time.time()
+      #token check
+      response=await token_check(request,key_root,key_jwt)
+      if response["status"]==0:return error(response["message"])
+      request.state.user=response["message"]
+      #admin check
+      if "admin/" in request.url.path:
+         response=await admin_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
+         if response["status"]==0:return error(response["message"])
+      #is_active check
+      for item in ["admin/","private","my/object-create"]:
+         if item in request.url.path:
+            response=await is_active_check(request.state.user["id"],users_is_active,postgres_client)
+            if response["status"]==0:return error(response["message"])
       #api response
-      if request.query_params.get("is_background")=="1":
-         body=await request.body()
-         async def receive():return {"type":"http.request","body":body}
-         async def api_function_new():
-            request_new=Request(scope=request.scope,receive=receive)
-            await api_function(request_new)
-         response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
-         response.background=BackgroundTask(api_function_new)
+      if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
       else:response=await api_function(request)
+      #api log
+      object={"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
+      asyncio.create_task(batch_create_log_api(object,30,postgres_create,postgres_client,postgres_column_datatype,object_serialize))
    except Exception as e:
       print(traceback.format_exc())
-      error_text=str(e.args)
-      response=error(error_text)
-   #log
-   response_time_ms=(time.time()-start)*1000
-   object={"created_by_id":request.state.user.get("id",None),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":response_time_ms,"description":error_text}
-   object_list_log_api.append(object)
-   if postgres_schema.get("log_api") and len(object_list_log_api)>=10 and request.query_params.get("is_background")!="1":
-      response.background=BackgroundTask(postgres_create,"log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
-      object_list_log_api=[]
+      response=error(str(e.args))
    #final
    return response
 
@@ -819,9 +837,8 @@ for filename in []:
    app.include_router(router)
       
 #api import
-from fastapi import Request,UploadFile,Depends,BackgroundTasks,responses
-import hashlib,datetime,json,time,os,random,httpx
-from typing import Literal
+from fastapi import Request,Depends,BackgroundTasks,responses
+import hashlib,datetime,json,time,os,random
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
@@ -952,7 +969,7 @@ async def root_s3_bucket_ops(request:Request):
    return {"status":1,"message":output}
 
 #auth
-@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=100,seconds=1))])
+@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
 async def auth_signup_username_password(request:Request):
    #param
    object=await request.json()
