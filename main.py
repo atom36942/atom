@@ -367,7 +367,7 @@ async def root_db_init(request:Request):
    #param
    mode=request.query_params.get("mode")
    if not mode:return error("mode missing")
-   #config
+   #variable
    if mode=="default":config=postgres_schema_default
    elif mode=="custom":config=await request.json()
    #logic
@@ -773,18 +773,22 @@ async def my_object_update(request:Request):
 @app.put("/my/ids-update")
 async def my_ids_update(request:Request):
    #param
-   table=request.query_params.get("table")
-   ids=request.query_params.get("ids")
-   if not table or not ids:return error("table/ids must")
    object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
+   if not table or not ids:return error("table/ids must")
+   #modify
+   del object["table"]
+   del object["ids"]
+   #key value
    key,value=next(reversed(object.items()),(None, None))
    #check
    if table in ["users"]:return error("table not allowed")
-   if any(key in column_disabled_non_admin for key in object):return error(" object key not allowed")
-   if len(object)!=1:return error(" object length should be 1")
+   if not key:return error("column null issue")
+   if key in column_disabled_non_admin:return error("column not allowed")
    #logic
-   query=f"update {table} set {key}=:value,updated_by_id=:updated_by_id where id in ({ids}) and created_by_id=:created_by_id;"
-   values={"created_by_id":request.state.user["id"],"updated_by_id":request.state.user["id"],"value":object.get(key)}
+   query=f"update {table} set {key}=:value,updated_by_id=:user_id where id in ({ids}) and created_by_id=:user_id;"
+   values={"user_id":request.state.user["id"],"value":value}
    await postgres_client.execute(query=query,values=values)
    #final
    return {"status":1,"message":"done"}
@@ -793,26 +797,24 @@ async def my_ids_update(request:Request):
 async def my_object_delete_any(request:Request):
    #param
    table=request.query_params.get("table")
-   if not table:return error("table missing")
    object=dict(request.query_params)
+   if not table:return error("table missing")
+   #modify
    object["created_by_id"]=f"=,{request.state.user['id']}"
    #check
    if table not in ["test","report_user","bookmark_workseeker"]:return error("table not allowed")
-   #create where
-   response=await create_where_string(object,object_serialize,postgres_column_datatype)
-   if response["status"]==0:return error(response["message"])
-   where_string,where_value=response["message"][0],response["message"][1]
    #logic
-   query=f"delete from {table} {where_string};"
-   await postgres_client.fetch_all(query=query,values=where_value)
+   response=await postgres_delete_any(table,object,postgres_client,create_where_string,object_serialize,postgres_column_datatype)
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":"done"}
+   return response
 
 @app.delete("/my/ids-delete")
 async def my_ids_delete(request:Request):
    #param
-   table=request.query_params.get("table")
-   ids=request.query_params.get("ids")
+   object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
    if not table or not ids:return error("table/ids must")
    #check
    if table not in ["test","report_user","bookmark_workseeker"]:return error("table not allowed")
@@ -828,33 +830,25 @@ async def my_parent_read(request:Request):
    #param
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
    table=request.query_params.get("table")
-   table_parent=table.split('_',1)[-1]
-   column=f"{table_parent}_id"
-   if table_parent=="user":table_parent="users"
-   if not table:return error("table missing")
+   parent_column=request.query_params.get("parent_column")
+   parent_table=request.query_params.get("parent_table")
+   if not table or not parent_column:return error("table/parent_column/parent_table missing")
    #logic
-   query=f'''
-   with 
-   x as (select {column} from {table} where created_by_id=:created_by_id order by {order} limit {limit} offset {(page-1)*limit}) 
-   select ct.* from x left join {table_parent}  as ct on x.{column}=ct.id;
-   '''
-   values={"created_by_id":request.state.user["id"]}
-   object_list=await postgres_client.fetch_all(query=query,values=values)
+   response=await postgres_parent_read(table,parent_column,parent_table,postgres_client,order,limit,(page-1)*limit,request.state.user["id"])
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":object_list}
+   return response
 
 @app.get("/my/message-inbox")
 async def my_message_inbox(request:Request):
    #param
-   mode=request.query_params.get("mode")
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
+   is_unread=request.query_params.get("is_unread")
    #logic
-   if not mode:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {(page-1)*limit};'''
-   elif mode=="unread":query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {(page-1)*limit};'''
-   values={"created_by_id":request.state.user["id"],"user_id":request.state.user["id"]}
-   object_list=await postgres_client.fetch_all(query=query,values=values)
+   response=await postgres_message_inbox(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":object_list}
+   return response
 
 @app.get("/my/message-received")
 async def my_message_received(request:Request,background:BackgroundTasks):

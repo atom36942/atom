@@ -133,6 +133,14 @@ async def postgres_delete(table,object_list,is_serialize,postgres_client,postgre
          output=await postgres_client.execute_many(query=query,values=object_list)
    return {"status":1,"message":output}
 
+async def postgres_delete_any(table,object,postgres_client,create_where_string,object_serialize,postgres_column_datatype):
+   response=await create_where_string(object,object_serialize,postgres_column_datatype)
+   if response["status"]==0:return response
+   where_string,where_value=response["message"][0],response["message"][1]
+   query=f"delete from {table} {where_string};"
+   await postgres_client.execute(query=query,values=where_value)
+   return {"status":1,"message":"done"}
+
 async def postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string):
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    column=object.get("column","*")
@@ -148,6 +156,23 @@ async def postgres_read(table,object,postgres_client,postgres_column_datatype,ob
    object_list=await postgres_client.fetch_all(query=query,values=where_value)
    return {"status":1,"message":object_list}
 
+async def postgres_parent_read(table,parent_column,parent_table,postgres_client,order,limit,offset,user_id):
+   query=f'''
+   with
+   x as (select {parent_column} from {table} where (created_by_id=:created_by_id or :created_by_id is null) order by {order} limit {limit} offset {offset}) 
+   select ct.* from x left join {parent_table}  as ct on x.{parent_column}=ct.id;
+   '''
+   values={"created_by_id":user_id}
+   object_list=await postgres_client.fetch_all(query=query,values=values)
+   return {"status":1,"message":object_list}
+
+async def postgres_message_inbox(postgres_client,user_id,order,limit,offset,is_unread):
+   if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
+   elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
+   values={"created_by_id":user_id,"user_id":user_id}
+   object_list=await postgres_client.fetch_all(query=query,values=values)
+   return {"status":1,"message":object_list}
+   
 import hashlib,datetime,json
 async def object_serialize(postgres_column_datatype,object_list):
    for index,object in enumerate(object_list):
