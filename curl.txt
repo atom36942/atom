@@ -9,7 +9,7 @@ curl -X PUT "$baseurl/root/db-checklist" -H "Authorization: Bearer $token_root"
 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@$file_create"
 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=update" -F "table=test" -F "file=@$file_update"
 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=delete" -F "table=test" -F "file=@$file_delete"
-curl -X POST "$baseurl/root/redis-set-csv" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@$file_update"
+curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@$file_update"
 curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root"
 0 curl -X DELETE "$baseurl/root/s3-url-delete?url=url1---url2" -H "Authorization: Bearer $token_root"
 0 curl -X GET "$baseurl/root/s3-bucket-list" -H "Authorization: Bearer $token_root"
@@ -30,8 +30,8 @@ curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: applicati
 #my
 curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token_admin"
-0 curl -X DELETE "$baseurl/my/account-delete-soft" -H "Authorization: Bearer $token_admin"
-0 curl -X DELETE "$baseurl/my/account-delete-hard" -H "Authorization: Bearer $token_admin"
+0 curl -X DELETE "$baseurl/my/account-delete?mode=soft" -H "Authorization: Bearer $token_admin"
+0 curl -X DELETE "$baseurl/my/account-delete?mode=hard" -H "Authorization: Bearer $token_admin"
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X POST "$baseurl/my/object-create?table=workseeker" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"work_profile_id":1,"date_of_birth":"2000-11-30"}'
