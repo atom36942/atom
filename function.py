@@ -166,13 +166,6 @@ async def postgres_parent_read(table,parent_column,parent_table,postgres_client,
    object_list=await postgres_client.fetch_all(query=query,values=values)
    return {"status":1,"message":object_list}
 
-async def postgres_message_inbox(postgres_client,user_id,order,limit,offset,is_unread):
-   if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
-   elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
-   values={"created_by_id":user_id,"user_id":user_id}
-   object_list=await postgres_client.fetch_all(query=query,values=values)
-   return {"status":1,"message":object_list}
-   
 import hashlib,datetime,json
 async def object_serialize(postgres_column_datatype,object_list):
    for index,object in enumerate(object_list):
@@ -554,6 +547,37 @@ async def mongodb_create_object(mongodb_client,database,table,object_list):
    mongodb_client_database=mongodb_client[database]
    output=await mongodb_client_database[table].insert_many(object_list)
    return str(output)
+
+async def message_inbox_user(postgres_client,user_id,order,limit,offset,is_unread):
+   if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
+   elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
+   values={"created_by_id":user_id,"user_id":user_id}
+   object_list=await postgres_client.fetch_all(query=query,values=values)
+   return {"status":1,"message":object_list}
+
+async def message_received_user(postgres_client,user_id,order,limit,offset,is_unread):
+   if not is_unread:query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
+   elif int(is_unread)==1:query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
+   values={"user_id":user_id}
+   object_list=await postgres_client.fetch_all(query=query,values=values)
+   return {"status":1,"message":object_list}
+
+async def message_thread_user(postgres_client,user_id_1,user_id_2,order,limit,offset):
+   query=f"select * from message where ((created_by_id=:user_id_1 and user_id=:user_id_2) or (created_by_id=:user_id_2 and user_id=:user_id_1)) order by {order} limit {limit} offset {offset};"
+   values={"user_id_1":user_id_1,"user_id_2":user_id_2}
+   object_list=await postgres_client.fetch_all(query=query,values=values)
+   return {"status":1,"message":object_list}
+
+async def mark_message_read_ids(postgres_client,ids):
+   query=f"update message set is_read=1 where id in ({ids});"
+   await postgres_client.execute(query=query,values={})
+   return None
+
+async def mark_message_read_thread(postgres_client,user_id_1,user_id_2):
+   query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;"
+   values={"created_by_id":user_id_2,"user_id":user_id_1}
+   await postgres_client.execute(query=query,values={})
+   return None
 
 from fastapi import responses
 def error(message):

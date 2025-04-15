@@ -845,44 +845,40 @@ async def my_message_inbox(request:Request):
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
    is_unread=request.query_params.get("is_unread")
    #logic
-   response=await postgres_message_inbox(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
+   response=await message_inbox_user(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
    if response["status"]==0:return error(response["message"])
    #final
    return response
 
 @app.get("/my/message-received")
-async def my_message_received(request:Request,background:BackgroundTasks):
+async def my_message_received(request:Request):
    #param
-   mode=request.query_params.get("mode")
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
+   is_unread=request.query_params.get("is_unread")
    #logic
-   if not mode:query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {(page-1)*limit};"
-   elif mode=="unread":query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
-   values={"user_id":request.state.user["id"]}
-   object_list=await postgres_client.fetch_all(query=query,values=values)
-   #background
-   query=f"update message set is_read=1,updated_by_id=:updated_by_id where id in ({','.join([str(item['id']) for item in object_list])});"
-   values={"updated_by_id":request.state.user["id"]}
-   background.add_task(postgres_client.execute,query,values)
+   response=await message_received_user(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
+   if response["status"]==0:return error(response["message"])
+   object_list=response["message"]
+   #mark message read
+   if object_list:
+      ids=','.join([str(item['id']) for item in object_list])
+      asyncio.create_task(mark_message_read_ids(postgres_client,ids))
    #final
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-thread")
-async def my_message_thread(request:Request,background:BackgroundTasks):
+async def my_message_thread(request:Request):
    #param
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
    user_id=int(request.query_params.get("user_id",0))
    if not user_id:return error("user_id missing")
    #logic
-   query=f"select * from message where ((created_by_id=:user_1 and user_id=:user_2) or (created_by_id=:user_2 and user_id=:user_1)) order by {order} limit {limit} offset {(page-1)*limit};"
-   values={"user_1":request.state.user["id"],"user_2":user_id}
-   object_list=await postgres_client.fetch_all(query=query,values=values)
-   #background
-   query="update message set is_read=1,updated_by_id=:updated_by_id where created_by_id=:created_by_id and user_id=:user_id;"
-   values={"created_by_id":user_id,"user_id":request.state.user["id"],"updated_by_id":request.state.user["id"]}
-   background.add_task(postgres_client.execute,query,values)
+   response=await message_thread_user(postgres_client,request.state.user["id"],user_id,order,limit,(page-1)*limit)
+   if response["status"]==0:return error(response["message"])
+   #mark message read
+   asyncio.create_task(mark_message_read_thread(postgres_client,request.state.user["id"],user_id))
    #final
-   return {"status":1,"message":object_list}
+   return response
 
 @app.delete("/my/message-delete")
 async def my_message_delete(request:Request):
