@@ -579,6 +579,22 @@ async def mark_message_read_thread(postgres_client,user_id_1,user_id_2):
    await postgres_client.execute(query=query,values={})
    return None
 
+async def message_delete_user(postgres_client,user_id,mode,message_id):
+   if mode=="single":
+      query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
+      values={"user_id":user_id,"id":message_id}
+   if mode=="created":
+      query="delete from message where created_by_id=:user_id;"
+      values={"user_id":user_id}
+   if mode=="received":
+      query="delete from message where user_id=:user_id;"
+      values={"user_id":user_id}
+   if mode=="all":
+      query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
+      values={"user_id":user_id}
+   await postgres_client.execute(query=query,values={})
+   return None
+      
 from fastapi import responses
 def error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})

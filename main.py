@@ -875,7 +875,7 @@ async def my_message_thread(request:Request):
    #logic
    response=await message_thread_user(postgres_client,request.state.user["id"],user_id,order,limit,(page-1)*limit)
    if response["status"]==0:return error(response["message"])
-   #mark message read
+   #mark message thread read
    asyncio.create_task(mark_message_read_thread(postgres_client,request.state.user["id"],user_id))
    #final
    return response
@@ -886,23 +886,21 @@ async def my_message_delete(request:Request):
    mode=request.query_params.get("mode")
    id=int(request.query_params.get("id",0))
    if not mode:return error("mode missing")
+   #check
    if mode=="single" and not id:return error("id missing")
    #logic
-   if mode=="single":output=await postgres_client.execute(query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);",values={"id":int(id),"user_id":request.state.user["id"]})
-   if mode=="created":output=await postgres_client.execute(query="delete from message where created_by_id=:created_by_id;",values={"created_by_id":request.state.user["id"]})
-   if mode=="received":output=await postgres_client.execute(query="delete from message where user_id=:user_id;",values={"user_id":request.state.user["id"]})
-   if mode=="all":output=await postgres_client.execute(query="delete from message where (created_by_id=:user_id or user_id=:user_id);",values={"user_id":request.state.user["id"]})
+   await message_delete_user(postgres_client,request.state.user["id"],mode,id)
    #final
-   return {"status":1,"message":output}
+   return {"status":1,"message":"done"}
 
 #public
-output_cache_public_info={}
+cache_public_info={}
 @app.get("/public/info")
 async def public_info(request:Request):
-   #param
-   global output_cache_public_info
+   #variable
+   global cache_public_info
    #logic
-   if output_cache_public_info and (time.time()-output_cache_public_info.get("set_at")<=100):output=output_cache_public_info.get("output")
+   if cache_public_info and (time.time()-cache_public_info.get("set_at")<=100):output=cache_public_info.get("output")
    else:
       output={
       "set_at":time.time(),
@@ -916,8 +914,8 @@ async def public_info(request:Request):
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
       "users_count":await postgres_client.fetch_all(query="select count(*) from users where is_active is distinct from 0;",values={}),
       }
-      output_cache_public_info["set_at"]=time.time()
-      output_cache_public_info["output"]=output
+      cache_public_info["set_at"]=time.time()
+      cache_public_info["output"]=output
    #final
    return {"status":1,"message":output}
 
