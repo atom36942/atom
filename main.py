@@ -23,7 +23,6 @@ aws_secret_access_key=os.getenv("aws_secret_access_key")
 s3_region_name=os.getenv("s3_region_name")
 sns_region_name=os.getenv("sns_region_name")
 ses_region_name=os.getenv("ses_region_name")
-ses_sender_email=os.getenv("ses_sender_email")
 google_client_id=os.getenv("google_client_id")
 is_signup=int(os.getenv("is_signup",0))
 postgres_url_read=os.getenv("postgres_url_read")
@@ -900,43 +899,39 @@ async def public_info(request:Request):
    #variable
    global cache_public_info
    #logic
-   if cache_public_info and (time.time()-cache_public_info.get("set_at")<=100):output=cache_public_info.get("output")
-   else:
-      output={
+   if not cache_public_info or (time.time()-cache_public_info.get("set_at")>=1000):
+      cache_public_info={
       "set_at":time.time(),
+      "api_list":[route.path for route in request.app.routes],
+      "api_id":api_id,
+      "redis":await redis_client.info(),
       "postgres_schema":postgres_schema,
       "postgres_column_datatype":postgres_column_datatype,
-      "api_list":[route.path for route in request.app.routes],
       "users_api_access_count":len(users_api_access),
       "users_is_active_count":len(users_is_active),
-      "redis":await redis_client.info(),
-      "api_id":api_id,
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
       "users_count":await postgres_client.fetch_all(query="select count(*) from users where is_active is distinct from 0;",values={}),
       }
-      cache_public_info["set_at"]=time.time()
-      cache_public_info["output"]=output
    #final
-   return {"status":1,"message":output}
+   return {"status":1,"message":cache_public_info}
 
 @app.post("/public/otp-send-mobile-sns")
 async def public_otp_send_mobile_sns(request:Request):
    #param
    object=await request.json()
    mobile=object.get("mobile")
-   entity_id=object.get("entity_id")
-   sender_id=object.get("sender_id")
    template_id=object.get("template_id")
    message=object.get("message")
+   entity_id=object.get("entity_id")
+   sender_id=object.get("sender_id")
    if not mobile:return error("mobile missing")
-   #otp save
-   otp=random.randint(100000,999999)
-   query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
-   values={"otp":otp,"mobile":mobile.strip().lower()}
-   await postgres_client.execute(query=query,values=values)
+   #generate otp
+   response=await generate_otp(postgres_client,None,mobile)
+   if response["status"]==0:return error(response["message"])
+   otp=response["message"]
    #logic
-   if not entity_id:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
-   else:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   if template_id:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   else:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
    #final
    return {"status":1,"message":output}
 
@@ -945,15 +940,14 @@ async def public_otp_send_email_ses(request:Request):
    #param
    object=await request.json()
    email=object.get("email")
-   if not email:return error("email missing")
-   #otp save
-   otp=random.randint(100000,999999)
-   query="insert into otp (otp,email) values (:otp,:email) returning *;"
-   values={"otp":otp,"email":email.strip().lower()}
-   await postgres_client.fetch_all(query=query,values=values)
+   sender_email=object.get("sender_email")
+   if not email or not sender_email:return error("email/sender_email missing")
+   #generate otp
+   response=await generate_otp(postgres_client,email,None)
+   if response["status"]==0:return error(response["message"])
+   otp=response["message"]
    #logic
-   to,title,body=[email],"otp from atom",str(otp)
-   ses_client.send_email(Source=ses_sender_email,Destination={"ToAddresses":to},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+   await send_email_ses(ses_client,sender_email,[email],"otp from atom",str(otp))
    #final
    return {"status":1,"message":"done"}
 

@@ -196,8 +196,22 @@ async def create_where_string(object,object_serialize,postgres_column_datatype):
    where_string=f"where {where_string_joined}" if where_string_joined else ""
    return {"status":1,"message":[where_string,where_value]}
    
+import random
+async def generate_otp(postgres_client,email,mobile):
+   if email and mobile:return {"status":0,"message":"send either email/mobile"}
+   otp=random.randint(100000,999999)
+   if email:
+      query="insert into otp (otp,email) values (:otp,:email) returning *;"
+      values={"otp":otp,"email":email.strip().lower()}
+   if mobile:
+      query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
+      values={"otp":otp,"mobile":mobile.strip().lower()}
+   await postgres_client.execute(query=query,values=values)
+   return {"status":1,"message":otp}
+   
 async def verify_otp(postgres_client,otp,email,mobile):
    if not otp:return {"status":0,"message":"otp must"}
+   if email and mobile:return {"status":0,"message":"send either email/mobile"}
    if email:
       query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
       output=await postgres_client.fetch_all(query=query,values={"email":email})
@@ -593,6 +607,14 @@ async def message_delete_user(postgres_client,user_id,mode,message_id):
       query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
       values={"user_id":user_id}
    await postgres_client.execute(query=query,values={})
+   return None
+
+async def send_email_ses(ses_client,sender_email,email_list,title,body):
+   ses_client.send_email(
+   Source=sender_email,
+   Destination={"ToAddresses":email_list},
+   Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}}
+   )
    return None
       
 from fastapi import responses
