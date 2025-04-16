@@ -930,10 +930,10 @@ async def public_otp_send_mobile_sns(request:Request):
    if response["status"]==0:return error(response["message"])
    otp=response["message"]
    #logic
-   if template_id:output=sns_client.publish(PhoneNumber=mobile,Message=message.replace("{otp}",str(otp)),MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
-   else:output=sns_client.publish(PhoneNumber=mobile,Message=str(otp))
+   if template_id:await send_message_template_sns(sns_client,mobile,message.replace("{otp}",str(otp)),entity_id,template_id,sender_id)
+   else:sns_client.publish(PhoneNumber=mobile,Message=str(otp))
    #final
-   return {"status":1,"message":output}
+   return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-email-ses")
 async def public_otp_send_email_ses(request:Request):
@@ -956,8 +956,8 @@ async def public_object_create(request:Request):
    #param
    table=request.query_params.get("table")
    is_serialize=int(request.query_params.get("is_serialize",1))
-   if not table:return error("table missing")
    object=await request.json()
+   if not table:return error("table missing")
    #check
    if table not in ["test"]:return error("table not allowed")
    #logic
@@ -971,9 +971,9 @@ async def public_object_create(request:Request):
 async def public_object_read(request:Request):
    #param
    table=request.query_params.get("table")
+   object=request.query_params
    creator_data=request.query_params.get("creator_data")
    if not table:return error("table missing")
-   object=request.query_params
    #check
    if table not in ["test"]:return error("table not allowed")
    #logic
@@ -982,7 +982,7 @@ async def public_object_read(request:Request):
    if response["status"]==0:return error(response["message"])
    object_list=response["message"]
    #add creator data
-   if creator_data:
+   if object_list and creator_data:
       response=await add_creator_data(postgres_client,object_list,creator_data)
       if response["status"]==0:return response
       object_list=response["message"]

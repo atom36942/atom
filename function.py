@@ -342,7 +342,7 @@ async def ownership_check(postgres_client,table,id,user_id):
    return {"status":1,"message":"done"}
 
 async def add_creator_data(postgres_client, object_list, user_key):
-    if not object_list:return {"status": 1, "message": object_list}
+    if not object_list:return {"status":0,"message":"object list empty"}
     object_list = [dict(object) for object in object_list]
     created_by_ids = {str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
     users = {}
@@ -616,6 +616,18 @@ async def send_email_ses(ses_client,sender_email,email_list,title,body):
    Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}}
    )
    return None
+
+async def send_message_template_sns(sns_client,mobile,message,entity_id,template_id,sender_id):
+   sns_client.publish(
+      PhoneNumber=mobile,
+      Message=message,
+      MessageAttributes={
+         "AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},
+         "AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},
+         "AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},
+         "AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}
+         }
+      )
       
 from fastapi import responses
 def error(message):
