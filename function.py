@@ -323,7 +323,7 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
 
 from google.oauth2 import id_token
 from google.auth.transport import requests
-def verify_google_token(google_client_id,google_token):
+def google_user_read(google_client_id,google_token):
    try:
       request=requests.Request()
       id_info=id_token.verify_oauth2_token(google_token,request,google_client_id)
@@ -358,10 +358,36 @@ async def add_creator_data(postgres_client, object_list, user_key):
             for key in user_key.split(","):
                 object[f"creator_{key}"] = None
     return {"status": 1, "message": object_list}
+ 
+async def postgres_query_runner(postgres_client,query,user_id):
+   danger_word=["drop","truncate"]
+   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
+   must_word=["select"]
+   for item in danger_word:
+      if item in query.lower():return {"status":0,"message":f"{item} keyword not allowed in query"}
+   if user_id!=1:
+      for item in stop_word:
+         if item in query.lower():return {"status":0,"message":f"{item} keyword not allowed in query"}
+      for item in must_word:
+         if item not in query.lower():return {"status":0,"message":f"{item} keyword not allowed in query"}
+   output=await postgres_client.fetch_all(query=query,values={})
+   return {"status":1,"message":output}
+
+async def postgres_update_ids(postgres_client,table,ids,column,value,created_by_id,updated_by_id):
+   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
+   values={"value":value,"created_by_id":created_by_id,"updated_by_id":updated_by_id}
+   await postgres_client.execute(query=query,values=values)
+   return None
+
+async def postgres_delete_ids(postgres_client,table,ids,created_by_id):
+   query=f"delete from {table} where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
+   values={"created_by_id":created_by_id}
+   await postgres_client.execute(query=query,values=values)
+   return None
 
 import uuid
 from io import BytesIO
-async def s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list):
+async def s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_list):
    if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
    output={}
    for index,file in enumerate(file_list):
@@ -373,6 +399,14 @@ async def s3_file_upload(s3_client,s3_region_name,bucket,key_list,file_list):
       s3_client.upload_fileobj(BytesIO(file_content),bucket,key)
       output[file.filename]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
       file.file.close()
+   return {"status":1,"message":output}
+
+async def s3_file_upload_presigned(s3_client,s3_region_name,bucket,key,expiry_sec,size_kb):
+   if "." not in key:return {"status":0,"message":"extension must"}
+   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec, Conditions=[['content-length-range',1,size_kb*1024]])
+   for k,v in output["fields"].items():output[k]=v
+   del output["fields"]
+   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
    return {"status":1,"message":output}
      
 import csv,io
@@ -621,14 +655,110 @@ async def send_message_template_sns(sns_client,mobile,message,entity_id,template
    sns_client.publish(
       PhoneNumber=mobile,
       Message=message,
-      MessageAttributes={
-         "AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},
-         "AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},
-         "AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},
-         "AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}
-         }
-      )
-      
+      MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   return None
+
+async def s3_bucket_create(s3_client,bucket,s3_region_name):
+   output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
+   return {"status":1,"message":output}
+
+async def s3_bucket_public(s3_client,bucket):
+   s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   return {"status":1,"message":output}
+
+async def s3_bucket_empty(s3_resource,bucket):
+   output=s3_resource.Bucket(bucket).objects.all().delete()
+   return {"status":1,"message":output}
+
+async def s3_bucket_delete(s3_client,bucket):
+   output=s3_client.delete_bucket(Bucket=bucket)
+   return {"status":1,"message":output}
+
+import hashlib
+async def auth_signup(postgres_client,type,username,password):
+   query="insert into users (type,username,password) values (:type,:username,:password) returning *;"
+   values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await postgres_client.execute(query=query,values=values)
+   return {"status":1,"message":output}
+
+import hashlib
+async def auth_login(postgres_client,token_create,key_jwt,type,username,password):
+   query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
+   values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:return {"status":0,"message":"user not found"}
+   token=await token_create(key_jwt,user)
+   return {"status":1,"message":token}
+
+import hashlib
+async def auth_login_email_password(postgres_client,token_create,key_jwt,type,email,password):
+   query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
+   values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:return {"status":0,"message":"user not found"}
+   token=await token_create(key_jwt,user)
+   return {"status":1,"message":token}
+
+import hashlib
+async def auth_login_mobile_password(postgres_client,token_create,key_jwt,type,mobile,password):
+   query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
+   values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:return {"status":0,"message":"user not found"}
+   token=await token_create(key_jwt,user)
+   return {"status":1,"message":token}
+
+async def auth_login_email_otp(postgres_client,token_create,key_jwt,verify_otp,type,email,otp):
+   response=await verify_otp(postgres_client,otp,email,None)
+   if response["status"]==0:return response
+   query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
+   values={"type":type,"email":email}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:
+      query=f"insert into users (type,email) values (:type,:email) returning *;"
+      values={"type":type,"email":email}
+      output=await postgres_client.fetch_all(query=query,values=values)
+      user=output[0] if output else None
+   token=await token_create(key_jwt,user)
+   return {"status":1,"message":token}
+
+async def auth_login_mobile_otp(postgres_client,token_create,key_jwt,verify_otp,type,mobile,otp):
+   response=await verify_otp(postgres_client,otp,None,mobile)
+   if response["status"]==0:return response
+   query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
+   values={"type":type,"mobile":mobile}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:
+      query=f"insert into users (type,mobile) values (:type,:mobile) returning *;"
+      values={"type":type,"mobile":mobile}
+      output=await postgres_client.fetch_all(query=query,values=values)
+      user=output[0] if output else None
+   token=await token_create(key_jwt,user)
+   return {"status":1,"message":token}
+
+async def auth_login_google(postgres_client,token_create,key_jwt,google_user_read,google_client_id,type,google_token):
+   response=google_user_read(google_client_id,google_token)
+   if response["status"]==0:return response
+   google_user=response["message"]
+   query=f"select * from users where type=:type and google_id=:google_id order by id desc limit 1;"
+   values={"type":type,"google_id":google_user["sub"]}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:
+      query=f"insert into users (type,google_id,google_data) values (:type,:google_id,:google_data) returning *;"
+      values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
+      output=await postgres_client.fetch_all(query=query,values=values)
+      user=output[0] if output else None
+   token=await token_create(key_jwt,user)
+   return {"status":1,"message":token}
+   
 from fastapi import responses
 def error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})

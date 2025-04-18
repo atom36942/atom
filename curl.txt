@@ -12,7 +12,6 @@ curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" 
 curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@$file_update"
 curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root"
 0 curl -X DELETE "$baseurl/root/s3-url-delete?url=url1---url2" -H "Authorization: Bearer $token_root"
-0 curl -X GET "$baseurl/root/s3-bucket-list" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=public&bucket=master" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=empty&bucket=master" -H "Authorization: Bearer $token_root"
@@ -34,10 +33,10 @@ curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token_admin"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=hard" -H "Authorization: Bearer $token_admin"
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
-curl -X POST "$baseurl/my/object-create?table=workseeker" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"work_profile_id":1,"date_of_birth":"2000-11-30"}'
+curl -X POST "$baseurl/my/object-create?table=workseeker" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"workprofile_id":1,"date_of_birth":"2000-11-30"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb_test"}'
 curl -X PUT "$baseurl/my/user-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"password":"12345"}'
 0 curl -X PUT "$baseurl/my/user-update?otp=123" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"email":"test"}'
@@ -64,15 +63,18 @@ curl -X GET "$baseurl/public/info"
 curl -X GET "$baseurl/public/object-read?table=test"
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"testing"}'
 0 curl -X GET "$baseurl/public/object-read?table=test"
+0 curl -X GET "$baseurl/public/object-read?table=test&id=>,1"
 0 curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.23,3.45,10,100"
 curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
 
 #private
-0 curl -X POST "$baseurl/private/file-upload-s3-presigned?bucket=master&key=test.png" -H "Authorization: Bearer $token_admin"
+0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "file=@$file_create"
+0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
+0 curl -X POST "$baseurl/private/file-upload-s3-presigned?bucket=master&key=test.png" -H "Authorization: Bearer $token_admin"
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=uuid" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
 curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer $token_admin"
-curl -X GET "$baseurl/private/workseeker-read?work_profile_id=1" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/private/workseeker-read?workprofile_id=1" -H "Authorization: Bearer $token_admin"
 
 #admin
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
@@ -80,6 +82,6 @@ curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token_admin
 curl -X PUT "$baseurl/admin/user-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":1,"api_access":"1,2,3,4,5,6,7,8,9,10"}'
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"id":435,"title":"updated333"}'
-curl -X PUT "$baseurl/admin/ids-update?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":0}'
+curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451","is_deleted":1}'
 curl -X DELETE "$baseurl/admin/ids-delete?table=test&ids=449,450,451" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"is_deleted":1}'
 curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Bearer $token_admin"

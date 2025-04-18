@@ -124,7 +124,7 @@ postgres_schema_default={
 "created_by_id-bigint-1-btree",
 "workseeker_id-bigint-1-btree"
 ],
-"work_profile":[
+"workprofile":[
 "title-text-1-0"
 ],
 "workseeker":[
@@ -135,7 +135,7 @@ postgres_schema_default={
 "is_active-smallint-0-btree",
 "is_deleted-smallint-0-btree",
 "type-smallint-0-btree",
-"work_profile_id-int-0-btree",
+"workprofile_id-int-0-btree",
 "experience-numeric(10,1)-0-btree",
 "skill-text-0-0",
 "description-text-0-0",
@@ -448,13 +448,6 @@ async def root_s3_url_empty(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.get("/root/s3-bucket-list")
-async def root_s3_bucket_list():
-   #logic
-   output=s3_client.list_buckets()
-   #final
-   return {"status":1,"message":output}
-
 @app.post("/root/s3-bucket-ops")
 async def root_s3_bucket_ops(request:Request):
    #param
@@ -462,15 +455,12 @@ async def root_s3_bucket_ops(request:Request):
    bucket=request.query_params.get("bucket")
    if not mode or not bucket:return error("mode/bucket missing")
    #logic
-   if mode=="create":output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
-   if mode=="public":
-      s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-      policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-      output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
-   if mode=="empty":output=s3_resource.Bucket(bucket).objects.all().delete()
-   if mode=="delete":output=s3_client.delete_bucket(Bucket=bucket)
+   if mode=="create":response=await s3_bucket_create(s3_client,bucket,s3_region_name)
+   if mode=="public":response=await s3_bucket_public(s3_client,bucket)
+   if mode=="empty":response=await s3_bucket_empty(s3_resource,bucket)
+   if mode=="delete":response=await s3_bucket_delete(s3_client,bucket)
    #final
-   return {"status":1,"message":output}
+   return response
 
 #auth
 @app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
@@ -481,17 +471,14 @@ async def auth_signup_username_password(request:Request):
    username=object.get("username")
    password=object.get("password")
    if not type or not username or not password:return error("type/username/password missing")
-   #convert
-   password=hashlib.sha256(str(password).encode()).hexdigest()
    #check
    if is_signup==0:return error("signup disabled")
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   query="insert into users (type,username,password) values (:type,:username,:password) returning *;"
-   values={"type":type,"username":username,"password":password}
-   output=await postgres_client.execute(query=query,values=values)
+   response=await auth_signup(postgres_client,type,username,password)
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":output}
+   return response
 
 @app.post("/auth/login-password-username")
 async def auth_login_password_username(request:Request):
@@ -501,18 +488,11 @@ async def auth_login_password_username(request:Request):
    username=object.get("username")
    password=object.get("password")
    if not type or not username or not password:return error("type/username/password missing")
-   #convert
-   password=hashlib.sha256(str(password).encode()).hexdigest()
-   #read user
-   query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
-   values={"type":type,"username":username,"password":password}
-   output=await postgres_client.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:return error("user not found")
-   #token create
-   token=await token_create(key_jwt,user)
+   #logic
+   response=await auth_login(postgres_client,token_create,key_jwt,type,username,password)
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":token}
+   return response
 
 @app.post("/auth/login-password-email")
 async def auth_login_password_email(request:Request):
@@ -522,18 +502,11 @@ async def auth_login_password_email(request:Request):
    email=object.get("email")
    password=object.get("password")
    if not type or not email or not password:return error("type/email/password missing")
-   #convert
-   password=hashlib.sha256(str(password).encode()).hexdigest()
-   #read user
-   query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
-   values={"type":type,"email":email,"password":password}
-   output=await postgres_client.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:return error("user not found")
-   #token create
-   token=await token_create(key_jwt,user)
+   #logic
+   response=await auth_login_email_password(postgres_client,token_create,key_jwt,type,email,password)
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":token}
+   return response
 
 @app.post("/auth/login-password-mobile")
 async def auth_login_password_mobile(request:Request):
@@ -543,18 +516,11 @@ async def auth_login_password_mobile(request:Request):
    mobile=object.get("mobile")
    password=object.get("password")
    if not type or not mobile or not password:return error("type/mobile/password missing")
-   #convert
-   password=hashlib.sha256(str(password).encode()).hexdigest()
-   #read user
-   query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
-   values={"type":type,"mobile":mobile,"password":password}
-   output=await postgres_client.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:return error("user not found")
-   #token create
-   token=await token_create(key_jwt,user)
+   #logic
+   response=await auth_login_mobile_password(postgres_client,token_create,key_jwt,type,mobile,password)
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":token}
+   return response
 
 @app.post("/auth/login-otp-email")
 async def auth_login_otp_email(request:Request):
@@ -566,25 +532,12 @@ async def auth_login_otp_email(request:Request):
    if not type or not email or not otp:return error("type/email/otp missing")
    #check
    if type not in user_type_allowed:return error("wrong type")
-   #otp verify
-   response=await verify_otp(postgres_client,otp,email,None)
+   #logic
+   response=await auth_login_email_otp(postgres_client,token_create,key_jwt,verify_otp,type,email,otp)
    if response["status"]==0:return error(response["message"])
-   #read user
-   query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
-   values={"type":type,"email":email}
-   output=await postgres_client.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   #user create
-   if not user:
-      query=f"insert into users (type,email) values (:type,:email) returning *;"
-      values={"type":type,"email":email}
-      output=await postgres_client.fetch_all(query=query,values=values)
-      user=output[0] if output else None
-   #token create
-   token=await token_create(key_jwt,user)
    #final
-   return {"status":1,"message":token}
-
+   return response
+   
 @app.post("/auth/login-otp-mobile")
 async def auth_login_otp_mobile(request:Request):
    #param
@@ -595,24 +548,11 @@ async def auth_login_otp_mobile(request:Request):
    if not type or not mobile or not otp:return error("type/mobile/otp missing")
    #check
    if type not in user_type_allowed:return error("wrong type")
-   #otp verify
-   response=await verify_otp(postgres_client,otp,None,mobile)
+   #logic
+   response=await auth_login_mobile_otp(postgres_client,token_create,key_jwt,verify_otp,type,mobile,otp)
    if response["status"]==0:return error(response["message"])
-   #read user
-   query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
-   values={"type":type,"mobile":mobile}
-   output=await postgres_client.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   #user create
-   if not user:
-      query=f"insert into users (type,mobile) values (:type,:mobile) returning *;"
-      values={"type":type,"mobile":mobile}
-      output=await postgres_client.fetch_all(query=query,values=values)
-      user=output[0] if output else None
-   #token create
-   token=await token_create(key_jwt,user)
    #final
-   return {"status":1,"message":token}
+   return response
 
 @app.post("/auth/login-oauth-google")
 async def auth_login_oauth_google(request:Request):
@@ -623,25 +563,11 @@ async def auth_login_oauth_google(request:Request):
    if not type or not google_token:return error("type/google_token missing")
    #check
    if type not in user_type_allowed:return error("wrong type")
-   #verify
-   response=verify_google_token(google_client_id,google_token)
+   #logic
+   response=await auth_login_google(postgres_client,token_create,key_jwt,google_user_read,google_client_id,type,google_token)
    if response["status"]==0:return error(response["message"])
-   google_user=response["message"]
-   #read user
-   query=f"select * from users where type=:type and google_id=:google_id order by id desc limit 1;"
-   values={"type":type,"google_id":google_user["sub"]}
-   output=await postgres_client.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   #user create
-   if not user:
-      query=f"insert into users (type,google_id,google_data) values (:type,:google_id,:google_data) returning *;"
-      values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
-      output=await postgres_client.fetch_all(query=query,values=values)
-      user=output[0] if output else None
-   #token create
-   token=await token_create(key_jwt,user)
    #final
-   return {"status":1,"message":token}
+   return response
 
 #my
 @app.get("/my/profile")
@@ -713,8 +639,8 @@ async def my_object_create(request:Request):
 @cache(expire=60)
 async def my_object_read(request:Request):
    #param
-   table=request.query_params.get("table")
    object=dict(request.query_params)
+   table=object.get("table")
    if not table:return error("table missing")
    #modify
    object["created_by_id"]=f"=,{request.state.user['id']}"
@@ -775,20 +701,15 @@ async def my_ids_update(request:Request):
    object=await request.json()
    table=object.get("table")
    ids=object.get("ids")
-   if not table or not ids:return error("table/ids must")
-   #modify
    del object["table"]
    del object["ids"]
-   #key value
    key,value=next(reversed(object.items()),(None, None))
+   if not table or not ids or not key:return error("table/ids/key must")
    #check
    if table in ["users"]:return error("table not allowed")
-   if not key:return error("column null issue")
    if key in column_disabled_non_admin:return error("column not allowed")
    #logic
-   query=f"update {table} set {key}=:value,updated_by_id=:user_id where id in ({ids}) and created_by_id=:user_id;"
-   values={"user_id":request.state.user["id"],"value":value}
-   await postgres_client.execute(query=query,values=values)
+   await postgres_update_ids(postgres_client,table,ids,key,value,request.state.user["id"],request.state.user["id"])
    #final
    return {"status":1,"message":"done"}
 
@@ -818,9 +739,7 @@ async def my_ids_delete(request:Request):
    #check
    if table not in ["test","report_user","bookmark_workseeker"]:return error("table not allowed")
    #logic
-   query=f"delete from {table} where id in ({ids}) and created_by_id=:created_by_id;"
-   values={"created_by_id":request.state.user["id"]}
-   await postgres_client.execute(query=query,values=values)
+   await postgres_delete_ids(postgres_client,table,ids,request.state.user["id"])
    #final
    return {"status":1,"message":"done"}
 
@@ -904,11 +823,12 @@ async def public_info(request:Request):
       "set_at":time.time(),
       "api_list":[route.path for route in request.app.routes],
       "api_id":api_id,
-      "redis":await redis_client.info(),
+      "redis":await redis_client.info() if redis_client else None,
       "postgres_schema":postgres_schema,
       "postgres_column_datatype":postgres_column_datatype,
       "users_api_access_count":len(users_api_access),
       "users_is_active_count":len(users_is_active),
+      "bucket":s3_client.list_buckets() if s3_client else None,
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
       "users_count":await postgres_client.fetch_all(query="select count(*) from users where is_active is distinct from 0;",values={}),
       }
@@ -970,9 +890,9 @@ async def public_object_create(request:Request):
 @cache(expire=100)
 async def public_object_read(request:Request):
    #param
-   table=request.query_params.get("table")
    object=request.query_params
-   creator_data=request.query_params.get("creator_data")
+   table=object.get("table")
+   creator_data=object.get("creator_data")
    if not table:return error("table missing")
    #check
    if table not in ["test"]:return error("table not allowed")
@@ -990,33 +910,31 @@ async def public_object_read(request:Request):
    return {"status":1,"message":object_list}
 
 #private
-@app.post("/private/file-upload-s3-presigned")
-async def private_file_upload_s3_presigned(request:Request):
-   #param
-   bucket=request.query_params.get("bucket")
-   key=request.query_params.get("key")
-   if not bucket or not key:return error("bucket/key missing")
-   expiry_sec,size_kb=1000,100
-   #check
-   if "." not in key:return error("extension must")
-   #logic
-   output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec,Conditions=[['content-length-range',1,size_kb*1024]])
-   for k,v in output["fields"].items():output[k]=v
-   del output["fields"]
-   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
-   #final
-   return {"status":1,"message":output}
-
 @app.post("/private/file-upload-s3-direct")
 async def private_file_upload_s3_direct(request:Request):
    #param
    form_data_key,form_data_file=await form_data_read(request)
    bucket=form_data_key.get("bucket")
    key=form_data_key.get("key")
-   if not bucket or not key or not form_data_file:return error("bucket/key/file missing")
-   key_list=None if key=="uuid" else key.split("---")
+   if not bucket or not form_data_file:return error("bucket/file missing")
+   #variable
+   key_list=None
+   if key:key_list=key.split("---")
    #logic
-   response=await s3_file_upload(s3_client,s3_region_name,bucket,key_list,form_data_file)
+   response=await s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,form_data_file)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.post("/private/file-upload-s3-presigned")
+async def private_file_upload_s3_presigned(request:Request):
+   #param
+   object=await request.json()
+   bucket=object.get("bucket")
+   key=object.get("key")
+   if not bucket or not key:return error("bucket/key missing")
+   #logic
+   response=await s3_file_upload_presigned(s3_client,s3_region_name,bucket,key,1000,100)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1025,9 +943,9 @@ async def private_file_upload_s3_direct(request:Request):
 @cache(expire=100)
 async def private_object_read(request:Request):
    #param
-   table=request.query_params.get("table")
-   if not table:return error("table missing")
    object=request.query_params
+   table=object.get("table")
+   if not table:return error("table missing")
    #check
    if table not in ["test"]:return error("table not allowed")
    #logic
@@ -1039,24 +957,23 @@ async def private_object_read(request:Request):
 @app.get("/private/workseeker-read")
 @cache(expire=100)
 async def private_workseeker_read(request:Request):
-   #pagination
+   #param
    order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
-   #filter
-   work_profile_id=int(request.query_params.get("work_profile_id")) if request.query_params.get("work_profile_id") else None
+   workprofile_id=int(request.query_params.get("workprofile_id")) if request.query_params.get("workprofile_id") else None
    experience_min=int(request.query_params.get("experience_min")) if request.query_params.get("experience_min") else None
    experience_max=int(request.query_params.get("experience_max")) if request.query_params.get("experience_max") else None
    skill=f"%{request.query_params.get('skill')}%" if request.query_params.get('skill') else None
    #logic
    query=f'''
    select * from workseeker where
-   (work_profile_id=:work_profile_id or :work_profile_id is null) and
+   (workprofile_id=:workprofile_id or :workprofile_id is null) and
    (experience >= :experience_min or :experience_min is null) and
    (experience <= :experience_max or :experience_max is null) and
    (skill ilike :skill or :skill is null)
    order by {order} limit {limit} offset {(page-1)*limit};
    '''
    values={
-   "work_profile_id":work_profile_id,
+   "workprofile_id":workprofile_id,
    "experience_min":experience_min,"experience_max":experience_max,
    "skill":skill
    }
@@ -1070,22 +987,12 @@ async def admin_db_runner(request:Request):
    #param
    query=(await request.json()).get("query")
    if not query:return error("query must")
-   #check
-   danger_word=["drop","truncate"]
-   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
-   must_word=["select"]
-   for item in danger_word:
-       if item in query.lower():return error(f"{item} keyword not allowed in query")
-   if request.state.user["id"]!=1:
-      for item in stop_word:
-         if item in query.lower():return error(f"{item} keyword not allowed in query")
-      for item in must_word:
-         if item not in query.lower():return error(f"{item} keyword must be present in query")
    #logic
-   output=await postgres_client.fetch_all(query=query,values={})
+   response=await postgres_query_runner(postgres_client,query,request.state.user["id"])
+   if response["status"]==0:return error(response["message"])
    #final
-   return {"status":1,"message":output}
-
+   return response
+   
 @app.post("/admin/user-create")
 async def admin_user_create(request:Request):
    #param
@@ -1104,6 +1011,7 @@ async def admin_user_create(request:Request):
 async def admin_user_update(request:Request):
    #param
    object=await request.json()
+   #modify
    object["updated_by_id"]=request.state.user["id"]
    #check
    if "id" not in object:return error ("id missing")
@@ -1120,9 +1028,10 @@ async def admin_object_create(request:Request):
    #param
    table=request.query_params.get("table")
    is_serialize=int(request.query_params.get("is_serialize",1))
-   if not table:return error("table missing")
    object=await request.json()
-   object["created_by_id"]=request.state.user["id"]
+   if not table:return error("table missing")
+   #modify
+   if postgres_schema.get(table).get("created_by_id"):object["created_by_id"]=request.state.user["id"]
    #check
    if table not in ["test"]:return error("table not allowed")
    #logic
@@ -1137,12 +1046,13 @@ async def admin_object_update(request:Request):
    table=request.query_params.get("table")
    is_serialize=int(request.query_params.get("is_serialize",1))
    object=await request.json()
-   if postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
    if not table:return error("table missing")
+   #modify
+   if postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
    #check
    if table in ["users"]:return error("table not allowed")
-   if len(object)<=2:return error ("object issue")
    if "id" not in object:return error ("id missing")
+   if len(object)<=2:return error ("object length issue")
    #logic
    response=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
@@ -1152,18 +1062,17 @@ async def admin_object_update(request:Request):
 @app.put("/admin/ids-update")
 async def admin_ids_update(request:Request):
    #param
-   table=request.query_params.get("table")
-   ids=request.query_params.get("ids")
-   if not table or not ids:return error("table/ids must")
    object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
+   del object["table"]
+   del object["ids"]
    key,value=next(reversed(object.items()),(None, None))
+   if not table or not ids or not key:return error("table/ids/key must")
    #check
    if table in ["users"]:return error("table not allowed")
-   if len(object)!=1:return error(" object length should be 1")
    #logic
-   query=f"update {table} set {key}=:value,updated_by_id=:updated_by_id where id in ({ids});"
-   values={"updated_by_id":request.state.user["id"],"value":object.get(key)}
-   await postgres_client.execute(query=query,values=values)
+   await postgres_update_ids(postgres_client,table,ids,key,value,None,request.state.user["id"])
    #final
    return {"status":1,"message":"done"}
 
@@ -1176,8 +1085,7 @@ async def admin_ids_delete(request:Request):
    #check
    if table in ["users"]:return error("table not allowed")
    #logic
-   query=f"delete from {table} where id in ({ids});"
-   await postgres_client.execute(query=query,values={})
+   await postgres_delete_ids(postgres_client,table,ids,None)
    #final
    return {"status":1,"message":"done"}
 
@@ -1185,9 +1093,9 @@ async def admin_ids_delete(request:Request):
 @cache(expire=60)
 async def admin_object_read(request:Request):
    #param
-   table=request.query_params.get("table")
-   if not table:return error("table missing")
    object=request.query_params
+   table=object.get("table")
+   if not table:return error("table missing")
    #logic
    response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
    if response["status"]==0:return error(response["message"])
