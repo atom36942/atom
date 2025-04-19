@@ -322,17 +322,6 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
    #final
    return {"status":1,"message":"done"}
 
-from google.oauth2 import id_token
-from google.auth.transport import requests
-def google_user_read(google_client_id,google_token):
-   try:
-      request=requests.Request()
-      id_info=id_token.verify_oauth2_token(google_token,request,google_client_id)
-      output={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
-      response={"status":1,"message":output}
-   except Exception as e:response={"status":0,"message":str(e)}
-   return response
-
 async def ownership_check(postgres_client,table,id,user_id):
    if table=="users":
       if id!=user_id:return {"status":0,"message":"object ownership issue"}
@@ -744,8 +733,19 @@ async def auth_login_mobile_otp(postgres_client,token_create,key_jwt,verify_otp,
    token=await token_create(key_jwt,user)
    return {"status":1,"message":token}
 
+from google.oauth2 import id_token
+from google.auth.transport import requests
+def google_user_read(google_token,google_client_id):
+   try:
+      request=requests.Request()
+      id_info=id_token.verify_oauth2_token(google_token,request,google_client_id)
+      output={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
+      response={"status":1,"message":output}
+   except Exception as e:response={"status":0,"message":str(e)}
+   return response
+
 async def auth_login_google(postgres_client,token_create,key_jwt,google_user_read,google_client_id,type,google_token):
-   response=google_user_read(google_client_id,google_token)
+   response=google_user_read(google_token,google_client_id)
    if response["status"]==0:return response
    google_user=response["message"]
    query=f"select * from users where type=:type and google_id=:google_id order by id desc limit 1;"
