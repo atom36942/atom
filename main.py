@@ -427,6 +427,11 @@ async def redis_get_object(redis_client,key):
    if output:output=json.loads(output)
    return {"status":1,"message":output}
 
+import jwt,json
+async def token_decode(token,key_jwt):
+   user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
+   return user
+
 import jwt,json,time
 async def token_create(key_jwt,user):
    token_expire_sec=365*24*60*60
@@ -434,18 +439,6 @@ async def token_create(key_jwt,user):
    user=json.dumps(user,default=str)
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":user},key_jwt)
    return token
-
-import jwt,json
-async def token_check(request,key_root,key_jwt):
-   user={}
-   api=request.url.path
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-   if any(item in api for item in ["root/","my/", "private/", "admin/"]) and not token:return {"status":0,"message":"token must"}
-   if token:
-      if "root/" in api:
-         if token!=key_root:return {"status":0,"message":"token root mismatch"}
-      else:user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
-   return {"status":1,"message":user}
 
 async def read_user(postgres_client,user_id):
    query="select * from users where id=:id;"
@@ -1084,10 +1077,16 @@ import time,traceback,asyncio
 async def middleware(request:Request,api_function):
    try:
       start=time.time()
+      token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
       #token check
-      response=await token_check(request,key_root,key_jwt)
-      if response["status"]==0:return error(response["message"])
-      request.state.user=response["message"]
+      for item in ["root/","my/","private/","admin/"]:
+         if item in request.url.path and not token:return {"status":0,"message":"token missing"}
+      #token decode
+      request.state.user={}
+      if token:
+         if "root/" in request.url.path:
+            if token!=key_root:return {"status":0,"message":"token root mismatch"}
+         else:request.state.user=await token_decode(token,key_jwt)
       #admin check
       if "admin/" in request.url.path:
          response=await admin_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
