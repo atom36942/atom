@@ -534,10 +534,6 @@ def router_add(router_list,app):
        router=__import__(item).router
        app.include_router(router)
 
-import sentry_sdk
-def sentry_init(sentry_dsn):
-   sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0)
-   
 async def redis_object_create(table,object_list,expiry,redis_client):
    async with redis_client.pipeline(transaction=True) as pipe:
       for object in object_list:
@@ -973,9 +969,6 @@ lavinmq_client=None
 lavinmq_channel=None
 kafka_producer_client=None
 
-#sentry
-if sentry_dsn:sentry_init(sentry_dsn)
-
 #redis key builder
 from fastapi import Request,Response
 import jwt,json,hashlib
@@ -1069,6 +1062,14 @@ app=FastAPI(lifespan=lifespan)
 #cors
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
+
+#sentry
+import sentry_sdk
+if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0)
+
+#prometheus
+from prometheus_fastapi_instrumentator import Instrumentator
+if False:Instrumentator().instrument(app).expose(app)
 
 #middleware
 from fastapi import Request

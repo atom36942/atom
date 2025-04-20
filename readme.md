@@ -33,3 +33,4 @@
 - api caching
 - middleware functions
 - curl testing using tets.sh
+- prometheus configuration
