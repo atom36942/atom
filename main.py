@@ -748,6 +748,12 @@ async def auth_login_google(postgres_client,token_create,key_jwt,google_user_rea
       user=output[0] if output else None
    token=await token_create(key_jwt,user)
    return {"status":1,"message":token}
+
+async def postgres_checklist(postgres_client):
+   await postgres_client.execute(query="update users set is_active=1,is_deleted=null where id=1;",values={})
+   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '30 days';",values={})
+   await postgres_client.execute(query="delete from message where created_at<now()-interval '30 days';",values={})
+   return None
    
 from fastapi import responses
 def error(message):
@@ -1113,7 +1119,7 @@ async def middleware(request:Request,api_function):
 router_add(router_list,app)
 
 #api import
-from fastapi import Request,Depends,BackgroundTasks
+from fastapi import Request,responses,Depends
 import hashlib,json,time,os,random,asyncio
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
@@ -1122,6 +1128,18 @@ from fastapi_limiter.depends import RateLimiter
 @app.get("/")
 async def index():
    return {"status":1,"message":"welcome to atom"}
+
+@app.get("/{filename}")
+async def html(filename:str):
+   #variable
+   file_path=os.path.join(".",f"{filename}.html")
+   #check
+   if ".." in filename or "/" in filename:return error("invalid filename")
+   if not os.path.isfile(file_path):return error ("file not found")
+   #logic
+   with open(file_path, "r", encoding="utf-8") as file:html_content=file.read()
+   #final
+   return responses.HTMLResponse(content=html_content)
 
 #root
 @app.post("/root/db-init")
@@ -1157,7 +1175,7 @@ async def root_reset_global():
 @app.put("/root/db-checklist")
 async def root_db_checklist():
    #logic
-   await postgres_client.execute(query="update users set is_active=1,is_deleted=null where id=1;",values={})
+   await postgres_checklist(postgres_client)
    #final
    return {"status":1,"message":"done"}
 

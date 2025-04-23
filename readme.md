@@ -1,7 +1,7 @@
 - entire codebase is in main.py
 - functional+procedural programming style
 - pure functions to reduce side effects
-- primary database is postgres
+- primary database as postgres
 - multiple drivers for postgres
 - one click database setup
 - bulk database uploader
@@ -33,4 +33,5 @@
 - api caching
 - middleware functions
 - curl testing using tets.sh
-- prometheus configuration
+- prometheus integration
+- render html files
