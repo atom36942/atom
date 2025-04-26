@@ -659,8 +659,9 @@ import hashlib
 async def auth_signup(postgres_client,type,username,password):
    query="insert into users (type,username,password) values (:type,:username,:password) returning *;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
-   output=await postgres_client.execute(query=query,values=values)
-   return {"status":1,"message":output}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   return {"status":1,"message":user}
 
 import hashlib
 async def auth_login(postgres_client,token_create,key_jwt,type,username,password):
