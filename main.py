@@ -1088,12 +1088,12 @@ async def middleware(request:Request,api_function):
       token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
       #token check
       for item in ["root/","my/","private/","admin/"]:
-         if item in request.url.path and not token:return {"status":0,"message":"token missing"}
+         if item in request.url.path and not token:return error("token missing")
       #token decode
       request.state.user={}
       if token:
          if "root/" in request.url.path:
-            if token!=key_root:return {"status":0,"message":"token root mismatch"}
+            if token!=key_root:return error("token root mismatch")
          else:request.state.user=await token_decode(token,key_jwt)
       #admin check
       if "admin/" in request.url.path:
@@ -1106,10 +1106,11 @@ async def middleware(request:Request,api_function):
             if response["status"]==0:return error(response["message"])
       #api response
       if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
-      else:response=await api_function(request)
+      else:
+         response=await api_function(request)
       #api log
       object={"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
-      asyncio.create_task(batch_create_log_api(object,30,postgres_create,postgres_client,postgres_column_datatype,object_serialize))
+      asyncio.create_task(batch_create_log_api(object,1,postgres_create,postgres_client,postgres_column_datatype,object_serialize))
    except Exception as e:
       print(traceback.format_exc())
       response=error(str(e.args))
