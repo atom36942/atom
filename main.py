@@ -1258,8 +1258,9 @@ async def auth_signup_username_password(request:Request):
    #logic
    response=await auth_signup(postgres_client,type,username,password)
    if response["status"]==0:return error(response["message"])
+   token=await token_create(key_jwt,response["message"])
    #final
-   return response
+   return {"status":1,"message":token}
 
 @app.post("/auth/login-password-username")
 async def auth_login_password_username(request:Request):
