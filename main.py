@@ -74,7 +74,7 @@ async def kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_cert
    return kafka_consumer_client
 
 async def postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if not object_list[0]:return {"status":0,"message":"object missing"}
+   if not object_list:return {"status":0,"message":"object missing"}
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
@@ -89,7 +89,7 @@ async def postgres_create(table,object_list,is_serialize,postgres_client,postgre
    return {"status":1,"message":output}
 
 async def postgres_update(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if not object_list[0]:return {"status":0,"message":"object missing"}
+   if not object_list:return {"status":0,"message":"object missing"}
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
@@ -105,7 +105,7 @@ async def postgres_update(table,object_list,is_serialize,postgres_client,postgre
    return {"status":1,"message":output}
 
 async def postgres_update_self(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize,user_id):
-   if not object_list[0]:return {"status":0,"message":"object missing"}
+   if not object_list:return {"status":0,"message":"object missing"}
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
@@ -121,7 +121,7 @@ async def postgres_update_self(table,object_list,is_serialize,postgres_client,po
    return {"status":1,"message":output}
 
 async def postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if not object_list[0]:return {"status":0,"message":"object missing"}
+   if not object_list:return {"status":0,"message":"object missing"}
    if is_serialize:
       response=await object_serialize(postgres_column_datatype,object_list)
       if response["status"]==0:return response
