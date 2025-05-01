@@ -790,6 +790,8 @@ user_type_allowed=[int(x) for x in os.getenv("user_type_allowed","1,2,3").split(
 column_disabled_non_admin=os.getenv("column_disabled_non_admin","is_active,is_verified,api_access").split(",")
 postgres_url_read_replica=os.getenv("postgres_url_read_replica")
 router_list=os.getenv("router_list").split(",") if os.getenv("router_list") else []
+fast2sms_key=os.getenv("fast2sms_key")
+fast2sms_url=os.getenv("fast2sms_url")
 
 #variable
 api_id={
@@ -1123,7 +1125,7 @@ router_add(router_list,app)
 
 #api import
 from fastapi import Request,responses,Depends
-import hashlib,json,time,os,random,asyncio
+import hashlib,json,time,os,random,asyncio,requests
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
@@ -1637,6 +1639,22 @@ async def public_otp_send_mobile_sns(request:Request):
    #logic
    if template_id:await send_message_template_sns(sns_client,mobile,message.replace("{otp}",str(otp)),entity_id,template_id,sender_id)
    else:sns_client.publish(PhoneNumber=mobile,Message=str(otp))
+   #final
+   return {"status":1,"message":"done"}
+
+@app.post("/public/otp-send-mobile-fast2sms")
+async def public_otp_send_mobile_fast2sms(request:Request):
+   #param
+   object=await request.json()
+   mobile=object.get("mobile")
+   if not mobile:return error("mobile/url missing")
+   #generate otp
+   response=await generate_otp(postgres_client,None,mobile)
+   if response["status"]==0:return error(response["message"])
+   otp=response["message"]
+   #logic
+   params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"}
+   requests.get(fast2sms_url,params=params)
    #final
    return {"status":1,"message":"done"}
 
