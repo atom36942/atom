@@ -198,7 +198,7 @@ async def create_where_string(object,object_serialize,postgres_column_datatype):
    return {"status":1,"message":[where_string,where_value]}
    
 import random
-async def generate_otp(postgres_client,email,mobile):
+async def generate_save_otp(postgres_client,email,mobile):
    if email and mobile:return {"status":0,"message":"send either email/mobile"}
    otp=random.randint(100000,999999)
    if email:
@@ -519,10 +519,6 @@ async def batch_create_log_api(object,batch,postgres_create,postgres_client,post
       object_list_log_api=[]
    return None
 
-from fastapi_limiter import FastAPILimiter
-async def ratelimiter_init(redis_client):
-   await FastAPILimiter.init(redis_client)
-   
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 async def cache_init(redis_client,redis_key_builder):
@@ -554,20 +550,6 @@ async def update_user_last_active_at(postgres_client,user_id):
    query="update users set last_active_at=:last_active_at where id=:id;"
    values={"id":user_id,"last_active_at":datetime.datetime.now()}
    await postgres_client.execute(query=query,values=values)
-   return None
-
-async def user_object_delete_soft(postgres_client,user_id):
-   async with postgres_client.transaction():
-      await postgres_client.execute(query="update message set is_deleted=1 where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
-      await postgres_client.execute(query="update users set is_deleted=1 where id=:id;",values={"id":user_id})
-   return None
-
-async def user_object_delete_hard(postgres_client,user_id):
-   async with postgres_client.transaction():
-      await postgres_client.execute(query="delete from report_user where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
-      await postgres_client.execute(query="delete from bookmark_workseeker where created_by_id=:user_id",values={"user_id":user_id})
-      await postgres_client.execute(query="delete from message where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
-      await postgres_client.execute(query="delete from users where id=:id;",values={"id":user_id})
    return None
 
 async def mongodb_create_object(mongodb_client,database,table,object_list):
@@ -750,12 +732,20 @@ async def auth_login_google(postgres_client,token_create,key_jwt,google_user_rea
    token=await token_create(key_jwt,user)
    return {"status":1,"message":token}
 
-async def postgres_checklist(postgres_client):
-   await postgres_client.execute(query="update users set is_active=1,is_deleted=null where id=1;",values={})
-   await postgres_client.execute(query="delete from log_api where created_at<now()-interval '30 days';",values={})
-   await postgres_client.execute(query="delete from message where created_at<now()-interval '30 days';",values={})
+async def user_object_delete_soft(postgres_client,user_id):
+   async with postgres_client.transaction():
+      await postgres_client.execute(query="update message set is_deleted=1 where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
+      await postgres_client.execute(query="update users set is_deleted=1 where id=:id;",values={"id":user_id})
    return None
-   
+
+async def user_object_delete_hard(postgres_client,user_id):
+   async with postgres_client.transaction():
+      await postgres_client.execute(query="delete from report_user where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
+      await postgres_client.execute(query="delete from bookmark_workseeker where created_by_id=:user_id",values={"user_id":user_id})
+      await postgres_client.execute(query="delete from message where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
+      await postgres_client.execute(query="delete from users where id=:id;",values={"id":user_id})
+   return None
+
 from fastapi import responses
 def error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
@@ -792,6 +782,9 @@ postgres_url_read_replica=os.getenv("postgres_url_read_replica")
 router_list=os.getenv("router_list").split(",") if os.getenv("router_list") else []
 fast2sms_key=os.getenv("fast2sms_key")
 fast2sms_url=os.getenv("fast2sms_url")
+cache_client=os.getenv("cache_client")
+ratelimiter_client=os.getenv("ratelimiter_client")
+is_active_check=int(os.getenv("is_active_check",0))
 
 #variable
 api_id={
@@ -994,6 +987,7 @@ def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Resp
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from fastapi_limiter import FastAPILimiter
 @asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
@@ -1017,7 +1011,7 @@ async def lifespan(app:FastAPI):
       if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,100000)
       #users is_active
       global users_is_active
-      if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,100000)
+      if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,1000)
       #redis client
       global redis_client
       if redis_url:redis_client=await redis_client_read(redis_url)
@@ -1045,12 +1039,13 @@ async def lifespan(app:FastAPI):
       #kafka producer client
       global kafka_producer_client
       if kafka_url:kafka_producer_client=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
-      #ratelimiter init
-      if redis_client:await ratelimiter_init(redis_client)
-      #cache init
-      if valkey_client:await cache_init(valkey_client,redis_key_builder)
-      elif redis_url:await cache_init(redis_client,redis_key_builder)
-      #app close
+      #cache
+      if cache_client=="valkey":await cache_init(valkey_client,redis_key_builder)
+      else:await cache_init(redis_client,redis_key_builder)
+      #ratelimiter
+      if ratelimiter_client=="valkey":await FastAPILimiter.init(valkey_client)
+      else:await FastAPILimiter.init(redis_client)
+      #disconnect
       yield
       await postgres_client.disconnect()
       await postgres_client_asyncpg.close()
@@ -1062,6 +1057,7 @@ async def lifespan(app:FastAPI):
       if lavinmq_client and lavinmq_channel.is_open:lavinmq_channel.close()
       if lavinmq_client and lavinmq_client.is_open:lavinmq_client.close()
       if kafka_producer_client:await kafka_producer_client.stop()
+      await FastAPILimiter.close()
    except Exception as e:print(e.args)
 
 #app
@@ -1103,10 +1099,11 @@ async def middleware(request:Request,api_function):
          response=await admin_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
          if response["status"]==0:return error(response["message"])
       #is_active check
-      for item in ["admin/","private","my/object-create"]:
-         if item in request.url.path:
-            response=await is_active_check(request.state.user["id"],users_is_active,postgres_client)
-            if response["status"]==0:return error(response["message"])
+      if is_active_check==1:
+         for item in ["admin/","private","my/object-create"]:
+            if item in request.url.path:
+               response=await is_active_check(request.state.user["id"],users_is_active,postgres_client)
+               if response["status"]==0:return error(response["message"])
       #api response
       if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
       else:
@@ -1123,13 +1120,12 @@ async def middleware(request:Request,api_function):
 #router
 router_add(router_list,app)
 
-#api import
+#api
 from fastapi import Request,responses,Depends
 import hashlib,json,time,os,random,asyncio,requests
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
-#index
 @app.get("/")
 async def index():
    return {"status":1,"message":"welcome to atom"}
@@ -1146,15 +1142,19 @@ async def html(filename:str):
    #final
    return responses.HTMLResponse(content=html_content)
 
-#root
 @app.post("/root/db-init")
 async def root_db_init(request:Request):
    #param
    mode=request.query_params.get("mode")
    if not mode:return error("mode missing")
    #variable
-   if mode=="default":config=postgres_schema_default
-   elif mode=="custom":config=await request.json()
+   if mode=="1":config=postgres_schema_default
+   elif mode=="2":
+      if os.path.exists("schema.py"):
+         import schema
+         config=schema.postgres_schema
+      else:return error("schema.py missing")
+   elif mode=="3":config=await request.json()
    #logic
    response=await postgres_schema_init(postgres_client,postgres_schema_read,config)
    #final
@@ -1180,7 +1180,9 @@ async def root_reset_global():
 @app.put("/root/db-checklist")
 async def root_db_checklist():
    #logic
-   await postgres_checklist(postgres_client)
+   await postgres_client.execute(query="update users set is_active=1,is_deleted=null where id=1;",values={})
+   if postgres_schema.get("log_api"):await postgres_client.execute(query="delete from log_api where created_at<now()-interval '30 days';",values={})
+   if postgres_schema.get("message"):await postgres_client.execute(query="delete from message where created_at<now()-interval '30 days';",values={})
    #final
    return {"status":1,"message":"done"}
 
@@ -1248,8 +1250,7 @@ async def root_s3_bucket_ops(request:Request):
    #final
    return response
 
-#auth
-@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
+@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=1,seconds=10))])
 async def auth_signup_username_password(request:Request):
    #param
    object=await request.json()
@@ -1356,7 +1357,6 @@ async def auth_login_oauth_google(request:Request):
    #final
    return response
 
-#my
 @app.get("/my/profile")
 async def my_profile(request:Request):
    #logic
@@ -1598,7 +1598,6 @@ async def my_message_delete(request:Request):
    #final
    return {"status":1,"message":"done"}
 
-#public
 cache_public_info={}
 @app.get("/public/info")
 async def public_info(request:Request):
@@ -1633,7 +1632,7 @@ async def public_otp_send_mobile_sns(request:Request):
    sender_id=object.get("sender_id")
    if not mobile:return error("mobile missing")
    #generate otp
-   response=await generate_otp(postgres_client,None,mobile)
+   response=await generate_save_otp(postgres_client,None,mobile)
    if response["status"]==0:return error(response["message"])
    otp=response["message"]
    #logic
@@ -1647,9 +1646,9 @@ async def public_otp_send_mobile_fast2sms(request:Request):
    #param
    object=await request.json()
    mobile=object.get("mobile")
-   if not mobile:return error("mobile/url missing")
+   if not mobile:return error("mobile missing")
    #generate otp
-   response=await generate_otp(postgres_client,None,mobile)
+   response=await generate_save_otp(postgres_client,None,mobile)
    if response["status"]==0:return error(response["message"])
    otp=response["message"]
    #logic
@@ -1666,7 +1665,7 @@ async def public_otp_send_email_ses(request:Request):
    sender_email=object.get("sender_email")
    if not email or not sender_email:return error("email/sender_email missing")
    #generate otp
-   response=await generate_otp(postgres_client,email,None)
+   response=await generate_save_otp(postgres_client,email,None)
    if response["status"]==0:return error(response["message"])
    otp=response["message"]
    #logic
@@ -1712,7 +1711,6 @@ async def public_object_read(request:Request):
    #final
    return {"status":1,"message":object_list}
 
-#private
 @app.post("/private/file-upload-s3-direct")
 async def private_file_upload_s3_direct(request:Request):
    #param
@@ -1784,7 +1782,6 @@ async def private_workseeker_read(request:Request):
    #final
    return {"status":1,"message":output}
 
-#admin
 @app.post("/admin/db-runner")
 async def admin_db_runner(request:Request):
    #param
@@ -1905,26 +1902,42 @@ async def admin_object_read(request:Request):
    #final
    return response
 
-#mode
-import sys
-mode=sys.argv
-
 #fastapi
-import asyncio,uvicorn
+import sys,asyncio,uvicorn
 async def main_fastapi():
    config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
    server=uvicorn.Server(config)
    await server.serve()
-if __name__=="__main__" and len(mode)==1:
+if __name__=="__main__" and len(sys.argv)==1:
    try:asyncio.run(main_fastapi())
    except KeyboardInterrupt:print("exit")
    
-#nest
-import nest_asyncio
-nest_asyncio.apply()
+#kafka
+import sys,asyncio,json
+async def main_kafka():
+   postgres_client=await postgres_client_read(postgres_url)
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
+   kafka_consumer_client=await kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
+   try:
+      async for message in kafka_consumer_client:
+         if message.topic==channel_name:
+            data=json.loads(message.value.decode('utf-8'))
+            try:
+               if data["mode"]=="create":response=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)   
+               if data["mode"]=="update":response=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
+               print(response)
+            except Exception as e:
+               print(e.args)
+   except asyncio.CancelledError:print("subscription cancelled")
+   finally:
+      await postgres_client.disconnect()
+      await kafka_consumer_client.stop()
+if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="kafka":
+    try:asyncio.run(main_kafka())
+    except KeyboardInterrupt:print("exit")
 
 #redis
-import asyncio,json
+import sys,asyncio,json
 async def main_redis():
    postgres_client=await postgres_client_read(postgres_url)
    postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
@@ -1944,35 +1957,13 @@ async def main_redis():
       await postgres_client.disconnect()
       await redis_pubsub.unsubscribe(channel_name)
       await redis_client.aclose()
-if __name__ == "__main__" and len(mode)>1 and mode[1]=="redis":
+if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="redis":
     try:asyncio.run(main_redis())
     except KeyboardInterrupt:print("exit")
-
-#kafka
-import asyncio,json
-async def main_kafka():
-   postgres_client=await postgres_client_read(postgres_url)
-   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   kafka_consumer_client=await kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
-   try:
-      async for message in kafka_consumer_client:
-         if message.topic==channel_name:
-            data=json.loads(message.value.decode('utf-8'))
-            try:
-               if data["mode"]=="create":response=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)   
-               if data["mode"]=="update":response=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
-               print(response)
-            except Exception as e:
-               print(e.args)
-   except asyncio.CancelledError:print("subscription cancelled")
-   finally:
-      await postgres_client.disconnect()
-      await kafka_consumer_client.stop()
-if __name__ == "__main__" and len(mode)>1 and mode[1]=="kafka":
-    try:asyncio.run(main_kafka())
-    except KeyboardInterrupt:print("exit")
-
+    
 #aqmp callback
+import json,asyncio,nest_asyncio
+nest_asyncio.apply()
 def aqmp_callback(ch,method,properties,body):
    data=json.loads(body)
    loop=asyncio.get_event_loop()
@@ -1985,7 +1976,7 @@ def aqmp_callback(ch,method,properties,body):
    return None
 
 #rabbitmq
-import asyncio,json
+import sys,asyncio
 async def main_rabbitmq():
    global postgres_client,postgres_column_datatype
    postgres_client=await postgres_client_read(postgres_url)
@@ -1998,12 +1989,12 @@ async def main_rabbitmq():
       await postgres_client.disconnect()
       rabbitmq_channel.close()
       rabbitmq_client.close()
-if __name__ == "__main__" and len(mode)>1 and mode[1]=="rabbitmq":
+if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="rabbitmq":
     try:asyncio.run(main_rabbitmq())
     except KeyboardInterrupt:print("exit")
-
+    
 #lavinmq
-import asyncio,json
+import sys,asyncio
 async def main_lavinmq():
    global postgres_client,postgres_column_datatype
    postgres_client=await postgres_client_read(postgres_url)
@@ -2016,6 +2007,6 @@ async def main_lavinmq():
       await postgres_client.disconnect()
       lavinmq_channel.close()
       lavinmq_client.close()
-if __name__ == "__main__" and len(mode)>1 and mode[1]=="lavinmq":
+if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="lavinmq":
     try:asyncio.run(main_lavinmq())
     except KeyboardInterrupt:print("exit")

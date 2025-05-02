@@ -3,8 +3,9 @@ curl -X GET "$baseurl"
 0 curl -X GET "$baseurl/about"
 
 #root
-curl -X POST "$baseurl/root/db-init?mode=default" -H "Authorization: Bearer $token_root"
-curl -X POST "$baseurl/root/db-init?mode=custom" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
+curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_root"
+0 curl -X POST "$baseurl/root/db-init?mode=2" -H "Authorization: Bearer $token_root"
+curl -X POST "$baseurl/root/db-init?mode=3" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
 curl -X PUT "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 curl -X PUT "$baseurl/root/db-checklist" -H "Authorization: Bearer $token_root"
 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@$file_create"
@@ -34,8 +35,7 @@ curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token_admin"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=hard" -H "Authorization: Bearer $token_admin"
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
-curl -X POST "$baseurl/my/object-create?table=workseeker" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"workprofile_id":1,"date_of_birth":"2000-11-30"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_test" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb_test"}'
