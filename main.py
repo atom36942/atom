@@ -732,17 +732,17 @@ async def auth_login_google(postgres_client,token_create,key_jwt,google_user_rea
    token=await token_create(key_jwt,user)
    return {"status":1,"message":token}
 
-async def user_object_delete_soft(postgres_client,user_id):
+async def user_object_delete_soft(postgres_client,postgres_schema,user_id):
    async with postgres_client.transaction():
-      await postgres_client.execute(query="update message set is_deleted=1 where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
+      if postgres_schema.get("message"):await postgres_client.execute(query="update message set is_deleted=1 where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
       await postgres_client.execute(query="update users set is_deleted=1 where id=:id;",values={"id":user_id})
    return None
 
-async def user_object_delete_hard(postgres_client,user_id):
+async def user_object_delete_hard(postgres_client,postgres_schema,user_id):
    async with postgres_client.transaction():
-      await postgres_client.execute(query="delete from report_user where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
-      await postgres_client.execute(query="delete from bookmark_workseeker where created_by_id=:user_id",values={"user_id":user_id})
-      await postgres_client.execute(query="delete from message where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
+      if postgres_schema.get("report_user"):await postgres_client.execute(query="delete from report_user where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
+      if postgres_schema.get("bookmark_workseeker"):await postgres_client.execute(query="delete from bookmark_workseeker where created_by_id=:user_id",values={"user_id":user_id})
+      if postgres_schema.get("message"):await postgres_client.execute(query="delete from message where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
       await postgres_client.execute(query="delete from users where id=:id;",values={"id":user_id})
    return None
 
@@ -1388,8 +1388,8 @@ async def my_account_delete(request:Request):
    user=response["message"]
    if user["api_access"]:return error("not allowed as you have api_access")
    #logic
-   if mode=="soft":await user_object_delete_soft(postgres_client,request.state.user["id"])
-   elif mode=="hard":await user_object_delete_hard(postgres_client,request.state.user["id"])
+   if mode=="soft":await user_object_delete_soft(postgres_client,postgres_schema,request.state.user["id"])
+   elif mode=="hard":await user_object_delete_hard(postgres_client,postgres_schema,request.state.user["id"])
    #final
    return {"status":1,"message":"done"}
 
