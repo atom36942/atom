@@ -363,7 +363,7 @@ async def postgres_query_runner(postgres_client,query,user_id):
    output=await postgres_client.fetch_all(query=query,values={})
    return {"status":1,"message":output}
 
-async def postgres_update_ids(postgres_client,table,ids,column,value,created_by_id,updated_by_id):
+async def postgres_update_ids(postgres_client,table,ids,column,value,updated_by_id,created_by_id):
    query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
    values={"value":value,"created_by_id":created_by_id,"updated_by_id":updated_by_id}
    await postgres_client.execute(query=query,values=values)
@@ -440,7 +440,7 @@ async def token_create(key_jwt,user):
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":user},key_jwt)
    return token
 
-async def read_user(postgres_client,user_id):
+async def read_user_single(postgres_client,user_id):
    query="select * from users where id=:id;"
    values={"id":user_id}
    output=await postgres_client.fetch_all(query=query,values=values)
@@ -588,19 +588,27 @@ async def mark_message_read_thread(postgres_client,user_id_1,user_id_2):
    await postgres_client.execute(query=query,values={})
    return None
 
-async def message_delete_user(postgres_client,user_id,mode,message_id):
-   if mode=="single":
-      query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
-      values={"user_id":user_id,"id":message_id}
-   if mode=="created":
-      query="delete from message where created_by_id=:user_id;"
-      values={"user_id":user_id}
-   if mode=="received":
-      query="delete from message where user_id=:user_id;"
-      values={"user_id":user_id}
-   if mode=="all":
-      query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
-      values={"user_id":user_id}
+async def message_delete_user_single(postgres_client,user_id,message_id):
+   query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
+   values={"user_id":user_id,"id":message_id}
+   await postgres_client.execute(query=query,values={})
+   return None
+
+async def message_delete_user_created(postgres_client,user_id):
+   query="delete from message where created_by_id=:user_id;"
+   values={"user_id":user_id}
+   await postgres_client.execute(query=query,values={})
+   return None
+
+async def message_delete_user_received(postgres_client,user_id):
+   query="delete from message where user_id=:user_id;"
+   values={"user_id":user_id}
+   await postgres_client.execute(query=query,values={})
+   return None
+
+async def message_delete_user_all(postgres_client,user_id):
+   query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
+   values={"user_id":user_id}
    await postgres_client.execute(query=query,values={})
    return None
 
@@ -732,20 +740,6 @@ async def auth_login_google(postgres_client,token_create,key_jwt,google_user_rea
    token=await token_create(key_jwt,user)
    return {"status":1,"message":token}
 
-async def user_object_delete_soft(postgres_client,postgres_schema,user_id):
-   async with postgres_client.transaction():
-      if postgres_schema.get("message"):await postgres_client.execute(query="update message set is_deleted=1 where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
-      await postgres_client.execute(query="update users set is_deleted=1 where id=:id;",values={"id":user_id})
-   return None
-
-async def user_object_delete_hard(postgres_client,postgres_schema,user_id):
-   async with postgres_client.transaction():
-      if postgres_schema.get("report_user"):await postgres_client.execute(query="delete from report_user where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
-      if postgres_schema.get("bookmark_workseeker"):await postgres_client.execute(query="delete from bookmark_workseeker where created_by_id=:user_id",values={"user_id":user_id})
-      if postgres_schema.get("message"):await postgres_client.execute(query="delete from message where created_by_id=:user_id or user_id=:user_id;",values={"user_id":user_id})
-      await postgres_client.execute(query="delete from users where id=:id;",values={"id":user_id})
-   return None
-
 from fastapi import responses
 def error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
@@ -784,7 +778,10 @@ fast2sms_key=os.getenv("fast2sms_key")
 fast2sms_url=os.getenv("fast2sms_url")
 cache_client=os.getenv("cache_client")
 ratelimiter_client=os.getenv("ratelimiter_client")
-is_active_check=int(os.getenv("is_active_check",0))
+is_active_check_keyword=os.getenv("is_active_check_keyword")
+table_allowed_public_create=os.getenv("table_allowed_public_create","test")
+table_allowed_public_read=os.getenv("table_allowed_public_read","test")
+table_allowed_private_read=os.getenv("table_allowed_private_read","test")
 
 #variable
 api_id={
@@ -872,57 +869,6 @@ postgres_schema_default={
 "created_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
 "user_id-bigint-1-btree"
-],
-"bookmark_workseeker":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
-"workseeker_id-bigint-1-btree"
-],
-"workprofile":[
-"title-text-1-0"
-],
-"workseeker":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-btree",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"type-smallint-0-btree",
-"workprofile_id-int-0-btree",
-"experience-numeric(10,1)-0-btree",
-"skill-text-0-0",
-"description-text-0-0",
-"salary_currency-text-0-0",
-"salary_current-int-0-0",
-"salary_expected-int-0-0",
-"notice_period-smallint-0-0",
-"college-text-0-0",
-"degree-text-0-0",
-"industry-text-0-0",
-"certification-text-0-0",
-"achievement-text-0-0",
-"hobby-text-0-0",
-"life_goal-text-0-0",
-"strong_point-text-0-0",
-"weak_point-text-0-0",
-"name-text-0-0",
-"gender-text-0-0",
-"date_of_birth-date-0-0",
-"nationality-text-0-0",
-"language-text-0-0",
-"email-text-0-0",
-"mobile-text-0-0",
-"country-text-0-0",
-"state-text-0-0",
-"city-text-0-0",
-"current_location-text-0-0",
-"is_remote-smallint-0-0",
-"linkedin_url-text-0-0",
-"github_url-text-0-0",
-"portfolio_url-text-0-0",
-"website_url-text-0-0",
-"resume_url-text-0-0"
 ]
 },
 "query":{
@@ -931,22 +877,19 @@ postgres_schema_default={
 "default_updated_at_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
 "default_updated_at_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
 "is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"delete_disable_bulk_1":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
-"delete_disable_bulk_2":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
 "log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
 "log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
 "root_user_1":"insert into users (type,username,password,api_access) values (1,'atom','5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5','1,2,3,4,5,6,7,8,9,10') on conflict do nothing;",
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
-"default_1":"0 alter table users alter column is_active set default 1;",
+"delete_disable_bulk_function":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
+"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
+"check_username":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
+"check_is_active":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_active' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_check_%I_is_active', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_active IN (0,1) OR is_active IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
 "unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
 "unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
 "unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
 "unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
-"unique_5":"alter table workseeker add constraint constraint_unique_created_by_id unique (created_by_id);",
-"unique_6":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
-"unique_7":"alter table bookmark_workseeker add constraint constraint_unique_bookmark_workseeker unique (created_by_id,workseeker_id);",
-"check_1":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
-"check_2":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_active' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_check_%I_is_active', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_active IN (0,1) OR is_active IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;"
+"unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);"
 }
 }
 
@@ -1099,8 +1042,8 @@ async def middleware(request:Request,api_function):
          response=await admin_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
          if response["status"]==0:return error(response["message"])
       #is_active check
-      if is_active_check==1:
-         for item in ["admin/","private","my/object-create"]:
+      if is_active_check_keyword:
+         for item in is_active_check_keyword.split(","):
             if item in request.url.path:
                response=await is_active_check(request.state.user["id"],users_is_active,postgres_client)
                if response["status"]==0:return error(response["message"])
@@ -1157,21 +1100,27 @@ async def root_db_init(request:Request):
    elif mode=="3":config=await request.json()
    #logic
    response=await postgres_schema_init(postgres_client,postgres_schema_read,config)
+   #postgres schema reset
+   global postgres_schema
+   postgres_schema=await postgres_schema_read(postgres_client)
+   #postgres column datatype reset
+   global postgres_column_datatype
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
    #final
    return response
 
 @app.put("/root/reset-global")
 async def root_reset_global():
-   #postgres schema
+   #postgres schema reset
    global postgres_schema
    postgres_schema=await postgres_schema_read(postgres_client)
-   #postgres column datatype
+   #postgres column datatype reset
    global postgres_column_datatype
    postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   #users api access
+   #users api access reset
    global users_api_access
    if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,100000)
-   #users is_active
+   #users is_active reset
    global users_is_active
    if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,100000)
    #final
@@ -1182,6 +1131,7 @@ async def root_db_checklist():
    #logic
    await postgres_client.execute(query="update users set is_active=1,is_deleted=null where id=1;",values={})
    if postgres_schema.get("log_api"):await postgres_client.execute(query="delete from log_api where created_at<now()-interval '30 days';",values={})
+   if postgres_schema.get("otp"):await postgres_client.execute(query="delete from otp where created_at<now()-interval '30 days';",values={})
    if postgres_schema.get("message"):await postgres_client.execute(query="delete from message where created_at<now()-interval '30 days';",values={})
    #final
    return {"status":1,"message":"done"}
@@ -1360,7 +1310,7 @@ async def auth_login_oauth_google(request:Request):
 @app.get("/my/profile")
 async def my_profile(request:Request):
    #logic
-   response=await read_user(postgres_client,request.state.user["id"])
+   response=await read_user_single(postgres_client,request.state.user["id"])
    if response["status"]==0:return error(response["message"])
    asyncio.create_task(update_user_last_active_at(postgres_client,request.state.user["id"]))
    #final
@@ -1369,7 +1319,7 @@ async def my_profile(request:Request):
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
    #read user
-   response=await read_user(postgres_client,request.state.user["id"])
+   response=await read_user_single(postgres_client,request.state.user["id"])
    if response["status"]==0:return error(response["message"])
    user=response["message"]
    #token create
@@ -1383,13 +1333,13 @@ async def my_account_delete(request:Request):
    mode=request.query_params.get("mode")
    if not mode:return error("mode missing")
    #check user
-   response=await read_user(postgres_client,request.state.user["id"])
+   response=await read_user_single(postgres_client,request.state.user["id"])
    if response["status"]==0:return error(response["message"])
    user=response["message"]
    if user["api_access"]:return error("not allowed as you have api_access")
    #logic
-   if mode=="soft":await user_object_delete_soft(postgres_client,postgres_schema,request.state.user["id"])
-   elif mode=="hard":await user_object_delete_hard(postgres_client,postgres_schema,request.state.user["id"])
+   if mode=="soft":await postgres_client.execute(query="update users set is_deleted=1 where id=:id;",values={"id":request.state.user["id"]})
+   elif mode=="hard":await postgres_client.execute(query="delete from users where id=:id;",values={"id":request.state.user["id"]})
    #final
    return {"status":1,"message":"done"}
 
@@ -1404,7 +1354,7 @@ async def my_object_create(request:Request):
    #modify
    object["created_by_id"]=request.state.user["id"]
    #check
-   if table not in ["test","message","report_user","bookmark_workseeker","workseeker"]:return error("table not allowed")
+   if table in ["users"]:return error("table not allowed")
    if len(object)<=1:return error ("object issue")
    if any(key in column_disabled_non_admin for key in object):return error(" object key not allowed")
    #logic
@@ -1509,7 +1459,7 @@ async def my_object_delete_any(request:Request):
    #modify
    object["created_by_id"]=f"=,{request.state.user['id']}"
    #check
-   if table not in ["test","report_user","bookmark_workseeker"]:return error("table not allowed")
+   if table in ["users"]:return error("table not allowed")
    #logic
    response=await postgres_delete_any(table,object,postgres_client,create_where_string,object_serialize,postgres_column_datatype)
    if response["status"]==0:return error(response["message"])
@@ -1524,7 +1474,7 @@ async def my_ids_delete(request:Request):
    ids=object.get("ids")
    if not table or not ids:return error("table/ids must")
    #check
-   if table not in ["test","report_user","bookmark_workseeker"]:return error("table not allowed")
+   if table in ["users"]:return error("table not allowed")
    #logic
    await postgres_delete_ids(postgres_client,table,ids,request.state.user["id"])
    #final
@@ -1594,7 +1544,10 @@ async def my_message_delete(request:Request):
    #check
    if mode=="single" and not id:return error("id missing")
    #logic
-   await message_delete_user(postgres_client,request.state.user["id"],mode,id)
+   if mode=="single":await message_delete_user_single(postgres_client,request.state.user["id"],id)
+   if mode=="created":await message_delete_user_created(postgres_client,request.state.user["id"])
+   if mode=="received":await message_delete_user_received(postgres_client,request.state.user["id"])
+   if mode=="all":await message_delete_user_all(postgres_client,request.state.user["id"])
    #final
    return {"status":1,"message":"done"}
 
@@ -1652,10 +1605,9 @@ async def public_otp_send_mobile_fast2sms(request:Request):
    if response["status"]==0:return error(response["message"])
    otp=response["message"]
    #logic
-   params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"}
-   requests.get(fast2sms_url,params=params)
+   response=requests.get(fast2sms_url,params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
    #final
-   return {"status":1,"message":"done"}
+   return {"status":1,"message":response.json()}
 
 @app.post("/public/otp-send-email-ses")
 async def public_otp_send_email_ses(request:Request):
@@ -1681,7 +1633,7 @@ async def public_object_create(request:Request):
    object=await request.json()
    if not table:return error("table missing")
    #check
-   if table not in ["test"]:return error("table not allowed")
+   if table not in table_allowed_public_create.split(","):return error("table not allowed")
    #logic
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
@@ -1697,7 +1649,7 @@ async def public_object_read(request:Request):
    creator_data=object.get("creator_data")
    if not table:return error("table missing")
    #check
-   if table not in ["test"]:return error("table not allowed")
+   if table not in table_allowed_public_read.split(","):return error("table not allowed")
    #logic
    if postgres_client_read_replica:response=await postgres_read(table,object,postgres_client_read_replica,postgres_column_datatype,object_serialize,create_where_string)
    else:response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
@@ -1748,39 +1700,12 @@ async def private_object_read(request:Request):
    table=object.get("table")
    if not table:return error("table missing")
    #check
-   if table not in ["test"]:return error("table not allowed")
+   if table not in table_allowed_private_read.split(","):return error("table not allowed")
    #logic
    response=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
    if response["status"]==0:return error(response["message"])
    #final
    return response
-
-@app.get("/private/workseeker-read")
-@cache(expire=100)
-async def private_workseeker_read(request:Request):
-   #param
-   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
-   workprofile_id=int(request.query_params.get("workprofile_id")) if request.query_params.get("workprofile_id") else None
-   experience_min=int(request.query_params.get("experience_min")) if request.query_params.get("experience_min") else None
-   experience_max=int(request.query_params.get("experience_max")) if request.query_params.get("experience_max") else None
-   skill=f"%{request.query_params.get('skill')}%" if request.query_params.get('skill') else None
-   #logic
-   query=f'''
-   select * from workseeker where
-   (workprofile_id=:workprofile_id or :workprofile_id is null) and
-   (experience >= :experience_min or :experience_min is null) and
-   (experience <= :experience_max or :experience_max is null) and
-   (skill ilike :skill or :skill is null)
-   order by {order} limit {limit} offset {(page-1)*limit};
-   '''
-   values={
-   "workprofile_id":workprofile_id,
-   "experience_min":experience_min,"experience_max":experience_max,
-   "skill":skill
-   }
-   output=await postgres_client.fetch_all(query=query,values=values)
-   #final
-   return {"status":1,"message":output}
 
 @app.post("/admin/db-runner")
 async def admin_db_runner(request:Request):
@@ -1833,7 +1758,7 @@ async def admin_object_create(request:Request):
    #modify
    if postgres_schema.get(table).get("created_by_id"):object["created_by_id"]=request.state.user["id"]
    #check
-   if table not in ["test"]:return error("table not allowed")
+   if table in ["users"]:return error("table not allowed")
    #logic
    response=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if response["status"]==0:return error(response["message"])
@@ -1872,7 +1797,7 @@ async def admin_ids_update(request:Request):
    #check
    if table in ["users"]:return error("table not allowed")
    #logic
-   await postgres_update_ids(postgres_client,table,ids,key,value,None,request.state.user["id"])
+   await postgres_update_ids(postgres_client,table,ids,key,value,request.state.user["id"],None)
    #final
    return {"status":1,"message":"done"}
 

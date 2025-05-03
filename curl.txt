@@ -46,7 +46,7 @@ curl -X PUT "$baseurl/my/ids-update" -H "Authorization: Bearer $token_admin" -H 
 curl -X DELETE "$baseurl/my/object-delete-any?table=test&id=>,1" -H "Authorization: Bearer $token_admin"
 curl -X DELETE "$baseurl/my/ids-delete" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451"}'
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token_admin"
-curl -X GET "$baseurl/my/parent-read?table=bookmark_workseeker&parent_column=workseeker_id&parent_table=workseeker" -H "Authorization: Bearer $token_admin"
+curl -X GET "$baseurl/my/parent-read?table=report_user&parent_column=user_id&parent_table=users" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/message-inbox" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/message-inbox?is_unread=1" -H "Authorization: Bearer $token_admin"
 curl -X GET "$baseurl/my/message-received" -H "Authorization: Bearer $token_admin"
@@ -76,7 +76,6 @@ curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
 0 curl -X POST "$baseurl/private/file-upload-s3-presigned?bucket=master&key=test.png" -H "Authorization: Bearer $token_admin"
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token_admin" -F "bucket=master" -F "key=uuid" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
 curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer $token_admin"
-curl -X GET "$baseurl/private/workseeker-read?workprofile_id=1" -H "Authorization: Bearer $token_admin"
 
 #admin
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token_admin" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
