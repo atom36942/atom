@@ -1077,8 +1077,8 @@ from fastapi_limiter.depends import RateLimiter
 async def index():
    return {"status":1,"message":"welcome to atom"}
 
-@app.get("/{filename}")
-async def html(filename:str):
+@app.get("/page/{filename}")
+async def page(filename:str):
    #variable
    file_path=os.path.join(".",f"{filename}.html")
    #check
