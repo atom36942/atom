@@ -449,7 +449,7 @@ async def read_user_single(postgres_client,user_id):
    if not user:response={"status":0,"message":"user not found"}
    return response
 
-async def admin_check(user_id,api_id_value,users_api_access,postgres_client):
+async def users_api_access_check(user_id,api_id_value,users_api_access,postgres_client):
    user_api_access=users_api_access.get(user_id,"absent")
    if user_api_access=="absent":
       output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user_id})
@@ -461,7 +461,7 @@ async def admin_check(user_id,api_id_value,users_api_access,postgres_client):
    if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
    return {"status":1,"message":"done"}
 
-async def is_active_check(user_id,users_is_active,postgres_client):
+async def users_is_active_check(user_id,users_is_active,postgres_client):
    user_is_active=users_is_active.get(user_id,"absent")
    if user_is_active=="absent":
       output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user_id})
@@ -778,11 +778,13 @@ fast2sms_key=os.getenv("fast2sms_key")
 fast2sms_url=os.getenv("fast2sms_url")
 cache_client=os.getenv("cache_client")
 ratelimiter_client=os.getenv("ratelimiter_client")
-is_active_check_keyword=os.getenv("is_active_check_keyword")
+is_active_check_api_keyword=os.getenv("is_active_check_api_keyword")
 table_allowed_public_create=os.getenv("table_allowed_public_create","test")
 table_allowed_public_read=os.getenv("table_allowed_public_read","test")
 table_allowed_private_read=os.getenv("table_allowed_private_read","test")
 log_api_batch_count=int(os.getenv("log_api_batch_count",10))
+users_api_access_max_count=int(os.getenv("users_api_access_max_count",100000))
+users_is_active_max_count=int(os.getenv("users_is_active_max_count",1000))
 
 #config
 if os.path.exists("config.py"):import config
@@ -819,6 +821,14 @@ postgres_schema_default={
 "remark-text-0-gin,btree",
 "location-geography(POINT)-0-gist",
 "metadata-jsonb-0-0"
+],
+"atom":[
+"type-smallint-0-btree",
+"title-text-0-0",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0"
 ],
 "log_api":[
 "created_at-timestamptz-0-0",
@@ -955,10 +965,10 @@ async def lifespan(app:FastAPI):
       postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
       #users api access
       global users_api_access
-      if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,100000)
+      if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
       #users is_active
       global users_is_active
-      if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,1000)
+      if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
       #redis client
       global redis_client
       if redis_url:redis_client=await redis_client_read(redis_url)
@@ -1043,13 +1053,13 @@ async def middleware(request:Request,api_function):
          else:request.state.user=await token_decode(token,key_jwt)
       #admin check
       if "admin/" in request.url.path:
-         response=await admin_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
+         response=await users_api_access_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
          if response["status"]==0:return error(response["message"])
       #is_active check
-      if is_active_check_keyword:
-         for item in is_active_check_keyword.split(","):
+      if is_active_check_api_keyword:
+         for item in is_active_check_api_keyword.split(","):
             if item in request.url.path:
-               response=await is_active_check(request.state.user["id"],users_is_active,postgres_client)
+               response=await users_is_active_check(request.state.user["id"],users_is_active,postgres_client)
                if response["status"]==0:return error(response["message"])
       #api response
       if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
@@ -1119,10 +1129,10 @@ async def root_reset_global():
    postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
    #users api access reset
    global users_api_access
-   if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,100000)
+   if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
    #users is_active reset
    global users_is_active
-   if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,100000)
+   if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
    #final
    return {"status":1,"message":"done"}
 
