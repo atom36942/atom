@@ -782,6 +782,7 @@ is_active_check_keyword=os.getenv("is_active_check_keyword")
 table_allowed_public_create=os.getenv("table_allowed_public_create","test")
 table_allowed_public_read=os.getenv("table_allowed_public_read","test")
 table_allowed_private_read=os.getenv("table_allowed_private_read","test")
+log_api_batch_count=int(os.getenv("log_api_batch_count",10))
 
 #config
 if os.path.exists("config.py"):import config
@@ -1056,7 +1057,7 @@ async def middleware(request:Request,api_function):
          response=await api_function(request)
       #api log
       object={"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
-      asyncio.create_task(batch_create_log_api(object,1,postgres_create,postgres_client,postgres_column_datatype,object_serialize))
+      asyncio.create_task(batch_create_log_api(object,log_api_batch_count,postgres_create,postgres_client,postgres_column_datatype,object_serialize))
    except Exception as e:
       print(traceback.format_exc())
       response=error(str(e.args))
