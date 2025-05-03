@@ -783,6 +783,9 @@ table_allowed_public_create=os.getenv("table_allowed_public_create","test")
 table_allowed_public_read=os.getenv("table_allowed_public_read","test")
 table_allowed_private_read=os.getenv("table_allowed_private_read","test")
 
+#config
+if os.path.exists("config.py"):import config
+
 #variable
 api_id={
 "/admin/db-runner":1,
@@ -1091,15 +1094,11 @@ async def root_db_init(request:Request):
    mode=request.query_params.get("mode")
    if not mode:return error("mode missing")
    #variable
-   if mode=="1":config=postgres_schema_default
-   elif mode=="2":
-      if os.path.exists("schema.py"):
-         import schema
-         config=schema.postgres_schema
-      else:return error("schema.py missing")
-   elif mode=="3":config=await request.json()
+   if mode=="1":postgres_config=postgres_schema_default
+   elif mode=="2":postgres_config=config.postgres_schema
+   elif mode=="3":postgres_config=await request.json()
    #logic
-   response=await postgres_schema_init(postgres_client,postgres_schema_read,config)
+   response=await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config)
    #postgres schema reset
    global postgres_schema
    postgres_schema=await postgres_schema_read(postgres_client)
