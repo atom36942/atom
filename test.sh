@@ -10,7 +10,7 @@ input_file="curl.txt"
 baseurl="http://127.0.0.1:8000"
 token_root="$key_root"
 password_root="$password_root"
-token_admin="$token_admin"
+token="$token"
 file_create="/Users/atom/Documents/create.csv"
 file_update="/Users/atom/Documents/update.csv"
 file_delete="/Users/atom/Documents/delete.csv"
@@ -42,7 +42,7 @@ while IFS= read -r line; do
         # Replace the placeholders with actual variable values
         command=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
                              -e "s|\$token_root|$token_root|g" \
-                             -e "s|\$token_admin|$token_admin|g" \
+                             -e "s|\$token|$token|g" \
                              -e "s|\$password_root|$password_root|g" \
                              -e "s|\$file_create|$file_create|g" \
                              -e "s|\$file_update|$file_update|g" \

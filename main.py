@@ -16,7 +16,7 @@ async def redis_client_read(redis_url):
    return redis_client
 
 import redis.asyncio as redis
-async def redis_client_pubsub_read(redis_url,channel_name):
+async def redis_pubsub_read(redis_url,channel_name):
    redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_url))
    redis_pubsub=redis_client.pubsub()
    await redis_pubsub.subscribe(channel_name)
@@ -785,6 +785,7 @@ table_allowed_private_read=os.getenv("table_allowed_private_read","test")
 log_api_batch_count=int(os.getenv("log_api_batch_count",10))
 users_api_access_max_count=int(os.getenv("users_api_access_max_count",100000))
 users_is_active_max_count=int(os.getenv("users_is_active_max_count",1000))
+openai_key=os.getenv("openai_key")
 
 #config
 if os.path.exists("config.py"):import config
@@ -927,6 +928,10 @@ rabbitmq_channel=None
 lavinmq_client=None
 lavinmq_channel=None
 kafka_producer_client=None
+
+#openai client
+from openai import OpenAI
+if openai_key:openai_client=OpenAI(api_key=openai_key)
 
 #redis key builder
 from fastapi import Request,Response
@@ -1876,7 +1881,7 @@ import sys,asyncio,json
 async def main_redis():
    postgres_client=await postgres_client_read(postgres_url)
    postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   redis_client,redis_pubsub=await redis_client_pubsub_read(redis_url,channel_name)
+   redis_client,redis_pubsub=await redis_pubsub_read(redis_url,channel_name)
    try:
       async for message in redis_pubsub.listen():
          if message["type"]=="message" and message["channel"]==b'ch1':
