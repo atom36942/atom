@@ -36,4 +36,4 @@
 - prometheus integration
 - render html files
 - google sheet integration
-
+- openai integration

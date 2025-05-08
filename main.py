@@ -434,9 +434,9 @@ async def file_to_object_list(file):
 
 async def form_data_read(request):
    form_data=await request.form()
-   form_data_key={key:value for key,value in form_data.items() if isinstance(value,str)}
-   form_data_file=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in form_data_key and file.filename]
-   return form_data_key,form_data_file
+   object={key:value for key,value in form_data.items() if isinstance(value,str)}
+   file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
+   return object,file_list
 
 import json
 async def redis_set_object(redis_client,key,expiry,object):
@@ -1114,7 +1114,7 @@ router_add(router_list,app)
 
 #api
 from fastapi import Request,responses,Depends
-import hashlib,json,time,os,random,asyncio,requests
+import hashlib,json,time,os,random,asyncio,requests,base64
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
@@ -1184,13 +1184,13 @@ async def root_db_checklist():
 @app.post("/root/db-uploader")
 async def root_db_uploader(request:Request):
    #param
-   form_data_key,form_data_file=await form_data_read(request)
-   mode=form_data_key.get("mode")
-   table=form_data_key.get("table")
-   is_serialize=int(form_data_key.get("is_serialize",1))
-   if not mode or not table or not form_data_file:return error("mode/table/file missing")
+   object,file_list=await form_data_read(request)
+   mode=object.get("mode")
+   table=object.get("table")
+   is_serialize=int(object.get("is_serialize",1))
+   if not mode or not table or not file_list:return error("mode/table/file missing")
    #object list
-   object_list=await file_to_object_list(form_data_file[-1])
+   object_list=await file_to_object_list(file_list[-1])
    #logic
    if mode=="create":response=await postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    if mode=="update":response=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
@@ -1202,12 +1202,12 @@ async def root_db_uploader(request:Request):
 @app.post("/root/redis-uploader")
 async def root_redis_uploader(request:Request):
    #param
-   form_data_key,form_data_file=await form_data_read(request)
-   table=form_data_key.get("table")
-   expiry=form_data_key.get("expiry")
-   if not table or not form_data_file:return error("table/file missing")
+   object,file_list=await form_data_read(request)
+   table=object.get("table")
+   expiry=object.get("expiry")
+   if not table or not file_list:return error("table/file missing")
    #object list
-   object_list=await file_to_object_list(form_data_file[-1])
+   object_list=await file_to_object_list(file_list[-1])
    #logic
    await redis_object_create(table,object_list,expiry,valkey_client)
    #final
@@ -1743,18 +1743,50 @@ async def public_gsheet_read_direct(request:Request):
    #final
    return {"status":1,"message":output}
 
+@app.post("/public/openai-prompt")
+async def public_openai_prompt(request:Request):
+   #param
+   object=await request.json()
+   model=object.get("model")
+   prompt=object.get("prompt")
+   is_web_search=object.get("is_web_search")
+   previous_response_id=object.get("previous_response_id")
+   if not model or not prompt:return error("model/prompt missing")
+   #logic
+   params={"model":model,"input":prompt}
+   if previous_response_id:params["previous_response_id"]=previous_response_id
+   if is_web_search:params["tools"]=[{"type":"web_search"}]
+   output=openai_client.responses.create(**params)
+   #final
+   return {"status":1,"message":output}
+
+@app.post("/public/openai-ocr")
+async def public_openai_ocr(request:Request):
+   #param
+   object,file_list=await form_data_read(request)
+   model=object.get("model")
+   prompt=object.get("prompt")
+   if not model or not prompt:return error("model/prompt missing")
+   #logic
+   contents=await file_list[-1].read()
+   b64_image=base64.b64encode(contents).decode("utf-8")
+   output=openai_client.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
+   print(output)
+   #final
+   return {"status":1,"message":output}
+
 @app.post("/private/file-upload-s3-direct")
 async def private_file_upload_s3_direct(request:Request):
    #param
-   form_data_key,form_data_file=await form_data_read(request)
-   bucket=form_data_key.get("bucket")
-   key=form_data_key.get("key")
-   if not bucket or not form_data_file:return error("bucket/file missing")
+   object,file_list=await form_data_read(request)
+   bucket=object.get("bucket")
+   key=object.get("key")
+   if not bucket or not file_list:return error("bucket/file missing")
    #variable
    key_list=None
    if key:key_list=key.split("---")
    #logic
-   response=await s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,form_data_file)
+   response=await s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_list)
    if response["status"]==0:return error(response["message"])
    #final
    return response

@@ -35,7 +35,7 @@ curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=hard" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb_test"}'
@@ -72,6 +72,10 @@ curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
 0 curl -X GET "$baseurl/public/gsheet-read-direct?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&gid=0"
 0 curl -X GET "$baseurl/public/gsheet-read-service-account?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&sheet_name=Sheet1"
 0 curl -X GET "$baseurl/public/gsheet-read-service-account?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&sheet_name=Sheet1&cell_boundary=a2:b2"
+0 curl -X POST "$baseurl/public/openai-prompt" -H "Content-Type: application/json" -d '{"model":"gpt-4o-mini","prompt":"tell me 5 funding news"}'
+0 curl -X POST "$baseurl/public/openai-prompt" -H "Content-Type: application/json" -d '{"model":"gpt-4o-mini","prompt":"tell me 1 funding news as of today","is_web_search":1}'
+0 curl -X POST "$baseurl/public/openai-prompt" -H "Content-Type: application/json" -d '{"model":"gpt-4o-mini","prompt":"one more","previous_response_id":"resp_681cce976014819188612b0da02fdc010bcadcf4b058fde8"}'
+0 curl -X POST "$baseurl/public/openai-ocr" -F "model=gpt-4o-mini" -F "prompt=what is this image about" -F "file=@/Users/atom/Downloads/shankara-no-seeker-no-liberation.png"
 
 #private
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "file=@$file_create"
