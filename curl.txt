@@ -8,11 +8,11 @@ curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_roo
 curl -X POST "$baseurl/root/db-init?mode=3" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
 curl -X PUT "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 curl -X PUT "$baseurl/root/db-checklist" -H "Authorization: Bearer $token_root"
-curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@$file_create"
-curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=update" -F "table=test" -F "file=@$file_update"
-curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=delete" -F "table=test" -F "file=@$file_delete"
-curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@$file_update"
-curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root"
+0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@$file_create"
+0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=update" -F "table=test" -F "file=@$file_update"
+0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=delete" -F "table=test" -F "file=@$file_delete"
+0 curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@$file_update"
+0 curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root"
 0 curl -X DELETE "$baseurl/root/s3-url-delete?url=url1---url2" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=public&bucket=master" -H "Authorization: Bearer $token_root"
@@ -22,8 +22,8 @@ curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root
 #auth
 curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
 curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
-0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"email":"test","password":"$password_root"}'
-0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"mobile":"test","password":"$password_root"}'
+0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"email":"test","password":"abc"}'
+0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"mobile":"test","password":"abc"}'
 0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":2,"email":"test","otp":"123"}'
 0 curl -X POST "$baseurl/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"type":2,"mobile":"test","otp":"123"}'
 0 curl -X POST "$baseurl/auth/login-oauth-google" -H "Content-Type: application/json" -d '{"type":2,"google_token":"testing"}'
@@ -68,6 +68,10 @@ curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: applic
 0 curl -X GET "$baseurl/public/object-read?table=test&id=>,1"
 0 curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.23,3.45,10,100"
 curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
+0 curl -X POST "$baseurl/public/gsheet-create?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&sheet_name=Sheet1" -H "Content-Type: application/json" -d '{"type":100,"title":"testing"}'
+0 curl -X GET "$baseurl/public/gsheet-read-direct?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&gid=0"
+0 curl -X GET "$baseurl/public/gsheet-read-service-account?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&sheet_name=Sheet1"
+0 curl -X GET "$baseurl/public/gsheet-read-service-account?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&sheet_name=Sheet1&cell_boundary=a2:b2"
 
 #private
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "file=@$file_create"
@@ -79,7 +83,7 @@ curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer 
 
 #admin
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
-curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"username":"$username_2","password":"$password","api_access":"1,2,3,4,5"}'
+curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"username":"abc","password":"abc","api_access":"1,2,3,4,5"}'
 curl -X PUT "$baseurl/admin/user-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"api_access":"1,2,3,4,5,6,7,8,9,10"}'
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":435,"title":"updated333"}'

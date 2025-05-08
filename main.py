@@ -1,4 +1,28 @@
 #function
+import gspread
+from google.oauth2.service_account import Credentials
+async def gsheet_client_read(gsheet_service_account_json_path,gsheet_scope_list):
+   gsheet_client=gspread.authorize(Credentials.from_service_account_file(gsheet_service_account_json_path,scopes=gsheet_scope_list))
+   return gsheet_client
+
+async def gsheet_create(gsheet_client,spreadsheet_id,sheet_name,object):
+   row=[object[key] for key in sorted(object.keys())]
+   output=gsheet_client.open_by_key(spreadsheet_id).worksheet(sheet_name).append_row(row)
+   return output
+
+async def gsheet_read_service_account(gsheet_client,spreadsheet_id,sheet_name,cell_boundary):
+   worksheet=gsheet_client.open_by_key(spreadsheet_id).worksheet(sheet_name)
+   if cell_boundary:output=worksheet.get(cell_boundary)
+   else:output=worksheet.get_all_records()
+   return output
+
+import pandas
+async def gsheet_read_pandas(spreadsheet_id,gid):
+   url=f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
+   df=pandas.read_csv(url)
+   output=df.to_dict(orient="records")
+   return output
+
 from databases import Database
 async def postgres_client_read(postgres_url):
    postgres_client=Database(postgres_url,min_size=1,max_size=100)
@@ -433,8 +457,7 @@ async def token_decode(token,key_jwt):
    return user
 
 import jwt,json,time
-async def token_create(key_jwt,user):
-   token_expire_sec=365*24*60*60
+async def token_create(key_jwt,token_expire_sec,user):
    user={"id":user["id"]}
    user=json.dumps(user,default=str)
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":user},key_jwt)
@@ -646,7 +669,7 @@ async def s3_bucket_delete(s3_client,bucket):
    return {"status":1,"message":output}
 
 import hashlib
-async def auth_signup(postgres_client,type,username,password):
+async def signup_username_password(postgres_client,type,username,password):
    query="insert into users (type,username,password) values (:type,:username,:password) returning *;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
@@ -654,36 +677,36 @@ async def auth_signup(postgres_client,type,username,password):
    return {"status":1,"message":user}
 
 import hashlib
-async def auth_login(postgres_client,token_create,key_jwt,type,username,password):
+async def login_password_username(postgres_client,token_create,key_jwt,token_expire_sec,type,username,password):
    query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:return {"status":0,"message":"user not found"}
-   token=await token_create(key_jwt,user)
+   token=await token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
 import hashlib
-async def auth_login_email_password(postgres_client,token_create,key_jwt,type,email,password):
+async def login_password_email(postgres_client,token_create,key_jwt,token_expire_sec,type,email,password):
    query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
    values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:return {"status":0,"message":"user not found"}
-   token=await token_create(key_jwt,user)
+   token=await token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
 import hashlib
-async def auth_login_mobile_password(postgres_client,token_create,key_jwt,type,mobile,password):
+async def login_password_mobile(postgres_client,token_create,key_jwt,token_expire_sec,type,mobile,password):
    query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
    values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:return {"status":0,"message":"user not found"}
-   token=await token_create(key_jwt,user)
+   token=await token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
-async def auth_login_email_otp(postgres_client,token_create,key_jwt,verify_otp,type,email,otp):
+async def login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,email,otp):
    response=await verify_otp(postgres_client,otp,email,None)
    if response["status"]==0:return response
    query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
@@ -695,10 +718,10 @@ async def auth_login_email_otp(postgres_client,token_create,key_jwt,verify_otp,t
       values={"type":type,"email":email}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await token_create(key_jwt,user)
+   token=await token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
-async def auth_login_mobile_otp(postgres_client,token_create,key_jwt,verify_otp,type,mobile,otp):
+async def login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,mobile,otp):
    response=await verify_otp(postgres_client,otp,None,mobile)
    if response["status"]==0:return response
    query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
@@ -710,7 +733,7 @@ async def auth_login_mobile_otp(postgres_client,token_create,key_jwt,verify_otp,
       values={"type":type,"mobile":mobile}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await token_create(key_jwt,user)
+   token=await token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
 from google.oauth2 import id_token
@@ -724,7 +747,7 @@ def google_user_read(google_token,google_client_id):
    except Exception as e:response={"status":0,"message":str(e)}
    return response
 
-async def auth_login_google(postgres_client,token_create,key_jwt,google_user_read,google_client_id,type,google_token):
+async def login_google(postgres_client,token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token):
    response=google_user_read(google_token,google_client_id)
    if response["status"]==0:return response
    google_user=response["message"]
@@ -737,7 +760,7 @@ async def auth_login_google(postgres_client,token_create,key_jwt,google_user_rea
       values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await token_create(key_jwt,user)
+   token=await token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
 from fastapi import responses
@@ -770,7 +793,7 @@ google_client_id=os.getenv("google_client_id")
 is_signup=int(os.getenv("is_signup",0))
 postgres_url_read=os.getenv("postgres_url_read")
 channel_name=os.getenv("channel_name","ch1")
-user_type_allowed=[int(x) for x in os.getenv("user_type_allowed","1,2,3").split(",")]
+user_type_allowed=[int(x) for x in (os.getenv("user_type_allowed","1,2,3").split(","))]
 column_disabled_non_admin=os.getenv("column_disabled_non_admin","is_active,is_verified,api_access").split(",")
 postgres_url_read_replica=os.getenv("postgres_url_read_replica")
 router_list=os.getenv("router_list").split(",") if os.getenv("router_list") else []
@@ -786,6 +809,9 @@ log_api_batch_count=int(os.getenv("log_api_batch_count",10))
 users_api_access_max_count=int(os.getenv("users_api_access_max_count",100000))
 users_is_active_max_count=int(os.getenv("users_is_active_max_count",1000))
 openai_key=os.getenv("openai_key")
+token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
+gsheet_service_account_json_path=os.getenv("gsheet_service_account_json_path")
+gsheet_scope_list=os.getenv("gsheet_scope_list","https://www.googleapis.com/auth/spreadsheets").split(",")
 
 #config
 if os.path.exists("config.py"):import config
@@ -928,6 +954,7 @@ rabbitmq_channel=None
 lavinmq_client=None
 lavinmq_channel=None
 kafka_producer_client=None
+gsheet_client=None
 
 #openai client
 from openai import OpenAI
@@ -1007,6 +1034,9 @@ async def lifespan(app:FastAPI):
       #ratelimiter
       if ratelimiter_client=="valkey":await FastAPILimiter.init(valkey_client)
       else:await FastAPILimiter.init(redis_client)
+      #gsheet client
+      global gsheet_client
+      if gsheet_service_account_json_path:gsheet_client=await gsheet_client_read(gsheet_service_account_json_path,gsheet_scope_list)
       #disconnect
       yield
       await postgres_client.disconnect()
@@ -1215,7 +1245,7 @@ async def root_s3_bucket_ops(request:Request):
    #final
    return response
 
-@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=1,seconds=10))])
+@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=10,seconds=1))])
 async def auth_signup_username_password(request:Request):
    #param
    object=await request.json()
@@ -1227,9 +1257,9 @@ async def auth_signup_username_password(request:Request):
    if is_signup==0:return error("signup disabled")
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   response=await auth_signup(postgres_client,type,username,password)
+   response=await signup_username_password(postgres_client,type,username,password)
    if response["status"]==0:return error(response["message"])
-   token=await token_create(key_jwt,response["message"])
+   token=await token_create(key_jwt,token_expire_sec,response["message"])
    #final
    return {"status":1,"message":token}
 
@@ -1242,7 +1272,7 @@ async def auth_login_password_username(request:Request):
    password=object.get("password")
    if not type or not username or not password:return error("type/username/password missing")
    #logic
-   response=await auth_login(postgres_client,token_create,key_jwt,type,username,password)
+   response=await login_password_username(postgres_client,token_create,key_jwt,token_expire_sec,type,username,password)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1256,7 +1286,7 @@ async def auth_login_password_email(request:Request):
    password=object.get("password")
    if not type or not email or not password:return error("type/email/password missing")
    #logic
-   response=await auth_login_email_password(postgres_client,token_create,key_jwt,type,email,password)
+   response=await login_password_email(postgres_client,token_create,key_jwt,token_expire_sec,type,email,password)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1270,7 +1300,7 @@ async def auth_login_password_mobile(request:Request):
    password=object.get("password")
    if not type or not mobile or not password:return error("type/mobile/password missing")
    #logic
-   response=await auth_login_mobile_password(postgres_client,token_create,key_jwt,type,mobile,password)
+   response=await login_password_mobile(postgres_client,token_create,key_jwt,token_expire_sec,type,mobile,password)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1286,7 +1316,7 @@ async def auth_login_otp_email(request:Request):
    #check
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   response=await auth_login_email_otp(postgres_client,token_create,key_jwt,verify_otp,type,email,otp)
+   response=await login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,email,otp)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1302,7 +1332,7 @@ async def auth_login_otp_mobile(request:Request):
    #check
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   response=await auth_login_mobile_otp(postgres_client,token_create,key_jwt,verify_otp,type,mobile,otp)
+   response=await login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,mobile,otp)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1317,7 +1347,7 @@ async def auth_login_oauth_google(request:Request):
    #check
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   response=await auth_login_google(postgres_client,token_create,key_jwt,google_user_read,google_client_id,type,google_token)
+   response=await login_google(postgres_client,token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token)
    if response["status"]==0:return error(response["message"])
    #final
    return response
@@ -1338,7 +1368,7 @@ async def my_token_refresh(request:Request):
    if response["status"]==0:return error(response["message"])
    user=response["message"]
    #token create
-   token=await token_create(key_jwt,user)
+   token=await token_create(key_jwt,token_expire_sec,user)
    #final
    return {"status":1,"message":token}
 
@@ -1677,6 +1707,41 @@ async def public_object_read(request:Request):
       object_list=response["message"]
    #final
    return {"status":1,"message":object_list}
+
+@app.post("/public/gsheet-create")
+async def public_gsheet_create(request:Request):
+   #param
+   spreadsheet_id=request.query_params.get("spreadsheet_id")
+   sheet_name=request.query_params.get("sheet_name")
+   object=await request.json()
+   if not spreadsheet_id or not sheet_name:return error("spreadsheet_id/sheet_name missing")
+   #logic
+   output=await gsheet_create(gsheet_client,spreadsheet_id,sheet_name,object)
+   #final
+   return {"status":1,"message":output}
+
+@app.get("/public/gsheet-read-service-account")
+async def public_gsheet_read_service_account(request:Request):
+   #param
+   spreadsheet_id=request.query_params.get("spreadsheet_id")
+   sheet_name=request.query_params.get("sheet_name")
+   cell_boundary=request.query_params.get("cell_boundary")
+   if not spreadsheet_id or not sheet_name:return error("spreadsheet_id/sheet_name missing")
+   #logic
+   output=await gsheet_read_service_account(gsheet_client,spreadsheet_id,sheet_name,cell_boundary)
+   #final
+   return {"status":1,"message":output}
+
+@app.get("/public/gsheet-read-direct")
+async def public_gsheet_read_direct(request:Request):
+   #param
+   spreadsheet_id=request.query_params.get("spreadsheet_id")
+   gid=request.query_params.get("gid")
+   if not spreadsheet_id or not gid:return error("spreadsheet_id/gid missing")
+   #logic
+   output=await gsheet_read_pandas(spreadsheet_id,gid)
+   #final
+   return {"status":1,"message":output}
 
 @app.post("/private/file-upload-s3-direct")
 async def private_file_upload_s3_direct(request:Request):
