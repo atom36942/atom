@@ -1098,8 +1098,7 @@ async def middleware(request:Request,api_function):
                if response["status"]==0:return error(response["message"])
       #api response
       if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
-      else:
-         response=await api_function(request)
+      else:response=await api_function(request)
       #api log
       object={"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
       asyncio.create_task(batch_create_log_api(object,log_api_batch_count,postgres_create,postgres_client,postgres_column_datatype,object_serialize))
@@ -1771,7 +1770,6 @@ async def public_openai_ocr(request:Request):
    contents=await file_list[-1].read()
    b64_image=base64.b64encode(contents).decode("utf-8")
    output=openai_client.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
-   print(output)
    #final
    return {"status":1,"message":output}
 
