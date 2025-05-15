@@ -22,8 +22,8 @@ curl -X PUT "$baseurl/root/db-checklist" -H "Authorization: Bearer $token_root"
 #auth
 curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
 curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
-0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"email":"test","password":"abc"}'
-0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"mobile":"test","password":"abc"}'
+0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"email":"test","password":"test"}'
+0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"mobile":"test","password":"test"}'
 0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":2,"email":"test","otp":"123"}'
 0 curl -X POST "$baseurl/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"type":2,"mobile":"test","otp":"123"}'
 0 curl -X POST "$baseurl/auth/login-oauth-google" -H "Content-Type: application/json" -d '{"type":2,"google_token":"testing"}'
@@ -59,9 +59,10 @@ curl -X DELETE "$baseurl/my/message-delete?mode=all" -H "Authorization: Bearer $
 
 #public
 curl -X GET "$baseurl/public/info"
-0 curl -X POST "$baseurl/public/otp-send-mobile-sns" -H "Content-Type: application/json" -d '{"mobile":"abc"}'
-0 curl -X POST "$baseurl/public/otp-send-mobile-fast2sms" -H "Content-Type: application/json" -d '{"mobile":"abc"}'
-0 curl -X POST "$baseurl/public/otp-send-email-ses" -H "Content-Type: application/json" -d '{"email":"abc"}'
+0 curl -X POST "$baseurl/public/otp-send-mobile-sns" -H "Content-Type: application/json" -d '{"mobile":"test"}'
+0 curl -X POST "$baseurl/public/otp-send-mobile-fast2sms" -H "Content-Type: application/json" -d '{"mobile":"test"}'
+0 curl -X POST "$baseurl/public/otp-send-email-ses" -H "Content-Type: application/json" -d '{"sender_email":"test","email":"test"}'
+0 curl -X POST "$baseurl/public/otp-send-email-resend" -H "Content-Type: application/json" -d '{"sender_email":"test","email":"test"}'
 curl -X GET "$baseurl/public/object-read?table=test"
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"testing"}'
 0 curl -X GET "$baseurl/public/object-read?table=test"
@@ -87,7 +88,7 @@ curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer 
 
 #admin
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
-curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"username":"abc","password":"abc","api_access":"1,2,3,4,5"}'
+curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"username":"test","password":"test","api_access":"1,2,3,4,5"}'
 curl -X PUT "$baseurl/admin/user-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"api_access":"1,2,3,4,5,6,7,8,9,10"}'
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":435,"title":"updated333"}'

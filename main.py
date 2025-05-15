@@ -1,4 +1,13 @@
 #function
+import httpx
+async def send_email_resend(resend_key,resend_url,sender_email,email_list,title,body):
+   payload={"from":sender_email,"to":email_list,"subject":title,"html":body}
+   headers={"Authorization":f"Bearer {resend_key}","Content-Type": "application/json"}
+   async with httpx.AsyncClient() as client:output=await client.post(resend_url,json=payload,headers=headers)
+   if output.status_code==200:response={"status":1,"message":"done"}
+   else:response={"status":0,"message":f"Resend error:{response.text}"}
+   return response
+
 import gspread
 from google.oauth2.service_account import Credentials
 async def gsheet_client_read(gsheet_service_account_json_path,gsheet_scope_list):
@@ -21,6 +30,20 @@ async def gsheet_read_pandas(spreadsheet_id,gid):
    url=f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
    df=pandas.read_csv(url)
    output=df.to_dict(orient="records")
+   return output
+
+async def openai_prompt(openai_client,model,prompt,is_web_search,previous_response_id):
+   params={"model":model,"input":prompt}
+   if previous_response_id:params["previous_response_id"]=previous_response_id
+   if is_web_search:params["tools"]=[{"type":"web_search"}]
+   output=openai_client.responses.create(**params)
+   return output
+
+import base64
+async def openai_ocr(openai_client,model,prompt,file):
+   contents=await file.read()
+   b64_image=base64.b64encode(contents).decode("utf-8")
+   output=openai_client.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
    return output
 
 from databases import Database
@@ -812,6 +835,9 @@ openai_key=os.getenv("openai_key")
 token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
 gsheet_service_account_json_path=os.getenv("gsheet_service_account_json_path")
 gsheet_scope_list=os.getenv("gsheet_scope_list","https://www.googleapis.com/auth/spreadsheets").split(",")
+resend_key=os.getenv("resend_key")
+resend_url=os.getenv("resend_url")
+
 
 #config
 if os.path.exists("config.py"):import config
@@ -1113,7 +1139,7 @@ router_add(router_list,app)
 
 #api
 from fastapi import Request,responses,Depends
-import hashlib,json,time,os,random,asyncio,requests,base64
+import hashlib,json,time,os,random,asyncio,requests,httpx
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
@@ -1244,7 +1270,7 @@ async def root_s3_bucket_ops(request:Request):
    #final
    return response
 
-@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=10,seconds=1))])
+@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=1,seconds=5))])
 async def auth_signup_username_password(request:Request):
    #param
    object=await request.json()
@@ -1665,9 +1691,26 @@ async def public_otp_send_email_ses(request:Request):
    if response["status"]==0:return error(response["message"])
    otp=response["message"]
    #logic
-   await send_email_ses(ses_client,sender_email,[email],"otp from atom",str(otp))
+   await send_email_ses(ses_client,sender_email,[email],"your otp code",str(otp))
    #final
    return {"status":1,"message":"done"}
+
+@app.post("/public/otp-send-email-resend")
+async def public_otp_send_email_resend(request:Request):
+   #param
+   object=await request.json()
+   email=object.get("email")
+   sender_email=object.get("sender_email")
+   if not email or not sender_email:return error("email/sender_email missing")
+   #generate otp
+   response=await generate_save_otp(postgres_client,email,None)
+   if response["status"]==0:return error(response["message"])
+   otp=response["message"]
+   #logic
+   response=await send_email_resend(resend_key,resend_url,sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
 
 @app.post("/public/object-create")
 async def public_object_create(request:Request):
@@ -1707,6 +1750,32 @@ async def public_object_read(request:Request):
    #final
    return {"status":1,"message":object_list}
 
+@app.post("/public/openai-prompt")
+async def public_openai_prompt(request:Request):
+   #param
+   object=await request.json()
+   model=object.get("model")
+   prompt=object.get("prompt")
+   is_web_search=object.get("is_web_search")
+   previous_response_id=object.get("previous_response_id")
+   if not model or not prompt:return error("model/prompt missing")
+   #logic
+   output=await openai_prompt(openai_client,model,prompt,is_web_search,previous_response_id)
+   #final
+   return {"status":1,"message":output}
+
+@app.post("/public/openai-ocr")
+async def public_openai_ocr(request:Request):
+   #param
+   object,file_list=await form_data_read(request)
+   model=object.get("model")
+   prompt=object.get("prompt")
+   if not model or not prompt or not file_list:return error("model/prompt/file missing")
+   #logic
+   output=await openai_ocr(openai_client,model,prompt,file_list[-1])
+   #final
+   return {"status":1,"message":output}
+
 @app.post("/public/gsheet-create")
 async def public_gsheet_create(request:Request):
    #param
@@ -1739,37 +1808,6 @@ async def public_gsheet_read_direct(request:Request):
    if not spreadsheet_id or not gid:return error("spreadsheet_id/gid missing")
    #logic
    output=await gsheet_read_pandas(spreadsheet_id,gid)
-   #final
-   return {"status":1,"message":output}
-
-@app.post("/public/openai-prompt")
-async def public_openai_prompt(request:Request):
-   #param
-   object=await request.json()
-   model=object.get("model")
-   prompt=object.get("prompt")
-   is_web_search=object.get("is_web_search")
-   previous_response_id=object.get("previous_response_id")
-   if not model or not prompt:return error("model/prompt missing")
-   #logic
-   params={"model":model,"input":prompt}
-   if previous_response_id:params["previous_response_id"]=previous_response_id
-   if is_web_search:params["tools"]=[{"type":"web_search"}]
-   output=openai_client.responses.create(**params)
-   #final
-   return {"status":1,"message":output}
-
-@app.post("/public/openai-ocr")
-async def public_openai_ocr(request:Request):
-   #param
-   object,file_list=await form_data_read(request)
-   model=object.get("model")
-   prompt=object.get("prompt")
-   if not model or not prompt:return error("model/prompt missing")
-   #logic
-   contents=await file_list[-1].read()
-   b64_image=base64.b64encode(contents).decode("utf-8")
-   output=openai_client.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
    #final
    return {"status":1,"message":output}
 
