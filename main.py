@@ -821,7 +821,6 @@ column_disabled_non_admin=os.getenv("column_disabled_non_admin","is_active,is_ve
 postgres_url_read_replica=os.getenv("postgres_url_read_replica")
 router_list=os.getenv("router_list").split(",") if os.getenv("router_list") else []
 fast2sms_key=os.getenv("fast2sms_key")
-fast2sms_url=os.getenv("fast2sms_url")
 cache_client=os.getenv("cache_client")
 ratelimiter_client=os.getenv("ratelimiter_client")
 is_active_check_api_keyword=os.getenv("is_active_check_api_keyword")
@@ -836,8 +835,6 @@ token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
 gsheet_service_account_json_path=os.getenv("gsheet_service_account_json_path")
 gsheet_scope_list=os.getenv("gsheet_scope_list","https://www.googleapis.com/auth/spreadsheets").split(",")
 resend_key=os.getenv("resend_key")
-resend_url=os.getenv("resend_url")
-
 
 #config
 if os.path.exists("config.py"):import config
@@ -1675,7 +1672,7 @@ async def public_otp_send_mobile_fast2sms(request:Request):
    if response["status"]==0:return error(response["message"])
    otp=response["message"]
    #logic
-   response=requests.get(fast2sms_url,params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
+   response=requests.get("https://www.fast2sms.com/dev/bulkV2",params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
    #final
    return {"status":1,"message":response.json()}
 
@@ -1707,7 +1704,7 @@ async def public_otp_send_email_resend(request:Request):
    if response["status"]==0:return error(response["message"])
    otp=response["message"]
    #logic
-   response=await send_email_resend(resend_key,resend_url,sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
+   response=await send_email_resend(resend_key,"https://api.resend.com/emails",sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
    if response["status"]==0:return error(response["message"])
    #final
    return response
