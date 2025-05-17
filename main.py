@@ -650,6 +650,14 @@ async def s3_bucket_delete(s3_client,bucket):
    output=s3_client.delete_bucket(Bucket=bucket)
    return output
 
+from google.oauth2 import id_token
+from google.auth.transport import requests
+def google_user_read(google_token,google_client_id):
+   request=requests.Request()
+   id_info=id_token.verify_oauth2_token(google_token,request,google_client_id)
+   google_user={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
+   return google_user
+
 import hashlib
 async def signup_username_password(postgres_client,type,username,password):
    query="insert into users (type,username,password) values (:type,:username,:password) returning *;"
@@ -717,21 +725,8 @@ async def login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec
    token=await token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
-from google.oauth2 import id_token
-from google.auth.transport import requests
-def google_user_read(google_token,google_client_id):
-   try:
-      request=requests.Request()
-      id_info=id_token.verify_oauth2_token(google_token,request,google_client_id)
-      output={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
-      response={"status":1,"message":output}
-   except Exception as e:response={"status":0,"message":str(e)}
-   return response
-
 async def login_google(postgres_client,token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token):
-   response=google_user_read(google_token,google_client_id)
-   if response["status"]==0:return response
-   google_user=response["message"]
+   google_user=google_user_read(google_token,google_client_id)
    query=f"select * from users where type=:type and google_id=:google_id order by id desc limit 1;"
    values={"type":type,"google_id":google_user["sub"]}
    output=await postgres_client.fetch_all(query=query,values=values)
@@ -742,7 +737,7 @@ async def login_google(postgres_client,token_create,key_jwt,token_expire_sec,goo
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
    token=await token_create(key_jwt,token_expire_sec,user)
-   return {"status":1,"message":token}
+   return token
 
 from fastapi import responses
 def error(message):
@@ -1325,10 +1320,9 @@ async def auth_login_oauth_google(request:Request):
    #check
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   response=await login_google(postgres_client,token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token)
-   if response["status"]==0:return error(response["message"])
+   token=await login_google(postgres_client,token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token)
    #final
-   return response
+   return {"status":1,"message":token}
 
 @app.get("/my/profile")
 async def my_profile(request:Request):
