@@ -1,6 +1,7 @@
 #index
 curl -X GET "$baseurl"
 0 curl -X GET "$baseurl/page/about"
+curl -X GET "$baseurl/test"
 
 #root
 curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_root"
@@ -8,9 +9,9 @@ curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_roo
 curl -X POST "$baseurl/root/db-init?mode=3" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
 curl -X PUT "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 curl -X PUT "$baseurl/root/db-checklist" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@$file_create"
-0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=update" -F "table=test" -F "file=@$file_update"
-0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=delete" -F "table=test" -F "file=@$file_delete"
+0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
+0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=update" -F "table=test" -F "file=@/Users/atom/Downloads/update.csv"
+0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=delete" -F "table=test" -F "file=@/Users/atom/Downloads/delete.csv"
 0 curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@$file_update"
 0 curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root"
 0 curl -X DELETE "$baseurl/root/s3-url-delete?url=url1---url2" -H "Authorization: Bearer $token_root"
