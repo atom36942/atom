@@ -22,7 +22,9 @@ curl -X PUT "$baseurl/root/db-checklist" -H "Authorization: Bearer $token_root"
 
 #auth
 curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
+0 curl -X POST "$baseurl/auth/signup-username-password-bigint" -H "Content-Type: application/json" -d '{"type":2,"username_bigint":123,"password_bigint":123}'
 curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
+0 curl -X POST "$baseurl/auth/login-password-username-bigint" -H "Content-Type: application/json" -d '{"type":2,"username_bigint":123,"password_bigint":123}'
 0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"email":"test","password":"test"}'
 0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"mobile":"test","password":"test"}'
 0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":2,"email":"test","otp":"123"}'
@@ -90,6 +92,7 @@ curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer 
 #admin
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
 curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"username":"test","password":"test","api_access":"1,2,3,4,5"}'
+curl -X POST "$baseurl/admin/user-create" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":2,"username_bigint":1234,"password_bigint":123}'
 curl -X PUT "$baseurl/admin/user-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"api_access":"1,2,3,4,5,6,7,8,9,10"}'
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":435,"title":"updated333"}'

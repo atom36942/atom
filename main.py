@@ -665,10 +665,26 @@ async def signup_username_password(postgres_client,type,username,password):
    output=await postgres_client.fetch_all(query=query,values=values)
    return output[0]
 
+async def signup_username_password_bigint(postgres_client,type,username_bigint,password_bigint):
+   query="insert into users (type,username_bigint,password_bigint) values (:type,:username_bigint,:password_bigint) returning *;"
+   values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   return output[0]
+
 import hashlib
 async def login_password_username(postgres_client,token_create,key_jwt,token_expire_sec,type,username,password):
    query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await postgres_client.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:return {"status":0,"message":"user not found"}
+   token=await token_create(key_jwt,token_expire_sec,user)
+   return {"status":1,"message":token}
+
+import hashlib
+async def login_password_username_bigint(postgres_client,token_create,key_jwt,token_expire_sec,type,username_bigint,password_bigint):
+   query=f"select * from users where type=:type and username_bigint=:username_bigint and password_bigint=:password_bigint order by id desc limit 1;"
+   values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:return {"status":0,"message":"user not found"}
@@ -766,7 +782,7 @@ s3_region_name=os.getenv("s3_region_name")
 sns_region_name=os.getenv("sns_region_name")
 ses_region_name=os.getenv("ses_region_name")
 google_client_id=os.getenv("google_client_id")
-is_signup=int(os.getenv("is_signup",0))
+is_signup=int(os.getenv("is_signup",1))
 postgres_url_read=os.getenv("postgres_url_read")
 channel_name=os.getenv("channel_name","ch1")
 user_type_allowed=[int(x) for x in (os.getenv("user_type_allowed","1,2,3").split(","))]
@@ -870,7 +886,9 @@ postgres_schema_default={
 "email-text-0-btree",
 "mobile-text-0-btree",
 "api_access-text-0-0",
-"last_active_at-timestamptz-0-0"
+"last_active_at-timestamptz-0-0",
+"username_bigint-bigint-0-btree",
+"password_bigint-bigint-0-btree"
 ],
 "message":[
 "created_at-timestamptz-0-brin",
@@ -906,7 +924,8 @@ postgres_schema_default={
 "unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
 "unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
 "unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
-"unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);"
+"unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
+"unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
 }
 }
 
@@ -1236,6 +1255,23 @@ async def auth_signup_username_password(request:Request):
    #final
    return {"status":1,"message":token}
 
+@app.post("/auth/signup-username-password-bigint")
+async def auth_signup_username_password_bigint(request:Request):
+   #param
+   object=await request.json()
+   type=object.get("type")
+   username_bigint=object.get("username_bigint")
+   password_bigint=object.get("password_bigint")
+   if not type or not username_bigint or not password_bigint:return error("type/username_bigint/password_bigint missing")
+   #check
+   if is_signup==0:return error("signup disabled")
+   if type not in user_type_allowed:return error("wrong type")
+   #logic
+   user=await signup_username_password_bigint(postgres_client,type,username_bigint,password_bigint)
+   token=await token_create(key_jwt,token_expire_sec,user)
+   #final
+   return {"status":1,"message":token}
+
 @app.post("/auth/login-password-username")
 async def auth_login_password_username(request:Request):
    #param
@@ -1246,6 +1282,20 @@ async def auth_login_password_username(request:Request):
    if not type or not username or not password:return error("type/username/password missing")
    #logic
    response=await login_password_username(postgres_client,token_create,key_jwt,token_expire_sec,type,username,password)
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
+
+@app.post("/auth/login-password-username-bigint")
+async def auth_login_password_username(request:Request):
+   #param
+   object=await request.json()
+   type=object.get("type")
+   username_bigint=object.get("username_bigint")
+   password_bigint=object.get("password_bigint")
+   if not type or not username_bigint or not password_bigint:return error("type/username_bigint/password_bigint missing")
+   #logic
+   response=await login_password_username_bigint(postgres_client,token_create,key_jwt,token_expire_sec,type,username_bigint,password_bigint)
    if response["status"]==0:return error(response["message"])
    #final
    return response
