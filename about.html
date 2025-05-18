@@ -1,54 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>project</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>atom42.org</title>
+    <link rel="icon" type="image/x-icon" href="https://i.postimg.cc/ZK7dC9bx/logo.png">
     <style>
-        body {background-color: #111; color: #fff; font-family: 'Courier New', Courier, monospace;}
-        h1, h2 {font-family: 'Courier New', Courier, monospace;}
-        a {color: #00ff00;}
-        a:hover {color: #b0ff00;}
-        .matrix-font {font-family: 'Courier New', Courier, monospace; font-weight: bold; letter-spacing: 0.1em; text-transform: lowercase; color: #00ff00;}
-        .card {background-color: #222; padding: 20px; border-radius: 10px; margin-bottom: 20px;}
-        .card-title {color: #00ff00; font-size: 1.5rem; font-weight: bold;}
+        :root {--primary-color:#47bcae;--secondary-color:#333;--error-color:#f44336;--success-color:#528949;--background-color:#121212;--card-background:#1e1e1e;--border-color:#404040;--text-color:#fff;--font-family:Arial,sans-serif;}
+        body {margin:10px;padding:0;font-family:var(--font-family);background-color:var(--background-color);color:var(--text-color);display:flex;align-items:center;justify-content:center;min-height:100vh;}
+        .card {margin:10px;;background-color:var(--card-background);padding:20px;border-radius:10px;box-shadow:0 4px 6px rgba(0, 0, 0, 0.2);max-width:680px;width:calc(100%-50px);text-align:left;}
+        @media (max-width:600px) {.card { padding:20px;} .card-header h1 {font-size:1.0em;word-wrap:break-word;white-space:normal;}}
+        .card-header {display:flex;align-items:center;gap:5px;}
+        .card-header img {max-width:35px;height:auto;}
+        h1 {color:var(--primary-color);font-size:1.2em;margin:0;}
+        p,a {font-size:0.95em;line-height:1.3;}
+        @media (max-width: 600px) { p, a { font-size: 0.8em;}}
+        a {color:var(--primary-color);}
+        .cover-image {text-align:center;margin:10px auto;display:block;width:100%;}
+        .select-wrapper {position:relative;width:100%;}
+        .select-wrapper::after {content:'▼';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-color);font-size:1em;pointer-events:none;}
+        form {display:flex;flex-direction:column;gap:10px;}
+        .form-container {margin-top:20px;}
+        select,input,textarea {color:var(--primary-color);padding:15px;font-size:1.0em;background-color:#2e2e2e;border-radius:5px;border:1px solid var(--border-color);width:100%;box-sizing:border-box;}
+        @media (max-width: 600px) { select,input,textarea { font-size: 0.875em;}}
+        textarea {resize:vertical;}
+        select {cursor:pointer;appearance:none;}
+        .submit-button {padding:15px;margin-bottom:20px;margin-top:10px;font-size:1.2em;border:none;border-radius:5px;cursor:pointer;background-color:var(--secondary-color);color:var(--text-color);transition:background-color 0.3s ease;width:100%;}
+        .submit-button:hover {background-color:var(--primary-color);}
+        .submit-button:active {transform:scale(0.98);}
+        .anchor-link {color:var(--primary-color);font-size:0.8em;margin:1px;text-align:center;justify-content:space-between;}
+        .loader {display:none;margin-top:20px;text-align:center;font-size:2em;color:var(--primary-color);}
+        .loader:after {content:'';display:block;width:50px;height:50px;border:5px solid var(--primary-color);border-radius:50%;border-top:5px solid transparent;animation:spin 1.5s linear infinite;margin:0 auto;}
+        @keyframes spin {0% { transform:rotate(0deg);}100% { transform:rotate(360deg);}}
+        .toast {margin:50px auto;visibility:hidden;min-width:250px;background-color:var(--secondary-color);color:var(--text-color);text-align:center;border-radius:5px;padding:16px;position:fixed;z-index:1;left:50%;bottom:30px;font-size:17px;opacity:0;transition:opacity 0.5s ease-in-out;transform:translateX(-50%);}
+        .toast.show {visibility:visible;opacity:5;}
+        .toast.success {background-color:var(--success-color);}
+        .toast.error {background-color:var(--error-color);}
+        .cover-image { width: 100%; height: 250px; object-fit: cover; object-position: center; } @media (max-width: 600px) { .cover-image { height: 100px; } }
     </style>
 </head>
-
-<body class="text-white p-8 flex justify-center">
-    <div class="w-full max-w-4xl">
-        <header class="text-center mb-16">
-            <h1 class="text-5xl matrix-font">project</h1>
-            <p class="text-xl">title of the project</p>
-        </header>
-
-        <section id="about" class="mb-16 card">
-            <h2 class="card-title">card 1</h2>
-            <p class="mb-4">card 1 description</p>
-            <ul class="list-disc ml-8">
-                <li>bullet point 1</li> 
-                <li>bullet point 2</li>
-                <li>bullet point 3</li>
-            </ul>
-        </section>
-
-        <section id="how-to-run" class="mb-16 card">
-            <h2 class="card-title">card 2</h2>
-            <p class="mb-4">card 2 description</p>
-            <ol class="list-decimal ml-8 mb-4">
-                <li>bullet point 1</li> 
-                <li>bullet point 2</li>
-                <li>bullet point 3</li>
-            </ol>
-        </section>
-
-        <footer class="text-center mt-16">
-            <p class="mb-4">made with chatgpt!</p>
-            <p>contact us at: <a href="mailto:email@gmail.com">email@gmail.com</a></p>
-        </footer>
+<body>
+    <div class="card">
+        <div class="card-header">
+            <img src="https://i.postimg.cc/ZK7dC9bx/logo.png" loading="lazy" alt="logo">
+            <h1>atom</h1>
+        </div>
+        <p>
+        Atom is a general-purpose codebase designed to significantly reduce the time required to build a project.
+        It includes all the essential components commonly needed to develop a backend. 
+        For more details, please refer to the README file.
+        </p>
+        <p>repo <a target="_blank" href='https://github.com/atom36942123/atom'>Click</a></p>
+        <img class="cover-image" src="https://i.postimg.cc/fRQd1rXG/clark-tibbs-oq-Stl2-L5ox-I-unsplash-1-11zon.jpg" loading="lazy" alt="cover-image">
+        <div class="form-container">
+            <form onsubmit="submitForm(event)">
+                <div class="select-wrapper">
+                    <select name="work_type" required>
+                        <option value="">select your work type</option>
+                        <option value="full-time">full-time</option>
+                        <option value="internship">internship</option>
+                        <option value="freelancing">freelancing</option>
+                        <option value="consultant">consulting</option>
+                        <option value="other">other</option>
+                    </select>
+                </div>
+                <input type="text" name="name" placeholder="name" minlength="3" maxlength="50" required>
+                <input type="text" name="city" placeholder="city" required>
+                <input type="text" name="email" placeholder="email" required>
+                <input type="text" name="mobile" placeholder="mobile no with country code (optional)">
+                <input type="text" name="linkedin_url" placeholder="linkedin url (optional)">
+                <input type="text" name="resume_url" placeholder="resume url (optional)">
+                <input type="text" name="portfolio_url" placeholder="portfolio url (optional)">
+                <input type="text" name="link_url" placeholder="paste any other url (optional)">
+                <input type="text" name="work_profile" placeholder="work profile (ex. product manager)" required>
+                <input type="number" name="experience" placeholder="experience in years (ex. 3, 3.5)" step="0.1" min="0" max="100" required>
+                <textarea name="skill" placeholder="core work skills separated by comma (ex. python, sql,etc)" rows="5" required></textarea>
+                <textarea name="description" placeholder="write about your work profile (max 5000 characters)" rows="10" minlength="3" maxlength="5000" required></textarea>
+                <button type="submit" class="submit-button">Submit</button>
+            </form>
+            <div class="anchor-link">
+                <a style="margin-right:5px" target="_blank" href="https://atom42.notion.site/Privacy-Policy-17b9dff2f5df80d2b06bd4ce360da528?pvs=73">Privacy Policy</a>
+                <a target="_blank" href="https://atom42.notion.site/Terms-and-Conditions-17b9dff2f5df80e6b0c6fdfe27ffe254?pvs=73">Terms & Conditions</a>
+              </div>
+            <div class="loader" id="loader"></div>
+        </div>
     </div>
+    <div id="toast" class="toast"></div>
+    <script>
+        const submitForm = e => {
+            e.preventDefault();
+            const url = 'http://127.0.0.1:8000/public/object-create?table=test&is_background=1'
+            const url_2 = `${window.location.origin}/public/object-create?table=test&is_background=1`;
+            const formData = new FormData(e.target);
+            const formObject = {type:1}; 
+            formData.forEach((v, k) => {if (v !== null && v !== "") { formObject[k] = v;}});
+            document.getElementById('loader').style.display = 'block';
+            fetch(url_2, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(formObject),
+                mode: 'no-cors',
+            })
+            .then(() => { e.target.reset(); showToast('Success. We will contact you soon.', 'success'); })
+            .catch(() => showToast('There was an error submitting the form.', 'error'))
+            .finally(() => document.getElementById('loader').style.display = 'none');
+        };
+        const showToast = (msg, type) => {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast show ${type}`;
+            setTimeout(() => toast.className = toast.className.replace('show', ''), 3000);
+        };
+    </script>
 </body>
-
 </html>
