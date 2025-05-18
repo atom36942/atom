@@ -35,8 +35,8 @@ async def gsheet_read_pandas(spreadsheet_id,gid):
 async def openai_prompt(openai_client,model,prompt,is_web_search,previous_response_id):
    if not openai_client or not model or not prompt:return {"status":0,"message":"param missing"}
    params={"model":model,"input":prompt}
+   if is_web_search==1:params["tools"]=[{"type":"web_search"}]
    if previous_response_id:params["previous_response_id"]=previous_response_id
-   if is_web_search:params["tools"]=[{"type":"web_search"}]
    output=openai_client.responses.create(**params)
    return {"status":1,"message":output}
 
@@ -810,14 +810,12 @@ if os.path.exists("config.py"):import config
 
 #variable
 api_id={
-"/admin/db-runner":1,
-"/admin/user-create":2,
-"/admin/object-create":3,
-"/admin/user-update":4,
-"/admin/object-update":5,
-"/admin/ids-update":6,
-"/admin/ids-delete":7,
-"/admin/object-read":8
+"/admin/object-create":1,
+"/admin/object-update":2,
+"/admin/ids-update":3,
+"/admin/ids-delete":4,
+"/admin/object-read":5,
+"/admin/db-runner":6
 }
 postgres_schema_default={
 "table":{
@@ -1116,18 +1114,6 @@ from fastapi_limiter.depends import RateLimiter
 async def index():
    return {"status":1,"message":"welcome to atom"}
 
-@app.get("/page/{filename}")
-async def page(filename:str):
-   #variable
-   file_path=os.path.join(".",f"{filename}.html")
-   #check
-   if ".." in filename or "/" in filename:return error("invalid filename")
-   if not os.path.isfile(file_path):return error ("file not found")
-   #logic
-   with open(file_path, "r", encoding="utf-8") as file:html_content=file.read()
-   #final
-   return responses.HTMLResponse(content=html_content)
-
 @app.post("/root/db-init")
 async def root_db_init(request:Request):
    #param
@@ -1145,33 +1131,6 @@ async def root_db_init(request:Request):
    #postgres column datatype reset
    global postgres_column_datatype
    postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   #final
-   return {"status":1,"message":"done"}
-
-@app.put("/root/reset-global")
-async def root_reset_global():
-   #postgres schema reset
-   global postgres_schema
-   postgres_schema=await postgres_schema_read(postgres_client)
-   #postgres column datatype reset
-   global postgres_column_datatype
-   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   #users api access reset
-   global users_api_access
-   if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
-   #users is_active reset
-   global users_is_active
-   if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
-   #final
-   return {"status":1,"message":"done"}
-
-@app.put("/root/db-checklist")
-async def root_db_checklist():
-   #logic
-   await postgres_client.execute(query="update users set is_active=1,is_deleted=null where id=1;",values={})
-   if postgres_schema.get("log_api"):await postgres_client.execute(query="delete from log_api where created_at<now()-interval '30 days';",values={})
-   if postgres_schema.get("otp"):await postgres_client.execute(query="delete from otp where created_at<now()-interval '30 days';",values={})
-   if postgres_schema.get("message"):await postgres_client.execute(query="delete from message where created_at<now()-interval '30 days';",values={})
    #final
    return {"status":1,"message":"done"}
 
@@ -1214,15 +1173,32 @@ async def root_reset_redis():
    #final
    return {"status":1,"message":"done"}
 
-@app.delete("/root/s3-url-delete")
-async def root_s3_url_empty(request:Request):
-   #param
-   url=request.query_params.get("url")
-   if not url:return error("url missing")
-   #logic
-   for item in url.split("---"):output=await s3_url_delete(item,s3_resource)
+@app.put("/root/reset-global")
+async def root_reset_global():
+   #postgres schema reset
+   global postgres_schema
+   postgres_schema=await postgres_schema_read(postgres_client)
+   #postgres column datatype reset
+   global postgres_column_datatype
+   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
+   #users api access reset
+   global users_api_access
+   if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
+   #users is_active reset
+   global users_is_active
+   if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
    #final
-   return {"status":1,"message":output}
+   return {"status":1,"message":"done"}
+
+@app.put("/root/db-checklist")
+async def root_db_checklist():
+   #logic
+   await postgres_client.execute(query="update users set is_active=1,is_deleted=null where id=1;",values={})
+   if postgres_schema.get("log_api"):await postgres_client.execute(query="delete from log_api where created_at<now()-interval '30 days';",values={})
+   if postgres_schema.get("otp"):await postgres_client.execute(query="delete from otp where created_at<now()-interval '30 days';",values={})
+   if postgres_schema.get("message"):await postgres_client.execute(query="delete from message where created_at<now()-interval '30 days';",values={})
+   #final
+   return {"status":1,"message":"done"}
 
 @app.post("/root/s3-bucket-ops")
 async def root_s3_bucket_ops(request:Request):
@@ -1235,6 +1211,16 @@ async def root_s3_bucket_ops(request:Request):
    if mode=="public":output=await s3_bucket_public(s3_client,bucket)
    if mode=="empty":output=await s3_bucket_empty(s3_resource,bucket)
    if mode=="delete":output=await s3_bucket_delete(s3_client,bucket)
+   #final
+   return {"status":1,"message":output}
+
+@app.delete("/root/s3-url-delete")
+async def root_s3_url_empty(request:Request):
+   #param
+   url=request.query_params.get("url")
+   if not url:return error("url missing")
+   #logic
+   for item in url.split("---"):output=await s3_url_delete(item,s3_resource)
    #final
    return {"status":1,"message":output}
 
@@ -1449,6 +1435,19 @@ async def my_object_read(request:Request):
    #final
    return {"status":1,"message":output}
 
+@app.get("/my/parent-read")
+async def my_parent_read(request:Request):
+   #param
+   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
+   table=request.query_params.get("table")
+   parent_column=request.query_params.get("parent_column")
+   parent_table=request.query_params.get("parent_table")
+   if not table or not parent_column:return error("table/parent_column/parent_table missing")
+   #logic
+   output=await postgres_parent_read(table,parent_column,parent_table,postgres_client,order,limit,(page-1)*limit,request.state.user["id"])
+   #final
+   return {"status":1,"message":output}
+
 @app.put("/my/user-update")
 async def my_user_update(request:Request):
    #param
@@ -1464,7 +1463,7 @@ async def my_user_update(request:Request):
    if any(key in object and len(object)!=3 for key in ["password","email","mobile"]):return error("object length should be 2")
    if any(key in object and not otp for key in ["email","mobile"]):return error("otp missing")
    #otp verify
-   if otp:
+   if otp>0:
       email,mobile=object.get("email"),object.get("mobile")
       response=await verify_otp(postgres_client,otp,email,mobile)
       if response["status"]==0:return error(response["message"])
@@ -1510,6 +1509,20 @@ async def my_ids_update(request:Request):
    #final
    return {"status":1,"message":"done"}
 
+@app.delete("/my/ids-delete")
+async def my_ids_delete(request:Request):
+   #param
+   object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
+   if not table or not ids:return error("table/ids must")
+   #check
+   if table in ["users"]:return error("table not allowed")
+   #logic
+   await postgres_delete_ids(postgres_client,table,ids,request.state.user["id"])
+   #final
+   return {"status":1,"message":"done"}
+
 @app.delete("/my/object-delete-any")
 async def my_object_delete_any(request:Request):
    #param
@@ -1525,43 +1538,6 @@ async def my_object_delete_any(request:Request):
    #final
    return {"status":1,"message":"done"}
 
-@app.delete("/my/ids-delete")
-async def my_ids_delete(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   if not table or not ids:return error("table/ids must")
-   #check
-   if table in ["users"]:return error("table not allowed")
-   #logic
-   await postgres_delete_ids(postgres_client,table,ids,request.state.user["id"])
-   #final
-   return {"status":1,"message":"done"}
-
-@app.get("/my/parent-read")
-async def my_parent_read(request:Request):
-   #param
-   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
-   table=request.query_params.get("table")
-   parent_column=request.query_params.get("parent_column")
-   parent_table=request.query_params.get("parent_table")
-   if not table or not parent_column:return error("table/parent_column/parent_table missing")
-   #logic
-   output=await postgres_parent_read(table,parent_column,parent_table,postgres_client,order,limit,(page-1)*limit,request.state.user["id"])
-   #final
-   return {"status":1,"message":output}
-
-@app.get("/my/message-inbox")
-async def my_message_inbox(request:Request):
-   #param
-   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
-   is_unread=request.query_params.get("is_unread")
-   #logic
-   object_list=await message_inbox_user(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
-   #final
-   return {"status":1,"message":object_list}
-
 @app.get("/my/message-received")
 async def my_message_received(request:Request):
    #param
@@ -1573,6 +1549,16 @@ async def my_message_received(request:Request):
    if object_list:
       ids=','.join([str(item['id']) for item in object_list])
       asyncio.create_task(postgres_client.execute(query=f"update message set is_read=1 where id in ({ids});",values={}))
+   #final
+   return {"status":1,"message":object_list}
+
+@app.get("/my/message-inbox")
+async def my_message_inbox(request:Request):
+   #param
+   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
+   is_unread=request.query_params.get("is_unread")
+   #logic
+   object_list=await message_inbox_user(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
    #final
    return {"status":1,"message":object_list}
 
@@ -1604,29 +1590,6 @@ async def my_message_delete(request:Request):
    if mode=="all":await message_delete_user_all(postgres_client,request.state.user["id"])
    #final
    return {"status":1,"message":"done"}
-
-cache_public_info={}
-@app.get("/public/info")
-async def public_info(request:Request):
-   #variable
-   global cache_public_info
-   #logic
-   if not cache_public_info or (time.time()-cache_public_info.get("set_at")>=1000):
-      cache_public_info={
-      "set_at":time.time(),
-      "api_list":[route.path for route in request.app.routes],
-      "api_id":api_id,
-      "redis":await redis_client.info() if redis_client else None,
-      "postgres_schema":postgres_schema,
-      "postgres_column_datatype":postgres_column_datatype,
-      "users_api_access_count":len(users_api_access),
-      "users_is_active_count":len(users_is_active),
-      "bucket":s3_client.list_buckets() if s3_client else None,
-      "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
-      "users_count":await postgres_client.fetch_all(query="select count(*) from users where is_active is distinct from 0;",values={}),
-      }
-   #final
-   return {"status":1,"message":cache_public_info}
 
 @app.post("/public/otp-send-mobile-sns")
 async def public_otp_send_mobile_sns(request:Request):
@@ -1734,7 +1697,7 @@ async def public_openai_prompt(request:Request):
    object=await request.json()
    model=object.get("model")
    prompt=object.get("prompt")
-   is_web_search=object.get("is_web_search")
+   is_web_search=int(object.get("is_web_search",0))
    previous_response_id=object.get("previous_response_id")
    if not model or not prompt:return error("model/prompt missing")
    #logic
@@ -1790,6 +1753,55 @@ async def public_gsheet_read_direct(request:Request):
    #final
    return {"status":1,"message":output}
 
+cache_public_info={}
+@app.get("/public/info")
+async def public_info(request:Request):
+   #variable
+   global cache_public_info
+   #logic
+   if not cache_public_info or (time.time()-cache_public_info.get("set_at")>=1000):
+      cache_public_info={
+      "set_at":time.time(),
+      "api_list":[route.path for route in request.app.routes],
+      "api_id":api_id,
+      "redis":await redis_client.info() if redis_client else None,
+      "postgres_schema":postgres_schema,
+      "postgres_column_datatype":postgres_column_datatype,
+      "users_api_access_count":len(users_api_access),
+      "users_is_active_count":len(users_is_active),
+      "bucket":s3_client.list_buckets() if s3_client else None,
+      "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
+      "users_count":await postgres_client.fetch_all(query="select count(*) from users where is_active is distinct from 0;",values={}),
+      }
+   #final
+   return {"status":1,"message":cache_public_info}
+
+@app.get("/public/page/{filename}")
+async def public_page(filename:str):
+   #variable
+   file_path=os.path.join(".",f"{filename}.html")
+   #check
+   if ".." in filename or "/" in filename:return error("invalid filename")
+   if not os.path.isfile(file_path):return error ("file not found")
+   #logic
+   with open(file_path, "r", encoding="utf-8") as file:html_content=file.read()
+   #final
+   return responses.HTMLResponse(content=html_content)
+
+@app.get("/private/object-read")
+@cache(expire=100)
+async def private_object_read(request:Request):
+   #param
+   object=request.query_params
+   table=object.get("table")
+   if not table:return error("table missing")
+   #check
+   if table not in table_allowed_private_read.split(","):return error("table not allowed")
+   #logic
+   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
+   #final
+   return {"status":1,"message":output}
+
 @app.post("/private/file-upload-s3-direct")
 async def private_file_upload_s3_direct(request:Request):
    #param
@@ -1819,70 +1831,15 @@ async def private_file_upload_s3_presigned(request:Request):
    #final
    return response
 
-@app.get("/private/object-read")
-@cache(expire=100)
-async def private_object_read(request:Request):
-   #param
-   object=request.query_params
-   table=object.get("table")
-   if not table:return error("table missing")
-   #check
-   if table not in table_allowed_private_read.split(","):return error("table not allowed")
-   #logic
-   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
-   #final
-   return {"status":1,"message":output}
-
-@app.post("/admin/db-runner")
-async def admin_db_runner(request:Request):
-   #param
-   query=(await request.json()).get("query")
-   if not query:return error("query must")
-   #logic
-   response=await postgres_query_runner(postgres_client,query,request.state.user["id"])
-   if response["status"]==0:return error(response["message"])
-   #final
-   return response
-   
-@app.post("/admin/user-create")
-async def admin_user_create(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   if not type:return error("type missing")
-   #check
-   if type not in user_type_allowed:return error("wrong type")
-   #logic
-   output=await postgres_create("users",[object],1,postgres_client,postgres_column_datatype,object_serialize)
-   #final
-   return {"status":1,"message":output}
-
-@app.put("/admin/user-update")
-async def admin_user_update(request:Request):
-   #param
-   object=await request.json()
-   #modify
-   object["updated_by_id"]=request.state.user["id"]
-   #check
-   if "id" not in object:return error ("id missing")
-   if len(object)<=2:return error ("object length issue")
-   if any(key in object and len(object)!=3 for key in ["password"]):return error("object length should be 2")
-   #logic
-   output=await postgres_update("users",[object],1,postgres_client,postgres_column_datatype,object_serialize)
-   #final
-   return {"status":1,"message":output}
-
 @app.post("/admin/object-create")
 async def admin_object_create(request:Request):
    #param
+   object=await request.json()
    table=request.query_params.get("table")
    is_serialize=int(request.query_params.get("is_serialize",1))
-   object=await request.json()
    if not table:return error("table missing")
    #modify
    if postgres_schema.get(table).get("created_by_id"):object["created_by_id"]=request.state.user["id"]
-   #check
-   if table in ["users"]:return error("table not allowed")
    #logic
    output=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
    #final
@@ -1898,7 +1855,6 @@ async def admin_object_update(request:Request):
    #modify
    if postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
    #check
-   if table in ["users"]:return error("table not allowed")
    if "id" not in object:return error ("id missing")
    if len(object)<=2:return error ("object length issue")
    #logic
@@ -1916,8 +1872,6 @@ async def admin_ids_update(request:Request):
    del object["ids"]
    key,value=next(reversed(object.items()),(None, None))
    if not table or not ids or not key:return error("table/ids/key must")
-   #check
-   if table in ["users"]:return error("table not allowed")
    #logic
    await postgres_update_ids(postgres_client,table,ids,key,value,request.state.user["id"],None)
    #final
@@ -1926,11 +1880,10 @@ async def admin_ids_update(request:Request):
 @app.delete("/admin/ids-delete")
 async def admin_ids_delete(request:Request):
    #param
-   table=request.query_params.get("table")
-   ids=request.query_params.get("ids")
+   object=await request.json()
+   table=object.get("table")
+   ids=object.get("ids")
    if not table or not ids:return error("table/ids must")
-   #check
-   if table in ["users"]:return error("table not allowed")
    #logic
    await postgres_delete_ids(postgres_client,table,ids,None)
    #final
@@ -1947,6 +1900,17 @@ async def admin_object_read(request:Request):
    output=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
    #final
    return {"status":1,"message":output}
+
+@app.post("/admin/db-runner")
+async def admin_db_runner(request:Request):
+   #param
+   query=(await request.json()).get("query")
+   if not query:return error("query must")
+   #logic
+   response=await postgres_query_runner(postgres_client,query,request.state.user["id"])
+   if response["status"]==0:return error(response["message"])
+   #final
+   return response
 
 #fastapi
 import sys,asyncio,uvicorn
