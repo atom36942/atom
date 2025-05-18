@@ -1548,7 +1548,8 @@ async def my_message_received(request:Request):
    #mark message read
    if object_list:
       ids=','.join([str(item['id']) for item in object_list])
-      asyncio.create_task(postgres_client.execute(query=f"update message set is_read=1 where id in ({ids});",values={}))
+      query=f"update message set is_read=1 where id in ({ids});"
+      asyncio.create_task(postgres_client.execute(query=query,values={}))
    #final
    return {"status":1,"message":object_list}
 

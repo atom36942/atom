@@ -37,5 +37,5 @@
 - render html files
 - google sheet integration
 - openai integration
-- resend integration
 - fast2ms integration
+- resend integration
