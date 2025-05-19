@@ -5,7 +5,7 @@ async def send_email_resend(resend_key,resend_url,sender_email,email_list,title,
    headers={"Authorization":f"Bearer {resend_key}","Content-Type": "application/json"}
    async with httpx.AsyncClient() as client:output=await client.post(resend_url,json=payload,headers=headers)
    if output.status_code==200:response={"status":1,"message":"done"}
-   else:response={"status":0,"message":f"Resend error:{response.text}"}
+   else:response={"status":0,"message":f"Resend error:{output.text}"}
    return response
 
 import gspread
