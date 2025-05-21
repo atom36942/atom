@@ -1,4 +1,29 @@
 #function
+async def bigint_converter(mode,x):
+   CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789_'
+   BASE = len(CHARSET)
+   MAX_LENGTH = 11
+   LENGTH_BITS = 6
+   VALUE_BITS = 64 - LENGTH_BITS
+   CHAR_TO_INDEX = {c: i for i, c in enumerate(CHARSET)}
+   INDEX_TO_CHAR = {i: c for i, c in enumerate(CHARSET)}
+   if mode=="encode":
+      if len(x) > MAX_LENGTH:raise Exception(f"text length exceeds {MAX_LENGTH} characters.")
+      value = 0
+      for char in x:
+         if char not in CHAR_TO_INDEX:raise Exception(f"Invalid character: {char}")
+         value = value * BASE + CHAR_TO_INDEX[char]
+      output=(len(x) << VALUE_BITS) | value
+   if mode=="decode":
+      length = x >> VALUE_BITS
+      value = x & ((1 << VALUE_BITS) - 1)
+      chars = []
+      for _ in range(length):
+         value, index = divmod(value, BASE)
+         chars.append(INDEX_TO_CHAR[index])
+      output=''.join(reversed(chars))
+   return output
+
 import httpx
 async def send_email_resend(resend_key,resend_url,sender_email,email_list,title,body):
    payload={"from":sender_email,"to":email_list,"subject":title,"html":body}
@@ -1043,7 +1068,7 @@ async def lifespan(app:FastAPI):
       if lavinmq_client and lavinmq_client.is_open:lavinmq_client.close()
       if kafka_producer_client:await kafka_producer_client.stop()
       await FastAPILimiter.close()
-   except Exception as e:print(e.args)
+   except Exception as e:print(str(e))
 
 #app
 from fastapi import FastAPI
@@ -1097,7 +1122,7 @@ async def middleware(request:Request,api_function):
       asyncio.create_task(log_api_create(object,log_api_batch_count,postgres_create,postgres_client,postgres_column_datatype,object_serialize))
    except Exception as e:
       print(traceback.format_exc())
-      response=error(str(e.args))
+      response=error(str(e))
    #final
    return response
 
@@ -1789,6 +1814,19 @@ async def public_page(filename:str):
    #final
    return responses.HTMLResponse(content=html_content)
 
+@app.get("/public/bigint-converter")
+async def public_bigint_converter(request:Request):
+   #param
+   mode=request.query_params.get("mode")
+   x=request.query_params.get("x")
+   if not mode or not x:return error("mode/x missing")
+   #modify
+   if mode=="decode":x=int(x)
+   #logic
+   output=await bigint_converter(mode,x)
+   #final
+   return {"status":1,"message":output}
+
 @app.get("/private/object-read")
 @cache(expire=100)
 async def private_object_read(request:Request):
@@ -1937,7 +1975,7 @@ async def main_kafka():
                if data["mode"]=="create":output=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)   
                if data["mode"]=="update":output=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
                print(output)
-            except Exception as e:print(e.args)
+            except Exception as e:print(str(e))
    except asyncio.CancelledError:print("subscription cancelled")
    finally:
       await postgres_client.disconnect()
@@ -1960,7 +1998,7 @@ async def main_redis():
                if data["mode"]=="create":output=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
                if data["mode"]=="update":output=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
                print(output)
-            except Exception as e:print(e.args)
+            except Exception as e:print(str(e))
    except asyncio.CancelledError:print("subscription cancelled")
    finally:
       await postgres_client.disconnect()

@@ -5,7 +5,7 @@ curl -X GET "$baseurl/test"
 #root db init
 curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/db-init?mode=2" -H "Authorization: Bearer $token_root"
-curl -X POST "$baseurl/root/db-init?mode=3" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
+0 curl -X POST "$baseurl/root/db-init?mode=3" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
 
 #root db uploader
 0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
@@ -112,6 +112,8 @@ curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.23,3.45,10
 #public misc
 curl -X GET "$baseurl/public/info"
 0 curl -X GET "$baseurl/public/page/about"
+curl -X GET "$baseurl/public/bigint-converter?mode=encode&x=atom"
+curl -X GET "$baseurl/public/bigint-converter?mode=decode&x=288230376151711770"
 
 #private object
 curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer $token"
