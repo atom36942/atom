@@ -28,10 +28,10 @@ import httpx
 async def send_email_resend(resend_key,resend_url,sender_email,email_list,title,body):
    payload={"from":sender_email,"to":email_list,"subject":title,"html":body}
    headers={"Authorization":f"Bearer {resend_key}","Content-Type": "application/json"}
-   async with httpx.AsyncClient() as client:output=await client.post(resend_url,json=payload,headers=headers)
-   if output.status_code==200:response={"status":1,"message":"done"}
-   else:response={"status":0,"message":f"Resend error:{output.text}"}
-   return response
+   async with httpx.AsyncClient() as client:
+      output=await client.post(resend_url,json=payload,headers=headers)
+   if output.status_code!=200:raise Exception(f"{output.text}")
+   return None
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -58,12 +58,12 @@ async def gsheet_read_pandas(spreadsheet_id,gid):
    return output
 
 async def openai_prompt(openai_client,model,prompt,is_web_search,previous_response_id):
-   if not openai_client or not model or not prompt:return {"status":0,"message":"param missing"}
+   if not openai_client or not model or not prompt:raise Exception("param missing")
    params={"model":model,"input":prompt}
    if is_web_search==1:params["tools"]=[{"type":"web_search"}]
    if previous_response_id:params["previous_response_id"]=previous_response_id
    output=openai_client.responses.create(**params)
-   return {"status":1,"message":output}
+   return output
 
 import base64
 async def openai_ocr(openai_client,model,prompt,file):
@@ -247,21 +247,33 @@ async def create_where_string(object,object_serialize,postgres_column_datatype):
    
 import random
 async def generate_save_otp(postgres_client,email,mobile):
-   if email and mobile:return {"status":0,"message":"send either email/mobile"}
-   if not email and not mobile:return {"status":0,"message":"send either email/mobile"}
+   if email and mobile:raise Exception("send either email/mobile")
+   if not email and not mobile:raise Exception("send either email/mobile")
    otp=random.randint(100000,999999)
-   if email:await postgres_client.execute(query="insert into otp (otp,email) values (:otp,:email) returning *;",values={"otp":otp,"email":email.strip().lower()})
-   if mobile:await postgres_client.execute(query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;",values={"otp":otp,"mobile":mobile.strip().lower()})
-   return {"status":1,"message":otp}
+   if email:
+      query="insert into otp (otp,email) values (:otp,:email) returning *;"
+      values={"otp":otp,"email":email.strip().lower()}
+      await postgres_client.execute(query=query,values=values)
+   if mobile:
+      query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
+      values={"otp":otp,"mobile":mobile.strip().lower()}
+      await postgres_client.execute(query=query,values=values)
+   return otp
    
 async def verify_otp(postgres_client,otp,email,mobile):
-   if email and mobile:return {"status":0,"message":"send either email/mobile"}
-   if not email and not mobile:return {"status":0,"message":"send either email/mobile"}
-   if email:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;",values={"email":email})
-   if mobile:output=await postgres_client.fetch_all(query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;",values={"mobile":mobile})
-   if not output:return {"status":0,"message":"otp not found"}
-   if int(output[0]["otp"])!=int(otp):return {"status":0,"message":"otp mismatch"}
-   return {"status":1,"message":"done"}
+   if email and mobile:raise Exception("send either email/mobile")
+   if not email and not mobile:raise Exception("send either email/mobile")
+   if email:
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+      values={"email":email}
+      await postgres_client.execute(query=query,values=values)
+   if mobile:
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+      values={"mobile":mobile}
+      await postgres_client.execute(query=query,values=values)
+   if not output:raise Exception("otp not found")
+   if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
+   return None
 
 async def postgres_schema_read(postgres_client):
    query='''
@@ -364,12 +376,14 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,config):
 
 async def ownership_check(postgres_client,table,id,user_id):
    if table=="users":
-      if id!=user_id:return {"status":0,"message":"object ownership issue"}
+      if id!=user_id:raise Exception("object ownership issue")
    if table!="users":
-      output=await postgres_client.fetch_all(query=f"select created_by_id from {table} where id=:id;",values={"id":id})
-      if not output:return {"status":0,"message":"no object"}
-      if output[0]["created_by_id"]!=user_id:return {"status":0,"message":"object ownership issue"}
-   return {"status":1,"message":"done"}
+      query=f"select created_by_id from {table} where id=:id;"
+      values={"id":id}
+      output=await postgres_client.fetch_all(query=query,values=values)
+      if not output:raise Exception("no object")
+      if output[0]["created_by_id"]!=user_id:raise Exception("object ownership issue")
+   return None
 
 async def add_creator_data(postgres_client,object_list,user_key):
     object_list=[dict(object) for object in object_list]
@@ -393,14 +407,14 @@ async def postgres_query_runner(postgres_client,query,user_id):
    stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
    must_word=["select"]
    for item in danger_word:
-      if item in query.lower():return {"status":0,"message":f"{item} keyword not allowed in query"}
+      if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
    if user_id!=1:
       for item in stop_word:
-         if item in query.lower():return {"status":0,"message":f"{item} keyword not allowed in query"}
+         if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
       for item in must_word:
-         if item not in query.lower():return {"status":0,"message":f"{item} keyword not allowed in query"}
+         if item not in query.lower():raise Exception(f"{item} keyword not allowed in query")
    output=await postgres_client.fetch_all(query=query,values={})
-   return {"status":1,"message":output}
+   return output
 
 async def postgres_update_ids(postgres_client,table,ids,column,value,updated_by_id,created_by_id):
    query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
@@ -421,22 +435,22 @@ async def s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_li
    output={}
    for index,file in enumerate(file_list):
       key=key_list[index]
-      if "." not in key:return {"status":0,"message":"extension must"}
+      if "." not in key:raise Exception("extension must")
       file_content=await file.read()
       file_size_kb=round(len(file_content)/1024)
-      if file_size_kb>100:return {"status":0,"message":f"{file.filename} has {file_size_kb} kb size which is not allowed"}
+      if file_size_kb>100:raise Exception("file size issue")
       s3_client.upload_fileobj(BytesIO(file_content),bucket,key)
       output[file.filename]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
       file.file.close()
-   return {"status":1,"message":output}
+   return output
 
 async def s3_file_upload_presigned(s3_client,s3_region_name,bucket,key,expiry_sec,size_kb):
-   if "." not in key:return {"status":0,"message":"extension must"}
+   if "." not in key:raise Exception("extension must")
    output=s3_client.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec, Conditions=[['content-length-range',1,size_kb*1024]])
    for k,v in output["fields"].items():output[k]=v
    del output["fields"]
    output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
-   return {"status":1,"message":output}
+   return output
      
 import csv,io
 async def file_to_object_list(file):
@@ -479,32 +493,38 @@ async def token_create(key_jwt,token_expire_sec,user):
    return token
 
 async def read_user_single(postgres_client,user_id):
-   output=await postgres_client.fetch_all(query="select * from users where id=:id;",values={"id":user_id})
+   query="select * from users where id=:id;"
+   values={"id":user_id}
+   output=await postgres_client.fetch_all(query=query,values=values)
    user=dict(output[0]) if output else None
-   if not user:return {"status":0,"message":"user not found"}
-   return {"status":1,"message":user}
+   if not user:raise Exception("user not found")
+   return user
 
 async def users_api_access_check(user_id,api_id_value,users_api_access,postgres_client):
    user_api_access=users_api_access.get(user_id,"absent")
    if user_api_access=="absent":
-      output=await postgres_client.fetch_all(query="select id,api_access from users where id=:id;",values={"id":user_id})
+      query="select id,api_access from users where id=:id;"
+      values={"id":user_id}
+      output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
-      if not user:return {"status":0,"message":"user not found"}
+      if not user:raise Exception("user not found")
       api_access_str=user["api_access"]
-      if not api_access_str:return {"status":0,"message":"api access denied"}
+      if not api_access_str:raise Exception("api access denied")
       user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
-   if api_id_value not in user_api_access:return {"status":0,"message":"api access denied"}
-   return {"status":1,"message":"done"}
+   if api_id_value not in user_api_access:raise Exception("api access denied")
+   return None
 
 async def users_is_active_check(user_id,users_is_active,postgres_client):
    user_is_active=users_is_active.get(user_id,"absent")
    if user_is_active=="absent":
-      output=await postgres_client.fetch_all(query="select id,is_active from users where id=:id;",values={"id":user_id})
+      query="select id,is_active from users where id=:id;"
+      values={"id":user_id}
+      output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
-      if not user:return {"status":0,"message":"user not found"}
+      if not user:raise Exception("user not found")
       user_is_active=user["is_active"]
-   if user_is_active==0:return {"status":0,"message":"user not active"}
-   return {"status":1,"message":"done"}
+   if user_is_active==0:raise Exception("user not active")
+   return None
 
 async def users_is_active_read(postgres_client_asyncpg,limit):
    users_is_active={}
@@ -702,9 +722,9 @@ async def login_password_username(postgres_client,token_create,key_jwt,token_exp
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
-   if not user:return {"status":0,"message":"user not found"}
+   if not user:raise Exception("user not found")
    token=await token_create(key_jwt,token_expire_sec,user)
-   return {"status":1,"message":token}
+   return token
 
 import hashlib
 async def login_password_username_bigint(postgres_client,token_create,key_jwt,token_expire_sec,type,username_bigint,password_bigint):
@@ -712,9 +732,9 @@ async def login_password_username_bigint(postgres_client,token_create,key_jwt,to
    values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
-   if not user:return {"status":0,"message":"user not found"}
+   if not user:raise Exception("user not found")
    token=await token_create(key_jwt,token_expire_sec,user)
-   return {"status":1,"message":token}
+   return token
 
 import hashlib
 async def login_password_email(postgres_client,token_create,key_jwt,token_expire_sec,type,email,password):
@@ -722,9 +742,9 @@ async def login_password_email(postgres_client,token_create,key_jwt,token_expire
    values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
-   if not user:return {"status":0,"message":"user not found"}
+   if not user:raise Exception("user not found")
    token=await token_create(key_jwt,token_expire_sec,user)
-   return {"status":1,"message":token}
+   return token
 
 import hashlib
 async def login_password_mobile(postgres_client,token_create,key_jwt,token_expire_sec,type,mobile,password):
@@ -732,13 +752,12 @@ async def login_password_mobile(postgres_client,token_create,key_jwt,token_expir
    values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
-   if not user:return {"status":0,"message":"user not found"}
+   if not user:raise Exception("user not found")
    token=await token_create(key_jwt,token_expire_sec,user)
-   return {"status":1,"message":token}
+   return token
 
 async def login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,email,otp):
-   response=await verify_otp(postgres_client,otp,email,None)
-   if response["status"]==0:return response
+   await verify_otp(postgres_client,otp,email,None)
    query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
    values={"type":type,"email":email}
    output=await postgres_client.fetch_all(query=query,values=values)
@@ -749,11 +768,10 @@ async def login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
    token=await token_create(key_jwt,token_expire_sec,user)
-   return {"status":1,"message":token}
+   return token
 
 async def login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,mobile,otp):
-   response=await verify_otp(postgres_client,otp,None,mobile)
-   if response["status"]==0:return response
+   await verify_otp(postgres_client,otp,None,mobile)
    query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
    values={"type":type,"mobile":mobile}
    output=await postgres_client.fetch_all(query=query,values=values)
@@ -764,7 +782,7 @@ async def login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
    token=await token_create(key_jwt,token_expire_sec,user)
-   return {"status":1,"message":token}
+   return token
 
 async def login_google(postgres_client,token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token):
    google_user=google_user_read(google_token,google_client_id)
@@ -853,7 +871,7 @@ postgres_schema_default={
 "is_verified-smallint-0-btree",
 "is_deleted-smallint-0-btree",
 "is_protected-smallint-0-btree",
-"type-smallint-0-btree",
+"type-bigint-0-btree",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -865,7 +883,7 @@ postgres_schema_default={
 "metadata-jsonb-0-0"
 ],
 "atom":[
-"type-smallint-0-btree",
+"type-bigint-0-btree",
 "title-text-0-0",
 "description-text-0-0",
 "file_url-text-0-0",
@@ -901,7 +919,7 @@ postgres_schema_default={
 "is_verified-smallint-0-btree",
 "is_deleted-smallint-0-btree",
 "is_protected-smallint-0-btree",
-"type-smallint-1-btree",
+"type-bigint-1-btree",
 "username-text-0-btree",
 "password-text-0-btree",
 "google_id-text-0-btree",
@@ -1105,15 +1123,11 @@ async def middleware(request:Request,api_function):
             if token!=key_root:return error("token root mismatch")
          else:request.state.user=await token_decode(token,key_jwt)
       #admin check
-      if "admin/" in request.url.path:
-         response=await users_api_access_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
-         if response["status"]==0:return error(response["message"])
+      if "admin/" in request.url.path:await users_api_access_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
       #is_active check
       if is_active_check_api_keyword:
          for item in is_active_check_api_keyword.split(","):
-            if item in request.url.path:
-               response=await users_is_active_check(request.state.user["id"],users_is_active,postgres_client)
-               if response["status"]==0:return error(response["message"])
+            if item in request.url.path:await users_is_active_check(request.state.user["id"],users_is_active,postgres_client)
       #api response
       if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
       else:response=await api_function(request)
@@ -1217,11 +1231,18 @@ async def root_reset_global():
 
 @app.put("/root/db-checklist")
 async def root_db_checklist():
-   #logic
-   await postgres_client.execute(query="update users set is_active=1,is_deleted=null where id=1;",values={})
-   if postgres_schema.get("log_api"):await postgres_client.execute(query="delete from log_api where created_at<now()-interval '30 days';",values={})
-   if postgres_schema.get("otp"):await postgres_client.execute(query="delete from otp where created_at<now()-interval '30 days';",values={})
-   if postgres_schema.get("message"):await postgres_client.execute(query="delete from message where created_at<now()-interval '30 days';",values={})
+   #root user always active
+   query="update users set is_active=1,is_deleted=null where id=1;"
+   await postgres_client.execute(query=query,values={})
+   #delete log
+   query="delete from log_api where created_at<now()-interval '30 days';"
+   if postgres_schema.get("log_api"):await postgres_client.execute(query=query,values={})
+   #delete otp
+   query="delete from otp where created_at<now()-interval '30 days';"
+   if postgres_schema.get("otp"):await postgres_client.execute(query=query,values={})
+   #delete message
+   query="delete from message where created_at<now()-interval '30 days';"
+   if postgres_schema.get("message"):await postgres_client.execute(query=query,values={})
    #final
    return {"status":1,"message":"done"}
 
@@ -1292,13 +1313,12 @@ async def auth_login_password_username(request:Request):
    password=object.get("password")
    if not type or not username or not password:return error("type/username/password missing")
    #logic
-   response=await login_password_username(postgres_client,token_create,key_jwt,token_expire_sec,type,username,password)
-   if response["status"]==0:return error(response["message"])
+   token=await login_password_username(postgres_client,token_create,key_jwt,token_expire_sec,type,username,password)
    #final
-   return response
+   return {"status":1,"message":token}
 
 @app.post("/auth/login-password-username-bigint")
-async def auth_login_password_username(request:Request):
+async def auth_login_password_username_bigint(request:Request):
    #param
    object=await request.json()
    type=object.get("type")
@@ -1306,10 +1326,9 @@ async def auth_login_password_username(request:Request):
    password_bigint=object.get("password_bigint")
    if not type or not username_bigint or not password_bigint:return error("type/username_bigint/password_bigint missing")
    #logic
-   response=await login_password_username_bigint(postgres_client,token_create,key_jwt,token_expire_sec,type,username_bigint,password_bigint)
-   if response["status"]==0:return error(response["message"])
+   token=await login_password_username_bigint(postgres_client,token_create,key_jwt,token_expire_sec,type,username_bigint,password_bigint)
    #final
-   return response
+   return {"status":1,"message":token}
 
 @app.post("/auth/login-password-email")
 async def auth_login_password_email(request:Request):
@@ -1320,10 +1339,9 @@ async def auth_login_password_email(request:Request):
    password=object.get("password")
    if not type or not email or not password:return error("type/email/password missing")
    #logic
-   response=await login_password_email(postgres_client,token_create,key_jwt,token_expire_sec,type,email,password)
-   if response["status"]==0:return error(response["message"])
+   token=await login_password_email(postgres_client,token_create,key_jwt,token_expire_sec,type,email,password)
    #final
-   return response
+   return {"status":1,"message":token}
 
 @app.post("/auth/login-password-mobile")
 async def auth_login_password_mobile(request:Request):
@@ -1334,10 +1352,9 @@ async def auth_login_password_mobile(request:Request):
    password=object.get("password")
    if not type or not mobile or not password:return error("type/mobile/password missing")
    #logic
-   response=await login_password_mobile(postgres_client,token_create,key_jwt,token_expire_sec,type,mobile,password)
-   if response["status"]==0:return error(response["message"])
+   token=await login_password_mobile(postgres_client,token_create,key_jwt,token_expire_sec,type,mobile,password)
    #final
-   return response
+   return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-email")
 async def auth_login_otp_email(request:Request):
@@ -1350,10 +1367,9 @@ async def auth_login_otp_email(request:Request):
    #check
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   response=await login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,email,otp)
-   if response["status"]==0:return error(response["message"])
+   token=await login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,email,otp)
    #final
-   return response
+   return {"status":1,"message":token}
    
 @app.post("/auth/login-otp-mobile")
 async def auth_login_otp_mobile(request:Request):
@@ -1366,10 +1382,9 @@ async def auth_login_otp_mobile(request:Request):
    #check
    if type not in user_type_allowed:return error("wrong type")
    #logic
-   response=await login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,mobile,otp)
-   if response["status"]==0:return error(response["message"])
+   token=await login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,mobile,otp)
    #final
-   return response
+   return {"status":1,"message":token}
 
 @app.post("/auth/login-oauth-google")
 async def auth_login_oauth_google(request:Request):
@@ -1388,18 +1403,15 @@ async def auth_login_oauth_google(request:Request):
 @app.get("/my/profile")
 async def my_profile(request:Request):
    #logic
-   response=await read_user_single(postgres_client,request.state.user["id"])
-   if response["status"]==0:return error(response["message"])
+   user=await read_user_single(postgres_client,request.state.user["id"])
    asyncio.create_task(update_user_last_active_at(postgres_client,request.state.user["id"]))
    #final
-   return response
+   return {"status":1,"message":user}
 
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
    #read user
-   response=await read_user_single(postgres_client,request.state.user["id"])
-   if response["status"]==0:return error(response["message"])
-   user=response["message"]
+   user=await read_user_single(postgres_client,request.state.user["id"])
    #token create
    token=await token_create(key_jwt,token_expire_sec,user)
    #final
@@ -1411,13 +1423,17 @@ async def my_account_delete(request:Request):
    mode=request.query_params.get("mode")
    if not mode:return error("mode missing")
    #check user
-   response=await read_user_single(postgres_client,request.state.user["id"])
-   if response["status"]==0:return error(response["message"])
-   user=response["message"]
+   user=await read_user_single(postgres_client,request.state.user["id"])
    if user["api_access"]:return error("not allowed as you have api_access")
    #logic
-   if mode=="soft":await postgres_client.execute(query="update users set is_deleted=1 where id=:id;",values={"id":request.state.user["id"]})
-   elif mode=="hard":await postgres_client.execute(query="delete from users where id=:id;",values={"id":request.state.user["id"]})
+   if mode=="soft":
+      query="update users set is_deleted=1 where id=:id;"
+      values={"id":request.state.user["id"]}
+      await postgres_client.execute(query=query,values=values)
+   elif mode=="hard":
+      query="delete from users where id=:id;"
+      values={"id":request.state.user["id"]}
+      await postgres_client.execute(query=query,values=values)
    #final
    return {"status":1,"message":"done"}
 
@@ -1490,8 +1506,7 @@ async def my_user_update(request:Request):
    #otp verify
    if otp>0:
       email,mobile=object.get("email"),object.get("mobile")
-      response=await verify_otp(postgres_client,otp,email,mobile)
-      if response["status"]==0:return error(response["message"])
+      await verify_otp(postgres_client,otp,email,mobile)
    #logic
    output=await postgres_update("users",[object],1,postgres_client,postgres_column_datatype,object_serialize)
    #final
@@ -1628,9 +1643,7 @@ async def public_otp_send_mobile_sns(request:Request):
    sender_id=object.get("sender_id")
    if not mobile:return error("mobile missing")
    #generate otp
-   response=await generate_save_otp(postgres_client,None,mobile)
-   if response["status"]==0:return error(response["message"])
-   otp=response["message"]
+   otp=await generate_save_otp(postgres_client,None,mobile)
    #logic
    if template_id:await send_message_template_sns(sns_client,mobile,message.replace("{otp}",str(otp)),entity_id,template_id,sender_id)
    else:sns_client.publish(PhoneNumber=mobile,Message=str(otp))
@@ -1644,9 +1657,7 @@ async def public_otp_send_mobile_fast2sms(request:Request):
    mobile=object.get("mobile")
    if not mobile:return error("mobile missing")
    #generate otp
-   response=await generate_save_otp(postgres_client,None,mobile)
-   if response["status"]==0:return error(response["message"])
-   otp=response["message"]
+   otp=await generate_save_otp(postgres_client,None,mobile)
    #logic
    response=requests.get("https://www.fast2sms.com/dev/bulkV2",params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
    #final
@@ -1660,9 +1671,7 @@ async def public_otp_send_email_ses(request:Request):
    sender_email=object.get("sender_email")
    if not email or not sender_email:return error("email/sender_email missing")
    #generate otp
-   response=await generate_save_otp(postgres_client,email,None)
-   if response["status"]==0:return error(response["message"])
-   otp=response["message"]
+   otp=await generate_save_otp(postgres_client,email,None)
    #logic
    await send_email_ses(ses_client,sender_email,[email],"your otp code",str(otp))
    #final
@@ -1676,14 +1685,11 @@ async def public_otp_send_email_resend(request:Request):
    sender_email=object.get("sender_email")
    if not email or not sender_email:return error("email/sender_email missing")
    #generate otp
-   response=await generate_save_otp(postgres_client,email,None)
-   if response["status"]==0:return error(response["message"])
-   otp=response["message"]
+   otp=await generate_save_otp(postgres_client,email,None)
    #logic
-   response=await send_email_resend(resend_key,"https://api.resend.com/emails",sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
-   if response["status"]==0:return error(response["message"])
+   await send_email_resend(resend_key,"https://api.resend.com/emails",sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
    #final
-   return response
+   return {"status":1,"message":"done"}
 
 @app.post("/public/object-create")
 async def public_object_create(request:Request):
@@ -1727,10 +1733,9 @@ async def public_openai_prompt(request:Request):
    previous_response_id=object.get("previous_response_id")
    if not model or not prompt:return error("model/prompt missing")
    #logic
-   response=await openai_prompt(openai_client,model,prompt,is_web_search,previous_response_id)
-   if response["status"]==0:return response
+   output=await openai_prompt(openai_client,model,prompt,is_web_search,previous_response_id)
    #final
-   return response
+   return {"status":1,"message":output}
 
 @app.post("/public/openai-ocr")
 async def public_openai_ocr(request:Request):
@@ -1796,8 +1801,7 @@ async def public_info(request:Request):
       "users_api_access_count":len(users_api_access),
       "users_is_active_count":len(users_is_active),
       "bucket":s3_client.list_buckets() if s3_client else None,
-      "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True)),
-      "users_count":await postgres_client.fetch_all(query="select count(*) from users where is_active is distinct from 0;",values={}),
+      "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True))
       }
    #final
    return {"status":1,"message":cache_public_info}
@@ -1852,10 +1856,9 @@ async def private_file_upload_s3_direct(request:Request):
    key_list=None
    if key:key_list=key.split("---")
    #logic
-   response=await s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_list)
-   if response["status"]==0:return error(response["message"])
+   output=await s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_list)
    #final
-   return response
+   return {"status":1,"message":output}
 
 @app.post("/private/file-upload-s3-presigned")
 async def private_file_upload_s3_presigned(request:Request):
@@ -1865,10 +1868,9 @@ async def private_file_upload_s3_presigned(request:Request):
    key=object.get("key")
    if not bucket or not key:return error("bucket/key missing")
    #logic
-   response=await s3_file_upload_presigned(s3_client,s3_region_name,bucket,key,1000,100)
-   if response["status"]==0:return error(response["message"])
+   output=await s3_file_upload_presigned(s3_client,s3_region_name,bucket,key,1000,100)
    #final
-   return response
+   return {"status":1,"message":output}
 
 @app.post("/admin/object-create")
 async def admin_object_create(request:Request):
@@ -1946,10 +1948,9 @@ async def admin_db_runner(request:Request):
    query=(await request.json()).get("query")
    if not query:return error("query must")
    #logic
-   response=await postgres_query_runner(postgres_client,query,request.state.user["id"])
-   if response["status"]==0:return error(response["message"])
+   output=await postgres_query_runner(postgres_client,query,request.state.user["id"])
    #final
-   return response
+   return {"status":1,"message":output}
 
 #fastapi
 import sys,asyncio,uvicorn
