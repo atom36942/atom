@@ -1,8 +1,8 @@
 #function
 import asyncpg,random
 from mimesis import Person,Address,Food,Text,Code,Datetime
-async def generate_fake_data(url,TOTAL_ROWS,BATCH_SIZE):
-   conn = await asyncpg.connect(url)
+async def generate_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
+   conn = await asyncpg.connect(postgres_url)
    person = Person()
    address = Address()
    food = Food()
@@ -371,65 +371,69 @@ async def postgres_column_datatype_read(postgres_client,postgres_schema_read):
    postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    return postgres_column_datatype
 
-async def postgres_schema_init(postgres_client,postgres_schema_read,config):
-   #extension
-   await postgres_client.fetch_all(query="create extension if not exists postgis;",values={})
-   await postgres_client.fetch_all(query="create extension if not exists pg_trgm;",values={})
-   #table
-   postgres_schema=await postgres_schema_read(postgres_client)
-   for table,column_list in config["table"].items():
-      is_table=postgres_schema.get(table,{})
-      if not is_table:
-         query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
-         await postgres_client.execute(query=query,values={})
-   #column
-   postgres_schema=await postgres_schema_read(postgres_client)
-   for table,column_list in config["table"].items():
-      for column in column_list:
-         column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
-         is_column=postgres_schema.get(table,{}).get(column_name,{})
-         if not is_column:
-            query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
+async def postgres_schema_init(postgres_client,postgres_schema_read,postgres_config):
+   async def init_extension(postgres_client):
+      await postgres_client.execute(query="create extension if not exists postgis;",values={})
+      await postgres_client.execute(query="create extension if not exists pg_trgm;",values={})
+   async def init_table(postgres_client,postgres_schema_read,postgres_config):
+      postgres_schema=await postgres_schema_read(postgres_client)
+      for table,column_list in postgres_config["table"].items():
+         is_table=postgres_schema.get(table,{})
+         if not is_table:
+            query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
             await postgres_client.execute(query=query,values={})
-   #nullable
-   postgres_schema=await postgres_schema_read(postgres_client)
-   for table,column_list in config["table"].items():
-      for column in column_list:
-         column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
-         is_null=postgres_schema.get(table,{}).get(column_name,{}).get("is_null",None)
-         if column_is_mandatory=="0" and is_null==0:
-            query=f"alter table {table} alter column {column_name} drop not null;"
-            await postgres_client.execute(query=query,values={})
-         if column_is_mandatory=="1" and is_null==1:
-            query=f"alter table {table} alter column {column_name} set not null;"
-            await postgres_client.execute(query=query,values={})
-   #index
-   postgres_schema=await postgres_schema_read(postgres_client)
-   index_name_list=[object["indexname"] for object in (await postgres_client.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
-   for table,column_list in config["table"].items():
-      for column in column_list:
-         column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
-         if column_index_type=="0":
-            query=f"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname ILIKE 'index_{table}_{column_name}_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
-            await postgres_client.execute(query=query,values={})
-         else:
-            index_type_list=column_index_type.split(",")
-            for index_type in index_type_list:
-               index_name=f"index_{table}_{column_name}_{index_type}"
-               if index_name not in index_name_list:
-                  if index_type=="gin":
-                     query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name} gin_trgm_ops);"
-                     await postgres_client.execute(query=query,values={})
-                  else:
-                     query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});"
-                     await postgres_client.execute(query=query,values={})
-   #query
-   constraint_name_list={object["constraint_name"].lower() for object in (await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
-   for query in config["query"].values():
-      if query.split()[0]=="0":continue
-      if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:continue
-      await postgres_client.fetch_all(query=query,values={})
-   #final
+   async def init_column(postgres_client,postgres_schema_read,postgres_config):
+      postgres_schema=await postgres_schema_read(postgres_client)
+      for table,column_list in postgres_config["table"].items():
+         for column in column_list:
+            column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
+            is_column=postgres_schema.get(table,{}).get(column_name,{})
+            if not is_column:
+               query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
+               await postgres_client.execute(query=query,values={})
+   async def init_nullable(postgres_client,postgres_schema_read,postgres_config):
+      postgres_schema=await postgres_schema_read(postgres_client)
+      for table,column_list in postgres_config["table"].items():
+         for column in column_list:
+            column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
+            is_null=postgres_schema.get(table,{}).get(column_name,{}).get("is_null",None)
+            if column_is_mandatory=="0" and is_null==0:
+               query=f"alter table {table} alter column {column_name} drop not null;"
+               await postgres_client.execute(query=query,values={})
+            if column_is_mandatory=="1" and is_null==1:
+               query=f"alter table {table} alter column {column_name} set not null;"
+               await postgres_client.execute(query=query,values={})
+   async def init_index(postgres_client,postgres_config):
+      index_name_list=[object["indexname"] for object in (await postgres_client.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
+      for table,column_list in postgres_config["table"].items():
+         for column in column_list:
+            column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
+            if column_index_type=="0":
+               query=f"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname ILIKE 'index_{table}_{column_name}_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
+               await postgres_client.execute(query=query,values={})
+            else:
+               index_type_list=column_index_type.split(",")
+               for index_type in index_type_list:
+                  index_name=f"index_{table}_{column_name}_{index_type}"
+                  if index_name not in index_name_list:
+                     if index_type=="gin":
+                        query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name} gin_trgm_ops);"
+                        await postgres_client.execute(query=query,values={})
+                     else:
+                        query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});"
+                        await postgres_client.execute(query=query,values={})
+   async def init_query(postgres_client,postgres_config):
+      constraint_name_list={object["constraint_name"].lower() for object in (await postgres_client.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
+      for query in postgres_config["query"].values():
+         if query.split()[0]=="0":continue
+         if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:continue
+         await postgres_client.fetch_all(query=query,values={})
+   await init_extension(postgres_client)
+   await init_table(postgres_client,postgres_schema_read,postgres_config)
+   await init_column(postgres_client,postgres_schema_read,postgres_config)
+   await init_nullable(postgres_client,postgres_schema_read,postgres_config)
+   await init_index(postgres_client,postgres_config)
+   await init_query(postgres_client,postgres_config)
    return None
 
 async def ownership_check(postgres_client,table,id,user_id):
@@ -918,7 +922,7 @@ api_id={
 "/admin/object-read":5,
 "/admin/db-runner":6
 }
-postgres_schema_default={
+postgres_config_default={
 "table":{
 "test":[
 "created_at-timestamptz-0-brin",
@@ -1217,8 +1221,8 @@ async def root_db_init(request:Request):
    mode=request.query_params.get("mode")
    if not mode:return error("mode missing")
    #variable
-   if mode=="1":postgres_config=postgres_schema_default
-   elif mode=="2":postgres_config=config.postgres_schema
+   if mode=="1":postgres_config=postgres_config_default
+   elif mode=="2":postgres_config=config.postgres_config_client
    elif mode=="3":postgres_config=await request.json()
    #logic
    await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config)
