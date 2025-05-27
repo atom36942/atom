@@ -1174,8 +1174,10 @@ async def middleware(request:Request,api_function):
    try:
       start=time.time()
       token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-      request.state.postgres_client=postgres_client
-      request.state.postgres_column_datatype=postgres_column_datatype
+      #router shared state
+      if router_list:
+         request.state.postgres_client=postgres_client
+         request.state.postgres_column_datatype=postgres_column_datatype
       #token check
       for item in ["root/","my/","private/","admin/"]:
          if item in request.url.path and not token:return error("token missing")
