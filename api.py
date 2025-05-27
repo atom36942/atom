@@ -17,8 +17,8 @@ from fastapi_limiter.depends import RateLimiter
 #test
 @router.get("/test",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
 async def test(request:Request):
-   object={"title":"test"}
    table="test"
+   object={"title":"test"}
    await postgres_create(table,[object],0,request.state.postgres_client,postgres_column_datatype,object_serialize)
    return {"status":1,"message":"welcome to test"}
 
