@@ -5,6 +5,11 @@ router=APIRouter()
 #import
 from main import *
 
+#env
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 #ratelimiter
 from fastapi import Depends
 from fastapi_limiter.depends import RateLimiter
