@@ -19,6 +19,6 @@ from fastapi_limiter.depends import RateLimiter
 async def test(request:Request):
    table="test"
    object={"title":"test"}
-   await postgres_create(table,[object],0,request.state.postgres_client,postgres_column_datatype,object_serialize)
+   await postgres_create(table,[object],1,request.state.postgres_client,postgres_column_datatype,object_serialize)
    return {"status":1,"message":"welcome to test"}
 
