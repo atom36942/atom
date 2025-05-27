@@ -1127,10 +1127,10 @@ async def lifespan(app:FastAPI):
       global kafka_producer_client
       if kafka_url:kafka_producer_client=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
       #cache
-      if cache_client=="valkey":await cache_init(valkey_client,redis_key_builder)
+      if valkey_client and cache_client=="valkey":await cache_init(valkey_client,redis_key_builder)
       else:await cache_init(redis_client,redis_key_builder)
       #ratelimiter
-      if ratelimiter_client=="valkey":await FastAPILimiter.init(valkey_client)
+      if valkey_client and ratelimiter_client=="valkey":await FastAPILimiter.init(valkey_client)
       else:await FastAPILimiter.init(redis_client)
       #gsheet client
       global gsheet_client
