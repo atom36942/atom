@@ -179,4 +179,5 @@ env.py
 *.ipynb
 *.pdf
 *.docx
+*.sql
 zzz.py
