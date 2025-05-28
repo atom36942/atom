@@ -44,5 +44,5 @@
 # notes
 1. run = python main.py
 2. run with reload =  uvicorn main:app --reload
-3. run with docker =  docker build -t atom . / docker run -p 8000:8000 atom
+3. run with docker =  docker build -t atom . --- docker run -p 8000:8000 atom
 4. api testing = ./curl.sh
