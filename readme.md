@@ -1,3 +1,4 @@
+# features
 - entire codebase is in main.py
 - functional+procedural programming style
 - pure functions to reduce side effects
@@ -39,3 +40,9 @@
 - openai integration
 - fast2ms integration
 - resend integration
+
+# notes
+1. run = python main.py
+2. run with reload =  uvicorn main:app --reload
+3. run with docker =  docker build -t atom . / docker run -p 8000:8000 atom
+4. api testing = ./curl.sh
