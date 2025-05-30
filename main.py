@@ -324,11 +324,11 @@ async def verify_otp(postgres_client,otp,email,mobile):
    if email:
       query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
       values={"email":email}
-      output=await postgres_client.execute(query=query,values=values)
+      output=await postgres_client.fetch_all(query=query,values=values)
    if mobile:
       query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
       values={"mobile":mobile}
-      output=await postgres_client.execute(query=query,values=values)
+      output=await postgres_client.fetch_all(query=query,values=values)
    if not output:raise Exception("otp not found")
    if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
    return None
