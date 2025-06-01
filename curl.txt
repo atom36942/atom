@@ -87,7 +87,9 @@ curl -X DELETE "$baseurl/my/message-delete?mode=all" -H "Authorization: Bearer $
 0 curl -X POST "$baseurl/public/otp-send-mobile-sns" -H "Content-Type: application/json" -d '{"mobile":"test"}'
 0 curl -X POST "$baseurl/public/otp-send-mobile-fast2sms" -H "Content-Type: application/json" -d '{"mobile":"test"}'
 0 curl -X POST "$baseurl/public/otp-send-email-ses" -H "Content-Type: application/json" -d '{"sender_email":"test","email":"test"}'
-curl -X POST "$baseurl/public/otp-send-email-resend" -H "Content-Type: application/json" -d '{"sender_email":"no-reply@mail.askira.app","email":"atom36942@gmail.com"}'
+0 curl -X POST "$baseurl/public/otp-send-email-resend" -H "Content-Type: application/json" -d '{"sender_email":"no-reply@mail.askira.app","email":"atom36942@gmail.com"}'
+0 curl -X POST "$baseurl/public/otp-verify-email" -H "Content-Type: application/json" -d '{"otp":117463,"email":"atom36942@gmail.com"}'
+0 curl -X POST "$baseurl/public/otp-verify-mobile" -H "Content-Type: application/json" -d '{"otp":117463,"mobile":"test"}'
 
 #public object
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"testing"}'

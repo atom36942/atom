@@ -913,7 +913,30 @@ resend_key=os.getenv("resend_key")
 #config
 if os.path.exists("config.py"):import config
 
-#variable
+#globals runtime
+postgres_client=None
+postgres_client_asyncpg=None
+postgres_client_read_replica=None
+postgres_schema={}
+postgres_column_datatype={}
+users_api_access={}
+users_is_active={}
+redis_client=None
+valkey_client=None
+mongodb_client=None
+s3_client=None
+s3_resource=None
+sns_client=None
+ses_client=None
+rabbitmq_client=None
+rabbitmq_channel=None
+lavinmq_client=None
+lavinmq_channel=None
+kafka_producer_client=None
+gsheet_client=None
+openai_client=None
+
+#globals fixed
 api_id={
 "/admin/object-create":1,
 "/admin/object-update":2,
@@ -1031,28 +1054,6 @@ postgres_config_default={
 "unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
 }
 }
-
-#globals
-postgres_client=None
-postgres_client_asyncpg=None
-postgres_client_read_replica=None
-postgres_schema={}
-postgres_column_datatype={}
-users_api_access={}
-users_is_active={}
-redis_client=None
-valkey_client=None
-mongodb_client=None
-s3_client=None
-s3_resource=None
-sns_client=None
-ses_client=None
-rabbitmq_client=None
-rabbitmq_channel=None
-lavinmq_client=None
-lavinmq_channel=None
-kafka_producer_client=None
-gsheet_client=None
 
 #openai client
 from openai import OpenAI
@@ -1753,6 +1754,30 @@ async def public_otp_send_email_resend(request:Request):
    otp=await generate_save_otp(postgres_client,email,None)
    #logic
    await send_email_resend(resend_key,"https://api.resend.com/emails",sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
+   #final
+   return {"status":1,"message":"done"}
+
+@app.post("/public/otp-verify-email")
+async def public_otp_verify_email(request:Request):
+   #param
+   object=await request.json()
+   otp=object.get("otp")
+   email=object.get("email")
+   if not otp or not email:return error("otp/email missing")
+   #logic
+   await verify_otp(postgres_client,otp,email,None)
+   #final
+   return {"status":1,"message":"done"}
+
+@app.post("/public/otp-verify-mobile")
+async def public_otp_verify_mobile(request:Request):
+   #param
+   object=await request.json()
+   otp=object.get("otp")
+   mobile=object.get("mobile")
+   if not otp or not mobile:return error("otp/mobile missing")
+   #logic
+   await verify_otp(postgres_client,otp,None,mobile)
    #final
    return {"status":1,"message":"done"}
 
