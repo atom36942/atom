@@ -1,5 +1,6 @@
 #index
 curl -X GET "$baseurl"
+0 curl -X GET "$baseurl/api"
 
 #root db init
 curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_root"
