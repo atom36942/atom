@@ -1059,6 +1059,10 @@ postgres_config_default={
 from openai import OpenAI
 if openai_key:openai_client=OpenAI(api_key=openai_key)
 
+# sentry
+import sentry_sdk
+if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
+
 #redis key builder
 from fastapi import Request,Response
 import jwt,json,hashlib
@@ -1150,7 +1154,7 @@ async def lifespan(app:FastAPI):
       if kafka_producer_client:await kafka_producer_client.stop()
       await FastAPILimiter.close()
    except Exception as e:print(str(e))
-
+   
 #app
 from fastapi import FastAPI
 app=FastAPI(lifespan=lifespan)
@@ -1158,10 +1162,6 @@ app=FastAPI(lifespan=lifespan)
 #cors
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
-
-#sentry
-import sentry_sdk
-if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0)
 
 #prometheus
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -1203,6 +1203,7 @@ async def middleware(request:Request,api_function):
    except Exception as e:
       print(traceback.format_exc())
       response=error(str(e))
+      if sentry_dsn:sentry_sdk.capture_exception(e)
    #final
    return response
 
