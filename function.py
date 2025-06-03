@@ -1,3 +1,51 @@
+def numeric_converter(mode,x):
+   MAX_LEN = 30
+   CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
+   BASE = len(CHARS)
+   CHAR_TO_NUM = {ch: i for i, ch in enumerate(CHARS)}
+   NUM_TO_CHAR = {i: ch for i, ch in enumerate(CHARS)}
+   if mode=="encode":
+      if len(x) > MAX_LEN:raise Exception(f"String too long (max {MAX_LEN} characters)")
+      num = 0
+      for ch in x:
+         if ch not in CHAR_TO_NUM:raise Exception(f"Unsupported character: '{ch}'")
+         num = num * BASE + CHAR_TO_NUM[ch]
+      output=len(x) * (BASE ** MAX_LEN) + num
+   if mode=="decode":
+      length = x // (BASE ** MAX_LEN)
+      num = x % (BASE ** MAX_LEN)
+      chars = []
+      for _ in range(length):
+         num, rem = divmod(num, BASE)
+         chars.append(NUM_TO_CHAR[rem])
+      output=''.join(reversed(chars))
+   return output
+
+def bigint_converter(mode,x):
+   MAX_LENGTH = 11
+   CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789_'
+   BASE = len(CHARSET)
+   LENGTH_BITS = 6
+   VALUE_BITS = 64 - LENGTH_BITS
+   CHAR_TO_INDEX = {c: i for i, c in enumerate(CHARSET)}
+   INDEX_TO_CHAR = {i: c for i, c in enumerate(CHARSET)}
+   if mode=="encode":
+      if len(x) > MAX_LENGTH:raise Exception(f"text length exceeds {MAX_LENGTH} characters.")
+      value = 0
+      for char in x:
+         if char not in CHAR_TO_INDEX:raise Exception(f"Invalid character: {char}")
+         value = value * BASE + CHAR_TO_INDEX[char]
+      output=(len(x) << VALUE_BITS) | value
+   if mode=="decode":
+      length = x >> VALUE_BITS
+      value = x & ((1 << VALUE_BITS) - 1)
+      chars = []
+      for _ in range(length):
+         value, index = divmod(value, BASE)
+         chars.append(INDEX_TO_CHAR[index])
+      output=''.join(reversed(chars))
+   return output
+
 import asyncpg,random
 from mimesis import Person,Address,Food,Text,Code,Datetime
 async def generate_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
@@ -55,31 +103,6 @@ async def generate_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
    await generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE)
    await conn.close()
    return None
-
-async def bigint_converter(mode,x):
-   CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789_'
-   BASE = len(CHARSET)
-   MAX_LENGTH = 11
-   LENGTH_BITS = 6
-   VALUE_BITS = 64 - LENGTH_BITS
-   CHAR_TO_INDEX = {c: i for i, c in enumerate(CHARSET)}
-   INDEX_TO_CHAR = {i: c for i, c in enumerate(CHARSET)}
-   if mode=="encode":
-      if len(x) > MAX_LENGTH:raise Exception(f"text length exceeds {MAX_LENGTH} characters.")
-      value = 0
-      for char in x:
-         if char not in CHAR_TO_INDEX:raise Exception(f"Invalid character: {char}")
-         value = value * BASE + CHAR_TO_INDEX[char]
-      output=(len(x) << VALUE_BITS) | value
-   if mode=="decode":
-      length = x >> VALUE_BITS
-      value = x & ((1 << VALUE_BITS) - 1)
-      chars = []
-      for _ in range(length):
-         value, index = divmod(value, BASE)
-         chars.append(INDEX_TO_CHAR[index])
-      output=''.join(reversed(chars))
-   return output
 
 import httpx
 async def send_email_resend(resend_key,resend_url,sender_email,email_list,title,body):
@@ -561,18 +584,29 @@ async def read_user_single(postgres_client,user_id):
    if not user:raise Exception("user not found")
    return user
 
-async def users_api_access_check(user_id,api_id_value,users_api_access,postgres_client):
-   user_api_access=users_api_access.get(user_id,"absent")
-   if user_api_access=="absent":
+async def users_api_access_read(postgres_client_asyncpg,limit):
+   users_api_access={}
+   async with postgres_client_asyncpg.transaction():
+      cursor=await postgres_client_asyncpg.cursor('select id,api_access from users where api_access is not null order by id desc')
+      count=0
+      while count < limit:
+         batch=await cursor.fetch(10000)
+         if not batch:break
+         users_api_access.update({record['id']:record["api_access"].split(",") for record in batch})
+         count+=len(batch)
+   return users_api_access
+
+async def users_api_access_check(request,users_api_access,postgres_client):
+   user_api_access_list=users_api_access.get(request.state.user["id"],"absent")
+   if user_api_access_list=="absent":
       query="select id,api_access from users where id=:id;"
-      values={"id":user_id}
+      values={"id":request.state.user["id"]}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
       if not user:raise Exception("user not found")
-      api_access_str=user["api_access"]
-      if not api_access_str:raise Exception("api access denied")
-      user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
-   if api_id_value not in user_api_access:raise Exception("api access denied")
+      if not user["api_access"]:raise Exception("api access denied")
+      user_api_access_list=user["api_access"].split(",")
+   if request.url.path not in user_api_access_list:raise Exception("api access denied")
    return None
 
 async def users_is_active_check(user_id,users_is_active,postgres_client):
@@ -599,19 +633,6 @@ async def users_is_active_read(postgres_client_asyncpg,limit):
          if False:await redis_client.mset({f"users_is_active_{record['id']}":0 if record['is_active']==0 else 1 for record in batch})
          count+=len(batch)
    return users_is_active
-
-async def users_api_access_read(postgres_client_asyncpg,limit):
-   users_api_access={}
-   async with postgres_client_asyncpg.transaction():
-      cursor=await postgres_client_asyncpg.cursor('SELECT id,api_access FROM users where api_access is not null ORDER BY id DESC')
-      count=0
-      while count < limit:
-         batch=await cursor.fetch(10000)
-         if not batch:break
-         users_api_access.update({record['id']:[int(item.strip()) for item in record["api_access"].split(",")] for record in batch})
-         if False:await redis_client.mset({f"users_api_access_{record['id']}":record['api_access'] for record in batch})
-         count+=len(batch)
-   return users_api_access
 
 from fastapi import Request,responses
 from starlette.background import BackgroundTask

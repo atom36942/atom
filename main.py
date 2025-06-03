@@ -1,5 +1,6 @@
-#function
+#import file
 from function import *
+if os.path.exists("config.py"):import config
 
 #env
 import os
@@ -47,9 +48,6 @@ gsheet_service_account_json_path=os.getenv("gsheet_service_account_json_path")
 gsheet_scope_list=os.getenv("gsheet_scope_list","https://www.googleapis.com/auth/spreadsheets").split(",")
 resend_key=os.getenv("resend_key")
 
-#config
-if os.path.exists("config.py"):import config
-
 #globals runtime
 postgres_client=None
 postgres_client_asyncpg=None
@@ -74,14 +72,6 @@ gsheet_client=None
 openai_client=None
 
 #globals fixed
-api_id={
-"/admin/object-create":1,
-"/admin/object-update":2,
-"/admin/ids-update":3,
-"/admin/ids-delete":4,
-"/admin/object-read":5,
-"/admin/db-runner":6
-}
 postgres_config_default={
 "table":{
 "test":[
@@ -177,7 +167,7 @@ postgres_config_default={
 "is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
 "log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
 "log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
-"root_user_1":"insert into users (type,username,password,api_access) values (1,'atom','5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5','1,2,3,4,5,6,7,8,9,10') on conflict do nothing;",
+"root_user_1":"insert into users (type,username,password,api_access) values (1,'atom','5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5','/admin/object-create,/admin/object-update,/admin/object-read,/admin/ids-update,/admin/ids-delete,/admin/db-runner') on conflict do nothing;",
 "root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
 "delete_disable_bulk_function":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
 "delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
@@ -235,18 +225,18 @@ async def lifespan(app:FastAPI):
       #postgres column datatype
       global postgres_column_datatype
       postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-      #users api access
-      global users_api_access
-      if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
-      #users is_active
-      global users_is_active
-      if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
       #redis client
       global redis_client
       if redis_url:redis_client=await redis_client_read(redis_url)
       #valkey client
       global valkey_client
       if valkey_url:valkey_client=await redis_client_read(valkey_url)
+      #users api access
+      global users_api_access
+      if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
+      #users is_active
+      global users_is_active
+      if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
       #mongodb client
       global mongodb_client
       if mongodb_url:mongodb_client=await mongodb_client_read(mongodb_url)
@@ -326,7 +316,7 @@ async def middleware(request:Request,api_function):
             if token!=key_root:return error("token root mismatch")
          else:request.state.user=await token_decode(token,key_jwt)
       #admin check
-      if "admin/" in request.url.path:await users_api_access_check(request.state.user["id"],api_id[request.url.path],users_api_access,postgres_client)
+      if "admin/" in request.url.path:await users_api_access_check(request,users_api_access,postgres_client)
       #is_active check
       if is_active_check_api_keyword:
          for item in is_active_check_api_keyword.split(","):
@@ -1022,7 +1012,6 @@ async def public_info(request:Request):
       cache_public_info={
       "set_at":time.time(),
       "api_list":[route.path for route in request.app.routes],
-      "api_id":api_id,
       "redis":await redis_client.info() if redis_client else None,
       "postgres_schema":postgres_schema,
       "postgres_column_datatype":postgres_column_datatype,
@@ -1045,19 +1034,6 @@ async def public_page(filename:str):
    with open(file_path, "r", encoding="utf-8") as file:html_content=file.read()
    #final
    return responses.HTMLResponse(content=html_content)
-
-@app.get("/public/bigint-converter")
-async def public_bigint_converter(request:Request):
-   #param
-   mode=request.query_params.get("mode")
-   x=request.query_params.get("x")
-   if not mode or not x:return error("mode/x missing")
-   #modify
-   if mode=="decode":x=int(x)
-   #logic
-   output=await bigint_converter(mode,x)
-   #final
-   return {"status":1,"message":output}
 
 @app.get("/private/object-read")
 @cache(expire=100)
