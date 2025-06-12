@@ -1,6 +1,5 @@
-#import file
+#function
 from function import *
-if os.path.exists("config.py"):import config
 
 #env
 import os
@@ -48,7 +47,7 @@ gsheet_service_account_json_path=os.getenv("gsheet_service_account_json_path")
 gsheet_scope_list=os.getenv("gsheet_scope_list","https://www.googleapis.com/auth/spreadsheets").split(",")
 resend_key=os.getenv("resend_key")
 
-#globals runtime
+#globals
 postgres_client=None
 postgres_client_asyncpg=None
 postgres_client_read_replica=None
@@ -70,125 +69,6 @@ lavinmq_channel=None
 kafka_producer_client=None
 gsheet_client=None
 openai_client=None
-
-#globals fixed
-postgres_config_default={
-"table":{
-"test":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-0-btree",
-"title-text-0-0",
-"description-text-0-0",
-"file_url-text-0-0",
-"link_url-text-0-0",
-"tag-text-0-0",
-"rating-numeric(10,3)-0-0",
-"remark-text-0-gin,btree",
-"location-geography(POINT)-0-gist",
-"metadata-jsonb-0-0"
-],
-"atom":[
-"type-bigint-0-btree",
-"title-text-0-0",
-"description-text-0-0",
-"file_url-text-0-0",
-"link_url-text-0-0",
-"tag-text-0-0"
-],
-"log_api":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"api-text-0-0",
-"method-text-0-0",
-"query_param-text-0-0",
-"status_code-smallint-0-0",
-"response_time_ms-numeric(1000,3)-0-0"
-],
-"otp":[
-"created_at-timestamptz-0-brin",
-"otp-integer-1-0",
-"email-text-0-btree",
-"mobile-text-0-btree"
-],
-"log_password":[
-"created_at-timestamptz-0-0",
-"user_id-bigint-0-0",
-"password-text-0-0"
-],
-"users":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-1-btree",
-"username-text-0-btree",
-"password-text-0-btree",
-"google_id-text-0-btree",
-"google_data-jsonb-0-0",
-"email-text-0-btree",
-"mobile-text-0-btree",
-"api_access-text-0-0",
-"last_active_at-timestamptz-0-0",
-"username_bigint-bigint-0-btree",
-"password_bigint-bigint-0-btree"
-],
-"message":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
-"updated_by_id-bigint-0-0",
-"is_deleted-smallint-0-btree",
-"user_id-bigint-1-btree",
-"description-text-1-0",
-"is_read-smallint-0-btree"
-],
-"report_user":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
-"user_id-bigint-1-btree"
-]
-},
-"query":{
-"drop_all_index":"0 DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;",
-"default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
-"default_updated_at_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
-"default_updated_at_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
-"log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
-"root_user_1":"insert into users (type,username,password,api_access) values (1,'atom','5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5','/admin/object-create,/admin/object-update,/admin/object-read,/admin/ids-update,/admin/ids-delete,/admin/db-runner') on conflict do nothing;",
-"root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
-"delete_disable_bulk_function":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
-"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
-"check_username":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
-"check_is_active":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_active' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_check_%I_is_active', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_active IN (0,1) OR is_active IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
-"unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
-"unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
-"unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
-"unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
-"unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
-"unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
-}
-}
-
-#openai client
-from openai import OpenAI
-if openai_key:openai_client=OpenAI(api_key=openai_key)
-
-# sentry
-import sentry_sdk
-if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
 
 #redis key builder
 from fastapi import Request,Response
@@ -225,18 +105,24 @@ async def lifespan(app:FastAPI):
       #postgres column datatype
       global postgres_column_datatype
       postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
+      #users api access
+      global users_api_access
+      if postgres_schema.get("users",{}).get("api_access"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
+      #users is_active
+      global users_is_active
+      if postgres_schema.get("users",{}).get("is_active"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
       #redis client
       global redis_client
       if redis_url:redis_client=await redis_client_read(redis_url)
       #valkey client
       global valkey_client
       if valkey_url:valkey_client=await redis_client_read(valkey_url)
-      #users api access
-      global users_api_access
-      if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
-      #users is_active
-      global users_is_active
-      if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
+      #cache
+      if valkey_client and cache_client=="valkey":await cache_init(valkey_client,redis_key_builder)
+      else:await cache_init(redis_client,redis_key_builder)
+      #ratelimiter
+      if valkey_client and ratelimiter_client=="valkey":await FastAPILimiter.init(valkey_client)
+      else:await FastAPILimiter.init(redis_client)
       #mongodb client
       global mongodb_client
       if mongodb_url:mongodb_client=await mongodb_client_read(mongodb_url)
@@ -258,15 +144,17 @@ async def lifespan(app:FastAPI):
       #kafka producer client
       global kafka_producer_client
       if kafka_url:kafka_producer_client=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
-      #cache
-      if valkey_client and cache_client=="valkey":await cache_init(valkey_client,redis_key_builder)
-      else:await cache_init(redis_client,redis_key_builder)
-      #ratelimiter
-      if valkey_client and ratelimiter_client=="valkey":await FastAPILimiter.init(valkey_client)
-      else:await FastAPILimiter.init(redis_client)
       #gsheet client
       global gsheet_client
       if gsheet_service_account_json_path:gsheet_client=await gsheet_client_read(gsheet_service_account_json_path,gsheet_scope_list)
+      #openai client
+      global openai_client
+      if openai_key:openai_client=openai_client_read(openai_key)
+      #app state
+      app.state.global_state={
+      "postgres_client": postgres_client,
+      "postgres_column_datatype": postgres_column_datatype
+      }
       #disconnect
       yield
       await postgres_client.disconnect()
@@ -290,6 +178,10 @@ app=FastAPI(lifespan=lifespan)
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
 
+#sentry
+import sentry_sdk
+if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
+
 #prometheus
 from prometheus_fastapi_instrumentator import Instrumentator
 if False:Instrumentator().instrument(app).expose(app)
@@ -302,10 +194,6 @@ async def middleware(request:Request,api_function):
    try:
       start=time.time()
       token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-      #router shared state
-      if router_list:
-         request.state.postgres_client=postgres_client
-         request.state.postgres_column_datatype=postgres_column_datatype
       #token check
       for item in ["root/","my/","private/","admin/"]:
          if item in request.url.path and not token:return error("token missing")
@@ -316,11 +204,11 @@ async def middleware(request:Request,api_function):
             if token!=key_root:return error("token root mismatch")
          else:request.state.user=await token_decode(token,key_jwt)
       #admin check
-      if "admin/" in request.url.path:await users_api_access_check(request,users_api_access,postgres_client)
+      if "admin/" in request.url.path:await users_api_access_check(request,api_id_read,users_api_access,postgres_client)
       #is_active check
       if is_active_check_api_keyword:
          for item in is_active_check_api_keyword.split(","):
-            if item in request.url.path:await users_is_active_check(request.state.user["id"],users_is_active,postgres_client)
+            if item in request.url.path:await users_is_active_check(request,users_is_active,postgres_client)
       #api response
       if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
       else:response=await api_function(request)
@@ -416,10 +304,10 @@ async def root_reset_global():
    postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
    #users api access reset
    global users_api_access
-   if postgres_schema.get("users"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
+   if postgres_schema.get("users",{}).get("api_access"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
    #users is_active reset
    global users_is_active
-   if postgres_schema.get("users"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
+   if postgres_schema.get("users",{}).get("is_active"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
    #final
    return {"status":1,"message":"done"}
 
@@ -1015,8 +903,6 @@ async def public_info(request:Request):
       "redis":await redis_client.info() if redis_client else None,
       "postgres_schema":postgres_schema,
       "postgres_column_datatype":postgres_column_datatype,
-      "users_api_access_count":len(users_api_access),
-      "users_is_active_count":len(users_is_active),
       "bucket":s3_client.list_buckets() if s3_client else None,
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True))
       }

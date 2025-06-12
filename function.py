@@ -1,3 +1,13 @@
+import types
+def global_var_read_pattern(namespace,pattern):
+   output={
+      name: value for name, value in namespace.items()
+      if pattern in name.lower()
+      and not isinstance(value, types.ModuleType)
+      and not name.startswith("__")
+   }
+   return output
+
 def numeric_converter(mode,x):
    MAX_LEN = 30
    CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
@@ -151,6 +161,11 @@ async def openai_ocr(openai_client,model,prompt,file):
    b64_image=base64.b64encode(contents).decode("utf-8")
    output=openai_client.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
    return output
+
+from openai import OpenAI
+def openai_client_read(openai_key):
+   openai_client=OpenAI(api_key=openai_key)
+   return openai_client
 
 from databases import Database
 async def postgres_client_read(postgres_url):
@@ -587,33 +602,36 @@ async def read_user_single(postgres_client,user_id):
 async def users_api_access_read(postgres_client_asyncpg,limit):
    users_api_access={}
    async with postgres_client_asyncpg.transaction():
-      cursor=await postgres_client_asyncpg.cursor('select id,api_access from users where api_access is not null order by id desc')
+      cursor=await postgres_client_asyncpg.cursor('SELECT id,api_access FROM users where api_access is not null ORDER BY id DESC')
       count=0
       while count < limit:
          batch=await cursor.fetch(10000)
          if not batch:break
-         users_api_access.update({record['id']:record["api_access"].split(",") for record in batch})
+         users_api_access.update({record['id']:[int(item.strip()) for item in record["api_access"].split(",")] for record in batch})
          count+=len(batch)
    return users_api_access
 
-async def users_api_access_check(request,users_api_access,postgres_client):
-   user_api_access_list=users_api_access.get(request.state.user["id"],"absent")
-   if user_api_access_list=="absent":
+async def users_api_access_check(request,api_id_read,users_api_access,postgres_client):
+   user_api_access=users_api_access.get(request.state.user["id"],"absent")
+   if user_api_access=="absent":
       query="select id,api_access from users where id=:id;"
       values={"id":request.state.user["id"]}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
       if not user:raise Exception("user not found")
-      if not user["api_access"]:raise Exception("api access denied")
-      user_api_access_list=user["api_access"].split(",")
-   if request.url.path not in user_api_access_list:raise Exception("api access denied")
+      api_access_str=user["api_access"]
+      if not api_access_str:raise Exception("api access denied")
+      user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
+   api_id=api_id_read().get(request.url.path)
+   if not api_id:raise Exception("api id not mapped")
+   if api_id not in user_api_access:raise Exception("api access denied")
    return None
 
-async def users_is_active_check(user_id,users_is_active,postgres_client):
-   user_is_active=users_is_active.get(user_id,"absent")
+async def users_is_active_check(request,users_is_active,postgres_client):
+   user_is_active=users_is_active.get(request.state.user["id"],"absent")
    if user_is_active=="absent":
       query="select id,is_active from users where id=:id;"
-      values={"id":user_id}
+      values={"id":request.state.user["id"]}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
       if not user:raise Exception("user not found")
@@ -880,6 +898,127 @@ async def login_google(postgres_client,token_create,key_jwt,token_expire_sec,goo
    token=await token_create(key_jwt,token_expire_sec,user)
    return token
 
+def api_id_read():
+   api_id={
+   "/admin/object-create":1,
+   "/admin/object-update":2,
+   "/admin/ids-update":3,
+   "/admin/ids-delete":4,
+   "/admin/object-read":5,
+   "/admin/db-runner":6
+   }
+   return api_id
+      
 from fastapi import responses
 def error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
+
+postgres_config_default={
+"table":{
+"test":[
+"created_at-timestamptz-0-brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_verified-smallint-0-btree",
+"is_deleted-smallint-0-btree",
+"is_protected-smallint-0-btree",
+"type-bigint-0-btree",
+"title-text-0-0",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0",
+"rating-numeric(10,3)-0-0",
+"remark-text-0-gin,btree",
+"location-geography(POINT)-0-gist",
+"metadata-jsonb-0-0"
+],
+"atom":[
+"type-bigint-0-btree",
+"title-text-0-0",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0"
+],
+"log_api":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"api-text-0-0",
+"method-text-0-0",
+"query_param-text-0-0",
+"status_code-smallint-0-0",
+"response_time_ms-numeric(1000,3)-0-0"
+],
+"otp":[
+"created_at-timestamptz-0-brin",
+"otp-integer-1-0",
+"email-text-0-btree",
+"mobile-text-0-btree"
+],
+"log_password":[
+"created_at-timestamptz-0-0",
+"user_id-bigint-0-0",
+"password-text-0-0"
+],
+"users":[
+"created_at-timestamptz-0-brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_verified-smallint-0-btree",
+"is_deleted-smallint-0-btree",
+"is_protected-smallint-0-btree",
+"type-bigint-1-btree",
+"username-text-0-btree",
+"password-text-0-btree",
+"google_id-text-0-btree",
+"google_data-jsonb-0-0",
+"email-text-0-btree",
+"mobile-text-0-btree",
+"api_access-text-0-0",
+"last_active_at-timestamptz-0-0",
+"username_bigint-bigint-0-btree",
+"password_bigint-bigint-0-btree"
+],
+"message":[
+"created_at-timestamptz-0-brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-1-btree",
+"updated_by_id-bigint-0-0",
+"is_deleted-smallint-0-btree",
+"user_id-bigint-1-btree",
+"description-text-1-0",
+"is_read-smallint-0-btree"
+],
+"report_user":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-1-btree",
+"user_id-bigint-1-btree"
+]
+},
+"query":{
+"drop_all_index":"0 DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;",
+"default_created_at":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
+"default_updated_at_1":"create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';",
+"default_updated_at_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"is_protected":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"log_password_1":"CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
+"log_password_2":"CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();",
+"root_user_1":"insert into users (type,username,password,api_access) values (1,'atom','5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5','1,2,3,4,5,6,7,8,9,10') on conflict do nothing;",
+"root_user_2":"create or replace rule rule_delete_disable_root_user as on delete to users where old.id=1 do instead nothing;",
+"delete_disable_bulk_function":"create or replace function function_delete_disable_bulk() returns trigger language plpgsql as $$declare n bigint := tg_argv[0]; begin if (select count(*) from deleted_rows) <= n is not true then raise exception 'cant delete more than % rows', n; end if; return old; end;$$;",
+"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
+"check_username":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
+"check_is_active":"DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name = p.relname JOIN pg_namespace n ON p.relnamespace = n.oid WHERE c.column_name = 'is_active' AND c.table_schema = 'public' AND p.relkind = 'r') LOOP constraint_name := format('constraint_check_%I_is_active', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_active IN (0,1) OR is_active IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
+"unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
+"unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
+"unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
+"unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
+"unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
+"unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
+}
+}
