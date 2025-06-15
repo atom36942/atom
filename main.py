@@ -1,10 +1,12 @@
 #function
 from function import *
 
-#env
+#env load
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
+#env variable
 postgres_url=os.getenv("postgres_url")
 redis_url=os.getenv("redis_url")
 key_jwt=os.getenv("key_jwt")
@@ -25,15 +27,14 @@ sns_region_name=os.getenv("sns_region_name")
 ses_region_name=os.getenv("ses_region_name")
 google_client_id=os.getenv("google_client_id")
 is_signup=int(os.getenv("is_signup",1))
-postgres_url_read=os.getenv("postgres_url_read")
 channel_name=os.getenv("channel_name","ch1")
 user_type_allowed=[int(x) for x in (os.getenv("user_type_allowed","1,2,3").split(","))]
 column_disabled_non_admin=os.getenv("column_disabled_non_admin","is_active,is_verified,api_access").split(",")
 postgres_url_read_replica=os.getenv("postgres_url_read_replica")
 router_list=os.getenv("router_list").split(",") if os.getenv("router_list") else []
 fast2sms_key=os.getenv("fast2sms_key")
-cache_client=os.getenv("cache_client")
-ratelimiter_client=os.getenv("ratelimiter_client")
+is_cache_client_valkey=int(os.getenv("is_cache_client_valkey",0))
+is_ratelimiter_client_valkey=int(os.getenv("is_ratelimiter_client_valkey",0))
 is_active_check_api_keyword=os.getenv("is_active_check_api_keyword")
 table_allowed_public_create=os.getenv("table_allowed_public_create","test")
 table_allowed_public_read=os.getenv("table_allowed_public_read","test")
@@ -92,19 +93,16 @@ async def lifespan(app:FastAPI):
    try:
       #postgres client
       global postgres_client
-      postgres_client=await postgres_client_read(postgres_url)
+      postgres_client=await function_postgres_client_read(postgres_url)
       #postgres client asyncpg
       global postgres_client_asyncpg
       postgres_client_asyncpg=await postgres_client_asyncpg_read(postgres_url)
       #postgres client read replica
       global postgres_client_read_replica
-      if postgres_url_read_replica:postgres_client_read_replica=await postgres_client_read(postgres_url_read_replica)
+      if postgres_url_read_replica:postgres_client_read_replica=await function_postgres_client_read(postgres_url_read_replica)
       #postgres schema
-      global postgres_schema
-      postgres_schema=await postgres_schema_read(postgres_client)
-      #postgres column datatype
-      global postgres_column_datatype
-      postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
+      global postgres_schema,postgres_column_datatype
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(postgres_client)
       #users api access
       global users_api_access
       if postgres_schema.get("users",{}).get("api_access"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
@@ -113,15 +111,15 @@ async def lifespan(app:FastAPI):
       if postgres_schema.get("users",{}).get("is_active"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
       #redis client
       global redis_client
-      if redis_url:redis_client=await redis_client_read(redis_url)
+      if redis_url:redis_client=await function_redis_client_read(redis_url)
       #valkey client
       global valkey_client
-      if valkey_url:valkey_client=await redis_client_read(valkey_url)
+      if valkey_url:valkey_client=await function_redis_client_read(valkey_url)
       #cache
-      if valkey_client and cache_client=="valkey":await cache_init(valkey_client,redis_key_builder)
+      if valkey_client and is_cache_client_valkey==1:await cache_init(valkey_client,redis_key_builder)
       else:await cache_init(redis_client,redis_key_builder)
       #ratelimiter
-      if valkey_client and ratelimiter_client=="valkey":await FastAPILimiter.init(valkey_client)
+      if valkey_client and is_ratelimiter_client_valkey==1:await FastAPILimiter.init(valkey_client)
       else:await FastAPILimiter.init(redis_client)
       #mongodb client
       global mongodb_client
@@ -135,12 +133,12 @@ async def lifespan(app:FastAPI):
       #ses client
       global ses_client
       if ses_region_name:ses_client=await ses_client_read(ses_region_name,aws_access_key_id,aws_secret_access_key)
-      #rabbitmq client
+      #rabbitmq channel
       global rabbitmq_client,rabbitmq_channel
-      if rabbitmq_url:rabbitmq_client,rabbitmq_channel=await rabbitmq_client_read(rabbitmq_url,channel_name)
-      #lavinmq client
+      if rabbitmq_url:rabbitmq_client,rabbitmq_channel=await function_rabbitmq_channel_read(rabbitmq_url)
+      #lavinmq channel
       global lavinmq_client,lavinmq_channel
-      if lavinmq_url:lavinmq_client,lavinmq_channel=await lavinmq_client_read(lavinmq_url,channel_name)
+      if lavinmq_url:lavinmq_client,lavinmq_channel=await function_lavinmq_channel_read(lavinmq_url)
       #kafka producer client
       global kafka_producer_client
       if kafka_url:kafka_producer_client=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
@@ -155,19 +153,27 @@ async def lifespan(app:FastAPI):
       "postgres_client": postgres_client,
       "postgres_column_datatype": postgres_column_datatype
       }
-      #disconnect
+      #app shutdown
       yield
+      #postgres
       await postgres_client.disconnect()
       await postgres_client_asyncpg.close()
       if postgres_client_read_replica:await postgres_client_read_replica.close()
+      #ratelimiter
+      await FastAPILimiter.close()
+      #redis
       if redis_client:await redis_client.aclose()
       if valkey_client:await valkey_client.aclose()
-      if rabbitmq_client and rabbitmq_channel.is_open:rabbitmq_channel.close()
-      if rabbitmq_client and rabbitmq_client.is_open:rabbitmq_client.close()
-      if lavinmq_client and lavinmq_channel.is_open:lavinmq_channel.close()
-      if lavinmq_client and lavinmq_client.is_open:lavinmq_client.close()
+      #kafka
       if kafka_producer_client:await kafka_producer_client.stop()
-      await FastAPILimiter.close()
+      #rabbitmq
+      if rabbitmq_client:
+         if not rabbitmq_channel.is_closed:await rabbitmq_channel.close()
+         if not rabbitmq_client.is_closed:await rabbitmq_client.close()
+      #lavinmq
+      if lavinmq_client:
+         if not lavinmq_channel.is_closed:await lavinmq_channel.close()
+         if not lavinmq_client.is_closed:await lavinmq_client.close()
    except Exception as e:print(str(e))
    
 #app
@@ -214,7 +220,7 @@ async def middleware(request:Request,api_function):
       else:response=await api_function(request)
       #api log
       object={"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
-      asyncio.create_task(log_api_create(object,log_api_batch_count,postgres_create,postgres_client,postgres_column_datatype,object_serialize))
+      asyncio.create_task(log_api_create(object,log_api_batch_count,function_postgres_create,postgres_client,postgres_column_datatype,function_object_serialize))
    except Exception as e:
       print(traceback.format_exc())
       response=error(str(e))
@@ -227,7 +233,7 @@ router_add(router_list,app)
 
 #api
 from fastapi import Request,responses,Depends
-import hashlib,json,time,os,random,asyncio,requests,httpx
+import hashlib,json,time,os,random,asyncio,requests,httpx,sys,aio_pika
 from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
@@ -245,13 +251,10 @@ async def root_db_init(request:Request):
    elif mode=="2":postgres_config=config.postgres_config_client
    elif mode=="3":postgres_config=await request.json()
    #logic
-   await postgres_schema_init(postgres_client,postgres_schema_read,postgres_config)
+   await postgres_schema_init(postgres_client,function_postgres_schema_read,postgres_config)
    #postgres schema reset
-   global postgres_schema
-   postgres_schema=await postgres_schema_read(postgres_client)
-   #postgres column datatype reset
-   global postgres_column_datatype
-   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
+   global postgres_schema,postgres_column_datatype
+   postgres_schema,postgres_column_datatype=function_postgres_schema_read(postgres_client)
    #final
    return {"status":1,"message":"done"}
 
@@ -266,9 +269,9 @@ async def root_db_uploader(request:Request):
    #object list
    object_list=await file_to_object_list(file_list[-1])
    #logic
-   if mode=="create":output=await postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="update":output=await postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
-   if mode=="delete":output=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,object_serialize)
+   if mode=="create":output=await function_postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
+   if mode=="update":output=await function_postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,function_object_serialize)
+   if mode=="delete":output=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,function_object_serialize)
    #final
    return {"status":1,"message":output}
 
@@ -297,11 +300,8 @@ async def root_reset_redis():
 @app.put("/root/reset-global")
 async def root_reset_global():
    #postgres schema reset
-   global postgres_schema
-   postgres_schema=await postgres_schema_read(postgres_client)
-   #postgres column datatype reset
-   global postgres_column_datatype
-   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
+   global postgres_schema,postgres_column_datatype
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(postgres_client)
    #users api access reset
    global users_api_access
    if postgres_schema.get("users",{}).get("api_access"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
@@ -535,10 +535,10 @@ async def my_object_create(request:Request):
    if any(key in column_disabled_non_admin for key in object):return error(" object key not allowed")
    #logic
    data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
-   if not queue:output=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   if not queue:output=await function_postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
    elif queue=="redis":output=await redis_client.publish(channel_name,json.dumps(data))
-   elif queue=="rabbitmq":output=rabbitmq_channel.basic_publish(exchange='',routing_key=channel_name,body=json.dumps(data))
-   elif queue=="lavinmq":output=lavinmq_channel.basic_publish(exchange='',routing_key=channel_name,body=json.dumps(data))
+   elif queue=="rabbitmq":output=await rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+   elif queue=="lavinmq":output=await lavinmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
    elif queue=="kafka":output=await kafka_producer_client.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
    elif "mongodb" in queue:output=await mongodb_create_object(mongodb_client,queue.split('_')[1],table,[object])
    #final
@@ -554,7 +554,7 @@ async def my_object_read(request:Request):
    #modify
    object["created_by_id"]=f"=,{request.state.user['id']}"
    #logic
-   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
+   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    #final
    return {"status":1,"message":output}
 
@@ -590,7 +590,7 @@ async def my_user_update(request:Request):
       email,mobile=object.get("email"),object.get("mobile")
       await verify_otp(postgres_client,otp,email,mobile)
    #logic
-   output=await postgres_update("users",[object],1,postgres_client,postgres_column_datatype,object_serialize)
+   output=await function_postgres_update("users",[object],1,postgres_client,postgres_column_datatype,function_object_serialize)
    #final
    return {"status":1,"message":output}
 
@@ -609,7 +609,7 @@ async def my_object_update(request:Request):
    if len(object)<=2:return error ("object length issue")
    if any(key in column_disabled_non_admin for key in object):return error(" object key not allowed")
    #logic
-   output=await postgres_update_user(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize,request.state.user["id"])
+   output=await postgres_update_user(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize,request.state.user["id"])
    #final
    return {"status":1,"message":output}
 
@@ -656,7 +656,7 @@ async def my_object_delete_any(request:Request):
    #check
    if table in ["users"]:return error("table not allowed")
    #logic
-   await postgres_delete_any(table,object,postgres_client,create_where_string,object_serialize,postgres_column_datatype)
+   await postgres_delete_any(table,object,postgres_client,create_where_string,function_object_serialize,postgres_column_datatype)
    #final
    return {"status":1,"message":"done"}
 
@@ -807,7 +807,7 @@ async def public_object_create(request:Request):
    #check
    if table not in table_allowed_public_create.split(","):return error("table not allowed")
    #logic
-   output=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   output=await function_postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
    #final
    return {"status":1,"message":output}
 
@@ -822,8 +822,8 @@ async def public_object_read(request:Request):
    #check
    if table not in table_allowed_public_read.split(","):return error("table not allowed")
    #logic
-   if postgres_client_read_replica:object_list=await postgres_read(table,object,postgres_client_read_replica,postgres_column_datatype,object_serialize,create_where_string)
-   else:object_list=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
+   if postgres_client_read_replica:object_list=await postgres_read(table,object,postgres_client_read_replica,postgres_column_datatype,function_object_serialize,create_where_string)
+   else:object_list=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    #add creator data
    if creator_data and object_list:object_list=await add_creator_data(postgres_client,object_list,creator_data)
    #final
@@ -931,7 +931,7 @@ async def private_object_read(request:Request):
    #check
    if table not in table_allowed_private_read.split(","):return error("table not allowed")
    #logic
-   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
+   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    #final
    return {"status":1,"message":output}
 
@@ -972,7 +972,7 @@ async def admin_object_create(request:Request):
    #modify
    if postgres_schema.get(table).get("created_by_id"):object["created_by_id"]=request.state.user["id"]
    #logic
-   output=await postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   output=await function_postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
    #final
    return {"status":1,"message":output}
 
@@ -989,7 +989,7 @@ async def admin_object_update(request:Request):
    if "id" not in object:return error ("id missing")
    if len(object)<=2:return error ("object length issue")
    #logic
-   output=await postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,object_serialize)
+   output=await function_postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
    #final
    return {"status":1,"message":output}
 
@@ -1028,7 +1028,7 @@ async def admin_object_read(request:Request):
    table=object.get("table")
    if not table:return error("table missing")
    #logic
-   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string)
+   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    #final
    return {"status":1,"message":output}
 
@@ -1042,108 +1042,8 @@ async def admin_db_runner(request:Request):
    #final
    return {"status":1,"message":output}
 
-#fastapi
-import sys,asyncio,uvicorn
-async def main_fastapi():
-   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
-   server=uvicorn.Server(config)
-   await server.serve()
-if __name__=="__main__" and len(sys.argv)==1:
-   try:asyncio.run(main_fastapi())
+#server start
+import asyncio
+if __name__=="__main__":
+   try:asyncio.run(function_uvicorn_server_start(app))
    except KeyboardInterrupt:print("exit")
-   
-#kafka
-import sys,asyncio,json
-async def main_kafka():
-   postgres_client=await postgres_client_read(postgres_url)
-   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   kafka_consumer_client=await kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
-   try:
-      async for message in kafka_consumer_client:
-         if message.topic==channel_name:
-            data=json.loads(message.value.decode('utf-8'))
-            try:
-               if data["mode"]=="create":output=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)   
-               if data["mode"]=="update":output=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
-               print(output)
-            except Exception as e:print(str(e))
-   except asyncio.CancelledError:print("subscription cancelled")
-   finally:
-      await postgres_client.disconnect()
-      await kafka_consumer_client.stop()
-if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="kafka":
-    try:asyncio.run(main_kafka())
-    except KeyboardInterrupt:print("exit")
-
-#redis
-import sys,asyncio,json
-async def main_redis():
-   postgres_client=await postgres_client_read(postgres_url)
-   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   redis_client,redis_pubsub=await redis_pubsub_read(redis_url,channel_name)
-   try:
-      async for message in redis_pubsub.listen():
-         if message["type"]=="message" and message["channel"]==b'ch1':
-            data=json.loads(message['data'])
-            try:
-               if data["mode"]=="create":output=await postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
-               if data["mode"]=="update":output=await postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize)
-               print(output)
-            except Exception as e:print(str(e))
-   except asyncio.CancelledError:print("subscription cancelled")
-   finally:
-      await postgres_client.disconnect()
-      await redis_pubsub.unsubscribe(channel_name)
-      await redis_client.aclose()
-if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="redis":
-    try:asyncio.run(main_redis())
-    except KeyboardInterrupt:print("exit")
-    
-#aqmp callback
-import json,asyncio,nest_asyncio
-nest_asyncio.apply()
-def aqmp_callback(ch,method,properties,body):
-   data=json.loads(body)
-   loop=asyncio.get_event_loop()
-   try:
-      if data["mode"]=="create":output=loop.run_until_complete(postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize))
-      if data["mode"]=="update":output=loop.run_until_complete(postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,object_serialize))
-      print(output)
-   except Exception as e:print(e.args)
-   return None
-
-#rabbitmq
-import sys,asyncio
-async def main_rabbitmq():
-   global postgres_client,postgres_column_datatype
-   postgres_client=await postgres_client_read(postgres_url)
-   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   rabbitmq_client,rabbitmq_channel=await rabbitmq_client_read(rabbitmq_url,channel_name)
-   try:
-      rabbitmq_channel.basic_consume(channel_name,aqmp_callback,auto_ack=True)
-      rabbitmq_channel.start_consuming()
-   except KeyboardInterrupt:
-      await postgres_client.disconnect()
-      rabbitmq_channel.close()
-      rabbitmq_client.close()
-if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="rabbitmq":
-    try:asyncio.run(main_rabbitmq())
-    except KeyboardInterrupt:print("exit")
-    
-#lavinmq
-import sys,asyncio
-async def main_lavinmq():
-   global postgres_client,postgres_column_datatype
-   postgres_client=await postgres_client_read(postgres_url)
-   postgres_column_datatype=await postgres_column_datatype_read(postgres_client,postgres_schema_read)
-   lavinmq_client,lavinmq_channel=await lavinmq_client_read(lavinmq_url,channel_name)
-   try:
-      lavinmq_channel.basic_consume(channel_name,aqmp_callback,auto_ack=True)
-      lavinmq_channel.start_consuming()
-   except KeyboardInterrupt:
-      await postgres_client.disconnect()
-      lavinmq_channel.close()
-      lavinmq_client.close()
-if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="lavinmq":
-    try:asyncio.run(main_lavinmq())
-    except KeyboardInterrupt:print("exit")

@@ -1,14 +1,98 @@
-import types
-def global_var_read_pattern(namespace,pattern):
-   output={
-      name: value for name, value in namespace.items()
-      if pattern in name.lower()
-      and not isinstance(value, types.ModuleType)
-      and not name.startswith("__")
-   }
-   return output
+import aio_pika,asyncio,json
+async def function_lavinmq_consumer(lavinmq_url,channel_name,postgres_url,function_lavinmq_channel_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   lavinmq_client,lavinmq_channel=await function_lavinmq_channel_read(lavinmq_url)
+   postgres_client=await function_postgres_client_read(postgres_url)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(postgres_client)
+   async def aqmp_callback(message: aio_pika.IncomingMessage):
+      async with message.process():
+         try:
+            data=json.loads(message.body)
+            mode=data.get("mode")
+            if mode=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,function_object_serialize)
+            elif mode=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,function_object_serialize)
+            else:output=f"Unsupported mode: {mode}"
+            print(output)
+         except Exception as e:print("Callback error:",e.args)
+   try:
+      queue=await lavinmq_channel.declare_queue(channel_name,auto_delete=False)
+      await queue.consume(aqmp_callback)
+      await asyncio.Future()
+   except KeyboardInterrupt:
+      await postgres_client.disconnect()
+      await lavinmq_channel.close()
+      await lavinmq_client.close()
+      
+import aio_pika,asyncio,json
+async def function_rabbitmq_consumer(rabbitmq_url,channel_name,postgres_url,function_rabbitmq_channel_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   rabbitmq_client,rabbitmq_channel=await function_rabbitmq_channel_read(rabbitmq_url)
+   postgres_client=await function_postgres_client_read(postgres_url)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(postgres_client)
+   async def aqmp_callback(message: aio_pika.IncomingMessage):
+      async with message.process():
+         try:
+            data=json.loads(message.body)
+            mode=data.get("mode")
+            if mode=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,function_object_serialize)
+            elif mode=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,function_object_serialize)
+            else:output=f"Unsupported mode: {mode}"
+            print(output)
+         except Exception as e:print("Callback error:",e.args)
+   try:
+      queue=await rabbitmq_channel.declare_queue(channel_name,auto_delete=False)
+      await queue.consume(aqmp_callback)
+      await asyncio.Future()
+   except KeyboardInterrupt:
+      await postgres_client.disconnect()
+      await rabbitmq_channel.close()
+      await rabbitmq_client.close()
 
-def numeric_converter(mode,x):
+import asyncio,json
+async def function_kafka_consumer(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name,postgres_url,function_kafka_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   kafka_consumer_client=await function_kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
+   postgres_client=await function_postgres_client_read(postgres_url)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(postgres_client)
+   try:
+      async for message in kafka_consumer_client:
+         if message.topic==channel_name:
+            data=json.loads(message.value.decode('utf-8'))
+            try:
+               if data["mode"]=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,function_object_serialize)   
+               if data["mode"]=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,function_object_serialize)
+               print(output)
+            except Exception as e:print(str(e))
+   except asyncio.CancelledError:print("subscription cancelled")
+   finally:
+      await postgres_client.disconnect()
+      await kafka_consumer_client.stop()
+      
+import asyncio,json
+async def function_redis_consumer(redis_url,channel_name,postgres_url,function_redis_client_read,function_redis_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   redis_client=await function_redis_client_read(redis_url)
+   redis_consumer_client=await function_redis_consumer_client_read(redis_client,channel_name)
+   postgres_client=await function_postgres_client_read(postgres_url)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(postgres_client)
+   try:
+      async for message in redis_consumer_client.listen():
+         if message["type"]=="message" and message["channel"]==channel_name.encode():
+            data=json.loads(message['data'])
+            try:
+               if data["mode"]=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,function_object_serialize)
+               if data["mode"]=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],postgres_client,postgres_column_datatype,function_object_serialize)
+               print(output)
+            except Exception as e:print(str(e))
+   except asyncio.CancelledError:print("subscription cancelled")
+   finally:
+      await postgres_client.disconnect()
+      await redis_consumer_client.unsubscribe(channel_name)
+      await redis_client.aclose()
+      
+import uvicorn
+async def function_uvicorn_server_start(app):
+   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
+   server=uvicorn.Server(config)
+   await server.serve()
+   
+def function_numeric_converter(mode,x):
    MAX_LEN = 30
    CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
    BASE = len(CHARS)
@@ -31,7 +115,7 @@ def numeric_converter(mode,x):
       output=''.join(reversed(chars))
    return output
 
-def bigint_converter(mode,x):
+def function_bigint_converter(mode,x):
    MAX_LENGTH = 11
    CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789_'
    BASE = len(CHARSET)
@@ -58,7 +142,7 @@ def bigint_converter(mode,x):
 
 import asyncpg,random
 from mimesis import Person,Address,Food,Text,Code,Datetime
-async def generate_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
+async def function_generate_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
    conn = await asyncpg.connect(postgres_url)
    person = Person()
    address = Address()
@@ -168,7 +252,7 @@ def openai_client_read(openai_key):
    return openai_client
 
 from databases import Database
-async def postgres_client_read(postgres_url):
+async def function_postgres_client_read(postgres_url):
    postgres_client=Database(postgres_url,min_size=1,max_size=100)
    await postgres_client.connect()
    return postgres_client
@@ -178,17 +262,15 @@ async def postgres_client_asyncpg_read(postgres_url):
    postgres_client_asyncpg=await asyncpg.connect(postgres_url)
    return postgres_client_asyncpg
 
-import redis.asyncio as redis
-async def redis_client_read(redis_url):
-   redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_url))
-   return redis_client
+async def function_redis_consumer_client_read(redis_client,channel_name):
+   redis_consumer_client=redis_client.pubsub()
+   await redis_consumer_client.subscribe(channel_name)
+   return redis_consumer_client
 
 import redis.asyncio as redis
-async def redis_pubsub_read(redis_url,channel_name):
+async def function_redis_client_read(redis_url):
    redis_client=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_url))
-   redis_pubsub=redis_client.pubsub()
-   await redis_pubsub.subscribe(channel_name)
-   return redis_client,redis_pubsub
+   return redis_client
 
 import motor.motor_asyncio
 async def mongodb_client_read(mongodb_url):
@@ -211,18 +293,16 @@ async def ses_client_read(ses_region_name,aws_access_key_id,aws_secret_access_ke
    ses_client=boto3.client("ses",region_name=ses_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
    return ses_client
 
-import pika
-async def rabbitmq_client_read(rabbitmq_url,channel_name):
-   rabbitmq_client=pika.BlockingConnection(pika.URLParameters(rabbitmq_url))
-   rabbitmq_channel=rabbitmq_client.channel()
-   rabbitmq_channel.queue_declare(queue=channel_name)
+import aio_pika
+async def function_rabbitmq_channel_read(rabbitmq_url):
+   rabbitmq_client=await aio_pika.connect_robust(rabbitmq_url)
+   rabbitmq_channel=await rabbitmq_client.channel()
    return rabbitmq_client,rabbitmq_channel
 
-import pika
-async def lavinmq_client_read(lavinmq_url,channel_name):
-   lavinmq_client=pika.BlockingConnection(pika.URLParameters(lavinmq_url))
-   lavinmq_channel=lavinmq_client.channel()
-   lavinmq_channel.queue_declare(queue=channel_name)
+import aio_pika
+async def function_lavinmq_channel_read(lavinmq_url):
+   lavinmq_client=await aio_pika.connect_robust(lavinmq_url)
+   lavinmq_channel=await lavinmq_client.channel()
    return lavinmq_client,lavinmq_channel
 
 from aiokafka import AIOKafkaProducer
@@ -235,14 +315,14 @@ async def kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_cert
 
 from aiokafka import AIOKafkaConsumer
 from aiokafka.helpers import create_ssl_context
-async def kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name):
+async def function_kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name):
    context=create_ssl_context(cafile=kafka_path_cafile,certfile=kafka_path_certfile,keyfile=kafka_path_keyfile)
    kafka_consumer_client=AIOKafkaConsumer(channel_name,bootstrap_servers=kafka_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
    await kafka_consumer_client.start()
    return kafka_consumer_client
 
-async def postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if is_serialize:object_list=await object_serialize(object_list,postgres_column_datatype)
+async def function_postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize):
+   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
    column_insert_list=list(object_list[0].keys())
    query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
    if len(object_list)==1:
@@ -251,8 +331,8 @@ async def postgres_create(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return output
 
-async def postgres_update(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if is_serialize:object_list=await object_serialize(object_list,postgres_column_datatype)
+async def function_postgres_update(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize):
+   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
    column_update_list=[*object_list[0]]
    column_update_list.remove("id")
    query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id returning *;"
@@ -262,8 +342,8 @@ async def postgres_update(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return output
 
-async def postgres_update_user(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize,user_id):
-   if is_serialize:object_list=await object_serialize(object_list,postgres_column_datatype)
+async def postgres_update_user(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize,user_id):
+   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
    column_update_list=[*object_list[0]]
    column_update_list.remove("id")
    query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id and created_by_id={user_id} returning *;"
@@ -273,8 +353,8 @@ async def postgres_update_user(table,object_list,is_serialize,postgres_client,po
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return output
 
-async def postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,object_serialize):
-   if is_serialize:object_list=await object_serialize(object_list,postgres_column_datatype)
+async def postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize):
+   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
    query=f"delete from {table} where id=:id;"
    if len(object_list)==1:
       output=await postgres_client.execute(query=query,values=object_list[0])
@@ -282,20 +362,20 @@ async def postgres_delete(table,object_list,is_serialize,postgres_client,postgre
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return output
 
-async def postgres_delete_any(table,object,postgres_client,create_where_string,object_serialize,postgres_column_datatype):
-   where_string,where_value=await create_where_string(object,object_serialize,postgres_column_datatype)
+async def postgres_delete_any(table,object,postgres_client,create_where_string,function_object_serialize,postgres_column_datatype):
+   where_string,where_value=await create_where_string(object,function_object_serialize,postgres_column_datatype)
    query=f"delete from {table} {where_string};"
    await postgres_client.execute(query=query,values=where_value)
    return None
 
-async def postgres_read(table,object,postgres_client,postgres_column_datatype,object_serialize,create_where_string):
+async def postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string):
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    column=object.get("column","*")
    location_filter=object.get("location_filter")
    if location_filter:
       location_filter_split=location_filter.split(",")
       long,lat,min_meter,max_meter=float(location_filter_split[0]),float(location_filter_split[1]),int(location_filter_split[2]),int(location_filter_split[3])
-   where_string,where_value=await create_where_string(object,object_serialize,postgres_column_datatype)
+   where_string,where_value=await create_where_string(object,function_object_serialize,postgres_column_datatype)
    if location_filter:query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
    else:query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
    object_list=await postgres_client.fetch_all(query=query,values=where_value)
@@ -312,7 +392,7 @@ async def postgres_parent_read(table,parent_column,parent_table,postgres_client,
    return object_list
 
 import hashlib,datetime,json
-async def object_serialize(object_list,postgres_column_datatype):
+async def function_object_serialize(object_list,postgres_column_datatype):
    for index,object in enumerate(object_list):
       for key,value in object.items():
          datatype=postgres_column_datatype.get(key)
@@ -329,11 +409,11 @@ async def object_serialize(object_list,postgres_column_datatype):
          elif datatype=="jsonb":object_list[index][key]=json.dumps(value)
    return object_list
 
-async def create_where_string(object,object_serialize,postgres_column_datatype):
+async def create_where_string(object,function_object_serialize,postgres_column_datatype):
    object={k:v for k,v in object.items() if (k in postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
    where_operator={k:v.split(',',1)[0] for k,v in object.items()}
    where_value={k:v.split(',',1)[1] for k,v in object.items()}
-   object_list=await object_serialize([where_value],postgres_column_datatype)
+   object_list=await function_object_serialize([where_value],postgres_column_datatype)
    where_value=object_list[0]
    where_string_list=[f"({key} {where_operator[key]} :{key} or :{key} is null)" for key in [*object]]
    where_string_joined=' and '.join(where_string_list)
@@ -370,7 +450,7 @@ async def verify_otp(postgres_client,otp,email,mobile):
    if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
    return None
 
-async def postgres_schema_read(postgres_client):
+async def function_postgres_schema_read(postgres_client):
    query='''
    WITH t AS (SELECT * FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'),
    c AS (
@@ -401,26 +481,22 @@ async def postgres_schema_read(postgres_client):
       column_data={"datatype":object["datatype"],"default":object["default"],"is_null":object["is_null"],"is_index":object["is_index"]}
       if table not in postgres_schema:postgres_schema[table]={}
       postgres_schema[table][column]=column_data
-   return postgres_schema
-
-async def postgres_column_datatype_read(postgres_client,postgres_schema_read):
-   postgres_schema=await postgres_schema_read(postgres_client)
    postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
-   return postgres_column_datatype
+   return postgres_schema,postgres_column_datatype
 
-async def postgres_schema_init(postgres_client,postgres_schema_read,postgres_config):
+async def postgres_schema_init(postgres_client,function_postgres_schema_read,postgres_config):
    async def init_extension(postgres_client):
       await postgres_client.execute(query="create extension if not exists postgis;",values={})
       await postgres_client.execute(query="create extension if not exists pg_trgm;",values={})
-   async def init_table(postgres_client,postgres_schema_read,postgres_config):
-      postgres_schema=await postgres_schema_read(postgres_client)
+   async def init_table(postgres_client,function_postgres_schema_read,postgres_config):
+      postgres_schema=await function_postgres_schema_read(postgres_client)
       for table,column_list in postgres_config["table"].items():
          is_table=postgres_schema.get(table,{})
          if not is_table:
             query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
             await postgres_client.execute(query=query,values={})
-   async def init_column(postgres_client,postgres_schema_read,postgres_config):
-      postgres_schema=await postgres_schema_read(postgres_client)
+   async def init_column(postgres_client,function_postgres_schema_read,postgres_config):
+      postgres_schema=await function_postgres_schema_read(postgres_client)
       for table,column_list in postgres_config["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
@@ -428,8 +504,8 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,postgres_con
             if not is_column:
                query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
                await postgres_client.execute(query=query,values={})
-   async def init_nullable(postgres_client,postgres_schema_read,postgres_config):
-      postgres_schema=await postgres_schema_read(postgres_client)
+   async def init_nullable(postgres_client,function_postgres_schema_read,postgres_config):
+      postgres_schema=await function_postgres_schema_read(postgres_client)
       for table,column_list in postgres_config["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
@@ -453,7 +529,7 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,postgres_con
                for index_type in index_type_list:
                   index_name=f"index_{table}_{column_name}_{index_type}"
                   if index_name not in index_name_list:
-                     if index_type=="gin":
+                     if index_type=="gin" and column_datatype=="text":
                         query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name} gin_trgm_ops);"
                         await postgres_client.execute(query=query,values={})
                      else:
@@ -466,9 +542,9 @@ async def postgres_schema_init(postgres_client,postgres_schema_read,postgres_con
          if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:continue
          await postgres_client.fetch_all(query=query,values={})
    await init_extension(postgres_client)
-   await init_table(postgres_client,postgres_schema_read,postgres_config)
-   await init_column(postgres_client,postgres_schema_read,postgres_config)
-   await init_nullable(postgres_client,postgres_schema_read,postgres_config)
+   await init_table(postgres_client,function_postgres_schema_read,postgres_config)
+   await init_column(postgres_client,function_postgres_schema_read,postgres_config)
+   await init_nullable(postgres_client,function_postgres_schema_read,postgres_config)
    await init_index(postgres_client,postgres_config)
    await init_query(postgres_client,postgres_config)
    return None
@@ -666,11 +742,11 @@ async def api_response_background(request,api_function):
 
 import json
 object_list_log_api=[]
-async def log_api_create(object,batch,postgres_create,postgres_client,postgres_column_datatype,object_serialize):
+async def log_api_create(object,batch,function_postgres_create,postgres_client,postgres_column_datatype,function_object_serialize):
    global object_list_log_api
    object_list_log_api.append(object)
    if len(object_list_log_api)>=batch:
-      await postgres_create("log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,object_serialize)
+      await function_postgres_create("log_api",object_list_log_api,0,postgres_client,postgres_column_datatype,function_object_serialize)
       object_list_log_api=[]
    return None
 
@@ -933,7 +1009,7 @@ postgres_config_default={
 "rating-numeric(10,3)-0-0",
 "remark-text-0-gin,btree",
 "location-geography(POINT)-0-gist",
-"metadata-jsonb-0-0"
+"metadata-jsonb-0-gin"
 ],
 "atom":[
 "type-bigint-0-btree",
