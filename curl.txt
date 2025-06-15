@@ -47,7 +47,7 @@ curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: applicati
 0 curl -X POST "$baseurl/auth/login-oauth-google" -H "Content-Type: application/json" -d '{"type":2,"google_token":"testing"}'
 
 #my rights
-curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
+curl -X GET "$baseurl/my/profile?is_cache=1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=soft" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=hard" -H "Authorization: Bearer $token"
@@ -96,7 +96,7 @@ curl -X DELETE "$baseurl/my/message-delete?mode=all" -H "Authorization: Bearer $
 
 #public object
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"public"}'
-curl -X GET "$baseurl/public/object-read?table=test"
+curl -X GET "$baseurl/public/object-read?table=test&is_cache=1"
 curl -X GET "$baseurl/public/object-read?table=test&id=>,1"
 curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
 curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.23,3.45,10,100"

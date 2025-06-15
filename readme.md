@@ -1,5 +1,4 @@
 # features
-- entire codebase is in main.py
 - functional+procedural programming style
 - pure functions to reduce side effects
 - primary database as postgres
@@ -21,7 +20,6 @@
 - background apis
 - redis integration
 - redis bulk uploader
-- valkey integration
 - s3 integation
 - sns integration
 - ses integration

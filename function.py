@@ -1,3 +1,10 @@
+import os
+from dotenv import load_dotenv
+def function_load_env(env_path):
+   load_dotenv(env_path)
+   output={k: os.getenv(k) for k in os.environ}
+   return output
+
 import aio_pika,asyncio,json
 async def function_lavinmq_consumer(lavinmq_url,channel_name,postgres_url,function_lavinmq_channel_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
    lavinmq_client,lavinmq_channel=await function_lavinmq_channel_read(lavinmq_url)
@@ -750,11 +757,6 @@ async def log_api_create(object,batch,function_postgres_create,postgres_client,p
       object_list_log_api=[]
    return None
 
-from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
-async def cache_init(redis_client,redis_key_builder):
-   FastAPICache.init(RedisBackend(redis_client),key_builder=redis_key_builder)
-   
 import os
 def router_add(router_list,app):
    for item in router_list:

@@ -1,21 +1,15 @@
 #function
 from function import *
 
-#env load
-import os
-from dotenv import load_dotenv
-load_dotenv()
+#env
+env=function_load_env(".env")
 
 #router
 from fastapi import APIRouter
 router=APIRouter()
 
-#ratelimiter
-from fastapi import Depends
-from fastapi_limiter.depends import RateLimiter
-
 #test
-@router.get("/test",dependencies=[Depends(RateLimiter(times=1,seconds=1))])
+@router.get("/test")
 async def test(request:Request):
    await function_postgres_create("test",[{"title":"router"}],1,request.app.state.global_state["postgres_client"],request.app.state.global_state["postgres_column_datatype"],function_object_serialize)
    return {"status":1,"message":"test"}
@@ -32,4 +26,3 @@ async def websocket_endpoint(websocket:WebSocket):
          await websocket.send_text(f"echo: {data}")
    except WebSocketDisconnect:
       print("client disconnected")
-

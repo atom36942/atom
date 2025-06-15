@@ -1,63 +1,57 @@
 #function
 from function import *
 
-#env load
-import os
-from dotenv import load_dotenv
-load_dotenv()
+#env
+env=function_load_env(".env")
 
 #env variable
-postgres_url=os.getenv("postgres_url")
-redis_url=os.getenv("redis_url")
-key_jwt=os.getenv("key_jwt")
-key_root=os.getenv("key_root")
-valkey_url=os.getenv("valkey_url")
-sentry_dsn=os.getenv("sentry_dsn")
-mongodb_url=os.getenv("mongodb_url")
-rabbitmq_url=os.getenv("rabbitmq_url")
-lavinmq_url=os.getenv("lavinmq_url")
-kafka_url=os.getenv("kafka_url")
-kafka_path_cafile=os.getenv("kafka_path_cafile")
-kafka_path_certfile=os.getenv("kafka_path_certfile")
-kafka_path_keyfile=os.getenv("kafka_path_keyfile")
-aws_access_key_id=os.getenv("aws_access_key_id")
-aws_secret_access_key=os.getenv("aws_secret_access_key")
-s3_region_name=os.getenv("s3_region_name")
-sns_region_name=os.getenv("sns_region_name")
-ses_region_name=os.getenv("ses_region_name")
-google_client_id=os.getenv("google_client_id")
-is_signup=int(os.getenv("is_signup",1))
-channel_name=os.getenv("channel_name","ch1")
-user_type_allowed=[int(x) for x in (os.getenv("user_type_allowed","1,2,3").split(","))]
-column_disabled_non_admin=os.getenv("column_disabled_non_admin","is_active,is_verified,api_access").split(",")
-postgres_url_read_replica=os.getenv("postgres_url_read_replica")
-router_list=os.getenv("router_list").split(",") if os.getenv("router_list") else []
-fast2sms_key=os.getenv("fast2sms_key")
-is_cache_client_valkey=int(os.getenv("is_cache_client_valkey",0))
-is_ratelimiter_client_valkey=int(os.getenv("is_ratelimiter_client_valkey",0))
-is_active_check_api_keyword=os.getenv("is_active_check_api_keyword")
-table_allowed_public_create=os.getenv("table_allowed_public_create","test")
-table_allowed_public_read=os.getenv("table_allowed_public_read","test")
-table_allowed_private_read=os.getenv("table_allowed_private_read","test")
-log_api_batch_count=int(os.getenv("log_api_batch_count",10))
-users_api_access_max_count=int(os.getenv("users_api_access_max_count",100000))
-users_is_active_max_count=int(os.getenv("users_is_active_max_count",1000))
-openai_key=os.getenv("openai_key")
-token_expire_sec=int(os.getenv("token_expire_sec",365*24*60*60))
-gsheet_service_account_json_path=os.getenv("gsheet_service_account_json_path")
-gsheet_scope_list=os.getenv("gsheet_scope_list","https://www.googleapis.com/auth/spreadsheets").split(",")
-resend_key=os.getenv("resend_key")
+postgres_url=env.get("postgres_url")
+postgres_url_read=env.get("postgres_url_read")
+redis_url=env.get("redis_url")
+key_jwt=env.get("key_jwt")
+key_root=env.get("key_root")
+sentry_dsn=env.get("sentry_dsn")
+mongodb_url=env.get("mongodb_url")
+rabbitmq_url=env.get("rabbitmq_url")
+lavinmq_url=env.get("lavinmq_url")
+kafka_url=env.get("kafka_url")
+kafka_path_cafile=env.get("kafka_path_cafile")
+kafka_path_certfile=env.get("kafka_path_certfile")
+kafka_path_keyfile=env.get("kafka_path_keyfile")
+aws_access_key_id=env.get("aws_access_key_id")
+aws_secret_access_key=env.get("aws_secret_access_key")
+s3_region_name=env.get("s3_region_name")
+sns_region_name=env.get("sns_region_name")
+ses_region_name=env.get("ses_region_name")
+google_client_id=env.get("google_client_id")
+is_signup=int(env.get("is_signup",1))
+channel_name=env.get("channel_name","ch1")
+user_type_allowed=[int(x) for x in (env.get("user_type_allowed","1,2,3").split(","))]
+column_disabled_non_admin=env.get("column_disabled_non_admin","is_active,is_verified,api_access").split(",")
+router_list=env.get("router_list").split(",") if env.get("router_list") else []
+fast2sms_key=env.get("fast2sms_key")
+is_active_check_api_keyword=env.get("is_active_check_api_keyword")
+table_allowed_public_create=env.get("table_allowed_public_create","test")
+table_allowed_public_read=env.get("table_allowed_public_read","test")
+table_allowed_private_read=env.get("table_allowed_private_read","test")
+log_api_batch_count=int(env.get("log_api_batch_count",10))
+users_api_access_max_count=int(env.get("users_api_access_max_count",100000))
+users_is_active_max_count=int(env.get("users_is_active_max_count",1000))
+openai_key=env.get("openai_key")
+token_expire_sec=int(env.get("token_expire_sec",365*24*60*60))
+gsheet_service_account_json_path=env.get("gsheet_service_account_json_path")
+gsheet_scope_list=env.get("gsheet_scope_list","https://www.googleapis.com/auth/spreadsheets").split(",")
+resend_key=env.get("resend_key")
 
 #globals
 postgres_client=None
 postgres_client_asyncpg=None
-postgres_client_read_replica=None
+postgres_client_read=None
 postgres_schema={}
 postgres_column_datatype={}
 users_api_access={}
 users_is_active={}
 redis_client=None
-valkey_client=None
 mongodb_client=None
 s3_client=None
 s3_resource=None
@@ -70,19 +64,6 @@ lavinmq_channel=None
 kafka_producer_client=None
 gsheet_client=None
 openai_client=None
-
-#redis key builder
-from fastapi import Request,Response
-import jwt,json,hashlib
-def redis_key_builder(func,namespace:str="",*,request:Request=None,response:Response=None,**kwargs):
-   api=request.url.path
-   query_param_sorted=str(dict(sorted(request.query_params.items())))
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-   user_id=0
-   if "my/" in api:user_id=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])["id"]
-   key=f"{api}---{query_param_sorted}---{str(user_id)}".lower()
-   if False:key=hashlib.sha256(str(key).encode()).hexdigest()
-   return key
 
 #lifespan
 from fastapi import FastAPI
@@ -98,8 +79,8 @@ async def lifespan(app:FastAPI):
       global postgres_client_asyncpg
       postgres_client_asyncpg=await postgres_client_asyncpg_read(postgres_url)
       #postgres client read replica
-      global postgres_client_read_replica
-      if postgres_url_read_replica:postgres_client_read_replica=await function_postgres_client_read(postgres_url_read_replica)
+      global postgres_client_read
+      if postgres_url_read:postgres_client_read=await function_postgres_client_read(postgres_url_read)
       #postgres schema
       global postgres_schema,postgres_column_datatype
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(postgres_client)
@@ -112,15 +93,8 @@ async def lifespan(app:FastAPI):
       #redis client
       global redis_client
       if redis_url:redis_client=await function_redis_client_read(redis_url)
-      #valkey client
-      global valkey_client
-      if valkey_url:valkey_client=await function_redis_client_read(valkey_url)
-      #cache
-      if valkey_client and is_cache_client_valkey==1:await cache_init(valkey_client,redis_key_builder)
-      else:await cache_init(redis_client,redis_key_builder)
       #ratelimiter
-      if valkey_client and is_ratelimiter_client_valkey==1:await FastAPILimiter.init(valkey_client)
-      else:await FastAPILimiter.init(redis_client)
+      await FastAPILimiter.init(redis_client)
       #mongodb client
       global mongodb_client
       if mongodb_url:mongodb_client=await mongodb_client_read(mongodb_url)
@@ -158,12 +132,11 @@ async def lifespan(app:FastAPI):
       #postgres
       await postgres_client.disconnect()
       await postgres_client_asyncpg.close()
-      if postgres_client_read_replica:await postgres_client_read_replica.close()
+      if postgres_client_read:await postgres_client_read.close()
       #ratelimiter
       await FastAPILimiter.close()
       #redis
       if redis_client:await redis_client.aclose()
-      if valkey_client:await valkey_client.aclose()
       #kafka
       if kafka_producer_client:await kafka_producer_client.stop()
       #rabbitmq
@@ -193,8 +166,8 @@ from prometheus_fastapi_instrumentator import Instrumentator
 if False:Instrumentator().instrument(app).expose(app)
 
 #middleware
-from fastapi import Request
-import time,traceback,asyncio
+from fastapi import Request, Response
+import time,traceback,asyncio,gzip,base64
 @app.middleware("http")
 async def middleware(request:Request,api_function):
    try:
@@ -215,9 +188,26 @@ async def middleware(request:Request,api_function):
       if is_active_check_api_keyword:
          for item in is_active_check_api_keyword.split(","):
             if item in request.url.path:await users_is_active_check(request,users_is_active,postgres_client)
-      #api response
+      #background job check
       if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
-      else:response=await api_function(request)
+      else:
+         is_cache=request.query_params.get("is_cache")=="1"
+         query_sorted="&".join(f"{k}={v}" for k,v in sorted(request.query_params.items()))
+         cache_key=f"{request.url.path}?{query_sorted}:{request.state.user.get('id')}" if "my/" in request.url.path else f"{request.url.path}?{query_sorted}"
+         response=None
+         if is_cache:
+            cached_response=await redis_client.get(cache_key)
+            if cached_response:
+               response=Response(content=gzip.decompress(base64.b64decode(cached_response)).decode(),status_code=200,media_type="application/json")
+               request.state.cache_status = "hit"
+            else:request.state.cache_status = "miss"
+         if not response:
+            original_response=await api_function(request)
+            if is_cache and original_response.status_code==200:
+               body=b"".join([chunk async for chunk in original_response.body_iterator])
+               await redis_client.setex(cache_key,60,base64.b64encode(gzip.compress(body)).decode())
+               response=Response(content=body,status_code=original_response.status_code,media_type="application/json")
+            else:response=original_response
       #api log
       object={"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
       asyncio.create_task(log_api_create(object,log_api_batch_count,function_postgres_create,postgres_client,postgres_column_datatype,function_object_serialize))
@@ -234,7 +224,6 @@ router_add(router_list,app)
 #api
 from fastapi import Request,responses,Depends
 import hashlib,json,time,os,random,asyncio,requests,httpx,sys,aio_pika
-from fastapi_cache.decorator import cache
 from fastapi_limiter.depends import RateLimiter
 
 @app.get("/")
@@ -293,7 +282,6 @@ async def root_redis_uploader(request:Request):
 async def root_reset_redis():
    #logic
    if redis_client:await redis_client.flushall()
-   if valkey_client:await valkey_client.flushall()
    #final
    return {"status":1,"message":"done"}
 
@@ -545,7 +533,6 @@ async def my_object_create(request:Request):
    return {"status":1,"message":output}
 
 @app.get("/my/object-read")
-@cache(expire=60)
 async def my_object_read(request:Request):
    #param
    object=dict(request.query_params)
@@ -812,7 +799,6 @@ async def public_object_create(request:Request):
    return {"status":1,"message":output}
 
 @app.get("/public/object-read")
-@cache(expire=100)
 async def public_object_read(request:Request):
    #param
    object=request.query_params
@@ -822,7 +808,7 @@ async def public_object_read(request:Request):
    #check
    if table not in table_allowed_public_read.split(","):return error("table not allowed")
    #logic
-   if postgres_client_read_replica:object_list=await postgres_read(table,object,postgres_client_read_replica,postgres_column_datatype,function_object_serialize,create_where_string)
+   if postgres_client_read:object_list=await postgres_read(table,object,postgres_client_read,postgres_column_datatype,function_object_serialize,create_where_string)
    else:object_list=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    #add creator data
    if creator_data and object_list:object_list=await add_creator_data(postgres_client,object_list,creator_data)
@@ -922,7 +908,6 @@ async def public_page(filename:str):
    return responses.HTMLResponse(content=html_content)
 
 @app.get("/private/object-read")
-@cache(expire=100)
 async def private_object_read(request:Request):
    #param
    object=request.query_params
@@ -1021,7 +1006,6 @@ async def admin_ids_delete(request:Request):
    return {"status":1,"message":"done"}
 
 @app.get("/admin/object-read")
-@cache(expire=60)
 async def admin_object_read(request:Request):
    #param
    object=request.query_params
