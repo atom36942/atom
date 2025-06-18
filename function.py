@@ -1,3 +1,48 @@
+import os,json,requests
+def function_export_grafana_dashboards(host,username,password,max_limit,export_dir):
+    session = requests.Session()
+    session.auth = (username, password)
+    def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
+    def ensure_dir(path):os.makedirs(path, exist_ok=True)
+    def get_organizations():
+        r = session.get(f"{host}/api/orgs")
+        r.raise_for_status()
+        return r.json()
+    def switch_org(org_id):return session.post(f"{host}/api/user/using/{org_id}").status_code == 200
+    def get_dashboards(org_id):
+        headers = {"X-Grafana-Org-Id": str(org_id)}
+        r = session.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers=headers)
+        if r.status_code == 422:return []
+        r.raise_for_status()
+        return r.json()
+    def get_dashboard_json(uid):
+        r = session.get(f"{host}/api/dashboards/uid/{uid}")
+        r.raise_for_status()
+        return r.json()
+    def export_dashboard(org_name, folder_name, dashboard_meta):
+        uid = dashboard_meta["uid"]
+        data = get_dashboard_json(uid)
+        path = os.path.join(export_dir, sanitize(org_name), sanitize(folder_name or "General"))
+        ensure_dir(path)
+        file_path = os.path.join(path, f"{sanitize(dashboard_meta['title'])}.json")
+        with open(file_path, "w", encoding="utf-8") as f:json.dump(data, f, indent=2)
+        print(f"✅ {org_name}/{folder_name}/{dashboard_meta['title']}")
+    try:
+        orgs = get_organizations()
+    except Exception as e:
+        print("❌ Failed to fetch organizations:", e)
+        return
+    for org in orgs:
+        if not switch_org(org["id"]):continue
+        try:
+            dashboards = get_dashboards(org["id"])
+        except Exception as e:
+            print("❌ Failed to fetch dashboards:",e)
+            continue
+        for dash in dashboards:
+            try:export_dashboard(org["name"], dash.get("folderTitle", "General"), dash)
+            except Exception as e:print("❌ Failed to export", dash.get("title"), ":", e)
+            
 import os
 from dotenv import load_dotenv
 def function_load_env(env_path):
@@ -874,9 +919,9 @@ async def s3_bucket_delete(s3_client,bucket):
    return output
 
 from google.oauth2 import id_token
-from google.auth.transport import requests
+from google.auth.transport import requests as google_request
 def google_user_read(google_token,google_client_id):
-   request=requests.Request()
+   request=google_request.Request()
    id_info=id_token.verify_oauth2_token(google_token,request,google_client_id)
    google_user={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
    return google_user
@@ -1028,7 +1073,8 @@ postgres_config_default={
 "method-text-0-0",
 "query_param-text-0-0",
 "status_code-smallint-0-0",
-"response_time_ms-numeric(1000,3)-0-0"
+"response_time_ms-numeric(1000,3)-0-0",
+"description-text-0-0"
 ],
 "otp":[
 "created_at-timestamptz-0-brin",

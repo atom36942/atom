@@ -4,6 +4,14 @@ from function import *
 #env
 env=function_load_env(".env")
 
+#config
+api_config = {
+   "/my/profile": {
+      "rate_limit":(5,10),
+      "cache": 1
+   }
+}
+
 #env variable
 postgres_url=env.get("postgres_url")
 postgres_url_read=env.get("postgres_url_read")
@@ -68,7 +76,6 @@ openai_client=None
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from fastapi_limiter import FastAPILimiter
 @asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
@@ -93,8 +100,6 @@ async def lifespan(app:FastAPI):
       #redis client
       global redis_client
       if redis_url:redis_client=await function_redis_client_read(redis_url)
-      #ratelimiter
-      await FastAPILimiter.init(redis_client)
       #mongodb client
       global mongodb_client
       if mongodb_url:mongodb_client=await mongodb_client_read(mongodb_url)
@@ -133,8 +138,6 @@ async def lifespan(app:FastAPI):
       await postgres_client.disconnect()
       await postgres_client_asyncpg.close()
       if postgres_client_read:await postgres_client_read.close()
-      #ratelimiter
-      await FastAPILimiter.close()
       #redis
       if redis_client:await redis_client.aclose()
       #kafka
@@ -188,10 +191,22 @@ async def middleware(request:Request,api_function):
       if is_active_check_api_keyword:
          for item in is_active_check_api_keyword.split(","):
             if item in request.url.path:await users_is_active_check(request,users_is_active,postgres_client)
+      #rate limit check
+      cfg=api_config.get(request.url.path,{})
+      if cfg.get("rate_limit"):
+         limit,window=cfg["rate_limit"]
+         identifier=request.state.user.get("id") if "my/" in request.url.path else request.client.host
+         rate_key=f"ratelimit:{request.url.path}:{identifier}"
+         current_count=await redis_client.get(rate_key)
+         if current_count and int(current_count)>=limit:return error("rate limit exceeded")
+         pipe=redis_client.pipeline()
+         pipe.incr(rate_key)
+         if not current_count:pipe.expire(rate_key,window)
+         await pipe.execute()
       #background job check
       if request.query_params.get("is_background")=="1":response=await api_response_background(request,api_function)
       else:
-         is_cache=request.query_params.get("is_cache")=="1"
+         is_cache=cfg.get("cache")==1
          query_sorted="&".join(f"{k}={v}" for k,v in sorted(request.query_params.items()))
          cache_key=f"{request.url.path}?{query_sorted}:{request.state.user.get('id')}" if "my/" in request.url.path else f"{request.url.path}?{query_sorted}"
          response=None
@@ -208,13 +223,13 @@ async def middleware(request:Request,api_function):
                await redis_client.setex(cache_key,60,base64.b64encode(gzip.compress(body)).decode())
                response=Response(content=body,status_code=original_response.status_code,media_type="application/json")
             else:response=original_response
-      #api log
-      object={"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
-      asyncio.create_task(log_api_create(object,log_api_batch_count,function_postgres_create,postgres_client,postgres_column_datatype,function_object_serialize))
    except Exception as e:
       print(traceback.format_exc())
       response=error(str(e))
       if sentry_dsn:sentry_sdk.capture_exception(e)
+   #api log
+   object={"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000}
+   asyncio.create_task(log_api_create(object,log_api_batch_count,function_postgres_create,postgres_client,postgres_column_datatype,function_object_serialize))
    #final
    return response
 
@@ -224,7 +239,6 @@ router_add(router_list,app)
 #api
 from fastapi import Request,responses,Depends
 import hashlib,json,time,os,random,asyncio,requests,httpx,sys,aio_pika
-from fastapi_limiter.depends import RateLimiter
 
 @app.get("/")
 async def index():
@@ -340,7 +354,7 @@ async def root_s3_url_empty(request:Request):
    #final
    return {"status":1,"message":output}
 
-@app.post("/auth/signup-username-password",dependencies=[Depends(RateLimiter(times=1,seconds=5))])
+@app.post("/auth/signup-username-password")
 async def auth_signup_username_password(request:Request):
    #param
    object=await request.json()
