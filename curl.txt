@@ -1,3 +1,5 @@
+curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
+
 #index
 curl -X GET "$baseurl"
 
@@ -6,8 +8,7 @@ curl -X GET "$baseurl/test"
 
 #root db init
 curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/db-init?mode=2" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/db-init?mode=3" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
+0 curl -X POST "$baseurl/root/db-init?mode=2" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
 
 #root db uploader
 0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
@@ -20,7 +21,6 @@ curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_roo
 
 #root ops
 curl -X PUT "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
-curl -X PUT "$baseurl/root/db-checklist" -H "Authorization: Bearer $token_root"
 
 #root s3
 0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"

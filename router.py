@@ -1,9 +1,6 @@
 #function
 from function import *
 
-#env
-env=function_load_env(".env")
-
 #router
 from fastapi import APIRouter
 router=APIRouter()
