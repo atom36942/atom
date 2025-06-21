@@ -1,3 +1,21 @@
+async def function_param_read(mode,request,must,optional):
+   param=[]
+   if mode=="query":
+      object=request.query_params
+   if mode=="form":
+      form_data=await request.form()
+      object={key:value for key,value in form_data.items() if isinstance(value,str)}
+      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
+      object["file_list"]=file_list
+   if mode=="body":
+      object=await request.json()
+   for item in must:
+      if item not in object:raise Exception(f"{item} missing from {mode}")
+      param.append(object[item])
+   for item in optional:
+      param.append(object.get(item))
+   return object,param
+
 from fastapi import Response
 import gzip,base64
 async def function_api_response_cache(mode,request,response,redis_client):
@@ -443,7 +461,7 @@ async def postgres_update_user(table,object_list,is_serialize,postgres_client,po
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return output
 
-async def postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize):
+async def function_postgres_delete(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize):
    if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
    query=f"delete from {table} where id=:id;"
    if len(object_list)==1:
@@ -574,7 +592,7 @@ async def function_postgres_schema_read(postgres_client):
    postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    return postgres_schema,postgres_column_datatype
 
-async def postgres_schema_init(postgres_client,function_postgres_schema_read,postgres_config):
+async def function_postgres_schema_init(postgres_client,function_postgres_schema_read,postgres_config):
    async def init_extension(postgres_client):
       await postgres_client.execute(query="create extension if not exists postgis;",values={})
       await postgres_client.execute(query="create extension if not exists pg_trgm;",values={})
@@ -718,19 +736,13 @@ async def s3_file_upload_presigned(s3_client,s3_region_name,bucket,key,expiry_se
    return output
      
 import csv,io
-async def file_to_object_list(file):
+async def function_file_to_object_list(file):
    content=await file.read()
    content=content.decode("utf-8")
    reader=csv.DictReader(io.StringIO(content))
    object_list=[row for row in reader]
    await file.close()
    return object_list
-
-async def form_data_read(request):
-   form_data=await request.form()
-   object={key:value for key,value in form_data.items() if isinstance(value,str)}
-   file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
-   return object,file_list
 
 import json
 async def redis_set_object(redis_client,key,expiry,object):
@@ -751,7 +763,7 @@ async def function_token_decode(token,key_jwt):
    return user
 
 import jwt,json,time
-async def token_create(key_jwt,token_expire_sec,user):
+async def function_token_create(key_jwt,token_expire_sec,user):
    user={"id":user["id"]}
    user=json.dumps(user,default=str)
    token=jwt.encode({"exp":time.time()+token_expire_sec,"data":user},key_jwt)
@@ -848,7 +860,7 @@ def router_add(router_list,app):
        router=__import__(item).router
        app.include_router(router)
 
-async def redis_object_create(redis_client,table,object_list,expiry):
+async def function_redis_object_create(redis_client,table,object_list,expiry):
    async with redis_client.pipeline(transaction=True) as pipe:
       for object in object_list:
          key=f"{table}_{object['id']}"
@@ -857,7 +869,7 @@ async def redis_object_create(redis_client,table,object_list,expiry):
       await pipe.execute()
    return None
 
-async def s3_url_delete(url,s3_resource):
+async def function_s3_url_delete(url,s3_resource):
    bucket=url.split("//",1)[1].split(".",1)[0]
    key=url.rsplit("/",1)[1]
    output=s3_resource.Object(bucket,key).delete()
@@ -940,21 +952,21 @@ async def send_message_template_sns(sns_client,mobile,message,entity_id,template
       MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
    return None
 
-async def s3_bucket_create(s3_client,bucket,s3_region_name):
+async def function_s3_bucket_create(s3_client,bucket,s3_region_name):
    output=s3_client.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
    return output
 
-async def s3_bucket_public(s3_client,bucket):
+async def function_s3_bucket_public(s3_client,bucket):
    s3_client.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
    policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
    output=s3_client.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
    return output
 
-async def s3_bucket_empty(s3_resource,bucket):
+async def function_s3_bucket_empty(s3_resource,bucket):
    output=s3_resource.Bucket(bucket).objects.all().delete()
    return output
 
-async def s3_bucket_delete(s3_client,bucket):
+async def function_s3_bucket_delete(s3_client,bucket):
    output=s3_client.delete_bucket(Bucket=bucket)
    return output
 
@@ -967,59 +979,59 @@ def google_user_read(google_token,google_client_id):
    return google_user
 
 import hashlib
-async def signup_username_password(postgres_client,type,username,password):
+async def function_signup_username_password(postgres_client,type,username,password):
    query="insert into users (type,username,password) values (:type,:username,:password) returning *;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    return output[0]
 
-async def signup_username_password_bigint(postgres_client,type,username_bigint,password_bigint):
+async def function_signup_username_password_bigint(postgres_client,type,username_bigint,password_bigint):
    query="insert into users (type,username_bigint,password_bigint) values (:type,:username_bigint,:password_bigint) returning *;"
    values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
    output=await postgres_client.fetch_all(query=query,values=values)
    return output[0]
 
 import hashlib
-async def login_password_username(postgres_client,token_create,key_jwt,token_expire_sec,type,username,password):
+async def function_login_password_username(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,username):
    query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
 import hashlib
-async def login_password_username_bigint(postgres_client,token_create,key_jwt,token_expire_sec,type,username_bigint,password_bigint):
+async def function_login_password_username_bigint(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password_bigint,username_bigint):
    query=f"select * from users where type=:type and username_bigint=:username_bigint and password_bigint=:password_bigint order by id desc limit 1;"
    values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
 import hashlib
-async def login_password_email(postgres_client,token_create,key_jwt,token_expire_sec,type,email,password):
+async def function_login_password_email(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,email):
    query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
    values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
 import hashlib
-async def login_password_mobile(postgres_client,token_create,key_jwt,token_expire_sec,type,mobile,password):
+async def function_login_password_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,mobile):
    query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
    values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await postgres_client.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
-async def login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,email,otp):
+async def function_login_otp_email(postgres_client,function_token_create,key_jwt,token_expire_sec,verify_otp,type,otp,email):
    await verify_otp(postgres_client,otp,email,None)
    query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
    values={"type":type,"email":email}
@@ -1030,10 +1042,10 @@ async def login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,
       values={"type":type,"email":email}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
-async def login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,mobile,otp):
+async def function_login_otp_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,verify_otp,type,otp,mobile):
    await verify_otp(postgres_client,otp,None,mobile)
    query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
    values={"type":type,"mobile":mobile}
@@ -1044,10 +1056,10 @@ async def login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec
       values={"type":type,"mobile":mobile}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
-async def login_google(postgres_client,token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token):
+async def function_login_google(postgres_client,function_token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token):
    google_user=google_user_read(google_token,google_client_id)
    query=f"select * from users where type=:type and google_id=:google_id order by id desc limit 1;"
    values={"type":type,"google_id":google_user["sub"]}
@@ -1058,7 +1070,7 @@ async def login_google(postgres_client,token_create,key_jwt,token_expire_sec,goo
       values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
       output=await postgres_client.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
 from fastapi import responses

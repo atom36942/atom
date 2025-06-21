@@ -157,235 +157,81 @@ import json,time,os,asyncio,requests,sys,aio_pika
 async def index():
    return {"status":1,"message":"welcome to atom"}
 
-async def function_param_read(mode,request,must,optional):
-   must_value=[]
-   optional_value=[]
-   if mode=="query_param":object=request.query_params
-   for item in must:
-      if item not in object:raise Exception(f"{item} missing")
-      must_value.append(object[item])
-   for item in optional:
-      optional_value.append(object.get(item))
-   return must_value,optional_value
-
-@app.post("/root/db-init")
+@app.get("/root/db-init")
 async def root_db_init(request:Request):
-   #param
-   mode=object.get("mode")
-   if not mode:return function_error("mode missing")
-   #variable
-   elif mode=="1":config=postgres_config
-   elif mode=="2":config=await request.json()
-   #logic
-   await postgres_schema_init(postgres_client,function_postgres_schema_read,config)
-   #final
+   await function_postgres_schema_init(postgres_client,function_postgres_schema_read,postgres_config)
    return {"status":1,"message":"done"}
 
 @app.post("/root/db-uploader")
 async def root_db_uploader(request:Request):
-   #param
-   object,file_list=await form_data_read(request)
-   mode=object.get("mode")
-   table=object.get("table")
-   is_serialize=int(object.get("is_serialize",1))
-   if not mode or not table or not file_list:return function_error("mode/table/file missing")
-   #object list
-   object_list=await file_to_object_list(file_list[-1])
-   #logic
-   if mode=="create":output=await function_postgres_create(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
+   object,[mode,table,file_list]=await function_param_read("form",request,["mode","table","file_list"],[])
+   object_list=await function_file_to_object_list(file_list[-1])
+   if mode=="create":output=await function_postgres_create(table,object_list,1,postgres_client,postgres_column_datatype,function_object_serialize)
    if mode=="update":output=await function_postgres_update(table,object_list,1,postgres_client,postgres_column_datatype,function_object_serialize)
-   if mode=="delete":output=await postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,function_object_serialize)
-   #final
+   if mode=="delete":output=await function_postgres_delete(table,object_list,1,postgres_client,postgres_column_datatype,function_object_serialize)
    return {"status":1,"message":output}
 
 @app.post("/root/redis-uploader")
 async def root_redis_uploader(request:Request):
-   #param
-   object,file_list=await form_data_read(request)
-   table=object.get("table")
-   expiry=object.get("expiry")
-   if not table or not file_list:return function_error("table/file missing")
-   #object list
-   object_list=await file_to_object_list(file_list[-1])
-   #logic
-   await redis_object_create(redis_client,table,object_list,expiry)
-   #final
+   object,[table,file_list,expiry]=await function_param_read("form",request,["table","file_list"],["expiry"])
+   object_list=await function_file_to_object_list(file_list[-1])
+   await function_redis_object_create(redis_client,table,object_list,expiry)
    return {"status":1,"message":"done"}
 
-@app.delete("/root/redis-reset")
-async def root_reset_redis():
-   #logic
-   if redis_client:await redis_client.flushall()
-   #final
-   return {"status":1,"message":"done"}
-
-@app.put("/root/reset-global")
-async def root_reset_global():
-   #postgres schema reset
-   global postgres_schema,postgres_column_datatype
-   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(postgres_client)
-   #users api access reset
-   global users_api_access
-   if postgres_schema.get("users",{}).get("api_access"):users_api_access=await users_api_access_read(postgres_client_asyncpg,users_api_access_max_count)
-   #users is_active reset
-   global users_is_active
-   if postgres_schema.get("users",{}).get("is_active"):users_is_active=await users_is_active_read(postgres_client_asyncpg,users_is_active_max_count)
-   #final
-   return {"status":1,"message":"done"}
-
-@app.post("/root/s3-bucket-ops")
+@app.get("/root/s3-bucket-ops")
 async def root_s3_bucket_ops(request:Request):
-   #param
-   mode=request.query_params.get("mode")
-   bucket=request.query_params.get("bucket")
-   if not mode or not bucket:return function_error("mode/bucket missing")
-   #logic
-   if mode=="create":output=await s3_bucket_create(s3_client,bucket,s3_region_name)
-   if mode=="public":output=await s3_bucket_public(s3_client,bucket)
-   if mode=="empty":output=await s3_bucket_empty(s3_resource,bucket)
-   if mode=="delete":output=await s3_bucket_delete(s3_client,bucket)
-   #final
+   object,[mode,bucket]=await function_param_read("query",request,["mode","bucket"],[])
+   if mode=="create":output=await function_s3_bucket_create(s3_client,bucket,s3_region_name)
+   if mode=="public":output=await function_s3_bucket_public(s3_client,bucket)
+   if mode=="empty":output=await function_s3_bucket_empty(s3_resource,bucket)
+   if mode=="delete":output=await function_s3_bucket_delete(s3_client,bucket)
    return {"status":1,"message":output}
 
 @app.delete("/root/s3-url-delete")
 async def root_s3_url_empty(request:Request):
-   #param
-   url=request.query_params.get("url")
-   if not url:return function_error("url missing")
-   #logic
-   for item in url.split("---"):output=await s3_url_delete(item,s3_resource)
-   #final
+   object,[url]=await function_param_read("body",request,["url"],[])
+   for item in url.split("---"):output=await function_s3_url_delete(item,s3_resource)
    return {"status":1,"message":output}
 
-@app.post("/auth/signup-username-password")
-async def auth_signup_username_password(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   username=object.get("username")
-   password=object.get("password")
-   if not type or not username or not password:return function_error("type/username/password missing")
-   #check
-   if is_signup==0:return function_error("signup disabled")
-   if type not in user_type_allowed:return function_error("wrong type")
-   #logic
-   user=await signup_username_password(postgres_client,type,username,password)
-   token=await token_create(key_jwt,token_expire_sec,user)
-   #final
+@app.post("/auth/signup")
+async def auth_signup(request:Request):
+   object,[mode,type,username,password]=await function_param_read("body",request,["mode","type","username","password"],[])
+   if mode=="username_password":user=await function_signup_username_password(postgres_client,type,username,password)
+   elif mode=="username_password_bigint":user=await function_signup_username_password_bigint(postgres_client,type,username,password)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
-@app.post("/auth/signup-username-password-bigint")
-async def auth_signup_username_password_bigint(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   username_bigint=object.get("username_bigint")
-   password_bigint=object.get("password_bigint")
-   if not type or not username_bigint or not password_bigint:return function_error("type/username_bigint/password_bigint missing")
-   #check
-   if is_signup==0:return function_error("signup disabled")
-   if type not in user_type_allowed:return function_error("wrong type")
-   #logic
-   user=await signup_username_password_bigint(postgres_client,type,username_bigint,password_bigint)
-   token=await token_create(key_jwt,token_expire_sec,user)
-   #final
+@app.post("/auth/login-password")
+async def auth_login_password(request:Request):
+   object,[mode,type,password,username,email,mobile]=await function_param_read("body",request,["mode","type","password"],["username","email","mobile"])
+   if mode=="username":token=await function_login_password_username(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,username)
+   elif mode=="username_bigint":token=await function_login_password_username_bigint(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,username)
+   elif mode=="email":token=await function_login_password_email(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,email)
+   elif mode=="mobile":token=await function_login_password_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,mobile)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-password-username")
-async def auth_login_password_username(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   username=object.get("username")
-   password=object.get("password")
-   if not type or not username or not password:return function_error("type/username/password missing")
-   #logic
-   token=await login_password_username(postgres_client,token_create,key_jwt,token_expire_sec,type,username,password)
-   #final
+@app.post("/auth/login-otp")
+async def auth_login_otp(request:Request):
+   object,[mode,type,otp,email,mobile]=await function_param_read("body",request,["mode","type","otp"],["email","mobile"])
+   if mode=="email":token=await function_login_otp_email(postgres_client,function_token_create,key_jwt,token_expire_sec,verify_otp,type,otp,email)
+   elif mode=="mobile":token=await function_login_otp_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,verify_otp,type,otp,mobile)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-password-username-bigint")
-async def auth_login_password_username_bigint(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   username_bigint=object.get("username_bigint")
-   password_bigint=object.get("password_bigint")
-   if not type or not username_bigint or not password_bigint:return function_error("type/username_bigint/password_bigint missing")
-   #logic
-   token=await login_password_username_bigint(postgres_client,token_create,key_jwt,token_expire_sec,type,username_bigint,password_bigint)
-   #final
+@app.post("/auth/login-google")
+async def auth_login_google(request:Request):
+   object,[type,google_token]=await function_param_read("body",request,["type","google_token"],[])
+   token=await function_login_google(postgres_client,function_token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-password-email")
-async def auth_login_password_email(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   email=object.get("email")
-   password=object.get("password")
-   if not type or not email or not password:return function_error("type/email/password missing")
-   #logic
-   token=await login_password_email(postgres_client,token_create,key_jwt,token_expire_sec,type,email,password)
-   #final
-   return {"status":1,"message":token}
 
-@app.post("/auth/login-password-mobile")
-async def auth_login_password_mobile(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   mobile=object.get("mobile")
-   password=object.get("password")
-   if not type or not mobile or not password:return function_error("type/mobile/password missing")
-   #logic
-   token=await login_password_mobile(postgres_client,token_create,key_jwt,token_expire_sec,type,mobile,password)
-   #final
-   return {"status":1,"message":token}
 
-@app.post("/auth/login-otp-email")
-async def auth_login_otp_email(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   email=object.get("email")
-   otp=object.get("otp")
-   if not type or not email or not otp:return function_error("type/email/otp missing")
-   #check
-   if type not in user_type_allowed:return function_error("wrong type")
-   #logic
-   token=await login_otp_email(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,email,otp)
-   #final
-   return {"status":1,"message":token}
-   
-@app.post("/auth/login-otp-mobile")
-async def auth_login_otp_mobile(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   mobile=object.get("mobile")
-   otp=object.get("otp")
-   if not type or not mobile or not otp:return function_error("type/mobile/otp missing")
-   #check
-   if type not in user_type_allowed:return function_error("wrong type")
-   #logic
-   token=await login_otp_mobile(postgres_client,token_create,key_jwt,token_expire_sec,verify_otp,type,mobile,otp)
-   #final
-   return {"status":1,"message":token}
 
-@app.post("/auth/login-oauth-google")
-async def auth_login_oauth_google(request:Request):
-   #param
-   object=await request.json()
-   type=object.get("type")
-   google_token=object.get("google_token")
-   if not type or not google_token:return function_error("type/google_token missing")
-   #check
-   if type not in user_type_allowed:return function_error("wrong type")
-   #logic
-   token=await login_google(postgres_client,token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token)
-   #final
-   return {"status":1,"message":token}
+
+
+
+
+
+
 
 @app.get("/my/profile")
 async def my_profile(request:Request):
@@ -400,7 +246,7 @@ async def my_token_refresh(request:Request):
    #read user
    user=await read_user_single(postgres_client,request.state.user["id"])
    #token create
-   token=await token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    #final
    return {"status":1,"message":token}
 

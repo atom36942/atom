@@ -1,50 +1,35 @@
-curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
-
-#index
+#start
 curl -X GET "$baseurl"
-
-#router
 curl -X GET "$baseurl/test"
 
-#root db init
-curl -X POST "$baseurl/root/db-init?mode=1" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/db-init?mode=2" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"table":{"test":["title-text-0-0"]},"query":{}}'
-
-#root db uploader
+#root
+curl -X GET "$baseurl/root/db-init" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
-0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=update" -F "table=test" -F "file=@/Users/atom/Downloads/update.csv"
-0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=delete" -F "table=test" -F "file=@/Users/atom/Downloads/delete.csv"
+curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@/Users/atom/Downloads/redis.csv"
+0 curl -X GET "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
+0 curl -X DELETE "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":"url1---url2---url3"}'
 
-#root redis
-0 curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@$file_update"
-0 curl -X DELETE "$baseurl/root/redis-reset" -H "Authorization: Bearer $token_root"
+#auth
+curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"mode":"username_password","type":1,"username":"$username","password":"123"}'
+0 curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"mode":"username_password_bigint","type":1,"username":12345,"password":123}'
+curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mode":"username","type":1,"password":"123","username":"$username"}'
+0 curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mode":"username_bigint","type":1,"password":123,"username":123}'
+0 curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mode":"email","type":1,"password":123,"email":"test"}'
+0 curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mode":"mobile","type":1,"password":123,"mobile":"test"}'
+0 curl -X POST "$baseurl/auth/login-otp" -H "Content-Type: application/json" -d '{"mode":"email","type":1,"otp":"123","email":"test"}'
+0 curl -X POST "$baseurl/auth/login-otp" -H "Content-Type: application/json" -d '{"mode":"mobile","type":1,"otp":"123","mobile":"test"}'
+0 curl -X POST "$baseurl/auth/login-google" -H "Content-Type: application/json" -d '{"type":1,"google_token":"testing"}'
 
-#root ops
-curl -X PUT "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 
-#root s3
-0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=public&bucket=master" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=empty&bucket=master" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/s3-bucket-ops?mode=delete&bucket=master" -H "Authorization: Bearer $token_root"
-0 curl -X DELETE "$baseurl/root/s3-url-delete?url=url1---url2" -H "Authorization: Bearer $token_root"
 
-#auth signup
-curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
-0 curl -X POST "$baseurl/auth/signup-username-password-bigint" -H "Content-Type: application/json" -d '{"type":2,"username_bigint":123,"password_bigint":123}'
 
-#auth login password
-curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":2,"username":"$username","password":"$password"}'
-0 curl -X POST "$baseurl/auth/login-password-username-bigint" -H "Content-Type: application/json" -d '{"type":2,"username_bigint":123,"password_bigint":123}'
-0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"email":"test","password":"test"}'
-0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"mobile":"test","password":"test"}'
 
-#auth login otp
-0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":2,"email":"test","otp":"123"}'
-0 curl -X POST "$baseurl/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"type":2,"mobile":"test","otp":"123"}'
+
+
+
+
 
 #auth login oauth
-0 curl -X POST "$baseurl/auth/login-oauth-google" -H "Content-Type: application/json" -d '{"type":2,"google_token":"testing"}'
 
 #my rights
 curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
@@ -129,7 +114,7 @@ curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer 
 
 #admin
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
-curl -X POST "$baseurl/admin/object-create?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":2,"username_bigint":123456789,"password_bigint":123}'
+curl -X POST "$baseurl/admin/object-create?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"username_bigint":123456789,"password_bigint":123}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":435,"title":"test"}'
 curl -X PUT "$baseurl/admin/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"username_bigint":123456789}'
 curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451","is_deleted":1}'
