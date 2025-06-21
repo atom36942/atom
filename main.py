@@ -223,76 +223,44 @@ async def auth_login_google(request:Request):
    token=await function_login_google(postgres_client,function_token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token)
    return {"status":1,"message":token}
 
-
-
-
-
-
-
-
-
-
-
 @app.get("/my/profile")
 async def my_profile(request:Request):
-   #logic
    user=await read_user_single(postgres_client,request.state.user["id"])
    asyncio.create_task(update_user_last_active_at(postgres_client,request.state.user["id"]))
-   #final
    return {"status":1,"message":user}
 
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
-   #read user
    user=await read_user_single(postgres_client,request.state.user["id"])
-   #token create
    token=await function_token_create(key_jwt,token_expire_sec,user)
-   #final
    return {"status":1,"message":token}
 
 @app.delete("/my/account-delete")
 async def my_account_delete(request:Request):
-   #param
-   mode=request.query_params.get("mode")
-   if not mode:return function_error("mode missing")
-   #check user
+   object,[mode]=await function_param_read("query",request,["mode"],[])
    user=await read_user_single(postgres_client,request.state.user["id"])
    if user["api_access"]:return function_error("not allowed as you have api_access")
-   #logic
-   if mode=="soft":
-      query="update users set is_deleted=1 where id=:id;"
-      values={"id":request.state.user["id"]}
-      await postgres_client.execute(query=query,values=values)
-   elif mode=="hard":
-      query="delete from users where id=:id;"
-      values={"id":request.state.user["id"]}
-      await postgres_client.execute(query=query,values=values)
-   #final
+   if mode=="soft":await function_delete_user_soft(postgres_client,request.state.user["id"])
+   if mode=="hard":await function_delete_user_hard(postgres_client,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @app.post("/my/object-create")
 async def my_object_create(request:Request):
-   #param
-   table=request.query_params.get("table")
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   queue=request.query_params.get("queue")
-   object=await request.json()
-   if not table:return function_error("table missing")
-   #modify
+   object_1,[table,is_serialize,queue]=await function_param_read("query",request,["table"],["is_serialize","queue"])
+   object,[]=await function_param_read("body",request,[],[])
+   is_serialize=int(is_serialize) if is_serialize else 1
    object["created_by_id"]=request.state.user["id"]
-   #check
    if table in ["users"]:return function_error("table not allowed")
    if len(object)<=1:return function_error ("object issue")
    if any(key in column_disabled_non_admin for key in object):return function_error(" object key not allowed")
-   #logic
-   data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
    if not queue:output=await function_postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
-   elif queue=="redis":output=await redis_client.publish(channel_name,json.dumps(data))
-   elif queue=="rabbitmq":output=await rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
-   elif queue=="lavinmq":output=await lavinmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
-   elif queue=="kafka":output=await kafka_producer_client.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
-   elif "mongodb" in queue:output=await mongodb_create_object(mongodb_client,queue.split('_')[1],table,[object])
-   #final
+   elif queue:
+      data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
+      if queue=="redis":output=await function_redis_publish(redis_client,channel_name,data)
+      elif queue=="rabbitmq":output=await function_rabbitmq_publish(rabbitmq_channel,channel_name,data)
+      elif queue=="lavinmq":output=await function_lavinmq_publish(lavinmq_channel,channel_name,data)
+      elif queue=="kafka":output=await function_kafka_publish(kafka_producer_client,channel_name,data)
+      elif "mongodb" in queue:output=await mongodb_create_object(mongodb_client,queue.split('_')[1],table,[object])
    return {"status":1,"message":output}
 
 @app.get("/my/object-read")

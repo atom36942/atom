@@ -1,3 +1,28 @@
+import json
+async def function_redis_publish(redis_client,channel_name,data):
+   output=await redis_client.publish(channel_name,json.dumps(data))
+   return output
+
+import json,pika
+async def function_rabbitmq_publish(rabbitmq_channel,channel_name,data):
+   output=await rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+   return output
+
+import json,pika
+async def function_rabbitmq_publish(rabbitmq_channel,channel_name,data):
+   output=await rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+   return output
+
+import json,pika
+async def function_lavinmq_publish(lavinmq_channel,channel_name,data):
+   output=await lavinmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+   return output
+
+import json
+async def function_kafka_publish(kafka_producer_client,channel_name,data):
+   output=await kafka_producer_client.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
+   return output
+
 async def function_param_read(mode,request,must,optional):
    param=[]
    if mode=="query":
@@ -777,6 +802,18 @@ async def read_user_single(postgres_client,user_id):
    if not user:raise Exception("user not found")
    return user
 
+async def function_delete_user_soft(postgres_client,user_id):
+   query="update users set is_deleted=1 where id=:id;"
+   values={"id":user_id}
+   await postgres_client.execute(query=query,values=values)
+   return None
+
+async def function_delete_user_hard(postgres_client,user_id):
+   query="delete from users where id=:id;"
+   values={"id":user_id}
+   await postgres_client.execute(query=query,values=values)
+   return None
+
 async def users_api_access_read(postgres_client_asyncpg,limit):
    users_api_access={}
    async with postgres_client_asyncpg.transaction():
@@ -1076,5 +1113,3 @@ async def function_login_google(postgres_client,function_token_create,key_jwt,to
 from fastapi import responses
 def function_error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
-
-
