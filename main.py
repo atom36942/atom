@@ -213,8 +213,8 @@ async def auth_login_password(request:Request):
 @app.post("/auth/login-otp")
 async def auth_login_otp(request:Request):
    object,[mode,type,otp,email,mobile]=await function_param_read("body",request,["mode","type","otp"],["email","mobile"])
-   if mode=="email":token=await function_login_otp_email(postgres_client,function_token_create,key_jwt,token_expire_sec,verify_otp,type,otp,email)
-   elif mode=="mobile":token=await function_login_otp_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,verify_otp,type,otp,mobile)
+   if mode=="email":token=await function_login_otp_email(postgres_client,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,email)
+   elif mode=="mobile":token=await function_login_otp_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,mobile)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-google")
@@ -226,7 +226,7 @@ async def auth_login_google(request:Request):
 @app.get("/my/profile")
 async def my_profile(request:Request):
    user=await read_user_single(postgres_client,request.state.user["id"])
-   asyncio.create_task(update_user_last_active_at(postgres_client,request.state.user["id"]))
+   asyncio.create_task(function_update_user_last_active_at(postgres_client,request.state.user["id"]))
    return {"status":1,"message":user}
 
 @app.get("/my/token-refresh")
@@ -265,241 +265,122 @@ async def my_object_create(request:Request):
 
 @app.get("/my/object-read")
 async def my_object_read(request:Request):
-   #param
-   object=dict(request.query_params)
-   table=object.get("table")
-   if not table:return function_error("table missing")
-   #modify
+   object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   #logic
-   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
-   #final
+   output=await function_postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    return {"status":1,"message":output}
 
 @app.get("/my/parent-read")
 async def my_parent_read(request:Request):
-   #param
-   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
-   table=request.query_params.get("table")
-   parent_column=request.query_params.get("parent_column")
-   parent_table=request.query_params.get("parent_table")
-   if not table or not parent_column:return function_error("table/parent_column/parent_table missing")
-   #logic
-   output=await postgres_parent_read(table,parent_column,parent_table,postgres_client,order,limit,(page-1)*limit,request.state.user["id"])
-   #final
-   return {"status":1,"message":output}
-
-@app.put("/my/user-update")
-async def my_user_update(request:Request):
-   #param
-   object=await request.json()
-   otp=int(request.query_params.get("otp",0))
-   #modify
-   object["updated_by_id"]=request.state.user["id"]
-   #check
-   if "id" not in object:return function_error ("id missing")
-   if object["id"]!=request.state.user["id"]:return function_error ("wrong id")
-   if len(object)<=2:return function_error ("object length issue")
-   if any(key in column_disabled_non_admin for key in object):return function_error(" object key not allowed")
-   if any(key in object and len(object)!=3 for key in ["password","email","mobile"]):return function_error("object length should be 2")
-   if any(key in object and not otp for key in ["email","mobile"]):return function_error("otp missing")
-   #otp verify
-   if otp>0:
-      email,mobile=object.get("email"),object.get("mobile")
-      await verify_otp(postgres_client,otp,email,mobile)
-   #logic
-   output=await function_postgres_update("users",[object],1,postgres_client,postgres_column_datatype,function_object_serialize)
-   #final
+   object,[table,parent_table,parent_column,order,limit,page]=await function_param_read("query",request,["table","parent_table","parent_column"],["order","limit","page"])
+   order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
+   output=await function_postgres_parent_read(table,parent_column,parent_table,postgres_client,order,limit,(page-1)*limit,request.state.user["id"])
    return {"status":1,"message":output}
 
 @app.put("/my/object-update")
 async def my_object_update(request:Request):
-   #param
-   table=request.query_params.get("table")
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   object=await request.json()
-   if not table:return function_error("table missing")
-   #modify
+   object_1,[table,otp]=await function_param_read("query",request,["table"],["otp"])
+   object,[]=await function_param_read("body",request,[],[])
    object["updated_by_id"]=request.state.user["id"]
-   #check
-   if table in ["users"]:return function_error("table not allowed")
    if "id" not in object:return function_error ("id missing")
    if len(object)<=2:return function_error ("object length issue")
    if any(key in column_disabled_non_admin for key in object):return function_error(" object key not allowed")
-   #logic
-   output=await postgres_update_user(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize,request.state.user["id"])
-   #final
+   if table=="users":
+      if object["id"]!=request.state.user["id"]:return function_error ("wrong id")
+      if any(key in object and len(object)!=3 for key in ["password","email","mobile"]):return function_error("object length should be 2")
+      if any(key in object and not otp for key in ["email","mobile"]):return function_error("otp missing")
+      if otp:
+         email,mobile=object.get("email"),object.get("mobile")
+         await function_verify_otp(postgres_client,otp,email,mobile)
+   if table=="users":output=await function_postgres_update("users",[object],1,postgres_client,postgres_column_datatype,function_object_serialize)
+   else:output=await function_postgres_update_user(table,[object],1,postgres_client,postgres_column_datatype,function_object_serialize,request.state.user["id"])
    return {"status":1,"message":output}
 
 @app.put("/my/ids-update")
 async def my_ids_update(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   del object["table"]
-   del object["ids"]
-   key,value=next(reversed(object.items()),(None, None))
-   if not table or not ids or not key:return function_error("table/ids/key must")
-   #check
+   object,[table,ids,column,value]=await function_param_read("body",request,["table","ids","column","value"],[])
    if table in ["users"]:return function_error("table not allowed")
-   if key in column_disabled_non_admin:return function_error("column not allowed")
-   #logic
-   await postgres_update_ids(postgres_client,table,ids,key,value,request.state.user["id"],request.state.user["id"])
-   #final
+   if column in column_disabled_non_admin:return function_error("column not allowed")
+   await function_postgres_update_ids(postgres_client,table,ids,column,value,request.state.user["id"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @app.delete("/my/ids-delete")
 async def my_ids_delete(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   if not table or not ids:return function_error("table/ids must")
-   #check
+   object,[table,ids]=await function_param_read("body",request,["table","ids"],[])
    if table in ["users"]:return function_error("table not allowed")
-   #logic
-   await postgres_delete_ids(postgres_client,table,ids,request.state.user["id"])
-   #final
+   await function_postgres_delete_ids(postgres_client,table,ids,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @app.delete("/my/object-delete-any")
 async def my_object_delete_any(request:Request):
-   #param
-   table=request.query_params.get("table")
-   object=dict(request.query_params)
-   if not table:return function_error("table missing")
-   #modify
+   object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   #check
    if table in ["users"]:return function_error("table not allowed")
-   #logic
-   await postgres_delete_any(table,object,postgres_client,create_where_string,function_object_serialize,postgres_column_datatype)
-   #final
+   await function_postgres_delete_any(table,object,postgres_client,create_where_string,function_object_serialize,postgres_column_datatype)
    return {"status":1,"message":"done"}
 
 @app.get("/my/message-received")
 async def my_message_received(request:Request):
-   #param
-   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
-   is_unread=request.query_params.get("is_unread")
-   #logic
-   object_list=await message_received_user(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
-   #mark message read
-   if object_list:
-      ids=','.join([str(item['id']) for item in object_list])
-      query=f"update message set is_read=1 where id in ({ids});"
-      asyncio.create_task(postgres_client.execute(query=query,values={}))
-   #final
+   object,[order,limit,page,is_unread]=await function_param_read("query",request,[],["order","limit","page","is_unread"])
+   order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
+   object_list=await function_message_received_user(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
+   if object_list:asyncio.create_task(function_mark_message_object_read(postgres_client,object_list))
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-inbox")
 async def my_message_inbox(request:Request):
-   #param
-   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
-   is_unread=request.query_params.get("is_unread")
-   #logic
-   object_list=await message_inbox_user(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
-   #final
+   object,[order,limit,page,is_unread]=await function_param_read("query",request,[],["order","limit","page","is_unread"])
+   order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
+   object_list=await function_message_inbox_user(postgres_client,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-thread")
 async def my_message_thread(request:Request):
-   #param
-   order,limit,page=request.query_params.get("order","id desc"),int(request.query_params.get("limit",100)),int(request.query_params.get("page",1))
-   user_id=int(request.query_params.get("user_id",0))
-   if not user_id:return function_error("user_id missing")
-   #logic
-   object_list=await message_thread_user(postgres_client,request.state.user["id"],user_id,order,limit,(page-1)*limit)
-   #mark message thread read
-   asyncio.create_task(mark_message_read_thread(postgres_client,request.state.user["id"],user_id))
-   #final
+   object,[user_id,order,limit,page]=await function_param_read("query",request,["user_id"],["order","limit","page"])
+   user_id=int(user_id)
+   order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
+   object_list=await function_message_thread_user(postgres_client,request.state.user["id"],user_id,order,limit,(page-1)*limit)
+   asyncio.create_task(function_mark_message_read_thread(postgres_client,request.state.user["id"],user_id))
    return {"status":1,"message":object_list}
 
 @app.delete("/my/message-delete")
 async def my_message_delete(request:Request):
-   #param
-   mode=request.query_params.get("mode")
-   id=int(request.query_params.get("id",0))
-   if not mode:return function_error("mode missing")
-   #check
-   if mode=="single" and not id:return function_error("id missing")
-   #logic
-   if mode=="single":await message_delete_user_single(postgres_client,request.state.user["id"],id)
-   if mode=="created":await message_delete_user_created(postgres_client,request.state.user["id"])
-   if mode=="received":await message_delete_user_received(postgres_client,request.state.user["id"])
-   if mode=="all":await message_delete_user_all(postgres_client,request.state.user["id"])
-   #final
+   object,[mode,id]=await function_param_read("query",request,["mode"],["id"])
+   if mode=="all":await function_message_delete_user_all(postgres_client,request.state.user["id"])
+   if mode=="created":await function_message_delete_user_created(postgres_client,request.state.user["id"])
+   if mode=="received":await function_message_delete_user_received(postgres_client,request.state.user["id"])
+   if mode=="single":await function_message_delete_user_single(postgres_client,request.state.user["id"],id)
    return {"status":1,"message":"done"}
 
-@app.post("/public/otp-send-mobile-sns")
-async def public_otp_send_mobile_sns(request:Request):
-   #param
-   object=await request.json()
-   mobile=object.get("mobile")
-   template_id=object.get("template_id")
-   message=object.get("message")
-   entity_id=object.get("entity_id")
-   sender_id=object.get("sender_id")
-   if not mobile:return function_error("mobile missing")
-   #generate otp
-   otp=await generate_save_otp(postgres_client,None,mobile)
-   #logic
-   if template_id:await send_message_template_sns(sns_client,mobile,message.replace("{otp}",str(otp)),entity_id,template_id,sender_id)
-   else:sns_client.publish(PhoneNumber=mobile,Message=str(otp))
-   #final
+@app.post("/public/otp-send")
+async def public_otp_send(request:Request):
+   object,[mode,email,mobile,template_id,entity_id,sender_id,message,sender_email]=await function_param_read("body",request,["mode"],["email","mobile","template_id","entity_id","sender_id","message","sender_email"])
+   otp=await function_generate_save_otp(postgres_client,email,mobile)
+   if mode=="mobile_sns":await function_sns_send_message(sns_client,mobile,str(otp))
+   elif mode=="mobile_sns_template":await function_sns_send_message_template(sns_client,mobile,template_id,entity_id,sender_id,message)
+   elif mode=="mobile_fast2sms":await function_otp_send_mobile_fast2sms(fast2sms_url,fast2sms_key,mobile,otp)
+   elif mode=="email_ses":await function_send_email_ses(ses_client,sender_email,[email],"your otp code",str(otp))
+   elif mode=="email_resend":await function_send_email_resend(resend_key,resend_url,sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
    return {"status":1,"message":"done"}
 
-@app.post("/public/otp-send-mobile-fast2sms")
-async def public_otp_send_mobile_fast2sms(request:Request):
-   #param
-   object=await request.json()
-   mobile=object.get("mobile")
-   if not mobile:return function_error("mobile missing")
-   #generate otp
-   otp=await generate_save_otp(postgres_client,None,mobile)
-   #logic
-   response=requests.get("https://www.fast2sms.com/dev/bulkV2",params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
-   #final
-   return {"status":1,"message":response.json()}
 
-@app.post("/public/otp-send-email-ses")
-async def public_otp_send_email_ses(request:Request):
-   #param
-   object=await request.json()
-   email=object.get("email")
-   sender_email=object.get("sender_email")
-   if not email or not sender_email:return function_error("email/sender_email missing")
-   #generate otp
-   otp=await generate_save_otp(postgres_client,email,None)
-   #logic
-   await send_email_ses(ses_client,sender_email,[email],"your otp code",str(otp))
-   #final
-   return {"status":1,"message":"done"}
 
-@app.post("/public/otp-send-email-resend")
-async def public_otp_send_email_resend(request:Request):
-   #param
-   object=await request.json()
-   email=object.get("email")
-   sender_email=object.get("sender_email")
-   if not email or not sender_email:return function_error("email/sender_email missing")
-   #generate otp
-   otp=await generate_save_otp(postgres_client,email,None)
-   #logic
-   await send_email_resend(resend_key,"https://api.resend.com/emails",sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
-   #final
-   return {"status":1,"message":"done"}
 
-@app.post("/public/otp-verify-email")
-async def public_otp_verify_email(request:Request):
+
+
+
+@app.post("/public/otp-verify")
+async def public_otp_verify(request:Request):
+   object,[table,ids]=await function_param_read("body",request,["table","ids"],[])
+
+   
+   
    #param
-   object=await request.json()
    otp=object.get("otp")
    email=object.get("email")
    if not otp or not email:return function_error("otp/email missing")
    #logic
-   await verify_otp(postgres_client,otp,email,None)
+   await function_verify_otp(postgres_client,otp,email,None)
    #final
    return {"status":1,"message":"done"}
 
@@ -511,7 +392,7 @@ async def public_otp_verify_mobile(request:Request):
    mobile=object.get("mobile")
    if not otp or not mobile:return function_error("otp/mobile missing")
    #logic
-   await verify_otp(postgres_client,otp,None,mobile)
+   await function_verify_otp(postgres_client,otp,None,mobile)
    #final
    return {"status":1,"message":"done"}
 
@@ -539,8 +420,8 @@ async def public_object_read(request:Request):
    #check
    if table not in table_allowed_public_read.split(","):return function_error("table not allowed")
    #logic
-   if postgres_client_read:object_list=await postgres_read(table,object,postgres_client_read,postgres_column_datatype,function_object_serialize,create_where_string)
-   else:object_list=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
+   if postgres_client_read:object_list=await function_postgres_read(table,object,postgres_client_read,postgres_column_datatype,function_object_serialize,create_where_string)
+   else:object_list=await function_postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    #add creator data
    if creator_data and object_list:object_list=await add_creator_data(postgres_client,object_list,creator_data)
    #final
@@ -647,7 +528,7 @@ async def private_object_read(request:Request):
    #check
    if table not in table_allowed_private_read.split(","):return function_error("table not allowed")
    #logic
-   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
+   output=await function_postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    #final
    return {"status":1,"message":output}
 
@@ -720,7 +601,7 @@ async def admin_ids_update(request:Request):
    key,value=next(reversed(object.items()),(None, None))
    if not table or not ids or not key:return function_error("table/ids/key must")
    #logic
-   await postgres_update_ids(postgres_client,table,ids,key,value,request.state.user["id"],None)
+   await function_postgres_update_ids(postgres_client,table,ids,key,value,request.state.user["id"],None)
    #final
    return {"status":1,"message":"done"}
 
@@ -732,7 +613,7 @@ async def admin_ids_delete(request:Request):
    ids=object.get("ids")
    if not table or not ids:return function_error("table/ids must")
    #logic
-   await postgres_delete_ids(postgres_client,table,ids,None)
+   await function_postgres_delete_ids(postgres_client,table,ids,None)
    #final
    return {"status":1,"message":"done"}
 
@@ -743,7 +624,7 @@ async def admin_object_read(request:Request):
    table=object.get("table")
    if not table:return function_error("table missing")
    #logic
-   output=await postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
+   output=await function_postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
    #final
    return {"status":1,"message":output}
 

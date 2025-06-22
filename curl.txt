@@ -31,40 +31,28 @@ curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorizatio
 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb_test"}'
-
-
-
-#my object read
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/parent-read?table=report_user&parent_column=user_id&parent_table=users" -H "Authorization: Bearer $token"
-
-#my object update
-curl -X PUT "$baseurl/my/user-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"username_bigint":12345}'
-curl -X PUT "$baseurl/my/user-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":"123"}'
-0 curl -X PUT "$baseurl/my/user-update?otp=123" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"email":"test"}'
+curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":123}'
+0 curl -X PUT "$baseurl/my/object-update?table=users&otp=123" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"email":"atom"}'
 curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
-curl -X PUT "$baseurl/my/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451","is_deleted":1}'
-
-#my object delete
+curl -X PUT "$baseurl/my/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451","column":"is_deleted","value":1}'
 curl -X DELETE "$baseurl/my/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451"}'
-curl -X DELETE "$baseurl/my/object-delete-any?table=test&id=>,1" -H "Authorization: Bearer $token"
-
-#my message
+curl -X DELETE "$baseurl/my/object-delete-any?table=test&id>,1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-received" -H "Authorization: Bearer $token"
-curl -X GET "$baseurl/my/message-received?mode=unread" -H "Authorization: Bearer $token"
+curl -X GET "$baseurl/my/message-received?is_unread=1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-inbox" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-inbox?is_unread=1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-thread?user_id=1" -H "Authorization: Bearer $token"
-curl -X DELETE "$baseurl/my/message-delete?mode=single&id=1" -H "Authorization: Bearer $token"
+curl -X DELETE "$baseurl/my/message-delete?mode=all" -H "Authorization: Bearer $token"
 curl -X DELETE "$baseurl/my/message-delete?mode=created" -H "Authorization: Bearer $token"
 curl -X DELETE "$baseurl/my/message-delete?mode=received" -H "Authorization: Bearer $token"
-curl -X DELETE "$baseurl/my/message-delete?mode=all" -H "Authorization: Bearer $token"
+curl -X DELETE "$baseurl/my/message-delete?mode=single&id=1" -H "Authorization: Bearer $token"
 
-#public otp
-0 curl -X POST "$baseurl/public/otp-send-mobile-sns" -H "Content-Type: application/json" -d '{"mobile":"test"}'
-0 curl -X POST "$baseurl/public/otp-send-mobile-fast2sms" -H "Content-Type: application/json" -d '{"mobile":"test"}'
-0 curl -X POST "$baseurl/public/otp-send-email-ses" -H "Content-Type: application/json" -d '{"sender_email":"test","email":"test"}'
-0 curl -X POST "$baseurl/public/otp-send-email-resend" -H "Content-Type: application/json" -d '{"sender_email":"no-reply@mail.askira.app","email":"atom36942@gmail.com"}'
+#public
+curl -X POST "$baseurl/public/otp-send" -H "Content-Type: application/json" -d '{"mode":"email_resend","email":"atom36942@gmail.com","sender_email":"no-reply@mail.askira.app"}'
+
+
 0 curl -X POST "$baseurl/public/otp-verify-email" -H "Content-Type: application/json" -d '{"otp":117463,"email":"atom36942@gmail.com"}'
 0 curl -X POST "$baseurl/public/otp-verify-mobile" -H "Content-Type: application/json" -d '{"otp":117463,"mobile":"test"}'
 

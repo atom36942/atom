@@ -145,7 +145,6 @@ google_client_id=env.get("google_client_id")
 channel_name=env.get("channel_name","ch1")
 column_disabled_non_admin=env.get("column_disabled_non_admin","is_active,is_verified,api_access").split(",")
 router_list=env.get("router_list").split(",") if env.get("router_list") else []
-fast2sms_key=env.get("fast2sms_key")
 table_allowed_public_create=env.get("table_allowed_public_create","test")
 table_allowed_public_read=env.get("table_allowed_public_read","test")
 table_allowed_private_read=env.get("table_allowed_private_read","test")
@@ -156,4 +155,11 @@ openai_key=env.get("openai_key")
 token_expire_sec=int(env.get("token_expire_sec",365*24*60*60))
 gsheet_service_account_json_path=env.get("gsheet_service_account_json_path")
 gsheet_scope_list=env.get("gsheet_scope_list","https://www.googleapis.com/auth/spreadsheets").split(",")
+
+
+
+fast2sms_key=env.get("fast2sms_key")
+fast2sms_url=env.get("fast2sms_url","https://www.fast2sms.com/dev/bulkV2")
 resend_key=env.get("resend_key")
+resend_url=env.get("resend_url","https://api.resend.com/emails")
+

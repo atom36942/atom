@@ -26,7 +26,7 @@ async def function_kafka_publish(kafka_producer_client,channel_name,data):
 async def function_param_read(mode,request,must,optional):
    param=[]
    if mode=="query":
-      object=request.query_params
+      object=dict(request.query_params)
    if mode=="form":
       form_data=await request.form()
       object={key:value for key,value in form_data.items() if isinstance(value,str)}
@@ -35,7 +35,7 @@ async def function_param_read(mode,request,must,optional):
    if mode=="body":
       object=await request.json()
    for item in must:
-      if item not in object:raise Exception(f"{item} missing from {mode}")
+      if item not in object:raise Exception(f"{item} missing from {mode} param")
       param.append(object[item])
    for item in optional:
       param.append(object.get(item))
@@ -332,7 +332,7 @@ async def function_generate_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
    return None
 
 import httpx
-async def send_email_resend(resend_key,resend_url,sender_email,email_list,title,body):
+async def function_send_email_resend(resend_key,resend_url,sender_email,email_list,title,body):
    payload={"from":sender_email,"to":email_list,"subject":title,"html":body}
    headers={"Authorization":f"Bearer {resend_key}","Content-Type": "application/json"}
    async with httpx.AsyncClient() as client:
@@ -475,7 +475,7 @@ async def function_postgres_update(table,object_list,is_serialize,postgres_clien
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return output
 
-async def postgres_update_user(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize,user_id):
+async def function_postgres_update_user(table,object_list,is_serialize,postgres_client,postgres_column_datatype,function_object_serialize,user_id):
    if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
    column_update_list=[*object_list[0]]
    column_update_list.remove("id")
@@ -495,13 +495,13 @@ async def function_postgres_delete(table,object_list,is_serialize,postgres_clien
       async with postgres_client.transaction():output=await postgres_client.execute_many(query=query,values=object_list)
    return output
 
-async def postgres_delete_any(table,object,postgres_client,create_where_string,function_object_serialize,postgres_column_datatype):
+async def function_postgres_delete_any(table,object,postgres_client,create_where_string,function_object_serialize,postgres_column_datatype):
    where_string,where_value=await create_where_string(object,function_object_serialize,postgres_column_datatype)
    query=f"delete from {table} {where_string};"
    await postgres_client.execute(query=query,values=where_value)
    return None
 
-async def postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string):
+async def function_postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string):
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    column=object.get("column","*")
    location_filter=object.get("location_filter")
@@ -514,7 +514,7 @@ async def postgres_read(table,object,postgres_client,postgres_column_datatype,fu
    object_list=await postgres_client.fetch_all(query=query,values=where_value)
    return object_list
 
-async def postgres_parent_read(table,parent_column,parent_table,postgres_client,order,limit,offset,user_id):
+async def function_postgres_parent_read(table,parent_column,parent_table,postgres_client,order,limit,offset,user_id):
    query=f'''
    with
    x as (select {parent_column} from {table} where (created_by_id=:created_by_id or :created_by_id is null) order by {order} limit {limit} offset {offset}) 
@@ -554,7 +554,7 @@ async def create_where_string(object,function_object_serialize,postgres_column_d
    return where_string,where_value
    
 import random
-async def generate_save_otp(postgres_client,email,mobile):
+async def function_generate_save_otp(postgres_client,email,mobile):
    if email and mobile:raise Exception("send either email/mobile")
    if not email and not mobile:raise Exception("send either email/mobile")
    otp=random.randint(100000,999999)
@@ -568,7 +568,7 @@ async def generate_save_otp(postgres_client,email,mobile):
       await postgres_client.execute(query=query,values=values)
    return otp
    
-async def verify_otp(postgres_client,otp,email,mobile):
+async def function_verify_otp(postgres_client,otp,email,mobile):
    if email and mobile:raise Exception("send either email/mobile")
    if not email and not mobile:raise Exception("send either email/mobile")
    if email:
@@ -724,13 +724,13 @@ async def postgres_query_runner(postgres_client,query,user_id):
    output=await postgres_client.fetch_all(query=query,values={})
    return output
 
-async def postgres_update_ids(postgres_client,table,ids,column,value,updated_by_id,created_by_id):
+async def function_postgres_update_ids(postgres_client,table,ids,column,value,updated_by_id,created_by_id):
    query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
    values={"value":value,"created_by_id":created_by_id,"updated_by_id":updated_by_id}
    await postgres_client.execute(query=query,values=values)
    return None
 
-async def postgres_delete_ids(postgres_client,table,ids,created_by_id):
+async def function_postgres_delete_ids(postgres_client,table,ids,created_by_id):
    query=f"delete from {table} where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
    values={"created_by_id":created_by_id}
    await postgres_client.execute(query=query,values=values)
@@ -912,11 +912,21 @@ async def function_s3_url_delete(url,s3_resource):
    output=s3_resource.Object(bucket,key).delete()
    return output
 
+async def function_mark_message_object_read(postgres_client,object_list):
+   try:
+      ids=','.join([str(item['id']) for item in object_list])
+      query=f"update message set is_read=1 where id in ({ids});"
+      await postgres_client.execute(query=query,values={})
+   except Exception as e:print(str(e))
+   return None
+   
 import datetime
-async def update_user_last_active_at(postgres_client,user_id):
-   query="update users set last_active_at=:last_active_at where id=:id;"
-   values={"id":user_id,"last_active_at":datetime.datetime.now()}
-   await postgres_client.execute(query=query,values=values)
+async def function_update_user_last_active_at(postgres_client,user_id):
+   try:
+      query="update users set last_active_at=:last_active_at where id=:id;"
+      values={"id":user_id,"last_active_at":datetime.datetime.now()}
+      await postgres_client.execute(query=query,values=values)
+   except Exception as e:print(str(e))
    return None
 
 async def mongodb_create_object(mongodb_client,database,table,object_list):
@@ -924,57 +934,62 @@ async def mongodb_create_object(mongodb_client,database,table,object_list):
    output=await mongodb_client_database[table].insert_many(object_list)
    return str(output)
 
-async def message_inbox_user(postgres_client,user_id,order,limit,offset,is_unread):
+async def function_message_inbox_user(postgres_client,user_id,order,limit,offset,is_unread):
    if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
    elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
    values={"created_by_id":user_id,"user_id":user_id}
    object_list=await postgres_client.fetch_all(query=query,values=values)
    return object_list
 
-async def message_received_user(postgres_client,user_id,order,limit,offset,is_unread):
+async def function_message_received_user(postgres_client,user_id,order,limit,offset,is_unread):
    if not is_unread:query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
    elif int(is_unread)==1:query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
    values={"user_id":user_id}
    object_list=await postgres_client.fetch_all(query=query,values=values)
    return object_list
 
-async def message_thread_user(postgres_client,user_id_1,user_id_2,order,limit,offset):
+async def function_message_thread_user(postgres_client,user_id_1,user_id_2,order,limit,offset):
    query=f"select * from message where ((created_by_id=:user_id_1 and user_id=:user_id_2) or (created_by_id=:user_id_2 and user_id=:user_id_1)) order by {order} limit {limit} offset {offset};"
    values={"user_id_1":user_id_1,"user_id_2":user_id_2}
    object_list=await postgres_client.fetch_all(query=query,values=values)
    return object_list
 
-async def mark_message_read_thread(postgres_client,user_id_1,user_id_2):
+async def function_mark_message_read_thread(postgres_client,user_id_1,user_id_2):
    query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;"
    values={"created_by_id":user_id_2,"user_id":user_id_1}
    await postgres_client.execute(query=query,values={})
    return None
 
-async def message_delete_user_single(postgres_client,user_id,message_id):
+async def function_message_delete_user_single(postgres_client,user_id,message_id):
    query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
    values={"user_id":user_id,"id":message_id}
    await postgres_client.execute(query=query,values={})
    return None
 
-async def message_delete_user_created(postgres_client,user_id):
+async def function_message_delete_user_created(postgres_client,user_id):
    query="delete from message where created_by_id=:user_id;"
    values={"user_id":user_id}
    await postgres_client.execute(query=query,values={})
    return None
 
-async def message_delete_user_received(postgres_client,user_id):
+async def function_message_delete_user_received(postgres_client,user_id):
    query="delete from message where user_id=:user_id;"
    values={"user_id":user_id}
    await postgres_client.execute(query=query,values={})
    return None
 
-async def message_delete_user_all(postgres_client,user_id):
+async def function_message_delete_user_all(postgres_client,user_id):
    query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
    values={"user_id":user_id}
    await postgres_client.execute(query=query,values={})
    return None
 
-async def send_email_ses(ses_client,sender_email,email_list,title,body):
+import requests
+async def function_otp_send_mobile_fast2sms(fast2sms_url,fast2sms_key,mobile,otp):
+   response=requests.get(fast2sms_url,params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
+   return response
+
+async def function_send_email_ses(ses_client,sender_email,email_list,title,body):
    ses_client.send_email(
    Source=sender_email,
    Destination={"ToAddresses":email_list},
@@ -982,11 +997,15 @@ async def send_email_ses(ses_client,sender_email,email_list,title,body):
    )
    return None
 
-async def send_message_template_sns(sns_client,mobile,message,entity_id,template_id,sender_id):
+async def function_sns_send_message_template(sns_client,mobile,template_id,entity_id,sender_id,message):
    sns_client.publish(
       PhoneNumber=mobile,
       Message=message,
       MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   return None
+
+async def function_sns_send_message(sns_client,mobile,message):
+   sns_client.publish(PhoneNumber=mobile,Message=message)
    return None
 
 async def function_s3_bucket_create(s3_client,bucket,s3_region_name):
@@ -1068,8 +1087,8 @@ async def function_login_password_mobile(postgres_client,function_token_create,k
    token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
-async def function_login_otp_email(postgres_client,function_token_create,key_jwt,token_expire_sec,verify_otp,type,otp,email):
-   await verify_otp(postgres_client,otp,email,None)
+async def function_login_otp_email(postgres_client,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,email):
+   await function_verify_otp(postgres_client,otp,email,None)
    query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
    values={"type":type,"email":email}
    output=await postgres_client.fetch_all(query=query,values=values)
@@ -1082,8 +1101,8 @@ async def function_login_otp_email(postgres_client,function_token_create,key_jwt
    token=await function_token_create(key_jwt,token_expire_sec,user)
    return token
 
-async def function_login_otp_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,verify_otp,type,otp,mobile):
-   await verify_otp(postgres_client,otp,None,mobile)
+async def function_login_otp_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,mobile):
+   await function_verify_otp(postgres_client,otp,None,mobile)
    query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
    values={"type":type,"mobile":mobile}
    output=await postgres_client.fetch_all(query=query,values=values)
