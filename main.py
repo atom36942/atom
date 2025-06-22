@@ -157,13 +157,13 @@ import json,time,os,asyncio,requests,sys,aio_pika
 async def index():
    return {"status":1,"message":"welcome to atom"}
 
-@app.get("/root/db-init")
-async def root_db_init(request:Request):
+@app.get("/root/postgres-init")
+async def root_postgres_init(request:Request):
    await function_postgres_schema_init(postgres_client,function_postgres_schema_read,postgres_config)
    return {"status":1,"message":"done"}
 
-@app.post("/root/db-uploader")
-async def root_db_uploader(request:Request):
+@app.post("/root/postgres-uploader")
+async def root_postgres_uploader(request:Request):
    object,[mode,table,file_list]=await function_param_read("form",request,["mode","table","file_list"],[])
    object_list=await function_file_to_object_list(file_list[-1])
    if mode=="create":output=await function_postgres_create(table,object_list,1,postgres_client,postgres_column_datatype,function_object_serialize)
@@ -178,9 +178,9 @@ async def root_redis_uploader(request:Request):
    await function_redis_object_create(redis_client,table,object_list,expiry)
    return {"status":1,"message":"done"}
 
-@app.get("/root/s3-bucket-ops")
+@app.post("/root/s3-bucket-ops")
 async def root_s3_bucket_ops(request:Request):
-   object,[mode,bucket]=await function_param_read("query",request,["mode","bucket"],[])
+   object,[mode,bucket]=await function_param_read("body",request,["mode","bucket"],[])
    if mode=="create":output=await function_s3_bucket_create(s3_client,bucket,s3_region_name)
    if mode=="public":output=await function_s3_bucket_public(s3_client,bucket)
    if mode=="empty":output=await function_s3_bucket_empty(s3_resource,bucket)
@@ -195,26 +195,52 @@ async def root_s3_url_empty(request:Request):
 
 @app.post("/auth/signup")
 async def auth_signup(request:Request):
-   object,[mode,type,username,password]=await function_param_read("body",request,["mode","type","username","password"],[])
-   if mode=="username_password":user=await function_signup_username_password(postgres_client,type,username,password)
-   elif mode=="username_password_bigint":user=await function_signup_username_password_bigint(postgres_client,type,username,password)
+   object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
+   user=await function_signup_username_password(postgres_client,type,username,password)
    token=await function_token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-password")
-async def auth_login_password(request:Request):
-   object,[mode,type,password,username,email,mobile]=await function_param_read("body",request,["mode","type","password"],["username","email","mobile"])
-   if mode=="username":token=await function_login_password_username(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,username)
-   elif mode=="username_bigint":token=await function_login_password_username_bigint(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,username)
-   elif mode=="email":token=await function_login_password_email(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,email)
-   elif mode=="mobile":token=await function_login_password_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,mobile)
+@app.post("/auth/signup-bigint")
+async def auth_signup_bigint(request:Request):
+   object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
+   user=await function_signup_username_password_bigint(postgres_client,type,username,password)
+   token=await function_token_create(key_jwt,token_expire_sec,user)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-otp")
-async def auth_login_otp(request:Request):
-   object,[mode,type,otp,email,mobile]=await function_param_read("body",request,["mode","type","otp"],["email","mobile"])
-   if mode=="email":token=await function_login_otp_email(postgres_client,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,email)
-   elif mode=="mobile":token=await function_login_otp_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,mobile)
+@app.post("/auth/login-password-username")
+async def auth_login_password_username(request:Request):
+   object,[type,password,username]=await function_param_read("body",request,["type","password","username"],[])
+   token=await function_login_password_username(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,username)
+   return {"status":1,"message":token}
+
+@app.post("/auth/login-password-bigint")
+async def auth_login_password_bigint(request:Request):
+   object,[type,password,username]=await function_param_read("body",request,["type","password","username"],[])
+   token=await function_login_password_username_bigint(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,username)
+   return {"status":1,"message":token}
+
+@app.post("/auth/login-password-email")
+async def auth_login_password_email(request:Request):
+   object,[type,password,email]=await function_param_read("body",request,["type","password","email"],[])
+   token=await function_login_password_email(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,email)
+   return {"status":1,"message":token}
+
+@app.post("/auth/login-password-mobile")
+async def auth_login_password_mobile(request:Request):
+   object,[type,password,mobile]=await function_param_read("body",request,["type","password","mobile"],[])
+   token=await function_login_password_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,type,password,mobile)
+   return {"status":1,"message":token}
+
+@app.post("/auth/login-otp-email")
+async def auth_login_otp_email(request:Request):
+   object,[type,otp,email]=await function_param_read("body",request,["type","otp","email"],[])
+   token=await function_login_otp_email(postgres_client,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,email)
+   return {"status":1,"message":token}
+
+@app.post("/auth/login-otp-mobile")
+async def auth_login_otp_mobile(request:Request):
+   object,[type,otp,mobile]=await function_param_read("body",request,["type","otp","mobile"],[])
+   token=await function_login_otp_mobile(postgres_client,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,mobile)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-google")
@@ -240,8 +266,7 @@ async def my_account_delete(request:Request):
    object,[mode]=await function_param_read("query",request,["mode"],[])
    user=await read_user_single(postgres_client,request.state.user["id"])
    if user["api_access"]:return function_error("not allowed as you have api_access")
-   if mode=="soft":await function_delete_user_soft(postgres_client,request.state.user["id"])
-   if mode=="hard":await function_delete_user_hard(postgres_client,request.state.user["id"])
+   await function_delete_user(mode,postgres_client,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @app.post("/my/object-create")
@@ -343,159 +368,91 @@ async def my_message_thread(request:Request):
    asyncio.create_task(function_mark_message_read_thread(postgres_client,request.state.user["id"],user_id))
    return {"status":1,"message":object_list}
 
-@app.delete("/my/message-delete")
-async def my_message_delete(request:Request):
-   object,[mode,id]=await function_param_read("query",request,["mode"],["id"])
+@app.delete("/my/message-delete-bulk")
+async def my_message_delete_bulk(request:Request):
+   object,[mode]=await function_param_read("query",request,["mode"],[])
    if mode=="all":await function_message_delete_user_all(postgres_client,request.state.user["id"])
    if mode=="created":await function_message_delete_user_created(postgres_client,request.state.user["id"])
    if mode=="received":await function_message_delete_user_received(postgres_client,request.state.user["id"])
-   if mode=="single":await function_message_delete_user_single(postgres_client,request.state.user["id"],id)
    return {"status":1,"message":"done"}
 
-@app.post("/public/otp-send")
-async def public_otp_send(request:Request):
-   object,[mode,email,mobile,template_id,entity_id,sender_id,message,sender_email]=await function_param_read("body",request,["mode"],["email","mobile","template_id","entity_id","sender_id","message","sender_email"])
-   otp=await function_generate_save_otp(postgres_client,email,mobile)
-   if mode=="mobile_sns":await function_sns_send_message(sns_client,mobile,str(otp))
-   elif mode=="mobile_sns_template":await function_sns_send_message_template(sns_client,mobile,template_id,entity_id,sender_id,message)
-   elif mode=="mobile_fast2sms":await function_otp_send_mobile_fast2sms(fast2sms_url,fast2sms_key,mobile,otp)
-   elif mode=="email_ses":await function_send_email_ses(ses_client,sender_email,[email],"your otp code",str(otp))
-   elif mode=="email_resend":await function_send_email_resend(resend_key,resend_url,sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
+@app.delete("/my/message-delete-single")
+async def my_message_delete_single(request:Request):
+   object,[id]=await function_param_read("query",request,["id"],[])
+   await function_message_delete_user_single(postgres_client,request.state.user["id"],int(id))
    return {"status":1,"message":"done"}
 
+@app.post("/public/otp-send-mobile-sns")
+async def public_otp_send_mobile_sns(request:Request):
+   object,[mobile]=await function_param_read("body",request,["mobile"],[])
+   otp=await function_generate_save_otp(postgres_client,None,mobile)
+   await function_sns_send_message(sns_client,mobile,str(otp))
+   return {"status":1,"message":"done"}
 
+@app.post("/public/otp-send-mobile-sns-template")
+async def public_otp_send_mobile_sns_template(request:Request):
+   object,[mobile,template_id,entity_id,sender_id,message]=await function_param_read("body",request,["mobile","template_id","entity_id","sender_id","message"],[])
+   otp=await function_generate_save_otp(postgres_client,None,mobile)
+   await function_sns_send_message_template(sns_client,mobile,template_id,entity_id,sender_id,message)
+   return {"status":1,"message":"done"}
 
+@app.post("/public/otp-send-mobile-fast2sms")
+async def public_otp_send_mobile_fast2sms(request:Request):
+   object,[mobile]=await function_param_read("body",request,["mobile"],[])
+   otp=await function_generate_save_otp(postgres_client,None,mobile)
+   await function_otp_send_mobile_fast2sms(fast2sms_url,fast2sms_key,mobile,otp)
+   return {"status":1,"message":"done"}
 
+@app.post("/public/otp-send-email-ses")
+async def public_otp_send_email_ses(request:Request):
+   object,[email,sender_email]=await function_param_read("body",request,["email","sender_email"],[])
+   otp=await function_generate_save_otp(postgres_client,email,None)
+   await function_send_email_ses(ses_client,sender_email,[email],"your otp code",str(otp))
+   return {"status":1,"message":"done"}
 
+@app.post("/public/otp-send-email-resend")
+async def public_otp_send_email_resend(request:Request):
+   object,[email,sender_email]=await function_param_read("body",request,["email","sender_email"],[])
+   otp=await function_generate_save_otp(postgres_client,email,None)
+   await function_send_email_resend(resend_key,resend_url,sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
+   return {"status":1,"message":"done"}
 
-
-@app.post("/public/otp-verify")
-async def public_otp_verify(request:Request):
-   object,[table,ids]=await function_param_read("body",request,["table","ids"],[])
-
-   
-   
-   #param
-   otp=object.get("otp")
-   email=object.get("email")
-   if not otp or not email:return function_error("otp/email missing")
-   #logic
+@app.post("/public/otp-verify-email")
+async def public_otp_verify_email(request:Request):
+   object,[otp,email]=await function_param_read("body",request,["otp","email"],[])
    await function_verify_otp(postgres_client,otp,email,None)
-   #final
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-verify-mobile")
 async def public_otp_verify_mobile(request:Request):
-   #param
-   object=await request.json()
-   otp=object.get("otp")
-   mobile=object.get("mobile")
-   if not otp or not mobile:return function_error("otp/mobile missing")
-   #logic
+   object,[otp,mobile]=await function_param_read("body",request,["otp","mobile"],[])
    await function_verify_otp(postgres_client,otp,None,mobile)
-   #final
    return {"status":1,"message":"done"}
 
 @app.post("/public/object-create")
 async def public_object_create(request:Request):
-   #param
-   table=request.query_params.get("table")
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   object=await request.json()
-   if not table:return function_error("table missing")
-   #check
+   object_1,[table,is_serialize]=await function_param_read("query",request,["table"],["is_serialize"])
+   object,[]=await function_param_read("body",request,[],[])
+   is_serialize=int(is_serialize) if is_serialize else 0
    if table not in table_allowed_public_create.split(","):return function_error("table not allowed")
-   #logic
    output=await function_postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
-   #final
    return {"status":1,"message":output}
 
 @app.get("/public/object-read")
 async def public_object_read(request:Request):
-   #param
-   object=request.query_params
-   table=object.get("table")
-   creator_data=object.get("creator_data")
-   if not table:return function_error("table missing")
-   #check
+   object,[table,creator_data]=await function_param_read("query",request,["table"],["creator_data"])
    if table not in table_allowed_public_read.split(","):return function_error("table not allowed")
-   #logic
    if postgres_client_read:object_list=await function_postgres_read(table,object,postgres_client_read,postgres_column_datatype,function_object_serialize,create_where_string)
    else:object_list=await function_postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
-   #add creator data
-   if creator_data and object_list:object_list=await add_creator_data(postgres_client,object_list,creator_data)
-   #final
+   if object_list and creator_data:object_list=await function_add_creator_data(postgres_client,object_list,creator_data)
    return {"status":1,"message":object_list}
 
-@app.post("/public/openai-prompt")
-async def public_openai_prompt(request:Request):
-   #param
-   object=await request.json()
-   model=object.get("model")
-   prompt=object.get("prompt")
-   is_web_search=int(object.get("is_web_search",0))
-   previous_response_id=object.get("previous_response_id")
-   if not model or not prompt:return function_error("model/prompt missing")
-   #logic
-   output=await openai_prompt(openai_client,model,prompt,is_web_search,previous_response_id)
-   #final
-   return {"status":1,"message":output}
-
-@app.post("/public/openai-ocr")
-async def public_openai_ocr(request:Request):
-   #param
-   object,file_list=await form_data_read(request)
-   model=object.get("model")
-   prompt=object.get("prompt")
-   if not model or not prompt or not file_list:return function_error("model/prompt/file missing")
-   #logic
-   output=await openai_ocr(openai_client,model,prompt,file_list[-1])
-   #final
-   return {"status":1,"message":output}
-
-@app.post("/public/gsheet-create")
-async def public_gsheet_create(request:Request):
-   #param
-   spreadsheet_id=request.query_params.get("spreadsheet_id")
-   sheet_name=request.query_params.get("sheet_name")
-   object=await request.json()
-   if not spreadsheet_id or not sheet_name:return function_error("spreadsheet_id/sheet_name missing")
-   #logic
-   output=await gsheet_create(gsheet_client,spreadsheet_id,sheet_name,object)
-   #final
-   return {"status":1,"message":output}
-
-@app.get("/public/gsheet-read-service-account")
-async def public_gsheet_read_service_account(request:Request):
-   #param
-   spreadsheet_id=request.query_params.get("spreadsheet_id")
-   sheet_name=request.query_params.get("sheet_name")
-   cell_boundary=request.query_params.get("cell_boundary")
-   if not spreadsheet_id or not sheet_name:return function_error("spreadsheet_id/sheet_name missing")
-   #logic
-   output=await gsheet_read_service_account(gsheet_client,spreadsheet_id,sheet_name,cell_boundary)
-   #final
-   return {"status":1,"message":output}
-
-@app.get("/public/gsheet-read-direct")
-async def public_gsheet_read_direct(request:Request):
-   #param
-   spreadsheet_id=request.query_params.get("spreadsheet_id")
-   gid=request.query_params.get("gid")
-   if not spreadsheet_id or not gid:return function_error("spreadsheet_id/gid missing")
-   #logic
-   output=await gsheet_read_pandas(spreadsheet_id,gid)
-   #final
-   return {"status":1,"message":output}
-
-cache_public_info={}
+public_info_cache={}
 @app.get("/public/info")
 async def public_info(request:Request):
-   #variable
-   global cache_public_info
-   #logic
-   if not cache_public_info or (time.time()-cache_public_info.get("set_at")>=1000):
-      cache_public_info={
+   global public_info_cache
+   if not public_info_cache or (time.time()-public_info_cache.get("set_at")>=1000):
+      public_info_cache={
       "set_at":time.time(),
       "api_list":[route.path for route in request.app.routes],
       "redis":await redis_client.info() if redis_client else None,
@@ -504,138 +461,70 @@ async def public_info(request:Request):
       "bucket":s3_client.list_buckets() if s3_client else None,
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True))
       }
-   #final
-   return {"status":1,"message":cache_public_info}
+   return {"status":1,"message":public_info_cache}
 
 @app.get("/public/page/{filename}")
 async def public_page(filename:str):
-   #variable
    file_path=os.path.join(".",f"{filename}.html")
-   #check
    if ".." in filename or "/" in filename:return function_error("invalid filename")
    if not os.path.isfile(file_path):return function_error ("file not found")
-   #logic
    with open(file_path, "r", encoding="utf-8") as file:html_content=file.read()
-   #final
    return responses.HTMLResponse(content=html_content)
-
-@app.get("/private/object-read")
-async def private_object_read(request:Request):
-   #param
-   object=request.query_params
-   table=object.get("table")
-   if not table:return function_error("table missing")
-   #check
-   if table not in table_allowed_private_read.split(","):return function_error("table not allowed")
-   #logic
-   output=await function_postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
-   #final
-   return {"status":1,"message":output}
 
 @app.post("/private/file-upload-s3-direct")
 async def private_file_upload_s3_direct(request:Request):
-   #param
-   object,file_list=await form_data_read(request)
-   bucket=object.get("bucket")
-   key=object.get("key")
-   if not bucket or not file_list:return function_error("bucket/file missing")
-   #variable
-   key_list=None
-   if key:key_list=key.split("---")
-   #logic
-   output=await s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_list)
-   #final
+   object,[bucket,file_list,key]=await function_param_read("form",request,["bucket","file_list"],["key"])
+   key_list=key.split("---") if key else None
+   output=await function_s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_list)
    return {"status":1,"message":output}
 
 @app.post("/private/file-upload-s3-presigned")
 async def private_file_upload_s3_presigned(request:Request):
-   #param
-   object=await request.json()
-   bucket=object.get("bucket")
-   key=object.get("key")
-   if not bucket or not key:return function_error("bucket/key missing")
-   #logic
+   object,[bucket,key]=await function_param_read("body",request,["bucket","key"],[])
    output=await s3_file_upload_presigned(s3_client,s3_region_name,bucket,key,1000,100)
-   #final
    return {"status":1,"message":output}
 
 @app.post("/admin/object-create")
 async def admin_object_create(request:Request):
-   #param
-   object=await request.json()
-   table=request.query_params.get("table")
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   if not table:return function_error("table missing")
-   #modify
+   object_1,[table,is_serialize]=await function_param_read("query",request,["table"],["is_serialize"])
+   object,[]=await function_param_read("body",request,[],[])
+   is_serialize=int(is_serialize) if is_serialize else 1
    if postgres_schema.get(table).get("created_by_id"):object["created_by_id"]=request.state.user["id"]
-   #logic
    output=await function_postgres_create(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
-   #final
    return {"status":1,"message":output}
 
 @app.put("/admin/object-update")
 async def admin_object_update(request:Request):
-   #param
-   table=request.query_params.get("table")
-   is_serialize=int(request.query_params.get("is_serialize",1))
-   object=await request.json()
-   if not table:return function_error("table missing")
-   #modify
-   if postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
-   #check
+   object_1,[table]=await function_param_read("query",request,["table"],[])
+   object,[]=await function_param_read("body",request,[],[])
    if "id" not in object:return function_error ("id missing")
-   if len(object)<=2:return function_error ("object length issue")
-   #logic
-   output=await function_postgres_update(table,[object],is_serialize,postgres_client,postgres_column_datatype,function_object_serialize)
-   #final
+   if len(object)<=1:return function_error ("object length issue")
+   if postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
+   output=await function_postgres_update(table,[object],1,postgres_client,postgres_column_datatype,function_object_serialize)
    return {"status":1,"message":output}
 
 @app.put("/admin/ids-update")
 async def admin_ids_update(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   del object["table"]
-   del object["ids"]
-   key,value=next(reversed(object.items()),(None, None))
-   if not table or not ids or not key:return function_error("table/ids/key must")
-   #logic
-   await function_postgres_update_ids(postgres_client,table,ids,key,value,request.state.user["id"],None)
-   #final
+   object,[table,ids,column,value]=await function_param_read("body",request,["table","ids","column","value"],[])
+   await function_postgres_update_ids(postgres_client,table,ids,column,value,request.state.user["id"],None)
    return {"status":1,"message":"done"}
 
 @app.delete("/admin/ids-delete")
 async def admin_ids_delete(request:Request):
-   #param
-   object=await request.json()
-   table=object.get("table")
-   ids=object.get("ids")
-   if not table or not ids:return function_error("table/ids must")
-   #logic
+   object,[table,ids]=await function_param_read("body",request,["table","ids"],[])
    await function_postgres_delete_ids(postgres_client,table,ids,None)
-   #final
    return {"status":1,"message":"done"}
 
 @app.get("/admin/object-read")
 async def admin_object_read(request:Request):
-   #param
-   object=request.query_params
-   table=object.get("table")
-   if not table:return function_error("table missing")
-   #logic
+   object,[table]=await function_param_read("query",request,["table"],[])
    output=await function_postgres_read(table,object,postgres_client,postgres_column_datatype,function_object_serialize,create_where_string)
-   #final
    return {"status":1,"message":output}
 
 @app.post("/admin/db-runner")
 async def admin_db_runner(request:Request):
-   #param
-   query=(await request.json()).get("query")
-   if not query:return function_error("query must")
-   #logic
+   object,[query]=await function_param_read("body",request,["query"],[])
    output=await postgres_query_runner(postgres_client,query,request.state.user["id"])
-   #final
    return {"status":1,"message":output}
 
 #server start

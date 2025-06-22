@@ -693,7 +693,7 @@ async def ownership_check(postgres_client,table,id,user_id):
       if output[0]["created_by_id"]!=user_id:raise Exception("object ownership issue")
    return None
 
-async def add_creator_data(postgres_client,object_list,user_key):
+async def function_add_creator_data(postgres_client,object_list,user_key):
     object_list=[dict(object) for object in object_list]
     created_by_ids={str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
     users={}
@@ -738,7 +738,7 @@ async def function_postgres_delete_ids(postgres_client,table,ids,created_by_id):
 
 import uuid
 from io import BytesIO
-async def s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_list):
+async def function_s3_file_upload_direct(s3_client,s3_region_name,bucket,key_list,file_list):
    if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
    output={}
    for index,file in enumerate(file_list):
@@ -802,14 +802,9 @@ async def read_user_single(postgres_client,user_id):
    if not user:raise Exception("user not found")
    return user
 
-async def function_delete_user_soft(postgres_client,user_id):
-   query="update users set is_deleted=1 where id=:id;"
-   values={"id":user_id}
-   await postgres_client.execute(query=query,values=values)
-   return None
-
-async def function_delete_user_hard(postgres_client,user_id):
-   query="delete from users where id=:id;"
+async def function_delete_user(mode,postgres_client,user_id):
+   if mode=="soft":query="update users set is_deleted=1 where id=:id;"
+   if mode=="hard":query="delete from users where id=:id;"
    values={"id":user_id}
    await postgres_client.execute(query=query,values=values)
    return None

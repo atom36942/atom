@@ -147,7 +147,6 @@ column_disabled_non_admin=env.get("column_disabled_non_admin","is_active,is_veri
 router_list=env.get("router_list").split(",") if env.get("router_list") else []
 table_allowed_public_create=env.get("table_allowed_public_create","test")
 table_allowed_public_read=env.get("table_allowed_public_read","test")
-table_allowed_private_read=env.get("table_allowed_private_read","test")
 log_api_batch_count=int(env.get("log_api_batch_count",10))
 users_api_access_max_count=int(env.get("users_api_access_max_count",100000))
 users_is_active_max_count=int(env.get("users_is_active_max_count",1000))

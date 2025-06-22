@@ -3,21 +3,21 @@ curl -X GET "$baseurl"
 curl -X GET "$baseurl/test"
 
 #root
-curl -X GET "$baseurl/root/db-init" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/db-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
+curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
+0 curl -X POST "$baseurl/root/postgres-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
 curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@/Users/atom/Downloads/redis.csv"
-0 curl -X GET "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
+0 curl -X POST "$baseurl/root/s3-bucket-ops" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"create","bucket":"master"}'
 0 curl -X DELETE "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":"url1---url2---url3"}'
 
 #auth
-curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"mode":"username_password","type":1,"username":"$username","password":"123"}'
-0 curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"mode":"username_password_bigint","type":1,"username":12345,"password":123}'
-curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mode":"username","type":1,"password":"123","username":"$username"}'
-0 curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mode":"username_bigint","type":1,"password":123,"username":123}'
-0 curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mode":"email","type":1,"password":123,"email":"test"}'
-0 curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"mode":"mobile","type":1,"password":123,"mobile":"test"}'
-0 curl -X POST "$baseurl/auth/login-otp" -H "Content-Type: application/json" -d '{"mode":"email","type":1,"otp":"123","email":"test"}'
-0 curl -X POST "$baseurl/auth/login-otp" -H "Content-Type: application/json" -d '{"mode":"mobile","type":1,"otp":"123","mobile":"test"}'
+curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"type":1,"username":"$username","password":"123"}'
+0 curl -X POST "$baseurl/auth/signup-bigint" -H "Content-Type: application/json" -d '{"type":1,"username":1234567,"password":123}'
+curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":1,"password":"123","username":"$username"}'
+0 curl -X POST "$baseurl/auth/login-password-bigint" -H "Content-Type: application/json" -d '{"type":1,"password":123,"username":123}'
+0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"password":123,"email":"atom"}'
+0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"password":123,"mobile":"atom"}'
+0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","email":"test"}'
+0 curl -X POST "$baseurl/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","mobile":"test"}'
 0 curl -X POST "$baseurl/auth/login-google" -H "Content-Type: application/json" -d '{"type":1,"google_token":"testing"}'
 
 #my
@@ -44,58 +44,29 @@ curl -X GET "$baseurl/my/message-received?is_unread=1" -H "Authorization: Bearer
 curl -X GET "$baseurl/my/message-inbox" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-inbox?is_unread=1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-thread?user_id=1" -H "Authorization: Bearer $token"
-curl -X DELETE "$baseurl/my/message-delete?mode=all" -H "Authorization: Bearer $token"
-curl -X DELETE "$baseurl/my/message-delete?mode=created" -H "Authorization: Bearer $token"
-curl -X DELETE "$baseurl/my/message-delete?mode=received" -H "Authorization: Bearer $token"
-curl -X DELETE "$baseurl/my/message-delete?mode=single&id=1" -H "Authorization: Bearer $token"
+curl -X DELETE "$baseurl/my/message-delete-bulk?mode=all" -H "Authorization: Bearer $token"
+curl -X DELETE "$baseurl/my/message-delete-single?id=1" -H "Authorization: Bearer $token"
 
 #public
-curl -X POST "$baseurl/public/otp-send" -H "Content-Type: application/json" -d '{"mode":"email_resend","email":"atom36942@gmail.com","sender_email":"no-reply@mail.askira.app"}'
-
-
-0 curl -X POST "$baseurl/public/otp-verify-email" -H "Content-Type: application/json" -d '{"otp":117463,"email":"atom36942@gmail.com"}'
-0 curl -X POST "$baseurl/public/otp-verify-mobile" -H "Content-Type: application/json" -d '{"otp":117463,"mobile":"test"}'
-
-#public object
+0 curl -X POST "$baseurl/public/otp-send-email-resend" -H "Content-Type: application/json" -d '{"email":"atom36942@gmail.com","sender_email":"no-reply@mail.askira.app"}'
+0 curl -X POST "$baseurl/public/otp-verify-email" -H "Content-Type: application/json" -d '{"otp":123,"email":"test"}'
+0 curl -X POST "$baseurl/public/otp-verify-mobile" -H "Content-Type: application/json" -d '{"otp":123,"mobile":"test"}'
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"public"}'
 curl -X GET "$baseurl/public/object-read?table=test"
 curl -X GET "$baseurl/public/object-read?table=test&id=>,1"
 curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
 curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.23,3.45,10,100"
-
-#public openai
-0 curl -X POST "$baseurl/public/openai-prompt" -H "Content-Type: application/json" -d '{"model":"gpt-4o-mini","prompt":"tell me 5 funding news"}'
-0 curl -X POST "$baseurl/public/openai-prompt" -H "Content-Type: application/json" -d '{"model":"gpt-4o-mini","prompt":"tell me 1 funding news as of today","is_web_search":1}'
-0 curl -X POST "$baseurl/public/openai-prompt" -H "Content-Type: application/json" -d '{"model":"gpt-4o-mini","prompt":"one more","previous_response_id":"resp_681cce976014819188612b0da02fdc010bcadcf4b058fde8"}'
-0 curl -X POST "$baseurl/public/openai-ocr" -F "model=gpt-4o-mini" -F "prompt=what is this image about" -F "file=@/Users/atom/Downloads/shankara-no-seeker-no-liberation.png"
-
-#public gsheet
-0 curl -X POST "$baseurl/public/gsheet-create?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&sheet_name=Sheet1" -H "Content-Type: application/json" -d '{"type":100,"title":"testing"}'
-0 curl -X GET "$baseurl/public/gsheet-read-direct?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&gid=0"
-0 curl -X GET "$baseurl/public/gsheet-read-service-account?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&sheet_name=Sheet1"
-0 curl -X GET "$baseurl/public/gsheet-read-service-account?spreadsheet_id=1zroYNUJWBTEXKX-BuBHSv51d3JmUx2YFt5Fvc1zfyAY&sheet_name=Sheet1&cell_boundary=a2:b2"
-
-#public misc
 curl -X GET "$baseurl/public/info"
 0 curl -X GET "$baseurl/public/page/about"
 
-#private object
-curl -X GET "$baseurl/private/object-read?table=test" -H "Authorization: Bearer $token"
-
 #private s3
-0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "file=@$file_create"
-0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "key=key.csv" -F "file=@$file_create"
-0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
-0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "key=key1.csv---key2.csv---key3.csv" -F "file=@$file_create" -F "file=@$file_update" -F "file=@$file_delete"
-0 curl -X POST "$baseurl/private/file-upload-s3-presigned?bucket=master&key=test.png" -H "Authorization: Bearer $token"
+0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "key=key1.png---key2.png---key3.png" -F "file=@file1" -F "file=@file2" -F "file=@file3"
+0 curl -X POST "$baseurl/private/file-upload-s3-presigned" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"bucket":"master","key":"key1.png"}'
 
 #admin
-curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"admin"}'
 curl -X POST "$baseurl/admin/object-create?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"username_bigint":123456789,"password_bigint":123}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":435,"title":"test"}'
-curl -X PUT "$baseurl/admin/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"username_bigint":123456789}'
-curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451","is_deleted":1}'
-curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"users","ids":"449,450,451","is_deleted":1}'
+curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451","column":"is_deleted","value":1}'
 curl -X DELETE "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451"}'
 curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'
