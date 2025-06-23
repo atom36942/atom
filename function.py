@@ -4,18 +4,18 @@ async def function_redis_publish(client_redis,channel_name,data):
    return output
 
 import json,pika
-async def function_rabbitmq_publish(channel_rabbitmq,channel_name,data):
-   output=await channel_rabbitmq.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+async def function_rabbitmq_publish(client_rabbitmq_channel,channel_name,data):
+   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
    return output
 
 import json,pika
-async def function_rabbitmq_publish(channel_rabbitmq,channel_name,data):
-   output=await channel_rabbitmq.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+async def function_rabbitmq_publish(client_rabbitmq_channel,channel_name,data):
+   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
    return output
 
 import json,pika
-async def function_lavinmq_publish(channel_lavinmq,channel_name,data):
-   output=await channel_lavinmq.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+async def function_lavinmq_publish(client_lavinmq_channel,channel_name,data):
+   output=await client_lavinmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
    return output
 
 import json
@@ -132,8 +132,8 @@ def function_load_env(env_path):
    return output
 
 import aio_pika,asyncio,json
-async def function_lavinmq_consumer(lavinmq_url,channel_name,postgres_url,function_lavinmq_channel_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   client_lavinmq,channel_lavinmq=await function_lavinmq_channel_read(lavinmq_url)
+async def function_lavinmq_consumer(lavinmq_url,channel_name,postgres_url,function_lavinmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(lavinmq_url)
    client_postgres=await function_postgres_client_read(postgres_url)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    async def aqmp_callback(message: aio_pika.IncomingMessage):
@@ -147,17 +147,17 @@ async def function_lavinmq_consumer(lavinmq_url,channel_name,postgres_url,functi
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
    try:
-      queue=await channel_lavinmq.declare_queue(channel_name,auto_delete=False)
+      queue=await client_lavinmq_channel.declare_queue(channel_name,auto_delete=False)
       await queue.consume(aqmp_callback)
       await asyncio.Future()
    except KeyboardInterrupt:
       await client_postgres.disconnect()
-      await channel_lavinmq.close()
+      await client_lavinmq_channel.close()
       await client_lavinmq.close()
       
 import aio_pika,asyncio,json
-async def function_rabbitmq_consumer(rabbitmq_url,channel_name,postgres_url,function_rabbitmq_channel_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   client_rabbitmq,channel_rabbitmq=await function_rabbitmq_channel_read(rabbitmq_url)
+async def function_rabbitmq_consumer(rabbitmq_url,channel_name,postgres_url,function_rabbitmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   client_rabbitmq,client_rabbitmq_channel=await function_rabbitmq_client_read(rabbitmq_url)
    client_postgres=await function_postgres_client_read(postgres_url)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    async def aqmp_callback(message: aio_pika.IncomingMessage):
@@ -171,12 +171,12 @@ async def function_rabbitmq_consumer(rabbitmq_url,channel_name,postgres_url,func
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
    try:
-      queue=await channel_rabbitmq.declare_queue(channel_name,auto_delete=False)
+      queue=await client_rabbitmq_channel.declare_queue(channel_name,auto_delete=False)
       await queue.consume(aqmp_callback)
       await asyncio.Future()
    except KeyboardInterrupt:
       await client_postgres.disconnect()
-      await channel_rabbitmq.close()
+      await client_rabbitmq_channel.close()
       await client_rabbitmq.close()
 
 import asyncio,json
@@ -427,16 +427,16 @@ async def ses_client_read(ses_region_name,aws_access_key_id,aws_secret_access_ke
    return client_ses
 
 import aio_pika
-async def function_rabbitmq_channel_read(rabbitmq_url):
+async def function_rabbitmq_client_read(rabbitmq_url):
    client_rabbitmq=await aio_pika.connect_robust(rabbitmq_url)
-   channel_rabbitmq=await client_rabbitmq.channel()
-   return client_rabbitmq,channel_rabbitmq
+   client_rabbitmq_channel=await client_rabbitmq.channel()
+   return client_rabbitmq,client_rabbitmq_channel
 
 import aio_pika
-async def function_lavinmq_channel_read(lavinmq_url):
+async def function_lavinmq_client_read(lavinmq_url):
    client_lavinmq=await aio_pika.connect_robust(lavinmq_url)
-   channel_lavinmq=await client_lavinmq.channel()
-   return client_lavinmq,channel_lavinmq
+   client_lavinmq_channel=await client_lavinmq.channel()
+   return client_lavinmq,client_lavinmq_channel
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.helpers import create_ssl_context
