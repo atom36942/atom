@@ -3,7 +3,6 @@ from function import *
 from config import *
 
 #globals
-client_kafka_producer=None
 postgres_schema={}
 postgres_column_datatype={}
 users_api_access={}
@@ -27,10 +26,10 @@ async def lifespan(app:FastAPI):
       client_gsheet=await gsheet_client_read(gsheet_service_account_json_path,gsheet_scope_list) if gsheet_service_account_json_path else None
       client_rabbitmq,client_rabbitmq_channel=await function_rabbitmq_client_read(rabbitmq_url) if rabbitmq_url else None
       client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(lavinmq_url) if lavinmq_url else None
+      client_kafka_producer=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name) if kafka_url else None
 
       
       #postgres schema
-      global postgres_schema,postgres_column_datatype
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       #users api access
       global users_api_access
@@ -39,9 +38,6 @@ async def lifespan(app:FastAPI):
       global users_is_active
       if postgres_schema.get("users",{}).get("is_active"):users_is_active=await users_is_active_read(client_postgres_asyncpg,users_is_active_max_count)
       
-      #kafka producer client
-      global client_kafka_producer
-      if kafka_url:client_kafka_producer=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
       
       #app state
       for var_name,var_value in locals().items():
@@ -250,7 +246,7 @@ async def my_object_create(request:Request):
       if queue=="redis":output=await function_redis_publish(request.app.state.client_redis,channel_name,data)
       elif queue=="rabbitmq":output=await function_rabbitmq_publish(request.app.state.client_rabbitmq_channel,channel_name,data)
       elif queue=="lavinmq":output=await function_lavinmq_publish(request.app.state.client_lavinmq_channel,channel_name,data)
-      elif queue=="kafka":output=await function_kafka_publish(client_kafka_producer,channel_name,data)
+      elif queue=="kafka":output=await function_kafka_publish(request.app.state.client_kafka_producer,channel_name,data)
       elif "mongodb" in queue:output=await mongodb_create_object(request.app.state.client_mongodb,queue.split('_')[1],table,[object])
    return {"status":1,"message":output}
 
