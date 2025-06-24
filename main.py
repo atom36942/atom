@@ -2,18 +2,13 @@
 from function import *
 from config import *
 
-#globals
-postgres_schema={}
-postgres_column_datatype={}
-users_api_access={}
-users_is_active={}
-
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 @asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
+      #client init
       client_postgres=await function_postgres_client_read(postgres_url)
       client_postgres_asyncpg=await postgres_client_asyncpg_read(postgres_url)
       client_postgres_read=await function_postgres_client_read(postgres_url_read) if postgres_url_read else None
@@ -24,62 +19,37 @@ async def lifespan(app:FastAPI):
       client_ses=await ses_client_read(ses_region_name,aws_access_key_id,aws_secret_access_key) if ses_region_name else None
       client_openai=openai_client_read(openai_key) if openai_key else None
       client_gsheet=await gsheet_client_read(gsheet_service_account_json_path,gsheet_scope_list) if gsheet_service_account_json_path else None
+      client_kafka_producer=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name) if kafka_url else None
       client_rabbitmq,client_rabbitmq_channel=await function_rabbitmq_client_read(rabbitmq_url) if rabbitmq_url else None
       client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(lavinmq_url) if lavinmq_url else None
-      client_kafka_producer=await kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name) if kafka_url else None
-
-      
-      #postgres schema
-      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      #users api access
-      global users_api_access
-      if postgres_schema.get("users",{}).get("api_access"):users_api_access=await users_api_access_read(client_postgres_asyncpg,users_api_access_max_count)
-      #users is_active
-      global users_is_active
-      if postgres_schema.get("users",{}).get("is_active"):users_is_active=await users_is_active_read(client_postgres_asyncpg,users_is_active_max_count)
-      
-      
-      #app state
+      #cache init
+      cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      if cache_postgres_schema.get("users",{}).get("api_access"):cache_users_api_access=await users_api_access_read(client_postgres_asyncpg,users_api_access_max_count)
+      if cache_postgres_schema.get("users",{}).get("is_active"):cache_users_is_active=await users_is_active_read(client_postgres_asyncpg,users_is_active_max_count)
+      #app state set
       for var_name,var_value in locals().items():
-         if var_name.startswith("client_"):setattr(app.state,var_name,var_value)
+         if var_name.startswith(("client_", "cache_")):setattr(app.state,var_name,var_value)
       #app shutdown
       yield
       await client_postgres.disconnect()
       await client_postgres_asyncpg.close()
       if client_postgres_read:await client_postgres_read.close()
       if client_redis:await client_redis.aclose()
-      #kafka
+      if client_mongodb:await client_mongodb.close()
       if client_kafka_producer:await client_kafka_producer.stop()
-      #rabbitmq
-      if client_rabbitmq:
-         if not client_rabbitmq_channel.is_closed:await client_rabbitmq_channel.close()
-         if not client_rabbitmq.is_closed:await client_rabbitmq.close()
-      #lavinmq
-      if client_lavinmq:
-         if not client_lavinmq_channel.is_closed:await client_lavinmq_channel.close()
-         if not client_lavinmq.is_closed:await client_lavinmq.close()
+      if client_rabbitmq_channel and not client_rabbitmq_channel.is_closed:await client_rabbitmq_channel.close()
+      if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
+      if client_lavinmq_channel and not client_lavinmq_channel.is_closed:await client_lavinmq_channel.close()
+      if client_lavinmq and not client_lavinmq.is_closed:await client_lavinmq.close()
    except Exception as e:print(str(e))
-
-
    
-
-
-
 #app
 from fastapi import FastAPI
 app=FastAPI(lifespan=lifespan)
-
-#cors
-from fastapi.middleware.cors import CORSMiddleware
-app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
-
-#sentry
-import sentry_sdk
-if sentry_dsn:sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
-
-#prometheus
-from prometheus_fastapi_instrumentator import Instrumentator
-if False:Instrumentator().instrument(app).expose(app)
+function_app_add_cors(app)
+function_app_add_router(app,router_list)
+if sentry_dsn:function_app_add_sentry(sentry_dsn)
+if False:function_app_add_prometheus(app)
 
 #middleware
 from fastapi import Request
@@ -91,8 +61,8 @@ async def middleware(request,api_function):
       response=None
       error=None
       request.state.user=await function_token_check(request,key_root,key_jwt,function_token_decode)
-      if "admin/" in request.url.path:await function_api_access_check(request,api_config,users_api_access,request.app.state.client_postgres)
-      if api_config.get(request.url.path,{}).get("is_active_check")==1:await function_is_active_check(request,users_is_active,request.app.state.client_postgres)
+      if "admin/" in request.url.path:await function_api_access_check(request,api_config,request.app.state.cache_users_api_access,request.app.state.client_postgres)
+      if api_config.get(request.url.path,{}).get("is_active_check")==1:await function_is_active_check(request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
       if api_config.get(request.url.path,{}).get("rate_limiter"):await function_rate_limiter_check(request,api_config,request.app.state.client_redis)
       if request.query_params.get("is_background")=="1":response=await function_api_response_background(request,api_function)
       elif api_config.get(request.url.path,{}).get("is_cache")==1:response=await function_api_response_cache("get",request,None,request.app.state.client_redis)
@@ -105,11 +75,8 @@ async def middleware(request,api_function):
       response=function_error(error)
       if sentry_dsn:sentry_sdk.capture_exception(e)
    object={"ip_address":request.client.host,"created_by_id":request.state.user.get("id",None),"api":request.url.path,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-   asyncio.create_task(log_api_create(object,log_api_batch_count,function_postgres_create,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize))
+   asyncio.create_task(log_api_create(object,log_api_batch_count,function_postgres_create,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize))
    return response
-
-#router
-router_add(router_list,app)
 
 #api
 from fastapi import Request,responses
@@ -128,9 +95,9 @@ async def root_postgres_init(request:Request):
 async def root_postgres_uploader(request:Request):
    object,[mode,table,file_list]=await function_param_read("form",request,["mode","table","file_list"],[])
    object_list=await function_file_to_object_list(file_list[-1])
-   if mode=="create":output=await function_postgres_create(table,object_list,1,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize)
-   if mode=="update":output=await function_postgres_update(table,object_list,1,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize)
-   if mode=="delete":output=await function_postgres_delete(table,object_list,1,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize)
+   if mode=="create":output=await function_postgres_create(table,object_list,1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
+   if mode=="update":output=await function_postgres_update(table,object_list,1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
+   if mode=="delete":output=await function_postgres_delete(table,object_list,1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
    return {"status":1,"message":output}
 
 @app.post("/root/redis-uploader")
@@ -240,7 +207,7 @@ async def my_object_create(request:Request):
    if table in ["users"]:return function_error("table not allowed")
    if len(object)<=1:return function_error ("object issue")
    if any(key in column_disabled_non_admin for key in object):return function_error(" object key not allowed")
-   if not queue:output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize)
+   if not queue:output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
    elif queue:
       data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
       if queue=="redis":output=await function_redis_publish(request.app.state.client_redis,channel_name,data)
@@ -254,7 +221,7 @@ async def my_object_create(request:Request):
 async def my_object_read(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   output=await function_postgres_read(table,object,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize,create_where_string)
+   output=await function_postgres_read(table,object,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,create_where_string)
    return {"status":1,"message":output}
 
 @app.get("/my/parent-read")
@@ -279,8 +246,8 @@ async def my_object_update(request:Request):
       if otp:
          email,mobile=object.get("email"),object.get("mobile")
          await function_verify_otp(request.app.state.client_postgres,otp,email,mobile)
-   if table=="users":output=await function_postgres_update("users",[object],1,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize)
-   else:output=await function_postgres_update_user(table,[object],1,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize,request.state.user["id"])
+   if table=="users":output=await function_postgres_update("users",[object],1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
+   else:output=await function_postgres_update_user(table,[object],1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,request.state.user["id"])
    return {"status":1,"message":output}
 
 @app.put("/my/ids-update")
@@ -303,7 +270,7 @@ async def my_object_delete_any(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
    if table in ["users"]:return function_error("table not allowed")
-   await function_postgres_delete_any(table,object,request.app.state.client_postgres,create_where_string,function_object_serialize,postgres_column_datatype)
+   await function_postgres_delete_any(table,object,request.app.state.client_postgres,create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":"done"}
 
 @app.get("/my/message-received")
@@ -397,14 +364,14 @@ async def public_object_create(request:Request):
    object,[]=await function_param_read("body",request,[],[])
    is_serialize=int(is_serialize) if is_serialize else 0
    if table not in table_allowed_public_create.split(","):return function_error("table not allowed")
-   output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize)
+   output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
    return {"status":1,"message":output}
 
 @app.get("/public/object-read")
 async def public_object_read(request:Request):
    object,[table,creator_data]=await function_param_read("query",request,["table"],["creator_data"])
    if table not in table_allowed_public_read.split(","):return function_error("table not allowed")
-   object_list=await function_postgres_read(table,object,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize,create_where_string)
+   object_list=await function_postgres_read(table,object,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,create_where_string)
    if object_list and creator_data:object_list=await function_add_creator_data(request.app.state.client_postgres,object_list,creator_data)
    return {"status":1,"message":object_list}
 
@@ -417,8 +384,6 @@ async def public_info(request:Request):
       "set_at":time.time(),
       "api_list":[route.path for route in request.app.routes],
       "redis":await request.app.state.client_redis.info() if request.app.state.client_redis else None,
-      "postgres_schema":postgres_schema,
-      "postgres_column_datatype":postgres_column_datatype,
       "bucket":request.app.state.client_s3.list_buckets() if request.app.state.client_s3 else None,
       "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True))
       }
@@ -450,8 +415,8 @@ async def admin_object_create(request:Request):
    object_1,[table,is_serialize]=await function_param_read("query",request,["table"],["is_serialize"])
    object,[]=await function_param_read("body",request,[],[])
    is_serialize=int(is_serialize) if is_serialize else 1
-   if postgres_schema.get(table).get("created_by_id"):object["created_by_id"]=request.state.user["id"]
-   output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize)
+   if request.app.state.cache_postgres_schema.get(table).get("created_by_id"):object["created_by_id"]=request.state.user["id"]
+   output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
    return {"status":1,"message":output}
 
 @app.put("/admin/object-update")
@@ -460,8 +425,8 @@ async def admin_object_update(request:Request):
    object,[]=await function_param_read("body",request,[],[])
    if "id" not in object:return function_error ("id missing")
    if len(object)<=1:return function_error ("object length issue")
-   if postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
-   output=await function_postgres_update(table,[object],1,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize)
+   if request.app.state.cache_postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
+   output=await function_postgres_update(table,[object],1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
    return {"status":1,"message":output}
 
 @app.put("/admin/ids-update")
@@ -479,7 +444,7 @@ async def admin_ids_delete(request:Request):
 @app.get("/admin/object-read")
 async def admin_object_read(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
-   output=await function_postgres_read(table,object,request.app.state.client_postgres,postgres_column_datatype,function_object_serialize,create_where_string)
+   output=await function_postgres_read(table,object,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,create_where_string)
    return {"status":1,"message":output}
 
 @app.post("/admin/db-runner")

@@ -1,3 +1,24 @@
+import sentry_sdk
+def function_app_add_sentry(sentry_dsn):
+   sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
+   return None
+
+import os
+def function_app_add_router(app,router_list):
+   for item in router_list:
+       router=__import__(item).router
+       app.include_router(router)
+
+from fastapi.middleware.cors import CORSMiddleware
+def function_app_add_cors(app):
+   app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
+   return None
+
+from prometheus_fastapi_instrumentator import Instrumentator
+def function_app_add_prometheus(app):
+   Instrumentator().instrument(app).expose(app)
+   return None
+
 import json
 async def function_redis_publish(client_redis,channel_name,data):
    output=await client_redis.publish(channel_name,json.dumps(data))
@@ -885,12 +906,6 @@ async def log_api_create(object,batch,function_postgres_create,client_postgres,p
          object_list_log_api=[]
    except Exception as e:print(str(e))
    return None
-
-import os
-def router_add(router_list,app):
-   for item in router_list:
-       router=__import__(item).router
-       app.include_router(router)
 
 async def function_redis_object_create(client_redis,table,object_list,expiry):
    async with client_redis.pipeline(transaction=True) as pipe:
