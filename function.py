@@ -142,17 +142,87 @@ async def function_login_google(type,google_token,client_postgres,config_key_jwt
    token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
-async def function_message_inbox(user_id,order,limit,offset,is_unread,client_postgres):
+async def function_message_inbox_user(user_id,order,limit,offset,is_unread,client_postgres):
    if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
    elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
    values={"created_by_id":user_id,"user_id":user_id}
    object_list=await client_postgres.fetch_all(query=query,values=values)
    return object_list
 
-async def function_message_received(user_id,order,limit,offset,is_unread,client_postgres):
+async def function_message_received_user(user_id,order,limit,offset,is_unread,client_postgres):
    if not is_unread:query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
    elif int(is_unread)==1:query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
    values={"user_id":user_id}
    object_list=await client_postgres.fetch_all(query=query,values=values)
    return object_list
 
+async def function_message_thread_user(user_id_1,user_id_2,order,limit,offset,client_postgres):
+   query=f"select * from message where ((created_by_id=:user_id_1 and user_id=:user_id_2) or (created_by_id=:user_id_2 and user_id=:user_id_1)) order by {order} limit {limit} offset {offset};"
+   values={"user_id_1":user_id_1,"user_id_2":user_id_2}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   return object_list
+
+async def function_message_thread_mark_read_user(user_id_1,user_id_2,client_postgres):
+   query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;"
+   values={"created_by_id":user_id_2,"user_id":user_id_1}
+   await client_postgres.execute(query=query,values={})
+   return None
+
+async def function_message_delete_single_user(user_id,message_id,client_postgres):
+   query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
+   values={"user_id":user_id,"id":message_id}
+   await client_postgres.execute(query=query,values={})
+   return None
+
+async def function_message_delete_created_user(user_id,client_postgres):
+   query="delete from message where created_by_id=:user_id;"
+   values={"user_id":user_id}
+   await client_postgres.execute(query=query,values={})
+   return None
+
+async def function_message_delete_received_user(user_id,client_postgres):
+   query="delete from message where user_id=:user_id;"
+   values={"user_id":user_id}
+   await client_postgres.execute(query=query,values={})
+   return None
+
+async def function_message_delete_all_user(user_id,client_postgres):
+   query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
+   values={"user_id":user_id}
+   await client_postgres.execute(query=query,values={})
+   return None
+
+import requests
+async def function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url):
+   response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
+   return response
+
+async def function_ses_send_email(email_list,title,body,sender_email,client_ses):
+   client_ses.send_email(Source=sender_email,Destination={"ToAddresses":email_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+   return None
+
+async def function_sns_send_message(mobile,message,client_sns):
+   client_sns.publish(PhoneNumber=mobile,Message=message)
+   return None
+
+async def function_sns_send_message_template(mobile,message,template_id,entity_id,sender_id,client_sns):
+   client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   return None
+
+async def function_s3_bucket_create(bucket,client_s3,config_s3_region_name):
+   output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
+   return output
+
+async def function_s3_bucket_public(bucket,client_s3):
+   client_s3.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=client_s3.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   return output
+
+async def function_s3_bucket_empty(bucket,client_s3_resource):
+   output=client_s3_resource.Bucket(bucket).objects.all().delete()
+   return output
+
+async def function_s3_bucket_delete(bucket,client_s3):
+   output=client_s3.delete_bucket(Bucket=bucket)
+   return output

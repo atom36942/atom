@@ -272,10 +272,10 @@ async def root_redis_uploader(request:Request):
 @app.post("/root/s3-bucket-ops")
 async def root_s3_bucket_ops(request:Request):
    object,[mode,bucket]=await function_param_read("body",request,["mode","bucket"],[])
-   if mode=="create":output=await function_s3_bucket_create(request.app.state.client_s3,bucket,config_s3_region_name)
-   if mode=="public":output=await function_s3_bucket_public(request.app.state.client_s3,bucket)
-   if mode=="empty":output=await function_s3_bucket_empty(request.app.state.client_s3_resource,bucket)
-   if mode=="delete":output=await function_s3_bucket_delete(request.app.state.client_s3,bucket)
+   if mode=="create":output=await function_s3_bucket_create(bucket,request.app.state.client_s3,config_s3_region_name)
+   if mode=="public":output=await function_s3_bucket_public(bucket,request.app.state.client_s3)
+   if mode=="empty":output=await function_s3_bucket_empty(bucket,request.app.state.client_s3_resource)
+   if mode=="delete":output=await function_s3_bucket_delete(bucket,request.app.state.client_s3)
    return {"status":1,"message":output}
 
 @app.delete("/root/s3-url-delete")
@@ -448,7 +448,7 @@ async def my_object_delete_any(request:Request):
 async def my_message_received(request:Request):
    object,[order,limit,page,is_unread]=await function_param_read("query",request,[],["order","limit","page","is_unread"])
    order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
-   object_list=await function_message_received(request.state.user["id"],order,limit,(page-1)*limit,is_unread,request.app.state.client_postgres)
+   object_list=await function_message_received_user(request.state.user["id"],order,limit,(page-1)*limit,is_unread,request.app.state.client_postgres)
    if object_list:asyncio.create_task(function_mark_message_object_read(request.app.state.client_postgres,object_list))
    return {"status":1,"message":object_list}
 
@@ -456,7 +456,7 @@ async def my_message_received(request:Request):
 async def my_message_inbox(request:Request):
    object,[order,limit,page,is_unread]=await function_param_read("query",request,[],["order","limit","page","is_unread"])
    order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
-   object_list=await function_message_inbox(request.state.user["id"],order,limit,(page-1)*limit,is_unread,request.app.state.client_postgres)
+   object_list=await function_message_inbox_user(request.state.user["id"],order,limit,(page-1)*limit,is_unread,request.app.state.client_postgres)
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-thread")
@@ -464,50 +464,50 @@ async def my_message_thread(request:Request):
    object,[user_id,order,limit,page]=await function_param_read("query",request,["user_id"],["order","limit","page"])
    user_id=int(user_id)
    order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
-   object_list=await function_message_thread_user(request.app.state.client_postgres,request.state.user["id"],user_id,order,limit,(page-1)*limit)
-   asyncio.create_task(function_mark_message_read_thread(request.app.state.client_postgres,request.state.user["id"],user_id))
+   object_list=await function_message_thread_user(request.state.user["id"],user_id,order,limit,(page-1)*limit,request.app.state.client_postgres)
+   asyncio.create_task(function_message_thread_mark_read_user(request.state.user["id"],user_id,request.app.state.client_postgres))
    return {"status":1,"message":object_list}
 
 @app.delete("/my/message-delete-bulk")
 async def my_message_delete_bulk(request:Request):
    object,[mode]=await function_param_read("query",request,["mode"],[])
-   if mode=="all":await function_message_delete_user_all(request.app.state.client_postgres,request.state.user["id"])
-   if mode=="created":await function_message_delete_user_created(request.app.state.client_postgres,request.state.user["id"])
-   if mode=="received":await function_message_delete_user_received(request.app.state.client_postgres,request.state.user["id"])
+   if mode=="all":await function_message_delete_all_user(request.state.user["id"],request.app.state.client_postgres)
+   if mode=="created":await function_message_delete_created_user(request.state.user["id"],request.app.state.client_postgres)
+   if mode=="received":await function_message_delete_received_user(request.state.user["id"],request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.delete("/my/message-delete-single")
 async def my_message_delete_single(request:Request):
    object,[id]=await function_param_read("query",request,["id"],[])
-   await function_message_delete_user_single(request.app.state.client_postgres,request.state.user["id"],int(id))
+   await function_message_delete_single_user(request.state.user["id"],int(id),request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-mobile-sns")
 async def public_otp_send_mobile_sns(request:Request):
    object,[mobile]=await function_param_read("body",request,["mobile"],[])
    otp=await function_generate_save_otp(request.app.state.client_postgres,None,mobile)
-   await function_sns_send_message(request.app.state.client_sns,mobile,str(otp))
+   await function_sns_send_message(mobile,str(otp),request.app.state.client_sns)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-mobile-sns-template")
 async def public_otp_send_mobile_sns_template(request:Request):
-   object,[mobile,template_id,entity_id,sender_id,message]=await function_param_read("body",request,["mobile","template_id","entity_id","sender_id","message"],[])
+   object,[mobile,message,template_id,entity_id,sender_id]=await function_param_read("body",request,["mobile","message","template_id","entity_id","sender_id"],[])
    otp=await function_generate_save_otp(request.app.state.client_postgres,None,mobile)
-   await function_sns_send_message_template(request.app.state.client_sns,mobile,template_id,entity_id,sender_id,message)
+   await function_sns_send_message_template(mobile,message,template_id,entity_id,sender_id,request.app.state.client_sns)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-mobile-fast2sms")
 async def public_otp_send_mobile_fast2sms(request:Request):
    object,[mobile]=await function_param_read("body",request,["mobile"],[])
    otp=await function_generate_save_otp(request.app.state.client_postgres,None,mobile)
-   await function_otp_send_mobile_fast2sms(config_fast2sms_url,config_fast2sms_key,mobile,otp)
+   await function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-email-ses")
 async def public_otp_send_email_ses(request:Request):
    object,[email,sender_email]=await function_param_read("body",request,["email","sender_email"],[])
    otp=await function_generate_save_otp(request.app.state.client_postgres,email,None)
-   await function_send_email_ses(request.app.state.client_ses,sender_email,[email],"your otp code",str(otp))
+   await function_ses_send_email([email],"your otp code",str(otp),sender_email,request.app.state.client_ses)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-email-resend")
