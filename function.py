@@ -162,10 +162,18 @@ async def function_message_thread_user(user_id_1,user_id_2,order,limit,offset,cl
    object_list=await client_postgres.fetch_all(query=query,values=values)
    return object_list
 
-async def function_message_thread_mark_read_user(user_id_1,user_id_2,client_postgres):
+async def function_message_thread_mark_read(user_id_1,user_id_2,client_postgres):
    query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;"
    values={"created_by_id":user_id_2,"user_id":user_id_1}
    await client_postgres.execute(query=query,values={})
+   return None
+
+async def function_message_object_mark_read(object_list,client_postgres):
+   try:
+      ids=','.join([str(item['id']) for item in object_list])
+      query=f"update message set is_read=1 where id in ({ids});"
+      await client_postgres.execute(query=query,values={})
+   except Exception as e:print(str(e))
    return None
 
 async def function_message_delete_single_user(user_id,message_id,client_postgres):
@@ -190,6 +198,15 @@ async def function_message_delete_all_user(user_id,client_postgres):
    query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
    values={"user_id":user_id}
    await client_postgres.execute(query=query,values={})
+   return None
+
+import datetime
+async def function_update_last_active_at_user(user_id,client_postgres):
+   try:
+      query="update users set last_active_at=:last_active_at where id=:id;"
+      values={"id":user_id,"last_active_at":datetime.datetime.now()}
+      await client_postgres.execute(query=query,values=values)
+   except Exception as e:print(str(e))
    return None
 
 import requests
@@ -226,3 +243,14 @@ async def function_s3_bucket_empty(bucket,client_s3_resource):
 async def function_s3_bucket_delete(bucket,client_s3):
    output=client_s3.delete_bucket(Bucket=bucket)
    return output
+
+async def function_s3_url_delete(url,client_s3_resource):
+   bucket=url.split("//",1)[1].split(".",1)[0]
+   key=url.rsplit("/",1)[1]
+   output=client_s3_resource.Object(bucket,key).delete()
+   return output
+
+async def function_mongodb_object_create(table,object_list,database,client_mongodb):
+   mongodb_client_database=client_mongodb[database]
+   output=await mongodb_client_database[table].insert_many(object_list)
+   return str(output)

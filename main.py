@@ -352,7 +352,7 @@ async def auth_login_google(request:Request):
 @app.get("/my/profile")
 async def my_profile(request:Request):
    user=await read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   asyncio.create_task(function_update_user_last_active_at(request.app.state.client_postgres,request.state.user["id"]))
+   asyncio.create_task(function_update_last_active_at_user(request.state.user["id"],request.app.state.client_postgres))
    return {"status":1,"message":user}
 
 @app.get("/my/token-refresh")
@@ -385,7 +385,7 @@ async def my_object_create(request:Request):
       elif queue=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,config_channel_name)
       elif queue=="lavinmq":output=await function_publish_lavinmq(data,request.app.state.client_lavinmq_channel,config_channel_name)
       elif queue=="kafka":output=await function_publish_kafka(data,request.app.state.client_kafka_producer,config_channel_name)
-      elif "mongodb" in queue:output=await mongodb_create_object(request.app.state.client_mongodb,queue.split('_')[1],table,[object])
+      elif "mongodb" in queue:output=await function_mongodb_object_create(table,[object],queue.split('_')[1],request.app.state.client_mongodb)
    return {"status":1,"message":output}
 
 @app.get("/my/object-read")
@@ -449,7 +449,7 @@ async def my_message_received(request:Request):
    object,[order,limit,page,is_unread]=await function_param_read("query",request,[],["order","limit","page","is_unread"])
    order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
    object_list=await function_message_received_user(request.state.user["id"],order,limit,(page-1)*limit,is_unread,request.app.state.client_postgres)
-   if object_list:asyncio.create_task(function_mark_message_object_read(request.app.state.client_postgres,object_list))
+   if object_list:asyncio.create_task(function_message_object_mark_read(object_list,request.app.state.client_postgres))
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-inbox")
@@ -465,7 +465,7 @@ async def my_message_thread(request:Request):
    user_id=int(user_id)
    order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
    object_list=await function_message_thread_user(request.state.user["id"],user_id,order,limit,(page-1)*limit,request.app.state.client_postgres)
-   asyncio.create_task(function_message_thread_mark_read_user(request.state.user["id"],user_id,request.app.state.client_postgres))
+   asyncio.create_task(function_message_thread_mark_read(request.state.user["id"],user_id,request.app.state.client_postgres))
    return {"status":1,"message":object_list}
 
 @app.delete("/my/message-delete-bulk")
