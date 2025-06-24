@@ -1,9 +1,10 @@
 #function
 from function import *
 
-#config
-import json
+#env load
 env=function_load_env(".env")
+
+#config
 config_postgres_url=env.get("config_postgres_url")
 config_postgres_url_read=env.get("config_postgres_url_read")
 config_redis_url=env.get("config_redis_url")
@@ -233,7 +234,7 @@ async def middleware(request,api_function):
    except Exception as e:
       error=str(e)
       print(traceback.format_exc())
-      response=function_error(error)
+      response=function_return_error(error)
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
    object={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
    asyncio.create_task(log_api_create(object,config_limit_log_api_batch,function_postgres_create,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize))
@@ -292,60 +293,60 @@ async def root_reset_global(request:Request):
    
 @app.post("/auth/signup")
 async def auth_signup(request:Request):
-   if config_is_signup==0:return function_error("signup disabled")
+   if config_is_signup==0:return function_return_error("signup disabled")
    object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
-   user=await function_signup_username_password(request.app.state.client_postgres,type,username,password)
+   user=await function_signup_username_password(type,username,password,request.app.state.client_postgres)
    token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return {"status":1,"message":token}
 
 @app.post("/auth/signup-bigint")
 async def auth_signup_bigint(request:Request):
-   if config_is_signup==0:return function_error("signup disabled")
+   if config_is_signup==0:return function_return_error("signup disabled")
    object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
-   user=await function_signup_username_password_bigint(request.app.state.client_postgres,type,username,password)
+   user=await function_signup_username_password_bigint(type,username,password,request.app.state.client_postgres)
    token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-username")
 async def auth_login_password_username(request:Request):
    object,[type,password,username]=await function_param_read("body",request,["type","password","username"],[])
-   token=await function_login_password_username(request.app.state.client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,type,password,username)
+   token=await function_login_password_username(type,password,username,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_create)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-bigint")
 async def auth_login_password_bigint(request:Request):
    object,[type,password,username]=await function_param_read("body",request,["type","password","username"],[])
-   token=await function_login_password_username_bigint(request.app.state.client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,type,password,username)
+   token=await function_login_password_username_bigint(type,password,username,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_create)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-email")
 async def auth_login_password_email(request:Request):
    object,[type,password,email]=await function_param_read("body",request,["type","password","email"],[])
-   token=await function_login_password_email(request.app.state.client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,type,password,email)
+   token=await function_login_password_email(type,password,email,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_create)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-mobile")
 async def auth_login_password_mobile(request:Request):
    object,[type,password,mobile]=await function_param_read("body",request,["type","password","mobile"],[])
-   token=await function_login_password_mobile(request.app.state.client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,type,password,mobile)
+   token=await function_login_password_mobile(type,password,mobile,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_create)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-email")
 async def auth_login_otp_email(request:Request):
    object,[type,otp,email]=await function_param_read("body",request,["type","otp","email"],[])
-   token=await function_login_otp_email(request.app.state.client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,function_verify_otp,type,otp,email)
+   token=await function_login_otp_email(type,email,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_create)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-mobile")
 async def auth_login_otp_mobile(request:Request):
    object,[type,otp,mobile]=await function_param_read("body",request,["type","otp","mobile"],[])
-   token=await function_login_otp_mobile(request.app.state.client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,function_verify_otp,type,otp,mobile)
+   token=await function_login_otp_mobile(type,mobile,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_create)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-google")
 async def auth_login_google(request:Request):
    object,[type,google_token]=await function_param_read("body",request,["type","google_token"],[])
-   token=await function_login_google(request.app.state.client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,google_user_read,config_google_login_client_id,type,google_token)
+   token=await function_login_google(type,google_token,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,google_user_read,config_google_login_client_id,function_token_create)
    return {"status":1,"message":token}
 
 @app.get("/my/profile")
@@ -364,7 +365,7 @@ async def my_token_refresh(request:Request):
 async def my_account_delete(request:Request):
    object,[mode]=await function_param_read("query",request,["mode"],[])
    user=await read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   if user["api_access"]:return function_error("not allowed as you have api_access")
+   if user["api_access"]:return function_return_error("not allowed as you have api_access")
    await function_delete_user(mode,request.app.state.client_postgres,request.state.user["id"])
    return {"status":1,"message":"done"}
 
@@ -374,16 +375,16 @@ async def my_object_create(request:Request):
    object,[]=await function_param_read("body",request,[],[])
    is_serialize=int(is_serialize) if is_serialize else 1
    object["created_by_id"]=request.state.user["id"]
-   if table in ["users"]:return function_error("table not allowed")
-   if len(object)<=1:return function_error ("object issue")
-   if any(key in config_column_disabled_non_admin_list for key in object):return function_error(" object key not allowed")
+   if table in ["users"]:return function_return_error("table not allowed")
+   if len(object)<=1:return function_return_error ("object issue")
+   if any(key in config_column_disabled_non_admin_list for key in object):return function_return_error(" object key not allowed")
    if not queue:output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
    elif queue:
       data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
-      if queue=="redis":output=await function_redis_publish(request.app.state.client_redis,config_channel_name,data)
-      elif queue=="rabbitmq":output=await function_rabbitmq_publish(request.app.state.client_rabbitmq_channel,config_channel_name,data)
-      elif queue=="lavinmq":output=await function_lavinmq_publish(request.app.state.client_lavinmq_channel,config_channel_name,data)
-      elif queue=="kafka":output=await function_kafka_publish(request.app.state.client_kafka_producer,config_channel_name,data)
+      if queue=="redis":output=await function_publish_redis(data,request.app.state.client_redis,config_channel_name)
+      elif queue=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,config_channel_name)
+      elif queue=="lavinmq":output=await function_publish_lavinmq(data,request.app.state.client_lavinmq_channel,config_channel_name)
+      elif queue=="kafka":output=await function_publish_kafka(data,request.app.state.client_kafka_producer,config_channel_name)
       elif "mongodb" in queue:output=await mongodb_create_object(request.app.state.client_mongodb,queue.split('_')[1],table,[object])
    return {"status":1,"message":output}
 
@@ -406,13 +407,13 @@ async def my_object_update(request:Request):
    object_1,[table,otp]=await function_param_read("query",request,["table"],["otp"])
    object,[]=await function_param_read("body",request,[],[])
    object["updated_by_id"]=request.state.user["id"]
-   if "id" not in object:return function_error ("id missing")
-   if len(object)<=2:return function_error ("object length issue")
-   if any(key in config_column_disabled_non_admin_list for key in object):return function_error(" object key not allowed")
+   if "id" not in object:return function_return_error ("id missing")
+   if len(object)<=2:return function_return_error ("object length issue")
+   if any(key in config_column_disabled_non_admin_list for key in object):return function_return_error(" object key not allowed")
    if table=="users":
-      if object["id"]!=request.state.user["id"]:return function_error ("wrong id")
-      if any(key in object and len(object)!=3 for key in ["password","email","mobile"]):return function_error("object length should be 2")
-      if any(key in object and not otp for key in ["email","mobile"]):return function_error("otp missing")
+      if object["id"]!=request.state.user["id"]:return function_return_error ("wrong id")
+      if any(key in object and len(object)!=3 for key in ["password","email","mobile"]):return function_return_error("object length should be 2")
+      if any(key in object and not otp for key in ["email","mobile"]):return function_return_error("otp missing")
       if otp:
          email,mobile=object.get("email"),object.get("mobile")
          await function_verify_otp(request.app.state.client_postgres,otp,email,mobile)
@@ -423,15 +424,15 @@ async def my_object_update(request:Request):
 @app.put("/my/ids-update")
 async def my_ids_update(request:Request):
    object,[table,ids,column,value]=await function_param_read("body",request,["table","ids","column","value"],[])
-   if table in ["users"]:return function_error("table not allowed")
-   if column in config_column_disabled_non_admin_list:return function_error("column not allowed")
+   if table in ["users"]:return function_return_error("table not allowed")
+   if column in config_column_disabled_non_admin_list:return function_return_error("column not allowed")
    await function_postgres_update_ids(request.app.state.client_postgres,table,ids,column,value,request.state.user["id"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @app.delete("/my/ids-delete")
 async def my_ids_delete(request:Request):
    object,[table,ids]=await function_param_read("body",request,["table","ids"],[])
-   if table in ["users"]:return function_error("table not allowed")
+   if table in ["users"]:return function_return_error("table not allowed")
    await function_postgres_delete_ids(request.app.state.client_postgres,table,ids,request.state.user["id"])
    return {"status":1,"message":"done"}
 
@@ -439,7 +440,7 @@ async def my_ids_delete(request:Request):
 async def my_object_delete_any(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   if table in ["users"]:return function_error("table not allowed")
+   if table in ["users"]:return function_return_error("table not allowed")
    await function_postgres_delete_any(table,object,request.app.state.client_postgres,create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":"done"}
 
@@ -533,14 +534,14 @@ async def public_object_create(request:Request):
    object_1,[table,is_serialize]=await function_param_read("query",request,["table"],["is_serialize"])
    object,[]=await function_param_read("body",request,[],[])
    is_serialize=int(is_serialize) if is_serialize else 0
-   if table not in config_table_allowed_public_create_list:return function_error("table not allowed")
+   if table not in config_table_allowed_public_create_list:return function_return_error("table not allowed")
    output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
    return {"status":1,"message":output}
 
 @app.get("/public/object-read")
 async def public_object_read(request:Request):
    object,[table,creator_data]=await function_param_read("query",request,["table"],["creator_data"])
-   if table not in config_table_allowed_public_read_list:return function_error("table not allowed")
+   if table not in config_table_allowed_public_read_list:return function_return_error("table not allowed")
    object_list=await function_postgres_read(table,object,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,create_where_string)
    if object_list and creator_data:object_list=await function_add_creator_data(request.app.state.client_postgres,object_list,creator_data)
    return {"status":1,"message":object_list}
@@ -562,8 +563,8 @@ async def public_info(request:Request):
 @app.get("/public/page/{filename}")
 async def public_page(filename:str):
    file_path=os.path.join(".",f"{filename}.html")
-   if ".." in filename or "/" in filename:return function_error("invalid filename")
-   if not os.path.isfile(file_path):return function_error ("file not found")
+   if ".." in filename or "/" in filename:return function_return_error("invalid filename")
+   if not os.path.isfile(file_path):return function_return_error ("file not found")
    with open(file_path, "r", encoding="utf-8") as file:html_content=file.read()
    return responses.HTMLResponse(content=html_content)
 
@@ -593,8 +594,8 @@ async def admin_object_create(request:Request):
 async def admin_object_update(request:Request):
    object_1,[table]=await function_param_read("query",request,["table"],[])
    object,[]=await function_param_read("body",request,[],[])
-   if "id" not in object:return function_error ("id missing")
-   if len(object)<=1:return function_error ("object length issue")
+   if "id" not in object:return function_return_error ("id missing")
+   if len(object)<=1:return function_return_error ("object length issue")
    if request.app.state.cache_postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
    output=await function_postgres_update(table,[object],1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
    return {"status":1,"message":output}

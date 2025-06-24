@@ -28,4 +28,3 @@ if __name__ == "__main__" and len(sys.argv)>1 and sys.argv[1]=="lavinmq":
     try:asyncio.run(function_lavinmq_consumer(env.get("config_lavinmq_url"),env.get("config_channel_name","ch1"),env.get("config_postgres_url"),function_lavinmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize))
     except KeyboardInterrupt:print("exit")
     
-
