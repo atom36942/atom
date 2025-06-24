@@ -8,7 +8,7 @@ fi
 #var
 input_file="curl.txt"
 baseurl="http://127.0.0.1:8000"
-token_root="$key_root"
+token_root="$config_key_root"
 token="$token"
 username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 output_file="/Users/atom/Documents/curl.csv"

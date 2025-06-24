@@ -1,6 +1,6 @@
 import sentry_sdk
-def function_app_add_sentry(sentry_dsn):
-   sentry_sdk.init(dsn=sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
+def function_app_add_sentry(config_sentry_dsn):
+   sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
 import os
@@ -20,28 +20,28 @@ def function_app_add_prometheus(app):
    return None
 
 import json
-async def function_redis_publish(client_redis,channel_name,data):
-   output=await client_redis.publish(channel_name,json.dumps(data))
+async def function_redis_publish(client_redis,config_channel_name,data):
+   output=await client_redis.publish(config_channel_name,json.dumps(data))
    return output
 
 import json,pika
-async def function_rabbitmq_publish(client_rabbitmq_channel,channel_name,data):
-   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+async def function_rabbitmq_publish(client_rabbitmq_channel,config_channel_name,data):
+   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=config_channel_name)
    return output
 
 import json,pika
-async def function_rabbitmq_publish(client_rabbitmq_channel,channel_name,data):
-   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+async def function_rabbitmq_publish(client_rabbitmq_channel,config_channel_name,data):
+   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=config_channel_name)
    return output
 
 import json,pika
-async def function_lavinmq_publish(client_lavinmq_channel,channel_name,data):
-   output=await client_lavinmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+async def function_lavinmq_publish(client_lavinmq_channel,config_channel_name,data):
+   output=await client_lavinmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=config_channel_name)
    return output
 
 import json
-async def function_kafka_publish(client_kafka_producer,channel_name,data):
-   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
+async def function_kafka_publish(client_kafka_producer,config_channel_name,data):
+   output=await client_kafka_producer.send_and_wait(config_channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
    return output
 
 async def function_param_read(mode,request,must,optional):
@@ -64,7 +64,7 @@ async def function_param_read(mode,request,must,optional):
 
 from fastapi import Response
 import gzip,base64
-async def function_api_response_cache(mode,request,response,client_redis):
+async def function_api_response_cache(mode,request,response,client_redis,expire_sec):
    query_sorted="&".join(f"{k}={v}" for k,v in sorted(request.query_params.items()))
    cache_key=f"{request.url.path}?{query_sorted}:{request.state.user.get('id')}" if "my/" in request.url.path else f"{request.url.path}?{query_sorted}"
    if mode=="get":
@@ -73,31 +73,19 @@ async def function_api_response_cache(mode,request,response,client_redis):
       if cached_response:response=Response(content=gzip.decompress(base64.b64decode(cached_response)).decode(),status_code=200,media_type="application/json")
    if mode=="set":
       body=b"".join([chunk async for chunk in response.body_iterator])
-      await client_redis.setex(cache_key,100,base64.b64encode(gzip.compress(body)).decode())
+      await client_redis.setex(cache_key,expire_sec,base64.b64encode(gzip.compress(body)).decode())
       response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
    return response
 
-async def function_rate_limiter_check(request,api_config,client_redis):
-   limit,window=api_config.get(request.url.path).get("rate_limiter")
-   identifier=request.state.user.get("id") if request.state.user else request.client.host
-   rate_key=f"ratelimit:{request.url.path}:{identifier}"
-   current_count=await client_redis.get(rate_key)
-   if current_count and int(current_count)+1>limit:raise Exception("rate limit exceeded")
-   pipe=client_redis.pipeline()
-   pipe.incr(rate_key)
-   if not current_count:pipe.expire(rate_key,window)
-   await pipe.execute()
-   return None
-
-async def function_token_check(request,key_root,key_jwt,function_token_decode):
+async def function_token_check(request,config_key_root,config_key_jwt,function_token_decode):
    user={}
    api=request.url.path
    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
    if "root/" in api:
-      if token!=key_root:raise Exception("token root mismatch")
+      if token!=config_key_root:raise Exception("token root mismatch")
    else:
       if any(path in api for path in ["my/", "private/", "admin/"]) and not token:raise Exception("token missing")
-      if token:user=await function_token_decode(token,key_jwt)
+      if token:user=await function_token_decode(token,config_key_jwt)
    return user
 
 import os,json,requests
@@ -153,9 +141,9 @@ def function_load_env(env_path):
    return output
 
 import aio_pika,asyncio,json
-async def function_lavinmq_consumer(lavinmq_url,channel_name,postgres_url,function_lavinmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(lavinmq_url)
-   client_postgres=await function_postgres_client_read(postgres_url)
+async def function_lavinmq_consumer(config_lavinmq_url,config_channel_name,config_postgres_url,function_lavinmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(config_lavinmq_url)
+   client_postgres=await function_postgres_client_read(config_postgres_url)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    async def aqmp_callback(message: aio_pika.IncomingMessage):
       async with message.process():
@@ -168,7 +156,7 @@ async def function_lavinmq_consumer(lavinmq_url,channel_name,postgres_url,functi
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
    try:
-      queue=await client_lavinmq_channel.declare_queue(channel_name,auto_delete=False)
+      queue=await client_lavinmq_channel.declare_queue(config_channel_name,auto_delete=False)
       await queue.consume(aqmp_callback)
       await asyncio.Future()
    except KeyboardInterrupt:
@@ -177,9 +165,9 @@ async def function_lavinmq_consumer(lavinmq_url,channel_name,postgres_url,functi
       await client_lavinmq.close()
       
 import aio_pika,asyncio,json
-async def function_rabbitmq_consumer(rabbitmq_url,channel_name,postgres_url,function_rabbitmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   client_rabbitmq,client_rabbitmq_channel=await function_rabbitmq_client_read(rabbitmq_url)
-   client_postgres=await function_postgres_client_read(postgres_url)
+async def function_rabbitmq_consumer(config_rabbitmq_url,config_channel_name,config_postgres_url,function_rabbitmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   client_rabbitmq,client_rabbitmq_channel=await function_rabbitmq_client_read(config_rabbitmq_url)
+   client_postgres=await function_postgres_client_read(config_postgres_url)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    async def aqmp_callback(message: aio_pika.IncomingMessage):
       async with message.process():
@@ -192,7 +180,7 @@ async def function_rabbitmq_consumer(rabbitmq_url,channel_name,postgres_url,func
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
    try:
-      queue=await client_rabbitmq_channel.declare_queue(channel_name,auto_delete=False)
+      queue=await client_rabbitmq_channel.declare_queue(config_channel_name,auto_delete=False)
       await queue.consume(aqmp_callback)
       await asyncio.Future()
    except KeyboardInterrupt:
@@ -201,13 +189,13 @@ async def function_rabbitmq_consumer(rabbitmq_url,channel_name,postgres_url,func
       await client_rabbitmq.close()
 
 import asyncio,json
-async def function_kafka_consumer(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name,postgres_url,function_kafka_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   kafka_consumer_client=await function_kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name)
-   client_postgres=await function_postgres_client_read(postgres_url)
+async def function_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name,config_postgres_url,function_kafka_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   kafka_consumer_client=await function_kafka_consumer_client_read(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
+   client_postgres=await function_postgres_client_read(config_postgres_url)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
       async for message in kafka_consumer_client:
-         if message.topic==channel_name:
+         if message.topic==config_channel_name:
             data=json.loads(message.value.decode('utf-8'))
             try:
                if data["mode"]=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)   
@@ -220,14 +208,14 @@ async def function_kafka_consumer(kafka_url,kafka_path_cafile,kafka_path_certfil
       await kafka_consumer_client.stop()
       
 import asyncio,json
-async def function_redis_consumer(redis_url,channel_name,postgres_url,function_redis_client_read,function_redis_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   client_redis=await function_redis_client_read(redis_url)
-   redis_consumer_client=await function_redis_consumer_client_read(client_redis,channel_name)
-   client_postgres=await function_postgres_client_read(postgres_url)
+async def function_redis_consumer(config_redis_url,config_channel_name,config_postgres_url,function_redis_client_read,function_redis_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   client_redis=await function_redis_client_read(config_redis_url)
+   redis_consumer_client=await function_redis_consumer_client_read(client_redis,config_channel_name)
+   client_postgres=await function_postgres_client_read(config_postgres_url)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
       async for message in redis_consumer_client.listen():
-         if message["type"]=="message" and message["channel"]==channel_name.encode():
+         if message["type"]=="message" and message["channel"]==config_channel_name.encode():
             data=json.loads(message['data'])
             try:
                if data["mode"]=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
@@ -237,7 +225,7 @@ async def function_redis_consumer(redis_url,channel_name,postgres_url,function_r
    except asyncio.CancelledError:print("subscription cancelled")
    finally:
       await client_postgres.disconnect()
-      await redis_consumer_client.unsubscribe(channel_name)
+      await redis_consumer_client.unsubscribe(config_channel_name)
       await client_redis.aclose()
       
 import uvicorn
@@ -296,8 +284,8 @@ def function_bigint_converter(mode,x):
 
 import asyncpg,random
 from mimesis import Person,Address,Food,Text,Code,Datetime
-async def function_generate_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
-   conn = await asyncpg.connect(postgres_url)
+async def function_generate_fake_data(config_postgres_url,TOTAL_ROWS,BATCH_SIZE):
+   conn = await asyncpg.connect(config_postgres_url)
    person = Person()
    address = Address()
    food = Food()
@@ -353,18 +341,18 @@ async def function_generate_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
    return None
 
 import httpx
-async def function_send_email_resend(resend_key,resend_url,sender_email,email_list,title,body):
+async def function_send_email_resend(config_resend_key,config_resend_url,sender_email,email_list,title,body):
    payload={"from":sender_email,"to":email_list,"subject":title,"html":body}
-   headers={"Authorization":f"Bearer {resend_key}","Content-Type": "application/json"}
+   headers={"Authorization":f"Bearer {config_resend_key}","Content-Type": "application/json"}
    async with httpx.AsyncClient() as client:
-      output=await client.post(resend_url,json=payload,headers=headers)
+      output=await client.post(config_resend_url,json=payload,headers=headers)
    if output.status_code!=200:raise Exception(f"{output.text}")
    return None
 
 import gspread
 from google.oauth2.service_account import Credentials
-async def gsheet_client_read(gsheet_service_account_json_path,gsheet_scope_list):
-   client_gsheet=gspread.authorize(Credentials.from_service_account_file(gsheet_service_account_json_path,scopes=gsheet_scope_list))
+async def gsheet_client_read(config_gsheet_service_account_json_path,config_gsheet_scope_list):
+   client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
    return client_gsheet
 
 async def gsheet_create(client_gsheet,spreadsheet_id,sheet_name,object):
@@ -401,77 +389,77 @@ async def openai_ocr(client_openai,model,prompt,file):
    return output
 
 from openai import OpenAI
-def openai_client_read(openai_key):
-   client_openai=OpenAI(api_key=openai_key)
+def openai_client_read(config_openai_key):
+   client_openai=OpenAI(api_key=config_openai_key)
    return client_openai
 
 from databases import Database
-async def function_postgres_client_read(postgres_url):
-   client_postgres=Database(postgres_url,min_size=1,max_size=100)
+async def function_postgres_client_read(config_postgres_url):
+   client_postgres=Database(config_postgres_url,min_size=1,max_size=100)
    await client_postgres.connect()
    return client_postgres
 
 import asyncpg
-async def postgres_client_asyncpg_read(postgres_url):
-   client_postgres_asyncpg=await asyncpg.connect(postgres_url)
+async def postgres_client_asyncpg_read(config_postgres_url):
+   client_postgres_asyncpg=await asyncpg.connect(config_postgres_url)
    return client_postgres_asyncpg
 
-async def function_redis_consumer_client_read(client_redis,channel_name):
+async def function_redis_consumer_client_read(client_redis,config_channel_name):
    redis_consumer_client=client_redis.pubsub()
-   await redis_consumer_client.subscribe(channel_name)
+   await redis_consumer_client.subscribe(config_channel_name)
    return redis_consumer_client
 
 import redis.asyncio as redis
-async def function_redis_client_read(redis_url):
-   client_redis=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_url))
+async def function_redis_client_read(config_redis_url):
+   client_redis=redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
    return client_redis
 
 import motor.motor_asyncio
-async def mongodb_client_read(mongodb_url):
-   client_mongodb=motor.motor_asyncio.AsyncIOMotorClient(mongodb_url)
+async def mongodb_client_read(config_mongodb_url):
+   client_mongodb=motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_url)
    return client_mongodb
 
 import boto3
-async def s3_client_read(s3_region_name,aws_access_key_id,aws_secret_access_key):
-   client_s3=boto3.client("s3",region_name=s3_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
-   client_s3_resource=boto3.resource("s3",region_name=s3_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+async def s3_client_read(config_s3_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+   client_s3=boto3.client("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   client_s3_resource=boto3.resource("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_s3,client_s3_resource
 
 import boto3
-async def sns_client_read(sns_region_name,aws_access_key_id,aws_secret_access_key):
-   client_sns=boto3.client("sns",region_name=sns_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+async def sns_client_read(config_sns_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+   client_sns=boto3.client("sns",region_name=config_sns_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_sns
 
 import boto3
-async def ses_client_read(ses_region_name,aws_access_key_id,aws_secret_access_key):
-   client_ses=boto3.client("ses",region_name=ses_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+async def ses_client_read(config_ses_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+   client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_ses
 
 import aio_pika
-async def function_rabbitmq_client_read(rabbitmq_url):
-   client_rabbitmq=await aio_pika.connect_robust(rabbitmq_url)
+async def function_rabbitmq_client_read(config_rabbitmq_url):
+   client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
    client_rabbitmq_channel=await client_rabbitmq.channel()
    return client_rabbitmq,client_rabbitmq_channel
 
 import aio_pika
-async def function_lavinmq_client_read(lavinmq_url):
-   client_lavinmq=await aio_pika.connect_robust(lavinmq_url)
+async def function_lavinmq_client_read(config_lavinmq_url):
+   client_lavinmq=await aio_pika.connect_robust(config_lavinmq_url)
    client_lavinmq_channel=await client_lavinmq.channel()
    return client_lavinmq,client_lavinmq_channel
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.helpers import create_ssl_context
-async def kafka_producer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name):
-   context=create_ssl_context(cafile=kafka_path_cafile,certfile=kafka_path_certfile,keyfile=kafka_path_keyfile)
-   client_kafka_producer=AIOKafkaProducer(bootstrap_servers=kafka_url,security_protocol="SSL",ssl_context=context)
+async def kafka_producer_client_read(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name):
+   context=create_ssl_context(cafile=config_kafka_path_cafile,certfile=config_kafka_path_certfile,keyfile=config_kafka_path_keyfile)
+   client_kafka_producer=AIOKafkaProducer(bootstrap_servers=config_kafka_url,security_protocol="SSL",ssl_context=context)
    await client_kafka_producer.start()
    return client_kafka_producer
 
 from aiokafka import AIOKafkaConsumer
 from aiokafka.helpers import create_ssl_context
-async def function_kafka_consumer_client_read(kafka_url,kafka_path_cafile,kafka_path_certfile,kafka_path_keyfile,channel_name):
-   context=create_ssl_context(cafile=kafka_path_cafile,certfile=kafka_path_certfile,keyfile=kafka_path_keyfile)
-   kafka_consumer_client=AIOKafkaConsumer(channel_name,bootstrap_servers=kafka_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+async def function_kafka_consumer_client_read(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name):
+   context=create_ssl_context(cafile=config_kafka_path_cafile,certfile=config_kafka_path_certfile,keyfile=config_kafka_path_keyfile)
+   kafka_consumer_client=AIOKafkaConsumer(config_channel_name,bootstrap_servers=config_kafka_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
    await kafka_consumer_client.start()
    return kafka_consumer_client
 
@@ -638,29 +626,29 @@ async def function_postgres_schema_read(client_postgres):
    postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    return postgres_schema,postgres_column_datatype
 
-async def function_postgres_schema_init(client_postgres,function_postgres_schema_read,postgres_config):
+async def function_postgres_schema_init(client_postgres,function_postgres_schema_read,config_postgres):
    async def init_extension(client_postgres):
       await client_postgres.execute(query="create extension if not exists postgis;",values={})
       await client_postgres.execute(query="create extension if not exists pg_trgm;",values={})
-   async def init_table(client_postgres,function_postgres_schema_read,postgres_config):
+   async def init_table(client_postgres,function_postgres_schema_read,config_postgres):
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      for table,column_list in postgres_config["table"].items():
+      for table,column_list in config_postgres["table"].items():
          is_table=postgres_schema.get(table,{})
          if not is_table:
             query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
             await client_postgres.execute(query=query,values={})
-   async def init_column(client_postgres,function_postgres_schema_read,postgres_config):
+   async def init_column(client_postgres,function_postgres_schema_read,config_postgres):
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      for table,column_list in postgres_config["table"].items():
+      for table,column_list in config_postgres["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
             is_column=postgres_schema.get(table,{}).get(column_name,{})
             if not is_column:
                query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
                await client_postgres.execute(query=query,values={})
-   async def init_nullable(client_postgres,function_postgres_schema_read,postgres_config):
+   async def init_nullable(client_postgres,function_postgres_schema_read,config_postgres):
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      for table,column_list in postgres_config["table"].items():
+      for table,column_list in config_postgres["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
             is_null=postgres_schema.get(table,{}).get(column_name,{}).get("is_null",None)
@@ -670,9 +658,9 @@ async def function_postgres_schema_init(client_postgres,function_postgres_schema
             if column_is_mandatory=="1" and is_null==1:
                query=f"alter table {table} alter column {column_name} set not null;"
                await client_postgres.execute(query=query,values={})
-   async def init_index(client_postgres,postgres_config):
+   async def init_index(client_postgres,config_postgres):
       index_name_list=[object["indexname"] for object in (await client_postgres.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
-      for table,column_list in postgres_config["table"].items():
+      for table,column_list in config_postgres["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
             if column_index_type=="0":
@@ -689,18 +677,18 @@ async def function_postgres_schema_init(client_postgres,function_postgres_schema
                      else:
                         query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});"
                         await client_postgres.execute(query=query,values={})
-   async def init_query(client_postgres,postgres_config):
+   async def init_query(client_postgres,config_postgres):
       constraint_name_list={object["constraint_name"].lower() for object in (await client_postgres.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
-      for query in postgres_config["query"].values():
+      for query in config_postgres["query"].values():
          if query.split()[0]=="0":continue
          if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:continue
          await client_postgres.fetch_all(query=query,values={})
    await init_extension(client_postgres)
-   await init_table(client_postgres,function_postgres_schema_read,postgres_config)
-   await init_column(client_postgres,function_postgres_schema_read,postgres_config)
-   await init_nullable(client_postgres,function_postgres_schema_read,postgres_config)
-   await init_index(client_postgres,postgres_config)
-   await init_query(client_postgres,postgres_config)
+   await init_table(client_postgres,function_postgres_schema_read,config_postgres)
+   await init_column(client_postgres,function_postgres_schema_read,config_postgres)
+   await init_nullable(client_postgres,function_postgres_schema_read,config_postgres)
+   await init_index(client_postgres,config_postgres)
+   await init_query(client_postgres,config_postgres)
    return None
 
 async def ownership_check(client_postgres,table,id,user_id):
@@ -759,7 +747,7 @@ async def function_postgres_delete_ids(client_postgres,table,ids,created_by_id):
 
 import uuid
 from io import BytesIO
-async def function_s3_file_upload_direct(client_s3,s3_region_name,bucket,key_list,file_list):
+async def function_s3_file_upload_direct(client_s3,config_s3_region_name,bucket,key_list,file_list):
    if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
    output={}
    for index,file in enumerate(file_list):
@@ -769,16 +757,16 @@ async def function_s3_file_upload_direct(client_s3,s3_region_name,bucket,key_lis
       file_size_kb=round(len(file_content)/1024)
       if file_size_kb>100:raise Exception("file size issue")
       client_s3.upload_fileobj(BytesIO(file_content),bucket,key)
-      output[file.filename]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
+      output[file.filename]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
       file.file.close()
    return output
 
-async def s3_file_upload_presigned(client_s3,s3_region_name,bucket,key,expiry_sec,size_kb):
+async def s3_file_upload_presigned(client_s3,config_s3_region_name,bucket,key,expiry_sec,size_kb):
    if "." not in key:raise Exception("extension must")
    output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec, Conditions=[['content-length-range',1,size_kb*1024]])
    for k,v in output["fields"].items():output[k]=v
    del output["fields"]
-   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
+   output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
    return output
      
 import csv,io
@@ -804,15 +792,15 @@ async def redis_get_object(client_redis,key):
    return output
 
 import jwt,json
-async def function_token_decode(token,key_jwt):
-   user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
+async def function_token_decode(token,config_key_jwt):
+   user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
    return user
 
 import jwt,json,time
-async def function_token_create(key_jwt,token_expire_sec,user):
+async def function_token_create(config_key_jwt,config_token_expire_sec,user):
    user={"id":user["id"]}
    user=json.dumps(user,default=str)
-   token=jwt.encode({"exp":time.time()+token_expire_sec,"data":user},key_jwt)
+   token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":user},config_key_jwt)
    return token
 
 async def read_user_single(client_postgres,user_id):
@@ -842,8 +830,8 @@ async def users_api_access_read(client_postgres_asyncpg,limit):
          count+=len(batch)
    return users_api_access
 
-async def function_api_access_check(request,api_config,users_api_access,client_postgres):
-   user_api_access=users_api_access.get(request.state.user["id"],"absent")
+async def function_api_access_check(request,config_api,cache_users_api_access,client_postgres):
+   user_api_access=cache_users_api_access.get(request.state.user["id"],"absent")
    if user_api_access=="absent":
       query="select id,api_access from users where id=:id;"
       values={"id":request.state.user["id"]}
@@ -853,13 +841,13 @@ async def function_api_access_check(request,api_config,users_api_access,client_p
       api_access_str=user["api_access"]
       if not api_access_str:raise Exception("api access denied")
       user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
-   api_id=api_config.get(request.url.path,{}).get("id")
+   api_id=config_api.get(request.url.path,{}).get("id")
    if not api_id:raise Exception("api id not mapped")
    if api_id not in user_api_access:raise Exception("api access denied")
    return None
 
-async def function_is_active_check(request,users_is_active,client_postgres):
-   user_is_active=users_is_active.get(request.state.user["id"],"absent")
+async def function_is_active_check(request,cache_users_is_active,client_postgres):
+   user_is_active=cache_users_is_active.get(request.state.user["id"],"absent")
    if user_is_active=="absent":
       query="select id,is_active from users where id=:id;"
       values={"id":request.state.user["id"]}
@@ -868,6 +856,18 @@ async def function_is_active_check(request,users_is_active,client_postgres):
       if not user:raise Exception("user not found")
       user_is_active=user["is_active"]
    if user_is_active==0:raise Exception("user not active")
+   return None
+
+async def function_rate_limiter_check(request,config_api,client_redis):
+   limit,window=config_api.get(request.url.path).get("rate_limiter")
+   identifier=request.state.user.get("id") if request.state.user else request.client.host
+   rate_key=f"ratelimit:{request.url.path}:{identifier}"
+   current_count=await client_redis.get(rate_key)
+   if current_count and int(current_count)+1>limit:raise Exception("rate limit exceeded")
+   pipe=client_redis.pipeline()
+   pipe.incr(rate_key)
+   if not current_count:pipe.expire(rate_key,window)
+   await pipe.execute()
    return None
 
 async def users_is_active_read(client_postgres_asyncpg,limit):
@@ -995,8 +995,8 @@ async def function_message_delete_user_all(client_postgres,user_id):
    return None
 
 import requests
-async def function_otp_send_mobile_fast2sms(fast2sms_url,fast2sms_key,mobile,otp):
-   response=requests.get(fast2sms_url,params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
+async def function_otp_send_mobile_fast2sms(config_fast2sms_url,config_fast2sms_key,mobile,otp):
+   response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
    return response
 
 async def function_send_email_ses(client_ses,sender_email,email_list,title,body):
@@ -1018,8 +1018,8 @@ async def function_sns_send_message(client_sns,mobile,message):
    client_sns.publish(PhoneNumber=mobile,Message=message)
    return None
 
-async def function_s3_bucket_create(client_s3,bucket,s3_region_name):
-   output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
+async def function_s3_bucket_create(client_s3,bucket,config_s3_region_name):
+   output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
    return output
 
 async def function_s3_bucket_public(client_s3,bucket):
@@ -1038,9 +1038,9 @@ async def function_s3_bucket_delete(client_s3,bucket):
 
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_request
-def google_user_read(google_token,google_client_id):
+def google_user_read(google_token,config_google_login_client_id):
    request=google_request.Request()
-   id_info=id_token.verify_oauth2_token(google_token,request,google_client_id)
+   id_info=id_token.verify_oauth2_token(google_token,request,config_google_login_client_id)
    google_user={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
    return google_user
 
@@ -1058,46 +1058,46 @@ async def function_signup_username_password_bigint(client_postgres,type,username
    return output[0]
 
 import hashlib
-async def function_login_password_username(client_postgres,function_token_create,key_jwt,token_expire_sec,type,password,username):
+async def function_login_password_username(client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,type,password,username):
    query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
 import hashlib
-async def function_login_password_username_bigint(client_postgres,function_token_create,key_jwt,token_expire_sec,type,password_bigint,username_bigint):
+async def function_login_password_username_bigint(client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,type,password_bigint,username_bigint):
    query=f"select * from users where type=:type and username_bigint=:username_bigint and password_bigint=:password_bigint order by id desc limit 1;"
    values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
 import hashlib
-async def function_login_password_email(client_postgres,function_token_create,key_jwt,token_expire_sec,type,password,email):
+async def function_login_password_email(client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,type,password,email):
    query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
    values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
 import hashlib
-async def function_login_password_mobile(client_postgres,function_token_create,key_jwt,token_expire_sec,type,password,mobile):
+async def function_login_password_mobile(client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,type,password,mobile):
    query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
    values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
-async def function_login_otp_email(client_postgres,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,email):
+async def function_login_otp_email(client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,function_verify_otp,type,otp,email):
    await function_verify_otp(client_postgres,otp,email,None)
    query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
    values={"type":type,"email":email}
@@ -1108,10 +1108,10 @@ async def function_login_otp_email(client_postgres,function_token_create,key_jwt
       values={"type":type,"email":email}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
-async def function_login_otp_mobile(client_postgres,function_token_create,key_jwt,token_expire_sec,function_verify_otp,type,otp,mobile):
+async def function_login_otp_mobile(client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,function_verify_otp,type,otp,mobile):
    await function_verify_otp(client_postgres,otp,None,mobile)
    query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
    values={"type":type,"mobile":mobile}
@@ -1122,11 +1122,11 @@ async def function_login_otp_mobile(client_postgres,function_token_create,key_jw
       values={"type":type,"mobile":mobile}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
-async def function_login_google(client_postgres,function_token_create,key_jwt,token_expire_sec,google_user_read,google_client_id,type,google_token):
-   google_user=google_user_read(google_token,google_client_id)
+async def function_login_google(client_postgres,function_token_create,config_key_jwt,config_token_expire_sec,google_user_read,config_google_login_client_id,type,google_token):
+   google_user=google_user_read(google_token,config_google_login_client_id)
    query=f"select * from users where type=:type and google_id=:google_id order by id desc limit 1;"
    values={"type":type,"google_id":google_user["sub"]}
    output=await client_postgres.fetch_all(query=query,values=values)
@@ -1136,7 +1136,7 @@ async def function_login_google(client_postgres,function_token_create,key_jwt,to
       values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_create(key_jwt,token_expire_sec,user)
+   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
 from fastapi import responses
