@@ -448,7 +448,7 @@ async def my_object_delete_any(request:Request):
 async def my_message_received(request:Request):
    object,[order,limit,page,is_unread]=await function_param_read("query",request,[],["order","limit","page","is_unread"])
    order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
-   object_list=await function_message_received_user(request.app.state.client_postgres,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
+   object_list=await function_message_received(request.state.user["id"],order,limit,(page-1)*limit,is_unread,request.app.state.client_postgres)
    if object_list:asyncio.create_task(function_mark_message_object_read(request.app.state.client_postgres,object_list))
    return {"status":1,"message":object_list}
 
@@ -456,7 +456,7 @@ async def my_message_received(request:Request):
 async def my_message_inbox(request:Request):
    object,[order,limit,page,is_unread]=await function_param_read("query",request,[],["order","limit","page","is_unread"])
    order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
-   object_list=await function_message_inbox_user(request.app.state.client_postgres,request.state.user["id"],order,limit,(page-1)*limit,is_unread)
+   object_list=await function_message_inbox(request.state.user["id"],order,limit,(page-1)*limit,is_unread,request.app.state.client_postgres)
    return {"status":1,"message":object_list}
 
 @app.get("/my/message-thread")

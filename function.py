@@ -142,6 +142,17 @@ async def function_login_google(type,google_token,client_postgres,config_key_jwt
    token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return token
 
+async def function_message_inbox(user_id,order,limit,offset,is_unread,client_postgres):
+   if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
+   elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
+   values={"created_by_id":user_id,"user_id":user_id}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   return object_list
 
-
+async def function_message_received(user_id,order,limit,offset,is_unread,client_postgres):
+   if not is_unread:query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
+   elif int(is_unread)==1:query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
+   values={"user_id":user_id}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   return object_list
 
