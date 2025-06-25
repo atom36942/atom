@@ -37,12 +37,14 @@ config_limit_log_api_batch=int(env.get("config_limit_log_api_batch",10))
 config_limit_cache_users_api_access=int(env.get("config_limit_cache_users_api_access",1000))
 config_limit_cache_users_is_active=int(env.get("config_limit_cache_users_is_active",1000))
 config_channel_name=env.get("config_channel_name","ch1")
+config_mode_check_api_access=env.get("config_mode_check_api_access","token")
+config_mode_check_is_active=env.get("config_mode_check_is_active","token")
 config_column_disabled_non_admin_list=env.get("config_column_disabled_non_admin_list","is_active,is_verified,api_access").split(",")
 config_table_allowed_public_create_list=env.get("config_table_allowed_public_create_list","test").split(",")
 config_table_allowed_public_read_list=env.get("config_table_allowed_public_read_list","test").split(",")
 router_list=env.get("router_list").split(",") if env.get("router_list") else []
 config_api={
-"/admin/object-create":{"id":1}, 
+"/admin/object-create":{"id":1},
 "/admin/object-update":{"id":2}, 
 "/admin/ids-update":{"id":3}, 
 "/admin/ids-delete":{"id":4}, 
@@ -185,8 +187,8 @@ async def lifespan(app:FastAPI):
       client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(config_lavinmq_url) if config_lavinmq_url else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      if cache_postgres_schema.get("users",{}).get("api_access"):cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg)
-      if cache_postgres_schema.get("users",{}).get("is_active"):cache_users_is_active=await function_cache_users_is_active_read(config_limit_cache_users_is_active,client_postgres_asyncpg)
+      cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg) if cache_postgres_schema.get("users",{}).get("api_access") else {}
+      cache_users_is_active=await function_cache_users_is_active_read(config_limit_cache_users_is_active,client_postgres_asyncpg) if cache_postgres_schema.get("users",{}).get("is_active") else {}
       #app state set
       for var_name,var_value in locals().items():
          if var_name.startswith(("client_", "cache_")):setattr(app.state,var_name,var_value)
@@ -223,14 +225,14 @@ async def middleware(request,api_function):
       error=None
       api=request.url.path
       request.state.user=await function_token_check(request,config_key_root,config_key_jwt,function_token_decode)
-      if "admin/" in request.url.path:await function_check_api_access(request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
-      if config_api.get(request.url.path,{}).get("is_active_check")==1 and request.state.user:await function_is_active_check(request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
-      if config_api.get(request.url.path,{}).get("rate_limiter"):await function_rate_limiter_check(request,config_api,request.app.state.client_redis)
+      if "admin/" in request.url.path:await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
+      if config_api.get(request.url.path,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
+      if config_api.get(request.url.path,{}).get("rate_limiter"):await function_check_rate_limiter(request,request.app.state.client_redis,config_api)
       if request.query_params.get("is_background")=="1":response=await function_api_response_background(request,api_function)
-      elif config_api.get(api,{}).get("cache_sec"):response=await function_api_response_cache("get",request,None,request.app.state.client_redis,None)
+      elif config_api.get(api,{}).get("cache_sec"):response=await function_cache_api_response("get",request,None,None,request.app.state.client_redis)
       if not response:
          response=await api_function(request)
-         if config_api.get(api,{}).get("cache_sec"):response=await function_api_response_cache("set",request,response,request.app.state.client_redis,config_api.get(api,{}).get("cache_sec"))
+         if config_api.get(api,{}).get("cache_sec"):response=await function_cache_api_response("set",request,response,config_api.get(api,{}).get("cache_sec"),request.app.state.client_redis)
    except Exception as e:
       error=str(e)
       print(traceback.format_exc())
@@ -250,7 +252,7 @@ async def index():
 
 @app.get("/root/postgres-init")
 async def root_postgres_init(request:Request):
-   await function_postgres_schema_init(request.app.state.client_postgres,function_postgres_schema_read,config_postgres)
+   await function_postgres_schema_init(request.app.state.client_postgres,config_postgres,function_postgres_schema_read)
    return {"status":1,"message":"done"}
 
 @app.post("/root/postgres-uploader")
@@ -296,7 +298,7 @@ async def auth_signup(request:Request):
    if config_is_signup==0:return function_return_error("signup disabled")
    object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
    user=await function_signup_username_password(type,username,password,request.app.state.client_postgres)
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return {"status":1,"message":token}
 
 @app.post("/auth/signup-bigint")
@@ -304,49 +306,49 @@ async def auth_signup_bigint(request:Request):
    if config_is_signup==0:return function_return_error("signup disabled")
    object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
    user=await function_signup_username_password_bigint(type,username,password,request.app.state.client_postgres)
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-username")
 async def auth_login_password_username(request:Request):
    object,[type,password,username]=await function_param_read("body",request,["type","password","username"],[])
-   token=await function_login_password_username(type,password,username,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_create)
+   token=await function_login_password_username(type,password,username,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-bigint")
 async def auth_login_password_bigint(request:Request):
    object,[type,password,username]=await function_param_read("body",request,["type","password","username"],[])
-   token=await function_login_password_username_bigint(type,password,username,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_create)
+   token=await function_login_password_username_bigint(type,password,username,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-email")
 async def auth_login_password_email(request:Request):
    object,[type,password,email]=await function_param_read("body",request,["type","password","email"],[])
-   token=await function_login_password_email(type,password,email,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_create)
+   token=await function_login_password_email(type,password,email,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-mobile")
 async def auth_login_password_mobile(request:Request):
    object,[type,password,mobile]=await function_param_read("body",request,["type","password","mobile"],[])
-   token=await function_login_password_mobile(type,password,mobile,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_create)
+   token=await function_login_password_mobile(type,password,mobile,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-email")
 async def auth_login_otp_email(request:Request):
    object,[type,otp,email]=await function_param_read("body",request,["type","otp","email"],[])
-   token=await function_login_otp_email(type,email,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_create)
+   token=await function_login_otp_email(type,email,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_encode)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-mobile")
 async def auth_login_otp_mobile(request:Request):
    object,[type,otp,mobile]=await function_param_read("body",request,["type","otp","mobile"],[])
-   token=await function_login_otp_mobile(type,mobile,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_create)
+   token=await function_login_otp_mobile(type,mobile,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_encode)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-google")
 async def auth_login_google(request:Request):
    object,[type,google_token]=await function_param_read("body",request,["type","google_token"],[])
-   token=await function_login_google(type,google_token,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,google_user_read,config_google_login_client_id,function_token_create)
+   token=await function_login_google(type,google_token,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,google_user_read,config_google_login_client_id,function_token_encode)
    return {"status":1,"message":token}
 
 @app.get("/my/profile")
@@ -358,7 +360,7 @@ async def my_profile(request:Request):
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
    user=await function_read_user_single(request.state.user["id"],request.app.state.client_postgres)
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return {"status":1,"message":token}
 
 @app.delete("/my/account-delete")
@@ -543,7 +545,7 @@ async def public_object_read(request:Request):
    object,[table,creator_data]=await function_param_read("query",request,["table"],["creator_data"])
    if table not in config_table_allowed_public_read_list:return function_return_error("table not allowed")
    object_list=await function_postgres_read(table,object,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,create_where_string)
-   if object_list and creator_data:object_list=await function_add_creator_data(request.app.state.client_postgres,object_list,creator_data)
+   if object_list and creator_data:object_list=await function_add_creator_data(object_list,creator_data,request.app.state.client_postgres)
    return {"status":1,"message":object_list}
 
 public_info_cache={}
@@ -621,11 +623,11 @@ async def admin_object_read(request:Request):
 @app.post("/admin/db-runner")
 async def admin_db_runner(request:Request):
    object,[query]=await function_param_read("body",request,["query"],[])
-   output=await postgres_query_runner(request.app.state.client_postgres,query,request.state.user["id"])
+   output=await function_query_runner(query,request.state.user["id"],request.app.state.client_postgres)
    return {"status":1,"message":output}
 
 #server start
 import asyncio
 if __name__=="__main__":
-   try:asyncio.run(function_uvicorn_server_start(app))
+   try:asyncio.run(function_server_start_uvicorn(app))
    except KeyboardInterrupt:print("exit")

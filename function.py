@@ -1,3 +1,16 @@
+import os
+from dotenv import load_dotenv
+def function_load_env(env_path):
+   load_dotenv(env_path)
+   output={k: os.getenv(k) for k in os.environ}
+   return output
+
+import uvicorn
+async def function_server_start_uvicorn(app):
+   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
+   server=uvicorn.Server(config)
+   await server.serve()
+
 import sentry_sdk
 def function_app_add_sentry(config_sentry_dsn):
    sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
@@ -121,6 +134,28 @@ async def function_redis_object_create(table,object_list,expiry,client_redis):
       await pipe.execute()
    return None
 
+import csv,io
+async def function_file_to_object_list(file):
+   content=await file.read()
+   content=content.decode("utf-8")
+   reader=csv.DictReader(io.StringIO(content))
+   object_list=[row for row in reader]
+   await file.close()
+   return object_list
+
+import json
+async def function_redis_set_object(object,key,expiry,client_redis):
+   object=json.dumps(object)
+   if not expiry:output=await client_redis.set(key,object)
+   else:output=await client_redis.setex(key,expiry,object)
+   return output
+
+import json
+async def function_redis_get_object(key,client_redis):
+   output=await client_redis.get(key)
+   if output:output=json.loads(output)
+   return output
+
 import json
 object_list_log_api=[]
 async def function_postgres_log_create(object,batch,cache_postgres_column_datatype,client_postgres,function_postgres_create,function_object_serialize):
@@ -170,9 +205,10 @@ async def function_cache_users_api_access_read(limit,client_postgres_asyncpg):
          count+=len(batch)
    return output
 
-async def function_check_api_access(request,cache_users_api_access,client_postgres,config_api):
-   user_api_access=cache_users_api_access.get(request.state.user["id"],"absent")
-   if user_api_access=="absent":
+async def function_check_api_access(mode,request,cache_users_api_access,client_postgres,config_api):
+   if mode=="token":user_api_access_list=[int(item.strip()) for item in request.state.user["api_access"].split(",")] if request.state.user["api_access"] else []
+   elif mode=="cache":user_api_access_list=cache_users_api_access.get(request.state.user["id"],"absent")
+   if user_api_access_list=="absent":
       query="select id,api_access from users where id=:id;"
       values={"id":request.state.user["id"]}
       output=await client_postgres.fetch_all(query=query,values=values)
@@ -180,11 +216,92 @@ async def function_check_api_access(request,cache_users_api_access,client_postgr
       if not user:raise Exception("user not found")
       api_access_str=user["api_access"]
       if not api_access_str:raise Exception("api access denied")
-      user_api_access=[int(item.strip()) for item in api_access_str.split(",")]
+      user_api_access_list=[int(item.strip()) for item in api_access_str.split(",")]
    api_id=config_api.get(request.url.path,{}).get("id")
    if not api_id:raise Exception("api id not mapped")
-   if api_id not in user_api_access:raise Exception("api access denied")
+   if api_id not in user_api_access_list:raise Exception("api access denied")
    return None
+
+async def function_check_is_active(mode,request,cache_users_is_active,client_postgres):
+   if mode=="token":user_is_active=request.state.user["is_active"]
+   elif mode=="cache":user_is_active=cache_users_is_active.get(request.state.user["id"],"absent")
+   if user_is_active=="absent":
+      query="select id,is_active from users where id=:id;"
+      values={"id":request.state.user["id"]}
+      output=await client_postgres.fetch_all(query=query,values=values)
+      user=output[0] if output else None
+      if not user:raise Exception("user not found")
+      user_is_active=user["is_active"]
+   if user_is_active==0:raise Exception("user not active")
+   return None
+
+async def function_check_rate_limiter(request,client_redis,config_api):
+   limit,window=config_api.get(request.url.path).get("rate_limiter")
+   identifier=request.state.user.get("id") if request.state.user else request.client.host
+   rate_key=f"ratelimit:{request.url.path}:{identifier}"
+   current_count=await client_redis.get(rate_key)
+   if current_count and int(current_count)+1>limit:raise Exception("rate limit exceeded")
+   pipe=client_redis.pipeline()
+   pipe.incr(rate_key)
+   if not current_count:pipe.expire(rate_key,window)
+   await pipe.execute()
+   return None
+
+from fastapi import Response
+import gzip,base64
+async def function_cache_api_response(mode,request,response,expire_sec,client_redis):
+   query_sorted="&".join(f"{k}={v}" for k,v in sorted(request.query_params.items()))
+   cache_key=f"{request.url.path}?{query_sorted}:{request.state.user.get('id')}" if "my/" in request.url.path else f"{request.url.path}?{query_sorted}"
+   if mode=="get":
+      response=None
+      cached_response=await client_redis.get(cache_key)
+      if cached_response:response=Response(content=gzip.decompress(base64.b64decode(cached_response)).decode(),status_code=200,media_type="application/json")
+   if mode=="set":
+      body=b"".join([chunk async for chunk in response.body_iterator])
+      await client_redis.setex(cache_key,expire_sec,base64.b64encode(gzip.compress(body)).decode())
+      response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
+   return response
+
+import jwt,json,time
+async def function_token_encode(user,config_key_jwt,config_token_expire_sec):
+   data={"id":user["id"],"is_active":user.get("is_active"),"api_access":user.get("api_access")}
+   data=json.dumps(data,default=str)
+   token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":data},config_key_jwt)
+   return token
+
+import jwt,json
+async def function_token_decode(token,config_key_jwt):
+   user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
+   return user
+
+async def function_token_check(request,config_key_root,config_key_jwt,function_token_decode):
+   user={}
+   api=request.url.path
+   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
+   if "root/" in api:
+      if token!=config_key_root:raise Exception("token root mismatch")
+   else:
+      if any(path in api for path in ["my/", "private/", "admin/"]) and not token:raise Exception("token missing")
+      if token:user=await function_token_decode(token,config_key_jwt)
+   return user
+
+async def function_param_read(mode,request,must,optional):
+   param=[]
+   if mode=="query":
+      object=dict(request.query_params)
+   if mode=="form":
+      form_data=await request.form()
+      object={key:value for key,value in form_data.items() if isinstance(value,str)}
+      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
+      object["file_list"]=file_list
+   if mode=="body":
+      object=await request.json()
+   for item in must:
+      if item not in object:raise Exception(f"{item} missing from {mode} param")
+      param.append(object[item])
+   for item in optional:
+      param.append(object.get(item))
+   return object,param
 
 import hashlib
 async def function_signup_username_password(type,username,password,client_postgres):
@@ -200,46 +317,46 @@ async def function_signup_username_password_bigint(type,username_bigint,password
    return output[0]
 
 import hashlib
-async def function_login_password_username(type,password,username,client_postgres,config_key_jwt,config_token_expire_sec,function_token_create):
+async def function_login_password_username(type,password,username,client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode):
    query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
 import hashlib
-async def function_login_password_username_bigint(type,password_bigint,username_bigint,client_postgres,config_key_jwt,config_token_expire_sec,function_token_create):
+async def function_login_password_username_bigint(type,password_bigint,username_bigint,client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode):
    query=f"select * from users where type=:type and username_bigint=:username_bigint and password_bigint=:password_bigint order by id desc limit 1;"
    values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
 import hashlib
-async def function_login_password_email(type,password,email,client_postgres,config_key_jwt,config_token_expire_sec,function_token_create):
+async def function_login_password_email(type,password,email,client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode):
    query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
    values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
 import hashlib
-async def function_login_password_mobile(type,password,mobile,client_postgres,config_key_jwt,config_token_expire_sec,function_token_create):
+async def function_login_password_mobile(type,password,mobile,client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode):
    query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
    values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
-async def function_login_otp_email(type,email,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_create):
+async def function_login_otp_email(type,email,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_encode):
    await function_verify_otp(client_postgres,otp,email,None)
    query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
    values={"type":type,"email":email}
@@ -250,10 +367,10 @@ async def function_login_otp_email(type,email,otp,client_postgres,config_key_jwt
       values={"type":type,"email":email}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
-async def function_login_otp_mobile(type,mobile,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_create):
+async def function_login_otp_mobile(type,mobile,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_encode):
    await function_verify_otp(client_postgres,otp,None,mobile)
    query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
    values={"type":type,"mobile":mobile}
@@ -264,13 +381,13 @@ async def function_login_otp_mobile(type,mobile,otp,client_postgres,config_key_j
       values={"type":type,"mobile":mobile}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
 import json
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_request
-async def function_login_google(type,google_token,client_postgres,config_key_jwt,config_token_expire_sec,config_google_login_client_id,function_token_create):
+async def function_login_google(type,google_token,client_postgres,config_key_jwt,config_token_expire_sec,config_google_login_client_id,function_token_encode):
    request=google_request.Request()
    id_info=id_token.verify_oauth2_token(google_token,request,config_google_login_client_id)
    google_user={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
@@ -283,7 +400,7 @@ async def function_login_google(type,google_token,client_postgres,config_key_jwt
       values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
 async def function_message_inbox_user(user_id,order,limit,offset,is_unread,client_postgres):
@@ -379,3 +496,326 @@ async def function_delete_ids(table,ids,created_by_id,client_postgres):
    values={"created_by_id":created_by_id}
    await client_postgres.execute(query=query,values=values)
    return None
+
+async def function_query_runner(query,user_id,client_postgres):
+   danger_word=["drop","truncate"]
+   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
+   must_word=["select"]
+   for item in danger_word:
+      if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
+   if user_id!=1:
+      for item in stop_word:
+         if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
+      for item in must_word:
+         if item not in query.lower():raise Exception(f"{item} keyword not allowed in query")
+   output=await client_postgres.fetch_all(query=query,values={})
+   return output
+
+async def function_add_creator_data(object_list,user_key,client_postgres):
+    object_list=[dict(object) for object in object_list]
+    created_by_ids={str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
+    users={}
+    if created_by_ids:
+        query = f"SELECT * FROM users WHERE id IN ({','.join(created_by_ids)});"
+        users = {str(user["id"]): dict(user) for user in await client_postgres.fetch_all(query=query,values={})}
+    for object in object_list:
+        created_by_id = str(object.get("created_by_id"))
+        if created_by_id in users:
+            for key in user_key.split(","):
+                object[f"creator_{key}"] = users[created_by_id].get(key)
+        else:
+            for key in user_key.split(","):
+                object[f"creator_{key}"] = None
+    return object_list
+ 
+async def function_ownership_check(table,id,user_id,client_postgres):
+   if table=="users":
+      if id!=user_id:raise Exception("object ownership issue")
+   if table!="users":
+      query=f"select created_by_id from {table} where id=:id;"
+      values={"id":id}
+      output=await client_postgres.fetch_all(query=query,values=values)
+      if not output:raise Exception("no object")
+      if output[0]["created_by_id"]!=user_id:raise Exception("object ownership issue")
+   return None
+
+async def function_postgres_schema_read(client_postgres):
+   query='''
+   WITH t AS (SELECT * FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'),
+   c AS (
+   SELECT table_name, column_name, data_type, 
+   CASE WHEN is_nullable='YES' THEN 1 ELSE 0 END AS is_nullable, 
+   column_default 
+   FROM information_schema.columns 
+   WHERE table_schema='public'
+   ), 
+   i AS (
+   SELECT t.relname::text AS table_name, a.attname AS column_name,
+   CASE WHEN idx.indisprimary OR idx.indisunique OR idx.indisvalid THEN 1 ELSE 0 END AS is_index
+   FROM pg_attribute a
+   JOIN pg_class t ON a.attrelid=t.oid
+   JOIN pg_namespace ns ON t.relnamespace=ns.oid
+   LEFT JOIN pg_index idx ON a.attrelid=idx.indrelid AND a.attnum=ANY(idx.indkey)
+   WHERE ns.nspname='public' AND a.attnum > 0 AND t.relkind='r'
+   )
+   SELECT t.table_name as table, c.column_name as column, c.data_type as datatype,c.column_default as default, c.is_nullable as is_null, COALESCE(i.is_index, 0) AS is_index 
+   FROM t 
+   LEFT JOIN c ON t.table_name=c.table_name 
+   LEFT JOIN i ON t.table_name=i.table_name AND c.column_name=i.column_name;
+   '''
+   output=await client_postgres.fetch_all(query=query,values={})
+   postgres_schema={}
+   for object in output:
+      table,column=object["table"],object["column"]
+      column_data={"datatype":object["datatype"],"default":object["default"],"is_null":object["is_null"],"is_index":object["is_index"]}
+      if table not in postgres_schema:postgres_schema[table]={}
+      postgres_schema[table][column]=column_data
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
+   return postgres_schema,postgres_column_datatype
+
+async def function_postgres_schema_init(client_postgres,config_postgres,function_postgres_schema_read):
+   async def init_extension(client_postgres):
+      await client_postgres.execute(query="create extension if not exists postgis;",values={})
+      await client_postgres.execute(query="create extension if not exists pg_trgm;",values={})
+   async def init_table(client_postgres,function_postgres_schema_read,config_postgres):
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      for table,column_list in config_postgres["table"].items():
+         is_table=postgres_schema.get(table,{})
+         if not is_table:
+            query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
+            await client_postgres.execute(query=query,values={})
+   async def init_column(client_postgres,function_postgres_schema_read,config_postgres):
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      for table,column_list in config_postgres["table"].items():
+         for column in column_list:
+            column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
+            is_column=postgres_schema.get(table,{}).get(column_name,{})
+            if not is_column:
+               query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
+               await client_postgres.execute(query=query,values={})
+   async def init_nullable(client_postgres,function_postgres_schema_read,config_postgres):
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      for table,column_list in config_postgres["table"].items():
+         for column in column_list:
+            column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
+            is_null=postgres_schema.get(table,{}).get(column_name,{}).get("is_null",None)
+            if column_is_mandatory=="0" and is_null==0:
+               query=f"alter table {table} alter column {column_name} drop not null;"
+               await client_postgres.execute(query=query,values={})
+            if column_is_mandatory=="1" and is_null==1:
+               query=f"alter table {table} alter column {column_name} set not null;"
+               await client_postgres.execute(query=query,values={})
+   async def init_index(client_postgres,config_postgres):
+      index_name_list=[object["indexname"] for object in (await client_postgres.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
+      for table,column_list in config_postgres["table"].items():
+         for column in column_list:
+            column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
+            if column_index_type=="0":
+               query=f"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname ILIKE 'index_{table}_{column_name}_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
+               await client_postgres.execute(query=query,values={})
+            else:
+               index_type_list=column_index_type.split(",")
+               for index_type in index_type_list:
+                  index_name=f"index_{table}_{column_name}_{index_type}"
+                  if index_name not in index_name_list:
+                     if index_type=="gin" and column_datatype=="text":
+                        query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name} gin_trgm_ops);"
+                        await client_postgres.execute(query=query,values={})
+                     else:
+                        query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});"
+                        await client_postgres.execute(query=query,values={})
+   async def init_query(client_postgres,config_postgres):
+      constraint_name_list={object["constraint_name"].lower() for object in (await client_postgres.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
+      for query in config_postgres["query"].values():
+         if query.split()[0]=="0":continue
+         if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:continue
+         await client_postgres.fetch_all(query=query,values={})
+   await init_extension(client_postgres)
+   await init_table(client_postgres,function_postgres_schema_read,config_postgres)
+   await init_column(client_postgres,function_postgres_schema_read,config_postgres)
+   await init_nullable(client_postgres,function_postgres_schema_read,config_postgres)
+   await init_index(client_postgres,config_postgres)
+   await init_query(client_postgres,config_postgres)
+   return None
+
+import asyncio,json
+async def function_consumer_kafka(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name,config_postgres_url,function_kafka_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   kafka_consumer_client=await function_kafka_consumer_client_read(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
+   client_postgres=await function_postgres_client_read(config_postgres_url)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   try:
+      async for message in kafka_consumer_client:
+         if message.topic==config_channel_name:
+            data=json.loads(message.value.decode('utf-8'))
+            try:
+               if data["mode"]=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)   
+               if data["mode"]=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+               print(output)
+            except Exception as e:print(str(e))
+   except asyncio.CancelledError:print("subscription cancelled")
+   finally:
+      await client_postgres.disconnect()
+      await kafka_consumer_client.stop()
+
+import asyncio,json
+async def function_consumer_redis(config_redis_url,config_channel_name,config_postgres_url,function_redis_client_read,function_redis_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   client_redis=await function_redis_client_read(config_redis_url)
+   redis_consumer_client=await function_redis_consumer_client_read(client_redis,config_channel_name)
+   client_postgres=await function_postgres_client_read(config_postgres_url)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   try:
+      async for message in redis_consumer_client.listen():
+         if message["type"]=="message" and message["channel"]==config_channel_name.encode():
+            data=json.loads(message['data'])
+            try:
+               if data["mode"]=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+               if data["mode"]=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+               print(output)
+            except Exception as e:print(str(e))
+   except asyncio.CancelledError:print("subscription cancelled")
+   finally:
+      await client_postgres.disconnect()
+      await redis_consumer_client.unsubscribe(config_channel_name)
+      await client_redis.aclose()
+      
+import aio_pika,asyncio,json
+async def function_consumer_rabbitmq(config_rabbitmq_url,config_channel_name,config_postgres_url,function_rabbitmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   client_rabbitmq,client_rabbitmq_channel=await function_rabbitmq_client_read(config_rabbitmq_url)
+   client_postgres=await function_postgres_client_read(config_postgres_url)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   async def aqmp_callback(message: aio_pika.IncomingMessage):
+      async with message.process():
+         try:
+            data=json.loads(message.body)
+            mode=data.get("mode")
+            if mode=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+            elif mode=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+            else:output=f"Unsupported mode: {mode}"
+            print(output)
+         except Exception as e:print("Callback function_error:",e.args)
+   try:
+      queue=await client_rabbitmq_channel.declare_queue(config_channel_name,auto_delete=False)
+      await queue.consume(aqmp_callback)
+      await asyncio.Future()
+   except KeyboardInterrupt:
+      await client_postgres.disconnect()
+      await client_rabbitmq_channel.close()
+      await client_rabbitmq.close()
+
+import aio_pika,asyncio,json
+async def function_consumer_lavinmq(config_lavinmq_url,config_channel_name,config_postgres_url,function_lavinmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
+   client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(config_lavinmq_url)
+   client_postgres=await function_postgres_client_read(config_postgres_url)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   async def aqmp_callback(message: aio_pika.IncomingMessage):
+      async with message.process():
+         try:
+            data=json.loads(message.body)
+            mode=data.get("mode")
+            if mode=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+            elif mode=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+            else:output=f"Unsupported mode: {mode}"
+            print(output)
+         except Exception as e:print("Callback function_error:",e.args)
+   try:
+      queue=await client_lavinmq_channel.declare_queue(config_channel_name,auto_delete=False)
+      await queue.consume(aqmp_callback)
+      await asyncio.Future()
+   except KeyboardInterrupt:
+      await client_postgres.disconnect()
+      await client_lavinmq_channel.close()
+      await client_lavinmq.close()
+      
+def function_numeric_converter(mode,x):
+   MAX_LEN = 30
+   CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
+   BASE = len(CHARS)
+   CHAR_TO_NUM = {ch: i for i, ch in enumerate(CHARS)}
+   NUM_TO_CHAR = {i: ch for i, ch in enumerate(CHARS)}
+   if mode=="encode":
+      if len(x) > MAX_LEN:raise Exception(f"String too long (max {MAX_LEN} characters)")
+      num = 0
+      for ch in x:
+         if ch not in CHAR_TO_NUM:raise Exception(f"Unsupported character: '{ch}'")
+         num = num * BASE + CHAR_TO_NUM[ch]
+      output=len(x) * (BASE ** MAX_LEN) + num
+   if mode=="decode":
+      length = x // (BASE ** MAX_LEN)
+      num = x % (BASE ** MAX_LEN)
+      chars = []
+      for _ in range(length):
+         num, rem = divmod(num, BASE)
+         chars.append(NUM_TO_CHAR[rem])
+      output=''.join(reversed(chars))
+   return output
+
+def function_bigint_converter(mode,x):
+   MAX_LENGTH = 11
+   CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789_'
+   BASE = len(CHARSET)
+   LENGTH_BITS = 6
+   VALUE_BITS = 64 - LENGTH_BITS
+   CHAR_TO_INDEX = {c: i for i, c in enumerate(CHARSET)}
+   INDEX_TO_CHAR = {i: c for i, c in enumerate(CHARSET)}
+   if mode=="encode":
+      if len(x) > MAX_LENGTH:raise Exception(f"text length exceeds {MAX_LENGTH} characters.")
+      value = 0
+      for char in x:
+         if char not in CHAR_TO_INDEX:raise Exception(f"Invalid character: {char}")
+         value = value * BASE + CHAR_TO_INDEX[char]
+      output=(len(x) << VALUE_BITS) | value
+   if mode=="decode":
+      length = x >> VALUE_BITS
+      value = x & ((1 << VALUE_BITS) - 1)
+      chars = []
+      for _ in range(length):
+         value, index = divmod(value, BASE)
+         chars.append(INDEX_TO_CHAR[index])
+      output=''.join(reversed(chars))
+   return output
+
+      
+import os,json,requests
+def function_export_grafana_dashboards(host,username,password,max_limit,export_dir):
+   session = requests.Session()
+   session.auth = (username, password)
+   def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
+   def ensure_dir(path):os.makedirs(path, exist_ok=True)
+   def get_organizations():
+      r = session.get(f"{host}/api/orgs")
+      r.raise_for_status()
+      return r.json()
+   def switch_org(org_id):return session.post(f"{host}/api/user/using/{org_id}").status_code == 200
+   def get_dashboards(org_id):
+      headers = {"X-Grafana-Org-Id": str(org_id)}
+      r = session.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers=headers)
+      if r.status_code == 422:return []
+      r.raise_for_status()
+      return r.json()
+   def get_dashboard_json(uid):
+      r = session.get(f"{host}/api/dashboards/uid/{uid}")
+      r.raise_for_status()
+      return r.json()
+   def export_dashboard(org_name, folder_name, dashboard_meta):
+      uid = dashboard_meta["uid"]
+      data = get_dashboard_json(uid)
+      path = os.path.join(export_dir, sanitize(org_name), sanitize(folder_name or "General"))
+      ensure_dir(path)
+      file_path = os.path.join(path, f"{sanitize(dashboard_meta['title'])}.json")
+      with open(file_path, "w", encoding="utf-8") as f:json.dump(data, f, indent=2)
+      print(f"✅ {org_name}/{folder_name}/{dashboard_meta['title']}")
+   try:
+      orgs = get_organizations()
+   except Exception as e:
+      print("❌ Failed to fetch organizations:", e)
+      return
+   for org in orgs:
+      if not switch_org(org["id"]):continue
+      try:
+         dashboards = get_dashboards(org["id"])
+      except Exception as e:
+         print("❌ Failed to fetch dashboards:",e)
+         continue
+      for dash in dashboards:
+         try:export_dashboard(org["name"], dash.get("folderTitle", "General"), dash)
+         except Exception as e:print("❌ Failed to export", dash.get("title"), ":", e)
