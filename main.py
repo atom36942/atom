@@ -185,8 +185,8 @@ async def lifespan(app:FastAPI):
       client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(config_lavinmq_url) if config_lavinmq_url else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      if cache_postgres_schema.get("users",{}).get("api_access"):cache_users_api_access=await users_api_access_read(client_postgres_asyncpg,config_limit_cache_users_api_access)
-      if cache_postgres_schema.get("users",{}).get("is_active"):cache_users_is_active=await users_is_active_read(client_postgres_asyncpg,config_limit_cache_users_is_active)
+      if cache_postgres_schema.get("users",{}).get("api_access"):cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg)
+      if cache_postgres_schema.get("users",{}).get("is_active"):cache_users_is_active=await function_cache_users_is_active_read(config_limit_cache_users_is_active,client_postgres_asyncpg)
       #app state set
       for var_name,var_value in locals().items():
          if var_name.startswith(("client_", "cache_")):setattr(app.state,var_name,var_value)
@@ -223,7 +223,7 @@ async def middleware(request,api_function):
       error=None
       api=request.url.path
       request.state.user=await function_token_check(request,config_key_root,config_key_jwt,function_token_decode)
-      if "admin/" in request.url.path:await function_api_access_check(request,config_api,request.app.state.cache_users_api_access,request.app.state.client_postgres)
+      if "admin/" in request.url.path:await function_check_api_access(request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
       if config_api.get(request.url.path,{}).get("is_active_check")==1 and request.state.user:await function_is_active_check(request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
       if config_api.get(request.url.path,{}).get("rate_limiter"):await function_rate_limiter_check(request,config_api,request.app.state.client_redis)
       if request.query_params.get("is_background")=="1":response=await function_api_response_background(request,api_function)
@@ -237,7 +237,7 @@ async def middleware(request,api_function):
       response=function_return_error(error)
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
    object={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-   asyncio.create_task(log_api_create(object,config_limit_log_api_batch,function_postgres_create,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize))
+   asyncio.create_task(function_postgres_log_create(object,config_limit_log_api_batch,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_object_serialize,function_postgres_create))
    return response
 
 #api
@@ -266,7 +266,7 @@ async def root_postgres_uploader(request:Request):
 async def root_redis_uploader(request:Request):
    object,[table,file_list,expiry]=await function_param_read("form",request,["table","file_list"],["expiry"])
    object_list=await function_file_to_object_list(file_list[-1])
-   await function_redis_object_create(request.app.state.client_redis,table,object_list,expiry)
+   await function_redis_object_create(table,object_list,expiry,request.app.state.client_redis)
    return {"status":1,"message":"done"}
 
 @app.post("/root/s3-bucket-ops")
@@ -287,8 +287,8 @@ async def root_s3_url_empty(request:Request):
 @app.get("/root/reset-global")
 async def root_reset_global(request:Request):
    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres)
-   request.app.state.cache_users_api_access=await users_api_access_read(request.app.state.client_postgres_asyncpg,config_limit_cache_users_api_access)
-   request.app.state.cache_users_is_active=await users_is_active_read(request.app.state.client_postgres_asyncpg,config_limit_cache_users_is_active) 
+   request.app.state.cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,request.app.state.client_postgres_asyncpg)
+   request.app.state.cache_users_is_active=await function_cache_users_is_active_read(config_limit_cache_users_is_active,request.app.state.client_postgres_asyncpg) 
    return {"status":1,"message":"done"}
    
 @app.post("/auth/signup")
@@ -351,22 +351,22 @@ async def auth_login_google(request:Request):
 
 @app.get("/my/profile")
 async def my_profile(request:Request):
-   user=await read_user_single(request.app.state.client_postgres,request.state.user["id"])
+   user=await function_read_user_single(request.state.user["id"],request.app.state.client_postgres)
    asyncio.create_task(function_update_last_active_at_user(request.state.user["id"],request.app.state.client_postgres))
    return {"status":1,"message":user}
 
 @app.get("/my/token-refresh")
 async def my_token_refresh(request:Request):
-   user=await read_user_single(request.app.state.client_postgres,request.state.user["id"])
+   user=await function_read_user_single(request.state.user["id"],request.app.state.client_postgres)
    token=await function_token_create(config_key_jwt,config_token_expire_sec,user)
    return {"status":1,"message":token}
 
 @app.delete("/my/account-delete")
 async def my_account_delete(request:Request):
    object,[mode]=await function_param_read("query",request,["mode"],[])
-   user=await read_user_single(request.app.state.client_postgres,request.state.user["id"])
+   user=await function_read_user_single(request.state.user["id"],request.app.state.client_postgres)
    if user["api_access"]:return function_return_error("not allowed as you have api_access")
-   await function_delete_user(mode,request.app.state.client_postgres,request.state.user["id"])
+   await function_delete_user_single(mode,request.state.user["id"],request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.post("/my/object-create")
@@ -426,14 +426,14 @@ async def my_ids_update(request:Request):
    object,[table,ids,column,value]=await function_param_read("body",request,["table","ids","column","value"],[])
    if table in ["users"]:return function_return_error("table not allowed")
    if column in config_column_disabled_non_admin_list:return function_return_error("column not allowed")
-   await function_postgres_update_ids(request.app.state.client_postgres,table,ids,column,value,request.state.user["id"],request.state.user["id"])
+   await function_update_ids(table,ids,column,value,request.state.user["id"],request.state.user["id"],request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.delete("/my/ids-delete")
 async def my_ids_delete(request:Request):
    object,[table,ids]=await function_param_read("body",request,["table","ids"],[])
    if table in ["users"]:return function_return_error("table not allowed")
-   await function_postgres_delete_ids(request.app.state.client_postgres,table,ids,request.state.user["id"])
+   await function_delete_ids(table,ids,request.state.user["id"],request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.delete("/my/object-delete-any")
@@ -572,13 +572,13 @@ async def public_page(filename:str):
 async def private_file_upload_s3_direct(request:Request):
    object,[bucket,file_list,key]=await function_param_read("form",request,["bucket","file_list"],["key"])
    key_list=key.split("---") if key else None
-   output=await function_s3_file_upload_direct(request.app.state.client_s3,config_s3_region_name,bucket,key_list,file_list)
+   output=await function_s3_file_upload_direct(bucket,key_list,file_list,request.app.state.client_s3,config_s3_region_name)
    return {"status":1,"message":output}
 
 @app.post("/private/file-upload-s3-presigned")
 async def private_file_upload_s3_presigned(request:Request):
    object,[bucket,key]=await function_param_read("body",request,["bucket","key"],[])
-   output=await s3_file_upload_presigned(request.app.state.client_s3,config_s3_region_name,bucket,key,1000,100)
+   output=await function_s3_file_upload_presigned(bucket,key,1000,100,request.app.state.client_s3,config_s3_region_name)
    return {"status":1,"message":output}
 
 @app.post("/admin/object-create")
@@ -603,13 +603,13 @@ async def admin_object_update(request:Request):
 @app.put("/admin/ids-update")
 async def admin_ids_update(request:Request):
    object,[table,ids,column,value]=await function_param_read("body",request,["table","ids","column","value"],[])
-   await function_postgres_update_ids(request.app.state.client_postgres,table,ids,column,value,request.state.user["id"],None)
+   await function_update_ids(table,ids,column,value,request.state.user["id"],None,request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.delete("/admin/ids-delete")
 async def admin_ids_delete(request:Request):
    object,[table,ids]=await function_param_read("body",request,["table","ids"],[])
-   await function_postgres_delete_ids(request.app.state.client_postgres,table,ids,None)
+   await function_delete_ids(table,ids,None,request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.get("/admin/object-read")
