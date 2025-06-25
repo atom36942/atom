@@ -279,6 +279,30 @@ async def function_gsheet_read_url(gid,spreadsheet_id):
    output=df.to_dict(orient="records")
    return output
 
+import jwt,json,time
+async def function_token_encode(user,config_key_jwt,config_token_expire_sec):
+   user=dict(user)
+   data={"id":user["id"],"is_active":user.get("is_active"),"api_access":user.get("api_access")}
+   data=json.dumps(data,default=str)
+   token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":data},config_key_jwt)
+   return token
+
+import jwt,json
+async def function_token_decode(token,config_key_jwt):
+   user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
+   return user
+
+async def function_token_check(request,config_key_root,config_key_jwt,function_token_decode):
+   user={}
+   api=request.url.path
+   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
+   if "root/" in api:
+      if token!=config_key_root:raise Exception("token root mismatch")
+   else:
+      if any(path in api for path in ["my/", "private/", "admin/"]) and not token:raise Exception("token missing")
+      if token:user=await function_token_decode(token,config_key_jwt)
+   return user
+
 import json
 object_list_log_api=[]
 async def function_postgres_log_create(object,batch,cache_postgres_column_datatype,client_postgres,function_postgres_object_create,function_postgres_object_serialize):
@@ -286,9 +310,11 @@ async def function_postgres_log_create(object,batch,cache_postgres_column_dataty
       global object_list_log_api
       object_list_log_api.append(object)
       if len(object_list_log_api)>=batch:
-         await function_postgres_object_create("log_api",object_list_log_api,0,client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
+         await function_postgres_object_create("log_api",object_list_log_api,0,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
          object_list_log_api=[]
-   except Exception as e:print(str(e))
+   except Exception as e:
+      print("error function_postgres_log_create")
+      print(str(e))
    return None
 
 from fastapi import Request,responses
@@ -385,29 +411,6 @@ async def function_cache_api_response(mode,request,response,expire_sec,client_re
       response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
    return response
 
-import jwt,json,time
-async def function_token_encode(user,config_key_jwt,config_token_expire_sec):
-   data={"id":user["id"],"is_active":user.get("is_active"),"api_access":user.get("api_access")}
-   data=json.dumps(data,default=str)
-   token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":data},config_key_jwt)
-   return token
-
-import jwt,json
-async def function_token_decode(token,config_key_jwt):
-   user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
-   return user
-
-async def function_token_check(request,config_key_root,config_key_jwt,function_token_decode):
-   user={}
-   api=request.url.path
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-   if "root/" in api:
-      if token!=config_key_root:raise Exception("token root mismatch")
-   else:
-      if any(path in api for path in ["my/", "private/", "admin/"]) and not token:raise Exception("token missing")
-      if token:user=await function_token_decode(token,config_key_jwt)
-   return user
-
 async def function_param_read(mode,request,must,optional):
    param=[]
    if mode=="query":
@@ -425,6 +428,41 @@ async def function_param_read(mode,request,must,optional):
    for item in optional:
       param.append(object.get(item))
    return object,param
+
+async def function_create_where_string(object,cache_postgres_column_datatype,function_object_serialize):
+   object={k:v for k,v in object.items() if (k in cache_postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
+   where_operator={k:v.split(',',1)[0] for k,v in object.items()}
+   where_value={k:v.split(',',1)[1] for k,v in object.items()}
+   object_list=await function_object_serialize([where_value],cache_postgres_column_datatype)
+   where_value=object_list[0]
+   where_string_list=[f"({key} {where_operator[key]} :{key} or :{key} is null)" for key in [*object]]
+   where_string_joined=' and '.join(where_string_list)
+   where_string=f"where {where_string_joined}" if where_string_joined else ""
+   return where_string,where_value
+   
+import random
+async def function_otp_generate(mode,data,client_postgres):
+   otp=random.randint(100000,999999)
+   if mode=="email":
+      query="insert into otp (otp,email) values (:otp,:email) returning *;"
+      values={"otp":otp,"email":data.strip().lower()}
+   if mode=="mobile":
+      query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
+      values={"otp":otp,"mobile":data.strip().lower()}
+   await client_postgres.execute(query=query,values=values)
+   return otp
+
+async def function_otp_verify(mode,otp,data,client_postgres):
+   if mode=="email":
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+      values={"email":data}
+   if mode=="mobile":
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+      values={"mobile":data}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   if not output:raise Exception("otp not found")
+   if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
+   return None
 
 import hashlib
 async def function_signup_username_password(type,username,password,client_postgres):
@@ -479,8 +517,8 @@ async def function_login_password_mobile(type,password,mobile,client_postgres,co
    token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
-async def function_login_otp_email(type,email,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_encode):
-   await function_verify_otp(client_postgres,otp,email,None)
+async def function_login_otp_email(type,email,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_otp_verify,function_token_encode):
+   await function_otp_verify("email",otp,email,client_postgres)
    query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
    values={"type":type,"email":email}
    output=await client_postgres.fetch_all(query=query,values=values)
@@ -493,8 +531,8 @@ async def function_login_otp_email(type,email,otp,client_postgres,config_key_jwt
    token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return token
 
-async def function_login_otp_mobile(type,mobile,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_encode):
-   await function_verify_otp(client_postgres,otp,None,mobile)
+async def function_login_otp_mobile(type,mobile,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_otp_verify,function_token_encode):
+   await function_otp_verify("mobile",otp,mobile,client_postgres)
    query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
    values={"type":type,"mobile":mobile}
    output=await client_postgres.fetch_all(query=query,values=values)
@@ -830,20 +868,20 @@ async def function_postgres_object_delete(table,object_list,is_serialize,cache_p
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
 
-async def function_postgres_object_delete_any(table,object,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize,create_where_string):
-   where_string,where_value=await create_where_string(object,function_postgres_object_serialize,cache_postgres_column_datatype)
+async def function_postgres_object_delete_any(table,object,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize,function_create_where_string):
+   where_string,where_value=await function_create_where_string(object,cache_postgres_column_datatype,function_postgres_object_serialize)
    query=f"delete from {table} {where_string};"
    await client_postgres.execute(query=query,values=where_value)
    return None
 
-async def function_postgres_object_read(table,object,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize,create_where_string):
+async def function_postgres_object_read(table,object,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize,function_create_where_string):
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    column=object.get("column","*")
    location_filter=object.get("location_filter")
    if location_filter:
       location_filter_split=location_filter.split(",")
       long,lat,min_meter,max_meter=float(location_filter_split[0]),float(location_filter_split[1]),int(location_filter_split[2]),int(location_filter_split[3])
-   where_string,where_value=await create_where_string(object,function_postgres_object_serialize,cache_postgres_column_datatype)
+   where_string,where_value=await function_create_where_string(object,cache_postgres_column_datatype,function_postgres_object_serialize)
    if location_filter:query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
    else:query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
    object_list=await client_postgres.fetch_all(query=query,values=where_value)

@@ -236,7 +236,7 @@ async def middleware(request,api_function):
       response=function_return_error(error)
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
    object={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-   asyncio.create_task(function_postgres_log_create(object,config_limit_log_api_batch,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,function_postgres_object_create))
+   asyncio.create_task(function_postgres_log_create(object,config_limit_log_api_batch,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_create,function_postgres_object_serialize))
    return response
 
 #api
@@ -333,13 +333,13 @@ async def auth_login_password_mobile(request:Request):
 @app.post("/auth/login-otp-email")
 async def auth_login_otp_email(request:Request):
    object,[type,otp,email]=await function_param_read("body",request,["type","otp","email"],[])
-   token=await function_login_otp_email(type,email,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_encode)
+   token=await function_login_otp_email(type,email,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_otp_verify,function_token_encode)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-mobile")
 async def auth_login_otp_mobile(request:Request):
    object,[type,otp,mobile]=await function_param_read("body",request,["type","otp","mobile"],[])
-   token=await function_login_otp_mobile(type,mobile,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_verify_otp,function_token_encode)
+   token=await function_login_otp_mobile(type,mobile,otp,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_otp_verify,function_token_encode)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-google")
@@ -391,7 +391,7 @@ async def my_object_create(request:Request):
 async def my_object_read(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   output=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,create_where_string)
+   output=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,function_create_where_string)
    return {"status":1,"message":output}
 
 @app.get("/my/parent-read")
@@ -415,9 +415,10 @@ async def my_object_update(request:Request):
       if any(key in object and not otp for key in ["email","mobile"]):return function_return_error("otp missing")
       if otp:
          email,mobile=object.get("email"),object.get("mobile")
-         await function_verify_otp(request.app.state.client_postgres,otp,email,mobile)
+         if email:await function_otp_verify("email",otp,email,request.app.state.client_postgres)
+         elif mobile:await function_otp_verify("mobile",otp,mobile,request.app.state.client_postgres)
    if table=="users":output=await function_postgres_object_update("users",[object],1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
-   else:output=await function_postgres_object_update_user(table,[object],1,request.state.user["id",request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,request.app.state.client_postgres,function_postgres_object_serialize])
+   else:output=await function_postgres_object_update_user(table,[object],1,request.state.user["id"],request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    return {"status":1,"message":output}
 
 @app.put("/my/ids-update")
@@ -440,7 +441,7 @@ async def my_object_delete_any(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
    if table in ["users"]:return function_return_error("table not allowed")
-   await function_postgres_object_delete_any(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,create_where_string)
+   await function_postgres_object_delete_any(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,function_create_where_string)
    return {"status":1,"message":"done"}
 
 @app.get("/my/message-received")
@@ -484,48 +485,48 @@ async def my_message_delete_single(request:Request):
 @app.post("/public/otp-send-mobile-sns")
 async def public_otp_send_mobile_sns(request:Request):
    object,[mobile]=await function_param_read("body",request,["mobile"],[])
-   otp=await function_generate_save_otp(request.app.state.client_postgres,None,mobile)
+   otp=await function_otp_generate("mobile",mobile,request.app.state.client_postgres)
    await function_sns_send_message(mobile,str(otp),request.app.state.client_sns)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-mobile-sns-template")
 async def public_otp_send_mobile_sns_template(request:Request):
    object,[mobile,message,template_id,entity_id,sender_id]=await function_param_read("body",request,["mobile","message","template_id","entity_id","sender_id"],[])
-   otp=await function_generate_save_otp(request.app.state.client_postgres,None,mobile)
+   otp=await function_otp_generate("mobile",mobile,request.app.state.client_postgres)
    await function_sns_send_message_template(mobile,message,template_id,entity_id,sender_id,request.app.state.client_sns)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-mobile-fast2sms")
 async def public_otp_send_mobile_fast2sms(request:Request):
    object,[mobile]=await function_param_read("body",request,["mobile"],[])
-   otp=await function_generate_save_otp(request.app.state.client_postgres,None,mobile)
+   otp=await function_otp_generate("mobile",mobile,request.app.state.client_postgres)
    await function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-email-ses")
 async def public_otp_send_email_ses(request:Request):
    object,[email,sender_email]=await function_param_read("body",request,["email","sender_email"],[])
-   otp=await function_generate_save_otp(request.app.state.client_postgres,email,None)
+   otp=await function_otp_generate("email",email,request.app.state.client_postgres)
    await function_ses_send_email([email],"your otp code",str(otp),sender_email,request.app.state.client_ses)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-email-resend")
 async def public_otp_send_email_resend(request:Request):
    object,[email,sender_email]=await function_param_read("body",request,["email","sender_email"],[])
-   otp=await function_generate_save_otp(request.app.state.client_postgres,email,None)
+   otp=await function_otp_generate("email",email,request.app.state.client_postgres)
    await function_resend_send_email([email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>",sender_email,config_resend_key,config_resend_url)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-verify-email")
 async def public_otp_verify_email(request:Request):
    object,[otp,email]=await function_param_read("body",request,["otp","email"],[])
-   await function_verify_otp(request.app.state.client_postgres,otp,email,None)
+   await function_otp_verify("email",otp,email,request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-verify-mobile")
 async def public_otp_verify_mobile(request:Request):
    object,[otp,mobile]=await function_param_read("body",request,["otp","mobile"],[])
-   await function_verify_otp(request.app.state.client_postgres,otp,None,mobile)
+   await function_otp_verify("mobile",otp,mobile,request.app.state.client_postgres)
    return {"status":1,"message":"done"}
 
 @app.post("/public/object-create")
@@ -541,7 +542,7 @@ async def public_object_create(request:Request):
 async def public_object_read(request:Request):
    object,[table,creator_data]=await function_param_read("query",request,["table"],["creator_data"])
    if table not in config_table_allowed_public_read_list:return function_return_error("table not allowed")
-   object_list=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,create_where_string)
+   object_list=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,function_create_where_string)
    if object_list and creator_data:object_list=await function_add_creator_data(object_list,creator_data,request.app.state.client_postgres)
    return {"status":1,"message":object_list}
 
@@ -614,7 +615,7 @@ async def admin_ids_delete(request:Request):
 @app.get("/admin/object-read")
 async def admin_object_read(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
-   output=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,create_where_string)
+   output=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,function_create_where_string)
    return {"status":1,"message":output}
 
 @app.post("/admin/db-runner")

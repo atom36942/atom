@@ -5,20 +5,20 @@ curl -X GET "$baseurl/test"
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/postgres-uploader" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
-curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@/Users/atom/Downloads/redis.csv"
+0 curl -X POST "$baseurl/root/redis-uploader" -H "Authorization: Bearer $token_root" -F "table=test" -F "file=@/Users/atom/Downloads/redis.csv"
 0 curl -X POST "$baseurl/root/s3-bucket-ops" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"create","bucket":"master"}'
 0 curl -X DELETE "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":"url1---url2---url3"}'
 curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 
 #auth
 curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"type":1,"username":"$username","password":"123"}'
-0 curl -X POST "$baseurl/auth/signup-bigint" -H "Content-Type: application/json" -d '{"type":1,"username":1234567,"password":123}'
+0 curl -X POST "$baseurl/auth/signup-bigint" -H "Content-Type: application/json" -d '{"type":1,"username":123,"password":123}'
 curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":1,"password":"123","username":"$username"}'
 0 curl -X POST "$baseurl/auth/login-password-bigint" -H "Content-Type: application/json" -d '{"type":1,"password":123,"username":123}'
 0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"password":123,"email":"atom"}'
 0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"password":123,"mobile":"atom"}'
-0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","email":"test"}'
-0 curl -X POST "$baseurl/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","mobile":"test"}'
+0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","email":"atom"}'
+0 curl -X POST "$baseurl/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","mobile":"atom"}'
 0 curl -X POST "$baseurl/auth/login-google" -H "Content-Type: application/json" -d '{"type":1,"google_token":"testing"}'
 
 #my
@@ -26,8 +26,8 @@ curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=soft" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=hard" -H "Authorization: Bearer $token"
-curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
-curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
+curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"my"}'
+curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"my background"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'

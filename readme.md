@@ -2,7 +2,7 @@
 - functional+procedural programming style
 - pure functions to reduce side effects
 - primary database as postgres
-- multiple drivers for postgres
+- multiple async drivers for postgres
 - one click database setup
 - bulk database uploader
 - sql query runner
