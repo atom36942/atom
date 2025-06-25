@@ -10,6 +10,87 @@ async def function_server_start_uvicorn(app):
    config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
    server=uvicorn.Server(config)
    await server.serve()
+   
+from databases import Database
+async def function_client_read_postgres(config_postgres_url):
+   client_postgres=Database(config_postgres_url,min_size=1,max_size=100)
+   await client_postgres.connect()
+   return client_postgres
+
+import asyncpg
+async def function_client_read_postgres_asyncpg(config_postgres_url):
+   client_postgres_asyncpg=await asyncpg.connect(config_postgres_url)
+   return client_postgres_asyncpg
+
+import redis.asyncio as redis
+async def function_client_read_redis(config_redis_url):
+   client_redis=redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
+   return client_redis
+
+import motor.motor_asyncio
+async def function_client_read_mongodb(config_mongodb_url):
+   client_mongodb=motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_url)
+   return client_mongodb
+
+import boto3
+async def function_client_read_s3(config_s3_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+   client_s3=boto3.client("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   client_s3_resource=boto3.resource("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   return client_s3,client_s3_resource
+
+import boto3
+async def function_client_read_sns(config_sns_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+   client_sns=boto3.client("sns",region_name=config_sns_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   return client_sns
+
+import boto3
+async def function_client_read_ses(config_ses_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+   client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   return client_ses
+
+from aiokafka import AIOKafkaProducer
+from aiokafka.helpers import create_ssl_context
+async def function_client_read_kafka_producer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile):
+   context=create_ssl_context(cafile=config_kafka_path_cafile,certfile=config_kafka_path_certfile,keyfile=config_kafka_path_keyfile)
+   client_kafka_producer=AIOKafkaProducer(bootstrap_servers=config_kafka_url,security_protocol="SSL",ssl_context=context)
+   await client_kafka_producer.start()
+   return client_kafka_producer
+
+from aiokafka import AIOKafkaConsumer
+from aiokafka.helpers import create_ssl_context
+async def function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name):
+   context=create_ssl_context(cafile=config_kafka_path_cafile,certfile=config_kafka_path_certfile,keyfile=config_kafka_path_keyfile)
+   kafka_consumer_client=AIOKafkaConsumer(config_channel_name,bootstrap_servers=config_kafka_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+   await kafka_consumer_client.start()
+   return kafka_consumer_client
+
+async def function_client_read_redis_consumer(client_redis,config_channel_name):
+   redis_consumer_client=client_redis.pubsub()
+   await redis_consumer_client.subscribe(config_channel_name)
+   return redis_consumer_client
+
+import aio_pika
+async def function_client_read_rabbitmq(config_rabbitmq_url):
+   client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
+   client_rabbitmq_channel=await client_rabbitmq.channel()
+   return client_rabbitmq,client_rabbitmq_channel
+
+import aio_pika
+async def function_client_read_lavinmq(config_lavinmq_url):
+   client_lavinmq=await aio_pika.connect_robust(config_lavinmq_url)
+   client_lavinmq_channel=await client_lavinmq.channel()
+   return client_lavinmq,client_lavinmq_channel
+
+import gspread
+from google.oauth2.service_account import Credentials
+async def function_client_read_gsheet(config_gsheet_service_account_json_path,config_gsheet_scope_list):
+   client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
+   return client_gsheet
+
+from openai import OpenAI
+def function_client_read_openai(config_openai_key):
+   client_openai=OpenAI(api_key=config_openai_key)
+   return client_openai
 
 import sentry_sdk
 def function_app_add_sentry(config_sentry_dsn):
@@ -59,6 +140,15 @@ import requests
 async def function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url):
    response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
    return response
+
+import httpx
+async def function_resend_send_email(email_list,title,body,sender_email,config_resend_key,config_resend_url):
+   payload={"from":sender_email,"to":email_list,"subject":title,"html":body}
+   headers={"Authorization":f"Bearer {config_resend_key}","Content-Type": "application/json"}
+   async with httpx.AsyncClient() as client:
+      output=await client.post(config_resend_url,json=payload,headers=headers)
+   if output.status_code!=200:raise Exception(f"{output.text}")
+   return None
 
 async def function_ses_send_email(email_list,title,body,sender_email,client_ses):
    client_ses.send_email(Source=sender_email,Destination={"ToAddresses":email_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
@@ -156,14 +246,47 @@ async def function_redis_get_object(key,client_redis):
    if output:output=json.loads(output)
    return output
 
+async def function_gsheet_create(object,sheet_name,spreadsheet_id,client_gsheet):
+   row=[object[key] for key in sorted(object.keys())]
+   output=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name).append_row(row)
+   return output
+
+async def function_gsheet_read(sheet_name,cell_boundary,spreadsheet_id,client_gsheet):
+   worksheet=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name)
+   if cell_boundary:output=worksheet.get(cell_boundary)
+   else:output=worksheet.get_all_records()
+   return output
+
+async def function_openai_prompt(prompt,is_web_search,previous_response_id,model,client_openai):
+   if not client_openai or not model or not prompt:raise Exception("param missing")
+   params={"model":model,"input":prompt}
+   if is_web_search==1:params["tools"]=[{"type":"web_search"}]
+   if previous_response_id:params["previous_response_id"]=previous_response_id
+   output=client_openai.responses.create(**params)
+   return output
+
+import base64
+async def function_openai_ocr(prompt,file,model,client_openai):
+   contents=await file.read()
+   b64_image=base64.b64encode(contents).decode("utf-8")
+   output=client_openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
+   return output
+
+import pandas
+async def function_gsheet_read_url(gid,spreadsheet_id):
+   url=f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
+   df=pandas.read_csv(url)
+   output=df.to_dict(orient="records")
+   return output
+
 import json
 object_list_log_api=[]
-async def function_postgres_log_create(object,batch,cache_postgres_column_datatype,client_postgres,function_postgres_create,function_object_serialize):
+async def function_postgres_log_create(object,batch,cache_postgres_column_datatype,client_postgres,function_postgres_object_create,function_postgres_object_serialize):
    try:
       global object_list_log_api
       object_list_log_api.append(object)
       if len(object_list_log_api)>=batch:
-         await function_postgres_create("log_api",object_list_log_api,0,client_postgres,cache_postgres_column_datatype,function_object_serialize)
+         await function_postgres_object_create("log_api",object_list_log_api,0,client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
          object_list_log_api=[]
    except Exception as e:print(str(e))
    return None
@@ -539,6 +662,16 @@ async def function_ownership_check(table,id,user_id,client_postgres):
       if output[0]["created_by_id"]!=user_id:raise Exception("object ownership issue")
    return None
 
+async def function_parent_object_read(table,parent_column,parent_table,order,limit,offset,user_id,client_postgres):
+   query=f'''
+   with
+   x as (select {parent_column} from {table} where (created_by_id=:created_by_id or :created_by_id is null) order by {order} limit {limit} offset {offset}) 
+   select ct.* from x left join {parent_table}  as ct on x.{parent_column}=ct.id;
+   '''
+   values={"created_by_id":user_id}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   return object_list
+
 async def function_postgres_schema_read(client_postgres):
    query='''
    WITH t AS (SELECT * FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'),
@@ -570,22 +703,22 @@ async def function_postgres_schema_read(client_postgres):
       column_data={"datatype":object["datatype"],"default":object["default"],"is_null":object["is_null"],"is_index":object["is_index"]}
       if table not in postgres_schema:postgres_schema[table]={}
       postgres_schema[table][column]=column_data
-   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
-   return postgres_schema,postgres_column_datatype
+   cache_postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
+   return postgres_schema,cache_postgres_column_datatype
 
 async def function_postgres_schema_init(client_postgres,config_postgres,function_postgres_schema_read):
    async def init_extension(client_postgres):
       await client_postgres.execute(query="create extension if not exists postgis;",values={})
       await client_postgres.execute(query="create extension if not exists pg_trgm;",values={})
    async def init_table(client_postgres,function_postgres_schema_read,config_postgres):
-      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       for table,column_list in config_postgres["table"].items():
          is_table=postgres_schema.get(table,{})
          if not is_table:
             query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
             await client_postgres.execute(query=query,values={})
    async def init_column(client_postgres,function_postgres_schema_read,config_postgres):
-      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       for table,column_list in config_postgres["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
@@ -594,7 +727,7 @@ async def function_postgres_schema_init(client_postgres,config_postgres,function
                query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
                await client_postgres.execute(query=query,values={})
    async def init_nullable(client_postgres,function_postgres_schema_read,config_postgres):
-      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       for table,column_list in config_postgres["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
@@ -638,18 +771,96 @@ async def function_postgres_schema_init(client_postgres,config_postgres,function
    await init_query(client_postgres,config_postgres)
    return None
 
+import hashlib,datetime,json
+async def function_postgres_object_serialize(object_list,cache_postgres_column_datatype):
+   for index,object in enumerate(object_list):
+      for key,value in object.items():
+         datatype=cache_postgres_column_datatype.get(key)
+         if not datatype:continue
+         if not value:continue
+         elif key in ["password"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
+         elif datatype=="text" and value in ["","null"]:object_list[index][key]=None
+         elif datatype=="text":object_list[index][key]=value.strip()
+         elif "int" in datatype:object_list[index][key]=int(value)
+         elif datatype=="numeric":object_list[index][key]=round(float(value),3)
+         elif datatype=="date":object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%d')
+         elif "time" in datatype:object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%dT%H:%M:%S')
+         elif datatype=="ARRAY":object_list[index][key]=value.split(",")
+         elif datatype=="jsonb":object_list[index][key]=json.dumps(value)
+   return object_list
+
+async def function_postgres_object_create(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
+   if is_serialize==1:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
+   column_insert_list=list(object_list[0].keys())
+   query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
+   if len(object_list)==1:
+      output=await client_postgres.execute(query=query,values=object_list[0])
+   else:
+      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
+   return output
+
+async def function_postgres_object_update(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
+   if is_serialize:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
+   column_update_list=[*object_list[0]]
+   column_update_list.remove("id")
+   query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id returning *;"
+   if len(object_list)==1:
+      output=await client_postgres.execute(query=query,values=object_list[0])
+   else:
+      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
+   return output
+
+async def function_postgres_object_update_user(table,object_list,is_serialize,user_id,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
+   if is_serialize:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
+   column_update_list=[*object_list[0]]
+   column_update_list.remove("id")
+   query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id and created_by_id={user_id} returning *;"
+   if len(object_list)==1:
+      output=await client_postgres.execute(query=query,values=object_list[0])
+   else:
+      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
+   return output
+
+async def function_postgres_object_delete(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
+   if is_serialize:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
+   query=f"delete from {table} where id=:id;"
+   if len(object_list)==1:
+      output=await client_postgres.execute(query=query,values=object_list[0])
+   else:
+      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
+   return output
+
+async def function_postgres_object_delete_any(table,object,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize,create_where_string):
+   where_string,where_value=await create_where_string(object,function_postgres_object_serialize,cache_postgres_column_datatype)
+   query=f"delete from {table} {where_string};"
+   await client_postgres.execute(query=query,values=where_value)
+   return None
+
+async def function_postgres_object_read(table,object,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize,create_where_string):
+   order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
+   column=object.get("column","*")
+   location_filter=object.get("location_filter")
+   if location_filter:
+      location_filter_split=location_filter.split(",")
+      long,lat,min_meter,max_meter=float(location_filter_split[0]),float(location_filter_split[1]),int(location_filter_split[2]),int(location_filter_split[3])
+   where_string,where_value=await create_where_string(object,function_postgres_object_serialize,cache_postgres_column_datatype)
+   if location_filter:query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
+   else:query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   object_list=await client_postgres.fetch_all(query=query,values=where_value)
+   return object_list
+
 import asyncio,json
-async def function_consumer_kafka(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name,config_postgres_url,function_kafka_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   kafka_consumer_client=await function_kafka_consumer_client_read(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
-   client_postgres=await function_postgres_client_read(config_postgres_url)
-   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+async def function_consumer_kafka(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name,config_postgres_url,function_client_read_kafka_consumer,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
+   kafka_consumer_client=await function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
+   client_postgres=await function_client_read_postgres(config_postgres_url)
+   postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
       async for message in kafka_consumer_client:
          if message.topic==config_channel_name:
             data=json.loads(message.value.decode('utf-8'))
             try:
-               if data["mode"]=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)   
-               if data["mode"]=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)   
+               if data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
                print(output)
             except Exception as e:print(str(e))
    except asyncio.CancelledError:print("subscription cancelled")
@@ -658,18 +869,18 @@ async def function_consumer_kafka(config_kafka_url,config_kafka_path_cafile,conf
       await kafka_consumer_client.stop()
 
 import asyncio,json
-async def function_consumer_redis(config_redis_url,config_channel_name,config_postgres_url,function_redis_client_read,function_redis_consumer_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   client_redis=await function_redis_client_read(config_redis_url)
-   redis_consumer_client=await function_redis_consumer_client_read(client_redis,config_channel_name)
-   client_postgres=await function_postgres_client_read(config_postgres_url)
-   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+async def function_consumer_redis(config_redis_url,config_channel_name,config_postgres_url,function_client_read_redis,function_client_read_redis_consumer,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
+   client_redis=await function_client_read_redis(config_redis_url)
+   redis_consumer_client=await function_client_read_redis_consumer(client_redis,config_channel_name)
+   client_postgres=await function_client_read_postgres(config_postgres_url)
+   postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
       async for message in redis_consumer_client.listen():
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():
             data=json.loads(message['data'])
             try:
-               if data["mode"]=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
-               if data["mode"]=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
+               if data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
                print(output)
             except Exception as e:print(str(e))
    except asyncio.CancelledError:print("subscription cancelled")
@@ -679,17 +890,17 @@ async def function_consumer_redis(config_redis_url,config_channel_name,config_po
       await client_redis.aclose()
       
 import aio_pika,asyncio,json
-async def function_consumer_rabbitmq(config_rabbitmq_url,config_channel_name,config_postgres_url,function_rabbitmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   client_rabbitmq,client_rabbitmq_channel=await function_rabbitmq_client_read(config_rabbitmq_url)
-   client_postgres=await function_postgres_client_read(config_postgres_url)
-   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+async def function_consumer_rabbitmq(config_rabbitmq_url,config_channel_name,config_postgres_url,function_client_read_rabbitmq,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
+   client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url)
+   client_postgres=await function_client_read_postgres(config_postgres_url)
+   postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    async def aqmp_callback(message: aio_pika.IncomingMessage):
       async with message.process():
          try:
             data=json.loads(message.body)
             mode=data.get("mode")
-            if mode=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
-            elif mode=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
+            elif mode=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
             else:output=f"Unsupported mode: {mode}"
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
@@ -703,17 +914,17 @@ async def function_consumer_rabbitmq(config_rabbitmq_url,config_channel_name,con
       await client_rabbitmq.close()
 
 import aio_pika,asyncio,json
-async def function_consumer_lavinmq(config_lavinmq_url,config_channel_name,config_postgres_url,function_lavinmq_client_read,function_postgres_client_read,function_postgres_schema_read,function_postgres_create,function_postgres_update,function_object_serialize):
-   client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(config_lavinmq_url)
-   client_postgres=await function_postgres_client_read(config_postgres_url)
-   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+async def function_consumer_lavinmq(config_lavinmq_url,config_channel_name,config_postgres_url,function_client_read_lavinmq,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
+   client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url)
+   client_postgres=await function_client_read_postgres(config_postgres_url)
+   postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    async def aqmp_callback(message: aio_pika.IncomingMessage):
       async with message.process():
          try:
             data=json.loads(message.body)
             mode=data.get("mode")
-            if mode=="create":output=await function_postgres_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
-            elif mode=="update":output=await function_postgres_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,postgres_column_datatype,function_object_serialize)
+            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
+            elif mode=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
             else:output=f"Unsupported mode: {mode}"
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
@@ -726,7 +937,7 @@ async def function_consumer_lavinmq(config_lavinmq_url,config_channel_name,confi
       await client_lavinmq_channel.close()
       await client_lavinmq.close()
       
-def function_numeric_converter(mode,x):
+def function_converter_numeric(mode,x):
    MAX_LEN = 30
    CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
    BASE = len(CHARS)
@@ -749,7 +960,7 @@ def function_numeric_converter(mode,x):
       output=''.join(reversed(chars))
    return output
 
-def function_bigint_converter(mode,x):
+def function_converter_bigint(mode,x):
    MAX_LENGTH = 11
    CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789_'
    BASE = len(CHARSET)
@@ -773,8 +984,7 @@ def function_bigint_converter(mode,x):
          chars.append(INDEX_TO_CHAR[index])
       output=''.join(reversed(chars))
    return output
-
-      
+  
 import os,json,requests
 def function_export_grafana_dashboards(host,username,password,max_limit,export_dir):
    session = requests.Session()
@@ -819,3 +1029,62 @@ def function_export_grafana_dashboards(host,username,password,max_limit,export_d
       for dash in dashboards:
          try:export_dashboard(org["name"], dash.get("folderTitle", "General"), dash)
          except Exception as e:print("❌ Failed to export", dash.get("title"), ":", e)
+         
+import asyncpg,random
+from mimesis import Person,Address,Food,Text,Code,Datetime
+async def function_generate_fake_data(TOTAL_ROWS,BATCH_SIZE,config_postgres_url):
+   conn = await asyncpg.connect(config_postgres_url)
+   person = Person()
+   address = Address()
+   food = Food()
+   text_gen = Text()
+   code = Code()
+   dt = Datetime()
+   TABLES = {
+   "customers": [("name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("birth_date", "DATE", lambda: dt.date()), ("signup_code", "TEXT", lambda: code.imei()), ("loyalty_points", "INT", lambda: random.randint(0, 10000)), ("favorite_fruit", "TEXT", lambda: food.fruit())],
+   "orders": [("order_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("order_date", "DATE", lambda: dt.date()), ("shipping_city", "TEXT", lambda: address.city()), ("total_amount", "INT", lambda: random.randint(10, 5000)), ("status", "TEXT", lambda: random.choice(["pending", "shipped", "delivered", "cancelled"])), ("item_count", "INT", lambda: random.randint(1, 20)), ("shipping_country", "TEXT", lambda: address.country())],
+   "products": [("product_name", "TEXT", lambda: food.fruit()), ("category", "TEXT", lambda: random.choice(["electronics", "clothing", "food", "books"])), ("price", "INT", lambda: random.randint(5, 1000)), ("supplier_city", "TEXT", lambda: address.city()), ("stock_quantity", "INT", lambda: random.randint(0, 500)), ("manufacture_date", "DATE", lambda: dt.date()), ("expiry_date", "DATE", lambda: dt.date()), ("sku_code", "TEXT", lambda: code.imei())],
+   "employees": [("full_name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("city", "TEXT", lambda: address.city()), ("salary", "INT", lambda: random.randint(30000, 150000)), ("hire_date", "DATE", lambda: dt.date()), ("employee_id", "TEXT", lambda: code.imei())],
+   "suppliers": [("supplier_name", "TEXT", lambda: person.full_name()), ("contact_email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("phone_number", "TEXT", lambda: person.telephone()), ("rating", "INT", lambda: random.randint(1, 5))],
+   "invoices": [("invoice_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("invoice_date", "DATE", lambda: dt.date()), ("amount_due", "INT", lambda: random.randint(100, 10000)), ("due_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["paid", "unpaid", "overdue"]))],
+   "payments": [("payment_id", "TEXT", lambda: code.imei()), ("invoice_number", "TEXT", lambda: code.imei()), ("payment_date", "DATE", lambda: dt.date()), ("amount", "INT", lambda: random.randint(50, 10000)), ("payment_method", "TEXT", lambda: random.choice(["credit_card", "paypal", "bank_transfer"])), ("status", "TEXT", lambda: random.choice(["completed", "pending", "failed"]))],
+   "departments": [("department_name", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("manager", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city()), ("budget", "INT", lambda: random.randint(50000, 1000000))],
+   "projects": [("project_name", "TEXT", lambda: text_gen.word()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("budget", "INT", lambda: random.randint(10000, 500000)), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"]))],
+   "inventory": [("item_name", "TEXT", lambda: food.spices()), ("quantity", "INT", lambda: random.randint(0, 1000)), ("warehouse_location", "TEXT", lambda: address.city()), ("last_restock_date", "DATE", lambda: dt.date())],
+   "shipments": [("shipment_id", "TEXT", lambda: code.imei()), ("order_number", "TEXT", lambda: code.imei()), ("shipment_date", "DATE", lambda: dt.date()), ("delivery_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["in_transit", "delivered", "delayed"]))],
+   "reviews": [("review_id", "TEXT", lambda: code.imei()), ("product_name", "TEXT", lambda: food.fruit()), ("customer_name", "TEXT", lambda: person.full_name()), ("rating", "INT", lambda: random.randint(1, 5)), ("review_date", "DATE", lambda: dt.date()), ("comments", "TEXT", lambda: text_gen.sentence())],
+   "tasks": [("task_name", "TEXT", lambda: text_gen.word()), ("assigned_to", "TEXT", lambda: person.full_name()), ("due_date", "DATE", lambda: dt.date()), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"])), ("status", "TEXT", lambda: random.choice(["pending", "in_progress", "completed"]))],
+   "assets": [("asset_tag", "TEXT", lambda: code.imei()), ("asset_name", "TEXT", lambda: food.fruit()), ("purchase_date", "DATE", lambda: dt.date()), ("warranty_expiry", "DATE", lambda: dt.date()), ("value", "INT", lambda: random.randint(100, 10000))],
+   "locations": [("location_name", "TEXT", lambda: address.city()), ("address", "TEXT", lambda: address.address()), ("country", "TEXT", lambda: address.country()), ("postal_code", "TEXT", lambda: address.postal_code())],
+   "meetings": [("meeting_id", "TEXT", lambda: code.imei()), ("topic", "TEXT", lambda: text_gen.word()), ("meeting_date", "DATE", lambda: dt.date()), ("organizer", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city())],
+   "tickets": [("ticket_id", "TEXT", lambda: code.imei()), ("issue", "TEXT", lambda: text_gen.sentence()), ("reported_by", "TEXT", lambda: person.full_name()), ("status", "TEXT", lambda: random.choice(["open", "closed", "in_progress"])), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"]))],
+   "subscriptions": [("subscription_id", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("plan_type", "TEXT", lambda: random.choice(["basic", "premium", "enterprise"]))],
+   }
+   async def create_tables(conn,TABLES):
+      for table_name, columns in TABLES.items():
+         await conn.execute(f"DROP TABLE IF EXISTS {table_name};")
+         columns_def = ", ".join(f"{name} {dtype}" for name, dtype, _ in columns)
+         query = f"CREATE TABLE IF NOT EXISTS {table_name} (id bigint primary key generated always as identity not null, {columns_def});"
+         await conn.execute(query)
+   async def insert_batch(conn, table_name, columns, batch_values):
+      cols = ", ".join(name for name, _, _ in columns)
+      placeholders = ", ".join(f"${i+1}" for i in range(len(columns)))
+      query = f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})"
+      await conn.executemany(query, batch_values)
+   async def generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE):
+      for table_name, columns in TABLES.items():
+         print(f"Inserting data into {table_name}...")
+         batch_values = []
+         for _ in range(TOTAL_ROWS):
+               row = tuple(gen() for _, _, gen in columns)
+               batch_values.append(row)
+               if len(batch_values) == BATCH_SIZE:
+                  await insert_batch(conn, table_name, columns, batch_values)
+                  batch_values.clear()
+         if batch_values:await insert_batch(conn, table_name, columns, batch_values)
+         print(f"Completed inserting {TOTAL_ROWS} rows into {table_name}")
+   await create_tables(conn,TABLES)
+   await generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE)
+   await conn.close()
+   return None
+

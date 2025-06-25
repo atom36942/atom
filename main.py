@@ -24,8 +24,6 @@ config_s3_region_name=env.get("config_s3_region_name")
 config_sns_region_name=env.get("config_sns_region_name")
 config_ses_region_name=env.get("config_ses_region_name")
 config_google_login_client_id=env.get("config_google_login_client_id")
-config_gsheet_service_account_json_path=env.get("config_gsheet_service_account_json_path")
-config_gsheet_scope_list=env.get("config_gsheet_scope_list").split(",") if env.get("config_gsheet_scope_list") else []
 config_fast2sms_key=env.get("config_fast2sms_key")
 config_fast2sms_url=env.get("config_fast2sms_url")
 config_resend_key=env.get("config_resend_key")
@@ -172,19 +170,18 @@ from contextlib import asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
       #client init
-      client_postgres=await function_postgres_client_read(config_postgres_url)
-      client_postgres_asyncpg=await postgres_client_asyncpg_read(config_postgres_url)
-      client_postgres_read=await function_postgres_client_read(config_postgres_url_read) if config_postgres_url_read else None
-      client_redis=await function_redis_client_read(config_redis_url) if config_redis_url else None
-      client_mongodb=await mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
-      client_s3,client_s3_resource=(await s3_client_read(config_s3_region_name,config_aws_access_key_id,config_aws_secret_access_key)) if config_s3_region_name else (None, None)
-      client_sns=await sns_client_read(config_sns_region_name,config_aws_access_key_id,config_aws_secret_access_key) if config_sns_region_name else None
-      client_ses=await ses_client_read(config_ses_region_name,config_aws_access_key_id,config_aws_secret_access_key) if config_ses_region_name else None
-      client_openai=openai_client_read(config_openai_key) if config_openai_key else None
-      client_gsheet=await gsheet_client_read(config_gsheet_service_account_json_path,config_gsheet_scope_list) if config_gsheet_service_account_json_path else None
-      client_kafka_producer=await kafka_producer_client_read(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name) if config_kafka_url else None
-      client_rabbitmq,client_rabbitmq_channel=await function_rabbitmq_client_read(config_rabbitmq_url) if config_rabbitmq_url else None
-      client_lavinmq,client_lavinmq_channel=await function_lavinmq_client_read(config_lavinmq_url) if config_lavinmq_url else None
+      client_postgres=await function_client_read_postgres(config_postgres_url)
+      client_postgres_asyncpg=await function_client_read_postgres_asyncpg(config_postgres_url)
+      client_postgres_read=await function_client_read_postgres(config_postgres_url_read) if config_postgres_url_read else None
+      client_redis=await function_client_read_redis(config_redis_url) if config_redis_url else None
+      client_mongodb=await function_client_read_mongodb(config_mongodb_url) if config_mongodb_url else None
+      client_s3,client_s3_resource=(await function_client_read_s3(config_s3_region_name,config_aws_access_key_id,config_aws_secret_access_key)) if config_s3_region_name else (None, None)
+      client_sns=await function_client_read_sns(config_sns_region_name,config_aws_access_key_id,config_aws_secret_access_key) if config_sns_region_name else None
+      client_ses=await function_client_read_ses(config_ses_region_name,config_aws_access_key_id,config_aws_secret_access_key) if config_ses_region_name else None
+      client_openai=function_client_read_openai(config_openai_key) if config_openai_key else None
+      client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile) if config_kafka_url else None
+      client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else None
+      client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url) if config_lavinmq_url else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg) if cache_postgres_schema.get("users",{}).get("api_access") else {}
@@ -239,7 +236,7 @@ async def middleware(request,api_function):
       response=function_return_error(error)
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
    object={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-   asyncio.create_task(function_postgres_log_create(object,config_limit_log_api_batch,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_object_serialize,function_postgres_create))
+   asyncio.create_task(function_postgres_log_create(object,config_limit_log_api_batch,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,function_postgres_object_create))
    return response
 
 #api
@@ -259,9 +256,9 @@ async def root_postgres_init(request:Request):
 async def root_postgres_uploader(request:Request):
    object,[mode,table,file_list]=await function_param_read("form",request,["mode","table","file_list"],[])
    object_list=await function_file_to_object_list(file_list[-1])
-   if mode=="create":output=await function_postgres_create(table,object_list,1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
-   if mode=="update":output=await function_postgres_update(table,object_list,1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
-   if mode=="delete":output=await function_postgres_delete(table,object_list,1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
+   if mode=="create":output=await function_postgres_object_create(table,object_list,1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
+   if mode=="update":output=await function_postgres_object_update(table,object_list,1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
+   if mode=="delete":output=await function_postgres_object_delete(table,object_list,1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    return {"status":1,"message":output}
 
 @app.post("/root/redis-uploader")
@@ -380,7 +377,7 @@ async def my_object_create(request:Request):
    if table in ["users"]:return function_return_error("table not allowed")
    if len(object)<=1:return function_return_error ("object issue")
    if any(key in config_column_disabled_non_admin_list for key in object):return function_return_error(" object key not allowed")
-   if not queue:output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
+   if not queue:output=await function_postgres_object_create(table,[object],is_serialize,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    elif queue:
       data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
       if queue=="redis":output=await function_publish_redis(data,request.app.state.client_redis,config_channel_name)
@@ -394,14 +391,14 @@ async def my_object_create(request:Request):
 async def my_object_read(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   output=await function_postgres_read(table,object,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,create_where_string)
+   output=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,create_where_string)
    return {"status":1,"message":output}
 
 @app.get("/my/parent-read")
 async def my_parent_read(request:Request):
    object,[table,parent_table,parent_column,order,limit,page]=await function_param_read("query",request,["table","parent_table","parent_column"],["order","limit","page"])
    order,limit,page=order if order else "id desc",int(limit) if limit else 100,int(page) if page else 1
-   output=await function_postgres_parent_read(table,parent_column,parent_table,request.app.state.client_postgres,order,limit,(page-1)*limit,request.state.user["id"])
+   output=await function_parent_object_read(table,parent_column,parent_table,order,limit,(page-1)*limit,request.state.user["id"],request.app.state.client_postgres)
    return {"status":1,"message":output}
 
 @app.put("/my/object-update")
@@ -419,8 +416,8 @@ async def my_object_update(request:Request):
       if otp:
          email,mobile=object.get("email"),object.get("mobile")
          await function_verify_otp(request.app.state.client_postgres,otp,email,mobile)
-   if table=="users":output=await function_postgres_update("users",[object],1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
-   else:output=await function_postgres_update_user(table,[object],1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,request.state.user["id"])
+   if table=="users":output=await function_postgres_object_update("users",[object],1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
+   else:output=await function_postgres_object_update_user(table,[object],1,request.state.user["id",request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,request.app.state.client_postgres,function_postgres_object_serialize])
    return {"status":1,"message":output}
 
 @app.put("/my/ids-update")
@@ -443,7 +440,7 @@ async def my_object_delete_any(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
    if table in ["users"]:return function_return_error("table not allowed")
-   await function_postgres_delete_any(table,object,request.app.state.client_postgres,create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   await function_postgres_object_delete_any(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,create_where_string)
    return {"status":1,"message":"done"}
 
 @app.get("/my/message-received")
@@ -516,7 +513,7 @@ async def public_otp_send_email_ses(request:Request):
 async def public_otp_send_email_resend(request:Request):
    object,[email,sender_email]=await function_param_read("body",request,["email","sender_email"],[])
    otp=await function_generate_save_otp(request.app.state.client_postgres,email,None)
-   await function_send_email_resend(config_resend_key,config_resend_url,sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
+   await function_resend_send_email([email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>",sender_email,config_resend_key,config_resend_url)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-verify-email")
@@ -537,14 +534,14 @@ async def public_object_create(request:Request):
    object,[]=await function_param_read("body",request,[],[])
    is_serialize=int(is_serialize) if is_serialize else 0
    if table not in config_table_allowed_public_create_list:return function_return_error("table not allowed")
-   output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
+   output=await function_postgres_object_create(table,[object],is_serialize,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    return {"status":1,"message":output}
 
 @app.get("/public/object-read")
 async def public_object_read(request:Request):
    object,[table,creator_data]=await function_param_read("query",request,["table"],["creator_data"])
    if table not in config_table_allowed_public_read_list:return function_return_error("table not allowed")
-   object_list=await function_postgres_read(table,object,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,create_where_string)
+   object_list=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,create_where_string)
    if object_list and creator_data:object_list=await function_add_creator_data(object_list,creator_data,request.app.state.client_postgres)
    return {"status":1,"message":object_list}
 
@@ -589,7 +586,7 @@ async def admin_object_create(request:Request):
    object,[]=await function_param_read("body",request,[],[])
    is_serialize=int(is_serialize) if is_serialize else 1
    if request.app.state.cache_postgres_schema.get(table).get("created_by_id"):object["created_by_id"]=request.state.user["id"]
-   output=await function_postgres_create(table,[object],is_serialize,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
+   output=await function_postgres_object_create(table,[object],is_serialize,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    return {"status":1,"message":output}
 
 @app.put("/admin/object-update")
@@ -599,7 +596,7 @@ async def admin_object_update(request:Request):
    if "id" not in object:return function_return_error ("id missing")
    if len(object)<=1:return function_return_error ("object length issue")
    if request.app.state.cache_postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
-   output=await function_postgres_update(table,[object],1,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize)
+   output=await function_postgres_object_update(table,[object],1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    return {"status":1,"message":output}
 
 @app.put("/admin/ids-update")
@@ -617,7 +614,7 @@ async def admin_ids_delete(request:Request):
 @app.get("/admin/object-read")
 async def admin_object_read(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
-   output=await function_postgres_read(table,object,request.app.state.client_postgres,request.app.state.cache_postgres_column_datatype,function_object_serialize,create_where_string)
+   output=await function_postgres_object_read(table,object,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize,create_where_string)
    return {"status":1,"message":output}
 
 @app.post("/admin/db-runner")
