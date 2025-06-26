@@ -170,8 +170,8 @@ from contextlib import asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
       #client init
-      client_postgres=await function_client_read_postgres(config_postgres_url)
-      client_postgres_asyncpg=await function_client_read_postgres_asyncpg(config_postgres_url)
+      client_postgres=await function_client_read_postgres(config_postgres_url) if config_postgres_url else None
+      client_postgres_asyncpg=await function_client_read_postgres_asyncpg(config_postgres_url) if config_postgres_url else None
       client_postgres_read=await function_client_read_postgres(config_postgres_url_read) if config_postgres_url_read else None
       client_redis=await function_client_read_redis(config_redis_url) if config_redis_url else None
       client_mongodb=await function_client_read_mongodb(config_mongodb_url) if config_mongodb_url else None
@@ -191,8 +191,8 @@ async def lifespan(app:FastAPI):
          if var_name.startswith(("client_", "cache_")):setattr(app.state,var_name,var_value)
       #app shutdown
       yield
-      await client_postgres.disconnect()
-      await client_postgres_asyncpg.close()
+      if client_postgres:await client_postgres.disconnect()
+      if client_postgres_asyncpg:await client_postgres_asyncpg.close()
       if client_postgres_read:await client_postgres_read.close()
       if client_redis:await client_redis.aclose()
       if client_mongodb:await client_mongodb.close()
