@@ -40,7 +40,7 @@ config_mode_check_is_active=env.get("config_mode_check_is_active","token")
 config_column_disabled_non_admin_list=env.get("config_column_disabled_non_admin_list","is_active,is_verified,api_access").split(",")
 config_table_allowed_public_create_list=env.get("config_table_allowed_public_create_list","test").split(",")
 config_table_allowed_public_read_list=env.get("config_table_allowed_public_read_list","test").split(",")
-router_list=env.get("router_list").split(",") if env.get("router_list") else []
+config_router_list=env.get("config_router_list").split(",") if env.get("config_router_list") else []
 config_api={
 "/admin/object-create":{"id":1},
 "/admin/object-update":{"id":2}, 
@@ -207,7 +207,7 @@ async def lifespan(app:FastAPI):
 from fastapi import FastAPI
 app=FastAPI(lifespan=lifespan)
 function_app_add_cors(app)
-function_app_add_router(app,router_list)
+function_app_add_router(app,config_router_list)
 if config_sentry_dsn:function_app_add_sentry(config_sentry_dsn)
 if False:function_app_add_prometheus(app)
 
