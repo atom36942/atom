@@ -16,7 +16,7 @@
 - message module
 - public apis to read objects
 - admin apis with rbac
-- soft/hard delete
+- object soft/hard delete
 - background apis
 - redis integration
 - redis bulk uploader

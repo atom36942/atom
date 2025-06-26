@@ -215,12 +215,12 @@ async def function_mongodb_object_create(table,object_list,database,client_mongo
    output=await mongodb_client_database[table].insert_many(object_list)
    return str(output)
 
-async def function_redis_object_create(table,object_list,expiry,client_redis):
+async def function_redis_object_create(table,object_list,expiry_sec,client_redis):
    async with client_redis.pipeline(transaction=True) as pipe:
       for object in object_list:
          key=f"{table}_{object['id']}"
-         if not expiry:pipe.set(key,json.dumps(object))
-         else:pipe.setex(key,expiry,json.dumps(object))
+         if not expiry_sec:pipe.set(key,json.dumps(object))
+         else:pipe.setex(key,expiry_sec,json.dumps(object))
       await pipe.execute()
    return None
 
@@ -234,10 +234,10 @@ async def function_file_to_object_list(file):
    return object_list
 
 import json
-async def function_redis_set_object(object,key,expiry,client_redis):
+async def function_redis_set_object(object,key,expiry_sec,client_redis):
    object=json.dumps(object)
-   if not expiry:output=await client_redis.set(key,object)
-   else:output=await client_redis.setex(key,expiry,object)
+   if not expiry_sec:output=await client_redis.set(key,object)
+   else:output=await client_redis.setex(key,expiry_sec,object)
    return output
 
 import json
