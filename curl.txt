@@ -13,7 +13,7 @@ curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 #auth
 curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"type":1,"username":"$username","password":"123"}'
 0 curl -X POST "$baseurl/auth/signup-bigint" -H "Content-Type: application/json" -d '{"type":1,"username":123,"password":123}'
-curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":1,"password":"123","username":"$username"}'
+curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"type":1,"password":"123","username":"$username"}'
 0 curl -X POST "$baseurl/auth/login-password-bigint" -H "Content-Type: application/json" -d '{"type":1,"password":123,"username":123}'
 0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"password":123,"email":"atom"}'
 0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"password":123,"mobile":"atom"}'
@@ -26,20 +26,21 @@ curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=soft" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=hard" -H "Authorization: Bearer $token"
-curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"my"}'
+curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"my","location":"POINT(17.794387 -83.03215)"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"my background"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
-0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb_test"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=kafka" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"kafka"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_atom" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb"}'
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/parent-read?table=report_user&parent_column=user_id&parent_table=users" -H "Authorization: Bearer $token"
 curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":123}'
 0 curl -X PUT "$baseurl/my/object-update?table=users&otp=123" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"email":"atom"}'
-curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
-curl -X PUT "$baseurl/my/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451","column":"is_deleted","value":1}'
-curl -X DELETE "$baseurl/my/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451"}'
-curl -X DELETE "$baseurl/my/object-delete-any?table=test&id>,1" -H "Authorization: Bearer $token"
+curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":302,"title":"my updated"}'
+curl -X PUT "$baseurl/my/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"320,321,451","column":"is_deleted","value":1}'
+curl -X DELETE "$baseurl/my/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"320,2,3"}'
+curl -X DELETE "$baseurl/my/object-delete-any?table=test&id=<,1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-received" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-received?is_unread=1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-inbox" -H "Authorization: Bearer $token"
@@ -49,12 +50,16 @@ curl -X DELETE "$baseurl/my/message-delete-bulk?mode=all" -H "Authorization: Bea
 curl -X DELETE "$baseurl/my/message-delete-single?id=1" -H "Authorization: Bearer $token"
 
 #public
+0 curl -X POST "$baseurl/public/otp-send-mobile-sns" -H "Content-Type: application/json" -d '{"mobile":"atom"}'
+0 curl -X POST "$baseurl/public/otp-send-mobile-sns-template" -H "Content-Type: application/json" -d '{"mobile":"atom","message":"atom","template_id":"atom","entity_id":"atom","sender_id":"atom"}'
+0 curl -X POST "$baseurl/public/otp-send-mobile-fast2sms" -H "Content-Type: application/json" -d '{"mobile":"atom"}'
+0 curl -X POST "$baseurl/public/otp-send-email-ses" -H "Content-Type: application/json" -d '{"email":"atom","sender_email":"atom"}'
 0 curl -X POST "$baseurl/public/otp-send-email-resend" -H "Content-Type: application/json" -d '{"email":"atom36942@gmail.com","sender_email":"no-reply@mail.askira.app"}'
-0 curl -X POST "$baseurl/public/otp-verify-email" -H "Content-Type: application/json" -d '{"otp":123,"email":"test"}'
-0 curl -X POST "$baseurl/public/otp-verify-mobile" -H "Content-Type: application/json" -d '{"otp":123,"mobile":"test"}'
+0 curl -X POST "$baseurl/public/otp-verify-email" -H "Content-Type: application/json" -d '{"otp":123,"email":"atom"}'
+0 curl -X POST "$baseurl/public/otp-verify-mobile" -H "Content-Type: application/json" -d '{"otp":123,"mobile":"atom"}'
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"public"}'
 curl -X GET "$baseurl/public/object-read?table=test"
-curl -X GET "$baseurl/public/object-read?table=test&id=>,1"
+curl -X GET "$baseurl/public/object-read?table=test&id=>,1&page=2&limit=3"
 curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
 curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.23,3.45,10,100"
 curl -X GET "$baseurl/public/info"
@@ -66,8 +71,8 @@ curl -X GET "$baseurl/public/info"
 
 #admin
 curl -X POST "$baseurl/admin/object-create?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"username_bigint":123456789,"password_bigint":123}'
-curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":435,"title":"test"}'
-curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451","column":"is_deleted","value":1}'
-curl -X DELETE "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"449,450,451"}'
+curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
+curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,3","column":"is_deleted","value":1}'
+curl -X DELETE "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,3"}'
 curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select id from users where id=1"}'

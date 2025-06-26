@@ -385,7 +385,7 @@ async def function_check_is_active(mode,request,cache_users_is_active,client_pos
    return None
 
 async def function_check_rate_limiter(request,client_redis,config_api):
-   limit,window=config_api.get(request.url.path).get("rate_limiter")
+   limit,window=config_api.get(request.url.path).get("rate_limiter_times_sec")
    identifier=request.state.user.get("id") if request.state.user else request.client.host
    rate_key=f"ratelimit:{request.url.path}:{identifier}"
    current_count=await client_redis.get(rate_key)
@@ -601,25 +601,25 @@ async def function_message_object_mark_read(object_list,client_postgres):
 async def function_message_delete_single_user(user_id,message_id,client_postgres):
    query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
    values={"user_id":user_id,"id":message_id}
-   await client_postgres.execute(query=query,values={})
+   await client_postgres.execute(query=query,values=values)
    return None
 
 async def function_message_delete_created_user(user_id,client_postgres):
    query="delete from message where created_by_id=:user_id;"
    values={"user_id":user_id}
-   await client_postgres.execute(query=query,values={})
+   await client_postgres.execute(query=query,values=values)
    return None
 
 async def function_message_delete_received_user(user_id,client_postgres):
    query="delete from message where user_id=:user_id;"
    values={"user_id":user_id}
-   await client_postgres.execute(query=query,values={})
+   await client_postgres.execute(query=query,values=values)
    return None
 
 async def function_message_delete_all_user(user_id,client_postgres):
    query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
    values={"user_id":user_id}
-   await client_postgres.execute(query=query,values={})
+   await client_postgres.execute(query=query,values=values)
    return None
 
 import datetime
@@ -897,8 +897,8 @@ async def function_consumer_kafka(config_kafka_url,config_kafka_path_cafile,conf
          if message.topic==config_channel_name:
             data=json.loads(message.value.decode('utf-8'))
             try:
-               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)   
-               if data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
+               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)   
+               if data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
                print(output)
             except Exception as e:print(str(e))
    except asyncio.CancelledError:print("subscription cancelled")
@@ -917,8 +917,8 @@ async def function_consumer_redis(config_redis_url,config_channel_name,config_po
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():
             data=json.loads(message['data'])
             try:
-               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
-               if data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
+               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+               if data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
                print(output)
             except Exception as e:print(str(e))
    except asyncio.CancelledError:print("subscription cancelled")
@@ -937,8 +937,8 @@ async def function_consumer_rabbitmq(config_rabbitmq_url,config_channel_name,con
          try:
             data=json.loads(message.body)
             mode=data.get("mode")
-            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
-            elif mode=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
+            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+            elif mode=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
             else:output=f"Unsupported mode: {mode}"
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
@@ -961,8 +961,8 @@ async def function_consumer_lavinmq(config_lavinmq_url,config_channel_name,confi
          try:
             data=json.loads(message.body)
             mode=data.get("mode")
-            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
-            elif mode=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],client_postgres,cache_postgres_column_datatype,function_postgres_object_serialize)
+            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+            elif mode=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
             else:output=f"Unsupported mode: {mode}"
             print(output)
          except Exception as e:print("Callback function_error:",e.args)

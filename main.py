@@ -48,7 +48,7 @@ config_api={
 "/admin/ids-delete":{"id":4}, 
 "/admin/object-read":{"id":5}, 
 "/admin/db-runner":{"id":6},
-"/public/info":{"id":100,"rate_limiter":[3,10],"cache_sec":100},
+"/public/info":{"id":100,"rate_limiter_times_sec":[3,10],"cache_sec":100},
 "/my/object-read":{"is_active_check":1}, 
 }
 config_postgres={
@@ -224,7 +224,7 @@ async def middleware(request,api_function):
       request.state.user=await function_token_check(request,config_key_root,config_key_jwt,function_token_decode)
       if "admin/" in request.url.path:await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
       if config_api.get(request.url.path,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
-      if config_api.get(request.url.path,{}).get("rate_limiter"):await function_check_rate_limiter(request,request.app.state.client_redis,config_api)
+      if config_api.get(request.url.path,{}).get("rate_limiter_times_sec"):await function_check_rate_limiter(request,request.app.state.client_redis,config_api)
       if request.query_params.get("is_background")=="1":response=await function_api_response_background(request,api_function)
       elif config_api.get(api,{}).get("cache_sec"):response=await function_cache_api_response("get",request,None,None,request.app.state.client_redis)
       if not response:
@@ -306,8 +306,8 @@ async def auth_signup_bigint(request:Request):
    token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
    return {"status":1,"message":token}
 
-@app.post("/auth/login-password-username")
-async def auth_login_password_username(request:Request):
+@app.post("/auth/login-password")
+async def auth_login_password(request:Request):
    object,[type,password,username]=await function_param_read("body",request,["type","password","username"],[])
    token=await function_login_password_username(type,password,username,request.app.state.client_postgres,config_key_jwt,config_token_expire_sec,function_token_encode)
    return {"status":1,"message":token}
