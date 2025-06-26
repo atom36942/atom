@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 def function_load_env(env_path):
    load_dotenv(env_path)
-   output={k: os.getenv(k) for k in os.environ}
+   output={k.lower():os.getenv(k) for k in os.environ}
    return output
 
 import uvicorn
