@@ -180,8 +180,8 @@ async def lifespan(app:FastAPI):
       client_ses=await function_client_read_ses(config_ses_region_name,config_aws_access_key_id,config_aws_secret_access_key) if config_ses_region_name else None
       client_openai=function_client_read_openai(config_openai_key) if config_openai_key else None
       client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile) if config_kafka_url else None
-      client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else None
-      client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url) if config_lavinmq_url else None
+      client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
+      client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url) if config_lavinmq_url else (None, None)
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg) if cache_postgres_schema.get("users",{}).get("api_access") else {}
@@ -556,7 +556,8 @@ public_info_cache={}
 @app.get("/public/info")
 async def public_info(request:Request):
    global public_info_cache
-   if not public_info_cache or (time.time()-public_info_cache.get("set_at")>=1000):
+   cache_sec=1000
+   if not public_info_cache or (time.time()-public_info_cache.get("set_at")>=cache_sec):
       public_info_cache={
       "set_at":time.time(),
       "api_list":[route.path for route in request.app.routes],
