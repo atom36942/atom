@@ -87,6 +87,11 @@ async def function_client_read_gsheet(config_gsheet_service_account_json_path,co
    client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
    return client_gsheet
 
+from celery import Celery
+async def function_client_read_celery_producer(config_redis_url):
+   client_celery_producer=Celery("producer",broker=config_redis_url,backend=config_redis_url)
+   return client_celery_producer
+
 from openai import OpenAI
 def function_client_read_openai(config_openai_key):
    client_openai=OpenAI(api_key=config_openai_key)
@@ -847,6 +852,15 @@ async def function_postgres_object_create(table,object_list,is_serialize,cache_p
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
 
+async def function_postgres_object_create_minimal(table,object_list,client_postgres):
+   column_insert_list=list(object_list[0].keys())
+   query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
+   if len(object_list)==1:
+      output=await client_postgres.execute(query=query,values=object_list[0])
+   else:
+      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
+   return output
+
 async def function_postgres_object_update(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
    if is_serialize:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
    column_update_list=[*object_list[0]]
@@ -1146,5 +1160,17 @@ def get_variable_size_kb(namespace):
          result[key] = size_kb
    sorted_result = dict(sorted(result.items(), key=lambda item: item[1], reverse=True))
    return sorted_result
+
+
+      
+   
+   
+
+   
+   
+      
+   
+      
+   
 
 

@@ -39,6 +39,7 @@
 - fast2ms integration
 - resend integration
 - inmemory caching
+- celery integration
 
 # notes
 1. run = python main.py

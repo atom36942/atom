@@ -183,6 +183,7 @@ async def lifespan(app:FastAPI):
       client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile) if config_kafka_url else None
       client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
       client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url) if config_lavinmq_url else (None, None)
+      client_celery_producer=await function_client_read_celery_producer(config_redis_url) if config_redis_url else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres) if client_postgres else (None, None)
       cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}

@@ -1,6 +1,9 @@
 #function
 from function import *
 
+#env load
+env=function_load_env(".env")
+
 #router
 from fastapi import APIRouter
 router=APIRouter()
@@ -11,8 +14,11 @@ from fastapi import Request
 #test
 @router.get("/test")
 async def test(request:Request):
-   await function_postgres_object_create("test",[{"title":"router"}],1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
-   return {"status":1,"message":"test"}
+   await function_postgres_object_create("test",[{"title":"test"}],1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
+   await function_postgres_object_create_minimal("test",[{"title":"test minimal"}],request.app.state.client_postgres)
+   task_celery_1=request.app.state.client_celery_producer.send_task("tasks.celery_task_postgres_object_create",args=["test",[{"title": "test celery"}]])
+   task_celery_2=request.app.state.client_celery_producer.send_task("tasks.celery_add_num",args=[2,3])
+   return {"status":1,"message":"done"}
 
 #websocket
 from fastapi import WebSocket,WebSocketDisconnect
