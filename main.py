@@ -42,13 +42,13 @@ config_table_allowed_public_create_list=env.get("config_table_allowed_public_cre
 config_table_allowed_public_read_list=env.get("config_table_allowed_public_read_list","test").split(",")
 config_router_list=env.get("config_router_list").split(",") if env.get("config_router_list") else []
 config_api={
-"/admin/object-create":{"id":1,"ratelimiter_times_sec":[1,3]},
+"/admin/object-create":{"id":1,"ratelimiter_times_sec":[1,10]},
 "/admin/object-update":{"id":2},
 "/admin/ids-update":{"id":3},
 "/admin/ids-delete":{"id":4}, 
 "/admin/object-read":{"id":5,"cache_sec":["redis",100]},
 "/admin/db-runner":{"id":6,"is_active_check":1},
-"/public/info":{"id":7,"cache_sec":["inmemory",60]},
+"/public/info":{"id":7,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
 "/my/parent-read":{"id":8,"cache_sec":["redis",100]},
 }
 config_postgres={
@@ -227,7 +227,7 @@ async def middleware(request,api_function):
       request.state.user=await function_token_check(request,config_key_root,config_key_jwt,function_token_decode)
       if "admin/" in api:await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
       if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
-      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_rate_limiter(request,request.app.state.client_redis,config_api)
+      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis,config_api)
       if request.query_params.get("is_background")=="1":
          response=await function_api_response_background(request,api_function)
          type=1

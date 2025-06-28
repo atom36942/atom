@@ -215,15 +215,6 @@ async def function_mongodb_object_create(table,object_list,database,client_mongo
    output=await mongodb_client_database[table].insert_many(object_list)
    return str(output)
 
-async def function_redis_object_create(table,object_list,expiry_sec,client_redis):
-   async with client_redis.pipeline(transaction=True) as pipe:
-      for object in object_list:
-         key=f"{table}_{object['id']}"
-         if not expiry_sec:pipe.set(key,json.dumps(object))
-         else:pipe.setex(key,expiry_sec,json.dumps(object))
-      await pipe.execute()
-   return None
-
 import csv,io
 async def function_file_to_object_list(file):
    content=await file.read()
@@ -245,6 +236,15 @@ async def function_redis_get_object(key,client_redis):
    output=await client_redis.get(key)
    if output:output=json.loads(output)
    return output
+
+async def function_redis_object_create(table,object_list,expiry_sec,client_redis):
+   async with client_redis.pipeline(transaction=True) as pipe:
+      for object in object_list:
+         key=f"object_{table}_{object['id']}"
+         if not expiry_sec:pipe.set(key,json.dumps(object))
+         else:pipe.setex(key,expiry_sec,json.dumps(object))
+      await pipe.execute()
+   return None
 
 async def function_gsheet_create(object,sheet_name,spreadsheet_id,client_gsheet):
    row=[object[key] for key in sorted(object.keys())]
@@ -338,7 +338,6 @@ async def function_cache_users_is_active_read(limit,client_postgres_asyncpg):
          batch=await cursor.fetch(10000)
          if not batch:break
          output.update({record['id']: record['is_active'] for record in batch})
-         if False:await client_redis.mset({f"users_is_active_{record['id']}":0 if record['is_active']==0 else 1 for record in batch})
          count+=len(batch)
    return output
 
@@ -384,15 +383,15 @@ async def function_check_is_active(mode,request,cache_users_is_active,client_pos
    if user_is_active==0:raise Exception("user not active")
    return None
 
-async def function_check_rate_limiter(request,client_redis,config_api):
+async def function_check_ratelimiter(request,client_redis,config_api):
    limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
    identifier=request.state.user.get("id") if request.state.user else request.client.host
-   rate_key=f"ratelimit:{request.url.path}:{identifier}"
-   current_count=await client_redis.get(rate_key)
-   if current_count and int(current_count)+1>limit:raise Exception("rate limit exceeded")
+   ratelimiter_key=f"ratelimiter:{request.url.path}:{identifier}"
+   current_count=await client_redis.get(ratelimiter_key)
+   if current_count and int(current_count)+1>limit:raise Exception("ratelimiter exceeded")
    pipe=client_redis.pipeline()
-   pipe.incr(rate_key)
-   if not current_count:pipe.expire(rate_key,window)
+   pipe.incr(ratelimiter_key)
+   if not current_count:pipe.expire(ratelimiter_key,window)
    await pipe.execute()
    return None
 
@@ -400,8 +399,9 @@ from fastapi import Response
 import gzip,base64,asyncio,time
 inmemory_cache={}
 async def function_cache_api_response(mode,request,response,client_redis,config_api):
-   query_sorted="&".join(f"{k}={v}" for k,v in sorted(request.query_params.items()))
-   cache_key=f"{request.url.path}?{query_sorted}:{request.state.user.get('id')}" if "my/" in request.url.path else f"{request.url.path}?{query_sorted}"
+   query_param_sorted="&".join(f"{k}={v}" for k, v in sorted(request.query_params.items()))
+   identifier=request.state.user.get("id") if "my/" in request.url.path else 0
+   cache_key=f"cache:{request.url.path}?{query_param_sorted}:{identifier}"
    cache_mode,expire_sec=config_api.get(request.url.path,{}).get("cache_sec",(None,None))
    if mode=="get":
       response=None
