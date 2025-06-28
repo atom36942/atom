@@ -38,6 +38,7 @@
 - openai integration
 - fast2ms integration
 - resend integration
+- inmemory caching
 
 # notes
 1. run = python main.py
