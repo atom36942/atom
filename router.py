@@ -5,6 +5,9 @@ from function import *
 from fastapi import APIRouter
 router=APIRouter()
 
+#import
+from fastapi import Request
+
 #test
 @router.get("/test")
 async def test(request:Request):

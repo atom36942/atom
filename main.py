@@ -33,7 +33,7 @@ config_token_expire_sec=int(env.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(env.get("config_is_signup",1))
 config_limit_log_api_batch=int(env.get("config_limit_log_api_batch",10))
 config_limit_cache_users_api_access=int(env.get("config_limit_cache_users_api_access",1000))
-config_limit_cache_users_is_active=int(env.get("config_limit_cache_users_is_active",1000))
+config_limit_cache_users_is_active=int(env.get("config_limit_cache_users_is_active",0))
 config_channel_name=env.get("config_channel_name","ch1")
 config_mode_check_api_access=env.get("config_mode_check_api_access","cache")
 config_mode_check_is_active=env.get("config_mode_check_is_active","token")
@@ -42,13 +42,14 @@ config_table_allowed_public_create_list=env.get("config_table_allowed_public_cre
 config_table_allowed_public_read_list=env.get("config_table_allowed_public_read_list","test").split(",")
 config_router_list=env.get("config_router_list").split(",") if env.get("config_router_list") else []
 config_api={
-"/admin/object-create":{"id":1},
-"/admin/object-update":{"id":2}, 
+"/admin/object-create":{"id":1,"ratelimiter_times_sec":[1,3]},
+"/admin/object-update":{"id":2},
 "/admin/ids-update":{"id":3},
 "/admin/ids-delete":{"id":4}, 
-"/admin/object-read":{"id":5,"cache_sec":15},
+"/admin/object-read":{"id":5,"cache_sec":["redis",100]},
 "/admin/db-runner":{"id":6,"is_active_check":1},
-"/public/info":{"id":100,"rate_limiter_times_sec":[3,10],"cache_sec":15},
+"/public/info":{"id":7,"cache_sec":["inmemory",60]},
+"/my/parent-read":{"id":8,"cache_sec":["redis",100]},
 }
 config_postgres={
 "table":{
@@ -83,14 +84,14 @@ config_postgres={
 "log_api":[
 "created_at-timestamptz-0-0",
 "created_by_id-bigint-0-0",
+"type-bigint-0-btree",
 "ip_address-text-0-0",
 "api-text-0-0",
 "method-text-0-0",
 "query_param-text-0-0",
 "status_code-smallint-0-0",
 "response_time_ms-numeric(1000,3)-0-0",
-"description-text-0-0",
-"type-bigint-0-btree"
+"description-text-0-0"
 ],
 "otp":[
 "created_at-timestamptz-0-brin",
@@ -224,25 +225,30 @@ async def middleware(request,api_function):
       api=request.url.path
       request.state.user={}
       request.state.user=await function_token_check(request,config_key_root,config_key_jwt,function_token_decode)
-      if "admin/" in request.url.path:await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
-      if config_api.get(request.url.path,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
-      if config_api.get(request.url.path,{}).get("rate_limiter_times_sec"):await function_check_rate_limiter(request,request.app.state.client_redis,config_api)
+      if "admin/" in api:await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
+      if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
+      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_rate_limiter(request,request.app.state.client_redis,config_api)
       if request.query_params.get("is_background")=="1":
          response=await function_api_response_background(request,api_function)
          type=1
       elif config_api.get(api,{}).get("cache_sec"):
-         response=await function_cache_api_response("get",request,None,None,request.app.state.client_redis)
+         response=await function_cache_api_response("get",request,None,request.app.state.client_redis,config_api)
          type=2
       if not response:
          response=await api_function(request)
-         if config_api.get(api,{}).get("cache_sec"):response=await function_cache_api_response("set",request,response,config_api.get(api,{}).get("cache_sec"),request.app.state.client_redis)
+         type=3
+         if config_api.get(api,{}).get("cache_sec"):
+            response=await function_cache_api_response("set",request,response,request.app.state.client_redis,config_api)
+            type=4
    except Exception as e:
       error=str(e)
       print(traceback.format_exc())
       response=function_return_error(error)
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
-   object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-   asyncio.create_task(function_postgres_log_create(object,config_limit_log_api_batch,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_create,function_postgres_object_serialize))
+      type=5
+   if request.app.state.cache_postgres_schema.get("log_api"):
+      object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
+      asyncio.create_task(function_postgres_log_create(object,config_limit_log_api_batch,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_create,function_postgres_object_serialize))
    return response
 
 #api
@@ -552,20 +558,12 @@ async def public_object_read(request:Request):
    if object_list and creator_data:object_list=await function_add_creator_data(object_list,creator_data,request.app.state.client_postgres)
    return {"status":1,"message":object_list}
 
-public_info_cache={}
 @app.get("/public/info")
 async def public_info(request:Request):
-   global public_info_cache
-   cache_sec=1000
-   if not public_info_cache or (time.time()-public_info_cache.get("set_at")>=cache_sec):
-      public_info_cache={
-      "set_at":time.time(),
-      "api_list":[route.path for route in request.app.routes],
-      "redis":await request.app.state.client_redis.info() if request.app.state.client_redis else None,
-      "bucket":request.app.state.client_s3.list_buckets() if request.app.state.client_s3 else None,
-      "variable_size_kb":dict(sorted({f"{name} ({type(var).__name__})":sys.getsizeof(var) / 1024 for name, var in globals().items() if not name.startswith("__")}.items(), key=lambda item:item[1], reverse=True))
-      }
-   return {"status":1,"message":public_info_cache}
+   output={
+   "api_list":[route.path for route in request.app.routes]
+   }
+   return {"status":1,"message":output}
 
 @app.get("/public/page/{filename}")
 async def public_page(filename:str):

@@ -385,7 +385,7 @@ async def function_check_is_active(mode,request,cache_users_is_active,client_pos
    return None
 
 async def function_check_rate_limiter(request,client_redis,config_api):
-   limit,window=config_api.get(request.url.path).get("rate_limiter_times_sec")
+   limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
    identifier=request.state.user.get("id") if request.state.user else request.client.host
    rate_key=f"ratelimit:{request.url.path}:{identifier}"
    current_count=await client_redis.get(rate_key)
@@ -397,17 +397,27 @@ async def function_check_rate_limiter(request,client_redis,config_api):
    return None
 
 from fastapi import Response
-import gzip,base64
-async def function_cache_api_response(mode,request,response,expire_sec,client_redis):
+import gzip,base64,asyncio,time
+inmemory_cache={}
+async def function_cache_api_response(mode,request,response,client_redis,config_api):
    query_sorted="&".join(f"{k}={v}" for k,v in sorted(request.query_params.items()))
    cache_key=f"{request.url.path}?{query_sorted}:{request.state.user.get('id')}" if "my/" in request.url.path else f"{request.url.path}?{query_sorted}"
+   cache_mode,expire_sec=config_api.get(request.url.path,{}).get("cache_sec",(None,None))
    if mode=="get":
       response=None
-      cached_response=await client_redis.get(cache_key)
-      if cached_response:response=Response(content=gzip.decompress(base64.b64decode(cached_response)).decode(),status_code=200,media_type="application/json")
+      cached_response=None
+      if cache_mode=="redis":
+         cached_response=await client_redis.get(cache_key)
+         if cached_response:response=Response(content=gzip.decompress(base64.b64decode(cached_response)).decode(),status_code=200,media_type="application/json")
+      if cache_mode=="inmemory":
+         cache_item=inmemory_cache.get(cache_key)
+         if cache_item and cache_item["expire_at"]>time.time():response=Response(content=gzip.decompress(base64.b64decode(cache_item["data"])).decode(),status_code=200,media_type="application/json")
    if mode=="set":
       body=b"".join([chunk async for chunk in response.body_iterator])
-      await client_redis.setex(cache_key,expire_sec,base64.b64encode(gzip.compress(body)).decode())
+      if cache_mode=="redis":
+         await client_redis.setex(cache_key,expire_sec,base64.b64encode(gzip.compress(body)).decode())
+      if cache_mode=="inmemory":
+         inmemory_cache[cache_key]={"data":base64.b64encode(gzip.compress(body)).decode(),"expire_at":time.time()+expire_sec}
       response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
    return response
 
@@ -1125,4 +1135,16 @@ async def function_generate_fake_data(TOTAL_ROWS,BATCH_SIZE,config_postgres_url)
    await generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE)
    await conn.close()
    return None
+
+import sys
+def get_variable_size_kb(namespace):
+   result = {}
+   for name, var in namespace.items():
+      if not name.startswith("__"):
+         key = f"{name} ({type(var).__name__})"
+         size_kb = sys.getsizeof(var) / 1024
+         result[key] = size_kb
+   sorted_result = dict(sorted(result.items(), key=lambda item: item[1], reverse=True))
+   return sorted_result
+
 
