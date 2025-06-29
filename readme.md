@@ -40,6 +40,7 @@
 - resend integration
 - inmemory caching
 - celery integration
+- tesseract ocr
 
 # notes
 1. run = python main.py

@@ -1161,6 +1161,22 @@ def get_variable_size_kb(namespace):
    sorted_result = dict(sorted(result.items(), key=lambda item: item[1], reverse=True))
    return sorted_result
 
+import pytesseract
+from PIL import Image
+from pdf2image import convert_from_path
+def function_ocr_tesseract(file_path):
+    try:
+        if file_path.lower().endswith('.pdf'):
+            images = convert_from_path(file_path)
+            text = ''
+            for img in images:
+                text += pytesseract.image_to_string(img, lang='eng') + '\n'
+            return text
+        else:
+            image = Image.open(file_path)
+            return pytesseract.image_to_string(image, lang='eng')
+    except Exception as e:
+        raise RuntimeError(f"OCR failed: {e}")
 
       
    
