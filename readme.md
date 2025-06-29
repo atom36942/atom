@@ -28,7 +28,7 @@
 - rabbitmq integration
 - lavinmq integration
 - mongodb integration
-- rate limiter
+- ratelimiter
 - api caching
 - middleware functions
 - curl testing using tets.sh
