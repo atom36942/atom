@@ -42,7 +42,7 @@ config_table_allowed_public_create_list=env.get("config_table_allowed_public_cre
 config_table_allowed_public_read_list=env.get("config_table_allowed_public_read_list","test").split(",")
 config_router_list=env.get("config_router_list").split(",") if env.get("config_router_list") else []
 config_api={
-"/admin/object-create":{"id":1,"ratelimiter_times_sec":[1,10]},
+"/admin/object-create":{"id":1,"ratelimiter_times_sec":[1,3]},
 "/admin/object-update":{"id":2},
 "/admin/ids-update":{"id":3},
 "/admin/ids-delete":{"id":4}, 
@@ -51,7 +51,7 @@ config_api={
 "/public/info":{"id":7,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
 "/my/parent-read":{"id":8,"cache_sec":["redis",100]},
 }
-config_postgres={
+config_postgres_schema={
 "table":{
 "test":[
 "created_at-timestamptz-0-brin",
@@ -189,8 +189,7 @@ async def lifespan(app:FastAPI):
       cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
       cache_users_is_active=await function_cache_users_is_active_read(config_limit_cache_users_is_active,client_postgres_asyncpg) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("is_active") else {}
       #app state set
-      for var_name,var_value in locals().items():
-         if var_name.startswith(("client_", "cache_")):setattr(app.state,var_name,var_value)
+      function_app_add_state_lifespan(locals(),app)
       #app shutdown
       yield
       if client_postgres:await client_postgres.disconnect()
@@ -262,7 +261,7 @@ async def index():
 
 @app.get("/root/postgres-init")
 async def root_postgres_init(request:Request):
-   await function_postgres_schema_init(request.app.state.client_postgres,config_postgres,function_postgres_schema_read)
+   await function_postgres_schema_init(request.app.state.client_postgres,config_postgres_schema,function_postgres_schema_read)
    return {"status":1,"message":"done"}
 
 @app.post("/root/postgres-uploader")

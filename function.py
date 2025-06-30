@@ -106,6 +106,7 @@ def function_app_add_router(app,router_list):
    for item in router_list:
        router=__import__(item).router
        app.include_router(router)
+       
 
 from fastapi.middleware.cors import CORSMiddleware
 def function_app_add_cors(app):
@@ -116,6 +117,10 @@ from prometheus_fastapi_instrumentator import Instrumentator
 def function_app_add_prometheus(app):
    Instrumentator().instrument(app).expose(app)
    return None
+
+def function_app_add_state_lifespan(locals_dict,app):
+   for k,v in locals_dict.items():
+      if k.startswith(("client_","cache_")):setattr(app.state,k,v)
 
 import json
 async def function_publish_kafka(data,client_kafka_producer,config_channel_name):
@@ -759,29 +764,29 @@ async def function_postgres_schema_read(client_postgres):
    cache_postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
    return postgres_schema,cache_postgres_column_datatype
 
-async def function_postgres_schema_init(client_postgres,config_postgres,function_postgres_schema_read):
+async def function_postgres_schema_init(client_postgres,config_postgres_schema,function_postgres_schema_read):
    async def init_extension(client_postgres):
       await client_postgres.execute(query="create extension if not exists postgis;",values={})
       await client_postgres.execute(query="create extension if not exists pg_trgm;",values={})
-   async def init_table(client_postgres,function_postgres_schema_read,config_postgres):
+   async def init_table(client_postgres,function_postgres_schema_read,config_postgres_schema):
       postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      for table,column_list in config_postgres["table"].items():
+      for table,column_list in config_postgres_schema["table"].items():
          is_table=postgres_schema.get(table,{})
          if not is_table:
             query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
             await client_postgres.execute(query=query,values={})
-   async def init_column(client_postgres,function_postgres_schema_read,config_postgres):
+   async def init_column(client_postgres,function_postgres_schema_read,config_postgres_schema):
       postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      for table,column_list in config_postgres["table"].items():
+      for table,column_list in config_postgres_schema["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
             is_column=postgres_schema.get(table,{}).get(column_name,{})
             if not is_column:
                query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
                await client_postgres.execute(query=query,values={})
-   async def init_nullable(client_postgres,function_postgres_schema_read,config_postgres):
+   async def init_nullable(client_postgres,function_postgres_schema_read,config_postgres_schema):
       postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      for table,column_list in config_postgres["table"].items():
+      for table,column_list in config_postgres_schema["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
             is_null=postgres_schema.get(table,{}).get(column_name,{}).get("is_null",None)
@@ -791,9 +796,9 @@ async def function_postgres_schema_init(client_postgres,config_postgres,function
             if column_is_mandatory=="1" and is_null==1:
                query=f"alter table {table} alter column {column_name} set not null;"
                await client_postgres.execute(query=query,values={})
-   async def init_index(client_postgres,config_postgres):
+   async def init_index(client_postgres,config_postgres_schema):
       index_name_list=[object["indexname"] for object in (await client_postgres.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
-      for table,column_list in config_postgres["table"].items():
+      for table,column_list in config_postgres_schema["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
             if column_index_type=="0":
@@ -810,18 +815,18 @@ async def function_postgres_schema_init(client_postgres,config_postgres,function
                      else:
                         query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});"
                         await client_postgres.execute(query=query,values={})
-   async def init_query(client_postgres,config_postgres):
+   async def init_query(client_postgres,config_postgres_schema):
       constraint_name_list={object["constraint_name"].lower() for object in (await client_postgres.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
-      for query in config_postgres["query"].values():
+      for query in config_postgres_schema["query"].values():
          if query.split()[0]=="0":continue
          if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:continue
          await client_postgres.fetch_all(query=query,values={})
    await init_extension(client_postgres)
-   await init_table(client_postgres,function_postgres_schema_read,config_postgres)
-   await init_column(client_postgres,function_postgres_schema_read,config_postgres)
-   await init_nullable(client_postgres,function_postgres_schema_read,config_postgres)
-   await init_index(client_postgres,config_postgres)
-   await init_query(client_postgres,config_postgres)
+   await init_table(client_postgres,function_postgres_schema_read,config_postgres_schema)
+   await init_column(client_postgres,function_postgres_schema_read,config_postgres_schema)
+   await init_nullable(client_postgres,function_postgres_schema_read,config_postgres_schema)
+   await init_index(client_postgres,config_postgres_schema)
+   await init_query(client_postgres,config_postgres_schema)
    return None
 
 import hashlib,datetime,json
