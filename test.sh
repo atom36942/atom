@@ -11,7 +11,7 @@ baseurl="http://127.0.0.1:8000"
 token_root="$config_key_root"
 token="$token"
 username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-output_file="/Users/atom/Documents/curl.csv"
+output_file="/Users/atom/Downloads/curl.csv"
 
 # Initialize CSV file with headers
 echo "API,Status Code,Response Time (ms)" > "$output_file"

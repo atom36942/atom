@@ -4,7 +4,6 @@
 - primary database as postgres
 - multiple async drivers for postgres
 - one click database setup
-- bulk database uploader
 - sql query runner
 - database read/write replica
 - one click deployment using render
@@ -41,6 +40,8 @@
 - inmemory caching
 - celery integration
 - tesseract ocr
+- postgres csv export
+- postgres csv import
 
 # notes
 1. run = python main.py

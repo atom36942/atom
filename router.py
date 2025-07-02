@@ -10,6 +10,7 @@ router=APIRouter()
 
 #import
 from fastapi import Request
+from fastapi.responses import StreamingResponse
 
 #test
 @router.get("/test")
@@ -32,3 +33,12 @@ async def websocket_endpoint(websocket:WebSocket):
          await websocket.send_text(f"echo: {data}")
    except WebSocketDisconnect:
       print("client disconnected")
+
+#streaming
+@router.get("/stream")
+async def stream():
+   async def generator():
+      for i in range(1, 101):
+         yield f"{i}\n"
+         await asyncio.sleep(0.05)
+   return StreamingResponse(generator(),media_type="text/plain")

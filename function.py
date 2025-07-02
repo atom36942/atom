@@ -1182,6 +1182,26 @@ def function_ocr_tesseract(file_path):
             return pytesseract.image_to_string(image, lang='eng')
     except Exception as e:
         raise RuntimeError(f"OCR failed: {e}")
+     
+import csv,re
+from io import StringIO
+async def function_stream_csv_from_query(query,client_postgres_asyncpg):
+    if not re.match(r"^\s*SELECT\s", query,flags=re.IGNORECASE):raise Exception(status_code=400, detail="Only SELECT queries are allowed.")
+    async with client_postgres_asyncpg.transaction():
+        stmt = await client_postgres_asyncpg.prepare(query)
+        column_names = [attr.name for attr in stmt.get_attributes()]
+        stream = StringIO()
+        writer = csv.writer(stream)
+        writer.writerow(column_names)
+        yield stream.getvalue()
+        stream.seek(0)
+        stream.truncate(0)
+        async for row in client_postgres_asyncpg.cursor(query):
+            writer.writerow(row)
+            yield stream.getvalue()
+            stream.seek(0)
+            stream.truncate(0)
+
 
       
    

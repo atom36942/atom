@@ -167,6 +167,7 @@ config_postgres_schema={
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+import traceback
 @asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
@@ -202,7 +203,9 @@ async def lifespan(app:FastAPI):
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
       if client_lavinmq_channel and not client_lavinmq_channel.is_closed:await client_lavinmq_channel.close()
       if client_lavinmq and not client_lavinmq.is_closed:await client_lavinmq.close()
-   except Exception as e:print(str(e))
+   except Exception as e:
+      print(str(e))
+      print("Lifespan init failed:",traceback.format_exc())
    
 #app
 from fastapi import FastAPI
@@ -213,7 +216,7 @@ if config_sentry_dsn:function_app_add_sentry(config_sentry_dsn)
 if False:function_app_add_prometheus(app)
 
 #middleware
-from fastapi import Request
+from fastapi import Request,responses
 import time,traceback,asyncio
 @app.middleware("http")
 async def middleware(request,api_function):
@@ -264,8 +267,13 @@ async def root_postgres_init(request:Request):
    await function_postgres_schema_init(request.app.state.client_postgres,config_postgres_schema,function_postgres_schema_read)
    return {"status":1,"message":"done"}
 
-@app.post("/root/postgres-uploader")
-async def root_postgres_uploader(request:Request):
+@app.post("/root/postgres-csv-export")
+async def root_postgres_csv_export(request:Request):
+   object,[query]=await function_param_read("body",request,["query"],[])
+   return responses.StreamingResponse(function_stream_csv_from_query(query,request.app.state.client_postgres_asyncpg),media_type="text/csv",headers={"Content-Disposition": "attachment; filename=query_result.csv"})
+
+@app.post("/root/postgres-csv-import")
+async def root_postgres_csv_import(request:Request):
    object,[mode,table,file_list]=await function_param_read("form",request,["mode","table","file_list"],[])
    object_list=await function_file_to_object_list(file_list[-1])
    if mode=="create":output=await function_postgres_object_create(table,object_list,1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
@@ -273,8 +281,8 @@ async def root_postgres_uploader(request:Request):
    if mode=="delete":output=await function_postgres_object_delete(table,object_list,1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    return {"status":1,"message":output}
 
-@app.post("/root/redis-uploader")
-async def root_redis_uploader(request:Request):
+@app.post("/root/redis-csv-import")
+async def root_redis_csv_import(request:Request):
    object,[table,file_list,expiry_sec]=await function_param_read("form",request,["table","file_list"],["expiry_sec"])
    object_list=await function_file_to_object_list(file_list[-1])
    await function_redis_object_create(table,object_list,expiry_sec,request.app.state.client_redis)
