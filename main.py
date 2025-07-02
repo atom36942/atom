@@ -173,7 +173,7 @@ async def lifespan(app:FastAPI):
    try:
       #client init
       client_postgres=await function_client_read_postgres(config_postgres_url) if config_postgres_url else None
-      client_postgres_asyncpg=await function_client_read_postgres_asyncpg(config_postgres_url) if config_postgres_url else None
+      client_postgres_asyncpg,client_postgres_asyncpg_pool=await function_client_read_postgres_asyncpg(config_postgres_url) if config_postgres_url else None
       client_postgres_read=await function_client_read_postgres(config_postgres_url_read) if config_postgres_url_read else None
       client_redis=await function_client_read_redis(config_redis_url) if config_redis_url else None
       client_mongodb=await function_client_read_mongodb(config_mongodb_url) if config_mongodb_url else None
@@ -195,6 +195,7 @@ async def lifespan(app:FastAPI):
       yield
       if client_postgres:await client_postgres.disconnect()
       if client_postgres_asyncpg:await client_postgres_asyncpg.close()
+      if client_postgres_asyncpg_pool:await client_postgres_asyncpg_pool.close()
       if client_postgres_read:await client_postgres_read.close()
       if client_redis:await client_redis.aclose()
       if client_mongodb:await client_mongodb.close()
@@ -270,7 +271,7 @@ async def root_postgres_init(request:Request):
 @app.post("/root/postgres-csv-export")
 async def root_postgres_csv_export(request:Request):
    object,[query]=await function_param_read("body",request,["query"],[])
-   return responses.StreamingResponse(function_stream_csv_from_query(query,request.app.state.client_postgres_asyncpg),media_type="text/csv",headers={"Content-Disposition": "attachment; filename=query_result.csv"})
+   return responses.StreamingResponse(function_stream_csv_from_query(query,request.app.state.client_postgres_asyncpg_pool),media_type="text/csv",headers={"Content-Disposition": "attachment; filename=query_result.csv"})
 
 @app.post("/root/postgres-csv-import")
 async def root_postgres_csv_import(request:Request):

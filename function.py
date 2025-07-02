@@ -20,7 +20,8 @@ async def function_client_read_postgres(config_postgres_url):
 import asyncpg
 async def function_client_read_postgres_asyncpg(config_postgres_url):
    client_postgres_asyncpg=await asyncpg.connect(config_postgres_url)
-   return client_postgres_asyncpg
+   client_postgres_asyncpg_pool=await asyncpg.create_pool(dsn=config_postgres_url)
+   return client_postgres_asyncpg,client_postgres_asyncpg_pool
 
 import redis.asyncio as redis
 async def function_client_read_redis(config_redis_url):
@@ -1185,22 +1186,23 @@ def function_ocr_tesseract(file_path):
      
 import csv,re
 from io import StringIO
-async def function_stream_csv_from_query(query,client_postgres_asyncpg):
-    if not re.match(r"^\s*SELECT\s", query,flags=re.IGNORECASE):raise Exception(status_code=400, detail="Only SELECT queries are allowed.")
-    async with client_postgres_asyncpg.transaction():
-        stmt = await client_postgres_asyncpg.prepare(query)
-        column_names = [attr.name for attr in stmt.get_attributes()]
-        stream = StringIO()
-        writer = csv.writer(stream)
-        writer.writerow(column_names)
-        yield stream.getvalue()
-        stream.seek(0)
-        stream.truncate(0)
-        async for row in client_postgres_asyncpg.cursor(query):
-            writer.writerow(row)
-            yield stream.getvalue()
-            stream.seek(0)
-            stream.truncate(0)
+async def function_stream_csv_from_query(query,client_postgres_asyncpg_pool):
+   if not re.match(r"^\s*SELECT\s", query,flags=re.IGNORECASE):raise Exception(status_code=400, detail="Only SELECT queries are allowed.")
+   async with client_postgres_asyncpg_pool.acquire() as conn:
+      async with conn.transaction():
+         stmt = await conn.prepare(query)
+         column_names = [attr.name for attr in stmt.get_attributes()]
+         stream = StringIO()
+         writer = csv.writer(stream)
+         writer.writerow(column_names)
+         yield stream.getvalue()
+         stream.seek(0)
+         stream.truncate(0)
+         async for row in conn.cursor(query):
+               writer.writerow(row)
+               yield stream.getvalue()
+               stream.seek(0)
+               stream.truncate(0)
 
 
       
