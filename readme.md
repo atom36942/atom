@@ -44,7 +44,8 @@
 - postgres csv import
 
 # notes
-1. run = python main.py
-2. run with reload =  uvicorn main:app --reload
-3. run with docker =  docker build -t atom . --- docker run -p 8000:8000 atom
+1. main.py run = python main.py
+2. main.py run with reload =  uvicorn main:app --reload
+3. main.py run with docker =  docker build -t atom . --- docker run -p 8000:8000 atom
 4. api testing = ./test.sh
+5. celery run = celery -A consumerc.client_celery_consumer worker --loglevel=info

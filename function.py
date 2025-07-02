@@ -867,6 +867,13 @@ async def function_postgres_object_create_minimal(table,object_list,client_postg
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
 
+async def function_postgres_object_create_asyncpg(table,object_list,client_postgres_asyncpg):
+   column_insert_list=list(object_list[0].keys())
+   query=f"""INSERT INTO {table} ({','.join(column_insert_list)}) VALUES ({','.join(['$'+str(i+1) for i in range(len(column_insert_list))])}) ON CONFLICT DO NOTHING;"""
+   values=[tuple(obj[col] for col in column_insert_list) for obj in object_list]
+   await client_postgres_asyncpg.executemany(query,values)
+   return None
+
 async def function_postgres_object_update(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
    if is_serialize:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
    column_update_list=[*object_list[0]]
@@ -1100,8 +1107,8 @@ def function_export_grafana_dashboards(host,username,password,max_limit,export_d
          
 import asyncpg,random
 from mimesis import Person,Address,Food,Text,Code,Datetime
-async def function_generate_fake_data(TOTAL_ROWS,BATCH_SIZE,config_postgres_url):
-   conn = await asyncpg.connect(config_postgres_url)
+async def function_generate_fake_data(config_postgres_url,TOTAL_ROWS,BATCH_SIZE):
+   client_postgres_asyncpg = await asyncpg.connect(config_postgres_url)
    person = Person()
    address = Address()
    food = Food()
@@ -1128,18 +1135,18 @@ async def function_generate_fake_data(TOTAL_ROWS,BATCH_SIZE,config_postgres_url)
    "tickets": [("ticket_id", "TEXT", lambda: code.imei()), ("issue", "TEXT", lambda: text_gen.sentence()), ("reported_by", "TEXT", lambda: person.full_name()), ("status", "TEXT", lambda: random.choice(["open", "closed", "in_progress"])), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"]))],
    "subscriptions": [("subscription_id", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("plan_type", "TEXT", lambda: random.choice(["basic", "premium", "enterprise"]))],
    }
-   async def create_tables(conn,TABLES):
+   async def create_tables(client_postgres_asyncpg,TABLES):
       for table_name, columns in TABLES.items():
-         await conn.execute(f"DROP TABLE IF EXISTS {table_name};")
+         await client_postgres_asyncpg.execute(f"DROP TABLE IF EXISTS {table_name};")
          columns_def = ", ".join(f"{name} {dtype}" for name, dtype, _ in columns)
          query = f"CREATE TABLE IF NOT EXISTS {table_name} (id bigint primary key generated always as identity not null, {columns_def});"
-         await conn.execute(query)
-   async def insert_batch(conn, table_name, columns, batch_values):
+         await client_postgres_asyncpg.execute(query)
+   async def insert_batch(client_postgres_asyncpg, table_name, columns, batch_values):
       cols = ", ".join(name for name, _, _ in columns)
       placeholders = ", ".join(f"${i+1}" for i in range(len(columns)))
       query = f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})"
-      await conn.executemany(query, batch_values)
-   async def generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE):
+      await client_postgres_asyncpg.executemany(query, batch_values)
+   async def generate_data(client_postgres_asyncpg,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE):
       for table_name, columns in TABLES.items():
          print(f"Inserting data into {table_name}...")
          batch_values = []
@@ -1147,13 +1154,13 @@ async def function_generate_fake_data(TOTAL_ROWS,BATCH_SIZE,config_postgres_url)
                row = tuple(gen() for _, _, gen in columns)
                batch_values.append(row)
                if len(batch_values) == BATCH_SIZE:
-                  await insert_batch(conn, table_name, columns, batch_values)
+                  await insert_batch(client_postgres_asyncpg, table_name, columns, batch_values)
                   batch_values.clear()
-         if batch_values:await insert_batch(conn, table_name, columns, batch_values)
+         if batch_values:await insert_batch(client_postgres_asyncpg, table_name, columns, batch_values)
          print(f"Completed inserting {TOTAL_ROWS} rows into {table_name}")
-   await create_tables(conn,TABLES)
-   await generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE)
-   await conn.close()
+   await create_tables(client_postgres_asyncpg,TABLES)
+   await generate_data(client_postgres_asyncpg,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE)
+   await client_postgres_asyncpg.close()
    return None
 
 import sys
@@ -1188,9 +1195,9 @@ import csv,re
 from io import StringIO
 async def function_stream_csv_from_query(query,client_postgres_asyncpg_pool):
    if not re.match(r"^\s*SELECT\s", query,flags=re.IGNORECASE):raise Exception(status_code=400, detail="Only SELECT queries are allowed.")
-   async with client_postgres_asyncpg_pool.acquire() as conn:
-      async with conn.transaction():
-         stmt = await conn.prepare(query)
+   async with client_postgres_asyncpg_pool.acquire() as client_postgres_asyncpg:
+      async with client_postgres_asyncpg.transaction():
+         stmt = await client_postgres_asyncpg.prepare(query)
          column_names = [attr.name for attr in stmt.get_attributes()]
          stream = StringIO()
          writer = csv.writer(stream)
@@ -1198,22 +1205,11 @@ async def function_stream_csv_from_query(query,client_postgres_asyncpg_pool):
          yield stream.getvalue()
          stream.seek(0)
          stream.truncate(0)
-         async for row in conn.cursor(query):
+         async for row in client_postgres_asyncpg.cursor(query):
                writer.writerow(row)
                yield stream.getvalue()
                stream.seek(0)
                stream.truncate(0)
 
 
-      
    
-   
-
-   
-   
-      
-   
-      
-   
-
-

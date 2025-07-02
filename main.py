@@ -1,7 +1,7 @@
 #function
 from function import *
 
-#env load
+#env
 env=function_load_env(".env")
 
 #config
