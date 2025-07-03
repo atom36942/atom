@@ -574,7 +574,8 @@ async def public_object_read(request:Request):
 @app.get("/public/info")
 async def public_info(request:Request):
    output={
-   "api_list":[route.path for route in request.app.routes]
+   "api_list":[route.path for route in request.app.routes],
+   "postgres_schema":request.app.state.cache_postgres_schema
    }
    return {"status":1,"message":output}
 
