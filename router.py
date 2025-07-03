@@ -15,7 +15,7 @@ from fastapi.responses import StreamingResponse
 #test
 @router.get("/test")
 async def test(request:Request):
-   await function_postgres_object_create("test",[{"title":"test"}],1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
+   await function_postgres_object_create("test",[{"created_by_id":request.state.user.get("id"),"title":"test"}],1,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    await function_postgres_object_create_minimal("test",[{"title":"minimal"}],request.app.state.client_postgres)
    task_celery_1=request.app.state.client_celery_producer.send_task("tasks.celery_task_postgres_object_create",args=["test",[{"title": "celery"}]])
    task_celery_2=request.app.state.client_celery_producer.send_task("tasks.celery_add_num",args=[2,3])
