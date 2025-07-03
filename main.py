@@ -28,6 +28,8 @@ config_fast2sms_key=env.get("config_fast2sms_key")
 config_fast2sms_url=env.get("config_fast2sms_url")
 config_resend_key=env.get("config_resend_key")
 config_resend_url=env.get("config_resend_url")
+config_posthog_project_key=env.get("config_posthog_project_key")
+config_posthog_project_host=env.get("config_posthog_project_host")
 config_openai_key=env.get("config_openai_key")
 config_token_expire_sec=int(env.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(env.get("config_is_signup",1))
@@ -185,6 +187,7 @@ async def lifespan(app:FastAPI):
       client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
       client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url) if config_lavinmq_url else (None, None)
       client_celery_producer=await function_client_read_celery_producer(config_redis_url) if config_redis_url else None
+      client_posthog=await function_client_read_posthog(config_posthog_project_key,config_posthog_project_host)
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres) if client_postgres else (None, None)
       cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
@@ -204,9 +207,10 @@ async def lifespan(app:FastAPI):
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
       if client_lavinmq_channel and not client_lavinmq_channel.is_closed:await client_lavinmq_channel.close()
       if client_lavinmq and not client_lavinmq.is_closed:await client_lavinmq.close()
+      if client_posthog:client_posthog.flush()
    except Exception as e:
       print(str(e))
-      print("Lifespan init failed:",traceback.format_exc())
+      print(traceback.format_exc())
    
 #app
 from fastapi import FastAPI

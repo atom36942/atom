@@ -33,6 +33,11 @@ async def function_client_read_mongodb(config_mongodb_url):
    client_mongodb=motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_url)
    return client_mongodb
 
+from posthog import Posthog
+async def function_client_read_posthog(config_posthog_project_key,config_posthog_project_host):
+   client_posthog=Posthog(config_posthog_project_key,host=config_posthog_project_host)
+   return client_posthog
+
 import boto3
 async def function_client_read_s3(config_s3_region_name,config_aws_access_key_id,config_aws_secret_access_key):
    client_s3=boto3.client("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)

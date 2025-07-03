@@ -19,6 +19,8 @@ async def test(request:Request):
    await function_postgres_object_create_minimal("test",[{"title":"minimal"}],request.app.state.client_postgres)
    task_celery_1=request.app.state.client_celery_producer.send_task("tasks.celery_task_postgres_object_create",args=["test",[{"title": "celery"}]])
    task_celery_2=request.app.state.client_celery_producer.send_task("tasks.celery_add_num",args=[2,3])
+   request.app.state.client_posthog.capture(distinct_id="user_1",event="test")
+   request.app.state.client_posthog.capture(distinct_id="user_1",event="test2",properties={"name":"atom","title":"testing"})
    return {"status":1,"message":"done"}
 
 #websocket

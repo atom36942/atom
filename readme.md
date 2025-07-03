@@ -42,6 +42,7 @@
 - tesseract ocr
 - postgres csv export
 - postgres csv import
+- posthog integration
 
 # notes
 1. main.py run = python main.py
