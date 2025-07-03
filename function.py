@@ -295,6 +295,17 @@ async def function_gsheet_read_url(gid,spreadsheet_id):
    output=df.to_dict(orient="records")
    return output
 
+async def function_token_check(request,config_key_root,config_key_jwt,function_token_decode):
+   user={}
+   api=request.url.path
+   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
+   if "root/" in api:
+      if token!=config_key_root:raise Exception("token root mismatch")
+   else:
+      if any(path in api for path in ["my/", "private/", "admin/"]) and not token:raise Exception("token missing")
+      if token:user=await function_token_decode(token,config_key_jwt)
+   return user
+
 import jwt,json,time
 async def function_token_encode(user,config_key_jwt,config_token_expire_sec):
    user=dict(user)
@@ -306,17 +317,6 @@ async def function_token_encode(user,config_key_jwt,config_token_expire_sec):
 import jwt,json
 async def function_token_decode(token,config_key_jwt):
    user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
-   return user
-
-async def function_token_check(request,config_key_root,config_key_jwt,function_token_decode):
-   user={}
-   api=request.url.path
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and "Bearer " in request.headers.get("Authorization") else None
-   if "root/" in api:
-      if token!=config_key_root:raise Exception("token root mismatch")
-   else:
-      if any(path in api for path in ["my/", "private/", "admin/"]) and not token:raise Exception("token missing")
-      if token:user=await function_token_decode(token,config_key_jwt)
    return user
 
 import json
