@@ -295,15 +295,18 @@ async def function_gsheet_read_url(gid,spreadsheet_id):
    output=df.to_dict(orient="records")
    return output
 
-async def function_token_check(request,config_key_root,config_key_jwt,function_token_decode):
+async def function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode):
    user={}
    api=request.url.path
    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
-   if "root/" in api:
+   if api.startswith("/root"):
       if token!=config_key_root:raise Exception("token root mismatch")
    else:
-      if any(path in api for path in ["my/", "private/", "admin/"]) and not token:raise Exception("token missing")
       if token:user=await function_token_decode(token,config_key_jwt)
+      if api.startswith("/my") and not token:raise Exception("token missing")
+      elif api.startswith("/private") and not token:raise Exception("token missing")
+      elif api.startswith("/admin") and not token:raise Exception("token missing")
+      elif config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
    return user
 
 import jwt,json,time
@@ -684,13 +687,13 @@ async def function_delete_ids(table,ids,created_by_id,client_postgres):
    await client_postgres.execute(query=query,values=values)
    return None
 
-async def function_query_runner(query,user_id,client_postgres):
+async def function_query_runner(query,user_id,client_postgres,config_super_user_id_list):
    danger_word=["drop","truncate"]
    stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
    must_word=["select"]
    for item in danger_word:
       if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
-   if user_id!=1:
+   if user_id not in config_super_user_id_list:
       for item in stop_word:
          if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
       for item in must_word:
@@ -1089,10 +1092,11 @@ def function_export_grafana_dashboards(host,username,password,max_limit,export_d
    def export_dashboard(org_name, folder_name, dashboard_meta):
       uid = dashboard_meta["uid"]
       data = get_dashboard_json(uid)
+      dashboard_only = data["dashboard"]
       path = os.path.join(export_dir, sanitize(org_name), sanitize(folder_name or "General"))
       ensure_dir(path)
       file_path = os.path.join(path, f"{sanitize(dashboard_meta['title'])}.json")
-      with open(file_path, "w", encoding="utf-8") as f:json.dump(data, f, indent=2)
+      with open(file_path, "w", encoding="utf-8") as f:json.dump(dashboard_only, f, indent=2)
       print(f"✅ {org_name}/{folder_name}/{dashboard_meta['title']}")
    try:
       orgs = get_organizations()

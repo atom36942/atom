@@ -39,6 +39,7 @@ config_limit_cache_users_is_active=int(env.get("config_limit_cache_users_is_acti
 config_channel_name=env.get("config_channel_name","ch1")
 config_mode_check_api_access=env.get("config_mode_check_api_access","cache")
 config_mode_check_is_active=env.get("config_mode_check_is_active","token")
+config_super_user_id_list=[int(item) for item in env.get("config_super_user_id_list","1").split(",")]
 config_column_disabled_non_admin_list=env.get("config_column_disabled_non_admin_list","is_active,is_verified,api_access").split(",")
 config_table_allowed_public_create_list=env.get("config_table_allowed_public_create_list","test").split(",")
 config_table_allowed_public_read_list=env.get("config_table_allowed_public_read_list","test").split(",")
@@ -52,6 +53,7 @@ config_api={
 "/admin/db-runner":{"id":6,"is_active_check":1},
 "/public/info":{"id":7,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
 "/my/parent-read":{"id":8,"cache_sec":["redis",100]},
+"/test":{"is_token":0}
 }
 config_postgres_schema={
 "table":{
@@ -232,7 +234,7 @@ async def middleware(request,api_function):
       error=None
       api=request.url.path
       request.state.user={}
-      request.state.user=await function_token_check(request,config_key_root,config_key_jwt,function_token_decode)
+      request.state.user=await function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode)
       if "admin/" in api:await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
       if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
       if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis,config_api)
@@ -640,7 +642,7 @@ async def admin_object_read(request:Request):
 @app.post("/admin/db-runner")
 async def admin_db_runner(request:Request):
    object,[query]=await function_param_read("body",request,["query"],[])
-   output=await function_query_runner(query,request.state.user["id"],request.app.state.client_postgres)
+   output=await function_query_runner(query,request.state.user["id"],request.app.state.client_postgres,config_super_user_id_list)
    return {"status":1,"message":output}
 
 #server start
