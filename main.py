@@ -214,11 +214,11 @@ async def lifespan(app:FastAPI):
    
 #app
 from fastapi import FastAPI
-app=FastAPI(lifespan=lifespan)
+app=FastAPI(lifespan=lifespan,debug=True)
 function_app_add_cors(app)
 function_app_add_router(app,config_router_list)
 if config_sentry_dsn:function_app_add_sentry(config_sentry_dsn)
-if False:function_app_add_prometheus(app)
+if True:function_app_add_prometheus(app)
 
 #middleware
 from fastapi import Request,responses
