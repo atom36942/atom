@@ -777,15 +777,15 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
    async def init_extension(client_postgres):
       await client_postgres.execute(query="create extension if not exists postgis;",values={})
       await client_postgres.execute(query="create extension if not exists pg_trgm;",values={})
-   async def init_table(client_postgres,function_postgres_schema_read,config_postgres_schema):
-      postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   async def init_table(client_postgres,config_postgres_schema,function_postgres_schema_read):
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       for table,column_list in config_postgres_schema["table"].items():
          is_table=postgres_schema.get(table,{})
          if not is_table:
             query=f"create table if not exists {table} (id bigint primary key generated always as identity not null);"
             await client_postgres.execute(query=query,values={})
-   async def init_column(client_postgres,function_postgres_schema_read,config_postgres_schema):
-      postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   async def init_column(client_postgres,config_postgres_schema,function_postgres_schema_read):
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       for table,column_list in config_postgres_schema["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
@@ -793,8 +793,8 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
             if not is_column:
                query=f"alter table {table} add column if not exists {column_name} {column_datatype};"
                await client_postgres.execute(query=query,values={})
-   async def init_nullable(client_postgres,function_postgres_schema_read,config_postgres_schema):
-      postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   async def init_nullable(client_postgres,config_postgres_schema,function_postgres_schema_read):
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       for table,column_list in config_postgres_schema["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
@@ -829,15 +829,40 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
       for query in config_postgres_schema["query"].values():
          if query.split()[0]=="0":continue
          if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:continue
-         await client_postgres.fetch_all(query=query,values={})
+         await client_postgres.execute(query=query,values={})
+   async def set_default_created_at(client_postgres):
+      query="DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;"
+      await client_postgres.execute(query=query,values={})
+   async def set_default_updated_at(client_postgres):
+      query_1="create or replace function function_set_updated_at_now() returns trigger as $$ begin new.updated_at=now(); return new; end; $$ language 'plpgsql';"
+      query_2="DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION function_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;"
+      for query in [query_1,query_2]:await client_postgres.execute(query=query,values={})
+   async def protect_is_protected(client_postgres):
+      query="DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;"
+      await client_postgres.execute(query=query,values={})
+   async def log_password_change(client_postgres,function_postgres_schema_read):
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      query_1="CREATE OR REPLACE FUNCTION function_log_password_change() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;"
+      query_2="CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION function_log_password_change();"
+      if postgres_schema.get("log_password"):
+         for query in [query_1,query_2]:await client_postgres.execute(query=query,values={})
    await init_extension(client_postgres)
-   await init_table(client_postgres,function_postgres_schema_read,config_postgres_schema)
-   await init_column(client_postgres,function_postgres_schema_read,config_postgres_schema)
-   await init_nullable(client_postgres,function_postgres_schema_read,config_postgres_schema)
+   await init_table(client_postgres,config_postgres_schema,function_postgres_schema_read)
+   await init_column(client_postgres,config_postgres_schema,function_postgres_schema_read)
+   await init_nullable(client_postgres,config_postgres_schema,function_postgres_schema_read)
    await init_index(client_postgres,config_postgres_schema)
    await init_query(client_postgres,config_postgres_schema)
+   await set_default_created_at(client_postgres)
+   await set_default_updated_at(client_postgres)
+   await protect_is_protected(client_postgres)
+   await log_password_change(client_postgres,function_postgres_schema_read)
    return None
 
+async def function_postgres_drop_all_index(client_postgres):
+   query="0 DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
+   await client_postgres.execute(query=query,values={})
+   return None
+   
 import hashlib,datetime,json
 async def function_postgres_object_serialize(object_list,cache_postgres_column_datatype):
    for index,object in enumerate(object_list):
