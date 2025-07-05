@@ -37,11 +37,3 @@ async def websocket_endpoint(websocket:WebSocket):
    except WebSocketDisconnect:
       print("client disconnected")
 
-#streaming
-@router.get("/stream")
-async def stream():
-   async def generator():
-      for i in range(1, 101):
-         yield f"{i}\n"
-         await asyncio.sleep(0.05)
-   return StreamingResponse(generator(),media_type="text/plain")
