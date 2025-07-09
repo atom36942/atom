@@ -1254,4 +1254,140 @@ async def function_stream_csv_from_query(query,client_postgres_asyncpg_pool):
                stream.truncate(0)
 
 
-   
+import requests, datetime, re
+from collections import defaultdict, Counter
+from openai import OpenAI
+def function_jira_summary(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key):
+    client = OpenAI(api_key=openai_key)
+    headers = {"Accept": "application/json"}
+    auth = (jira_email, jira_token)
+    def fetch_issues(jql):
+        url = f"{jira_base_url}/rest/api/3/search"
+        params = {
+            "jql": jql,
+            "fields": "summary,project,duedate,assignee,worklog,issuetype,parent,resolutiondate,updated",
+            "maxResults": jira_max_issues_per_status
+        }
+        r = requests.get(url, headers=headers, params=params, auth=auth)
+        r.raise_for_status()
+        return r.json().get("issues", [])
+    def fetch_comments(issue_key):
+        url = f"{jira_base_url}/rest/api/3/issue/{issue_key}/comment"
+        r = requests.get(url, headers=headers, auth=auth)
+        r.raise_for_status()
+        return [c["body"]["content"][0]["content"][0].get("text", "") for c in r.json().get("comments", []) if c.get("body")]
+    def group_by_project(issues):
+        grouped = defaultdict(list)
+        for i in issues:
+            name = i["fields"]["project"]["name"]
+            grouped[name].append(i)
+        return grouped
+    def summarize_with_ai(prompt):
+        try:
+            res = client.chat.completions.create(
+                model="gpt-4-0125-preview",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            lines = res.choices[0].message.content.strip().split("\n")
+            return [l.strip("-•* \n") for l in lines if l.strip()]
+        except Exception as e:
+            return [f"AI summary failed: {e}"]
+    def build_prompt(issues_by_project, status_label):
+        report, seen = [], set()
+        now = datetime.datetime.now()
+        for project, issues in issues_by_project.items():
+            for i in issues:
+                f = i["fields"]
+                title = f.get("summary", "").strip()
+                if title in seen:
+                    continue
+                seen.add(title)
+                comments = fetch_comments(i["key"])
+                last_comment = comments[-1][:100] if comments else ""
+                updated_days_ago = "N/A"
+                try:
+                    updated_field = f.get("updated")
+                    if updated_field:
+                        updated_dt = datetime.datetime.strptime(updated_field[:10], "%Y-%m-%d")
+                        updated_days_ago = (now - updated_dt).days
+                except:
+                    pass
+                time_spent = sum(w.get("timeSpentSeconds", 0) for w in f.get("worklog", {}).get("worklogs", [])) // 3600
+                line = f"{project} - {title}. Comment: {last_comment}. Hours: {time_spent}. Last Updated: {updated_days_ago}d ago. [{status_label}]"
+                report.append(line.strip())
+        return "\n".join(report)
+    def calculate_activity_and_performance(issues_done):
+        activity_counter = Counter()
+        on_time_closures = defaultdict(list)
+        for issue in issues_done:
+            f = issue["fields"]
+            assignee = f["assignee"]["displayName"] if f.get("assignee") else "Unassigned"
+            comments = fetch_comments(issue["key"])
+            worklogs = f.get("worklog", {}).get("worklogs", [])
+            activity_counter[assignee] += len(comments) + len(worklogs)
+            if f.get("duedate") and f.get("resolutiondate"):
+                try:
+                    due = datetime.datetime.strptime(f["duedate"], "%Y-%m-%d")
+                    resolved = datetime.datetime.strptime(f["resolutiondate"][:10], "%Y-%m-%d")
+                    if resolved <= due:
+                        on_time_closures[assignee].append(issue["key"])
+                except:
+                    continue
+        top_active = activity_counter.most_common(3)
+        best_ontime = sorted(on_time_closures.items(), key=lambda x: len(x[1]), reverse=True)[:3]
+        return top_active, best_ontime
+    def clean_lines(lines, include_project=False):
+        cleaned = []
+        for line in lines:
+            if len(line.split()) < 3:
+                continue
+            if include_project and "-" not in line:
+                continue
+            line = re.sub(r"[^\w\s\-.,/()]", "", line).strip()
+            line = re.sub(r'\s+', ' ', line)
+            cleaned.append(f"- {line}")
+        return cleaned
+    def save_summary_to_file(blockers, improvements, top_active, on_time, filename="jira.txt"):
+        def numbered(lines):
+            return [f"{i+1}. {line}" for i, line in enumerate(lines)]
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("Key Blockers\n")
+            for line in numbered(clean_lines(blockers, include_project=True)):
+                f.write(f"{line}\n")
+            f.write("\nSuggested Improvements\n")
+            for line in numbered(clean_lines(improvements)):
+                f.write(f"{line}\n")
+            f.write("\nTop 3 Active Assignees\n")
+            for i, (name, count) in enumerate(top_active, 1):
+                f.write(f"{i}. {name} ({count} updates)\n")
+            f.write("\nBest On-Time Assignees\n")
+            for i, (name, items) in enumerate(on_time, 1):
+                f.write(f"{i}. {name} - {len(items)} issues closed on or before due date\n")
+    issues_todo, issues_inprog, issues_done = [], [], []
+    for key in jira_project_key_list:
+        issues_todo += fetch_issues(f'project = {key} AND statusCategory = "To Do" ORDER BY updated DESC')
+        issues_inprog += fetch_issues(f'project = {key} AND statusCategory = "In Progress" ORDER BY updated DESC')
+        issues_done += fetch_issues(f'project = {key} AND statusCategory = "Done" ORDER BY resolutiondate DESC')
+    todo_grouped = group_by_project(issues_todo)
+    inprog_grouped = group_by_project(issues_inprog)
+    done_grouped = group_by_project(issues_done)
+    all_prompt_text = (
+        build_prompt(todo_grouped, "To Do") + "\n" +
+        build_prompt(inprog_grouped, "In Progress") + "\n" +
+        build_prompt(done_grouped, "Done")
+    )
+    prompt_blockers = (
+        "From the Jira issues below, list actual blockers that can delay progress. "
+        "Each line must begin with the project name. Be specific and short. Max 100 characters per bullet."
+    )
+    prompt_improvement = (
+        "You are a Jira productivity assistant. Based on the following Jira issue summaries, "
+        "give exactly 5 specific, actionable process improvements to improve execution quality and velocity. "
+        "Each point should be a short bullet (one line, max 100 characters). "
+        "Return only the 5 bullet points. Do not include any introduction, summary, explanation, or heading."
+    )
+    blockers = summarize_with_ai(prompt_blockers + "\n" + all_prompt_text)
+    improvements = summarize_with_ai(prompt_improvement + "\n" + all_prompt_text)
+    top_active, on_time = calculate_activity_and_performance(issues_done)
+    save_summary_to_file(blockers, improvements, top_active, on_time)
+    return "✅ Executive JIRA summary saved to 'jira.txt'"

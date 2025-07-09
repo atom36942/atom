@@ -47,6 +47,9 @@
 # notes
 1. main.py run = python main.py
 2. main.py run with reload =  uvicorn main:app --reload
-3. main.py run with docker =  docker build -t atom . --- docker run -p 8000:8000 atom
 4. api testing = ./test.sh
 5. celery run = celery -A consumerc.client_celery_consumer worker --loglevel=info
+
+# how to run using docker
+1. docker build -t atom .
+2. docker run -p 8000:8000 atom
