@@ -156,7 +156,7 @@ import requests
 async def function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url):
    response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
    output=response.json()
-   if output.get("return") is not True:raise Exception(f"{output.get("message")}")
+   if output.get("return") is not True:raise Exception(f"{output.get('message')}")
    return output
 
 import httpx
