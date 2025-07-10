@@ -155,7 +155,8 @@ def function_return_error(message):
 import requests
 async def function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url):
    response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
-   return response
+   output=response.json()
+   return output
 
 import httpx
 async def function_resend_send_email(email_list,title,body,sender_email,config_resend_key,config_resend_url):

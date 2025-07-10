@@ -508,8 +508,8 @@ async def public_otp_send_mobile_sns_template(request:Request):
 async def public_otp_send_mobile_fast2sms(request:Request):
    object,[mobile]=await function_param_read("body",request,["mobile"],[])
    otp=await function_otp_generate("mobile",mobile,request.app.state.client_postgres)
-   await function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url)
-   return {"status":1,"message":"done"}
+   output=await function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url)
+   return {"status":1,"message":output}
 
 @app.post("/public/otp-send-email-ses")
 async def public_otp_send_email_ses(request:Request):
