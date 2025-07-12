@@ -1,10 +1,12 @@
 #function
 from function import *
 
-#env
+#config read
 env=function_load_env(".env")
+import os
+if os.path.exists("config.py"):import config
 
-#config
+#config define
 config_postgres_url=env.get("config_postgres_url")
 config_postgres_url_read=env.get("config_postgres_url_read")
 config_redis_url=env.get("config_redis_url")
@@ -44,110 +46,8 @@ config_column_disabled_non_admin_list=env.get("config_column_disabled_non_admin_
 config_table_allowed_public_create_list=env.get("config_table_allowed_public_create_list","test").split(",")
 config_table_allowed_public_read_list=env.get("config_table_allowed_public_read_list","test").split(",")
 config_router_list=env.get("config_router_list").split(",") if env.get("config_router_list") else []
-config_api={
-"/admin/object-create":{"id":1,"ratelimiter_times_sec":[1,1]},
-"/admin/object-update":{"id":2},
-"/admin/ids-update":{"id":3},
-"/admin/ids-delete":{"id":4}, 
-"/admin/object-read":{"id":5,"cache_sec":["redis",100]},
-"/admin/db-runner":{"id":6,"is_active_check":1},
-"/public/info":{"id":7,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,1]},
-"/my/parent-read":{"id":8,"cache_sec":["redis",100]},
-"/test":{"is_token":0}
-}
-config_postgres_schema={
-"table":{
-"test":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-0-btree",
-"title-text-0-0",
-"description-text-0-0",
-"file_url-text-0-0",
-"link_url-text-0-0",
-"tag-text-0-0",
-"rating-numeric(10,3)-0-0",
-"remark-text-0-btree,gin",
-"location-geography(POINT)-0-gist",
-"metadata-jsonb-0-gin"
-],
-"log_api":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"type-bigint-0-btree",
-"ip_address-text-0-0",
-"api-text-0-btree,gin",
-"method-text-0-0",
-"query_param-text-0-0",
-"status_code-smallint-0-0",
-"response_time_ms-numeric(1000,3)-0-0",
-"description-text-0-0"
-],
-"otp":[
-"created_at-timestamptz-0-brin",
-"otp-integer-1-0",
-"email-text-0-btree",
-"mobile-text-0-btree"
-],
-"log_password":[
-"created_at-timestamptz-0-0",
-"user_id-bigint-0-0",
-"password-text-0-0"
-],
-"users":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-1-btree",
-"username-text-0-btree",
-"password-text-0-btree",
-"google_id-text-0-btree",
-"google_data-jsonb-0-0",
-"email-text-0-btree",
-"mobile-text-0-btree",
-"api_access-text-0-0",
-"last_active_at-timestamptz-0-0",
-"username_bigint-bigint-0-btree",
-"password_bigint-bigint-0-btree"
-],
-"message":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
-"updated_by_id-bigint-0-0",
-"is_deleted-smallint-0-btree",
-"user_id-bigint-1-btree",
-"description-text-1-0",
-"is_read-smallint-0-btree"
-],
-"report_user":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
-"user_id-bigint-1-btree"
-]
-},
-"query":{
-"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
-"check_username":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
-"unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
-"unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
-"unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
-"unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
-"unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
-"unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
-}
-}
+config_api=config.config_api if os.path.exists("config.py") else {}
+config_postgres_schema=config.config_postgres_schema if os.path.exists("config.py") else {}
 
 #lifespan
 from fastapi import FastAPI

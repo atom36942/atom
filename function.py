@@ -776,6 +776,7 @@ async def function_postgres_schema_read(client_postgres):
    return postgres_schema,cache_postgres_column_datatype
 
 async def function_postgres_schema_init(client_postgres,config_postgres_schema,function_postgres_schema_read):
+   if not config_postgres_schema:raise Exception("config_postgres_schema null")
    async def function_init_extension(client_postgres):
       await client_postgres.execute(query="create extension if not exists postgis;",values={})
       await client_postgres.execute(query="create extension if not exists pg_trgm;",values={})
@@ -1259,7 +1260,7 @@ async def function_stream_csv_from_query(query,client_postgres_asyncpg_pool):
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
-def function_jira_summary(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key):
+async def function_jira_summary(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key):
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)
