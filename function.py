@@ -325,14 +325,14 @@ async def function_token_decode(token,config_key_jwt):
    return user
 
 import json
-object_list_log_api=[]
+buffer_log_api=[]
 async def function_postgres_log_create(object,batch,cache_postgres_column_datatype,client_postgres,function_postgres_object_create,function_postgres_object_serialize):
    try:
-      global object_list_log_api
-      object_list_log_api.append(object)
-      if len(object_list_log_api)>=batch:
-         await function_postgres_object_create("log_api",object_list_log_api,0,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
-         object_list_log_api=[]
+      global buffer_log_api
+      buffer_log_api.append(object)
+      if len(buffer_log_api)>=batch:
+         await function_postgres_object_create("log_api",buffer_log_api,0,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+         buffer_log_api=[]
    except Exception as e:
       print("error function_postgres_log_create")
       print(str(e))
@@ -916,6 +916,22 @@ async def function_postgres_object_create_asyncpg(table,object_list,client_postg
    query=f"""INSERT INTO {table} ({','.join(column_insert_list)}) VALUES ({','.join(['$'+str(i+1) for i in range(len(column_insert_list))])}) ON CONFLICT DO NOTHING;"""
    values=[tuple(obj[col] for col in column_insert_list) for obj in object_list]
    await client_postgres_asyncpg.executemany(query,values)
+   return None
+
+buffer_object_create={}
+table_object_key={}
+async def function_postgres_object_create_batch(table,object,is_serialize,cache_postgres_column_datatype,client_postgres,config_batch_object_create,function_postgres_object_create,function_postgres_object_serialize):
+   global buffer_object_create, table_object_key
+   if table not in buffer_object_create:
+      buffer_object_create[table]=[]
+   if table not in table_object_key or table_object_key[table]==[]:
+      table_object_key[table]=list(object.keys())
+   if list(object.keys())!=table_object_key[table]:raise Exception(f"keys should be {table_object_key[table]}")
+   buffer_object_create[table].append(object)
+   if len(buffer_object_create[table])>=config_batch_object_create:
+      await function_postgres_object_create(table,buffer_object_create[table],is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+      buffer_object_create[table]=[]
+      table_object_key[table]=[]
    return None
 
 async def function_postgres_object_update(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):

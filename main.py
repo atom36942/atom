@@ -1,8 +1,10 @@
 #function
 from function import *
 
-#config read
+#config env read
 env=function_load_env(".env")
+
+#config file read
 import os
 if os.path.exists("config.py"):import config
 
@@ -35,7 +37,8 @@ config_posthog_project_host=env.get("config_posthog_project_host")
 config_openai_key=env.get("config_openai_key")
 config_token_expire_sec=int(env.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(env.get("config_is_signup",1))
-config_limit_log_api_batch=int(env.get("config_limit_log_api_batch",10))
+config_batch_log_api=int(env.get("config_batch_log_api",10))
+config_batch_object_create=int(env.get("config_batch_object_create",10))
 config_limit_cache_users_api_access=int(env.get("config_limit_cache_users_api_access",1000))
 config_limit_cache_users_is_active=int(env.get("config_limit_cache_users_is_active",0))
 config_channel_name=env.get("config_channel_name","ch1")
@@ -139,7 +142,7 @@ async def middleware(request,api_function):
       type=5
    if request.app.state.cache_postgres_schema.get("log_api"):
       object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-      asyncio.create_task(function_postgres_log_create(object,config_limit_log_api_batch,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_create,function_postgres_object_serialize))
+      asyncio.create_task(function_postgres_log_create(object,config_batch_log_api,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_create,function_postgres_object_serialize))
    return response
 
 #api
@@ -287,6 +290,7 @@ async def my_object_create(request:Request):
    if any(key in config_column_disabled_non_admin_list for key in object):return function_return_error(" object key not allowed")
    if not queue:output=await function_postgres_object_create(table,[object],is_serialize,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,function_postgres_object_serialize)
    elif queue:
+      if queue=="batch":output=await function_postgres_object_create_batch(table,object,is_serialize,request.app.state.cache_postgres_column_datatype,request.app.state.client_postgres,config_batch_object_create,function_postgres_object_create,function_postgres_object_serialize)
       data={"mode":"create","table":table,"object":object,"is_serialize":is_serialize}
       if queue=="redis":output=await function_publish_redis(data,request.app.state.client_redis,config_channel_name)
       elif queue=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,config_channel_name)
