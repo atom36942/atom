@@ -20,8 +20,12 @@ async def function_client_read_postgres(config_postgres_url):
 import asyncpg
 async def function_client_read_postgres_asyncpg(config_postgres_url):
    client_postgres_asyncpg=await asyncpg.connect(config_postgres_url)
+   return client_postgres_asyncpg
+
+import asyncpg
+async def function_client_read_postgres_asyncpg_pool(config_postgres_url):
    client_postgres_asyncpg_pool=await asyncpg.create_pool(dsn=config_postgres_url)
-   return client_postgres_asyncpg,client_postgres_asyncpg_pool
+   return client_postgres_asyncpg_pool
 
 import redis.asyncio as redis
 async def function_client_read_redis(config_redis_url):
@@ -113,7 +117,6 @@ def function_app_add_router(app,router_list):
        router=__import__(item).router
        app.include_router(router)
        
-
 from fastapi.middleware.cors import CORSMiddleware
 def function_app_add_cors(app):
    app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
@@ -326,12 +329,12 @@ async def function_token_decode(token,config_key_jwt):
 
 import json
 buffer_log_api=[]
-async def function_postgres_log_create(object,batch,cache_postgres_column_datatype,client_postgres,function_postgres_object_create,function_postgres_object_serialize):
+async def function_postgres_log_create(object,client_postgres,config_batch_log_api,function_postgres_object_create):
    try:
       global buffer_log_api
       buffer_log_api.append(object)
-      if len(buffer_log_api)>=batch:
-         await function_postgres_object_create("log_api",buffer_log_api,0,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+      if len(buffer_log_api)>=config_batch_log_api:
+         await function_postgres_object_create("log_api",buffer_log_api,client_postgres,0,None,None)
          buffer_log_api=[]
    except Exception as e:
       print("error function_postgres_log_create")
@@ -460,11 +463,11 @@ async def function_param_read(mode,request,must,optional):
       param.append(object.get(item))
    return object,param
 
-async def function_create_where_string(object,cache_postgres_column_datatype,function_object_serialize):
-   object={k:v for k,v in object.items() if (k in cache_postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
+async def function_create_where_string(object,postgres_column_datatype,function_object_serialize):
+   object={k:v for k,v in object.items() if (k in postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
    where_operator={k:v.split(',',1)[0] for k,v in object.items()}
    where_value={k:v.split(',',1)[1] for k,v in object.items()}
-   object_list=await function_object_serialize([where_value],cache_postgres_column_datatype)
+   object_list=await function_object_serialize([where_value],postgres_column_datatype)
    where_value=object_list[0]
    where_string_list=[f"({key} {where_operator[key]} :{key} or :{key} is null)" for key in [*object]]
    where_string_joined=' and '.join(where_string_list)
@@ -772,8 +775,8 @@ async def function_postgres_schema_read(client_postgres):
       column_data={"datatype":object["datatype"],"default":object["default"],"is_null":object["is_null"],"is_index":object["is_index"]}
       if table not in postgres_schema:postgres_schema[table]={}
       postgres_schema[table][column]=column_data
-   cache_postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
-   return postgres_schema,cache_postgres_column_datatype
+   postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
+   return postgres_schema,postgres_column_datatype
 
 async def function_postgres_schema_init(client_postgres,config_postgres_schema,function_postgres_schema_read):
    if not config_postgres_schema:raise Exception("config_postgres_schema null")
@@ -875,10 +878,10 @@ async def function_postgres_drop_all_index(client_postgres):
    return None
    
 import hashlib,datetime,json
-async def function_postgres_object_serialize(object_list,cache_postgres_column_datatype):
+async def function_postgres_object_serialize(object_list,postgres_column_datatype):
    for index,object in enumerate(object_list):
       for key,value in object.items():
-         datatype=cache_postgres_column_datatype.get(key)
+         datatype=postgres_column_datatype.get(key)
          if not datatype:continue
          if not value:continue
          elif key in ["password"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
@@ -892,8 +895,8 @@ async def function_postgres_object_serialize(object_list,cache_postgres_column_d
          elif datatype=="jsonb":object_list[index][key]=json.dumps(value)
    return object_list
 
-async def function_postgres_object_create(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
-   if is_serialize==1:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
+async def function_postgres_object_create(table,object_list,client_postgres,is_serialize,function_postgres_object_serialize,postgres_column_datatype):
+   if is_serialize==1:object_list=await function_postgres_object_serialize(object_list,postgres_column_datatype)
    column_insert_list=list(object_list[0].keys())
    query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
    if len(object_list)==1:
@@ -901,26 +904,10 @@ async def function_postgres_object_create(table,object_list,is_serialize,cache_p
    else:
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
-
-async def function_postgres_object_create_minimal(table,object_list,client_postgres):
-   column_insert_list=list(object_list[0].keys())
-   query=f"insert into {table} ({','.join(column_insert_list)}) values ({','.join([':'+item for item in column_insert_list])}) on conflict do nothing returning *;"
-   if len(object_list)==1:
-      output=await client_postgres.execute(query=query,values=object_list[0])
-   else:
-      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
-   return output
-
-async def function_postgres_object_create_asyncpg(table,object_list,client_postgres_asyncpg):
-   column_insert_list=list(object_list[0].keys())
-   query=f"""INSERT INTO {table} ({','.join(column_insert_list)}) VALUES ({','.join(['$'+str(i+1) for i in range(len(column_insert_list))])}) ON CONFLICT DO NOTHING;"""
-   values=[tuple(obj[col] for col in column_insert_list) for obj in object_list]
-   await client_postgres_asyncpg.executemany(query,values)
-   return None
 
 buffer_object_create={}
 table_object_key={}
-async def function_postgres_object_create_batch(table,object,is_serialize,cache_postgres_column_datatype,client_postgres,config_batch_object_create,function_postgres_object_create,function_postgres_object_serialize):
+async def function_postgres_object_create_batch(table,object,config_batch_object_create,client_postgres,function_postgres_object_create,is_serialize,function_postgres_object_serialize,postgres_column_datatype):
    global buffer_object_create, table_object_key
    if table not in buffer_object_create:
       buffer_object_create[table]=[]
@@ -929,13 +916,20 @@ async def function_postgres_object_create_batch(table,object,is_serialize,cache_
    if list(object.keys())!=table_object_key[table]:raise Exception(f"keys should be {table_object_key[table]}")
    buffer_object_create[table].append(object)
    if len(buffer_object_create[table])>=config_batch_object_create:
-      await function_postgres_object_create(table,buffer_object_create[table],is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+      await function_postgres_object_create(table,buffer_object_create[table],client_postgres,is_serialize,function_postgres_object_serialize,postgres_column_datatype)
       buffer_object_create[table]=[]
       table_object_key[table]=[]
    return None
 
-async def function_postgres_object_update(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
-   if is_serialize:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
+async def function_postgres_object_create_asyncpg(table,object_list,client_postgres_asyncpg):
+   column_insert_list=list(object_list[0].keys())
+   query=f"""INSERT INTO {table} ({','.join(column_insert_list)}) VALUES ({','.join(['$'+str(i+1) for i in range(len(column_insert_list))])}) ON CONFLICT DO NOTHING;"""
+   values=[tuple(obj[col] for col in column_insert_list) for obj in object_list]
+   await client_postgres_asyncpg.executemany(query,values)
+   return None
+
+async def function_postgres_object_update(table,object_list,client_postgres,is_serialize,function_postgres_object_serialize,postgres_column_datatype):
+   if is_serialize:object_list=await function_postgres_object_serialize(object_list,postgres_column_datatype)
    column_update_list=[*object_list[0]]
    column_update_list.remove("id")
    query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id returning *;"
@@ -945,8 +939,8 @@ async def function_postgres_object_update(table,object_list,is_serialize,cache_p
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
 
-async def function_postgres_object_update_user(table,object_list,is_serialize,user_id,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
-   if is_serialize:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
+async def function_postgres_object_update_user(table,object_list,user_id,client_postgres,is_serialize,function_postgres_object_serialize,postgres_column_datatype):
+   if is_serialize:object_list=await function_postgres_object_serialize(object_list,postgres_column_datatype)
    column_update_list=[*object_list[0]]
    column_update_list.remove("id")
    query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id and created_by_id={user_id} returning *;"
@@ -956,8 +950,8 @@ async def function_postgres_object_update_user(table,object_list,is_serialize,us
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
 
-async def function_postgres_object_delete(table,object_list,is_serialize,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize):
-   if is_serialize:object_list=await function_postgres_object_serialize(object_list,cache_postgres_column_datatype)
+async def function_postgres_object_delete(table,object_list,client_postgres,is_serialize,function_postgres_object_serialize,postgres_column_datatype):
+   if is_serialize:object_list=await function_postgres_object_serialize(object_list,postgres_column_datatype)
    query=f"delete from {table} where id=:id;"
    if len(object_list)==1:
       output=await client_postgres.execute(query=query,values=object_list[0])
@@ -965,20 +959,20 @@ async def function_postgres_object_delete(table,object_list,is_serialize,cache_p
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
 
-async def function_postgres_object_delete_any(table,object,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize,function_create_where_string):
-   where_string,where_value=await function_create_where_string(object,cache_postgres_column_datatype,function_postgres_object_serialize)
+async def function_postgres_object_delete_any(table,object,client_postgres,function_create_where_string,function_postgres_object_serialize,postgres_column_datatype):
+   where_string,where_value=await function_create_where_string(object,postgres_column_datatype,function_postgres_object_serialize)
    query=f"delete from {table} {where_string};"
    await client_postgres.execute(query=query,values=where_value)
    return None
 
-async def function_postgres_object_read(table,object,cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize,function_create_where_string):
+async def function_postgres_object_read(table,object,client_postgres,function_create_where_string,function_postgres_object_serialize,postgres_column_datatype):
    order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
    column=object.get("column","*")
    location_filter=object.get("location_filter")
    if location_filter:
       location_filter_split=location_filter.split(",")
       long,lat,min_meter,max_meter=float(location_filter_split[0]),float(location_filter_split[1]),int(location_filter_split[2]),int(location_filter_split[3])
-   where_string,where_value=await function_create_where_string(object,cache_postgres_column_datatype,function_postgres_object_serialize)
+   where_string,where_value=await function_create_where_string(object,postgres_column_datatype,function_postgres_object_serialize)
    if location_filter:query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
    else:query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
    object_list=await client_postgres.fetch_all(query=query,values=where_value)
@@ -988,14 +982,14 @@ import asyncio,json
 async def function_consumer_kafka_postgres_crud(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name,config_postgres_url,function_client_read_kafka_consumer,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
    kafka_consumer_client=await function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
    client_postgres=await function_client_read_postgres(config_postgres_url)
-   postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
       async for message in kafka_consumer_client:
          if message.topic==config_channel_name:
             data=json.loads(message.value.decode('utf-8'))
             try:
-               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)   
-               if data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)   
+               elif data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
                print(output)
             except Exception as e:print(str(e))
    except asyncio.CancelledError:print("subscription cancelled")
@@ -1008,14 +1002,14 @@ async def function_consumer_redis_postgres_crud(config_redis_url,config_channel_
    client_redis=await function_client_read_redis(config_redis_url)
    redis_consumer_client=await function_client_read_redis_consumer(client_redis,config_channel_name)
    client_postgres=await function_client_read_postgres(config_postgres_url)
-   postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
       async for message in redis_consumer_client.listen():
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():
             data=json.loads(message['data'])
             try:
-               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
-               if data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
+               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)   
+               elif data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
                print(output)
             except Exception as e:print(str(e))
    except asyncio.CancelledError:print("subscription cancelled")
@@ -1028,15 +1022,13 @@ import aio_pika,asyncio,json
 async def function_consumer_rabbitmq_postgres_crud(config_rabbitmq_url,config_channel_name,config_postgres_url,function_client_read_rabbitmq,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
    client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url)
    client_postgres=await function_client_read_postgres(config_postgres_url)
-   postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    async def aqmp_callback(message: aio_pika.IncomingMessage):
       async with message.process():
          try:
             data=json.loads(message.body)
-            mode=data.get("mode")
-            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
-            elif mode=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
-            else:output=f"Unsupported mode: {mode}"
+            if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
+            elif data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
    try:
@@ -1052,15 +1044,14 @@ import aio_pika,asyncio,json
 async def function_consumer_lavinmq_postgres_crud(config_lavinmq_url,config_channel_name,config_postgres_url,function_client_read_lavinmq,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
    client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url)
    client_postgres=await function_client_read_postgres(config_postgres_url)
-   postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    async def aqmp_callback(message: aio_pika.IncomingMessage):
       async with message.process():
          try:
             data=json.loads(message.body)
             mode=data.get("mode")
-            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
-            elif mode=="update":output=await function_postgres_object_update(data["table"],[data["object"]],data["is_serialize"],cache_postgres_column_datatype,client_postgres,function_postgres_object_serialize)
-            else:output=f"Unsupported mode: {mode}"
+            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
+            elif data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
             print(output)
          except Exception as e:print("Callback function_error:",e.args)
    try:
