@@ -6,7 +6,9 @@ from fastapi import APIRouter
 router=APIRouter()
 
 #env
-env=function_load_env(".env")
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 #import
 from fastapi import Request

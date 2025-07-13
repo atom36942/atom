@@ -1,14 +1,10 @@
 #function
 from function import *
 
-#config env read
+#config
 env=function_load_env(".env")
-
-#config file read
 import os
 if os.path.exists("config.py"):import config
-
-#config define
 config_postgres_url=env.get("config_postgres_url")
 config_postgres_url_read=env.get("config_postgres_url_read")
 config_redis_url=env.get("config_redis_url")
@@ -39,6 +35,8 @@ config_token_expire_sec=int(env.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(env.get("config_is_signup",1))
 config_batch_log_api=int(env.get("config_batch_log_api",10))
 config_batch_object_create=int(env.get("config_batch_object_create",10))
+config_postgres_min_connection=int(env.get("config_batch_object_create",5))
+config_postgres_max_connection=int(env.get("config_batch_object_create",20))
 config_limit_cache_users_api_access=int(env.get("config_limit_cache_users_api_access",1000))
 config_limit_cache_users_is_active=int(env.get("config_limit_cache_users_is_active",0))
 config_channel_name=env.get("config_channel_name","ch1")
@@ -60,9 +58,9 @@ import traceback
 async def lifespan(app:FastAPI):
    try:
       #client init
-      client_postgres=await function_client_read_postgres(config_postgres_url) if config_postgres_url else None
+      client_postgres=await function_client_read_postgres(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_postgres_asyncpg=await function_client_read_postgres_asyncpg(config_postgres_url) if config_postgres_url else None
-      client_postgres_asyncpg_pool=await function_client_read_postgres_asyncpg_pool(config_postgres_url) if config_postgres_url else None
+      client_postgres_asyncpg_pool=await function_client_read_postgres_asyncpg_pool(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_postgres_read=await function_client_read_postgres(config_postgres_url_read) if config_postgres_url_read else None
       client_redis=await function_client_read_redis(config_redis_url) if config_redis_url else None
       client_mongodb=await function_client_read_mongodb(config_mongodb_url) if config_mongodb_url else None

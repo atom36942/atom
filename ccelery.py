@@ -1,14 +1,12 @@
 #function
+from function import function_load_env
+from function import function_client_read_postgres_asyncpg_pool
 from function import function_postgres_object_create_asyncpg
 
-#env
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
 #config
-config_redis_url=os.getenv("config_redis_url")
-config_postgres_url=os.getenv("config_postgres_url")
+env=function_load_env(".env")
+config_redis_url=env.get("config_redis_url")
+config_postgres_url=env.get("config_postgres_url")
 
 #import
 import asyncio,traceback,asyncpg
@@ -23,7 +21,7 @@ client_postgres_asyncpg_pool=None
 def init_worker(**kwargs):
     global client_postgres_asyncpg_pool
     loop=asyncio.get_event_loop()
-    client_postgres_asyncpg_pool=loop.run_until_complete(asyncpg.create_pool(dsn=config_postgres_url,min_size=1,max_size=100))
+    client_postgres_asyncpg_pool=loop.run_until_complete(function_client_read_postgres_asyncpg_pool(config_postgres_url))
     print("✅ asyncpg pool created")
 
 #shutdown

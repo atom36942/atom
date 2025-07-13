@@ -12,8 +12,8 @@ async def function_server_start_uvicorn(app):
    await server.serve()
    
 from databases import Database
-async def function_client_read_postgres(config_postgres_url):
-   client_postgres=Database(config_postgres_url,min_size=1,max_size=100)
+async def function_client_read_postgres(config_postgres_url,min_size=5,max_size=20):
+   client_postgres=Database(config_postgres_url,min_size=min_size,max_size=max_size)
    await client_postgres.connect()
    return client_postgres
 
@@ -23,8 +23,8 @@ async def function_client_read_postgres_asyncpg(config_postgres_url):
    return client_postgres_asyncpg
 
 import asyncpg
-async def function_client_read_postgres_asyncpg_pool(config_postgres_url):
-   client_postgres_asyncpg_pool=await asyncpg.create_pool(dsn=config_postgres_url)
+async def function_client_read_postgres_asyncpg_pool(config_postgres_url,min_size=5,max_size=20):
+   client_postgres_asyncpg_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=min_size,max_size=max_size)
    return client_postgres_asyncpg_pool
 
 import redis.asyncio as redis
@@ -981,7 +981,7 @@ async def function_postgres_object_read(table,object,client_postgres,function_cr
 import asyncio,json
 async def function_consumer_kafka_postgres_crud(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name,config_postgres_url,function_client_read_kafka_consumer,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
    kafka_consumer_client=await function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
-   client_postgres=await function_client_read_postgres(config_postgres_url)
+   client_postgres=await function_client_read_postgres(config_postgres_url,)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
       async for message in kafka_consumer_client:
