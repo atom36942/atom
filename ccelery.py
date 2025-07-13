@@ -9,7 +9,7 @@ config_redis_url=env.get("config_redis_url")
 config_postgres_url=env.get("config_postgres_url")
 
 #import
-import asyncio,traceback,asyncpg
+import asyncio,traceback
 from celery import Celery,signals
 
 #client
@@ -22,7 +22,6 @@ def init_worker(**kwargs):
     global client_postgres_asyncpg_pool
     loop=asyncio.get_event_loop()
     client_postgres_asyncpg_pool=loop.run_until_complete(function_client_read_postgres_asyncpg_pool(config_postgres_url))
-    print("✅ asyncpg pool created")
 
 #shutdown
 @signals.worker_process_shutdown.connect
@@ -30,7 +29,6 @@ def shutdown_worker(**kwargs):
     global client_postgres_asyncpg_pool
     loop=asyncio.get_event_loop()
     loop.run_until_complete(client_postgres_asyncpg_pool.close())
-    print("🛑 asyncpg pool closed")
 
 #task 1
 @client_celery_consumer.task(name="tasks.celery_task_postgres_object_create")
