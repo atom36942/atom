@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 import importlib.util
-def function_config_load(env_path,config_paths=[]):
+def function_load_config(env_path,config_paths=[]):
    load_dotenv(env_path)
    output={k.lower(): os.getenv(k) for k in os.environ}
    for path in config_paths:

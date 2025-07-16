@@ -2,7 +2,7 @@
 from function import *
 
 #config
-config=function_config_load(".env",["config.py"])
+config=function_load_config(".env",["config.py"])
 config_postgres_url=config.get("config_postgres_url")
 config_postgres_url_read=config.get("config_postgres_url_read")
 config_redis_url=config.get("config_redis_url")
@@ -45,8 +45,8 @@ config_column_disabled_non_admin_list=config.get("config_column_disabled_non_adm
 config_table_allowed_public_create_list=config.get("config_table_allowed_public_create_list","test").split(",")
 config_table_allowed_public_read_list=config.get("config_table_allowed_public_read_list","test").split(",")
 config_router_list=config.get("config_router_list").split(",") if config.get("config_router_list") else []
-config_api=config.get("config_api")
-config_postgres_schema=config.get("config_postgres_schema")
+config_api=config.get("config_api",{})
+config_postgres_schema=config.get("config_postgres_schema",{})
 
 #lifespan
 from fastapi import FastAPI
