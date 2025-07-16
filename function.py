@@ -116,22 +116,40 @@ def function_client_read_openai(config_openai_key):
    return client_openai
 
 import sentry_sdk
-def function_app_add_sentry(config_sentry_dsn):
+def function_add_sentry(config_sentry_dsn):
    sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
-def function_app_add_router(app,router_list):
-   for item in router_list:
-       router=__import__(item).router
-       app.include_router(router)
-       
+import os
+import importlib.util
+from pathlib import Path
+def function_add_router(app):
+   base_dir = Path(__file__).parent
+   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
+   for root, dirs, files in os.walk(base_dir):
+      dirs[:] = [d for d in dirs if d not in skip_dirs]
+      for file in files:
+         if file.startswith("router") and file.endswith(".py"):
+            module_path = os.path.join(root, file)
+            module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if hasattr(module, "router"):app.include_router(module.router)
+   return None
+
+from fastapi import FastAPI
+def function_fastapi_app_read(is_debug,lifespan):
+   app=FastAPI(debug=is_debug,lifespan=lifespan)
+   return app
+
 from fastapi.middleware.cors import CORSMiddleware
-def function_app_add_cors(app):
-   app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
+def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
+   app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)
    return None
 
 from prometheus_fastapi_instrumentator import Instrumentator
-def function_app_add_prometheus(app):
+def function_add_prometheus(app):
    Instrumentator().instrument(app).expose(app)
    return None
 

@@ -44,7 +44,6 @@ config_super_user_id_list=[int(item) for item in config.get("config_super_user_i
 config_column_disabled_non_admin_list=config.get("config_column_disabled_non_admin_list","is_active,is_verified,api_access").split(",")
 config_table_allowed_public_create_list=config.get("config_table_allowed_public_create_list","test").split(",")
 config_table_allowed_public_read_list=config.get("config_table_allowed_public_read_list","test").split(",")
-config_router_list=config.get("config_router_list").split(",") if config.get("config_router_list") else []
 config_api=config.get("config_api",{})
 config_postgres_schema=config.get("config_postgres_schema",{})
 
@@ -94,14 +93,13 @@ async def lifespan(app:FastAPI):
    except Exception as e:
       print(str(e))
       print(traceback.format_exc())
-   
+
 #app
-from fastapi import FastAPI
-app=FastAPI(lifespan=lifespan,debug=True)
-function_app_add_cors(app)
-function_app_add_router(app,config_router_list)
-if config_sentry_dsn:function_app_add_sentry(config_sentry_dsn)
-if True:function_app_add_prometheus(app)
+app=function_fastapi_app_read(True,lifespan)
+function_add_cors(app,["*"],["*"],["*"],True)
+function_add_router(app)
+if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
+if False:function_add_prometheus(app)
 
 #middleware
 from fastapi import Request,responses
