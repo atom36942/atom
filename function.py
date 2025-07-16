@@ -1,8 +1,16 @@
 import os
 from dotenv import load_dotenv
-def function_load_env(env_path):
+import importlib.util
+def function_config_load(env_path,config_paths=[]):
    load_dotenv(env_path)
-   output={k.lower():os.getenv(k) for k in os.environ}
+   output={k.lower(): os.getenv(k) for k in os.environ}
+   for path in config_paths:
+      if os.path.exists(path):
+         spec = importlib.util.spec_from_file_location("config_module", path)
+         config = importlib.util.module_from_spec(spec)
+         spec.loader.exec_module(config)
+         config_vars = {k.lower(): getattr(config, k) for k in dir(config) if not k.startswith("__")}
+         output.update(config_vars)
    return output
 
 import uvicorn
@@ -997,27 +1005,6 @@ async def function_consumer_kafka_postgres_crud(config_kafka_url,config_kafka_pa
       await client_postgres.disconnect()
       await kafka_consumer_client.stop()
 
-import asyncio,json
-async def function_consumer_redis_postgres_crud(config_redis_url,config_channel_name,config_postgres_url,function_client_read_redis,function_client_read_redis_consumer,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
-   client_redis=await function_client_read_redis(config_redis_url)
-   redis_consumer_client=await function_client_read_redis_consumer(client_redis,config_channel_name)
-   client_postgres=await function_client_read_postgres(config_postgres_url)
-   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-   try:
-      async for message in redis_consumer_client.listen():
-         if message["type"]=="message" and message["channel"]==config_channel_name.encode():
-            data=json.loads(message['data'])
-            try:
-               if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)   
-               elif data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
-               print(output)
-            except Exception as e:print(str(e))
-   except asyncio.CancelledError:print("subscription cancelled")
-   finally:
-      await client_postgres.disconnect()
-      await redis_consumer_client.unsubscribe(config_channel_name)
-      await client_redis.aclose()
-      
 import aio_pika,asyncio,json
 async def function_consumer_rabbitmq_postgres_crud(config_rabbitmq_url,config_channel_name,config_postgres_url,function_client_read_rabbitmq,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
    client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url)

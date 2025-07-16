@@ -46,10 +46,15 @@
 
 # notes
 1. main.py run = python main.py
-2. main.py run with reload =  uvicorn main:app --reload
+2. main.py run with reload =  ./venv/bin/uvicorn main:app --reload
 4. api testing = ./test.sh
-5. celery run = celery -A ccelery worker --loglevel=info
+5. celery run = ./venv/bin/celery -A consumer_celery worker --loglevel=info
+6. create venv - python3 -m venv venv
+7. install requirements - ./venv/bin/pip install -r requirements.txt
+8. update package - ./venv/bin/pip install --upgrade fastapi
+9. freeze requirements - ./venv/bin/pip freeze > requirements.txt
 
 # how to run using docker
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
+

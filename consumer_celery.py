@@ -1,12 +1,13 @@
 #function
-from function import function_load_env
 from function import function_client_read_postgres_asyncpg_pool
 from function import function_postgres_object_create_asyncpg
 
 #config
-env=function_load_env(".env")
-config_redis_url=env.get("config_redis_url")
-config_postgres_url=env.get("config_postgres_url")
+import os
+from dotenv import load_dotenv
+load_dotenv()
+config_redis_url=os.get("config_redis_url")
+config_postgres_url=os.get("config_postgres_url")
 
 #import
 import asyncio,traceback

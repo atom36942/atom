@@ -5,7 +5,7 @@ from function import *
 from fastapi import APIRouter
 router=APIRouter()
 
-#env
+#config
 import os
 from dotenv import load_dotenv
 load_dotenv()
