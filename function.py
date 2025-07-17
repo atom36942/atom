@@ -128,14 +128,16 @@ def function_add_router(app):
    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
    for root, dirs, files in os.walk(base_dir):
       dirs[:] = [d for d in dirs if d not in skip_dirs]
+      is_router_folder = os.path.basename(root).startswith("router")
       for file in files:
-         if file.startswith("router") and file.endswith(".py"):
+         if file.endswith(".py") and (file.startswith("router") or is_router_folder):
             module_path = os.path.join(root, file)
             module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
             spec = importlib.util.spec_from_file_location(module_name, module_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            if hasattr(module, "router"):app.include_router(module.router)
+            if hasattr(module, "router"):
+               app.include_router(module.router)
    return None
 
 from fastapi import FastAPI

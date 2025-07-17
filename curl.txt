@@ -3,7 +3,6 @@ curl -X GET "$baseurl"
 
 #router
 curl -X GET "$baseurl/postgres-create"
-curl -X GET "$baseurl/celery"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
