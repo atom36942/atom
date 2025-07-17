@@ -1,16 +1,39 @@
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 import importlib.util
-def function_load_config(env_path,config_paths=[]):
+from pathlib import Path
+def function_load_config(env_path, config_paths=[]):
+   base_dir = Path(__file__).parent
+   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
    load_dotenv(env_path)
-   output={k.lower(): os.getenv(k) for k in os.environ}
+   output = {k.lower(): v for k, v in dotenv_values(env_path).items()}
    for path in config_paths:
       if os.path.exists(path):
          spec = importlib.util.spec_from_file_location("config_module", path)
          config = importlib.util.module_from_spec(spec)
          spec.loader.exec_module(config)
-         config_vars = {k.lower(): getattr(config, k) for k in dir(config) if not k.startswith("__")}
+         config_vars = {
+            k.lower(): getattr(config, k)
+            for k in dir(config)
+            if not k.startswith("__")
+         }
          output.update(config_vars)
+   for root, dirs, files in os.walk(base_dir):
+      dirs[:] = [d for d in dirs if d not in skip_dirs]
+      is_config_folder = os.path.basename(root).startswith("config")
+      for file in files:
+         if file.endswith(".py") and (file.startswith("config") or is_config_folder):
+            module_path = os.path.join(root, file)
+            module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            config_vars = {
+               k.lower(): getattr(module, k)
+               for k in dir(module)
+               if not k.startswith("__")
+            }
+            output.update(config_vars)
    return output
 
 import uvicorn
