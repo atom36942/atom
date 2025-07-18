@@ -101,14 +101,14 @@ from aiokafka import AIOKafkaConsumer
 from aiokafka.helpers import create_ssl_context
 async def function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name):
    context=create_ssl_context(cafile=config_kafka_path_cafile,certfile=config_kafka_path_certfile,keyfile=config_kafka_path_keyfile)
-   kafka_consumer_client=AIOKafkaConsumer(config_channel_name,bootstrap_servers=config_kafka_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
-   await kafka_consumer_client.start()
-   return kafka_consumer_client
+   client_kafka_consumer=AIOKafkaConsumer(config_channel_name,bootstrap_servers=config_kafka_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+   await client_kafka_consumer.start()
+   return client_kafka_consumer
 
 async def function_client_read_redis_consumer(client_redis,config_channel_name):
-   redis_consumer_client=client_redis.pubsub()
-   await redis_consumer_client.subscribe(config_channel_name)
-   return redis_consumer_client
+   client_redis_consumer=client_redis.pubsub()
+   await client_redis_consumer.subscribe(config_channel_name)
+   return client_redis_consumer
 
 import aio_pika
 async def function_client_read_rabbitmq(config_rabbitmq_url):
@@ -1031,11 +1031,11 @@ async def function_postgres_object_read(table,object,client_postgres,function_cr
 
 import asyncio,json
 async def function_consumer_kafka_postgres_crud(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name,config_postgres_url,function_client_read_kafka_consumer,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
-   kafka_consumer_client=await function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
+   client_kafka_consumer=await function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
    client_postgres=await function_client_read_postgres(config_postgres_url,)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
-      async for message in kafka_consumer_client:
+      async for message in client_kafka_consumer:
          if message.topic==config_channel_name:
             data=json.loads(message.value.decode('utf-8'))
             try:
@@ -1046,7 +1046,7 @@ async def function_consumer_kafka_postgres_crud(config_kafka_url,config_kafka_pa
    except asyncio.CancelledError:print("subscription cancelled")
    finally:
       await client_postgres.disconnect()
-      await kafka_consumer_client.stop()
+      await client_kafka_consumer.stop()
 
 import aio_pika,asyncio,json
 async def function_consumer_rabbitmq_postgres_crud(config_rabbitmq_url,config_channel_name,config_postgres_url,function_client_read_rabbitmq,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):

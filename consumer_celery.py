@@ -6,8 +6,8 @@ from function import function_postgres_object_create_asyncpg
 import os
 from dotenv import load_dotenv
 load_dotenv()
-config_redis_url=os.get("config_redis_url")
-config_postgres_url=os.get("config_postgres_url")
+config_redis_url=os.getenv("config_redis_url")
+config_postgres_url=os.getenv("config_postgres_url")
 
 #import
 import asyncio,traceback

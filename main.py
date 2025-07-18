@@ -285,10 +285,10 @@ async def route_my_object_create(request:Request):
    if any(key in config_column_disabled_non_admin_list for key in object):return function_return_error(" object key not allowed")
    if not mode:output=await function_postgres_object_create(table,[object],request.app.state.client_postgres,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
    elif mode:
-      payload={"function":"postgres_create","data":{"table":table,"object":object,"is_serialize":is_serialize}}
+      data={"function":"postgres_create","param":{"table":table,"object":object,"is_serialize":is_serialize}}
       if mode=="batch":output=await function_postgres_object_create_batch(table,object,config_batch_object_create,request.app.state.client_postgres,function_postgres_object_create,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
       elif mode.startswith("mongodb"):output=await function_mongodb_object_create(table,[object],mode.split('_')[1],request.app.state.client_mongodb)
-      elif mode=="redis":output=await function_publish_redis(payload,request.app.state.client_redis,config_channel_name)
+      elif mode=="redis":output=await function_publish_redis(data,request.app.state.client_redis,config_channel_name)
       elif mode=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,config_channel_name)
       elif mode=="lavinmq":output=await function_publish_lavinmq(data,request.app.state.client_lavinmq_channel,config_channel_name)
       elif mode=="kafka":output=await function_publish_kafka(data,request.app.state.client_kafka_producer,config_channel_name)

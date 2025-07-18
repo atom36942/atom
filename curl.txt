@@ -32,9 +32,9 @@ curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $t
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"background"}'
 curl -X POST "$baseurl/my/object-create?table=test&mode=batch" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"batch"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&mode=mongodb_atom" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb"}'
+curl -X POST "$baseurl/my/object-create?table=test&mode=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
 
 0 curl -X POST "$baseurl/my/object-create?table=test&mode=kafka" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"kafka"}'
-0 curl -X POST "$baseurl/my/object-create?table=test&mode=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&mode=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&mode=lavinmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"
