@@ -53,6 +53,7 @@
 7. install requirements - ./venv/bin/pip install -r requirements.txt
 8. update package - ./venv/bin/pip install --upgrade fastapi
 9. freeze requirements - ./venv/bin/pip freeze > requirements.txt
+10. redis consumer = venv/bin/python consumer_redis.py
 
 # how to run using docker
 1. docker build -t atom .

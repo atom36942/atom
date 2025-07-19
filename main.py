@@ -276,22 +276,22 @@ async def route_my_account_delete(request:Request):
 
 @app.post("/my/object-create")
 async def route_my_object_create(request:Request):
-   object_1,[table,is_serialize,mode]=await function_param_read("query",request,["table"],["is_serialize","mode"])
+   object_1,[table,is_serialize,queue]=await function_param_read("query",request,["table"],["is_serialize","queue"])
    object,[]=await function_param_read("body",request,[],[])
    is_serialize=int(is_serialize) if is_serialize else 0
    object["created_by_id"]=request.state.user["id"]
    if table in ["users"]:return function_return_error("table not allowed")
    if len(object)<=1:return function_return_error ("object issue")
    if any(key in config_column_disabled_non_admin_list for key in object):return function_return_error(" object key not allowed")
-   if not mode:output=await function_postgres_object_create(table,[object],request.app.state.client_postgres,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
-   elif mode:
-      data={"function":"postgres_create","param":{"table":table,"object":object,"is_serialize":is_serialize}}
-      if mode=="batch":output=await function_postgres_object_create_batch(table,object,config_batch_object_create,request.app.state.client_postgres,function_postgres_object_create,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
-      elif mode.startswith("mongodb"):output=await function_mongodb_object_create(table,[object],mode.split('_')[1],request.app.state.client_mongodb)
-      elif mode=="redis":output=await function_publish_redis(data,request.app.state.client_redis,config_channel_name)
-      elif mode=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,config_channel_name)
-      elif mode=="lavinmq":output=await function_publish_lavinmq(data,request.app.state.client_lavinmq_channel,config_channel_name)
-      elif mode=="kafka":output=await function_publish_kafka(data,request.app.state.client_kafka_producer,config_channel_name)
+   if not queue:output=await function_postgres_object_create(table,[object],request.app.state.client_postgres,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
+   elif queue:
+      data={"function":"function_postgres_object_create","table":table,"object_list":[object],"is_serialize":is_serialize}
+      if queue=="batch":output=await function_postgres_object_create_batch(table,object,config_batch_object_create,request.app.state.client_postgres,function_postgres_object_create,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
+      elif queue.startswith("mongodb"):output=await function_mongodb_object_create(table,[object],queue.split('_')[1],request.app.state.client_mongodb)
+      elif queue=="redis":output=await function_publish_redis(data,request.app.state.client_redis,config_channel_name)
+      elif queue=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,config_channel_name)
+      elif queue=="lavinmq":output=await function_publish_lavinmq(data,request.app.state.client_lavinmq_channel,config_channel_name)
+      elif queue=="kafka":output=await function_publish_kafka(data,request.app.state.client_kafka_producer,config_channel_name)
    return {"status":1,"message":output}
 
 @app.get("/my/object-read")

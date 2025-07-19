@@ -9,6 +9,7 @@ router=APIRouter()
 import os
 from dotenv import load_dotenv
 load_dotenv()
+config_channel_name=os.getenv("config_channel_name","ch1")
 
 #import
 from fastapi import Request
@@ -24,8 +25,8 @@ async def route_postgres_create(request:Request):
 #celery
 @router.get("/celery")
 async def route_celery(request:Request):
-   task_celery_1=request.app.state.client_celery_producer.send_task("tasks.celery_task_postgres_object_create",args=["test",[{"title": "celery"}]])
-   task_celery_2=request.app.state.client_celery_producer.send_task("tasks.celery_add_num",args=[2,3])
+   task_1=request.app.state.client_celery_producer.send_task("function_postgres_object_create_asyncpg",args=["test",[{"title": "celery"}]])
+   task_2=request.app.state.client_celery_producer.send_task("add",args=[2,3])
    return {"status":1,"message":"done"}
 
 #posthog
@@ -33,6 +34,14 @@ async def route_celery(request:Request):
 async def route_posthog(request:Request):
    request.app.state.client_posthog.capture(distinct_id="user_1",event="test")
    request.app.state.client_posthog.capture(distinct_id="user_2",event="posthog kt",properties={"name":"atom","title":"testing"})
+   return {"status":1,"message":"done"}
+
+#redis publish
+@router.get("/redis-publish")
+async def route_redis_publish(request:Request):
+   data_1={"function":"function_postgres_object_create","table":"test","object_list":[{"title":"redis2"},{"title":"redis3"}]}
+   data_2={"function":"function_postgres_object_update","table":"users","object_list":[{"id":1,"email":"atom"}]}
+   for data in [data_1,data_2]:await function_publish_redis(data,request.app.state.client_redis,config_channel_name)
    return {"status":1,"message":"done"}
 
 #websocket
