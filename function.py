@@ -99,15 +99,15 @@ async def function_client_read_kafka_producer(config_kafka_url,config_kafka_path
 
 from aiokafka import AIOKafkaConsumer
 from aiokafka.helpers import create_ssl_context
-async def function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name):
+async def function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,channel_name):
    context=create_ssl_context(cafile=config_kafka_path_cafile,certfile=config_kafka_path_certfile,keyfile=config_kafka_path_keyfile)
-   client_kafka_consumer=AIOKafkaConsumer(config_channel_name,bootstrap_servers=config_kafka_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
+   client_kafka_consumer=AIOKafkaConsumer(channel_name,bootstrap_servers=config_kafka_url,security_protocol="SSL",ssl_context=context,enable_auto_commit=True,auto_commit_interval_ms=10000)
    await client_kafka_consumer.start()
    return client_kafka_consumer
 
-async def function_client_read_redis_consumer(client_redis,config_channel_name):
+async def function_client_read_redis_consumer(client_redis,channel_name):
    client_redis_consumer=client_redis.pubsub()
-   await client_redis_consumer.subscribe(config_channel_name)
+   await client_redis_consumer.subscribe(channel_name)
    return client_redis_consumer
 
 import aio_pika
@@ -115,12 +115,6 @@ async def function_client_read_rabbitmq(config_rabbitmq_url):
    client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
    client_rabbitmq_channel=await client_rabbitmq.channel()
    return client_rabbitmq,client_rabbitmq_channel
-
-import aio_pika
-async def function_client_read_lavinmq(config_lavinmq_url):
-   client_lavinmq=await aio_pika.connect_robust(config_lavinmq_url)
-   client_lavinmq_channel=await client_lavinmq.channel()
-   return client_lavinmq,client_lavinmq_channel
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -183,23 +177,18 @@ def function_app_add_state_lifespan(locals_dict,app):
       if k.startswith(("client_","cache_")):setattr(app.state,k,v)
 
 import json
-async def function_publish_kafka(data,client_kafka_producer,config_channel_name):
-   output=await client_kafka_producer.send_and_wait(config_channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
+async def function_publish_kafka(data,client_kafka_producer,channel_name):
+   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
    return output
 
 import json
-async def function_publish_redis(data,client_redis,config_channel_name):
-   output=await client_redis.publish(config_channel_name,json.dumps(data))
+async def function_publish_redis(data,client_redis,channel_name):
+   output=await client_redis.publish(channel_name,json.dumps(data))
    return output
 
 import json,aio_pika
-async def function_publish_rabbitmq(data,client_rabbitmq_channel,config_channel_name):
-   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=config_channel_name)
-   return output
-
-import json,aio_pika
-async def function_publish_lavinmq(data,client_lavinmq_channel,config_channel_name):
-   output=await client_lavinmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=config_channel_name)
+async def function_publish_rabbitmq(data,client_rabbitmq_channel,channel_name):
+   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
    return output
 
 from fastapi import responses
@@ -1030,13 +1019,13 @@ async def function_postgres_object_read(table,object,client_postgres,function_cr
    return object_list
 
 import asyncio,json
-async def function_consumer_kafka_postgres_crud(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name,config_postgres_url,function_client_read_kafka_consumer,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
-   client_kafka_consumer=await function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,config_channel_name)
+async def function_consumer_kafka_postgres_crud(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,channel_name,config_postgres_url,function_client_read_kafka_consumer,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
+   client_kafka_consumer=await function_client_read_kafka_consumer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile,channel_name)
    client_postgres=await function_client_read_postgres(config_postgres_url,)
    postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
    try:
       async for message in client_kafka_consumer:
-         if message.topic==config_channel_name:
+         if message.topic==channel_name:
             data=json.loads(message.value.decode('utf-8'))
             try:
                if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)   
@@ -1048,51 +1037,6 @@ async def function_consumer_kafka_postgres_crud(config_kafka_url,config_kafka_pa
       await client_postgres.disconnect()
       await client_kafka_consumer.stop()
 
-import aio_pika,asyncio,json
-async def function_consumer_rabbitmq_postgres_crud(config_rabbitmq_url,config_channel_name,config_postgres_url,function_client_read_rabbitmq,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
-   client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url)
-   client_postgres=await function_client_read_postgres(config_postgres_url)
-   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-   async def aqmp_callback(message: aio_pika.IncomingMessage):
-      async with message.process():
-         try:
-            data=json.loads(message.body)
-            if data["mode"]=="create":output=await function_postgres_object_create(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
-            elif data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
-            print(output)
-         except Exception as e:print("Callback function_error:",e.args)
-   try:
-      queue=await client_rabbitmq_channel.declare_queue(config_channel_name,auto_delete=False)
-      await queue.consume(aqmp_callback)
-      await asyncio.Future()
-   except KeyboardInterrupt:
-      await client_postgres.disconnect()
-      await client_rabbitmq_channel.close()
-      await client_rabbitmq.close()
-
-import aio_pika,asyncio,json
-async def function_consumer_lavinmq_postgres_crud(config_lavinmq_url,config_channel_name,config_postgres_url,function_client_read_lavinmq,function_client_read_postgres,function_postgres_schema_read,function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize):
-   client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url)
-   client_postgres=await function_client_read_postgres(config_postgres_url)
-   postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-   async def aqmp_callback(message: aio_pika.IncomingMessage):
-      async with message.process():
-         try:
-            data=json.loads(message.body)
-            mode=data.get("mode")
-            if mode=="create":output=await function_postgres_object_create(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
-            elif data["mode"]=="update":output=await function_postgres_object_update(data["table"],[data["object"]],client_postgres,data["is_serialize"],function_postgres_object_serialize,postgres_column_datatype)
-            print(output)
-         except Exception as e:print("Callback function_error:",e.args)
-   try:
-      queue=await client_lavinmq_channel.declare_queue(config_channel_name,auto_delete=False)
-      await queue.consume(aqmp_callback)
-      await asyncio.Future()
-   except KeyboardInterrupt:
-      await client_postgres.disconnect()
-      await client_lavinmq_channel.close()
-      await client_lavinmq.close()
-      
 def function_converter_numeric(mode,x):
    MAX_LEN = 30
    CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"

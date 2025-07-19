@@ -1,11 +1,6 @@
 #index
 curl -X GET "$baseurl"
 
-#router
-curl -X GET "$baseurl/postgres-create"
-curl -X GET "$baseurl/celery"
-curl -X GET "$baseurl/redis-publish"
-
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/postgres-csv-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select * from users"}' -o export.csv
@@ -35,10 +30,9 @@ curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authoriz
 curl -X POST "$baseurl/my/object-create?table=test&queue=batch" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"batch"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_atom" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
+curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
 
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=kafka" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"kafka"}'
-0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
-0 curl -X POST "$baseurl/my/object-create?table=test&queue=lavinmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"lavinmq"}'
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/object-read?table=test&id=>,1&page=2&limit=3" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/parent-read?table=report_user&parent_column=user_id&parent_table=users" -H "Authorization: Bearer $token"
@@ -83,3 +77,9 @@ curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Co
 curl -X DELETE "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,506"}'
 curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users where id=1"}'
+
+#router
+curl -X GET "$baseurl/postgres-create"
+curl -X GET "$baseurl/celery"
+curl -X GET "$baseurl/redis-publish"
+curl -X GET "$baseurl/rabbitmq-publish"

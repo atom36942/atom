@@ -24,8 +24,7 @@
 - ses integration
 - sentry integration
 - kafka integration
-- rabbitmq integration
-- lavinmq integration
+- rabbitmq/lavinmq integration
 - mongodb integration
 - ratelimiter
 - api caching

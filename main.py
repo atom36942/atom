@@ -11,7 +11,6 @@ config_key_jwt=config.get("config_key_jwt")
 config_sentry_dsn=config.get("config_sentry_dsn")
 config_mongodb_url=config.get("config_mongodb_url")
 config_rabbitmq_url=config.get("config_rabbitmq_url")
-config_lavinmq_url=config.get("config_lavinmq_url")
 config_kafka_url=config.get("config_kafka_url")
 config_kafka_path_cafile=config.get("config_kafka_path_cafile")
 config_kafka_path_certfile=config.get("config_kafka_path_certfile")
@@ -29,7 +28,6 @@ config_resend_url=config.get("config_resend_url")
 config_posthog_project_key=config.get("config_posthog_project_key")
 config_posthog_project_host=config.get("config_posthog_project_host")
 config_openai_key=config.get("config_openai_key")
-config_channel_name=config.get("config_channel_name","ch1")
 config_mode_check_api_access=config.get("config_mode_check_api_access","cache")
 config_mode_check_is_active=config.get("config_mode_check_is_active","token")
 config_token_expire_sec=int(config.get("config_token_expire_sec",365*24*60*60))
@@ -67,7 +65,6 @@ async def lifespan(app:FastAPI):
       client_openai=function_client_read_openai(config_openai_key) if config_openai_key else None
       client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_path_cafile,config_kafka_path_certfile,config_kafka_path_keyfile) if config_kafka_url else None
       client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
-      client_lavinmq,client_lavinmq_channel=await function_client_read_lavinmq(config_lavinmq_url) if config_lavinmq_url else (None, None)
       client_celery_producer=await function_client_read_celery_producer(config_redis_url) if config_redis_url else None
       client_posthog=await function_client_read_posthog(config_posthog_project_key,config_posthog_project_host)
       #cache init
@@ -83,12 +80,10 @@ async def lifespan(app:FastAPI):
       if client_postgres_asyncpg_pool:await client_postgres_asyncpg_pool.close()
       if client_postgres_read:await client_postgres_read.close()
       if client_redis:await client_redis.aclose()
-      if client_mongodb:await client_mongodb.close()
+      if client_mongodb:client_mongodb.close()
       if client_kafka_producer:await client_kafka_producer.stop()
       if client_rabbitmq_channel and not client_rabbitmq_channel.is_closed:await client_rabbitmq_channel.close()
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
-      if client_lavinmq_channel and not client_lavinmq_channel.is_closed:await client_lavinmq_channel.close()
-      if client_lavinmq and not client_lavinmq.is_closed:await client_lavinmq.close()
       if client_posthog:client_posthog.flush()
    except Exception as e:
       print(str(e))
@@ -288,10 +283,9 @@ async def route_my_object_create(request:Request):
       data={"function":"function_postgres_object_create","table":table,"object_list":[object],"is_serialize":is_serialize}
       if queue=="batch":output=await function_postgres_object_create_batch(table,object,config_batch_object_create,request.app.state.client_postgres,function_postgres_object_create,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
       elif queue.startswith("mongodb"):output=await function_mongodb_object_create(table,[object],queue.split('_')[1],request.app.state.client_mongodb)
-      elif queue=="redis":output=await function_publish_redis(data,request.app.state.client_redis,config_channel_name)
-      elif queue=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,config_channel_name)
-      elif queue=="lavinmq":output=await function_publish_lavinmq(data,request.app.state.client_lavinmq_channel,config_channel_name)
-      elif queue=="kafka":output=await function_publish_kafka(data,request.app.state.client_kafka_producer,config_channel_name)
+      elif queue=="redis":output=await function_publish_redis(data,request.app.state.client_redis,"channel_1")
+      elif queue=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,"channel_1")
+      elif queue=="kafka":output=await function_publish_kafka(data,request.app.state.client_kafka_producer,"channel_1")
    return {"status":1,"message":output}
 
 @app.get("/my/object-read")
