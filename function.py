@@ -172,9 +172,9 @@ def function_add_prometheus(app):
    Instrumentator().instrument(app).expose(app)
    return None
 
-def function_app_add_state_lifespan(locals_dict,app):
+def function_app_add_state(locals_dict,app,pattern_tuple):
    for k,v in locals_dict.items():
-      if k.startswith(("client_","cache_")):setattr(app.state,k,v)
+      if k.startswith(pattern_tuple):setattr(app.state,k,v)
 
 import json
 async def function_publish_kafka(data,client_kafka_producer,channel_name):
