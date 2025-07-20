@@ -51,6 +51,14 @@ async def route_rabbitmq_publish(request:Request):
    for data in [data_1,data_2]:await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,"channel_1")
    return {"status":1,"message":"done"}
 
+#kafka publish
+@router.get("/kafka-publish")
+async def route_kafka_publish(request:Request):
+   data_1={"function":"function_postgres_object_create","table":"test","object_list":[{"title":"kafka2"},{"title":"kafka3"}]}
+   data_2={"function":"function_postgres_object_update","table":"users","object_list":[{"id":1,"email":"kafka"}]}
+   for data in [data_1,data_2]:await function_publish_kafka(data,request.app.state.client_kafka_producer,"channel_1")
+   return {"status":1,"message":"done"}
+
 #websocket
 from fastapi import WebSocket,WebSocketDisconnect
 @router.websocket("/ws")
