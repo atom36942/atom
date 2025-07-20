@@ -40,7 +40,7 @@ async def route_posthog(request:Request):
 async def route_redis_publish(request:Request):
    data_1={"function":"function_postgres_object_create","table":"test","object_list":[{"title":"redis2"},{"title":"redis3"}]}
    data_2={"function":"function_postgres_object_update","table":"users","object_list":[{"id":1,"email":"redis"}]}
-   for data in [data_1,data_2]:await function_publish_redis(data,request.app.state.client_redis,"channel_1")
+   for data in [data_1,data_2]:await function_publisher_redis(request.app.state.client_redis,"channel_1",data)
    return {"status":1,"message":"done"}
 
 #rabbitmq publish
@@ -48,7 +48,7 @@ async def route_redis_publish(request:Request):
 async def route_rabbitmq_publish(request:Request):
    data_1={"function":"function_postgres_object_create","table":"test","object_list":[{"title":"rabbitmq2"},{"title":"rabbitmq3"}]}
    data_2={"function":"function_postgres_object_update","table":"users","object_list":[{"id":1,"email":"rabbitmq"}]}
-   for data in [data_1,data_2]:await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,"channel_1")
+   for data in [data_1,data_2]:await function_publisher_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",data)
    return {"status":1,"message":"done"}
 
 #kafka publish
@@ -56,7 +56,7 @@ async def route_rabbitmq_publish(request:Request):
 async def route_kafka_publish(request:Request):
    data_1={"function":"function_postgres_object_create","table":"test","object_list":[{"title":"kafka2"},{"title":"kafka3"}]}
    data_2={"function":"function_postgres_object_update","table":"users","object_list":[{"id":1,"email":"kafka"}]}
-   for data in [data_1,data_2]:await function_publish_kafka(data,request.app.state.client_kafka_producer,"channel_1")
+   for data in [data_1,data_2]:await function_publisher_kafka(request.app.state.client_kafka_producer,"channel_1",data)
    return {"status":1,"message":"done"}
 
 #websocket

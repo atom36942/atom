@@ -1,50 +1,91 @@
+#general
+from fastapi import FastAPI
+def function_fastapi_app_read(is_debug,lifespan):
+   app=FastAPI(debug=is_debug,lifespan=lifespan)
+   return app
+
+import uvicorn
+async def function_server_start(app):
+   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
+   server=uvicorn.Server(config)
+   await server.serve()
+   
+from fastapi import responses
+def function_return_error(message):
+   return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
+   
 import os
 from dotenv import load_dotenv, dotenv_values
 import importlib.util
 from pathlib import Path
-def function_load_config(env_path, config_paths=[]):
+def function_config_read(path_env=".env"):
+   def read_env_file(path):
+      load_dotenv(path)
+      return {k.lower(): v for k, v in dotenv_values(path).items()}
+   def read_config_modules(base_dir, skip_dirs):
+      output = {}
+      for root, dirs, files in os.walk(base_dir):
+         dirs[:] = [d for d in dirs if d not in skip_dirs]
+         is_config_folder = os.path.basename(root).startswith("config")
+         for file in files:
+            if file.endswith(".py") and (file.startswith("config") or is_config_folder):
+               module_path = os.path.join(root, file)
+               module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
+               spec = importlib.util.spec_from_file_location(module_name, module_path)
+               module = importlib.util.module_from_spec(spec)
+               spec.loader.exec_module(module)
+               output.update({k.lower(): getattr(module, k) for k in dir(module) if not k.startswith("__")})
+      return output
    base_dir = Path(__file__).parent
    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
-   load_dotenv(env_path)
-   output = {k.lower(): v for k, v in dotenv_values(env_path).items()}
-   for path in config_paths:
-      if os.path.exists(path):
-         spec = importlib.util.spec_from_file_location("config_module", path)
-         config = importlib.util.module_from_spec(spec)
-         spec.loader.exec_module(config)
-         config_vars = {
-            k.lower(): getattr(config, k)
-            for k in dir(config)
-            if not k.startswith("__")
-         }
-         output.update(config_vars)
+   output = read_env_file(path_env)
+   output.update(read_config_modules(base_dir, skip_dirs))
+   return output
+
+#add
+import sentry_sdk
+def function_add_sentry(config_sentry_dsn):
+   sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
+   return None
+
+from fastapi.middleware.cors import CORSMiddleware
+def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
+   app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)
+   return None
+
+from prometheus_fastapi_instrumentator import Instrumentator
+def function_add_prometheus(app):
+   Instrumentator().instrument(app).expose(app)
+   return None
+
+def function_add_app_state(locals_dict,app,pattern_tuple):
+   for k,v in locals_dict.items():
+      if k.startswith(pattern_tuple):setattr(app.state,k,v)
+
+import os
+import importlib.util
+from pathlib import Path
+def function_add_router(app):
+   base_dir = Path(__file__).parent
+   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
    for root, dirs, files in os.walk(base_dir):
       dirs[:] = [d for d in dirs if d not in skip_dirs]
-      is_config_folder = os.path.basename(root).startswith("config")
+      is_router_folder = os.path.basename(root).startswith("router")
       for file in files:
-         if file.endswith(".py") and (file.startswith("config") or is_config_folder):
+         if file.endswith(".py") and (file.startswith("router") or is_router_folder):
             module_path = os.path.join(root, file)
             module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
             spec = importlib.util.spec_from_file_location(module_name, module_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            config_vars = {
-               k.lower(): getattr(module, k)
-               for k in dir(module)
-               if not k.startswith("__")
-            }
-            output.update(config_vars)
-   return output
-
-import uvicorn
-async def function_server_start_uvicorn(app):
-   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
-   server=uvicorn.Server(config)
-   await server.serve()
+            if hasattr(module, "router"):
+               app.include_router(module.router)
+   return None
    
+#client
 from databases import Database
-async def function_client_read_postgres(config_postgres_url,min_size=5,max_size=20):
-   client_postgres=Database(config_postgres_url,min_size=min_size,max_size=max_size)
+async def function_client_read_postgres(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
+   client_postgres=Database(config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
    await client_postgres.connect()
    return client_postgres
 
@@ -54,8 +95,8 @@ async def function_client_read_postgres_asyncpg(config_postgres_url):
    return client_postgres_asyncpg
 
 import asyncpg
-async def function_client_read_postgres_asyncpg_pool(config_postgres_url,min_size=5,max_size=20):
-   client_postgres_asyncpg_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=min_size,max_size=max_size)
+async def function_client_read_postgres_asyncpg_pool(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
+   client_postgres_asyncpg_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
    return client_postgres_asyncpg_pool
 
 import redis.asyncio as redis
@@ -89,17 +130,16 @@ async def function_client_read_ses(config_ses_region_name,config_aws_access_key_
    client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_ses
 
-from aiokafka import AIOKafkaProducer
-async def function_client_read_kafka_producer(config_kafka_url,config_kafka_username,config_kafka_password):
-    client_kafka_producer=AIOKafkaProducer(bootstrap_servers=config_kafka_url,security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=config_kafka_username,sasl_plain_password=config_kafka_password,)
-    await client_kafka_producer.start()
-    return client_kafka_producer
+import gspread
+from google.oauth2.service_account import Credentials
+async def function_client_read_gsheet(config_gsheet_service_account_json_path,config_gsheet_scope_list):
+   client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
+   return client_gsheet
 
-from aiokafka import AIOKafkaConsumer
-async def function_client_read_kafka_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_kafka_topic,config_kafka_group_id,config_enable_auto_commit):
-    client_kafka_consumer=AIOKafkaConsumer(config_kafka_topic, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, security_protocol="SASL_PLAINTEXT", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password, auto_offset_reset="earliest", enable_auto_commit=config_enable_auto_commit)
-    await client_kafka_consumer.start()
-    return client_kafka_consumer
+from celery import Celery
+async def function_client_read_celery_producer(config_redis_url):
+   client_celery_producer=Celery("producer",broker=config_redis_url,backend=config_redis_url)
+   return client_celery_producer
 
 async def function_client_read_redis_consumer(client_redis,channel_name):
    client_redis_consumer=client_redis.pubsub()
@@ -112,136 +152,112 @@ async def function_client_read_rabbitmq(config_rabbitmq_url):
    client_rabbitmq_channel=await client_rabbitmq.channel()
    return client_rabbitmq,client_rabbitmq_channel
 
-import gspread
-from google.oauth2.service_account import Credentials
-async def function_client_read_gsheet(config_gsheet_service_account_json_path,config_gsheet_scope_list):
-   client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
-   return client_gsheet
+from aiokafka import AIOKafkaProducer
+async def function_client_read_kafka_producer(config_kafka_url,config_kafka_username,config_kafka_password):
+    client_kafka_producer=AIOKafkaProducer(bootstrap_servers=config_kafka_url,security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=config_kafka_username,sasl_plain_password=config_kafka_password,)
+    await client_kafka_producer.start()
+    return client_kafka_producer
 
-from celery import Celery
-async def function_client_read_celery_producer(config_redis_url):
-   client_celery_producer=Celery("producer",broker=config_redis_url,backend=config_redis_url)
-   return client_celery_producer
-
+from aiokafka import AIOKafkaConsumer
+async def function_client_read_kafka_consumer(config_kafka_url,config_kafka_username,config_kafka_password,topic_name,group_id,enable_auto_commit):
+    client_kafka_consumer=AIOKafkaConsumer(topic_name,bootstrap_servers=config_kafka_url,group_id=group_id, security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=config_kafka_username,sasl_plain_password=config_kafka_password,auto_offset_reset="earliest",enable_auto_commit=enable_auto_commit)
+    await client_kafka_consumer.start()
+    return client_kafka_consumer
+ 
 from openai import OpenAI
 def function_client_read_openai(config_openai_key):
    client_openai=OpenAI(api_key=config_openai_key)
    return client_openai
 
-import sentry_sdk
-def function_add_sentry(config_sentry_dsn):
-   sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
-   return None
-
-import os
-import importlib.util
-from pathlib import Path
-def function_add_router(app):
-   base_dir = Path(__file__).parent
-   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
-   for root, dirs, files in os.walk(base_dir):
-      dirs[:] = [d for d in dirs if d not in skip_dirs]
-      is_router_folder = os.path.basename(root).startswith("router")
-      for file in files:
-         if file.endswith(".py") and (file.startswith("router") or is_router_folder):
-            module_path = os.path.join(root, file)
-            module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
-            spec = importlib.util.spec_from_file_location(module_name, module_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            if hasattr(module, "router"):
-               app.include_router(module.router)
-   return None
-
-from fastapi import FastAPI
-def function_fastapi_app_read(is_debug,lifespan):
-   app=FastAPI(debug=is_debug,lifespan=lifespan)
-   return app
-
-from fastapi.middleware.cors import CORSMiddleware
-def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
-   app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)
-   return None
-
-from prometheus_fastapi_instrumentator import Instrumentator
-def function_add_prometheus(app):
-   Instrumentator().instrument(app).expose(app)
-   return None
-
-def function_app_add_state(locals_dict,app,pattern_tuple):
-   for k,v in locals_dict.items():
-      if k.startswith(pattern_tuple):setattr(app.state,k,v)
-
+#producer
 import json
-async def function_publish_kafka(data,client_kafka_producer,channel_name):
-   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
-   return output
-
-import json
-async def function_publish_redis(data,client_redis,channel_name):
+async def function_publisher_redis(client_redis,channel_name,data):
    output=await client_redis.publish(channel_name,json.dumps(data))
    return output
 
 import json,aio_pika
-async def function_publish_rabbitmq(data,client_rabbitmq_channel,channel_name):
+async def function_publisher_rabbitmq(client_rabbitmq_channel,channel_name,data):
    output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
    return output
 
-from fastapi import responses
-def function_return_error(message):
-   return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
-
-import requests
-async def function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url):
-   response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
-   output=response.json()
-   if output.get("return") is not True:raise Exception(f"{output.get('message')}")
+import json
+async def function_publisher_kafka(client_kafka_producer,channel_name,data):
+   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
    return output
 
+#send
+async def function_send_email_ses(client_ses,email_from,email_to_list,title,body):
+   client_ses.send_email(Source=email_from,Destination={"ToAddresses":email_to_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+   return None
+
 import httpx
-async def function_resend_send_email(email_list,title,body,sender_email,config_resend_key,config_resend_url):
-   payload={"from":sender_email,"to":email_list,"subject":title,"html":body}
+async def function_send_email_resend(config_resend_url,config_resend_key,email_from,email_to_list,title,body):
+   payload={"from":email_from,"to":email_to_list,"subject":title,"html":body}
    headers={"Authorization":f"Bearer {config_resend_key}","Content-Type": "application/json"}
    async with httpx.AsyncClient() as client:
       output=await client.post(config_resend_url,json=payload,headers=headers)
    if output.status_code!=200:raise Exception(f"{output.text}")
    return None
 
-async def function_ses_send_email(email_list,title,body,sender_email,client_ses):
-   client_ses.send_email(Source=sender_email,Destination={"ToAddresses":email_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
-   return None
+import requests
+async def function_send_mobile_otp_fast2sms(config_fast2sms_url,config_fast2sms_key,mobile,otp):
+   response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
+   output=response.json()
+   if output.get("return") is not True:raise Exception(f"{output.get('message')}")
+   return output
 
-async def function_sns_send_message(mobile,message,client_sns):
+async def function_send_mobile_message_sns(client_sns,mobile,message):
    client_sns.publish(PhoneNumber=mobile,Message=message)
    return None
 
-async def function_sns_send_message_template(mobile,message,template_id,entity_id,sender_id,client_sns):
+async def function_send_mobile_message_sns_template(client_sns,mobile,message,template_id,entity_id,sender_id):
    client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
    return None
 
-async def function_s3_bucket_create(bucket,client_s3,config_s3_region_name):
+#s3
+async def function_s3_bucket_create(config_s3_region_name,client_s3,bucket):
    output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
    return output
 
-async def function_s3_bucket_public(bucket,client_s3):
+async def function_s3_bucket_public(client_s3,bucket):
    client_s3.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
    policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
    output=client_s3.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
    return output
 
-async def function_s3_bucket_empty(bucket,client_s3_resource):
+async def function_s3_bucket_empty(client_s3_resource,bucket):
    output=client_s3_resource.Bucket(bucket).objects.all().delete()
    return output
 
-async def function_s3_bucket_delete(bucket,client_s3):
+async def function_s3_bucket_delete(client_s3,bucket):
    output=client_s3.delete_bucket(Bucket=bucket)
    return output
 
-async def function_s3_url_delete(url,client_s3_resource):
+async def function_s3_url_delete(client_s3_resource,url):
    bucket=url.split("//",1)[1].split(".",1)[0]
    key=url.rsplit("/",1)[1]
    output=client_s3_resource.Object(bucket,key).delete()
    return output
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 import uuid
 from io import BytesIO

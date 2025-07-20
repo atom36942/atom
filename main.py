@@ -2,7 +2,7 @@
 from function import *
 
 #config
-config=function_load_config(".env",["config.py"])
+config=function_config_read()
 config_postgres_url=config.get("config_postgres_url")
 config_postgres_url_read=config.get("config_postgres_url_read")
 config_redis_url=config.get("config_redis_url")
@@ -74,7 +74,7 @@ async def lifespan(app:FastAPI):
       cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
       cache_users_is_active=await function_cache_users_is_active_read(config_limit_cache_users_is_active,client_postgres_asyncpg) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("is_active") else {}
       #app state set
-      function_app_add_state(locals(),app,("client_","cache_"))
+      function_add_app_state(locals(),app,("client_","cache_"))
       #app shutdown
       yield
       if client_postgres:await client_postgres.disconnect()
@@ -174,16 +174,16 @@ async def route_root_redis_csv_import(request:Request):
 @app.post("/root/s3-bucket-ops")
 async def route_root_s3_bucket_ops(request:Request):
    object,[mode,bucket]=await function_param_read("body",request,["mode","bucket"],[])
-   if mode=="create":output=await function_s3_bucket_create(bucket,request.app.state.client_s3,config_s3_region_name)
-   if mode=="public":output=await function_s3_bucket_public(bucket,request.app.state.client_s3)
-   if mode=="empty":output=await function_s3_bucket_empty(bucket,request.app.state.client_s3_resource)
-   if mode=="delete":output=await function_s3_bucket_delete(bucket,request.app.state.client_s3)
+   if mode=="create":output=await function_s3_bucket_create(config_s3_region_name,request.app.state.client_s3,bucket)
+   if mode=="public":output=await function_s3_bucket_public(request.app.state.client_s3,bucket)
+   if mode=="empty":output=await function_s3_bucket_empty(request.app.state.client_s3_resource,bucket)
+   if mode=="delete":output=await function_s3_bucket_delete(request.app.state.client_s3,bucket)
    return {"status":1,"message":output}
 
 @app.delete("/root/s3-url-delete")
 async def route_root_s3_url_empty(request:Request):
    object,[url]=await function_param_read("body",request,["url"],[])
-   for item in url.split("---"):output=await function_s3_url_delete(item,request.app.state.client_s3_resource)
+   for item in url.split("---"):output=await function_s3_url_delete(request.app.state.client_s3_resource,item)
    return {"status":1,"message":output}
 
 @app.get("/root/reset-global")
@@ -285,9 +285,9 @@ async def route_my_object_create(request:Request):
       data={"function":"function_postgres_object_create","table":table,"object_list":[object],"is_serialize":is_serialize}
       if queue=="batch":output=await function_postgres_object_create_batch(table,object,config_batch_object_create,request.app.state.client_postgres,function_postgres_object_create,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
       elif queue.startswith("mongodb"):output=await function_mongodb_object_create(table,[object],queue.split('_')[1],request.app.state.client_mongodb)
-      elif queue=="redis":output=await function_publish_redis(data,request.app.state.client_redis,"channel_1")
-      elif queue=="rabbitmq":output=await function_publish_rabbitmq(data,request.app.state.client_rabbitmq_channel,"channel_1")
-      elif queue=="kafka":output=await function_publish_kafka(data,request.app.state.client_kafka_producer,"channel_1")
+      elif queue=="redis":output=await function_publisher_redis(request.app.state.client_redis,"channel_1",data)
+      elif queue=="rabbitmq":output=await function_publisher_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",data)
+      elif queue=="kafka":output=await function_publisher_kafka(request.app.state.client_kafka_producer,"channel_1",data)
    return {"status":1,"message":output}
 
 @app.get("/my/object-read")
@@ -389,35 +389,35 @@ async def route_my_message_delete_single(request:Request):
 async def route_public_otp_send_mobile_sns(request:Request):
    object,[mobile]=await function_param_read("body",request,["mobile"],[])
    otp=await function_otp_generate("mobile",mobile,request.app.state.client_postgres)
-   await function_sns_send_message(mobile,str(otp),request.app.state.client_sns)
+   await function_send_mobile_message_sns(request.app.state.client_sns,mobile,str(otp))
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-mobile-sns-template")
 async def route_public_otp_send_mobile_sns_template(request:Request):
    object,[mobile,message,template_id,entity_id,sender_id]=await function_param_read("body",request,["mobile","message","template_id","entity_id","sender_id"],[])
    otp=await function_otp_generate("mobile",mobile,request.app.state.client_postgres)
-   await function_sns_send_message_template(mobile,message,template_id,entity_id,sender_id,request.app.state.client_sns)
+   await function_send_mobile_message_sns_template(request.app.state.client_sns,mobile,message,template_id,entity_id,sender_id)
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-mobile-fast2sms")
 async def route_public_otp_send_mobile_fast2sms(request:Request):
    object,[mobile]=await function_param_read("body",request,["mobile"],[])
    otp=await function_otp_generate("mobile",mobile,request.app.state.client_postgres)
-   output=await function_fast2sms_send_otp(mobile,otp,config_fast2sms_key,config_fast2sms_url)
+   output=await function_send_mobile_otp_fast2sms(config_fast2sms_url,config_fast2sms_key,mobile,otp)
    return {"status":1,"message":output}
 
 @app.post("/public/otp-send-email-ses")
 async def route_public_otp_send_email_ses(request:Request):
    object,[email,sender_email]=await function_param_read("body",request,["email","sender_email"],[])
    otp=await function_otp_generate("email",email,request.app.state.client_postgres)
-   await function_ses_send_email([email],"your otp code",str(otp),sender_email,request.app.state.client_ses)
+   await function_send_email_ses(request.app.state.client_ses,sender_email,[email],"your otp code",str(otp))
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-email-resend")
 async def route_public_otp_send_email_resend(request:Request):
    object,[email,sender_email]=await function_param_read("body",request,["email","sender_email"],[])
    otp=await function_otp_generate("email",email,request.app.state.client_postgres)
-   await function_resend_send_email([email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>",sender_email,config_resend_key,config_resend_url)
+   await function_send_email_resend(config_resend_url,config_resend_key,sender_email,[email],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
    return {"status":1,"message":"done"}
 
 @app.post("/public/otp-verify-email")
@@ -524,5 +524,5 @@ async def route_admin_db_runner(request:Request):
 #server start
 import asyncio
 if __name__=="__main__":
-   try:asyncio.run(function_server_start_uvicorn(app))
+   try:asyncio.run(function_server_start(app))
    except KeyboardInterrupt:print("exit")
