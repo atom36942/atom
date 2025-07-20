@@ -31,7 +31,6 @@ curl -X POST "$baseurl/my/object-create?table=test&queue=batch" -H "Authorizatio
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_atom" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
-
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=kafka" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"kafka"}'
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/object-read?table=test&id=>,1&page=2&limit=3" -H "Authorization: Bearer $token"

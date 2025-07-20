@@ -58,3 +58,13 @@
 1. docker build -t atom .
 2. docker run -p 8000:8000 atom
 
+# kafka
+1. Install Zookeeper and Kafka using Homebrew
+2. Start Zookeeper using `brew services`
+3. Create JAAS config file with users and passwords in home directory
+4. Edit Kafka broker config (`server.properties`) to enable SASL/PLAIN
+5. Export JAAS config path using `KAFKA_OPTS` environment variable
+6. Start Kafka broker manually using the config file
+
+
+

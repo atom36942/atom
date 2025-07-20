@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 config_rabbitmq_url=os.getenv("config_rabbitmq_url")
 config_postgres_url=os.getenv("config_postgres_url")
+config_channel_name="channel_1"
 
 #import
 import asyncio,json,aio_pika
@@ -25,7 +26,7 @@ async def logic():
             if data["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_postgres_object_serialize,postgres_column_datatype))
             elif data["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_postgres_object_serialize,postgres_column_datatype))
             print(f"{data.get('function')} task created")
-      queue=await client_rabbitmq_channel.declare_queue("channel_1",auto_delete=False)
+      queue=await client_rabbitmq_channel.declare_queue(config_channel_name,auto_delete=False)
       await queue.consume(aqmp_callback)
       await asyncio.Future()
    except asyncio.CancelledError:print("consumer cancelled")
