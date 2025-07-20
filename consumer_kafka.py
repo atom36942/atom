@@ -1,7 +1,7 @@
 #function
 from function import function_client_read_kafka_consumer
 from function import function_client_read_postgres,function_postgres_schema_read
-from function import function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize
+from function import function_object_create_postgres,function_postgres_object_update,function_object_serialize
 
 #config
 import os
@@ -27,8 +27,8 @@ async def logic():
       async for message in client_kafka_consumer:
          if message.topic=="channel_1":
             data=json.loads(message.value.decode('utf-8'))
-            if data["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_postgres_object_serialize,postgres_column_datatype))
-            elif data["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_postgres_object_serialize,postgres_column_datatype))
+            if data["function"]=="function_object_create_postgres":asyncio.create_task(function_object_create_postgres(client_postgres,data["table"],data["object_list"],data.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
+            elif data["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
             if not config_enable_auto_commit:await client_kafka_consumer.commit()
             print(f"{data.get('function')} task created")
    except asyncio.CancelledError:print("consumer cancelled")

@@ -1,7 +1,7 @@
 #function
 from function import function_client_read_rabbitmq
 from function import function_client_read_postgres,function_postgres_schema_read
-from function import function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize
+from function import function_object_create_postgres,function_postgres_object_update,function_object_serialize
 
 #config
 import os
@@ -23,8 +23,8 @@ async def logic():
       async def aqmp_callback(message:aio_pika.IncomingMessage):
          async with message.process():
             data=json.loads(message.body)
-            if data["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_postgres_object_serialize,postgres_column_datatype))
-            elif data["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_postgres_object_serialize,postgres_column_datatype))
+            if data["function"]=="function_object_create_postgres":asyncio.create_task(function_object_create_postgres(client_postgres,data["table"],data["object_list"],data.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
+            elif data["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
             print(f"{data.get('function')} task created")
       queue=await client_rabbitmq_channel.declare_queue(config_channel_name,auto_delete=False)
       await queue.consume(aqmp_callback)

@@ -12,9 +12,9 @@ curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 
 #auth
 curl -X POST "$baseurl/auth/signup" -H "Content-Type: application/json" -d '{"type":1,"username":"$username","password":"123"}'
-0 curl -X POST "$baseurl/auth/signup-bigint" -H "Content-Type: application/json" -d '{"type":1,"username":123,"password":123}'
+0 curl -X POST "$baseurl/auth/signup-bigint" -H "Content-Type: application/json" -d '{"type":1,"username_bigint":123,"password_bigint":123}'
 curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" -d '{"type":1,"password":"123","username":"$username"}'
-0 curl -X POST "$baseurl/auth/login-password-bigint" -H "Content-Type: application/json" -d '{"type":1,"password":123,"username":123}'
+0 curl -X POST "$baseurl/auth/login-password-bigint" -H "Content-Type: application/json" -d '{"type":1,"password_bigint":123,"username_bigint":123}'
 0 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"password":123,"email":"atom"}'
 0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"password":123,"mobile":"atom"}'
 0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","email":"atom"}'
@@ -60,7 +60,7 @@ curl -X DELETE "$baseurl/my/message-delete-single?id=1" -H "Authorization: Beare
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":100,"title":"public"}'
 curl -X GET "$baseurl/public/object-read?table=test"
 curl -X GET "$baseurl/public/object-read?table=test&id=>,1&page=2&limit=3"
-curl -X GET "$baseurl/public/object-read?table=test&creator_data=username,email"
+curl -X GET "$baseurl/public/object-read?table=test&creator_key=username,email"
 curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.231313,3.4512323,100,1000"
 curl -X GET "$baseurl/public/info"
 0 curl -X GET "$baseurl/public/page/about"

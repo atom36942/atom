@@ -1,7 +1,7 @@
 #function
 from function import function_client_read_redis,function_client_read_redis_consumer
 from function import function_client_read_postgres,function_postgres_schema_read
-from function import function_postgres_object_create,function_postgres_object_update,function_postgres_object_serialize
+from function import function_object_create_postgres,function_postgres_object_update,function_object_serialize
 
 #config
 import os
@@ -24,8 +24,8 @@ async def logic():
       async for message in client_redis_consumer.listen():
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():
             data=json.loads(message['data'])
-            if data["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_postgres_object_serialize,postgres_column_datatype))
-            elif data["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_postgres_object_serialize,postgres_column_datatype))
+            if data["function"]=="function_object_create_postgres":asyncio.create_task(function_object_create_postgres(client_postgres,data["table"],data["object_list"],data.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
+            elif data["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(data["table"],data["object_list"],client_postgres,data.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
             print(f"{data.get('function')} task created")
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))
