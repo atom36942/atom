@@ -1,4 +1,4 @@
-#general
+#utilities
 from fastapi import FastAPI
 def function_fastapi_app_read(is_debug,lifespan):
    app=FastAPI(debug=is_debug,lifespan=lifespan)
@@ -13,6 +13,15 @@ async def function_server_start(app):
 from fastapi import responses
 def function_return_error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
+
+import csv,io
+async def function_file_to_object_list(file):
+   content=await file.read()
+   content=content.decode("utf-8")
+   reader=csv.DictReader(io.StringIO(content))
+   object_list=[row for row in reader]
+   await file.close()
+   return object_list
    
 import os
 from dotenv import load_dotenv, dotenv_values
@@ -42,12 +51,41 @@ def function_config_read(path_env=".env"):
    output.update(read_config_modules(base_dir, skip_dirs))
    return output
 
-#add
-import sentry_sdk
-def function_add_sentry(config_sentry_dsn):
-   sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
-   return None
+async def function_param_read(mode,request,must,optional):
+   param=[]
+   if mode=="query":
+      object=dict(request.query_params)
+   if mode=="form":
+      form_data=await request.form()
+      object={key:value for key,value in form_data.items() if isinstance(value,str)}
+      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
+      object["file_list"]=file_list
+   if mode=="body":
+      object=await request.json()
+   for item in must:
+      if item not in object:raise Exception(f"{item} missing from {mode} param")
+      param.append(object[item])
+   for item in optional:
+      param.append(object.get(item))
+   return object,param
 
+async def function_table_id_column_mapping_read(client_postgres_asyncpg,table,column,limit,is_null):
+   output = {}
+   where_clause = "" if is_null else f"WHERE {column} IS NOT NULL"
+   async with client_postgres_asyncpg.transaction():
+      cursor = await client_postgres_asyncpg.cursor(f'SELECT id,{column} FROM {table} {where_clause} ORDER BY id DESC')
+      count = 0
+      while count < limit:
+         batch = await cursor.fetch(10000)
+         if not batch: break
+         if column == "api_access":
+            output.update({record['id']: [int(item.strip()) for item in record[column].split(",")] if record[column] else [] for record in batch})
+         else:
+            output.update({record['id']: record[column] for record in batch})
+         count += len(batch)
+   return output
+
+#add
 from fastapi.middleware.cors import CORSMiddleware
 def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
    app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)
@@ -61,6 +99,11 @@ def function_add_prometheus(app):
 def function_add_app_state(locals_dict,app,pattern_tuple):
    for k,v in locals_dict.items():
       if k.startswith(pattern_tuple):setattr(app.state,k,v)
+      
+import sentry_sdk
+def function_add_sentry(config_sentry_dsn):
+   sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
+   return None
 
 import os
 import importlib.util
@@ -239,29 +282,17 @@ async def function_s3_url_delete(client_s3_resource,url):
    output=client_s3_resource.Object(bucket,key).delete()
    return output
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+async def function_s3_file_upload_presigned(config_s3_region_name,client_s3,bucket,key,expiry_sec,limit_size_kb):
+   if "." not in key:raise Exception("extension must")
+   output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec, Conditions=[['content-length-range',1,limit_size_kb*1024]])
+   for k,v in output["fields"].items():output[k]=v
+   del output["fields"]
+   output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
+   return output
 
 import uuid
 from io import BytesIO
-async def function_s3_file_upload_direct(bucket,key_list,file_list,client_s3,config_s3_region_name):
+async def function_s3_file_upload_direct(config_s3_region_name,client_s3,bucket,key_list,file_list):
    if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
    output={}
    for index,file in enumerate(file_list):
@@ -275,62 +306,48 @@ async def function_s3_file_upload_direct(bucket,key_list,file_list,client_s3,con
       file.file.close()
    return output
 
-async def function_s3_file_upload_presigned(bucket,key,expiry_sec,size_kb,client_s3,config_s3_region_name):
-   if "." not in key:raise Exception("extension must")
-   output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec, Conditions=[['content-length-range',1,size_kb*1024]])
-   for k,v in output["fields"].items():output[k]=v
-   del output["fields"]
-   output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
-   return output
-
-async def function_mongodb_object_create(table,object_list,database,client_mongodb):
-   mongodb_client_database=client_mongodb[database]
-   output=await mongodb_client_database[table].insert_many(object_list)
-   return str(output)
-
-import csv,io
-async def function_file_to_object_list(file):
-   content=await file.read()
-   content=content.decode("utf-8")
-   reader=csv.DictReader(io.StringIO(content))
-   object_list=[row for row in reader]
-   await file.close()
-   return object_list
-
-import json
-async def function_redis_set_object(object,key,expiry_sec,client_redis):
-   object=json.dumps(object)
-   if not expiry_sec:output=await client_redis.set(key,object)
-   else:output=await client_redis.setex(key,expiry_sec,object)
-   return output
-
-import json
-async def function_redis_get_object(key,client_redis):
-   output=await client_redis.get(key)
-   if output:output=json.loads(output)
-   return output
-
-async def function_redis_object_create(table,object_list,expiry_sec,client_redis):
+#object
+async def function_object_create_redis(client_redis,key_list,object_list,expiry_sec):
    async with client_redis.pipeline(transaction=True) as pipe:
-      for object in object_list:
-         key=f"object_{table}_{object['id']}"
+      for index,object in enumerate(object_list):
+         key=key_list[index]
          if not expiry_sec:pipe.set(key,json.dumps(object))
          else:pipe.setex(key,expiry_sec,json.dumps(object))
       await pipe.execute()
    return None
 
-async def function_gsheet_create(object,sheet_name,spreadsheet_id,client_gsheet):
-   row=[object[key] for key in sorted(object.keys())]
-   output=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name).append_row(row)
+async def function_object_create_gsheet(client_gsheet,spreadsheet_id,sheet_name,object_list):
+   for object in object_list:
+      row=[object[key] for key in sorted(object.keys())]
+      output=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name).append_row(row)
    return output
 
-async def function_gsheet_read(sheet_name,cell_boundary,spreadsheet_id,client_gsheet):
+async def function_object_create_mongodb(client_mongodb,database,table,object_list):
+   mongodb_client_database=client_mongodb[database]
+   output=await mongodb_client_database[table].insert_many(object_list)
+   return str(output)
+
+import json
+async def function_object_read_redis(client_redis,key):
+   output=await client_redis.get(key)
+   if output:output=json.loads(output)
+   return output
+
+async def function_object_read_gsheet(client_gsheet,spreadsheet_id,sheet_name,cell_boundary):
    worksheet=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name)
    if cell_boundary:output=worksheet.get(cell_boundary)
    else:output=worksheet.get_all_records()
    return output
 
-async def function_openai_prompt(prompt,is_web_search,previous_response_id,model,client_openai):
+import pandas
+async def function_object_read_gsheet_pandas(spreadsheet_id,gid):
+   url=f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
+   df=pandas.read_csv(url)
+   output=df.to_dict(orient="records")
+   return output
+
+#openai
+async def function_openai_prompt(client_openai,model,prompt,is_web_search,previous_response_id):
    if not client_openai or not model or not prompt:raise Exception("param missing")
    params={"model":model,"input":prompt}
    if is_web_search==1:params["tools"]=[{"type":"web_search"}]
@@ -339,18 +356,25 @@ async def function_openai_prompt(prompt,is_web_search,previous_response_id,model
    return output
 
 import base64
-async def function_openai_ocr(prompt,file,model,client_openai):
+async def function_openai_ocr(client_openai,model,file,prompt):
    contents=await file.read()
    b64_image=base64.b64encode(contents).decode("utf-8")
    output=client_openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
    return output
 
-import pandas
-async def function_gsheet_read_url(gid,spreadsheet_id):
-   url=f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
-   df=pandas.read_csv(url)
-   output=df.to_dict(orient="records")
-   return output
+#token
+import jwt,json,time
+async def function_token_encode(user,config_token_expire_sec,config_key_jwt):
+   user=dict(user)
+   data={"id":user["id"],"is_active":user.get("is_active"),"api_access":user.get("api_access")}
+   data=json.dumps(data,default=str)
+   token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":data},config_key_jwt)
+   return token
+
+import jwt,json
+async def function_token_decode(token,config_key_jwt):
+   user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
+   return user
 
 async def function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode):
    user={}
@@ -366,31 +390,17 @@ async def function_token_check(request,config_key_root,config_key_jwt,config_api
       elif config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
    return user
 
-import jwt,json,time
-async def function_token_encode(user,config_key_jwt,config_token_expire_sec):
-   user=dict(user)
-   data={"id":user["id"],"is_active":user.get("is_active"),"api_access":user.get("api_access")}
-   data=json.dumps(data,default=str)
-   token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":data},config_key_jwt)
-   return token
-
-import jwt,json
-async def function_token_decode(token,config_key_jwt):
-   user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
-   return user
-
+#middleware
 import json
 buffer_log_api=[]
-async def function_postgres_log_create(object,client_postgres,config_batch_log_api,function_postgres_object_create):
+async def function_log_create_postgres(function_postgres_object_create,client_postgres,config_batch_log_api,object):
    try:
       global buffer_log_api
       buffer_log_api.append(object)
       if len(buffer_log_api)>=config_batch_log_api:
          await function_postgres_object_create("log_api",buffer_log_api,client_postgres,0,None,None)
          buffer_log_api=[]
-   except Exception as e:
-      print("error function_postgres_log_create")
-      print(str(e))
+   except Exception as e:print(str(e))
    return None
 
 from fastapi import Request,responses
@@ -404,30 +414,6 @@ async def function_api_response_background(request,api_function):
    response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
    response.background=BackgroundTask(api_function_new)
    return response
-
-async def function_cache_users_is_active_read(limit,client_postgres_asyncpg):
-   output={}
-   async with client_postgres_asyncpg.transaction():
-      cursor=await client_postgres_asyncpg.cursor('SELECT id,is_active FROM users ORDER BY id DESC')
-      count=0
-      while count < limit:
-         batch=await cursor.fetch(10000)
-         if not batch:break
-         output.update({record['id']: record['is_active'] for record in batch})
-         count+=len(batch)
-   return output
-
-async def function_cache_users_api_access_read(limit,client_postgres_asyncpg):
-   output={}
-   async with client_postgres_asyncpg.transaction():
-      cursor=await client_postgres_asyncpg.cursor('select id,api_access from users where api_access is not null order by id desc')
-      count=0
-      while count < limit:
-         batch=await cursor.fetch(10000)
-         if not batch:break
-         output.update({record['id']:[int(item.strip()) for item in record["api_access"].split(",")] for record in batch})
-         count+=len(batch)
-   return output
 
 async def function_check_api_access(mode,request,cache_users_api_access,client_postgres,config_api):
    if mode=="token":user_api_access_list=[int(item.strip()) for item in request.state.user["api_access"].split(",")] if request.state.user["api_access"] else []
@@ -458,6 +444,26 @@ async def function_check_is_active(mode,request,cache_users_is_active,client_pos
       user_is_active=user["is_active"]
    if user_is_active==0:raise Exception("user not active")
    return None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 async def function_check_ratelimiter(request,client_redis,config_api):
    limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
@@ -496,24 +502,6 @@ async def function_cache_api_response(mode,request,response,client_redis,config_
          inmemory_cache[cache_key]={"data":base64.b64encode(gzip.compress(body)).decode(),"expire_at":time.time()+expire_sec}
       response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
    return response
-
-async def function_param_read(mode,request,must,optional):
-   param=[]
-   if mode=="query":
-      object=dict(request.query_params)
-   if mode=="form":
-      form_data=await request.form()
-      object={key:value for key,value in form_data.items() if isinstance(value,str)}
-      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
-      object["file_list"]=file_list
-   if mode=="body":
-      object=await request.json()
-   for item in must:
-      if item not in object:raise Exception(f"{item} missing from {mode} param")
-      param.append(object[item])
-   for item in optional:
-      param.append(object.get(item))
-   return object,param
 
 async def function_create_where_string(object,postgres_column_datatype,function_object_serialize):
    object={k:v for k,v in object.items() if (k in postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
@@ -570,7 +558,7 @@ async def function_login_password_username(type,password,username,client_postgre
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return token
 
 import hashlib
@@ -580,7 +568,7 @@ async def function_login_password_username_bigint(type,password_bigint,username_
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return token
 
 import hashlib
@@ -590,7 +578,7 @@ async def function_login_password_email(type,password,email,client_postgres,conf
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return token
 
 import hashlib
@@ -600,7 +588,7 @@ async def function_login_password_mobile(type,password,mobile,client_postgres,co
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return token
 
 async def function_login_otp_email(type,email,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_otp_verify,function_token_encode):
@@ -614,7 +602,7 @@ async def function_login_otp_email(type,email,otp,client_postgres,config_key_jwt
       values={"type":type,"email":email}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return token
 
 async def function_login_otp_mobile(type,mobile,otp,client_postgres,config_key_jwt,config_token_expire_sec,function_otp_verify,function_token_encode):
@@ -628,7 +616,7 @@ async def function_login_otp_mobile(type,mobile,otp,client_postgres,config_key_j
       values={"type":type,"mobile":mobile}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return token
 
 import json
@@ -647,7 +635,7 @@ async def function_login_google(type,google_token,client_postgres,config_key_jwt
       values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return token
 
 async def function_message_inbox_user(user_id,order,limit,offset,is_unread,client_postgres):

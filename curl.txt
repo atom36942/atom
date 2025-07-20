@@ -5,7 +5,7 @@ curl -X GET "$baseurl"
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
 0 curl -X POST "$baseurl/root/postgres-csv-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select * from users"}' -o export.csv
 0 curl -X POST "$baseurl/root/postgres-csv-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
-0 curl -X POST "$baseurl/root/redis-csv-import" -H "Authorization: Bearer $token_root" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/redis.csv"
+curl -X POST "$baseurl/root/redis-csv-import" -H "Authorization: Bearer $token_root" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/redis.csv"
 0 curl -X POST "$baseurl/root/s3-bucket-ops" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"create","bucket":"master"}'
 0 curl -X DELETE "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":"url1---url2---url3"}'
 curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"

@@ -11,13 +11,11 @@ config_rabbitmq_url=config.get("config_rabbitmq_url")
 config_kafka_url=config.get("config_kafka_url")
 config_kafka_username=config.get("config_kafka_username")
 config_kafka_password=config.get("config_kafka_password")
-
 config_aws_access_key_id=config.get("config_aws_access_key_id")
 config_aws_secret_access_key=config.get("config_aws_secret_access_key")
 config_s3_region_name=config.get("config_s3_region_name")
 config_sns_region_name=config.get("config_sns_region_name")
 config_ses_region_name=config.get("config_ses_region_name")
-
 config_fast2sms_url=config.get("config_fast2sms_url")
 config_fast2sms_key=config.get("config_fast2sms_key")
 config_resend_url=config.get("config_resend_url")
@@ -26,7 +24,6 @@ config_posthog_project_host=config.get("config_posthog_project_host")
 config_posthog_project_key=config.get("config_posthog_project_key")
 config_postgres_min_connection=int(config.get("config_postgres_min_connection",5))
 config_postgres_max_connection=int(config.get("config_postgres_max_connection",20))
-
 config_key_root=config.get("config_key_root")
 config_key_jwt=config.get("config_key_jwt")
 config_sentry_dsn=config.get("config_sentry_dsn")
@@ -71,8 +68,8 @@ async def lifespan(app:FastAPI):
       client_posthog=await function_client_read_posthog(config_posthog_project_key,config_posthog_project_host)
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres) if client_postgres else (None, None)
-      cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,client_postgres_asyncpg) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
-      cache_users_is_active=await function_cache_users_is_active_read(config_limit_cache_users_is_active,client_postgres_asyncpg) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("is_active") else {}
+      cache_users_api_access=await function_table_id_column_mapping_read(client_postgres_asyncpg,"users","api_access",config_limit_cache_users_api_access,0) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
+      cache_users_is_active=await function_table_id_column_mapping_read(client_postgres_asyncpg,"users","is_active",config_limit_cache_users_api_access,1) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("is_active") else {}
       #app state set
       function_add_app_state(locals(),app,("client_","cache_"))
       #app shutdown
@@ -134,7 +131,7 @@ async def middleware(request,api_function):
       type=5
    if request.app.state.cache_postgres_schema.get("log_api"):
       object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-      asyncio.create_task(function_postgres_log_create(object,request.app.state.client_postgres,config_batch_log_api,function_postgres_object_create))
+      asyncio.create_task(function_log_create_postgres(function_postgres_object_create,request.app.state.client_postgres,config_batch_log_api,object))
    return response
 
 #api
@@ -168,7 +165,8 @@ async def route_root_postgres_csv_import(request:Request):
 async def route_root_redis_csv_import(request:Request):
    object,[table,file_list,expiry_sec]=await function_param_read("form",request,["table","file_list"],["expiry_sec"])
    object_list=await function_file_to_object_list(file_list[-1])
-   await function_redis_object_create(table,object_list,expiry_sec,request.app.state.client_redis)
+   key_list=[f"{table}_{item['id']}" for item in object_list]
+   await function_object_create_redis(request.app.state.client_redis,key_list,object_list,expiry_sec)
    return {"status":1,"message":"done"}
 
 @app.post("/root/s3-bucket-ops")
@@ -189,8 +187,8 @@ async def route_root_s3_url_empty(request:Request):
 @app.get("/root/reset-global")
 async def route_root_reset_global(request:Request):
    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres)
-   request.app.state.cache_users_api_access=await function_cache_users_api_access_read(config_limit_cache_users_api_access,request.app.state.client_postgres_asyncpg)
-   request.app.state.cache_users_is_active=await function_cache_users_is_active_read(config_limit_cache_users_is_active,request.app.state.client_postgres_asyncpg) 
+   request.app.state.cache_users_api_access=await function_table_id_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","api_access",config_limit_cache_users_api_access,0)
+   request.app.state.cache_users_is_active=await function_table_id_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","is_active",config_limit_cache_users_api_access,1) 
    return {"status":1,"message":"done"}
    
 @app.post("/auth/signup")
@@ -198,7 +196,7 @@ async def route_auth_signup(request:Request):
    if config_is_signup==0:return function_return_error("signup disabled")
    object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
    user=await function_signup_username_password(type,username,password,request.app.state.client_postgres)
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return {"status":1,"message":token}
 
 @app.post("/auth/signup-bigint")
@@ -206,7 +204,7 @@ async def route_auth_signup_bigint(request:Request):
    if config_is_signup==0:return function_return_error("signup disabled")
    object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
    user=await function_signup_username_password_bigint(type,username,password,request.app.state.client_postgres)
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password")
@@ -260,7 +258,7 @@ async def route_my_profile(request:Request):
 @app.get("/my/token-refresh")
 async def route_my_token_refresh(request:Request):
    user=await function_read_user_single(request.state.user["id"],request.app.state.client_postgres)
-   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec)
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
    return {"status":1,"message":token}
 
 @app.delete("/my/account-delete")
@@ -284,7 +282,7 @@ async def route_my_object_create(request:Request):
    elif queue:
       data={"function":"function_postgres_object_create","table":table,"object_list":[object],"is_serialize":is_serialize}
       if queue=="batch":output=await function_postgres_object_create_batch(table,object,config_batch_object_create,request.app.state.client_postgres,function_postgres_object_create,is_serialize,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
-      elif queue.startswith("mongodb"):output=await function_mongodb_object_create(table,[object],queue.split('_')[1],request.app.state.client_mongodb)
+      elif queue.startswith("mongodb"):output=await function_object_create_mongodb(table,[object],queue.split('_')[1],request.app.state.client_mongodb)
       elif queue=="redis":output=await function_publisher_redis(request.app.state.client_redis,"channel_1",data)
       elif queue=="rabbitmq":output=await function_publisher_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",data)
       elif queue=="kafka":output=await function_publisher_kafka(request.app.state.client_kafka_producer,"channel_1",data)
@@ -469,13 +467,13 @@ async def route_public_page(filename:str):
 async def route_private_file_upload_s3_direct(request:Request):
    object,[bucket,file_list,key]=await function_param_read("form",request,["bucket","file_list"],["key"])
    key_list=key.split("---") if key else None
-   output=await function_s3_file_upload_direct(bucket,key_list,file_list,request.app.state.client_s3,config_s3_region_name)
+   output=await function_s3_file_upload_direct(config_s3_region_name,request.app.state.client_s3,bucket,key_list,file_list)
    return {"status":1,"message":output}
 
 @app.post("/private/file-upload-s3-presigned")
 async def route_private_file_upload_s3_presigned(request:Request):
    object,[bucket,key]=await function_param_read("body",request,["bucket","key"],[])
-   output=await function_s3_file_upload_presigned(bucket,key,1000,100,request.app.state.client_s3,config_s3_region_name)
+   output=await function_s3_file_upload_presigned(config_s3_region_name,request.app.state.client_s3,bucket,key,1000,100)
    return {"status":1,"message":output}
 
 @app.post("/admin/object-create")
