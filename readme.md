@@ -5,3 +5,4 @@ atom is an open-source backend framework designed to accelerate development of l
 ```bash
 docker build -t atom .
 docker run -p 8000:8000 atom
+```
