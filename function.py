@@ -142,46 +142,6 @@ def function_config_read(path_env=".env"):
    output.update(read_config_modules(base_dir, skip_dirs))
    return output
 
-#add
-from fastapi.middleware.cors import CORSMiddleware
-def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
-   app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)
-   return None
-
-from prometheus_fastapi_instrumentator import Instrumentator
-def function_add_prometheus(app):
-   Instrumentator().instrument(app).expose(app)
-   return None
-
-def function_add_app_state(locals_dict,app,pattern_tuple):
-   for k,v in locals_dict.items():
-      if k.startswith(pattern_tuple):setattr(app.state,k,v)
-      
-import sentry_sdk
-def function_add_sentry(config_sentry_dsn):
-   sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
-   return None
-
-import os
-import importlib.util
-from pathlib import Path
-def function_add_router(app):
-   base_dir = Path(__file__).parent
-   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
-   for root, dirs, files in os.walk(base_dir):
-      dirs[:] = [d for d in dirs if d not in skip_dirs]
-      is_router_folder = os.path.basename(root).startswith("router")
-      for file in files:
-         if file.endswith(".py") and (file.startswith("router") or is_router_folder):
-            module_path = os.path.join(root, file)
-            module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
-            spec = importlib.util.spec_from_file_location(module_name, module_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            if hasattr(module, "router"):
-               app.include_router(module.router)
-   return None
-   
 #client
 from databases import Database
 async def function_client_read_postgres(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
@@ -269,124 +229,45 @@ def function_client_read_openai(config_openai_key):
    client_openai=OpenAI(api_key=config_openai_key)
    return client_openai
 
-#producer
-import json
-async def function_publisher_redis(client_redis,channel_name,data):
-   output=await client_redis.publish(channel_name,json.dumps(data))
-   return output
-
-import json,aio_pika
-async def function_publisher_rabbitmq(client_rabbitmq_channel,channel_name,data):
-   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
-   return output
-
-import json
-async def function_publisher_kafka(client_kafka_producer,channel_name,data):
-   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
-   return output
-
-#send
-async def function_send_email_ses(client_ses,email_from,email_to_list,title,body):
-   client_ses.send_email(Source=email_from,Destination={"ToAddresses":email_to_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+#add
+from fastapi.middleware.cors import CORSMiddleware
+def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
+   app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)
    return None
 
-import httpx
-async def function_send_email_resend(config_resend_url,config_resend_key,email_from,email_to_list,title,body):
-   payload={"from":email_from,"to":email_to_list,"subject":title,"html":body}
-   headers={"Authorization":f"Bearer {config_resend_key}","Content-Type": "application/json"}
-   async with httpx.AsyncClient() as client:
-      output=await client.post(config_resend_url,json=payload,headers=headers)
-   if output.status_code!=200:raise Exception(f"{output.text}")
+from prometheus_fastapi_instrumentator import Instrumentator
+def function_add_prometheus(app):
+   Instrumentator().instrument(app).expose(app)
    return None
 
-import requests
-async def function_send_mobile_otp_fast2sms(config_fast2sms_url,config_fast2sms_key,mobile,otp):
-   response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
-   output=response.json()
-   if output.get("return") is not True:raise Exception(f"{output.get('message')}")
-   return output
-
-async def function_send_mobile_message_sns(client_sns,mobile,message):
-   client_sns.publish(PhoneNumber=mobile,Message=message)
+def function_add_app_state(locals_dict,app,pattern_tuple):
+   for k,v in locals_dict.items():
+      if k.startswith(pattern_tuple):setattr(app.state,k,v)
+      
+import sentry_sdk
+def function_add_sentry(config_sentry_dsn):
+   sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
-async def function_send_mobile_message_sns_template(client_sns,mobile,message,template_id,entity_id,sender_id):
-   client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+import os
+import importlib.util
+from pathlib import Path
+def function_add_router(app):
+   base_dir = Path(__file__).parent
+   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
+   for root, dirs, files in os.walk(base_dir):
+      dirs[:] = [d for d in dirs if d not in skip_dirs]
+      is_router_folder = os.path.basename(root).startswith("router")
+      for file in files:
+         if file.endswith(".py") and (file.startswith("router") or is_router_folder):
+            module_path = os.path.join(root, file)
+            module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if hasattr(module, "router"):
+               app.include_router(module.router)
    return None
-
-#otp
-import random
-async def function_otp_generate(mode,data,client_postgres):
-   otp=random.randint(100000,999999)
-   if mode=="email":
-      query="insert into otp (otp,email) values (:otp,:email) returning *;"
-      values={"otp":otp,"email":data.strip().lower()}
-   if mode=="mobile":
-      query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
-      values={"otp":otp,"mobile":data.strip().lower()}
-   await client_postgres.execute(query=query,values=values)
-   return otp
-
-async def function_otp_verify(mode,otp,data,client_postgres):
-   if mode=="email":
-      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
-      values={"email":data}
-   if mode=="mobile":
-      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
-      values={"mobile":data}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   if not output:raise Exception("otp not found")
-   if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
-   return None
-
-#s3
-async def function_s3_bucket_create(config_s3_region_name,client_s3,bucket):
-   output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
-   return output
-
-async def function_s3_bucket_public(client_s3,bucket):
-   client_s3.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
-   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=client_s3.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
-   return output
-
-async def function_s3_bucket_empty(client_s3_resource,bucket):
-   output=client_s3_resource.Bucket(bucket).objects.all().delete()
-   return output
-
-async def function_s3_bucket_delete(client_s3,bucket):
-   output=client_s3.delete_bucket(Bucket=bucket)
-   return output
-
-async def function_s3_url_delete(client_s3_resource,url):
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   output=client_s3_resource.Object(bucket,key).delete()
-   return output
-
-async def function_s3_file_upload_presigned(config_s3_region_name,client_s3,bucket,key,expiry_sec,limit_size_kb):
-   if "." not in key:raise Exception("extension must")
-   output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec, Conditions=[['content-length-range',1,limit_size_kb*1024]])
-   for k,v in output["fields"].items():output[k]=v
-   del output["fields"]
-   output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
-   return output
-
-import uuid
-from io import BytesIO
-async def function_s3_file_upload_direct(config_s3_region_name,client_s3,bucket,key_list,file_list):
-   if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
-   output={}
-   for index,file in enumerate(file_list):
-      key=key_list[index]
-      if "." not in key:raise Exception("extension must")
-      file_content=await file.read()
-      file_size_kb=round(len(file_content)/1024)
-      if file_size_kb>100:raise Exception("file size issue")
-      client_s3.upload_fileobj(BytesIO(file_content),bucket,key)
-      output[file.filename]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
-      file.file.close()
-   return output
 
 #object
 async def function_object_create_postgres(client_postgres,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype):
@@ -511,21 +392,6 @@ async def function_object_delete_postgres_any(client_postgres,table,object,funct
    await client_postgres.execute(query=query,values=where_value)
    return None
 
-#openai
-async def function_openai_prompt(client_openai,model,prompt,is_web_search,previous_response_id):
-   if not client_openai or not model or not prompt:raise Exception("param missing")
-   params={"model":model,"input":prompt}
-   if is_web_search==1:params["tools"]=[{"type":"web_search"}]
-   if previous_response_id:params["previous_response_id"]=previous_response_id
-   output=client_openai.responses.create(**params)
-   return output
-
-import base64
-async def function_openai_ocr(client_openai,model,file,prompt):
-   contents=await file.read()
-   b64_image=base64.b64encode(contents).decode("utf-8")
-   output=client_openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
-   return output
 
 #token
 import jwt,json,time
@@ -648,212 +514,124 @@ async def function_cache_api_response(mode,request,response,client_redis,config_
       response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
    return response
 
-#auth
-import hashlib
-async def function_auth_signup_username_password(client_postgres,type,username,password):
-   query="insert into users (type,username,password) values (:type,:username,:password) returning *;"
-   values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   return output[0]
+#producer
+import json
+async def function_publisher_redis(client_redis,channel_name,data):
+   output=await client_redis.publish(channel_name,json.dumps(data))
+   return output
 
-async def function_auth_signup_username_password_bigint(client_postgres,type,username_bigint,password_bigint):
-   query="insert into users (type,username_bigint,password_bigint) values (:type,:username_bigint,:password_bigint) returning *;"
-   values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   return output[0]
-
-import hashlib
-async def function_auth_login_password_username(client_postgres,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec):
-   query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
-   values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:raise Exception("user not found")
-   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
-   return token
-
-import hashlib
-async def function_auth_login_password_username_bigint(client_postgres,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec):
-   query=f"select * from users where type=:type and username_bigint=:username_bigint and password_bigint=:password_bigint order by id desc limit 1;"
-   values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:raise Exception("user not found")
-   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
-   return token
-
-import hashlib
-async def function_auth_login_password_email(client_postgres,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec):
-   query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
-   values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:raise Exception("user not found")
-   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
-   return token
-
-import hashlib
-async def function_auth_login_password_mobile(client_postgres,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec):
-   query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
-   values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:raise Exception("user not found")
-   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
-   return token
-
-async def function_auth_login_otp_email(client_postgres,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec):
-   await function_otp_verify("email",otp,email,client_postgres)
-   query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
-   values={"type":type,"email":email}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:
-      query=f"insert into users (type,email) values (:type,:email) returning *;"
-      values={"type":type,"email":email}
-      output=await client_postgres.fetch_all(query=query,values=values)
-      user=output[0] if output else None
-   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
-   return token
-
-async def function_auth_login_otp_mobile(client_postgres,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec):
-   await function_otp_verify("mobile",otp,mobile,client_postgres)
-   query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
-   values={"type":type,"mobile":mobile}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:
-      query=f"insert into users (type,mobile) values (:type,:mobile) returning *;"
-      values={"type":type,"mobile":mobile}
-      output=await client_postgres.fetch_all(query=query,values=values)
-      user=output[0] if output else None
-   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
-   return token
+import json,aio_pika
+async def function_publisher_rabbitmq(client_rabbitmq_channel,channel_name,data):
+   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+   return output
 
 import json
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_request
-async def function_auth_login_google(client_postgres,type,google_token,config_google_login_client_id,function_token_encode,config_key_jwt,config_token_expire_sec):
-   request=google_request.Request()
-   id_info=id_token.verify_oauth2_token(google_token,request,config_google_login_client_id)
-   google_user={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
-   query=f"select * from users where type=:type and google_id=:google_id order by id desc limit 1;"
-   values={"type":type,"google_id":google_user["sub"]}
+async def function_publisher_kafka(client_kafka_producer,channel_name,data):
+   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
+   return output
+
+#send
+async def function_send_email_ses(client_ses,email_from,email_to_list,title,body):
+   client_ses.send_email(Source=email_from,Destination={"ToAddresses":email_to_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+   return None
+
+import httpx
+async def function_send_email_resend(config_resend_url,config_resend_key,email_from,email_to_list,title,body):
+   payload={"from":email_from,"to":email_to_list,"subject":title,"html":body}
+   headers={"Authorization":f"Bearer {config_resend_key}","Content-Type": "application/json"}
+   async with httpx.AsyncClient() as client:
+      output=await client.post(config_resend_url,json=payload,headers=headers)
+   if output.status_code!=200:raise Exception(f"{output.text}")
+   return None
+
+import requests
+async def function_send_mobile_otp_fast2sms(config_fast2sms_url,config_fast2sms_key,mobile,otp):
+   response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
+   output=response.json()
+   if output.get("return") is not True:raise Exception(f"{output.get('message')}")
+   return output
+
+async def function_send_mobile_message_sns(client_sns,mobile,message):
+   client_sns.publish(PhoneNumber=mobile,Message=message)
+   return None
+
+async def function_send_mobile_message_sns_template(client_sns,mobile,message,template_id,entity_id,sender_id):
+   client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   return None
+
+#otp
+import random
+async def function_otp_generate(mode,data,client_postgres):
+   otp=random.randint(100000,999999)
+   if mode=="email":
+      query="insert into otp (otp,email) values (:otp,:email) returning *;"
+      values={"otp":otp,"email":data.strip().lower()}
+   if mode=="mobile":
+      query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
+      values={"otp":otp,"mobile":data.strip().lower()}
+   await client_postgres.execute(query=query,values=values)
+   return otp
+
+async def function_otp_verify(mode,otp,data,client_postgres):
+   if mode=="email":
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+      values={"email":data}
+   if mode=="mobile":
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+      values={"mobile":data}
    output=await client_postgres.fetch_all(query=query,values=values)
-   user=output[0] if output else None
-   if not user:
-      query=f"insert into users (type,google_id,google_data) values (:type,:google_id,:google_data) returning *;"
-      values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
-      output=await client_postgres.fetch_all(query=query,values=values)
-      user=output[0] if output else None
-   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
-   return token
-
-#message
-async def function_message_inbox(client_postgres,user_id,order,limit,offset,is_unread):
-   if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
-   elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
-   values={"created_by_id":user_id,"user_id":user_id}
-   object_list=await client_postgres.fetch_all(query=query,values=values)
-   return object_list
-
-async def function_message_received(client_postgres,user_id,order,limit,offset,is_unread):
-   if not is_unread:query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
-   elif int(is_unread)==1:query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
-   values={"user_id":user_id}
-   object_list=await client_postgres.fetch_all(query=query,values=values)
-   return object_list
-
-async def function_message_thread(client_postgres,user_id_1,user_id_2,order,limit,offset):
-   query=f"select * from message where ((created_by_id=:user_id_1 and user_id=:user_id_2) or (created_by_id=:user_id_2 and user_id=:user_id_1)) order by {order} limit {limit} offset {offset};"
-   values={"user_id_1":user_id_1,"user_id_2":user_id_2}
-   object_list=await client_postgres.fetch_all(query=query,values=values)
-   return object_list
-
-async def function_message_thread_mark_read(client_postgres,user_id_1,user_id_2):
-   query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;"
-   values={"created_by_id":user_id_2,"user_id":user_id_1}
-   await client_postgres.execute(query=query,values={})
+   if not output:raise Exception("otp not found")
+   if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
    return None
 
-async def function_message_object_mark_read(client_postgres,object_list):
-   try:
-      ids=','.join([str(item['id']) for item in object_list])
-      query=f"update message set is_read=1 where id in ({ids});"
-      await client_postgres.execute(query=query,values={})
-   except Exception as e:print(str(e))
-   return None
+#s3
+async def function_s3_bucket_create(config_s3_region_name,client_s3,bucket):
+   output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
+   return output
 
-async def function_message_delete_user_single(client_postgres,user_id,message_id):
-   query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
-   values={"user_id":user_id,"id":message_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
+async def function_s3_bucket_public(client_s3,bucket):
+   client_s3.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+   policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
+   output=client_s3.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   return output
 
-async def function_message_delete_user_created(client_postgres,user_id):
-   query="delete from message where created_by_id=:user_id;"
-   values={"user_id":user_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
+async def function_s3_bucket_empty(client_s3_resource,bucket):
+   output=client_s3_resource.Bucket(bucket).objects.all().delete()
+   return output
 
-async def function_message_delete_user_received(client_postgres,user_id):
-   query="delete from message where user_id=:user_id;"
-   values={"user_id":user_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
+async def function_s3_bucket_delete(client_s3,bucket):
+   output=client_s3.delete_bucket(Bucket=bucket)
+   return output
 
-async def function_message_delete_user_all(client_postgres,user_id):
-   query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
-   values={"user_id":user_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
+async def function_s3_url_delete(client_s3_resource,url):
+   bucket=url.split("//",1)[1].split(".",1)[0]
+   key=url.rsplit("/",1)[1]
+   output=client_s3_resource.Object(bucket,key).delete()
+   return output
 
-#crud
-import datetime
-async def function_update_last_active_at(client_postgres,user_id):
-   try:
-      query="update users set last_active_at=:last_active_at where id=:id;"
-      values={"id":user_id,"last_active_at":datetime.datetime.now()}
-      await client_postgres.execute(query=query,values=values)
-   except Exception as e:print(str(e))
-   return None
+async def function_s3_file_upload_presigned(config_s3_region_name,client_s3,bucket,key,expiry_sec,limit_size_kb):
+   if "." not in key:raise Exception("extension must")
+   output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec, Conditions=[['content-length-range',1,limit_size_kb*1024]])
+   for k,v in output["fields"].items():output[k]=v
+   del output["fields"]
+   output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
+   return output
 
-async def function_read_user_single(client_postgres,user_id):
-   query="select * from users where id=:id;"
-   values={"id":user_id}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   user=dict(output[0]) if output else None
-   if not user:raise Exception("user not found")
-   return user
-
-async def function_delete_user_single(client_postgres,mode,user_id):
-   if mode=="soft":query="update users set is_deleted=1 where id=:id;"
-   if mode=="hard":query="delete from users where id=:id;"
-   values={"id":user_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
-
-async def function_update_ids(client_postgres,table,ids,column,value,updated_by_id,created_by_id):
-   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
-   values={"value":value,"created_by_id":created_by_id,"updated_by_id":updated_by_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
-
-async def function_delete_ids(client_postgres,table,ids,created_by_id):
-   query=f"delete from {table} where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
-   values={"created_by_id":created_by_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
-
-async def function_parent_object_read(client_postgres,table,parent_column,parent_table,order,limit,offset,user_id):
-   query=f'''
-   with
-   x as (select {parent_column} from {table} where (created_by_id=:created_by_id or :created_by_id is null) order by {order} limit {limit} offset {offset}) 
-   select ct.* from x left join {parent_table}  as ct on x.{parent_column}=ct.id;
-   '''
-   values={"created_by_id":user_id}
-   object_list=await client_postgres.fetch_all(query=query,values=values)
-   return object_list
+import uuid
+from io import BytesIO
+async def function_s3_file_upload_direct(config_s3_region_name,client_s3,bucket,key_list,file_list):
+   if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
+   output={}
+   for index,file in enumerate(file_list):
+      key=key_list[index]
+      if "." not in key:raise Exception("extension must")
+      file_content=await file.read()
+      file_size_kb=round(len(file_content)/1024)
+      if file_size_kb>100:raise Exception("file size issue")
+      client_s3.upload_fileobj(BytesIO(file_content),bucket,key)
+      output[file.filename]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
+      file.file.close()
+   return output
 
 #postgres
 async def function_postgres_drop_all_index(client_postgres):
@@ -1022,6 +800,229 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
    await function_init_query_default(client_postgres,function_postgres_schema_read)
    await function_init_query_client(client_postgres,config_postgres_schema)
    return None
+
+#auth
+import hashlib
+async def function_auth_signup_username_password(client_postgres,type,username,password):
+   query="insert into users (type,username,password) values (:type,:username,:password) returning *;"
+   values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   return output[0]
+
+async def function_auth_signup_username_password_bigint(client_postgres,type,username_bigint,password_bigint):
+   query="insert into users (type,username_bigint,password_bigint) values (:type,:username_bigint,:password_bigint) returning *;"
+   values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   return output[0]
+
+import hashlib
+async def function_auth_login_password_username(client_postgres,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec):
+   query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
+   values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:raise Exception("user not found")
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
+   return token
+
+import hashlib
+async def function_auth_login_password_username_bigint(client_postgres,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec):
+   query=f"select * from users where type=:type and username_bigint=:username_bigint and password_bigint=:password_bigint order by id desc limit 1;"
+   values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:raise Exception("user not found")
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
+   return token
+
+import hashlib
+async def function_auth_login_password_email(client_postgres,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec):
+   query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
+   values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:raise Exception("user not found")
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
+   return token
+
+import hashlib
+async def function_auth_login_password_mobile(client_postgres,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec):
+   query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
+   values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:raise Exception("user not found")
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
+   return token
+
+async def function_auth_login_otp_email(client_postgres,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec):
+   await function_otp_verify("email",otp,email,client_postgres)
+   query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
+   values={"type":type,"email":email}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:
+      query=f"insert into users (type,email) values (:type,:email) returning *;"
+      values={"type":type,"email":email}
+      output=await client_postgres.fetch_all(query=query,values=values)
+      user=output[0] if output else None
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
+   return token
+
+async def function_auth_login_otp_mobile(client_postgres,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec):
+   await function_otp_verify("mobile",otp,mobile,client_postgres)
+   query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
+   values={"type":type,"mobile":mobile}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:
+      query=f"insert into users (type,mobile) values (:type,:mobile) returning *;"
+      values={"type":type,"mobile":mobile}
+      output=await client_postgres.fetch_all(query=query,values=values)
+      user=output[0] if output else None
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
+   return token
+
+import json
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_request
+async def function_auth_login_google(client_postgres,type,google_token,config_google_login_client_id,function_token_encode,config_key_jwt,config_token_expire_sec):
+   request=google_request.Request()
+   id_info=id_token.verify_oauth2_token(google_token,request,config_google_login_client_id)
+   google_user={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
+   query=f"select * from users where type=:type and google_id=:google_id order by id desc limit 1;"
+   values={"type":type,"google_id":google_user["sub"]}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   user=output[0] if output else None
+   if not user:
+      query=f"insert into users (type,google_id,google_data) values (:type,:google_id,:google_data) returning *;"
+      values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
+      output=await client_postgres.fetch_all(query=query,values=values)
+      user=output[0] if output else None
+   token=await function_token_encode(user,config_token_expire_sec,config_key_jwt)
+   return token
+
+#crud
+import datetime
+async def function_update_last_active_at(client_postgres,user_id):
+   try:
+      query="update users set last_active_at=:last_active_at where id=:id;"
+      values={"id":user_id,"last_active_at":datetime.datetime.now()}
+      await client_postgres.execute(query=query,values=values)
+   except Exception as e:print(str(e))
+   return None
+
+async def function_read_user_single(client_postgres,user_id):
+   query="select * from users where id=:id;"
+   values={"id":user_id}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   user=dict(output[0]) if output else None
+   if not user:raise Exception("user not found")
+   return user
+
+async def function_delete_user_single(client_postgres,mode,user_id):
+   if mode=="soft":query="update users set is_deleted=1 where id=:id;"
+   if mode=="hard":query="delete from users where id=:id;"
+   values={"id":user_id}
+   await client_postgres.execute(query=query,values=values)
+   return None
+
+async def function_update_ids(client_postgres,table,ids,column,value,updated_by_id,created_by_id):
+   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
+   values={"value":value,"created_by_id":created_by_id,"updated_by_id":updated_by_id}
+   await client_postgres.execute(query=query,values=values)
+   return None
+
+async def function_delete_ids(client_postgres,table,ids,created_by_id):
+   query=f"delete from {table} where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
+   values={"created_by_id":created_by_id}
+   await client_postgres.execute(query=query,values=values)
+   return None
+
+async def function_parent_object_read(client_postgres,table,parent_column,parent_table,order,limit,offset,user_id):
+   query=f'''
+   with
+   x as (select {parent_column} from {table} where (created_by_id=:created_by_id or :created_by_id is null) order by {order} limit {limit} offset {offset}) 
+   select ct.* from x left join {parent_table}  as ct on x.{parent_column}=ct.id;
+   '''
+   values={"created_by_id":user_id}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   return object_list
+
+#message
+async def function_message_inbox(client_postgres,user_id,order,limit,offset,is_unread):
+   if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
+   elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
+   values={"created_by_id":user_id,"user_id":user_id}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   return object_list
+
+async def function_message_received(client_postgres,user_id,order,limit,offset,is_unread):
+   if not is_unread:query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
+   elif int(is_unread)==1:query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
+   values={"user_id":user_id}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   return object_list
+
+async def function_message_thread(client_postgres,user_id_1,user_id_2,order,limit,offset):
+   query=f"select * from message where ((created_by_id=:user_id_1 and user_id=:user_id_2) or (created_by_id=:user_id_2 and user_id=:user_id_1)) order by {order} limit {limit} offset {offset};"
+   values={"user_id_1":user_id_1,"user_id_2":user_id_2}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   return object_list
+
+async def function_message_thread_mark_read(client_postgres,user_id_1,user_id_2):
+   query="update message set is_read=1 where created_by_id=:created_by_id and user_id=:user_id;"
+   values={"created_by_id":user_id_2,"user_id":user_id_1}
+   await client_postgres.execute(query=query,values={})
+   return None
+
+async def function_message_object_mark_read(client_postgres,object_list):
+   try:
+      ids=','.join([str(item['id']) for item in object_list])
+      query=f"update message set is_read=1 where id in ({ids});"
+      await client_postgres.execute(query=query,values={})
+   except Exception as e:print(str(e))
+   return None
+
+async def function_message_delete_user_single(client_postgres,user_id,message_id):
+   query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
+   values={"user_id":user_id,"id":message_id}
+   await client_postgres.execute(query=query,values=values)
+   return None
+
+async def function_message_delete_user_created(client_postgres,user_id):
+   query="delete from message where created_by_id=:user_id;"
+   values={"user_id":user_id}
+   await client_postgres.execute(query=query,values=values)
+   return None
+
+async def function_message_delete_user_received(client_postgres,user_id):
+   query="delete from message where user_id=:user_id;"
+   values={"user_id":user_id}
+   await client_postgres.execute(query=query,values=values)
+   return None
+
+async def function_message_delete_user_all(client_postgres,user_id):
+   query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
+   values={"user_id":user_id}
+   await client_postgres.execute(query=query,values=values)
+   return None
+
+#openai
+async def function_openai_prompt(client_openai,model,prompt,is_web_search,previous_response_id):
+   if not client_openai or not model or not prompt:raise Exception("param missing")
+   params={"model":model,"input":prompt}
+   if is_web_search==1:params["tools"]=[{"type":"web_search"}]
+   if previous_response_id:params["previous_response_id"]=previous_response_id
+   output=client_openai.responses.create(**params)
+   return output
+
+import base64
+async def function_openai_ocr(client_openai,model,file,prompt):
+   contents=await file.read()
+   b64_image=base64.b64encode(contents).decode("utf-8")
+   output=client_openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
+   return output
 
 #zzz
 def function_converter_numeric(mode,x):
