@@ -10,6 +10,16 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Run the Server
+direct
+```bash
+python main.py
+```
+using reload
+```bash
+uvicorn main:app --reload
+```
+
 ## how to run using Docker
 ```bash
 docker build -t atom .
