@@ -21,6 +21,14 @@ async def route_postgres_create(request:Request):
    await function_object_create_postgres(request.app.state.client_postgres,table,[object],0,None,None)
    return {"status":1,"message":"done"}
 
+#postgres update
+@router.get("/postgres-update")
+async def route_postgres_update(request:Request):
+   table="users"
+   object={"id":1,"email":"atom1","mobile":"atom2"}
+   await function_object_update_postgres(request.app.state.client_postgres,table,[object],0,None,None)
+   return {"status":1,"message":"done"}
+
 #celery
 @router.get("/celery")
 async def route_celery(request:Request):
