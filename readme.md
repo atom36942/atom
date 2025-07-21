@@ -1,70 +1,60 @@
-# features
-- functional+procedural programming style
-- pure functions to reduce side effects
-- primary database as postgres
-- multiple async drivers for postgres
-- one click database setup
-- sql query runner
-- database read/write replica
-- one click deployment using render
-- object level programming
-- inbuilt api logs
-- auth module with n number of login types
-- login methods - username,email,mobile,oauth
-- logged in user apis
-- message module
-- public apis to read objects
-- admin apis with rbac
-- object soft/hard delete
-- background apis
-- redis integration
-- redis bulk uploader
-- s3 integation
-- sns integration
-- ses integration
-- sentry integration
-- kafka integration
-- rabbitmq/lavinmq integration
-- mongodb integration
-- ratelimiter
-- api caching
-- middleware functions
-- curl testing using tets.sh
-- prometheus integration
-- render html files
-- google sheet integration
-- openai integration
-- fast2ms integration
-- resend integration
-- inmemory caching
-- celery integration
-- tesseract ocr
-- postgres csv export
-- postgres csv import
-- posthog integration
+# My Project
 
-# notes
-1. main.py run = python main.py
-2. main.py run with reload =  ./venv/bin/uvicorn main:app --reload
-4. api testing = ./test.sh
-5. celery run = ./venv/bin/celery -A consumer_celery worker --loglevel=info
-6. create venv - python3 -m venv venv
-7. install requirements - ./venv/bin/pip install -r requirements.txt
-8. update package - ./venv/bin/pip install --upgrade fastapi
-9. freeze requirements - ./venv/bin/pip freeze > requirements.txt
-10. redis consumer = venv/bin/python consumer_redis.py
+A short description of what this project does and who it's for.
 
-# how to run using docker
-1. docker build -t atom .
-2. docker run -p 8000:8000 atom
+## Features
 
-# kafka
-1. Install Zookeeper and Kafka using Homebrew
-2. Start Zookeeper using `brew services`
-3. Create JAAS config file with users and passwords in home directory
-4. Edit Kafka broker config (`server.properties`) to enable SASL/PLAIN
-5. Export JAAS config path using `KAFKA_OPTS` environment variable
-6. Start Kafka broker manually using the config file
+- Fast  
+- Modular  
+- Easy to use
 
+<details>
+<summary><strong>🚀 Installation</strong></summary>
 
+Run these commands in your terminal:
 
+    git clone https://github.com/yourname/my-project.git
+    cd my-project
+    pip install -r requirements.txt
+
+</details>
+
+<details>
+<summary><strong>🧑‍💻 Usage</strong></summary>
+
+Example Python code:
+
+    from my_project import run
+
+    run()
+
+</details>
+
+<details>
+<summary><strong>🛠️ Configuration</strong></summary>
+
+Sample `config.yaml`:
+
+    debug: true
+    mode: production
+
+</details>
+
+<details>
+<summary><strong>🤝 Contributing</strong></summary>
+
+Steps to contribute:
+
+1. Fork this repo  
+2. Create a new branch  
+3. Make your changes  
+4. Submit a pull request
+
+</details>
+
+<details>
+<summary><strong>📄 License</strong></summary>
+
+MIT License.
+
+</details>
