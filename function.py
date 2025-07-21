@@ -314,6 +314,31 @@ async def function_send_mobile_message_sns_template(client_sns,mobile,message,te
    client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
    return None
 
+#otp
+import random
+async def function_otp_generate(mode,data,client_postgres):
+   otp=random.randint(100000,999999)
+   if mode=="email":
+      query="insert into otp (otp,email) values (:otp,:email) returning *;"
+      values={"otp":otp,"email":data.strip().lower()}
+   if mode=="mobile":
+      query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
+      values={"otp":otp,"mobile":data.strip().lower()}
+   await client_postgres.execute(query=query,values=values)
+   return otp
+
+async def function_otp_verify(mode,otp,data,client_postgres):
+   if mode=="email":
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
+      values={"email":data}
+   if mode=="mobile":
+      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
+      values={"mobile":data}
+   output=await client_postgres.fetch_all(query=query,values=values)
+   if not output:raise Exception("otp not found")
+   if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
+   return None
+
 #s3
 async def function_s3_bucket_create(config_s3_region_name,client_s3,bucket):
    output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
@@ -374,6 +399,29 @@ async def function_object_create_postgres(client_postgres,table,object_list,is_s
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
 
+buffer_object_create={}
+table_object_key={}
+async def function_object_create_postgres_batch(function_object_create_postgres,client_postgres,table,object,config_batch_object_create,is_serialize,function_object_serialize,postgres_column_datatype):
+   global buffer_object_create, table_object_key
+   if table not in buffer_object_create:
+      buffer_object_create[table]=[]
+   if table not in table_object_key or table_object_key[table]==[]:
+      table_object_key[table]=list(object.keys())
+   if list(object.keys())!=table_object_key[table]:raise Exception(f"keys should be {table_object_key[table]}")
+   buffer_object_create[table].append(object)
+   if len(buffer_object_create[table])>=config_batch_object_create:
+      await function_object_create_postgres(client_postgres,table,buffer_object_create[table],is_serialize,function_object_serialize,postgres_column_datatype)
+      buffer_object_create[table]=[]
+      table_object_key[table]=[]
+   return None
+
+async def function_object_create_postgres_asyncpg(client_postgres_asyncpg,table,object_list):
+   column_insert_list=list(object_list[0].keys())
+   query=f"""INSERT INTO {table} ({','.join(column_insert_list)}) VALUES ({','.join(['$'+str(i+1) for i in range(len(column_insert_list))])}) ON CONFLICT DO NOTHING;"""
+   values=[tuple(obj[col] for col in column_insert_list) for obj in object_list]
+   await client_postgres_asyncpg.executemany(query,values)
+   return None
+
 async def function_object_create_redis(client_redis,key_list,object_list,expiry_sec):
    async with client_redis.pipeline(transaction=True) as pipe:
       for index,object in enumerate(object_list):
@@ -394,6 +442,19 @@ async def function_object_create_mongodb(client_mongodb,database,table,object_li
    output=await mongodb_client_database[table].insert_many(object_list)
    return str(output)
 
+async def function_object_read_postgres(client_postgres,table,object,function_create_where_string,function_object_serialize,postgres_column_datatype):
+   order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
+   column=object.get("column","*")
+   location_filter=object.get("location_filter")
+   if location_filter:
+      location_filter_split=location_filter.split(",")
+      long,lat,min_meter,max_meter=float(location_filter_split[0]),float(location_filter_split[1]),int(location_filter_split[2]),int(location_filter_split[3])
+   where_string,where_value=await function_create_where_string(object,function_object_serialize,postgres_column_datatype)
+   if location_filter:query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
+   else:query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
+   object_list=await client_postgres.fetch_all(query=query,values=where_value)
+   return object_list
+
 import json
 async def function_object_read_redis(client_redis,key):
    output=await client_redis.get(key)
@@ -412,6 +473,43 @@ async def function_object_read_gsheet_pandas(spreadsheet_id,gid):
    df=pandas.read_csv(url)
    output=df.to_dict(orient="records")
    return output
+
+async def function_object_update_postgres(client_postgres,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype):
+   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
+   column_update_list=[*object_list[0]]
+   column_update_list.remove("id")
+   query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id returning *;"
+   if len(object_list)==1:
+      output=await client_postgres.execute(query=query,values=object_list[0])
+   else:
+      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
+   return output
+
+async def function_object_update_postgres_user(client_postgres,table,object_list,user_id,is_serialize,function_object_serialize,postgres_column_datatype):
+   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
+   column_update_list=[*object_list[0]]
+   column_update_list.remove("id")
+   query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id and created_by_id={user_id} returning *;"
+   if len(object_list)==1:
+      output=await client_postgres.execute(query=query,values=object_list[0])
+   else:
+      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
+   return output
+
+async def function_object_delete_postgres(client_postgres,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype):
+   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
+   query=f"delete from {table} where id=:id;"
+   if len(object_list)==1:
+      output=await client_postgres.execute(query=query,values=object_list[0])
+   else:
+      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
+   return output
+
+async def function_object_delete_postgres_any(client_postgres,table,object,function_create_where_string,function_object_serialize,postgres_column_datatype):
+   where_string,where_value=await function_create_where_string(object,function_object_serialize,postgres_column_datatype)
+   query=f"delete from {table} {where_string};"
+   await client_postgres.execute(query=query,values=where_value)
+   return None
 
 #openai
 async def function_openai_prompt(client_openai,model,prompt,is_web_search,previous_response_id):
@@ -549,31 +647,6 @@ async def function_cache_api_response(mode,request,response,client_redis,config_
          inmemory_cache[cache_key]={"data":base64.b64encode(gzip.compress(body)).decode(),"expire_at":time.time()+expire_sec}
       response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
    return response
-
-#otp
-import random
-async def function_otp_generate(mode,data,client_postgres):
-   otp=random.randint(100000,999999)
-   if mode=="email":
-      query="insert into otp (otp,email) values (:otp,:email) returning *;"
-      values={"otp":otp,"email":data.strip().lower()}
-   if mode=="mobile":
-      query="insert into otp (otp,mobile) values (:otp,:mobile) returning *;"
-      values={"otp":otp,"mobile":data.strip().lower()}
-   await client_postgres.execute(query=query,values=values)
-   return otp
-
-async def function_otp_verify(mode,otp,data,client_postgres):
-   if mode=="email":
-      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
-      values={"email":data}
-   if mode=="mobile":
-      query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=:mobile order by id desc limit 1;"
-      values={"mobile":data}
-   output=await client_postgres.fetch_all(query=query,values=values)
-   if not output:raise Exception("otp not found")
-   if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
-   return None
 
 #auth
 import hashlib
@@ -735,7 +808,7 @@ async def function_message_delete_user_all(client_postgres,user_id):
    await client_postgres.execute(query=query,values=values)
    return None
 
-#postgres
+#crud
 import datetime
 async def function_update_last_active_at(client_postgres,user_id):
    try:
@@ -782,16 +855,17 @@ async def function_parent_object_read(client_postgres,table,parent_column,parent
    object_list=await client_postgres.fetch_all(query=query,values=values)
    return object_list
 
+#postgres
 async def function_postgres_drop_all_index(client_postgres):
    query="0 DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
    await client_postgres.execute(query=query,values={})
    return None
 
-async def function_query_runner(client_postgres,query,user_id):
-   danger_word=["drop","truncate"]
+async def function_postgres_query_runner(client_postgres,query,user_id=1):
+   block_word=["drop","truncate"]
    stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
    must_word=["select"]
-   for item in danger_word:
+   for item in block_word:
       if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
    if user_id!=1:
       for item in stop_word:
@@ -800,6 +874,26 @@ async def function_query_runner(client_postgres,query,user_id):
          if item not in query.lower():raise Exception(f"{item} keyword not allowed in query")
    output=await client_postgres.fetch_all(query=query,values={})
    return output
+
+import csv,re
+from io import StringIO
+async def function_postgres_stream(client_postgres_asyncpg_pool,query):
+   if not re.match(r"^\s*SELECT\s", query,flags=re.IGNORECASE):raise Exception(status_code=400, detail="Only SELECT queries are allowed.")
+   async with client_postgres_asyncpg_pool.acquire() as client_postgres_asyncpg:
+      async with client_postgres_asyncpg.transaction():
+         stmt = await client_postgres_asyncpg.prepare(query)
+         column_names = [attr.name for attr in stmt.get_attributes()]
+         stream = StringIO()
+         writer = csv.writer(stream)
+         writer.writerow(column_names)
+         yield stream.getvalue()
+         stream.seek(0)
+         stream.truncate(0)
+         async for row in client_postgres_asyncpg.cursor(query):
+               writer.writerow(row)
+               yield stream.getvalue()
+               stream.seek(0)
+               stream.truncate(0)
 
 async def function_postgres_schema_read(client_postgres):
    query='''
@@ -929,117 +1023,7 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
    await function_init_query_client(client_postgres,config_postgres_schema)
    return None
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
-
-
-
-
-
-
-   
-
-
-
-buffer_object_create={}
-table_object_key={}
-async def function_postgres_object_create_batch(table,object,config_batch_object_create,client_postgres,function_object_create_postgres,is_serialize,function_object_serialize,postgres_column_datatype):
-   global buffer_object_create, table_object_key
-   if table not in buffer_object_create:
-      buffer_object_create[table]=[]
-   if table not in table_object_key or table_object_key[table]==[]:
-      table_object_key[table]=list(object.keys())
-   if list(object.keys())!=table_object_key[table]:raise Exception(f"keys should be {table_object_key[table]}")
-   buffer_object_create[table].append(object)
-   if len(buffer_object_create[table])>=config_batch_object_create:
-      await function_object_create_postgres(client_postgres,table,buffer_object_create[table],is_serialize,function_object_serialize,postgres_column_datatype)
-      buffer_object_create[table]=[]
-      table_object_key[table]=[]
-   return None
-
-async def function_postgres_object_create_asyncpg(table,object_list,client_postgres_asyncpg):
-   column_insert_list=list(object_list[0].keys())
-   query=f"""INSERT INTO {table} ({','.join(column_insert_list)}) VALUES ({','.join(['$'+str(i+1) for i in range(len(column_insert_list))])}) ON CONFLICT DO NOTHING;"""
-   values=[tuple(obj[col] for col in column_insert_list) for obj in object_list]
-   await client_postgres_asyncpg.executemany(query,values)
-   return None
-
-async def function_postgres_object_update(table,object_list,client_postgres,is_serialize,function_object_serialize,postgres_column_datatype):
-   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
-   column_update_list=[*object_list[0]]
-   column_update_list.remove("id")
-   query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id returning *;"
-   if len(object_list)==1:
-      output=await client_postgres.execute(query=query,values=object_list[0])
-   else:
-      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
-   return output
-
-async def function_postgres_object_update_user(table,object_list,user_id,client_postgres,is_serialize,function_object_serialize,postgres_column_datatype):
-   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
-   column_update_list=[*object_list[0]]
-   column_update_list.remove("id")
-   query=f"update {table} set {','.join([f'{item}=:{item}' for item in column_update_list])} where id=:id and created_by_id={user_id} returning *;"
-   if len(object_list)==1:
-      output=await client_postgres.execute(query=query,values=object_list[0])
-   else:
-      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
-   return output
-
-async def function_postgres_object_delete(table,object_list,client_postgres,is_serialize,function_object_serialize,postgres_column_datatype):
-   if is_serialize:object_list=await function_object_serialize(object_list,postgres_column_datatype)
-   query=f"delete from {table} where id=:id;"
-   if len(object_list)==1:
-      output=await client_postgres.execute(query=query,values=object_list[0])
-   else:
-      async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
-   return output
-
-async def function_postgres_object_delete_any(table,object,client_postgres,function_create_where_string,function_object_serialize,postgres_column_datatype):
-   where_string,where_value=await function_create_where_string(object,function_object_serialize,postgres_column_datatype)
-   query=f"delete from {table} {where_string};"
-   await client_postgres.execute(query=query,values=where_value)
-   return None
-
-async def function_postgres_object_read(table,object,client_postgres,function_create_where_string,function_object_serialize,postgres_column_datatype):
-   order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
-   column=object.get("column","*")
-   location_filter=object.get("location_filter")
-   if location_filter:
-      location_filter_split=location_filter.split(",")
-      long,lat,min_meter,max_meter=float(location_filter_split[0]),float(location_filter_split[1]),int(location_filter_split[2]),int(location_filter_split[3])
-   where_string,where_value=await function_create_where_string(object,function_object_serialize,postgres_column_datatype)
-   if location_filter:query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
-   else:query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
-   object_list=await client_postgres.fetch_all(query=query,values=where_value)
-   return object_list
-
+#zzz
 def function_converter_numeric(mode,x):
    MAX_LEN = 30
    CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
@@ -1220,27 +1204,6 @@ def function_ocr_tesseract(file_path):
     except Exception as e:
         raise RuntimeError(f"OCR failed: {e}")
      
-import csv,re
-from io import StringIO
-async def function_stream_csv_from_query(query,client_postgres_asyncpg_pool):
-   if not re.match(r"^\s*SELECT\s", query,flags=re.IGNORECASE):raise Exception(status_code=400, detail="Only SELECT queries are allowed.")
-   async with client_postgres_asyncpg_pool.acquire() as client_postgres_asyncpg:
-      async with client_postgres_asyncpg.transaction():
-         stmt = await client_postgres_asyncpg.prepare(query)
-         column_names = [attr.name for attr in stmt.get_attributes()]
-         stream = StringIO()
-         writer = csv.writer(stream)
-         writer.writerow(column_names)
-         yield stream.getvalue()
-         stream.seek(0)
-         stream.truncate(0)
-         async for row in client_postgres_asyncpg.cursor(query):
-               writer.writerow(row)
-               yield stream.getvalue()
-               stream.seek(0)
-               stream.truncate(0)
-
-
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI

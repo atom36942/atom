@@ -24,7 +24,7 @@ async def route_postgres_create(request:Request):
 #celery
 @router.get("/celery")
 async def route_celery(request:Request):
-   task_1=request.app.state.client_celery_producer.send_task("function_postgres_object_create_asyncpg",args=["test",[{"title": "celery"}]])
+   task_1=request.app.state.client_celery_producer.send_task("function_object_create_postgres_asyncpg",args=["test",[{"title": "celery"}]])
    task_2=request.app.state.client_celery_producer.send_task("add",args=[2,3])
    return {"status":1,"message":"done"}
 
@@ -39,7 +39,7 @@ async def route_posthog(request:Request):
 @router.get("/redis-publish")
 async def route_redis_publish(request:Request):
    data_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"redis2"},{"title":"redis3"}]}
-   data_2={"function":"function_postgres_object_update","table":"users","object_list":[{"id":1,"email":"redis"}]}
+   data_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"redis"}]}
    for data in [data_1,data_2]:await function_publisher_redis(request.app.state.client_redis,"channel_1",data)
    return {"status":1,"message":"done"}
 
@@ -47,7 +47,7 @@ async def route_redis_publish(request:Request):
 @router.get("/rabbitmq-publish")
 async def route_rabbitmq_publish(request:Request):
    data_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"rabbitmq2"},{"title":"rabbitmq3"}]}
-   data_2={"function":"function_postgres_object_update","table":"users","object_list":[{"id":1,"email":"rabbitmq"}]}
+   data_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"rabbitmq"}]}
    for data in [data_1,data_2]:await function_publisher_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",data)
    return {"status":1,"message":"done"}
 
@@ -55,7 +55,7 @@ async def route_rabbitmq_publish(request:Request):
 @router.get("/kafka-publish")
 async def route_kafka_publish(request:Request):
    data_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"kafka2"},{"title":"kafka3"}]}
-   data_2={"function":"function_postgres_object_update","table":"users","object_list":[{"id":1,"email":"kafka"}]}
+   data_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"kafka"}]}
    for data in [data_1,data_2]:await function_publisher_kafka(request.app.state.client_kafka_producer,"channel_1",data)
    return {"status":1,"message":"done"}
 

@@ -1,6 +1,6 @@
 #function
 from function import function_client_read_postgres_asyncpg_pool
-from function import function_postgres_object_create_asyncpg
+from function import function_object_create_postgres_asyncpg
 
 #config
 import os
@@ -32,14 +32,14 @@ def shutdown_worker(**kwargs):
     loop.run_until_complete(client_postgres_asyncpg_pool.close())
 
 #task 1
-@client_celery_consumer.task(name="function_postgres_object_create_asyncpg")
+@client_celery_consumer.task(name="function_object_create_postgres_asyncpg")
 def celery_task_1(table,object_list):
     try:
         def run_wrapper():
             async def wrapper():
                 global client_postgres_asyncpg_pool
                 async with client_postgres_asyncpg_pool.acquire() as client_postgres_asyncpg:
-                    await function_postgres_object_create_asyncpg(table,object_list,client_postgres_asyncpg)
+                    await function_object_create_postgres_asyncpg(client_postgres_asyncpg,table,object_list)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         return run_wrapper()
