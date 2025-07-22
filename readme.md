@@ -33,16 +33,16 @@ pip install -r requirements.txt
 ## Environment Variables
 Create a `.env` file in the root directory with at least the following keys.  
 You can use local or remote URLs for Postgres and Redis.
+- `config_postgres_url`: primary database (PostgreSQL) connection URL  
+- `config_redis_url`: used for caching, rate limiting, background tasks, etc.  
+- `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
+- `config_key_jwt`: secret key used for signing and verifying JWT tokens
 ```env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
 config_key_root=0bVJ9Jpb7s
 config_key_jwt=2n91nIEaJpsqjFUz
 ```
-- `config_postgres_url`: primary database (PostgreSQL) connection URL  
-- `config_redis_url`: used for caching, rate limiting, background tasks, etc.  
-- `config_key_root`: secret key to authenticate root-user APIs  
-- `config_key_jwt`: secret key used for signing and verifying JWT tokens
 
 ## Server Start
 ```bash
