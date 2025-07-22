@@ -33,17 +33,10 @@ config_key_jwt=123
 ```
 
 ## Server Start
-direct
 ```bash
-python main.py
-```
-using reload
-```bash
-uvicorn main:app --reload
-```
-without env activate
-```bash
-./venv/bin/uvicorn main:app --reload
+python main.py                        # Run directly
+uvicorn main:app --reload             # Run with auto-reload (dev)
+./venv/bin/uvicorn main:app --reload  # Run without activating virtualenv
 ```
 docker start
 ```bash
