@@ -13,12 +13,20 @@ To run atom, follow these three sections in order:
 3. [Server Start](#server-start) or [Docker Start](#docker-start)
 
 ## Installation
-for mac
+mac
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
 python3 -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
+```
+windows
+```bash
+git clone https://github.com/atom36942/atom.git
+cd atom
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -28,9 +36,13 @@ You can use local or remote URLs for Postgres and Redis.
 ```env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
-config_key_root=123
-config_key_jwt=123
+config_key_root=0bVJ9Jpb7s
+config_key_jwt=2n91nIEaJpsqjFUz
 ```
+- `config_postgres_url`: primary database (PostgreSQL) connection URL  
+- `config_redis_url`: used for caching, rate limiting, background tasks, etc.  
+- `config_key_root`: secret key to authenticate root-user APIs  
+- `config_key_jwt`: secret key used for signing and verifying JWT tokens
 
 ## Server Start
 ```bash

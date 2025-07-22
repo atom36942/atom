@@ -1223,10 +1223,20 @@ async def function_jira_summary(jira_base_url,jira_email,jira_token,jira_project
         r.raise_for_status()
         return r.json().get("issues", [])
     def fetch_comments(issue_key):
-        url = f"{jira_base_url}/rest/api/3/issue/{issue_key}/comment"
-        r = requests.get(url, headers=headers, auth=auth)
-        r.raise_for_status()
-        return [c["body"]["content"][0]["content"][0].get("text", "") for c in r.json().get("comments", []) if c.get("body")]
+      url = f"{jira_base_url}/rest/api/3/issue/{issue_key}/comment"
+      r = requests.get(url, headers=headers, auth=auth)
+      r.raise_for_status()
+      comments_data = r.json().get("comments", [])
+      comment_texts = []
+      for c in comments_data:
+         try:
+               content = c["body"].get("content", [])
+               if content and "content" in content[0]:
+                  text = content[0]["content"][0].get("text", "")
+                  comment_texts.append(text)
+         except (KeyError, IndexError, TypeError):
+               continue
+      return comment_texts
     def group_by_project(issues):
         grouped = defaultdict(list)
         for i in issues:
