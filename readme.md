@@ -10,7 +10,7 @@
 To run atom, follow these three sections in order:
 1. [Installation](#installation)
 2. [Environment Variables](#environment-variables)
-3. [Server Start](#server-start)
+3. [Server Start](#server-start) or [Docker Start](#docker-start)
 
 ## Installation
 for mac
@@ -39,8 +39,8 @@ uvicorn main:app --reload             # Run with auto-reload (dev)
 ./venv/bin/uvicorn main:app --reload  # Run without activating virtualenv
 ```
 
+## Docker Start
 ```bash
-#docker start
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
