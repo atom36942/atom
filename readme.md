@@ -7,13 +7,13 @@
 - Reduces boilerplate, so you don’t have to reinvent the wheel each time
 
 ## Tech Stack
-atom is built using the following core technologies:
+atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
 - **Language**: Python
 - **Framework**: FastAPI (for building async APIs)
 - **Database**: PostgreSQL (primary relational database)
 - **Caching**: Redis or Valkey (used for cache, rate limiting, task queues, etc.)
 - **Queue**: RabbitMQ or Kafka (for background jobs and async processing)
-- **Monitoring**: Sentry (for error tracking and performance monitoring)
+- **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
 
 ## Getting Started
 To run atom, follow these three sections in order:
