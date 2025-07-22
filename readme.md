@@ -6,8 +6,8 @@
 - Quickly build production-ready APIs, background jobs, and integrations  
 - Reduces boilerplate, so you don’t have to reinvent the wheel each time
 
-## setup
-mac
+## installation
+for mac
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -15,6 +15,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+
 ## server start
 direct
 ```bash
@@ -28,7 +29,7 @@ without env activate
 ```bash
 ./venv/bin/uvicorn main:app --reload
 ```
-## docker start
+docker start
 ```bash
 docker build -t atom .
 docker run -p 8000:8000 atom
