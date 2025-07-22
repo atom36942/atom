@@ -8,9 +8,9 @@
 
 ## Getting Started
 To run atom, follow these three sections in order:
-1. [Installation](#Installation)
-2. [Environment Variables](#Environment Variables)
-3. [Server Start](#Server Start)
+1. [Installation](#installation)
+2. [Environment Variables](#environment-variables)
+3. [Server Start](#server-start)
 
 ## Installation
 for mac
