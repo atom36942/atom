@@ -38,8 +38,9 @@ python main.py                        # Run directly
 uvicorn main:app --reload             # Run with auto-reload (dev)
 ./venv/bin/uvicorn main:app --reload  # Run without activating virtualenv
 ```
-docker start
+
 ```bash
+#docker start
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
