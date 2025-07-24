@@ -68,15 +68,15 @@ docker run -p 8000:8000 atom
 
 ## Run Without Activating Virtualenv
 ```bash
-git clone https://github.com/atom36942/atom.git                  # Clone the repository
-cd atom                                                          # Navigate into project directory
-python3 -m venv venv                                             # Create a virtual environment
-./venv/bin/pip install -r requirements.txt                       # Install requirements
-./venv/bin/python main.py                                        # Run directly
-./venv/bin/uvicorn main:app --reload                             # Start the server with reload
-./venv/bin/pip install fastapi                                   # Install package (ex FastAPI)
-./venv/bin/pip install --upgrade fastapi                         # Upgrade package (ex FastAPI)
-./venv/bin/pip freeze > requirements.txt                         # Freeze updated dependencies
+git clone https://github.com/atom36942/atom.git            # Clone the repository
+cd atom                                                    # Navigate into project directory
+python3 -m venv venv                                       # Create a virtual environment
+./venv/bin/pip install -r requirements.txt                 # Install requirements
+./venv/bin/python main.py                                  # Run directly
+./venv/bin/uvicorn main:app --reload                       # Start the server with reload
+./venv/bin/pip install fastapi                             # Install package (ex FastAPI)
+./venv/bin/pip install --upgrade fastapi                   # Upgrade package (ex FastAPI)
+./venv/bin/pip freeze > requirements.txt                   # Freeze updated dependencies
 ```
 
 ## Testing
@@ -87,6 +87,23 @@ You can use the `test.sh` script to run a batch of API tests.
 ```bash
 ./test.sh
 ```
+
+## Repository Structure
+Explanation of key files in the repo:
+- `main.py` – FastAPI Server + APIs
+- `router.py` – Sample router definitions for extending the APIs
+- `function.py` – Core business logic or utility functions
+- `config.py` – Loads config/env variables used across the app
+- `requirements.txt` – Python dependencies
+- `readme.md` – Project documentation
+- `Dockerfile` – Build and run the project inside Docker
+- `curl.txt` – List of curl requests used for testing
+- `test.sh` – Shell script to execute curl.txt tests
+- `consumer_redis.py` – Redis consumer for pub/sub or queue
+- `consumer_rabbitmq.py` – RabbitMQ consumer
+- `consumer_kafka.py` – Kafka consumer
+- `consumer_celery.py` – Celery worker
+- `.gitignore` – Files/directories to ignore in git
 
 ## JWT Token Encoding
 To control which user fields are encoded in the JWT token, set `config_token_key_list` in `config.py`.  
