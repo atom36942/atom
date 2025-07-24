@@ -38,7 +38,7 @@ config_batch_log_api=int(config.get("config_batch_log_api",10))
 config_batch_object_create=int(config.get("config_batch_object_create",10))
 config_limit_cache_users_api_access=int(config.get("config_limit_cache_users_api_access",1000))
 config_limit_cache_users_is_active=int(config.get("config_limit_cache_users_is_active",0))
-config_token_user_key_list=config.get("config_token_user_key_list","id,is_active,api_access").split(",")
+config_token_key_list=config.get("config_token_key_list","id,is_active,api_access").split(",")
 config_column_disabled_non_admin_list=config.get("config_column_disabled_non_admin_list","is_active,is_verified,api_access").split(",")
 config_table_allowed_public_create_list=config.get("config_table_allowed_public_create_list","test").split(",")
 config_table_allowed_public_read_list=config.get("config_table_allowed_public_read_list","test").split(",")
@@ -197,7 +197,7 @@ async def route_auth_signup(request:Request):
    if config_is_signup==0:return function_return_error("signup disabled")
    object,[type,username,password]=await function_param_read("body",request,["type","username","password"],[])
    user=await function_auth_signup_username_password(request.app.state.client_postgres,type,username,password)
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
    return {"status":1,"message":token}
 
 @app.post("/auth/signup-bigint")
@@ -205,49 +205,49 @@ async def route_auth_signup_bigint(request:Request):
    if config_is_signup==0:return function_return_error("signup disabled")
    object,[type,username_bigint,password_bigint]=await function_param_read("body",request,["type","username_bigint","password_bigint"],[])
    user=await function_auth_signup_username_password_bigint(request.app.state.client_postgres,type,username_bigint,password_bigint)
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password")
 async def route_auth_login_password(request:Request):
    object,[type,password,username]=await function_param_read("body",request,["type","password","username"],[])
-   token=await function_auth_login_password_username(request.app.state.client_postgres,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+   token=await function_auth_login_password_username(request.app.state.client_postgres,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-bigint")
 async def route_auth_login_password_bigint(request:Request):
    object,[type,password_bigint,username_bigint]=await function_param_read("body",request,["type","password_bigint","username_bigint"],[])
-   token=await function_auth_login_password_username_bigint(request.app.state.client_postgres,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+   token=await function_auth_login_password_username_bigint(request.app.state.client_postgres,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-email")
 async def route_auth_login_password_email(request:Request):
    object,[type,password,email]=await function_param_read("body",request,["type","password","email"],[])
-   token=await function_auth_login_password_email(request.app.state.client_postgres,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+   token=await function_auth_login_password_email(request.app.state.client_postgres,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-password-mobile")
 async def route_auth_login_password_mobile(request:Request):
    object,[type,password,mobile]=await function_param_read("body",request,["type","password","mobile"],[])
-   token=await function_auth_login_password_mobile(request.app.state.client_postgres,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+   token=await function_auth_login_password_mobile(request.app.state.client_postgres,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-email")
 async def route_auth_login_otp_email(request:Request):
    object,[type,otp,email]=await function_param_read("body",request,["type","otp","email"],[])
-   token=await function_auth_login_otp_email(request.app.state.client_postgres,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+   token=await function_auth_login_otp_email(request.app.state.client_postgres,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-otp-mobile")
 async def route_auth_login_otp_mobile(request:Request):
    object,[type,otp,mobile]=await function_param_read("body",request,["type","otp","mobile"],[])
-   token=await function_auth_login_otp_mobile(request.app.state.client_postgres,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+   token=await function_auth_login_otp_mobile(request.app.state.client_postgres,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list)
    return {"status":1,"message":token}
 
 @app.post("/auth/login-google")
 async def route_auth_login_google(request:Request):
    object,[type,google_token]=await function_param_read("body",request,["type","google_token"],[])
-   token=await function_auth_login_google(request.app.state.client_postgres,type,google_token,config_google_login_client_id,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+   token=await function_auth_login_google(request.app.state.client_postgres,type,google_token,config_google_login_client_id,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list)
    return {"status":1,"message":token}
 
 @app.get("/my/profile")
@@ -259,7 +259,7 @@ async def route_my_profile(request:Request):
 @app.get("/my/token-refresh")
 async def route_my_token_refresh(request:Request):
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
    return {"status":1,"message":token}
 
 @app.delete("/my/account-delete")
