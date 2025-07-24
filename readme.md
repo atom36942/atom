@@ -68,13 +68,15 @@ docker run -p 8000:8000 atom
 
 ## Run Without Activating Virtualenv
 ```bash
-./venv/bin/pip install -r requirements.txt                        # Install requirements
-./venv/bin/pip freeze > requirements.txt                          # Freeze updated dependencies
-./venv/bin/uvicorn main:app --reload                              # Start the server with reload
-./venv/bin/pip install --upgrade fastapi                          # Upgrade a package (e.g. FastAPI)
-./venv/bin/uvicorn main:app --reload                              # Run again (after updates or changes)
-./venv/bin/celery -A consumer_celery worker --loglevel=info       # Run Celery worker
-./venv/bin/python consumer_redis.py                               # Run Redis consumer
+git clone https://github.com/atom36942/atom.git                  # Clone the repository
+cd atom                                                          # Navigate into project directory
+python3 -m venv venv                                             # Create a virtual environment
+./venv/bin/pip install -r requirements.txt                       # Install requirements
+./venv/bin/python main.py                                        # Run directly
+./venv/bin/uvicorn main:app --reload                             # Start the server with reload
+./venv/bin/pip install fastapi                                   # Install package (ex FastAPI)
+./venv/bin/pip install --upgrade fastapi                         # Upgrade package (ex FastAPI)
+./venv/bin/pip freeze > requirements.txt                         # Freeze updated dependencies
 ```
 
 ## Testing
