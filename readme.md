@@ -58,13 +58,27 @@ config_key_jwt=2n91nIEaJpsqjFUz
 ```bash
 python main.py                        # Run directly
 uvicorn main:app --reload             # Run with auto-reload (dev)
-./venv/bin/uvicorn main:app --reload  # Run without activating virtualenv
 ```
 
 ## Docker Start
 ```bash
 docker build -t atom .
 docker run -p 8000:8000 atom
+```
+
+## Run Without Activating Virtualenv
+```bash
+# Install requirements
+./venv/bin/pip install -r requirements.txt
+
+# Freeze updated dependencies
+./venv/bin/pip freeze > requirements.txt
+
+# Start the server with reload
+./venv/bin/uvicorn main:app --reload
+
+# Upgrade a package (example: FastAPI)
+./venv/bin/pip install --upgrade fastapi
 ```
 
 ## Testing
@@ -88,3 +102,12 @@ request.state.user.get("id")
 request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
+
+## Kafka Setup
+To run Kafka with SASL/PLAIN locally:
+1. Install Zookeeper and Kafka using Homebrew.
+2. Start Zookeeper using `brew services`.
+3. Create a JAAS config file in your home directory with user credentials.
+4. Update Kafka's `server.properties` to enable SASL/PLAIN authentication.
+5. Export the JAAS config path using the `KAFKA_OPTS` environment variable.
+6. Start the Kafka broker manually using the updated config file.

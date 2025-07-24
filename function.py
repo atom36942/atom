@@ -1,147 +1,3 @@
-#utilities
-from fastapi import FastAPI
-def function_fastapi_app_read(is_debug,lifespan):
-   app=FastAPI(debug=is_debug,lifespan=lifespan)
-   return app
-
-import uvicorn
-async def function_server_start(app):
-   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
-   server=uvicorn.Server(config)
-   await server.serve()
-   
-from fastapi import responses
-def function_return_error(message):
-   return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
-
-import csv,io
-async def function_file_to_object_list(file):
-   content=await file.read()
-   content=content.decode("utf-8")
-   reader=csv.DictReader(io.StringIO(content))
-   object_list=[row for row in reader]
-   await file.close()
-   return object_list
-   
-async def function_param_read(mode,request,must,optional):
-   param=[]
-   if mode=="query":
-      object=dict(request.query_params)
-   if mode=="form":
-      form_data=await request.form()
-      object={key:value for key,value in form_data.items() if isinstance(value,str)}
-      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
-      object["file_list"]=file_list
-   if mode=="body":
-      object=await request.json()
-   for item in must:
-      if item not in object:raise Exception(f"{item} missing from {mode} param")
-      param.append(object[item])
-   for item in optional:
-      param.append(object.get(item))
-   return object,param
-
-async def function_table_id_column_mapping_read(client_postgres_asyncpg,table,column,limit,is_null):
-   output = {}
-   where_clause = "" if is_null else f"WHERE {column} IS NOT NULL"
-   async with client_postgres_asyncpg.transaction():
-      cursor = await client_postgres_asyncpg.cursor(f'SELECT id,{column} FROM {table} {where_clause} ORDER BY id DESC')
-      count = 0
-      while count < limit:
-         batch = await cursor.fetch(10000)
-         if not batch: break
-         if column == "api_access":
-            output.update({record['id']: [int(item.strip()) for item in record[column].split(",")] if record[column] else [] for record in batch})
-         else:
-            output.update({record['id']: record[column] for record in batch})
-         count += len(batch)
-   return output
-
-async def function_create_where_string(object,function_object_serialize,postgres_column_datatype):
-   object={k:v for k,v in object.items() if (k in postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
-   where_operator={k:v.split(',',1)[0] for k,v in object.items()}
-   where_value={k:v.split(',',1)[1] for k,v in object.items()}
-   object_list=await function_object_serialize([where_value],postgres_column_datatype)
-   where_value=object_list[0]
-   where_string_list=[f"({key} {where_operator[key]} :{key} or :{key} is null)" for key in [*object]]
-   where_string_joined=' and '.join(where_string_list)
-   where_string=f"where {where_string_joined}" if where_string_joined else ""
-   return where_string,where_value
-   
-async def function_add_creator_data(client_postgres,user_key,object_list):
-    object_list=[dict(object) for object in object_list]
-    created_by_ids={str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
-    users={}
-    if created_by_ids:
-        query = f"SELECT * FROM users WHERE id IN ({','.join(created_by_ids)});"
-        users = {str(user["id"]): dict(user) for user in await client_postgres.fetch_all(query=query,values={})}
-    for object in object_list:
-        created_by_id = str(object.get("created_by_id"))
-        if created_by_id in users:
-            for key in user_key.split(","):
-                object[f"creator_{key}"] = users[created_by_id].get(key)
-        else:
-            for key in user_key.split(","):
-                object[f"creator_{key}"] = None
-    return object_list
- 
-async def function_ownership_check(client_postgres,table,id,user_id):
-   if table=="users":
-      if id!=user_id:raise Exception("object ownership issue")
-   if table!="users":
-      query=f"select created_by_id from {table} where id=:id;"
-      values={"id":id}
-      output=await client_postgres.fetch_all(query=query,values=values)
-      if not output:raise Exception("no object")
-      if output[0]["created_by_id"]!=user_id:raise Exception("object ownership issue")
-   return None
-
-import hashlib,datetime,json
-async def function_object_serialize(object_list,postgres_column_datatype):
-   for index,object in enumerate(object_list):
-      for key,value in object.items():
-         datatype=postgres_column_datatype.get(key)
-         if not datatype:continue
-         if not value:continue
-         elif key in ["password"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
-         elif datatype=="text" and value in ["","null"]:object_list[index][key]=None
-         elif datatype=="text":object_list[index][key]=value.strip()
-         elif "int" in datatype:object_list[index][key]=int(value)
-         elif datatype=="numeric":object_list[index][key]=round(float(value),3)
-         elif datatype=="date":object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%d')
-         elif "time" in datatype:object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%dT%H:%M:%S')
-         elif datatype=="ARRAY":object_list[index][key]=value.split(",")
-         elif datatype=="jsonb":object_list[index][key]=json.dumps(value)
-   return object_list
-
-import os
-from dotenv import load_dotenv, dotenv_values
-import importlib.util
-from pathlib import Path
-def function_config_read(path_env=".env"):
-   def read_env_file(path):
-      load_dotenv(path)
-      return {k.lower(): v for k, v in dotenv_values(path).items()}
-   def read_config_modules(base_dir, skip_dirs):
-      output = {}
-      for root, dirs, files in os.walk(base_dir):
-         dirs[:] = [d for d in dirs if d not in skip_dirs]
-         is_config_folder = os.path.basename(root).startswith("config")
-         for file in files:
-            if file.endswith(".py") and (file.startswith("config") or is_config_folder):
-               module_path = os.path.join(root, file)
-               module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
-               spec = importlib.util.spec_from_file_location(module_name, module_path)
-               module = importlib.util.module_from_spec(spec)
-               spec.loader.exec_module(module)
-               output.update({k.lower(): getattr(module, k) for k in dir(module) if not k.startswith("__")})
-      return output
-   base_dir = Path(__file__).parent
-   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
-   output = read_env_file(path_env)
-   output.update(read_config_modules(base_dir, skip_dirs))
-   return output
-
 #client
 from databases import Database
 async def function_client_read_postgres(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
@@ -229,7 +85,40 @@ def function_client_read_openai(config_openai_key):
    client_openai=OpenAI(api_key=config_openai_key)
    return client_openai
 
-#add
+#fastapi
+from fastapi import FastAPI
+def function_fastapi_app_read(is_debug,lifespan):
+   app=FastAPI(debug=is_debug,lifespan=lifespan)
+   return app
+
+import uvicorn
+async def function_server_start(app):
+   config=uvicorn.Config(app,host="0.0.0.0",port=8000,log_level="info",reload=True)
+   server=uvicorn.Server(config)
+   await server.serve()
+   
+from fastapi import responses
+def function_return_error(message):
+   return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
+
+async def function_param_read(mode,request,must,optional):
+   param=[]
+   if mode=="query":
+      object=dict(request.query_params)
+   if mode=="form":
+      form_data=await request.form()
+      object={key:value for key,value in form_data.items() if isinstance(value,str)}
+      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
+      object["file_list"]=file_list
+   if mode=="body":
+      object=await request.json()
+   for item in must:
+      if item not in object:raise Exception(f"{item} missing from {mode} param")
+      param.append(object[item])
+   for item in optional:
+      param.append(object.get(item))
+   return object,param
+
 from fastapi.middleware.cors import CORSMiddleware
 def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
    app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)
@@ -1023,7 +912,141 @@ async def function_openai_ocr(client_openai,model,file,prompt):
    output=client_openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
    return output
 
-#zzz
+#utilities
+import os
+def function_export_path_file(path="."):
+    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
+    path = os.path.abspath(path)
+    out_path = os.path.join(path, "files.txt")
+    with open(out_path, "w") as out_file:
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
+            for file in files:
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, path)
+                out_file.write(rel_path + "\n")
+    print(f"Saved to: {out_path}")
+    return None
+ 
+import sys
+def function_variable_size_kb_read(namespace):
+   result = {}
+   for name, var in namespace.items():
+      if not name.startswith("__"):
+         key = f"{name} ({type(var).__name__})"
+         size_kb = sys.getsizeof(var) / 1024
+         result[key] = size_kb
+   sorted_result = dict(sorted(result.items(), key=lambda item: item[1], reverse=True))
+   return sorted_result
+
+import csv,io
+async def function_file_to_object_list(file):
+   content=await file.read()
+   content=content.decode("utf-8")
+   reader=csv.DictReader(io.StringIO(content))
+   object_list=[row for row in reader]
+   await file.close()
+   return object_list
+
+async def function_column_mapping_read(client_postgres_asyncpg,table,column_1,column_2,limit,is_null,transformer):
+   output = {}
+   where_clause = "" if is_null else f"WHERE {column_2} IS NOT NULL"
+   async with client_postgres_asyncpg.transaction():
+      cursor = await client_postgres_asyncpg.cursor(f'SELECT {column_1},{column_2} FROM {table} {where_clause} ORDER BY {column_1} DESC')
+      count = 0
+      while count < limit:
+         batch = await cursor.fetch(10000)
+         if not batch: break
+         if transformer == "split_int":output.update({record[column_1]: [int(item.strip()) for item in record[column_2].split(",")] if record[column_2] else [] for record in batch})
+         else:output.update({record[column_1]: record[column_2] for record in batch})
+         count += len(batch)
+   return output
+
+async def function_create_where_string(object,function_object_serialize,postgres_column_datatype):
+   object={k:v for k,v in object.items() if (k in postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
+   where_operator={k:v.split(',',1)[0] for k,v in object.items()}
+   where_value={k:v.split(',',1)[1] for k,v in object.items()}
+   object_list=await function_object_serialize([where_value],postgres_column_datatype)
+   where_value=object_list[0]
+   where_string_list=[f"({key} {where_operator[key]} :{key} or :{key} is null)" for key in [*object]]
+   where_string_joined=' and '.join(where_string_list)
+   where_string=f"where {where_string_joined}" if where_string_joined else ""
+   return where_string,where_value
+   
+async def function_add_creator_data(client_postgres,user_key,object_list):
+    object_list=[dict(object) for object in object_list]
+    created_by_ids={str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
+    users={}
+    if created_by_ids:
+        query = f"SELECT * FROM users WHERE id IN ({','.join(created_by_ids)});"
+        users = {str(user["id"]): dict(user) for user in await client_postgres.fetch_all(query=query,values={})}
+    for object in object_list:
+        created_by_id = str(object.get("created_by_id"))
+        if created_by_id in users:
+            for key in user_key.split(","):
+                object[f"creator_{key}"] = users[created_by_id].get(key)
+        else:
+            for key in user_key.split(","):
+                object[f"creator_{key}"] = None
+    return object_list
+ 
+async def function_ownership_check(client_postgres,table,id,user_id):
+   if table=="users":
+      if id!=user_id:raise Exception("object ownership issue")
+   if table!="users":
+      query=f"select created_by_id from {table} where id=:id;"
+      values={"id":id}
+      output=await client_postgres.fetch_all(query=query,values=values)
+      if not output:raise Exception("no object")
+      if output[0]["created_by_id"]!=user_id:raise Exception("object ownership issue")
+   return None
+
+import hashlib,datetime,json
+async def function_object_serialize(object_list,postgres_column_datatype):
+   for index,object in enumerate(object_list):
+      for key,value in object.items():
+         datatype=postgres_column_datatype.get(key)
+         if not datatype:continue
+         if not value:continue
+         elif key in ["password"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
+         elif datatype=="text" and value in ["","null"]:object_list[index][key]=None
+         elif datatype=="text":object_list[index][key]=value.strip()
+         elif "int" in datatype:object_list[index][key]=int(value)
+         elif datatype=="numeric":object_list[index][key]=round(float(value),3)
+         elif datatype=="date":object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%d')
+         elif "time" in datatype:object_list[index][key]=datetime.datetime.strptime(value,'%Y-%m-%dT%H:%M:%S')
+         elif datatype=="ARRAY":object_list[index][key]=value.split(",")
+         elif datatype=="jsonb":object_list[index][key]=json.dumps(value)
+   return object_list
+
+import os
+from dotenv import load_dotenv, dotenv_values
+import importlib.util
+from pathlib import Path
+def function_config_read(path_env=".env"):
+   def read_env_file(path):
+      load_dotenv(path)
+      return {k.lower(): v for k, v in dotenv_values(path).items()}
+   def read_config_modules(base_dir, skip_dirs):
+      output = {}
+      for root, dirs, files in os.walk(base_dir):
+         dirs[:] = [d for d in dirs if d not in skip_dirs]
+         is_config_folder = os.path.basename(root).startswith("config")
+         for file in files:
+            if file.endswith(".py") and (file.startswith("config") or is_config_folder):
+               module_path = os.path.join(root, file)
+               module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
+               spec = importlib.util.spec_from_file_location(module_name, module_path)
+               module = importlib.util.module_from_spec(spec)
+               spec.loader.exec_module(module)
+               output.update({k.lower(): getattr(module, k) for k in dir(module) if not k.startswith("__")})
+      return output
+   base_dir = Path(__file__).parent
+   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
+   output = read_env_file(path_env)
+   output.update(read_config_modules(base_dir, skip_dirs))
+   return output
+
 def function_converter_numeric(mode,x):
    MAX_LEN = 30
    CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
@@ -1073,7 +1096,7 @@ def function_converter_bigint(mode,x):
    return output
   
 import os,json,requests
-def function_export_grafana_dashboards(host,username,password,max_limit,export_dir):
+def function_grafana_dashboards_export(host,username,password,max_limit,export_dir):
    session = requests.Session()
    session.auth = (username, password)
    def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
@@ -1120,7 +1143,7 @@ def function_export_grafana_dashboards(host,username,password,max_limit,export_d
          
 import asyncpg,random
 from mimesis import Person,Address,Food,Text,Code,Datetime
-async def function_generate_fake_data(config_postgres_url,TOTAL_ROWS,BATCH_SIZE):
+async def function_create_fake_data(config_postgres_url,TOTAL_ROWS,BATCH_SIZE):
    client_postgres_asyncpg = await asyncpg.connect(config_postgres_url)
    person = Person()
    address = Address()
@@ -1176,17 +1199,6 @@ async def function_generate_fake_data(config_postgres_url,TOTAL_ROWS,BATCH_SIZE)
    await client_postgres_asyncpg.close()
    return None
 
-import sys
-def get_variable_size_kb(namespace):
-   result = {}
-   for name, var in namespace.items():
-      if not name.startswith("__"):
-         key = f"{name} ({type(var).__name__})"
-         size_kb = sys.getsizeof(var) / 1024
-         result[key] = size_kb
-   sorted_result = dict(sorted(result.items(), key=lambda item: item[1], reverse=True))
-   return sorted_result
-
 import pytesseract
 from PIL import Image
 from pdf2image import convert_from_path
@@ -1207,7 +1219,7 @@ def function_ocr_tesseract(file_path):
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
-async def function_jira_summary(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key):
+async def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key):
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)
@@ -1351,3 +1363,4 @@ async def function_jira_summary(jira_base_url,jira_email,jira_token,jira_project
     top_active, on_time = calculate_activity_and_performance(issues_done)
     save_summary_to_file(blockers, improvements, top_active, on_time)
     return "✅ Executive JIRA summary saved to 'jira.txt'"
+

@@ -69,8 +69,8 @@ async def lifespan(app:FastAPI):
       client_posthog=await function_client_read_posthog(config_posthog_project_key,config_posthog_project_host)
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres) if client_postgres else (None, None)
-      cache_users_api_access=await function_table_id_column_mapping_read(client_postgres_asyncpg,"users","api_access",config_limit_cache_users_api_access,0) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
-      cache_users_is_active=await function_table_id_column_mapping_read(client_postgres_asyncpg,"users","is_active",config_limit_cache_users_api_access,1) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("is_active") else {}
+      cache_users_api_access=await function_column_mapping_read(client_postgres_asyncpg,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int") if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
+      cache_users_is_active=await function_column_mapping_read(client_postgres_asyncpg,"users","id","is_active",config_limit_cache_users_api_access,1,None) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("is_active") else {}
       #app state set
       function_add_app_state(locals(),app,("client_","cache_"))
       #app shutdown
@@ -188,8 +188,8 @@ async def route_root_s3_url_empty(request:Request):
 @app.get("/root/reset-global")
 async def route_root_reset_global(request:Request):
    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres)
-   request.app.state.cache_users_api_access=await function_table_id_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","api_access",config_limit_cache_users_api_access,0)
-   request.app.state.cache_users_is_active=await function_table_id_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","is_active",config_limit_cache_users_api_access,1) 
+   request.app.state.cache_users_api_access=await function_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int")
+   request.app.state.cache_users_is_active=await function_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","id","is_active",config_limit_cache_users_api_access,1,None) 
    return {"status":1,"message":"done"}
    
 @app.post("/auth/signup")
