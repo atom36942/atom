@@ -66,3 +66,11 @@ uvicorn main:app --reload             # Run with auto-reload (dev)
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
+
+## Testing
+You can use the `test.sh` script to run a batch of API tests.
+- It reads all curl commands from `curl.txt`
+- Executes them one by one as a quick integration test
+```bash
+./test.sh
+```
