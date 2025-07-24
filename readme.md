@@ -56,10 +56,8 @@ config_key_jwt=2n91nIEaJpsqjFUz
 
 ## Server Start
 ```bash
-# Run directly
-python main.py
-# Run with auto-reload (dev)                     
-uvicorn main:app --reload       
+python main.py                        # Run directly
+uvicorn main:app --reload             # Run with auto-reload (dev)
 ```
 
 ## Docker Start
@@ -70,17 +68,13 @@ docker run -p 8000:8000 atom
 
 ## Run Without Activating Virtualenv
 ```bash
-# Install requirements
-./venv/bin/pip install -r requirements.txt
-
-# Freeze updated dependencies
-./venv/bin/pip freeze > requirements.txt
-
-# Start the server with reload
-./venv/bin/uvicorn main:app --reload
-
-# Upgrade a package (example: FastAPI)
-./venv/bin/pip install --upgrade fastapi
+./venv/bin/pip install -r requirements.txt                        # Install requirements
+./venv/bin/pip freeze > requirements.txt                          # Freeze updated dependencies
+./venv/bin/uvicorn main:app --reload                              # Start the server with reload
+./venv/bin/pip install --upgrade fastapi                          # Upgrade a package (e.g. FastAPI)
+./venv/bin/uvicorn main:app --reload                              # Run again (after updates or changes)
+./venv/bin/celery -A consumer_celery worker --loglevel=info       # Run Celery worker
+./venv/bin/python consumer_redis.py                               # Run Redis consumer
 ```
 
 ## Testing
