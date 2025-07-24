@@ -392,7 +392,6 @@ async def function_object_delete_postgres_any(client_postgres,table,object,funct
    await client_postgres.execute(query=query,values=where_value)
    return None
 
-
 #token
 import jwt,json,time
 async def function_token_encode(config_key_jwt,config_token_expire_sec,key_list,object):

@@ -77,7 +77,7 @@ You can use the `test.sh` script to run a batch of API tests.
 ```
 
 ## JWT Token Encoding
-To control which user fields are encoded in the JWT token, set `config_token_key_list` in `config.py`.
+To control which user fields are encoded in the JWT token, set `config_token_key_list` in `config.py`.  
 Add `id`, `is_active`, and `api_access` always. Then add any other keys as needed.
 ```python
 config_token_key_list=id,is_active,api_access,mobile
