@@ -56,8 +56,10 @@ config_key_jwt=2n91nIEaJpsqjFUz
 
 ## Server Start
 ```bash
-python main.py                        # Run directly
-uvicorn main:app --reload             # Run with auto-reload (dev)
+# Run directly
+python main.py
+# Run with auto-reload (dev)                     
+uvicorn main:app --reload       
 ```
 
 ## Docker Start
