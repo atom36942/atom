@@ -23,7 +23,7 @@ To run atom, follow these three sections in order:
 3. [Server Start](#server-start) or [Docker Start](#docker-start)
 
 ## Installation
-mac
+Mac
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -31,7 +31,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-windows
+Windows
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom

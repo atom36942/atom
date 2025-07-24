@@ -33,6 +33,7 @@ config_mode_check_api_access=config.get("config_mode_check_api_access","cache")
 config_mode_check_is_active=config.get("config_mode_check_is_active","token")
 config_token_expire_sec=int(config.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(config.get("config_is_signup",1))
+config_is_otp_verify=int(config.get("config_is_otp_verify",1))
 config_batch_log_api=int(config.get("config_batch_log_api",10))
 config_batch_object_create=int(config.get("config_batch_object_create",10))
 config_limit_cache_users_api_access=int(config.get("config_limit_cache_users_api_access",1000))
@@ -311,12 +312,12 @@ async def route_my_object_update(request:Request):
    if any(key in config_column_disabled_non_admin_list for key in object):return function_return_error(" object key not allowed")
    if table=="users":
       if object["id"]!=request.state.user["id"]:return function_return_error ("wrong id")
-      if any(key in object and len(object)!=3 for key in ["password","email","mobile"]):return function_return_error("object length should be 2")
-      if any(key in object and not otp for key in ["email","mobile"]):return function_return_error("otp missing")
-      if otp:
-         email,mobile=object.get("email"),object.get("mobile")
-         if email:await function_otp_verify("email",otp,email,request.app.state.client_postgres)
-         elif mobile:await function_otp_verify("mobile",otp,mobile,request.app.state.client_postgres)
+      if any(key in object and len(object)!=3 for key in ["password"]):return function_return_error("object length should be 2")
+      if config_is_otp_verify and any(key in object and not otp for key in ["email","mobile"]):return function_return_error("otp missing")
+   if otp:
+      email,mobile=object.get("email"),object.get("mobile")
+      if email:await function_otp_verify("email",otp,email,request.app.state.client_postgres)
+      elif mobile:await function_otp_verify("mobile",otp,mobile,request.app.state.client_postgres)
    if table=="users":output=await function_object_update_postgres(request.app.state.client_postgres,"users",[object],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    else:output=await function_object_update_postgres_user(request.app.state.client_postgres,table,[object],request.state.user["id"],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":output}
