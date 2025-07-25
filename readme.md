@@ -123,10 +123,10 @@ request.state.user.get("mobile")
 To run RabbitMQ locally:  
 1. Install RabbitMQ using Homebrew or Docker  
 2. Start RabbitMQ using `brew services` or Docker  
-3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL.  
+3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL.
 ### Configuration
-Add the following key to your `.env` file.  
-You can use remote connection also. 
+- Add the following key to your `.env` file
+- You can use remote connection also
 ```bash
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
@@ -139,14 +139,14 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 - You can use any other queue/channel by extending the producer logic  
 - You can directly call `function_publisher_rabbitmq` in your own routes. 
 ### Consumer
-Check `consumer_rabbitmq.py` file.  
-How to run `consumer_rabbitmq.py` file. 
+- Check `consumer_rabbitmq.py` file
+- How to run `consumer_rabbitmq.py` file
 ```bash
 python consumer_rabbitmq.py                    # Run with activated virtualenv
 ./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
 ```
-The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.  
-To extend, add more cases:
+- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
+- To extend, add more cases:
 ```python
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
@@ -178,30 +178,17 @@ config_kafka_password=value
 - You can use any other queue/channel by extending the producer logic  
 - You can directly call `function_publisher_kafka` in your own routes  
 ### Consumer
-- Check `consumer_kafka.py` file.
-- How to run `consumer_kafka.py` file.
+- Check `consumer_kafka.py` file
+- How to run `consumer_kafka.py` file
 ```bash
 python consumer_kafka.py                    # Run with activated virtualenv
 ./venv/bin/python consumer_kafka.py         # Run without activating virtualenv
 ```
-- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
+- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic
 - To extend, add more cases:
 ```python
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
- 
 
 
