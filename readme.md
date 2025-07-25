@@ -118,6 +118,35 @@ request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
 
+## RabbitMQ
+To run RabbitMQ locally:  
+1. Install RabbitMQ using Homebrew or Docker  
+2. Start RabbitMQ using `brew services` or Docker  
+3. Access the UI at http://localhost:15672 (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` connection url
+
+**Configure in `.env`:** 
+```bash
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+```
+
+**Publish to RabbitMQ** (from `router.py`):  
+To produce messages, hit the `/rabbitmq-publish` route. This sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`.  
+You can send any payload with a `"function"` key (e.g., `"function": "function_object_create_postgres"`), and the RabbitMQ consumer will dispatch the corresponding function.  
+You can also use any other queue/channel. Extend producer logic to switch or route as needed.
+
+**Consume from RabbitMQ** (from `consumer_rabbitmq.py`):  
+The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.  
+To extend, add more cases:
+```python
+if data["function"] == "your_custom_function":
+    await your_custom_function(...)
+```
+**Run Rabbitmq Consumer:**
+```bash
+python consumer_rabbitmq.py                    # Run with activated virtualenv
+./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
+```
+
 ## Kafka
 To run Kafka with SASL/PLAIN locally:
 1. Install Zookeeper and Kafka using Homebrew  
@@ -163,8 +192,3 @@ Each consumer in the same group gets a subset of the topic partitions, enabling 
 python consumer_kafka.py                    # Run with activated virtualenv
 ./venv/bin/python consumer_kafka.py         # Run without activating virtualenv
 ```
-
-
-
-
-
