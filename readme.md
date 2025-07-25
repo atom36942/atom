@@ -104,52 +104,19 @@ request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
 
-## RabbitMQ
-### Installation
-To run RabbitMQ locally:  
-1. Install RabbitMQ using Homebrew or Docker  
-2. Start RabbitMQ using `brew services` or Docker  
-3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL.
-### Configuration
-- Add the following key to your `.env` file
-- You can use remote connection also
-```bash
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-```
-### Publisher
-- check `/rabbitmq-publish` in `router.py` file for sample useage
-- Hit the `/rabbitmq-publish` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`  
-- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
-- Consumer dispatches functions dynamically based on the `function` key  
-- You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_publisher_rabbitmq` in your own routes. 
-### Consumer
-- Check `consumer_rabbitmq.py` file
-- How to run `consumer_rabbitmq.py` file
-```bash
-python consumer_rabbitmq.py                    # Run with activated virtualenv
-./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
-```
-- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
-- To extend, add more cases:
-```python
-if data["function"] == "your_custom_function":
-    await your_custom_function(...)
-```
-
 ## Kafka
 ### Installation
-To run Kafka with SASL/PLAIN locally:
-1. Install Zookeeper and Kafka using Homebrew  
-2. Start Zookeeper using `brew services`  
-3. Create a JAAS config file in your home directory with user credentials  
-4. Update Kafka's `server.properties` to enable SASL/PLAIN authentication  
-5. Export the JAAS config path using the `KAFKA_OPTS` environment variable  
-6. Start the Kafka broker manually using the updated config file  
+To run Kafka with SASL/PLAIN (locally or remotely):
+1. Install Zookeeper and Kafka using Homebrew, or use a remote Kafka provider like Confluent Cloud, Aiven, or Redpanda  
+2. Start Zookeeper locally using `brew services`, or skip this step if using a remote provider  
+3. For local Kafka, create a JAAS config file in your home directory with user credentials  
+4. Update Kafka's `server.properties` to enable SASL/PLAIN authentication (only for local setup)  
+5. Export the JAAS config path using the `KAFKA_OPTS` environment variable (only for local setup)  
+6. Start the Kafka broker manually using the updated config file (only for local setup)  
+7. For remote Kafka, obtain the bootstrap servers and SASL credentials (username, password, mechanism) from the provider  
+8. Use the following connection config in your app:
 ### Configuration
 - Add the following key to your `.env` file
-- You can use remote connection also
 ```bash
 config_kafka_url=value
 config_kafka_username=value
@@ -177,4 +144,77 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 
+## RabbitMQ
+### Installation
+To run RabbitMQ (locally or remotely):
+1. Install RabbitMQ using Homebrew (`brew install rabbitmq`) or Docker, or use a managed provider like CloudAMQP or AWS MQ  
+2. Start RabbitMQ locally using `brew services start rabbitmq` or Docker with:  
+   `docker run -d -p 5672:5672 -p 15672:15672 rabbitmq:3-management`  
+3. Access the management UI at [http://localhost:15672](http://localhost:15672) (default login: guest/guest)  
+4. Use the local connection URL: `amqp://guest:guest@localhost:5672/`  
+5. For remote RabbitMQ, get the connection URL from your provider, typically in this format:  
+   `amqp://<username>:<password>@<host>:<port>/`  
+6. Use this URL in your app config or `.env` file for secure access
+### Configuration
+- Add the following key to your `.env` file
+```bash
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+```
+### Publisher
+- check `/rabbitmq-publish` in `router.py` file for sample useage
+- Hit the `/rabbitmq-publish` route to produce messages  
+- Sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`  
+- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
+- Consumer dispatches functions dynamically based on the `function` key  
+- You can use any other queue/channel by extending the producer logic  
+- You can directly call `function_publisher_rabbitmq` in your own routes. 
+### Consumer
+- Check `consumer_rabbitmq.py` file
+- How to run `consumer_rabbitmq.py` file
+```bash
+python consumer_rabbitmq.py                    # Run with activated virtualenv
+./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
+```
+- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
+- To extend, add more cases:
+```python
+if data["function"] == "your_custom_function":
+    await your_custom_function(...)
+```
 
+## Redis Pub/Sub
+### Installation
+To run Redis (locally or remotely):
+1. Install Redis using Homebrew (`brew install redis`) or Docker, or use a managed provider like Redis Cloud, Upstash, or AWS ElastiCache  
+2. Start Redis locally using `brew services start redis` or Docker:  
+   `docker run -p 6379:6379 redis`  
+3. Local Redis runs at `redis://localhost:6379` with no authentication by default  
+4. For remote Redis, obtain the connection URL from the provider, typically in the format:  
+   `redis://:<password>@<host>:<port>`  
+5. Use the URL in your app config or `.env` file to connect securely
+### Configuration
+- Add the following key to your `.env` file
+```bash
+config_redis_url=redis://:<password>@<host>:<port>
+```
+### Publisher
+- check `/redis-publish` in `router.py` file for sample useage
+- Hit the `/redis-publish` route to produce messages  
+- Sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`  
+- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
+- Consumer dispatches functions dynamically based on the `function` key  
+- You can use any other queue/channel by extending the producer logic  
+- You can directly call `function_publisher_redis` in your own routes. 
+### Consumer
+- Check `consumer_redis.py` file
+- How to run `consumer_redis.py` file
+```bash
+python consumer_redis.py                    # Run with activated virtualenv
+./venv/bin/python consumer_redis.py      # Run without activating virtualenv
+```
+- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
+- To extend, add more cases:
+```python
+if data["function"] == "your_custom_function":
+    await your_custom_function(...)
+```
