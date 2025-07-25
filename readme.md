@@ -6,15 +6,18 @@
 - Quickly build production-ready APIs, background jobs, and integrations  
 - Reduces boilerplate, so you don’t have to reinvent the wheel each time
 
-## Tech Stack
-atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
-- **Language**: Python
-- **Framework**: FastAPI (for building async APIs)
-- **Database**: PostgreSQL (primary relational database)
-- **Caching**: Redis or Valkey (used for cache, rate limiting, task queues, etc.)
-- **Queue**: RabbitMQ or Kafka (for background jobs and async processing)
-- **Task Worker**: Celery (for background processing)
-- **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
+<details>
+<summary>Tech Stack</summary>
+Atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
+- Language: Python  
+- Framework: FastAPI (for building async APIs)  
+- Database: PostgreSQL (primary relational database)  
+- Caching: Redis or Valkey (used for cache, rate limiting, task queues, etc.)  
+- Queue: RabbitMQ or Kafka (for background jobs and async processing)  
+- Task Worker: Celery (for background processing)  
+- Monitoring: Sentry/Prometheus (for error tracking and performance monitoring
+</details>
+
 
 ## Repository Structure
 Explanation of key files in the repo:
@@ -220,3 +223,32 @@ if data["function"] == "your_custom_function":
 ```
 
 ## Celery
+### Installation
+To run celery, you just need 
+### Configuration
+- Add the following key to your `.env` file
+```bash
+config_redis_url=redis://:<password>@<host>:<port>
+```
+### Publisher
+- check `/redis-producer` in `router.py` file for sample useage
+- Hit the `/redis-producer` route to produce messages  
+- Sends JSON payloads to `channel_1` using `function_producer_rabbitmq`  
+- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
+- Consumer dispatches functions dynamically based on the `function` key  
+- You can use any other queue/channel by extending the producer logic  
+- You can directly call `function_producer_redis` in your own routes. 
+### Consumer
+- Check `consumer_redis.py` file
+- How to run `consumer_redis.py` file
+```bash
+python consumer_redis.py                 # Run with activated virtualenv
+./venv/bin/python consumer_redis.py      # Run without activating virtualenv
+```
+- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
+- To extend, add more cases:
+```python
+if data["function"] == "your_custom_function":
+    await your_custom_function(...)
+```
+
