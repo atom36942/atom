@@ -162,8 +162,8 @@ To run Kafka with SASL/PLAIN locally:
 5. Export the JAAS config path using the `KAFKA_OPTS` environment variable  
 6. Start the Kafka broker manually using the updated config file  
 ### Configuration
-- Add the following key to your `.env` file.
-- You can use remote connection also.
+- Add the following key to your `.env` file
+- You can use remote connection also
 ```bash
 config_kafka_url=value
 config_kafka_username=value
