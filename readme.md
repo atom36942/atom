@@ -126,7 +126,7 @@ To run RabbitMQ locally:
 3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL.  
 ### Configuration
 Add the following key to your `.env` file.  
-For remote connection, use: amqp://guest:guest@<remote_host>:<port> 
+You can use remote connection also. 
 ```bash
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
@@ -152,19 +152,8 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 
-
-
-
-
-
-
-
-
-
-
 ## Kafka
-
-**Installation:**  
+### Installation
 To run Kafka with SASL/PLAIN locally:
 1. Install Zookeeper and Kafka using Homebrew  
 2. Start Zookeeper using `brew services`  
@@ -172,70 +161,47 @@ To run Kafka with SASL/PLAIN locally:
 4. Update Kafka's `server.properties` to enable SASL/PLAIN authentication  
 5. Export the JAAS config path using the `KAFKA_OPTS` environment variable  
 6. Start the Kafka broker manually using the updated config file  
- 
-**Configuration:**  
-Add the following key to your `.env` file.  
-For remote connection, use: amqp://guest:guest@<remote_host>:<port> 
-
+### Configuration
+- Add the following key to your `.env` file.
+- You can use remote connection also.
 ```bash
-config_kafka_url=
+config_kafka_url=value
+config_kafka_username=value
+config_kafka_password=value
 ```
-**Publisher** (from `router.py`):  
-- Hit the `/rabbitmq-publish` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`  
+### Publisher
+- check `/kafka-publish` in `router.py` file for sample useage
+- Hit the `/kafka-publish` route to produce messages  
+- Sends JSON payloads to `channel_1` using `function_publisher_kafka`  
 - Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
 - Consumer dispatches functions dynamically based on the `function` key  
 - You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_publisher_rabbitmq` in your own routes  
-
-**Consumer** (from `consumer_rabbitmq.py`):  
-**Run Rabbitmq Consumer:**
-```bash
-python consumer_rabbitmq.py                    # Run with activated virtualenv
-./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
-```
-The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.  
-To extend, add more cases:
-```python
-if data["function"] == "your_custom_function":
-    await your_custom_function(...)
-```
-
-
-
----
-
-**Kafka Publish Example** (from `router.py`):
-
-To **produce** messages to Kafka, hit the route `/kafka-publish`.  
-It demonstrates publishing JSON data to `channel_1` using the internal `function_publisher_kafka`.
-
-You can send **any payload** with a `function` key (e.g., `"function": "function_object_create_postgres"`),  
-and the Kafka consumer will dynamically dispatch the corresponding function.
-
-You can use **any channel/topic** while publishing. Extend the producer logic to route data accordingly.
-
----
-
-**Kafka Consumer Example** (from `consumer_kafka.py`):
-
-The Kafka consumer listens on `channel_1`, parses incoming messages, and dispatches them using `if-elif` logic based on the `function` key.
-
-To add more functionality:
-```python
-if data["function"] == "your_custom_function":
-    await your_custom_function(...)
-```
-
-Extend this logic to handle new function calls as needed.
-
-You can also use **Kafka Consumer Groups** to scale consumers horizontally.  
-Each consumer in the same group gets a subset of the topic partitions, enabling parallel processing.
-
----
-
-**Run Kafka Consumer:**
+- You can directly call `function_publisher_kafka` in your own routes  
+### Consumer
+- Check `consumer_kafka.py` file.
+- How to run `consumer_kafka.py` file.
 ```bash
 python consumer_kafka.py                    # Run with activated virtualenv
 ./venv/bin/python consumer_kafka.py         # Run without activating virtualenv
 ```
+- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
+- To extend, add more cases:
+```python
+if data["function"] == "your_custom_function":
+    await your_custom_function(...)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
