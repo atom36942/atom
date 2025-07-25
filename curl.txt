@@ -80,6 +80,6 @@ curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Co
 #router
 curl -X GET "$baseurl/postgres-create"
 curl -X GET "$baseurl/postgres-update"
-curl -X GET "$baseurl/celery"
-curl -X GET "$baseurl/redis-publish"
-curl -X GET "$baseurl/rabbitmq-publish"
+curl -X GET "$baseurl/celery-producer"
+curl -X GET "$baseurl/redis-producer"
+curl -X GET "$baseurl/rabbitmq-producer"

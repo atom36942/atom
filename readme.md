@@ -123,13 +123,13 @@ config_kafka_username=value
 config_kafka_password=value
 ```
 ### Publisher
-- check `/kafka-publish` in `router.py` file for sample useage
-- Hit the `/kafka-publish` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_publisher_kafka`  
+- check `/kafka-producer` in `router.py` file for sample useage
+- Hit the `/kafka-producer` route to produce messages  
+- Sends JSON payloads to `channel_1` using `function_producer_kafka`  
 - Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
 - Consumer dispatches functions dynamically based on the `function` key  
 - You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_publisher_kafka` in your own routes  
+- You can directly call `function_producer_kafka` in your own routes  
 ### Consumer
 - Check `consumer_kafka.py` file
 - How to run `consumer_kafka.py` file
@@ -161,13 +161,13 @@ To run RabbitMQ (locally or remotely):
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
 ### Publisher
-- check `/rabbitmq-publish` in `router.py` file for sample useage
-- Hit the `/rabbitmq-publish` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`  
+- check `/rabbitmq-producer` in `router.py` file for sample useage
+- Hit the `/rabbitmq-producer` route to produce messages  
+- Sends JSON payloads to `channel_1` using `function_producer_rabbitmq`  
 - Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
 - Consumer dispatches functions dynamically based on the `function` key  
 - You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_publisher_rabbitmq` in your own routes. 
+- You can directly call `function_producer_rabbitmq` in your own routes. 
 ### Consumer
 - Check `consumer_rabbitmq.py` file
 - How to run `consumer_rabbitmq.py` file
@@ -198,13 +198,13 @@ To run Redis (locally or remotely):
 config_redis_url=redis://:<password>@<host>:<port>
 ```
 ### Publisher
-- check `/redis-publish` in `router.py` file for sample useage
-- Hit the `/redis-publish` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`  
+- check `/redis-producer` in `router.py` file for sample useage
+- Hit the `/redis-producer` route to produce messages  
+- Sends JSON payloads to `channel_1` using `function_producer_rabbitmq`  
 - Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
 - Consumer dispatches functions dynamically based on the `function` key  
 - You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_publisher_redis` in your own routes. 
+- You can directly call `function_producer_redis` in your own routes. 
 ### Consumer
 - Check `consumer_redis.py` file
 - How to run `consumer_redis.py` file
@@ -218,3 +218,5 @@ python consumer_redis.py                 # Run with activated virtualenv
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+
+## Celery
