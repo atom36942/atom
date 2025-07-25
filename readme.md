@@ -7,13 +7,14 @@
 - Built-in support for Postgres, Redis, S3, Kafka, and many other services  
 - Quickly build production-ready APIs, background jobs, and integrations  
 - Reduces boilerplate, so you don’t have to reinvent the wheel each time
+
 </details>
+
 
 <details>
 <summary>Tech Stack</summary>
 
 atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
-
 - Language: Python  
 - Framework: FastAPI (for building async APIs)  
 - Database: PostgreSQL (primary relational database)  
