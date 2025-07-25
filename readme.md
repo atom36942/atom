@@ -1,4 +1,6 @@
-<details><summary>About</summary>
+<details>
+<summary>About</summary>
+
 - Open-source backend framework to speed up large-scale application development  
 - Clean, modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
