@@ -140,7 +140,6 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 - You can directly call `function_publisher_rabbitmq` in your own routes  
 
 **Consumer** (from `consumer_rabbitmq.py`):  
-
 **Run Rabbitmq Consumer:**
 ```bash
 python consumer_rabbitmq.py                    # Run with activated virtualenv
