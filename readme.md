@@ -41,7 +41,6 @@ Explanation of key files in the repo:
 - `consumer_kafka.py` – Kafka consumer  
 - `consumer_celery.py` – Celery worker  
 - `.gitignore` – Files/directories to ignore in git
-
 </details>
 
 
