@@ -119,12 +119,12 @@ request.state.user.get("mobile")
 ```
 
 ## RabbitMQ
-**Installation:**  
+### Installation
 To run RabbitMQ locally:  
 1. Install RabbitMQ using Homebrew or Docker  
 2. Start RabbitMQ using `brew services` or Docker  
-3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL. 
-**Configuration:**  
+3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL.  
+### Configuration
 Add the following key to your `.env` file.  
 For remote connection, use: amqp://guest:guest@<remote_host>:<port> 
 ```bash
