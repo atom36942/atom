@@ -10,10 +10,13 @@
 </details>
 
 
+
+
+
 <details>
 <summary>Tech Stack</summary>
 
-atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
+Atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
 - Language: Python  
 - Framework: FastAPI (for building async APIs)  
 - Database: PostgreSQL (primary relational database)  
@@ -22,6 +25,9 @@ atom uses a fixed set of proven core technologies, so you can focus on building 
 - Task Worker: Celery (for background processing)  
 - Monitoring: Sentry/Prometheus (for error tracking and performance monitoring)
 </details>
+
+
+
 
 <details>
 <summary>Repository Structure</summary>
