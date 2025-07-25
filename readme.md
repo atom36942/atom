@@ -35,7 +35,7 @@ Explanation of key files in the repo:
 
 ## Installation
 To run atom, follow these three sections in order:
-### Setup repo on your local(mac)
+### Setup repo (mac)
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -43,7 +43,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-### Setup Environment Variables
+### Setup env variables
 Create a `.env` file in the root directory with at least the following keys.  
 You can use local or remote URLs for Postgres and Redis.
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
@@ -74,6 +74,7 @@ git clone https://github.com/atom36942/atom.git            # Clone the repositor
 cd atom                                                    # Navigate into project directory
 python3 -m venv venv                                       # Create a virtual environment
 ./venv/bin/pip install -r requirements.txt                 # Install requirements
+touch .env                                                 # Create .env file for environment variables
 ./venv/bin/python main.py                                  # Run directly
 ./venv/bin/uvicorn main:app --reload                       # Start the server with reload
 ./venv/bin/pip install fastapi                             # Install package (ex FastAPI)
