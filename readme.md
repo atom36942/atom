@@ -123,7 +123,7 @@ request.state.user.get("mobile")
 To run RabbitMQ locally:  
 1. Install RabbitMQ using Homebrew or Docker  
 2. Start RabbitMQ using `brew services` or Docker  
-3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL 
+3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL. 
 **Configuration:**  
 Add the following key to your `.env` file.  
 For remote connection, use: amqp://guest:guest@<remote_host>:<port> 
@@ -136,7 +136,7 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 - Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
 - Consumer dispatches functions dynamically based on the `function` key  
 - You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_publisher_rabbitmq` in your own routes  
+- You can directly call `function_publisher_rabbitmq` in your own routes. 
 **Consumer** (from `consumer_rabbitmq.py`):  
 **Run Rabbitmq Consumer:**
 ```bash
