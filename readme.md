@@ -126,29 +126,42 @@ To run Kafka with SASL/PLAIN locally:
 4. Update Kafka's `server.properties` to enable SASL/PLAIN authentication  
 5. Export the JAAS config path using the `KAFKA_OPTS` environment variable  
 6. Start the Kafka broker manually using the updated config file  
+
 ---
+
 **Kafka Publish Example** (from `router.py`):
+
 To **produce** messages to Kafka, hit the route `/kafka-publish`.  
 It demonstrates publishing JSON data to `channel_1` using the internal `function_publisher_kafka`.
+
 You can send **any payload** with a `function` key (e.g., `"function": "function_object_create_postgres"`),  
 and the Kafka consumer will dynamically dispatch the corresponding function.
+
 You can use **any channel/topic** while publishing. Extend the producer logic to route data accordingly.
+
 ---
+
 **Kafka Consumer Example** (from `consumer_kafka.py`):
+
 The Kafka consumer listens on `channel_1`, parses incoming messages, and dispatches them using `if-elif` logic based on the `function` key.
+
 To add more functionality:
 ```python
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+
 Extend this logic to handle new function calls as needed.
+
 You can also use **Kafka Consumer Groups** to scale consumers horizontally.  
 Each consumer in the same group gets a subset of the topic partitions, enabling parallel processing.
+
 ---
+
 **Run Kafka Consumer:**
 ```bash
-python consumer_kafka.py              # With virtualenv activated
-./venv/bin/python consumer_kafka.py   # Without activating virtualenv
+python consumer_kafka.py                    # Run with activated virtualenv
+./venv/bin/python consumer_kafka.py         # Run without activating virtualenv
 ```
 
 
