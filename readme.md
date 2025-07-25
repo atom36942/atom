@@ -16,14 +16,26 @@ atom uses a fixed set of proven core technologies, so you can focus on building 
 - **Task Worker**: Celery (for background processing)
 - **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
 
-## Getting Started
-To run atom, follow these three sections in order:
-1. [Installation](#installation)
-2. [Environment Variables](#environment-variables)
-3. [Server Start](#server-start) or [Docker Start](#docker-start)
+## Repository Structure
+Explanation of key files in the repo:
+- `main.py` – FastAPI Server + APIs
+- `router.py` – Sample router definitions for extending the APIs
+- `function.py` – Core business logic or utility functions
+- `config.py` – Loads config/env variables used across the app
+- `requirements.txt` – Python dependencies
+- `readme.md` – Project documentation
+- `Dockerfile` – Build and run the project inside Docker
+- `curl.txt` – List of curl requests used for testing
+- `test.sh` – Shell script to execute curl.txt tests
+- `consumer_redis.py` – Redis consumer for pub/sub or queue
+- `consumer_rabbitmq.py` – RabbitMQ consumer
+- `consumer_kafka.py` – Kafka consumer
+- `consumer_celery.py` – Celery worker
+- `.gitignore` – Files/directories to ignore in git
 
 ## Installation
-Mac
+To run atom, follow these three sections in order:
+### Setup repo on your local(mac)
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -31,16 +43,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-Windows
-```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-## Environment Variables
+### Setup Environment Variables
 Create a `.env` file in the root directory with at least the following keys.  
 You can use local or remote URLs for Postgres and Redis.
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
@@ -53,20 +56,19 @@ config_redis_url=redis://localhost:6379
 config_key_root=0bVJ9Jpb7s
 config_key_jwt=2n91nIEaJpsqjFUz
 ```
-
-## Server Start
+### Server Start
 ```bash
 python main.py                        # Run directly
 uvicorn main:app --reload             # Run with auto-reload (dev)
 ```
 
-## Docker Start
+### Docker Start
 ```bash
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 
-## Run Without Activating Virtualenv
+## Installation Without Activating Virtualenv
 ```bash
 git clone https://github.com/atom36942/atom.git            # Clone the repository
 cd atom                                                    # Navigate into project directory
@@ -87,23 +89,6 @@ You can use the `test.sh` script to run a batch of API tests.
 ```bash
 ./test.sh
 ```
-
-## Repository Structure
-Explanation of key files in the repo:
-- `main.py` – FastAPI Server + APIs
-- `router.py` – Sample router definitions for extending the APIs
-- `function.py` – Core business logic or utility functions
-- `config.py` – Loads config/env variables used across the app
-- `requirements.txt` – Python dependencies
-- `readme.md` – Project documentation
-- `Dockerfile` – Build and run the project inside Docker
-- `curl.txt` – List of curl requests used for testing
-- `test.sh` – Shell script to execute curl.txt tests
-- `consumer_redis.py` – Redis consumer for pub/sub or queue
-- `consumer_rabbitmq.py` – RabbitMQ consumer
-- `consumer_kafka.py` – Kafka consumer
-- `consumer_celery.py` – Celery worker
-- `.gitignore` – Files/directories to ignore in git
 
 ## JWT Token Keys Encoding
 To control which user fields are encoded in the JWT token, set `config_token_key_list` in `config.py`.  
