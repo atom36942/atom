@@ -139,8 +139,8 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 - You can use any other queue/channel by extending the producer logic  
 - You can directly call `function_publisher_rabbitmq` in your own routes. 
 ### Consumer
-Check `consumer_rabbitmq.py` file
-How to run `consumer_rabbitmq.py` file
+Check `consumer_rabbitmq.py` file.  
+How to run `consumer_rabbitmq.py` file. 
 ```bash
 python consumer_rabbitmq.py                    # Run with activated virtualenv
 ./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
