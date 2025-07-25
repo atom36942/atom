@@ -1,10 +1,11 @@
-## About
+<details><summary>About</summary>
 - Open-source backend framework to speed up large-scale application development  
 - Clean, modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
 - Built-in support for Postgres, Redis, S3, Kafka, and many other services  
 - Quickly build production-ready APIs, background jobs, and integrations  
 - Reduces boilerplate, so you don’t have to reinvent the wheel each time
+</details>
 
 <details>
 <summary>Tech Stack</summary>
