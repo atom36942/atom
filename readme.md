@@ -134,17 +134,17 @@ To produce messages, hit the `/rabbitmq-publish` route. This sends JSON payloads
 You can send any payload with a `"function"` key (e.g., `"function": "function_object_create_postgres"`), and the RabbitMQ consumer will dispatch the corresponding function.  
 You can also use any other queue/channel. Extend producer logic to switch or route as needed.
 
-**Consume from RabbitMQ** (from `consumer_rabbitmq.py`):  
+**Consume from RabbitMQ** (from `consumer_rabbitmq.py`):
+**Run Rabbitmq Consumer:**
+```bash
+python consumer_rabbitmq.py                    # Run with activated virtualenv
+./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
+```
 The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.  
 To extend, add more cases:
 ```python
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
-```
-**Run Rabbitmq Consumer:**
-```bash
-python consumer_rabbitmq.py                    # Run with activated virtualenv
-./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
 ```
 
 ## Kafka
