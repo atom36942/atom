@@ -58,8 +58,8 @@ config_key_jwt=2n91nIEaJpsqjFUz
 ```
 ### Server Start
 ```bash
-python main.py                        # Run directly
-uvicorn main:app --reload             # Run with auto-reload (dev)
+python main.py                  # Run directly
+uvicorn main:app --reload       # Run with auto-reload (dev)
 ```
 
 ## Docker Start
@@ -134,8 +134,8 @@ config_kafka_password=value
 - Check `consumer_kafka.py` file
 - How to run `consumer_kafka.py` file
 ```bash
-python consumer_kafka.py                    # Run with activated virtualenv
-./venv/bin/python consumer_kafka.py         # Run without activating virtualenv
+python consumer_kafka.py                # Run with activated virtualenv
+./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
 ```
 - The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic
 - To extend, add more cases:
@@ -172,8 +172,8 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 - Check `consumer_rabbitmq.py` file
 - How to run `consumer_rabbitmq.py` file
 ```bash
-python consumer_rabbitmq.py                    # Run with activated virtualenv
-./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
+python consumer_rabbitmq.py               # Run with activated virtualenv
+./venv/bin/python consumer_rabbitmq.py    # Run without activating virtualenv
 ```
 - The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
 - To extend, add more cases:
@@ -209,7 +209,7 @@ config_redis_url=redis://:<password>@<host>:<port>
 - Check `consumer_redis.py` file
 - How to run `consumer_redis.py` file
 ```bash
-python consumer_redis.py                    # Run with activated virtualenv
+python consumer_redis.py                 # Run with activated virtualenv
 ./venv/bin/python consumer_redis.py      # Run without activating virtualenv
 ```
 - The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
