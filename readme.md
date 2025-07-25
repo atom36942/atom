@@ -119,17 +119,54 @@ request.state.user.get("mobile")
 ```
 
 ## RabbitMQ
-
 **Installation:**  
 To run RabbitMQ locally:  
 1. Install RabbitMQ using Homebrew or Docker  
 2. Start RabbitMQ using `brew services` or Docker  
 3. Access the UI at [http://localhost:15672](http://localhost:15672) (default: guest/guest) and use `amqp://guest:guest@localhost:5672/` as the connection URL 
- 
 **Configuration:**  
-Add the following key to your `.env` file:  
+Add the following key to your `.env` file.  
+For remote connection, use: amqp://guest:guest@<remote_host>:<port> 
 ```bash
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
+```
+**Publisher** (from `router.py`):  
+- Hit the `/rabbitmq-publish` route to produce messages  
+- Sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`  
+- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
+- Consumer dispatches functions dynamically based on the `function` key  
+- You can use any other queue/channel by extending the producer logic  
+- You can directly call `function_publisher_rabbitmq` in your own routes  
+**Consumer** (from `consumer_rabbitmq.py`):  
+**Run Rabbitmq Consumer:**
+```bash
+python consumer_rabbitmq.py                    # Run with activated virtualenv
+./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
+```
+The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.  
+To extend, add more cases:
+```python
+if data["function"] == "your_custom_function":
+    await your_custom_function(...)
+```
+
+## Kafka
+
+**Installation:**  
+To run Kafka with SASL/PLAIN locally:
+1. Install Zookeeper and Kafka using Homebrew  
+2. Start Zookeeper using `brew services`  
+3. Create a JAAS config file in your home directory with user credentials  
+4. Update Kafka's `server.properties` to enable SASL/PLAIN authentication  
+5. Export the JAAS config path using the `KAFKA_OPTS` environment variable  
+6. Start the Kafka broker manually using the updated config file  
+ 
+**Configuration:**  
+Add the following key to your `.env` file.  
+For remote connection, use: amqp://guest:guest@<remote_host>:<port> 
+
+```bash
+config_kafka_url=
 ```
 **Publisher** (from `router.py`):  
 - Hit the `/rabbitmq-publish` route to produce messages  
@@ -152,14 +189,7 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 
-## Kafka
-To run Kafka with SASL/PLAIN locally:
-1. Install Zookeeper and Kafka using Homebrew  
-2. Start Zookeeper using `brew services`  
-3. Create a JAAS config file in your home directory with user credentials  
-4. Update Kafka's `server.properties` to enable SASL/PLAIN authentication  
-5. Export the JAAS config path using the `KAFKA_OPTS` environment variable  
-6. Start the Kafka broker manually using the updated config file  
+
 
 ---
 
