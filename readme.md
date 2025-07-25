@@ -62,7 +62,7 @@ python main.py                        # Run directly
 uvicorn main:app --reload             # Run with auto-reload (dev)
 ```
 
-### Docker Start
+## Docker Start
 ```bash
 docker build -t atom .
 docker run -p 8000:8000 atom
