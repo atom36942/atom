@@ -130,15 +130,17 @@ For remote connection, use: amqp://guest:guest@<remote_host>:<port>
 ```bash
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
-**Publisher** (from `router.py`):  
+### Publisher
+- check `/rabbitmq-publish` in `router.py` file for sample useage
 - Hit the `/rabbitmq-publish` route to produce messages  
 - Sends JSON payloads to `channel_1` using `function_publisher_rabbitmq`  
 - Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
 - Consumer dispatches functions dynamically based on the `function` key  
 - You can use any other queue/channel by extending the producer logic  
 - You can directly call `function_publisher_rabbitmq` in your own routes. 
-**Consumer** (from `consumer_rabbitmq.py`):  
-**Run Rabbitmq Consumer:**
+### Consumer
+Check `consumer_rabbitmq.py` file
+How to run `consumer_rabbitmq.py` file
 ```bash
 python consumer_rabbitmq.py                    # Run with activated virtualenv
 ./venv/bin/python consumer_rabbitmq.py         # Run without activating virtualenv
@@ -149,6 +151,16 @@ To extend, add more cases:
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+
+
+
+
+
+
+
+
+
+
 
 ## Kafka
 
