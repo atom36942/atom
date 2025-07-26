@@ -4,6 +4,11 @@ from fastapi import Request
 from fastapi import APIRouter
 router=APIRouter()
 
+#test
+@router.get("/test")
+async def route_test():
+   return {"status":1,"message":"welcome to test routes"}
+
 #postgres create
 @router.get("/postgres-create")
 async def route_postgres_create(request:Request):

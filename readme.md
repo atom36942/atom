@@ -138,15 +138,24 @@ touch .env                                            # Create .env file for env
 </details>
 
 
-<details>
-<summary>Extending Atom</summary>
 
-- You can use the `test.sh` script to run a batch of API tests.
-- It reads all curl commands from `curl.txt`
-- Executes them one by one as a quick integration test
-- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
-```bash
-./test.sh
+<details>
+<summary>Extend Routes</summary>
+
+You can easily add new API routes in Atom:
+1. Add any file starting with `router_` in the root folder  
+2. Or create a `router/` folder and add any `.py` file inside it  
+3. All router files are auto-loaded at startup  
+4. See `router.py` for basic usage
+```python
+from function import *
+from fastapi import Request
+from fastapi import APIRouter
+
+router=APIRouter()
+@router.get("/test")
+async def route_test():
+    return {"status": 1, "message": "welcome to test routes"}
 ```
 </details>
 

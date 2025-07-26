@@ -78,6 +78,7 @@ curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Be
 curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users where id=1"}'
 
 #router
+curl -X GET "$baseurl/test"
 curl -X GET "$baseurl/postgres-create"
 curl -X GET "$baseurl/postgres-update"
 curl -X GET "$baseurl/celery-producer"
