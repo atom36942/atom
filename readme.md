@@ -117,27 +117,26 @@ touch .env                                                 # Create .env file fo
 </details>
 
 
+<details>
+<summary>Testing</summary>
 
-
-
-
-
-
-
-
-
-## Testing
-You can use the `test.sh` script to run a batch of API tests.
+- You can use the `test.sh` script to run a batch of API tests.
 - It reads all curl commands from `curl.txt`
 - Executes them one by one as a quick integration test
 - To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
 ```bash
 ./test.sh
 ```
+</details>
 
-## JWT Token Keys Encoding
-To control which user fields are encoded in the JWT token, set `config_token_key_list` in `config.py`.  
-Add `id`, `is_active`, and `api_access` always. Then add any other keys as needed.
+
+
+<details>
+<summary>JWT Token Keys Encoding</summary>
+
+- Set `config_token_key_list` in `config.py` to define which user fields go into the JWT token.  
+- Always include: `id`, `is_active`, and `api_access`  
+- Add any other fields as needed, like `mobile`, `username`, etc.
 ```python
 config_token_key_list=id,is_active,api_access,mobile,username
 ```
@@ -147,6 +146,22 @@ request.state.user.get("id")
 request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Kafka
 ### Installation
