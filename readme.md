@@ -83,6 +83,19 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 <details>
+<summary>Installation Docker</summary>
+
+```bash
+git clone https://github.com/atom36942/atom.git
+cd atom
+docker build -t atom .
+docker run -p 8000:8000 atom
+```
+</details>
+
+
+
+<details>
 <summary>Installation Without Activating Virtualenv</summary>
 
 ```bash
@@ -96,19 +109,6 @@ touch .env                                            # Create .env file for env
 ./venv/bin/pip install fastapi                        # Install package (ex FastAPI)
 ./venv/bin/pip install --upgrade fastapi              # Upgrade package (ex FastAPI)
 ./venv/bin/pip freeze > requirements.txt              # Freeze updated dependencies
-```
-</details>
-
-
-
-<details>
-<summary>Installation Docker</summary>
-
-```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
-docker build -t atom .
-docker run -p 8000:8000 atom
 ```
 </details>
 
