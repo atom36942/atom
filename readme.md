@@ -132,6 +132,7 @@ touch .env                                            # Create .env file for env
 - It reads all curl commands from `curl.txt`
 - Executes them one by one as a quick integration test
 - To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
+- Testing Summary (URL, status code, execution time) will be saved to `./curl.csv`
 ```bash
 ./test.sh
 ```
