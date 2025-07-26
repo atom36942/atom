@@ -7,6 +7,7 @@
 - **Built-in support**: for Postgres, Redis, S3, Kafka, and many other services  
 - **Production-ready**: build APIs, background jobs, and integrations quickly  
 - **Minimal boilerplate**: so you don’t have to reinvent the wheel each time
+
 </details>
 
 
@@ -23,6 +24,7 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 - **Queue**: RabbitMQ or Kafka (for background jobs and async processing)  
 - **Task Worker**: Celery (for background processing)  
 - **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
+
 </details>
 
 
@@ -81,6 +83,7 @@ config_key_jwt=2n91nIEaJpsqjFUz
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
 ```
+
 </details>
 
 
@@ -94,7 +97,9 @@ cd atom
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
+
 </details>
+
 
 
 <details>
@@ -112,7 +117,9 @@ touch .env                                                 # Create .env file fo
 ./venv/bin/pip install --upgrade fastapi                   # Upgrade package (ex FastAPI)
 ./venv/bin/pip freeze > requirements.txt                   # Freeze updated dependencies
 ```
+
 </details>
+
 
 
 <details>
@@ -125,6 +132,7 @@ touch .env                                                 # Create .env file fo
 ```bash
 ./test.sh
 ```
+
 </details>
 
 
@@ -144,7 +152,9 @@ request.state.user.get("id")
 request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
+
 </details>
+
 
 
 
@@ -173,7 +183,9 @@ python consumer_kafka.py                # Run with activated virtualenv
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+
 <details>
+
 
 
 
@@ -200,7 +212,9 @@ python consumer_rabbitmq.py                # Run with activated virtualenv
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+
 <details>
+
 
 
 
@@ -227,7 +241,9 @@ python consumer_redis.py                # Run with activated virtualenv
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+
 <details>
+
 
 
 
@@ -250,6 +266,7 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 ```
 - The consumer dispatches tasks based on the function name passed in the producer
 - To extend, add more cases, you can write more function task logic.
+
 <details>
 
 
