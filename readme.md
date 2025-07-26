@@ -184,7 +184,7 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 
-<details>
+</details>
 
 
 
@@ -213,7 +213,7 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 
-<details>
+</details>
 
 
 
@@ -242,7 +242,7 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 
-<details>
+</details>
 
 
 
@@ -267,7 +267,7 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 - The consumer dispatches tasks based on the function name passed in the producer
 - To extend, add more cases, you can write more function task logic.
 
-<details>
+</details>
 
 
 
