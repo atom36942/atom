@@ -1,13 +1,14 @@
 <details>
 <summary>About</summary>
 
-- **Open-source backend**: framework to speed up large-scale application development  
-- **Modular architecture**: combining functional and procedural styles  
-- **Pure functions**: used to minimize side effects and improve testability  
-- **Built-in support**: for Postgres, Redis, S3, Kafka, and many other services  
-- **Production-ready**: build APIs, background jobs, and integrations quickly  
-- **Minimal boilerplate**: so you don’t have to reinvent the wheel each time
+- Open-source backend framework to speed up large-scale application development  
+- Modular architecture combining functional and procedural styles  
+- Pure functions used to minimize side effects and improve testability  
+- Built-in support for Postgres, Redis, S3, Kafka, and many other services  
+- Production-ready to build APIs, background jobs, and integrations quickly  
+- Minimal boilerplate so you don’t have to reinvent the wheel each time  
 </details>
+
 
 
 
@@ -15,15 +16,15 @@
 <summary>Tech Stack</summary>
 
 Atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
-
-- **Language**: Python  
-- **Framework**: FastAPI (for building async APIs)  
-- **Database**: PostgreSQL (primary relational database)  
-- **Caching**: Redis or Valkey (used for cache, rate limiting, task queues, etc.)  
-- **Queue**: RabbitMQ or Kafka (for background jobs and async processing)  
-- **Task Worker**: Celery (for background processing)  
-- **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
+- Language: Python  
+- Framework: FastAPI (for building async APIs)  
+- Database: PostgreSQL (primary relational database)  
+- Caching: Redis or Valkey (used for cache, rate limiting, task queues, etc.)  
+- Queue: RabbitMQ or Kafka (for background jobs and async processing)  
+- Task Worker: Celery (for background processing)  
+- Monitoring: Sentry/Prometheus (for error tracking and performance monitoring)  
 </details>
+
 
 
 
@@ -52,7 +53,7 @@ Explanation of key files in the repo:
 <details>
 <summary>Installation</summary>
 
-1. Setup repo
+### Setup repo
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -60,20 +61,20 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-2. Setup env
-- Create a `.env` file in the root directory with min 4 keys below.
-- You can use local or remote URLs for Postgres and Redis.
-```env
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-config_redis_url=redis://localhost:6379
-config_key_root=0bVJ9Jpb7s
-config_key_jwt=2n91nIEaJpsqjFUz
-```
+### Setup env
+- Create a `.env` file in the root directory with min 4 keys 
+- You can use local or remote URLs for Postgres and Redis
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
 - `config_redis_url`: used for caching, rate limiting, background tasks, etc.  
 - `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
 - `config_key_jwt`: secret key used for signing and verifying JWT tokens
-3. Server Start
+```env
+config_postgres_url=postgresql://username:password@localhost:5432/dbname
+config_redis_url=redis://:password@your_host:6379
+config_key_root=any random secret key (2n91nIEaJpsqjFUz)
+config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
+```
+### Server Start
 ```bash
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
@@ -143,14 +144,14 @@ touch .env                                            # Create .env file for env
 <details>
 <summary>Extend Routes</summary>
 
-You can easily add new API routes in Atom:
-1. Add any file starting with `router_` in the root folder  
-2. Or create a `router/` folder and add any `.py` file inside it  
-3. All router files are auto-loaded at startup  
-4. You can load env and write any logic in your own routers  
-5. All routes pass through Atom middleware automatically  
-6. Check other sections for ready-to-use logic like auth,ratelimiting,user active checks,caching,admin apis,background apis etc.  
-7. See `router.py` for basic usage
+- You can easily add new API routes in Atom
+- Add any file starting with `router_` in the root folder  
+- Or create a `router/` folder and add any `.py` file inside it  
+- All router files are auto-loaded at startup  
+- You can load env and write any logic in your own routers  
+- All routes pass through Atom middleware automatically  
+- Check other sections for ready-to-use logic like auth, ratelimiting, user active checks, caching, admin APIs, background APIs, etc.  
+- See `router.py` for basic usage  
 ```python
 from function import *
 from fastapi import Request
@@ -178,8 +179,9 @@ async def route_test():
 
 - All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
 - You can access these clients in your custom routes via `request.app.state.{client_name}`
-- Available Clients
-```bash
+- You can check `router.py` for sample usage of the clients
+- Available clients (see latest list in `main.py`):
+```python
 request.app.state.client_postgres  
 request.app.state.client_postgres_asyncpg  
 request.app.state.client_postgres_asyncpg_pool  
@@ -204,13 +206,13 @@ request.app.state.client_posthog
 <details>
 <summary>JWT Token Keys Encoding</summary>
 
-- Set `config_token_key_list` in `config.py` to define which user fields go into the JWT token.  
-- Always include: `id`, `is_active`, and `api_access`  
+- Set `config_token_key_list` in `config.py` to define which user fields go into the JWT token. 
+- Always include: `id`, `is_active`, and `api_access`
 - Add any other fields as needed, like `mobile`, `username`, etc.
+- You can access encoded user keys in your FastAPI routes like:
 ```python
 config_token_key_list=id,is_active,api_access,mobile,username
-```
-- You can access encoded user keys in your FastAPI routes like:
+``` 
 ```python
 request.state.user.get("id")
 request.state.user.get("is_active")
