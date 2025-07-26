@@ -138,6 +138,19 @@ touch .env                                            # Create .env file for env
 </details>
 
 
+<details>
+<summary>Extending Atom</summary>
+
+- You can use the `test.sh` script to run a batch of API tests.
+- It reads all curl commands from `curl.txt`
+- Executes them one by one as a quick integration test
+- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
+```bash
+./test.sh
+```
+</details>
+
+
 
 <details>
 <summary>JWT Token Keys Encoding</summary>

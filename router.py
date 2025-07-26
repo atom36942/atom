@@ -1,17 +1,8 @@
-#function
-from function import *
-
 #router
+from function import *
+from fastapi import Request
 from fastapi import APIRouter
 router=APIRouter()
-
-#config
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
-#import
-from fastapi import Request
 
 #postgres create
 @router.get("/postgres-create")
