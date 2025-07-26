@@ -7,7 +7,6 @@
 - **Built-in support**: for Postgres, Redis, S3, Kafka, and many other services  
 - **Production-ready**: build APIs, background jobs, and integrations quickly  
 - **Minimal boilerplate**: so you don’t have to reinvent the wheel each time
-
 </details>
 
 
@@ -24,7 +23,6 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 - **Queue**: RabbitMQ or Kafka (for background jobs and async processing)  
 - **Task Worker**: Celery (for background processing)  
 - **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
-
 </details>
 
 
