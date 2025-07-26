@@ -115,25 +115,6 @@ touch .env                                                 # Create .env file fo
 
 
 <details>
-<summary>JWT Token Keys Encoding</summary>
-
-- Set `config_token_key_list` in `config.py` to define which user fields go into the JWT token.  
-- Always include: `id`, `is_active`, and `api_access`  
-- Add any other fields as needed, like `mobile`, `username`, etc.
-```python
-config_token_key_list=id,is_active,api_access,mobile,username
-```
-- You can access encoded user keys in your FastAPI routes like:
-```python
-request.state.user.get("id")
-request.state.user.get("is_active")
-request.state.user.get("mobile")
-```
-</details>
-
-
-
-<details>
 <summary>API collection</summary>
 
 - All API endpoints are listed in `curl.txt` as ready-to-run `curl` commands  
@@ -159,14 +140,19 @@ request.state.user.get("mobile")
 
 
 <details>
-<summary>API Testing</summary>
+<summary>JWT Token Keys Encoding</summary>
 
-- You can use the `test.sh` script to run a batch of API tests.
-- It reads all curl commands from `curl.txt`
-- Executes them one by one as a quick integration test
-- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
-```bash
-./test.sh
+- Set `config_token_key_list` in `config.py` to define which user fields go into the JWT token.  
+- Always include: `id`, `is_active`, and `api_access`  
+- Add any other fields as needed, like `mobile`, `username`, etc.
+```python
+config_token_key_list=id,is_active,api_access,mobile,username
+```
+- You can access encoded user keys in your FastAPI routes like:
+```python
+request.state.user.get("id")
+request.state.user.get("is_active")
+request.state.user.get("mobile")
 ```
 </details>
 
