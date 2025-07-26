@@ -9,7 +9,7 @@
 - **Minimal boilerplate**: so you don’t have to reinvent the wheel each time
 </details>
 
-______________________________________________________________________________________________________
+---
 
 <details>
 <summary>Tech Stack</summary>
@@ -25,7 +25,7 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 - **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
 </details>
 
-______________________________________________________________________________________________________
+---
 
 <details>
 <summary>Repository Structure</summary>
