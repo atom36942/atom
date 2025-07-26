@@ -29,29 +29,27 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 
 
 
-## Repository Structure
-
 <details>
-<summary>Click to expand</summary>
+<summary>Repository Structure</summary>
 
-Explanation of key files in the repo:
-
-- `main.py` — Starts the FastAPI server and defines core APIs  
-- `router.py` — Sample route definitions to extend the API  
-- `function.py` — Core business logic and utility functions  
-- `config.py` — Loads configuration and environment variables  
-- `requirements.txt` — Lists Python dependencies  
-- `readme.md` — Project documentation  
-- `Dockerfile` — Container build and run instructions  
-- `curl.txt` — Sample `curl` requests for manual testing  
-- `test.sh` — Shell script to execute tests from `curl.txt`  
-- `consumer_redis.py` — Redis consumer for pub/sub or queues  
-- `consumer_rabbitmq.py` — RabbitMQ consumer  
-- `consumer_kafka.py` — Kafka consumer  
-- `consumer_celery.py` — Celery worker for background tasks  
-- `.gitignore` — Git exclusions for files/directories
+Explanation of key files in the repo:  
+- `main.py` – FastAPI Server + APIs  
+- `router.py` – Sample router definitions for extending the APIs  
+- `function.py` – Core business logic or utility functions  
+- `config.py` – Loads config/env variables used across the app  
+- `requirements.txt` – Python dependencies  
+- `readme.md` – Project documentation  
+- `Dockerfile` – Build and run the project inside Docker  
+- `curl.txt` – List of curl requests used for testing  
+- `test.sh` – Shell script to execute curl.txt tests  
+- `consumer_redis.py` – Redis consumer for pub/sub or queue  
+- `consumer_rabbitmq.py` – RabbitMQ consumer  
+- `consumer_kafka.py` – Kafka consumer  
+- `consumer_celery.py` – Celery worker  
+- `.gitignore` – Files/directories to ignore in git
 
 </details>
+
 
 
 
