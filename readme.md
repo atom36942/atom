@@ -1,15 +1,14 @@
 <details>
 <summary>About</summary>
 
-- Open-source backend framework to speed up large-scale application development  
-- Clean, modular architecture combining functional and procedural styles  
-- Pure functions used to minimize side effects and improve testability  
-- Built-in support for Postgres, Redis, S3, Kafka, and many other services  
-- Quickly build production-ready APIs, background jobs, and integrations  
-- Reduces boilerplate, so you don’t have to reinvent the wheel each time
+- **Open-source backend**: framework to speed up large-scale application development  
+- **Modular architecture**: combining functional and procedural styles  
+- **Pure functions**: used to minimize side effects and improve testability  
+- **Built-in support**: for Postgres, Redis, S3, Kafka, and many other services  
+- **Production-ready**: build APIs, background jobs, and integrations quickly  
+- **Minimal boilerplate**: so you don’t have to reinvent the wheel each time
+
 </details>
-
-
 
 
 
@@ -17,44 +16,50 @@
 <summary>Tech Stack</summary>
 
 Atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
-- Language: Python  
-- Framework: FastAPI (for building async APIs)  
-- Database: PostgreSQL (primary relational database)  
-- Caching: Redis or Valkey (used for cache, rate limiting, task queues, etc.)  
-- Queue: RabbitMQ or Kafka (for background jobs and async processing)  
-- Task Worker: Celery (for background processing)  
-- Monitoring: Sentry/Prometheus (for error tracking and performance monitoring)
+
+- **Language**: Python  
+- **Framework**: FastAPI (for building async APIs)  
+- **Database**: PostgreSQL (primary relational database)  
+- **Caching**: Redis or Valkey (used for cache, rate limiting, task queues, etc.)  
+- **Queue**: RabbitMQ or Kafka (for background jobs and async processing)  
+- **Task Worker**: Celery (for background processing)  
+- **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
+
+</details>
+
+
+
+## Repository Structure
+
+<details>
+<summary>Click to expand</summary>
+
+Explanation of key files in the repo:
+
+- `main.py` — Starts the FastAPI server and defines core APIs  
+- `router.py` — Sample route definitions to extend the API  
+- `function.py` — Core business logic and utility functions  
+- `config.py` — Loads configuration and environment variables  
+- `requirements.txt` — Lists Python dependencies  
+- `readme.md` — Project documentation  
+- `Dockerfile` — Container build and run instructions  
+- `curl.txt` — Sample `curl` requests for manual testing  
+- `test.sh` — Shell script to execute tests from `curl.txt`  
+- `consumer_redis.py` — Redis consumer for pub/sub or queues  
+- `consumer_rabbitmq.py` — RabbitMQ consumer  
+- `consumer_kafka.py` — Kafka consumer  
+- `consumer_celery.py` — Celery worker for background tasks  
+- `.gitignore` — Git exclusions for files/directories
+
 </details>
 
 
 
 
 <details>
-<summary>Repository Structure</summary>
+<summary>Installation</summary>
 
-Explanation of key files in the repo:  
-- `main.py` – FastAPI Server + APIs  
-- `router.py` – Sample router definitions for extending the APIs  
-- `function.py` – Core business logic or utility functions  
-- `config.py` – Loads config/env variables used across the app  
-- `requirements.txt` – Python dependencies  
-- `readme.md` – Project documentation  
-- `Dockerfile` – Build and run the project inside Docker  
-- `curl.txt` – List of curl requests used for testing  
-- `test.sh` – Shell script to execute curl.txt tests  
-- `consumer_redis.py` – Redis consumer for pub/sub or queue  
-- `consumer_rabbitmq.py` – RabbitMQ consumer  
-- `consumer_kafka.py` – Kafka consumer  
-- `consumer_celery.py` – Celery worker  
-- `.gitignore` – Files/directories to ignore in git
-</details>
-
-
-
-
-## Installation
-To run atom, follow these three sections in order:
-### Setup repo (mac)
+1. Setup repo
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -62,24 +67,35 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-### Setup env variables
-Create a `.env` file in the root directory with at least the following keys.  
+2. Setup env
+Create a `.env` file in the root directory with min 4 keys below.
 You can use local or remote URLs for Postgres and Redis.
-- `config_postgres_url`: primary database (PostgreSQL) connection URL  
-- `config_redis_url`: used for caching, rate limiting, background tasks, etc.  
-- `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
-- `config_key_jwt`: secret key used for signing and verifying JWT tokens
 ```env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
 config_key_root=0bVJ9Jpb7s
 config_key_jwt=2n91nIEaJpsqjFUz
 ```
+- `config_postgres_url`: primary database (PostgreSQL) connection URL  
+- `config_redis_url`: used for caching, rate limiting, background tasks, etc.  
+- `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
+- `config_key_jwt`: secret key used for signing and verifying JWT tokens
+
+
+
+
+
+ 
+
+
 ### Server Start
 ```bash
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
 ```
+</details>
+
+
 
 ## Docker Start
 ```bash
