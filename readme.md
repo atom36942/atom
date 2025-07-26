@@ -122,19 +122,6 @@ touch .env                                                 # Create .env file fo
 
 
 
-<details>
-<summary>Testing</summary>
-
-- You can use the `test.sh` script to run a batch of API tests.
-- It reads all curl commands from `curl.txt`
-- Executes them one by one as a quick integration test
-- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
-```bash
-./test.sh
-```
-
-</details>
-
 
 
 <details>
@@ -266,6 +253,32 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 ```
 - The consumer dispatches tasks based on the function name passed in the producer
 - To extend, add more cases, you can write more function task logic.
+
+</details>
+
+
+
+<details>
+<summary>API collection</summary>
+
+- All API endpoints are listed in `curl.txt` as ready-to-run `curl` commands  
+- You can copy-paste any of these directly into Postman (use "Raw Text" option)  
+- `test.sh` executes all active curl commands automatically  
+- Any line starting with `0 curl` is skipped during automated testing with `test.sh`
+</details>
+
+
+
+<details>
+<summary>API Testing</summary>
+
+- You can use the `test.sh` script to run a batch of API tests.
+- It reads all curl commands from `curl.txt`
+- Executes them one by one as a quick integration test
+- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
+```bash
+./test.sh
+```
 
 </details>
 
