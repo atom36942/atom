@@ -99,16 +99,16 @@ docker run -p 8000:8000 atom
 <summary>Commands Without Activating Virtualenv</summary>
 
 ```bash
-git clone https://github.com/atom36942/atom.git            # Clone the repository
-cd atom                                                    # Navigate into project directory
-python3 -m venv venv                                       # Create a virtual environment
-./venv/bin/pip install -r requirements.txt                 # Install requirements
-touch .env                                                 # Create .env file for environment variables
-./venv/bin/python main.py                                  # Run directly
-./venv/bin/uvicorn main:app --reload                       # Start the server with reload
-./venv/bin/pip install fastapi                             # Install package (ex FastAPI)
-./venv/bin/pip install --upgrade fastapi                   # Upgrade package (ex FastAPI)
-./venv/bin/pip freeze > requirements.txt                   # Freeze updated dependencies
+git clone https://github.com/atom36942/atom.git       # Clone the repository
+cd atom                                               # Navigate into project directory
+python3 -m venv venv                                  # Create a virtual environment
+./venv/bin/pip install -r requirements.txt            # Install requirements
+touch .env                                            # Create .env file for environment variables
+./venv/bin/python main.py                             # Run directly
+./venv/bin/uvicorn main:app --reload                  # Start the server with reload
+./venv/bin/pip install fastapi                        # Install package (ex FastAPI)
+./venv/bin/pip install --upgrade fastapi              # Upgrade package (ex FastAPI)
+./venv/bin/pip freeze > requirements.txt              # Freeze updated dependencies
 ```
 </details>
 
