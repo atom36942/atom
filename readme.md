@@ -152,7 +152,7 @@ request.state.user.get("mobile")
 <details>
 <summary>Kafka</summary>
 
-- Start Kafka server with SASL/PLAIN (locally or remotely)
+- Start Kafka server locally or remotely with SASL/PLAIN 
 - Add the following key to your `.env` file
 ```bash
 config_kafka_url=value
@@ -160,8 +160,8 @@ config_kafka_username=value
 config_kafka_password=value
 ```
 - check `/kafka-producer` in `router.py` file for sample useage
+- You can use any other function/channel by extending the producer logic 
 - You can directly call `function_producer_kafka` in your own routes 
-- You can use any other queue/channel by extending the producer logic 
 - Check `consumer_kafka.py` file for consumer logic
 - How to run `consumer_kafka.py` file
 ```bash
@@ -178,129 +178,88 @@ if data["function"] == "your_custom_function":
 
 
 
+<details>
+<summary>RabbitMQ</summary>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## RabbitMQ
-### Installation
-To run RabbitMQ (locally or remotely):
-1. Install RabbitMQ using Homebrew (`brew install rabbitmq`) or Docker, or use a managed provider like CloudAMQP or AWS MQ  
-2. Start RabbitMQ locally using `brew services start rabbitmq` or Docker with:  
-   `docker run -d -p 5672:5672 -p 15672:15672 rabbitmq:3-management`  
-3. Access the management UI at [http://localhost:15672](http://localhost:15672) (default login: guest/guest)  
-4. Use the local connection URL: `amqp://guest:guest@localhost:5672/`  
-5. For remote RabbitMQ, get the connection URL from your provider, typically in this format:  
-   `amqp://<username>:<password>@<host>:<port>/`  
-6. Use this URL in your app config or `.env` file for secure access
-### Configuration
+- Start RabbitMQ server locally or remotely
 - Add the following key to your `.env` file
 ```bash
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
-### Publisher
 - check `/rabbitmq-producer` in `router.py` file for sample useage
-- Hit the `/rabbitmq-producer` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_producer_rabbitmq`  
-- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
-- Consumer dispatches functions dynamically based on the `function` key  
-- You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_producer_rabbitmq` in your own routes. 
-### Consumer
-- Check `consumer_rabbitmq.py` file
+- You can use any other function/channel by extending the producer logic 
+- You can directly call `function_producer_rabbitmq` in your own routes 
+- Check `consumer_rabbitmq.py` file for consumer logic
 - How to run `consumer_rabbitmq.py` file
 ```bash
-python consumer_rabbitmq.py               # Run with activated virtualenv
-./venv/bin/python consumer_rabbitmq.py    # Run without activating virtualenv
+python consumer_rabbitmq.py                # Run with activated virtualenv
+./venv/bin/python consumer_rabbitmq.py     # Run without activating virtualenv
 ```
-- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
+- The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
 - To extend, add more cases:
 ```python
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+<details>
 
-## Redis Pub/Sub
-### Installation
-To run Redis (locally or remotely):
-1. Install Redis using Homebrew (`brew install redis`) or Docker, or use a managed provider like Redis Cloud, Upstash, or AWS ElastiCache  
-2. Start Redis locally using `brew services start redis` or Docker:  
-   `docker run -p 6379:6379 redis`  
-3. Local Redis runs at `redis://localhost:6379` with no authentication by default  
-4. For remote Redis, obtain the connection URL from the provider, typically in the format:  
-   `redis://:<password>@<host>:<port>`  
-5. Use the URL in your app config or `.env` file to connect securely
-### Configuration
+
+
+<details>
+<summary>Redis Pub/Sub</summary>
+
+- Start Redis server locally or remotely
 - Add the following key to your `.env` file
 ```bash
 config_redis_url=redis://:<password>@<host>:<port>
 ```
-### Publisher
 - check `/redis-producer` in `router.py` file for sample useage
-- Hit the `/redis-producer` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_producer_rabbitmq`  
-- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
-- Consumer dispatches functions dynamically based on the `function` key  
-- You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_producer_redis` in your own routes. 
-### Consumer
-- Check `consumer_redis.py` file
+- You can use any other function/channel by extending the producer logic 
+- You can directly call `function_producer_redis` in your own routes 
+- Check `consumer_redis.py` file for consumer logic
 - How to run `consumer_redis.py` file
 ```bash
-python consumer_redis.py                 # Run with activated virtualenv
-./venv/bin/python consumer_redis.py      # Run without activating virtualenv
+python consumer_redis.py                # Run with activated virtualenv
+./venv/bin/python consumer_redis.py     # Run without activating virtualenv
 ```
-- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
+- The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
 - To extend, add more cases:
 ```python
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+<details>
 
-## Celery
-### Installation
-To run celery, you just need 
-### Configuration
+
+
+<details>
+<summary>Celery</summary>
+
+- Start Redis server locally or remotely
 - Add the following key to your `.env` file
 ```bash
 config_redis_url=redis://:<password>@<host>:<port>
 ```
-### Publisher
-- check `/redis-producer` in `router.py` file for sample useage
-- Hit the `/redis-producer` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_producer_rabbitmq`  
-- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
-- Consumer dispatches functions dynamically based on the `function` key  
-- You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_producer_redis` in your own routes. 
-### Consumer
-- Check `consumer_redis.py` file
-- How to run `consumer_redis.py` file
+- check `/celery-producer` in `router.py` file for sample useage
+- You can use any other function by extending the producer logic 
+- You can directly call `function_producer_celery` in your own routes 
+- Check `consumer_celery.py` file for consumer logic
+- How to run `consumer_celery.py` file
 ```bash
-python consumer_redis.py                 # Run with activated virtualenv
-./venv/bin/python consumer_redis.py      # Run without activating virtualenv
+celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
+ ./venv/bin/celery -A consumer_celery worker --loglevel=info    # Run without activating virtualenv
 ```
-- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic.
-- To extend, add more cases:
-```python
-if data["function"] == "your_custom_function":
-    await your_custom_function(...)
-```
+- The consumer dispatches tasks based on the function name passed in the producer
+- To extend, add more cases, you can write more function task logic.
+<details>
+
+
+
+
+
+
+
+
+
+
 
