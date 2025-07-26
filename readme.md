@@ -52,8 +52,6 @@ Explanation of key files in the repo:
 
 
 
-
-
 <details>
 <summary>Installation</summary>
 
@@ -65,9 +63,10 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+
 2. Setup env
-Create a `.env` file in the root directory with min 4 keys below.
-You can use local or remote URLs for Postgres and Redis.
+- Create a `.env` file in the root directory with min 4 keys below.
+- You can use local or remote URLs for Postgres and Redis.
 ```env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
@@ -79,14 +78,7 @@ config_key_jwt=2n91nIEaJpsqjFUz
 - `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
 - `config_key_jwt`: secret key used for signing and verifying JWT tokens
 
-
-
-
-
- 
-
-
-### Server Start
+3. Server Start
 ```bash
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
@@ -95,13 +87,21 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 
-## Docker Start
+<details>
+<summary>Docker Start</summary>
+
 ```bash
+git clone https://github.com/atom36942/atom.git
+cd atom
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
+</details>
 
-## Installation Without Activating Virtualenv
+
+<details>
+<summary>Commands Without Activating Virtualenv</summary>
+
 ```bash
 git clone https://github.com/atom36942/atom.git            # Clone the repository
 cd atom                                                    # Navigate into project directory
@@ -114,6 +114,17 @@ touch .env                                                 # Create .env file fo
 ./venv/bin/pip install --upgrade fastapi                   # Upgrade package (ex FastAPI)
 ./venv/bin/pip freeze > requirements.txt                   # Freeze updated dependencies
 ```
+</details>
+
+
+
+
+
+
+
+
+
+
 
 ## Testing
 You can use the `test.sh` script to run a batch of API tests.
