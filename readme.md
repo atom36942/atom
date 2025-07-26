@@ -102,7 +102,7 @@ touch .env                                            # Create .env file for env
 
 
 <details>
-<summary>Docker Start</summary>
+<summary>Installation Docker</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git
