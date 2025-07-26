@@ -165,6 +165,28 @@ async def route_test():
 
 
 <details>
+<summary>Extend Config</summary>
+
+- Add secret keys in `.env`, load with load_dotenv package
+- Add static keys directly in `config.py`, import and use as needed
+</details>
+
+
+
+<details>
+<summary>PostHog Events</summary>
+
+- You can send events to PostHog for analytics or tracking user behavior.
+- Refer sample api `/posthog` in `router.py` for sample usage.
+- Add the following keys to your `.env` file:
+  ```bash
+config_posthog_project_host=value
+config_posthog_project_key=value
+</details>
+
+
+
+<details>
 <summary>JWT Token Keys Encoding</summary>
 
 - Set `config_token_key_list` in `config.py` to define which user fields go into the JWT token.  
