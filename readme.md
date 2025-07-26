@@ -168,8 +168,8 @@ async def route_test():
 <details>
 <summary>Extend Config</summary>
 
-- Add secret keys in `.env`, load with load_dotenv package
-- Add static keys directly in `config.py`, import and use as needed
+- Add secret keys in `.env` and load with load_dotenv package
+- Add static keys directly in `config.py` and import and use as needed
 </details>
 
 
@@ -219,6 +219,22 @@ request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
 </details>
+
+
+
+<details>
+<summary>Admin APIs</summary>
+
+- Add `/admin` in the route path to mark it as an admin API  
+- Check the `curl.txt` file for examples under the admin section  
+- Assign a unique API ID in the `config_api` variable in `config.py` (check existing samples there)  
+- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
+- Example to give user_id=1 access to admin APIs with IDs 1,2,3
+```sql
+update users set api_access='1,2,3' where id=1
+```  
+</details>
+
 
 
 
