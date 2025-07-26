@@ -53,7 +53,7 @@ Explanation of key files in the repo:
 <details>
 <summary>Installation</summary>
 
-### Setup repo
+# Setup repo
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -61,7 +61,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-### Setup env
+# Setup env
 - Create a `.env` file in the root directory with min 4 keys 
 - You can use local or remote URLs for Postgres and Redis
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
@@ -74,7 +74,7 @@ config_redis_url=redis://:password@your_host:6379
 config_key_root=any random secret key (2n91nIEaJpsqjFUz)
 config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 ```
-### Server Start
+# Server Start
 ```bash
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
