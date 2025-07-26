@@ -11,7 +11,6 @@
 
 
 
-
 <details>
 <summary>Tech Stack</summary>
 
@@ -24,7 +23,6 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 - Task Worker: Celery (for background processing)  
 - Monitoring: Sentry/Prometheus (for error tracking and performance monitoring)  
 </details>
-
 
 
 
@@ -53,7 +51,7 @@ Explanation of key files in the repo:
 <details>
 <summary>Installation</summary>
 
-# Setup repo
+### Setup repo
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -61,7 +59,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-# Setup env
+### Setup env
 - Create a `.env` file in the root directory with min 4 keys 
 - You can use local or remote URLs for Postgres and Redis
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
@@ -74,7 +72,7 @@ config_redis_url=redis://:password@your_host:6379
 config_key_root=any random secret key (2n91nIEaJpsqjFUz)
 config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 ```
-# Server Start
+### Server Start
 ```bash
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
@@ -149,8 +147,8 @@ touch .env                                            # Create .env file for env
 - Or create a `router/` folder and add any `.py` file inside it  
 - All router files are auto-loaded at startup  
 - You can load env and write any logic in your own routers  
-- All routes pass through Atom middleware automatically  
-- Check other sections for ready-to-use logic like auth, ratelimiting, user active checks, caching, admin APIs, background APIs, etc.  
+- All new routes pass through atom middleware automatically  
+- ALL new routes includes auth,ratelimiting,user active checks,caching,admin logic,background APIs, etc.  
 - See `router.py` for basic usage  
 ```python
 from function import *
@@ -227,6 +225,8 @@ request.state.user.get("mobile")
 
 - Add `/admin` in the route path to mark it as an admin API  
 - Check the `curl.txt` file for examples under the admin section  
+- `/admin` APIs are meant for routes that should be restricted to limited users.  
+- Access control is done by middleware using token checks and the `api_access` column in the users table.
 - Assign a unique API ID in the `config_api` variable in `config.py` (check existing samples there)  
 - Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
 - Example to give user_id=1 access to admin APIs with IDs 1,2,3

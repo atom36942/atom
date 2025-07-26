@@ -9,22 +9,6 @@ router=APIRouter()
 async def route_test():
    return {"status":1,"message":"welcome to test routes"}
 
-#postgres create
-@router.get("/postgres-create")
-async def route_postgres_create(request:Request):
-   table="test"
-   object={"created_by_id":request.state.user.get("id"),"title":"router"}
-   await function_object_create_postgres(request.app.state.client_postgres,table,[object],0,None,None)
-   return {"status":1,"message":"done"}
-
-#postgres update
-@router.get("/postgres-update")
-async def route_postgres_update(request:Request):
-   table="users"
-   object={"id":1,"email":"atom1","mobile":"atom2"}
-   await function_object_update_postgres(request.app.state.client_postgres,table,[object],0,None,None)
-   return {"status":1,"message":"done"}
-
 #kafka publish
 @router.get("/kafka-producer")
 async def route_kafka_publish(request:Request):
@@ -55,6 +39,24 @@ async def route_celery(request:Request):
    await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",["test",[{"title": "celery"}],0])
    await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",["users",[{"id":1,"email":"celery"}],0])
    return {"status":1,"message":"done"}
+
+#postgres create
+@router.get("/postgres-create")
+async def route_postgres_create(request:Request):
+   table="test"
+   object={"created_by_id":request.state.user.get("id"),"title":"router"}
+   await function_object_create_postgres(request.app.state.client_postgres,table,[object],0,None,None)
+   return {"status":1,"message":"done"}
+
+#postgres update
+@router.get("/postgres-update")
+async def route_postgres_update(request:Request):
+   table="users"
+   object={"id":1,"email":"atom1","mobile":"atom2"}
+   await function_object_update_postgres(request.app.state.client_postgres,table,[object],0,None,None)
+   return {"status":1,"message":"done"}
+
+
 
 #posthog
 @router.get("/posthog")
