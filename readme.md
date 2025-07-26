@@ -146,13 +146,16 @@ You can easily add new API routes in Atom:
 1. Add any file starting with `router_` in the root folder  
 2. Or create a `router/` folder and add any `.py` file inside it  
 3. All router files are auto-loaded at startup  
-4. See `router.py` for basic usage
+4. You can load env and write any logic in your own routers  
+5. All routes pass through Atom middleware automatically  
+6. Check other sections for ready-to-use logic like auth,ratelimiting,user active checks,caching,admin apis,background apis etc.  
+7. See `router.py` for basic usage
 ```python
 from function import *
 from fastapi import Request
 from fastapi import APIRouter
-
 router=APIRouter()
+
 @router.get("/test")
 async def route_test():
     return {"status": 1, "message": "welcome to test routes"}
