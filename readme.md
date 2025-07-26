@@ -8,7 +8,6 @@
 - **Production-ready**: build APIs, background jobs, and integrations quickly  
 - **Minimal boilerplate**: so you don’t have to reinvent the wheel each time
 </details>
-
 ---
 
 <details>
@@ -24,7 +23,6 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 - **Task Worker**: Celery (for background processing)  
 - **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
 </details>
-
 ---
 
 <details>
@@ -46,8 +44,7 @@ Explanation of key files in the repo:
 - `consumer_celery.py` – Celery worker  
 - `.gitignore` – Files/directories to ignore in git
 </details>
-
-
+---
 
 <details>
 <summary>Installation</summary>
@@ -81,8 +78,7 @@ python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
 ```
 </details>
-
-
+---
 
 <details>
 <summary>Docker Start</summary>
@@ -93,10 +89,8 @@ cd atom
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
-
 </details>
-
-
+---
 
 <details>
 <summary>Commands Without Activating Virtualenv</summary>
@@ -113,12 +107,8 @@ touch .env                                                 # Create .env file fo
 ./venv/bin/pip install --upgrade fastapi                   # Upgrade package (ex FastAPI)
 ./venv/bin/pip freeze > requirements.txt                   # Freeze updated dependencies
 ```
-
 </details>
-
-
-
-
+---
 
 <details>
 <summary>JWT Token Keys Encoding</summary>
@@ -135,10 +125,8 @@ request.state.user.get("id")
 request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
-
 </details>
-
-
+---
 
 <details>
 <summary>API collection</summary>
@@ -148,8 +136,7 @@ request.state.user.get("mobile")
 - `test.sh` executes all active curl commands automatically  
 - Any line starting with `0 curl` is skipped during automated testing with `test.sh`
 </details>
-
-
+---
 
 <details>
 <summary>API Testing</summary>
@@ -162,8 +149,7 @@ request.state.user.get("mobile")
 ./test.sh
 ```
 </details>
-
-
+---
 
 <details>
 <summary>Kafka</summary>
@@ -190,11 +176,8 @@ python consumer_kafka.py                # Run with activated virtualenv
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
-
 </details>
-
-
-
+---
 
 <details>
 <summary>RabbitMQ</summary>
@@ -219,11 +202,8 @@ python consumer_rabbitmq.py                # Run with activated virtualenv
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
-
 </details>
-
-
-
+---
 
 <details>
 <summary>Redis Pub/Sub</summary>
@@ -248,11 +228,8 @@ python consumer_redis.py                # Run with activated virtualenv
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
-
 </details>
-
-
-
+---
 
 <details>
 <summary>Celery</summary>
@@ -273,17 +250,6 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 ```
 - The consumer dispatches tasks based on the function name passed in the producer
 - To extend, add more cases, you can write more function task logic.
-
 </details>
-
-
-
-
-
-
-
-
-
-
-
+---
 
