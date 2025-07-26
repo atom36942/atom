@@ -1,17 +1,19 @@
-#python
-FROM python:3.12
+# Use official Python image
+FROM python:3.12-slim
 
-#container working directory
-WORKDIR /code
+# Set working directory
+WORKDIR /app
 
-#copy requirements
-COPY ./requirements.txt /code/requirements.txt
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-#install requirements
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+# Copy app code
+COPY . .
 
-#copy code to container working directory
-COPY ./ /code
+# Expose port (optional, but good for clarity)
+EXPOSE 8000
 
-#run command
-CMD ["python","main.py"]
+# Run the app
+CMD ["python", "main.py"]
