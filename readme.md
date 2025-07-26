@@ -7,10 +7,9 @@
 - **Built-in support**: for Postgres, Redis, S3, Kafka, and many other services  
 - **Production-ready**: build APIs, background jobs, and integrations quickly  
 - **Minimal boilerplate**: so you don’t have to reinvent the wheel each time
-
 </details>
 
-
+______________________________________________________________________________________________________
 
 <details>
 <summary>Tech Stack</summary>
@@ -24,17 +23,16 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 - **Queue**: RabbitMQ or Kafka (for background jobs and async processing)  
 - **Task Worker**: Celery (for background processing)  
 - **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
-
 </details>
 
-
+______________________________________________________________________________________________________
 
 <details>
 <summary>Repository Structure</summary>
 
 Explanation of key files in the repo:  
 - `main.py` – FastAPI Server + APIs  
-- `router.py` – Sample router definitions for extending the APIs  
+- `router.py` – Sample router+function definitions for extending the APIs  
 - `function.py` – Core business logic or utility functions  
 - `config.py` – Loads config/env variables used across the app  
 - `requirements.txt` – Python dependencies  
@@ -47,7 +45,6 @@ Explanation of key files in the repo:
 - `consumer_kafka.py` – Kafka consumer  
 - `consumer_celery.py` – Celery worker  
 - `.gitignore` – Files/directories to ignore in git
-
 </details>
 
 
@@ -83,7 +80,6 @@ config_key_jwt=2n91nIEaJpsqjFUz
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
 ```
-
 </details>
 
 
@@ -142,6 +138,30 @@ request.state.user.get("mobile")
 
 </details>
 
+
+
+<details>
+<summary>API collection</summary>
+
+- All API endpoints are listed in `curl.txt` as ready-to-run `curl` commands  
+- You can copy-paste any of these directly into Postman (use "Raw Text" option)  
+- `test.sh` executes all active curl commands automatically  
+- Any line starting with `0 curl` is skipped during automated testing with `test.sh`
+</details>
+
+
+
+<details>
+<summary>API Testing</summary>
+
+- You can use the `test.sh` script to run a batch of API tests.
+- It reads all curl commands from `curl.txt`
+- Executes them one by one as a quick integration test
+- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
+```bash
+./test.sh
+```
+</details>
 
 
 
@@ -256,31 +276,6 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 
 </details>
 
-
-
-<details>
-<summary>API collection</summary>
-
-- All API endpoints are listed in `curl.txt` as ready-to-run `curl` commands  
-- You can copy-paste any of these directly into Postman (use "Raw Text" option)  
-- `test.sh` executes all active curl commands automatically  
-- Any line starting with `0 curl` is skipped during automated testing with `test.sh`
-</details>
-
-
-
-<details>
-<summary>API Testing</summary>
-
-- You can use the `test.sh` script to run a batch of API tests.
-- It reads all curl commands from `curl.txt`
-- Executes them one by one as a quick integration test
-- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
-```bash
-./test.sh
-```
-
-</details>
 
 
 
