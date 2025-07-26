@@ -140,7 +140,7 @@ touch .env                                                 # Create .env file fo
 ```python
 config_token_key_list=id,is_active,api_access,mobile,username
 ```
-These keys will be included in the JWT and available in your FastAPI routes like:
+- You can access encoded user keys in your FastAPI routes like:
 ```python
 request.state.user.get("id")
 request.state.user.get("is_active")
@@ -149,59 +149,55 @@ request.state.user.get("mobile")
 </details>
 
 
+<details>
+<summary>Kafka</summary>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Kafka
-### Installation
-To run Kafka with SASL/PLAIN (locally or remotely):
-1. Install Zookeeper and Kafka using Homebrew, or use a remote Kafka provider like Confluent Cloud, Aiven, or Redpanda  
-2. Start Zookeeper locally using `brew services`, or skip this step if using a remote provider  
-3. For local Kafka, create a JAAS config file in your home directory with user credentials  
-4. Update Kafka's `server.properties` to enable SASL/PLAIN authentication (only for local setup)  
-5. Export the JAAS config path using the `KAFKA_OPTS` environment variable (only for local setup)  
-6. Start the Kafka broker manually using the updated config file (only for local setup)  
-7. For remote Kafka, obtain the bootstrap servers and SASL credentials (username, password, mechanism) from the provider  
-8. Use the following connection config in your app:
-### Configuration
+- Start Kafka server with SASL/PLAIN (locally or remotely)
 - Add the following key to your `.env` file
 ```bash
 config_kafka_url=value
 config_kafka_username=value
 config_kafka_password=value
 ```
-### Publisher
 - check `/kafka-producer` in `router.py` file for sample useage
-- Hit the `/kafka-producer` route to produce messages  
-- Sends JSON payloads to `channel_1` using `function_producer_kafka`  
-- Payload must contain a `"function"` key (e.g., `"function": "function_object_create_postgres"`)  
-- Consumer dispatches functions dynamically based on the `function` key  
-- You can use any other queue/channel by extending the producer logic  
-- You can directly call `function_producer_kafka` in your own routes  
-### Consumer
-- Check `consumer_kafka.py` file
+- You can directly call `function_producer_kafka` in your own routes 
+- You can use any other queue/channel by extending the producer logic 
+- Check `consumer_kafka.py` file for consumer logic
 - How to run `consumer_kafka.py` file
 ```bash
 python consumer_kafka.py                # Run with activated virtualenv
 ./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
 ```
-- The consumer listens on `channel_1` and dispatches tasks based on the `"function"` key using `if-elif` logic
+- The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
 - To extend, add more cases:
 ```python
 if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
+<details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## RabbitMQ
 ### Installation
