@@ -83,20 +83,7 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 <details>
-<summary>Docker Start</summary>
-
-```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
-docker build -t atom .
-docker run -p 8000:8000 atom
-```
-</details>
-
-
-
-<details>
-<summary>Commands Without Activating Virtualenv</summary>
+<summary>Installation Without Activating Virtualenv</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git       # Clone the repository
@@ -109,6 +96,19 @@ touch .env                                            # Create .env file for env
 ./venv/bin/pip install fastapi                        # Install package (ex FastAPI)
 ./venv/bin/pip install --upgrade fastapi              # Upgrade package (ex FastAPI)
 ./venv/bin/pip freeze > requirements.txt              # Freeze updated dependencies
+```
+</details>
+
+
+
+<details>
+<summary>Docker Start</summary>
+
+```bash
+git clone https://github.com/atom36942/atom.git
+cd atom
+docker build -t atom .
+docker run -p 8000:8000 atom
 ```
 </details>
 
@@ -155,7 +155,6 @@ from function import *
 from fastapi import Request
 from fastapi import APIRouter
 router=APIRouter()
-
 @router.get("/test")
 async def route_test():
     return {"status": 1, "message": "welcome to test routes"}
@@ -179,9 +178,10 @@ async def route_test():
 - You can send events to PostHog for analytics or tracking user behavior.
 - Refer sample api `/posthog` in `router.py` for sample usage.
 - Add the following keys to your `.env` file:
-  ```bash
+```bash
 config_posthog_project_host=value
 config_posthog_project_key=value
+```
 </details>
 
 
