@@ -10,6 +10,7 @@
 </details>
 
 
+
 <details>
 <summary>Tech Stack</summary>
 
@@ -23,6 +24,7 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 - **Task Worker**: Celery (for background processing)  
 - **Monitoring**: Sentry/Prometheus (for error tracking and performance monitoring)
 </details>
+
 
 
 <details>
@@ -46,6 +48,7 @@ Explanation of key files in the repo:
 </details>
 
 
+
 <details>
 <summary>Installation</summary>
 
@@ -57,7 +60,6 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-
 2. Setup env
 - Create a `.env` file in the root directory with min 4 keys below.
 - You can use local or remote URLs for Postgres and Redis.
@@ -71,13 +73,13 @@ config_key_jwt=2n91nIEaJpsqjFUz
 - `config_redis_url`: used for caching, rate limiting, background tasks, etc.  
 - `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
 - `config_key_jwt`: secret key used for signing and verifying JWT tokens
-
 3. Server Start
 ```bash
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
 ```
 </details>
+
 
 
 <details>
@@ -90,6 +92,7 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 </details>
+
 
 
 <details>
@@ -110,6 +113,7 @@ touch .env                                                 # Create .env file fo
 </details>
 
 
+
 <details>
 <summary>JWT Token Keys Encoding</summary>
 
@@ -128,6 +132,7 @@ request.state.user.get("mobile")
 </details>
 
 
+
 <details>
 <summary>API collection</summary>
 
@@ -136,6 +141,7 @@ request.state.user.get("mobile")
 - `test.sh` executes all active curl commands automatically  
 - Any line starting with `0 curl` is skipped during automated testing with `test.sh`
 </details>
+
 
 
 <details>
@@ -149,6 +155,21 @@ request.state.user.get("mobile")
 ./test.sh
 ```
 </details>
+
+
+
+<details>
+<summary>API Testing</summary>
+
+- You can use the `test.sh` script to run a batch of API tests.
+- It reads all curl commands from `curl.txt`
+- Executes them one by one as a quick integration test
+- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
+```bash
+./test.sh
+```
+</details>
+
 
 
 <details>
@@ -179,6 +200,7 @@ if data["function"] == "your_custom_function":
 </details>
 
 
+
 <details>
 <summary>RabbitMQ</summary>
 
@@ -205,6 +227,7 @@ if data["function"] == "your_custom_function":
 </details>
 
 
+
 <details>
 <summary>Redis Pub/Sub</summary>
 
@@ -229,6 +252,7 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 </details>
+
 
 
 <details>
