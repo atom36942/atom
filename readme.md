@@ -198,7 +198,7 @@ xyz=config.get("xyz")
 <br>
 
 - Add extra configs in `.env` or `config.py`, prefixed with `config_` for easy discovery  
-- Add extra helper pure functions in `function_custom.py`, prefixed with `function_`, and import them in your routes  
+- Add extra helper pure functions in `function_custom.py`, prefixed with `function_`, and import it in `extend_custom.py` 
 - Add extra imports in `extend_custom.py` and import them in your routes  
 </details>
 
