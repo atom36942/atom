@@ -174,18 +174,6 @@ request.app.state.client_openai
 
 
 <details>
-<summary>Coding Style</summary>
-
-<br>
-
-- Add extra configs in `.env` or `config.py`, prefixed with `config_` for easy discovery  
-- Add helper pure functions in `function_custom.py`, prefixed with `function_`, and import them in your routes  
-- Add shared imports in `extend_custom.py` and import them in your routes  
-</details>
-
-
-
-<details>
 <summary>Extend Routes</summary>
 
 <br>
@@ -200,6 +188,18 @@ request.app.state.client_openai
 ```python
 xyz=config.get("xyz")
 ```
+</details>
+
+
+
+<details>
+<summary>Extend Logic</summary>
+
+<br>
+
+- Add extra configs in `.env` or `config.py`, prefixed with `config_` for easy discovery  
+- Add helper pure functions in `function_custom.py`, prefixed with `function_`, and import them in your routes  
+- Add shared imports in `extend_custom.py` and import them in your routes  
 </details>
 
 
