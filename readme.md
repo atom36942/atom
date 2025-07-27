@@ -18,7 +18,7 @@
 
 <br>
 
-Atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
+Atom uses a proven tech stack so you can build fast without worrying about stack choices.
 - Language: Python  
 - Framework: FastAPI (for building async APIs)  
 - Database: PostgreSQL (primary relational database)  
@@ -174,6 +174,18 @@ request.app.state.client_openai
 
 
 <details>
+<summary>Coding Style</summary>
+
+<br>
+
+- Add extra configs in `.env` or `config.py`, prefixed with `config_` for easy discovery  
+- Add helper pure functions in `function2.py`, prefixed with `function_`, and import them in your routes  
+- Add shared imports in `extend2.py` and import them in your routes  
+</details>
+
+
+
+<details>
 <summary>Extend Routes</summary>
 
 <br>
@@ -233,7 +245,26 @@ update users set api_access='1,2,3' where id=1
 
 
 <details>
-<summary>PostHog Events</summary>
+<summary>Postgres</summary>
+
+<br>
+
+- Atom has prebuilt postgres connection using two package
+- First - https://github.com/encode/databases
+- Second - https://github.com/MagicStack/asyncpg
+- You can use both postgres client in your router by refering official docs
+- Refer sample apis in `router.py` for usage
+```python
+request.app.state.client_postgres 
+request.app.state.client_postgres_asyncpg
+request.app.state.client_postgres_asyncpg_pool
+ ```
+</details>
+
+
+
+<details>
+<summary>PostHog</summary>
 
 <br>
 
