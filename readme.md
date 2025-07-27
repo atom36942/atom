@@ -179,8 +179,8 @@ request.app.state.client_openai
 <br>
 
 - Add extra configs in `.env` or `config.py`, prefixed with `config_` for easy discovery  
-- Add helper pure functions in `function2.py`, prefixed with `function_`, and import them in your routes  
-- Add shared imports in `extend2.py` and import them in your routes  
+- Add helper pure functions in `function_custom.py`, prefixed with `function_`, and import them in your routes  
+- Add shared imports in `extend_custom.py` and import them in your routes  
 </details>
 
 
