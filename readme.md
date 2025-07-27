@@ -193,13 +193,13 @@ xyz=config.get("xyz")
 
 
 <details>
-<summary>Extend Logic</summary>
+<summary>Extend Extra Files</summary>
 
 <br>
 
 - Add extra configs in `.env` or `config.py`, prefixed with `config_` for easy discovery  
-- Add helper pure functions in `function_custom.py`, prefixed with `function_`, and import them in your routes  
-- Add shared imports in `extend_custom.py` and import them in your routes  
+- Add extra helper pure functions in `function_custom.py`, prefixed with `function_`, and import them in your routes  
+- Add extra imports in `extend_custom.py` and import them in your routes  
 </details>
 
 
@@ -382,7 +382,7 @@ if data["function"] == "your_custom_function":
 - Atom has prebuilt postgres connection using two package Databases/Asyncpg
 - Databases - https://github.com/encode/databases
 - Asyncpg - https://github.com/MagicStack/asyncpg
-- You can use both postgres client/pool to execute any raw sql in your router by refering official docs
+- You can use postgres client/pool to execute any raw sql in your router by refering official docs
 ```python
 request.app.state.client_postgres 
 request.app.state.client_postgres_asyncpg
