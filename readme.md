@@ -59,8 +59,6 @@ Explanation of key files in the repo:
 <details>
 <summary>Installation</summary>
 
-<br>
-
 ### Setup repo
 ```bash
 git clone https://github.com/atom36942/atom.git
