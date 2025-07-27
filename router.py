@@ -4,7 +4,8 @@ from extend import *
 #test
 @router.get("/test")
 async def route_test():
-   return {"status":1,"message":"welcome to test"}
+   value=config.get("your_config_key")
+   return {"status":1,"message":f"welcome to test"}
 
 #kafka publish
 @router.get("/kafka-producer")
