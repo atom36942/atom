@@ -16,6 +16,8 @@
 <details>
 <summary>Tech Stack</summary>
 
+<br>
+
 Atom uses a fixed set of proven core technologies, so you can focus on building your idea quickly without getting stuck in stack decisions.
 - Language: Python  
 - Framework: FastAPI (for building async APIs)  
