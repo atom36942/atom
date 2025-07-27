@@ -27,22 +27,24 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 
 
 <details>
-<summary>Repository Structure</summary>
+<summary>Repository Files Structure</summary>
 
-Explanation of key files in the repo:  
-- `main.py` – FastAPI Server + APIs  
-- `router.py` – Sample router+function definitions for extending the APIs  
-- `function.py` – Core business logic or utility functions  
-- `config.py` – Loads config/env variables used across the app  
-- `requirements.txt` – Python dependencies  
-- `readme.md` – Project documentation  
-- `Dockerfile` – Build and run the project inside Docker  
+Explanation of key files in the repo:
+- `function.py` – Core business logic or utility functions
+- `.env` – Config variables used across the app  
+- `config.py` – Config variables used across the app  
+- `main.py` – FastAPI Server + core APIs 
+- `extend.py` – Logic for extneding router
+- `router.py` – Samples for extending the APIs  
 - `curl.txt` – List of curl requests used for testing  
 - `test.sh` – Shell script to execute curl.txt tests  
 - `consumer_redis.py` – Redis consumer for pub/sub or queue  
 - `consumer_rabbitmq.py` – RabbitMQ consumer  
 - `consumer_kafka.py` – Kafka consumer  
-- `consumer_celery.py` – Celery worker  
+- `consumer_celery.py` – Celery worker 
+- `requirements.txt` – Python dependencies
+- `readme.md` – Project documentation   
+- `Dockerfile` – Build and run the project inside Docker  
 - `.gitignore` – Files/directories to ignore in git
 </details>
 
@@ -116,7 +118,7 @@ touch .env                                            # Create .env file for env
 <details>
 <summary>API collection</summary>
 
-- All API endpoints are listed in `curl.txt` as ready-to-run `curl` commands  
+- All atom APIs are listed in `curl.txt` as ready-to-run `curl` commands  
 - You can copy-paste any of these directly into Postman (use "Raw Text" option)  
 - `test.sh` executes all active curl commands automatically  
 - Any line starting with `0 curl` is skipped during automated testing with `test.sh`
@@ -140,24 +142,35 @@ touch .env                                            # Create .env file for env
 
 
 <details>
+<summary>Client Initialization</summary>
+
+- All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
+- You can access these clients in your custom routes via `request.app.state.{client_name}`
+- You can check `router.py` for sample usage of the clients
+- Available clients (see latest list in `main.py` lifespan section)
+```python
+request.app.state.client_postgres  
+```
+</details>
+
+
+
+
+<details>
 <summary>Extend Routes</summary>
 
-- You can easily add new API routes in Atom
-- Add any file starting with `router_` in the root folder  
-- Or create a `router/` folder and add any `.py` file inside it  
-- All router files are auto-loaded at startup  
-- You can load env and write any logic in your own routers  
+- You can easily add new API routes to extend atom
+- Add any .py file starting with `router_` in the root folder or create a `router/` folder and add any `.py` file inside it  
+- All router APIs are auto-loaded at startup 
 - All new routes pass through atom middleware automatically  
-- ALL new routes includes auth,ratelimiting,user active checks,caching,admin logic,background APIs, etc.  
+- ALL new routes includes auth,ratelimiting,user active checks,caching,admin logic,background APIs, etc by default. Pls check readme.md for more details.
+- You can any config var from .env and config.py from `config` var dict in your router.
 - See `router.py` for basic usage  
 ```python
-from function import *
-from fastapi import Request
-from fastapi import APIRouter
-router=APIRouter()
+from extend import *
 @router.get("/test")
 async def route_test():
-    return {"status": 1, "message": "welcome to test routes"}
+   return {"status":1,"message":"welcome to test routes"}
 ```
 </details>
 
@@ -166,36 +179,11 @@ async def route_test():
 <details>
 <summary>Extend Config</summary>
 
-- Add secret keys in `.env` and load with load_dotenv package
-- Add static keys directly in `config.py` and import and use as needed
-</details>
-
-
-
-<details>
-<summary>Client Initialization</summary>
-
-- All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
-- You can access these clients in your custom routes via `request.app.state.{client_name}`
-- You can check `router.py` for sample usage of the clients
-- Available clients (see latest list in `main.py`):
+- Add secret keys in `.env`
+- Add static keys directly in `config.py`
+- You can use `config` var dict in your routes
 ```python
-request.app.state.client_postgres  
-request.app.state.client_postgres_asyncpg  
-request.app.state.client_postgres_asyncpg_pool  
-request.app.state.client_postgres_read  
-request.app.state.client_redis  
-request.app.state.client_mongodb  
-request.app.state.client_s3  
-request.app.state.client_s3_resource  
-request.app.state.client_sns  
-request.app.state.client_ses  
-request.app.state.client_openai  
-request.app.state.client_kafka_producer  
-request.app.state.client_rabbitmq  
-request.app.state.client_rabbitmq_channel  
-request.app.state.client_celery_producer  
-request.app.state.client_posthog  
+xyz=config.get("xyz")
 ```
 </details>
 
@@ -204,7 +192,7 @@ request.app.state.client_posthog
 <details>
 <summary>JWT Token Keys Encoding</summary>
 
-- Set `config_token_key_list` in `config.py` to define which user fields go into the JWT token. 
+- Set `config_token_key_list` in `config.py` or `.env` to define which user fields go into the JWT token. 
 - Always include: `id`, `is_active`, and `api_access`
 - Add any other fields as needed, like `mobile`, `username`, etc.
 - You can access encoded user keys in your FastAPI routes like:
@@ -217,6 +205,8 @@ request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
 </details>
+
+
 
 
 
@@ -238,6 +228,7 @@ update users set api_access='1,2,3' where id=1
 
 
 
+
 <details>
 <summary>PostHog Events</summary>
 
@@ -249,6 +240,33 @@ config_posthog_project_host=value
 config_posthog_project_key=value
 ```
 </details>
+
+
+
+
+
+<details>
+<summary>Celery</summary>
+
+- Start Redis server locally or remotely
+- Add the following key to your `.env` file
+```bash
+config_redis_url=redis://:<password>@<host>:<port>
+```
+- check `/celery-producer` in `router.py` file for sample useage
+- You can use any other function by extending the producer logic 
+- You can directly call `function_producer_celery` in your own routes 
+- Check `consumer_celery.py` file for consumer logic
+- How to run `consumer_celery.py` file
+```bash
+celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
+ ./venv/bin/celery -A consumer_celery worker --loglevel=info    # Run without activating virtualenv
+```
+- The consumer dispatches tasks based on the function name passed in the producer
+- To extend, add more cases, you can write more function task logic.
+</details>
+
+
 
 
 
@@ -281,6 +299,8 @@ if data["function"] == "your_custom_function":
 
 
 
+
+
 <details>
 <summary>RabbitMQ</summary>
 
@@ -305,6 +325,8 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 </details>
+
+
 
 
 
@@ -333,27 +355,5 @@ if data["function"] == "your_custom_function":
 ```
 </details>
 
-
-
-<details>
-<summary>Celery</summary>
-
-- Start Redis server locally or remotely
-- Add the following key to your `.env` file
-```bash
-config_redis_url=redis://:<password>@<host>:<port>
-```
-- check `/celery-producer` in `router.py` file for sample useage
-- You can use any other function by extending the producer logic 
-- You can directly call `function_producer_celery` in your own routes 
-- Check `consumer_celery.py` file for consumer logic
-- How to run `consumer_celery.py` file
-```bash
-celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
- ./venv/bin/celery -A consumer_celery worker --loglevel=info    # Run without activating virtualenv
-```
-- The consumer dispatches tasks based on the function name passed in the producer
-- To extend, add more cases, you can write more function task logic.
-</details>
 
 

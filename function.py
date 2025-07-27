@@ -129,10 +129,11 @@ def function_add_prometheus(app):
    Instrumentator().instrument(app).expose(app)
    return None
 
-def function_add_app_state(locals_dict,app,pattern_tuple):
-   for k,v in locals_dict.items():
-      if k.startswith(pattern_tuple):setattr(app.state,k,v)
-      
+def function_add_app_state(var_dict,app,prefix_tuple):
+    for k, v in var_dict.items():
+        if k.startswith(prefix_tuple):
+            setattr(app.state, k, v)
+
 import sentry_sdk
 def function_add_sentry(config_sentry_dsn):
    sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
@@ -141,20 +142,20 @@ def function_add_sentry(config_sentry_dsn):
 import os
 import importlib.util
 from pathlib import Path
-def function_add_router(app):
+def function_add_router(app,pattern):
    base_dir = Path(__file__).parent
    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
    for root, dirs, files in os.walk(base_dir):
       dirs[:] = [d for d in dirs if d not in skip_dirs]
-      is_router_folder = os.path.basename(root).startswith("router")
+      is_router_folder = os.path.basename(root).startswith(pattern)
       for file in files:
-         if file.endswith(".py") and (file.startswith("router") or is_router_folder):
+         if file.endswith(".py") and (file.startswith(pattern) or is_router_folder):
             module_path = os.path.join(root, file)
             module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
             spec = importlib.util.spec_from_file_location(module_name, module_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            if hasattr(module, "router"):
+            if hasattr(module, pattern):
                app.include_router(module.router)
    return None
 
@@ -1027,7 +1028,7 @@ import os
 from dotenv import load_dotenv, dotenv_values
 import importlib.util
 from pathlib import Path
-def function_config_read(path_env=".env"):
+def function_config_read():
    def read_env_file(path):
       load_dotenv(path)
       return {k.lower(): v for k, v in dotenv_values(path).items()}
@@ -1047,7 +1048,7 @@ def function_config_read(path_env=".env"):
       return output
    base_dir = Path(__file__).parent
    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
-   output = read_env_file(path_env)
+   output = read_env_file(".env")
    output.update(read_config_modules(base_dir, skip_dirs))
    return output
 

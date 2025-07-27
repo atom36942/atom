@@ -1,8 +1,5 @@
-#router
-from function import *
-from fastapi import Request
-from fastapi import APIRouter
-router=APIRouter()
+#import
+from extend import *
 
 #test
 @router.get("/test")
@@ -40,6 +37,13 @@ async def route_celery(request:Request):
    await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",["users",[{"id":1,"email":"celery"}],0])
    return {"status":1,"message":"done"}
 
+#posthog
+@router.get("/posthog")
+async def route_posthog(request:Request):
+   request.app.state.client_posthog.capture(distinct_id="user_1",event="test")
+   request.app.state.client_posthog.capture(distinct_id="user_2",event="posthog kt",properties={"name":"atom","title":"testing"})
+   return {"status":1,"message":"done"}
+
 #postgres create
 @router.get("/postgres-create")
 async def route_postgres_create(request:Request):
@@ -54,15 +58,6 @@ async def route_postgres_update(request:Request):
    table="users"
    object={"id":1,"email":"atom1","mobile":"atom2"}
    await function_object_update_postgres(request.app.state.client_postgres,table,[object],0,None,None)
-   return {"status":1,"message":"done"}
-
-
-
-#posthog
-@router.get("/posthog")
-async def route_posthog(request:Request):
-   request.app.state.client_posthog.capture(distinct_id="user_1",event="test")
-   request.app.state.client_posthog.capture(distinct_id="user_2",event="posthog kt",properties={"name":"atom","title":"testing"})
    return {"status":1,"message":"done"}
 
 #websocket

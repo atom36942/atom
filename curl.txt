@@ -79,8 +79,12 @@ curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Co
 
 #router
 curl -X GET "$baseurl/test"
+0 curl -X GET "$baseurl/kafka-producer"
+curl -X GET "$baseurl/rabbitmq-producer"
+curl -X GET "$baseurl/redis-producer"
+curl -X GET "$baseurl/celery-producer"
+0 curl -X GET "$baseurl/posthog"
 curl -X GET "$baseurl/postgres-create"
 curl -X GET "$baseurl/postgres-update"
-curl -X GET "$baseurl/celery-producer"
-curl -X GET "$baseurl/redis-producer"
-curl -X GET "$baseurl/rabbitmq-producer"
+
+
