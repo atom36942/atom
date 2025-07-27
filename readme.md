@@ -163,8 +163,8 @@ touch .env                                            # Create .env file for env
 
 - All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
 - You can access these clients in your custom routes via `request.app.state.{client_name}`
-- You can check `router.py` for sample usage of the clients
 - Available client list (check `main.py` lifespan section)
+- Example:-
 ```python
 request.app.state.client_postgres 
 request.app.state.client_openai  
@@ -183,7 +183,7 @@ request.app.state.client_openai
 - All routes automatically use atom middleware
 - Atom middleware includes auth,admin check,user active check,ratelimter,background apis,caching,api log
 - How to add new router - create any `.py` file starting with `router_` in the root folder, or place it inside a `router/` folder with any `.py` filename
-- See `router.py` for a many sample APIs
+- See `router.py` for sample usage
 - How to add custom config keys - Add keys in `.env` or `config.py` and then use `config` var dict in your routes
 ```python
 xyz=config.get("xyz")
@@ -240,25 +240,6 @@ request.state.user.get("mobile")
 ```sql
 update users set api_access='1,2,3' where id=1
 ```  
-</details>
-
-
-
-<details>
-<summary>Postgres</summary>
-
-<br>
-
-- Atom has prebuilt postgres connection using two package
-- First - https://github.com/encode/databases
-- Second - https://github.com/MagicStack/asyncpg
-- You can use both postgres client in your router by refering official docs
-- Refer sample apis in `router.py` for usage
-```python
-request.app.state.client_postgres 
-request.app.state.client_postgres_asyncpg
-request.app.state.client_postgres_asyncpg_pool
- ```
 </details>
 
 
@@ -391,5 +372,22 @@ if data["function"] == "your_custom_function":
 ```
 </details>
 
+
+
+<details>
+<summary>Postgres</summary>
+
+<br>
+
+- Atom has prebuilt postgres connection using two package Databases/Asyncpg
+- Databases - https://github.com/encode/databases
+- Asyncpg - https://github.com/MagicStack/asyncpg
+- You can use both postgres client/pool to execute any raw sql in your router by refering official docs
+```python
+request.app.state.client_postgres 
+request.app.state.client_postgres_asyncpg
+request.app.state.client_postgres_asyncpg_pool
+ ```
+</details>
 
 
