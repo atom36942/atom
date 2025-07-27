@@ -27,7 +27,7 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 
 
 <details>
-<summary>Repository Files Structure</summary>
+<summary>Repository File Structure</summary>
 
 Explanation of key files in the repo:
 - `function.py` – Core business logic or utility functions
@@ -159,13 +159,16 @@ request.app.state.client_postgres
 <details>
 <summary>Extend Routes</summary>
 
-- You can easily add new API routes to extend atom
-- Add any .py file starting with `router_` in the root folder or create a `router/` folder and add any `.py` file inside it  
-- All router APIs are auto-loaded at startup 
-- All new routes pass through atom middleware automatically  
-- ALL new routes includes auth,ratelimiting,user active checks,caching,admin logic,background APIs, etc by default. Pls check readme.md for more details.
-- You can any config var from .env and config.py from `config` var dict in your router.
-- See `router.py` for basic usage  
+- Easily extend Atom by adding new API routes.
+- Create any `.py` file starting with `router_` in the root folder, or place it inside a `router/` folder with any filename.
+- All such router files are auto-discovered and loaded at startup.
+- All routes automatically use Atom's middleware stack.
+- Middleware includes auth, rate limiting, user active checks, caching, admin logic, and background jobs support.
+- Access any config variable from `.env` or `config.py` using the `config` dict inside your router.
+```python
+xyz=config.get("xyz")
+```
+- See `router.py` for a minimal usage example.
 ```python
 from extend import *
 @router.get("/test")
