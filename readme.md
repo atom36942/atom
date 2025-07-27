@@ -27,7 +27,7 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 
 
 <details>
-<summary>Repository File Structure</summary>
+<summary>File Structure</summary>
 
 Explanation of key files in the repo:
 - `function.py` – Core business logic or utility functions
@@ -84,7 +84,7 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 <details>
-<summary>Installation Docker</summary>
+<summary>Installation With Docker</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -116,8 +116,9 @@ touch .env                                            # Create .env file for env
 
 
 <details>
-<summary>API collection</summary>
+<summary>API Collection</summary>
 
+- All atom APIs are defined in main.py
 - All atom APIs are listed in `curl.txt` as ready-to-run `curl` commands  
 - You can copy-paste any of these directly into Postman (use "Raw Text" option)  
 - `test.sh` executes all active curl commands automatically  
@@ -147,12 +148,12 @@ touch .env                                            # Create .env file for env
 - All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
 - You can access these clients in your custom routes via `request.app.state.{client_name}`
 - You can check `router.py` for sample usage of the clients
-- Available clients (see latest list in `main.py` lifespan section)
+- Available client list (check `main.py` lifespan section)
 ```python
-request.app.state.client_postgres  
+request.app.state.client_postgres 
+request.app.state.client_openai  
 ```
 </details>
-
 
 
 
@@ -164,11 +165,8 @@ request.app.state.client_postgres
 - All such router files are auto-discovered and loaded at startup.
 - All routes automatically use Atom's middleware stack.
 - Middleware includes auth, rate limiting, user active checks, caching, admin logic, and background jobs support.
-- Access any config variable from `.env` or `config.py` using the `config` dict inside your router.
-```python
-xyz=config.get("xyz")
-```
 - See `router.py` for a many sample APIs.
+- Ex to build a custom api
 ```python
 from extend import *
 @router.get("/test")
@@ -177,18 +175,12 @@ async def route_test():
 ```
 </details>
 
-
-
-<details>
-<summary>Extend Config</summary>
-
 - Add secret keys in `.env`
 - Add static keys directly in `config.py`
 - You can use `config` var dict in your routes
 ```python
 xyz=config.get("xyz")
 ```
-</details>
 
 
 
@@ -211,8 +203,6 @@ request.state.user.get("mobile")
 
 
 
-
-
 <details>
 <summary>Admin APIs</summary>
 
@@ -230,8 +220,6 @@ update users set api_access='1,2,3' where id=1
 
 
 
-
-
 <details>
 <summary>PostHog Events</summary>
 
@@ -243,8 +231,6 @@ config_posthog_project_host=value
 config_posthog_project_key=value
 ```
 </details>
-
-
 
 
 
@@ -268,8 +254,6 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 - The consumer dispatches tasks based on the function name passed in the producer
 - To extend, add more cases, you can write more function task logic.
 </details>
-
-
 
 
 
@@ -302,8 +286,6 @@ if data["function"] == "your_custom_function":
 
 
 
-
-
 <details>
 <summary>RabbitMQ</summary>
 
@@ -328,8 +310,6 @@ if data["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 </details>
-
-
 
 
 

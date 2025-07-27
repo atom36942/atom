@@ -9,7 +9,6 @@ config_api={
 "/my/parent-read":{"id":8,"cache_sec":["redis",100]},
 "/test":{"is_token":0}
 }
-
 config_postgres_schema={
 "table":{
 "test":[
