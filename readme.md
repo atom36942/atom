@@ -168,12 +168,12 @@ request.app.state.client_postgres
 ```python
 xyz=config.get("xyz")
 ```
-- See `router.py` for a minimal usage example.
+- See `router.py` for a many sample APIs.
 ```python
 from extend import *
 @router.get("/test")
 async def route_test():
-   return {"status":1,"message":"welcome to test routes"}
+   return {"status":1,"message":"welcome to test"}
 ```
 </details>
 
