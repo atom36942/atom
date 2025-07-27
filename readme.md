@@ -1,5 +1,6 @@
 <details>
 <summary>About</summary>
+
 <br>
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
