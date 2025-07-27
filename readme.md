@@ -33,6 +33,8 @@ Atom uses a fixed set of proven core technologies, so you can focus on building 
 <details>
 <summary>File Structure</summary>
 
+<br>
+
 Explanation of key files in the repo:
 - `function.py` – Core business logic or utility functions
 - `.env` – Config variables used across the app  
@@ -56,6 +58,8 @@ Explanation of key files in the repo:
 
 <details>
 <summary>Installation</summary>
+
+<br>
 
 ### Setup repo
 ```bash
@@ -90,6 +94,8 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 <details>
 <summary>Installation With Docker</summary>
 
+<br>
+
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -102,6 +108,8 @@ docker run -p 8000:8000 atom
 
 <details>
 <summary>Installation Without Activating Virtualenv</summary>
+
+<br>
 
 ```bash
 git clone https://github.com/atom36942/atom.git       # Clone the repository
@@ -122,6 +130,8 @@ touch .env                                            # Create .env file for env
 <details>
 <summary>API Collection</summary>
 
+<br>
+
 - All atom APIs are defined in main.py
 - All atom APIs are listed in `curl.txt` as ready-to-run `curl` commands  
 - You can copy-paste any of these directly into Postman (use "Raw Text" option)  
@@ -133,6 +143,8 @@ touch .env                                            # Create .env file for env
 
 <details>
 <summary>API Testing</summary>
+
+<br>
 
 - You can use the `test.sh` script to run a batch of API tests.
 - It reads all curl commands from `curl.txt`
@@ -149,6 +161,8 @@ touch .env                                            # Create .env file for env
 <details>
 <summary>Client Initialization</summary>
 
+<br>
+
 - All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
 - You can access these clients in your custom routes via `request.app.state.{client_name}`
 - You can check `router.py` for sample usage of the clients
@@ -163,6 +177,8 @@ request.app.state.client_openai
 
 <details>
 <summary>Extend Routes</summary>
+
+<br>
 
 - Easily extend Atom by adding new API router files
 - All custom router files are auto-loaded at startup
@@ -180,6 +196,8 @@ xyz=config.get("xyz")
 
 <details>
 <summary>JWT Token Keys Encoding</summary>
+
+<br>
 
 - Set `config_token_key_list` in `config.py` or `.env` to define which user fields go into the JWT token. 
 - Always include: `id`, `is_active`, and `api_access`
@@ -200,6 +218,8 @@ request.state.user.get("mobile")
 <details>
 <summary>Admin APIs</summary>
 
+<br>
+
 - Add `/admin` in the route path to mark it as an admin API  
 - Check the `curl.txt` file for examples under the admin section  
 - `/admin` APIs are meant for routes that should be restricted to limited users.  
@@ -217,6 +237,8 @@ update users set api_access='1,2,3' where id=1
 <details>
 <summary>PostHog Events</summary>
 
+<br>
+
 - You can send events to PostHog for analytics or tracking user behavior.
 - Refer sample api `/posthog` in `router.py` for sample usage.
 - Add the following keys to your `.env` file:
@@ -230,6 +252,8 @@ config_posthog_project_key=value
 
 <details>
 <summary>Celery</summary>
+
+<br>
 
 - Start Redis server locally or remotely
 - Add the following key to your `.env` file
@@ -253,6 +277,8 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 
 <details>
 <summary>Kafka</summary>
+
+<br>
 
 - Start Kafka server locally or remotely with SASL/PLAIN 
 - Add the following key to your `.env` file
@@ -283,6 +309,8 @@ if data["function"] == "your_custom_function":
 <details>
 <summary>RabbitMQ</summary>
 
+<br>
+
 - Start RabbitMQ server locally or remotely
 - Add the following key to your `.env` file
 ```bash
@@ -309,6 +337,8 @@ if data["function"] == "your_custom_function":
 
 <details>
 <summary>Redis Pub/Sub</summary>
+
+<br>
 
 - Start Redis server locally or remotely
 - Add the following key to your `.env` file
