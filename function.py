@@ -421,7 +421,7 @@ async def function_producer_kafka(client_kafka_producer,channel_name,data):
 
 async def function_producer_celery(client_celery_producer,function,param_list):
    output=client_celery_producer.send_task(function,args=param_list)
-   return output
+   return output.id
 
 #send
 async def function_send_email_ses(client_ses,email_from,email_to_list,title,body):
@@ -1224,7 +1224,7 @@ def function_ocr_tesseract(file_path):
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
-async def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key):
+def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key):
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)

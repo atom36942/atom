@@ -34,7 +34,7 @@ async def route_redis_publish(request:Request):
 #celery
 @router.get("/celery-producer")
 async def route_celery(request:Request):
-   await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",["test",[{"title": "celery"}],0])
+   await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",["test",[{"title": "celery test"}],0])
    await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",["users",[{"id":1,"email":"celery"}],0])
    return {"status":1,"message":"done"}
 

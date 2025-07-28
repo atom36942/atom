@@ -234,7 +234,7 @@ request.state.user.get("mobile")
 - Check the `curl.txt` file for examples under the admin section  
 - `/admin` APIs are meant for routes that should be restricted to limited users.  
 - Access control is done by middleware using token checks and the `api_access` column in the users table.
-- Assign a unique API ID in the `config_api` variable in `config.py` (check existing samples there)  
+- Assign a unique ID in the `config_api` variable in `config.py` (check existing samples there)  
 - Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
 - Example to give user_id=1 access to admin APIs with IDs 1,2,3
 ```sql
