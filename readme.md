@@ -196,7 +196,7 @@ request.app.state.client_openai
 <br>
 
 - Add secret keys or global variables in `.env` or `config.py` and then use `config` var dict in your routes
-- For ex..you add xyz=some_value in `.env` or `config.py`, then you can access in your routes using
+- For ex, you add xyz=some_value in `.env` or `config.py`, then you can access in your routes using
 ```python
 xyz=config.get("xyz")
 ```
