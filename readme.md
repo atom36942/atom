@@ -197,10 +197,16 @@ xyz=config.get("xyz")
 
 <br>
 
-- Add extra configs in `.env` or `config.py`, prefixed with `config_` for easy discovery  
-- Add extra helper pure functions in `function_custom.py`, prefixed with `function_`, and import it in `extend_custom.py` 
-- Add extra imports in `extend_custom.py` and import them in your routes  
+- Add extra configs in `.env` or `config.py` and use with config var dict in your routes 
+- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
+- Add all extend files in `extend_master.py`
+- import `extend_master.py` in your routes
+```python
+from extend import *
+from extend_master import *
+```
 </details>
+
 
 
 
