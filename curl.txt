@@ -19,7 +19,7 @@ curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" 
 0 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"password":123,"mobile":"atom"}'
 0 curl -X POST "$baseurl/auth/login-otp-email" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","email":"atom"}'
 0 curl -X POST "$baseurl/auth/login-otp-mobile" -H "Content-Type: application/json" -d '{"type":1,"otp":"123","mobile":"atom"}'
-0 curl -X POST "$baseurl/auth/login-google" -H "Content-Type: application/json" -d '{"type":1,"google_token":"testing"}'
+0 curl -X POST "$baseurl/auth/login-google" -H "Content-Type: application/json" -d '{"type":1,"google_token":"123"}'
 
 #my
 curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
@@ -76,7 +76,7 @@ curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer 
 curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,506","column":"is_deleted","value":1}'
 curl -X DELETE "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,506"}'
 curl -X GET "$baseurl/admin/object-read?table=test&id=>,1" -H "Authorization: Bearer $token"
-curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users where id=1"}'
+curl -X POST "$baseurl/admin/db-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"update test set is_active=1,title='\''abc'\'' where id=19;"}'
 
 #router
 curl -X GET "$baseurl/test"
