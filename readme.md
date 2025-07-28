@@ -179,12 +179,24 @@ request.app.state.client_openai
 <br>
 
 - Easily extend Atom by adding new API router files
+- How to add new router - create any `.py` file starting with `router_` in the root folder
+- or place it inside a `router/` folder with any `.py` filename
 - All custom router files are auto-loaded at startup
 - All routes automatically use atom middleware
-- Atom middleware includes auth,admin check,user active check,ratelimter,background apis,caching,api log
-- How to add new router - create any `.py` file starting with `router_` in the root folder, or place it inside a `router/` folder with any `.py` filename
+- All routes includes atom middleware by defualt having prebuilt auth,admin check,user active check,ratelimter,background apis,caching,api log
 - See `router.py` for sample usage
-- How to add custom config keys - Add keys in `.env` or `config.py` and then use `config` var dict in your routes
+</details>
+
+
+
+
+<details>
+<summary>Extend Config</summary>
+
+<br>
+
+- Add secret keys or global variables in `.env` or `config.py` and then use `config` var dict in your routes
+- For ex..you add xyz=some_value in `.env` or `config.py`, then you can access in your routes using
 ```python
 xyz=config.get("xyz")
 ```
@@ -192,12 +204,12 @@ xyz=config.get("xyz")
 
 
 
+
 <details>
-<summary>Extend Extra Files</summary>
+<summary>Extend Files</summary>
 
 <br>
 
-- Add extra configs in `.env` or `config.py` and use with config var dict in your routes 
 - Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
 - Add all extend files in `extend_master.py`
 - import `extend_master.py` in your routes
