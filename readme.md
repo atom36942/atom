@@ -120,8 +120,8 @@ touch .env                                            # Create .env file for env
 ./venv/bin/python main.py                             # Run directly
 ./venv/bin/uvicorn main:app --reload                  # Start the server with reload
 ./venv/bin/pip install fastapi                        # Install package (ex FastAPI)
-./venv/bin/pip install --upgrade fastapi              # Upgrade package (ex FastAPI)
 ./venv/bin/pip freeze > requirements.txt              # Freeze updated dependencies
+./venv/bin/pip install --upgrade fastapi              # Upgrade package (ex FastAPI)
 ```
 </details>
 
