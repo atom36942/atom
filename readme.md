@@ -9,7 +9,9 @@
 - Built-in support for Postgres, Redis, S3, Kafka, and many other services  
 - Production-ready to build APIs, background jobs, and integrations quickly  
 - Minimal boilerplate so you don’t have to reinvent the wheel each time  
+- Non-opinionated: full flexibility in defining business schema, API structure, and external libraries  
 </details>
+
 
 
 
