@@ -290,7 +290,7 @@ config_posthog_project_key=value
 ```bash
 config_celery_broker_url=redis://localhost:6379
 ```
-- check `/celery-producer` in `router.py` file for sample useage
+- Check `/celery-producer` in `router.py` file for sample useage
 - You can directly call `function_producer_celery` in your own routes 
 - You can use any other function by extending the producer logic 
 - Check `consumer_celery.py` file for consumer logic
@@ -317,7 +317,7 @@ config_kafka_url=value
 config_kafka_username=value
 config_kafka_password=value
 ```
-- check `/kafka-producer` in `router.py` file for sample useage
+- Check `/kafka-producer` in `router.py` file for sample useage
 - You can directly call `function_producer_kafka` in your own routes 
 - You can use any other function/channel by extending the producer logic 
 - Check `consumer_kafka.py` file for consumer logic
@@ -346,7 +346,7 @@ if payload["function"] == "your_custom_function":
 ```bash
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
-- check `/rabbitmq-producer` in `router.py` file for sample useage
+- Check `/rabbitmq-producer` in `router.py` file for sample useage
 - You can directly call `function_producer_rabbitmq` in your own routes 
 - You can use any other function/channel by extending the producer logic 
 - Check `consumer_rabbitmq.py` file for consumer logic
@@ -375,9 +375,9 @@ if payload["function"] == "your_custom_function":
 ```bash
 config_redis_pubsub_url=redis://localhost:6379
 ```
-- check `/redis-producer` in `router.py` file for sample useage
-- You can use any other function/channel by extending the producer logic 
+- Check `/redis-producer` in `router.py` file for sample useage
 - You can directly call `function_producer_redis` in your own routes 
+- You can use any other function/channel by extending the producer logic 
 - Check `consumer_redis.py` file for consumer logic
 - How to run `consumer_redis.py` file
 ```bash

@@ -18,8 +18,8 @@ import asyncio,json
 #logic
 async def logic():
    try:
-      client_redis_pubsub=await function_client_read_redis(config_redis_pubsub_url)
-      client_redis_consumer=await function_client_read_redis_consumer(client_redis_pubsub,config_channel_name)
+      client_redis=await function_client_read_redis(config_redis_pubsub_url)
+      client_redis_consumer=await function_client_read_redis_consumer(client_redis,config_channel_name)
       client_postgres=await function_client_read_postgres(config_postgres_url)
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       async for message in client_redis_consumer.listen():
@@ -32,7 +32,7 @@ async def logic():
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))
    finally:
-      await client_redis_pubsub.aclose()
+      await client_redis.aclose()
       await client_redis_consumer.unsubscribe(config_channel_name)
       await client_postgres.disconnect()
       

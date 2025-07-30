@@ -39,10 +39,10 @@ async def route_rabbitmq_publish(request:Request):
 @router.get("/redis-producer")
 async def route_redis_publish(request:Request):
    payload_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"redis2"},{"title":"redis3"}]}
-   payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"redis"}]}
+   payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"redis4"}]}
    payload_3={"function":"function_postgres_query_runner","query":"update test set title='redis100' where id=355;","user_id":1}
    for payload in [payload_1,payload_2,payload_3]:
-      await function_producer_redis(request.app.state.client_redis_pubsub,"channel_1",payload)
+      await function_producer_redis(request.app.state.client_redis_producer,"channel_1",payload)
    return {"status":1,"message":"done"}
 
 #posthog

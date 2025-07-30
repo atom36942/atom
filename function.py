@@ -102,13 +102,12 @@ async def function_producer_rabbitmq(client_rabbitmq_channel,channel_name,payloa
    output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(payload).encode()),routing_key=channel_name)
    return output
 
-#producer
+#redis
 import json
 async def function_producer_redis(client_redis,channel_name,payload):
    output=await client_redis.publish(channel_name,json.dumps(payload))
    return output
 
-#consumer
 async def function_client_read_redis_consumer(client_redis,channel_name):
    client_redis_consumer=client_redis.pubsub()
    await client_redis_consumer.subscribe(channel_name)
