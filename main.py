@@ -298,7 +298,7 @@ async def route_my_object_create(request:Request):
 async def route_my_object_read(request:Request):
    object,[table]=await function_param_read("query",request,["table"],[])
    object["created_by_id"]=f"=,{request.state.user['id']}"
-   object_list=await function_object_read_postgres(request.app.state.client_postgres,table,object,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   object_list=await function_object_read_postgres(request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres,table,object,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":object_list}
 
 @app.get("/my/parent-read")
@@ -449,8 +449,8 @@ async def route_public_object_create(request:Request):
 async def route_public_object_read(request:Request):
    object,[table,creator_key]=await function_param_read("query",request,["table"],["creator_key"])
    if table not in request.app.state.config_table_allowed_public_read_list:return function_return_error("table not allowed")
-   object_list=await function_object_read_postgres(request.app.state.client_postgres,table,object,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   if object_list and creator_key:object_list=await function_add_creator_data(request.app.state.client_postgres,creator_key,object_list)
+   object_list=await function_object_read_postgres(request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres,table,object,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   if object_list and creator_key:object_list=await function_add_creator_data(request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres,creator_key,object_list)
    return {"status":1,"message":object_list}
 
 @app.get("/public/info")

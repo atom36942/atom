@@ -392,3 +392,24 @@ request.app.state.client_postgres_asyncpg_pool
 </details>
 
 
+
+
+<details>
+<summary>Postgres Read Replica</summary>
+
+<br>
+
+- Prebuilt Postgres read replica config is available.
+- Add the following key to your `.env` file
+```bash
+config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
+```
+- Use client_postgres_read in your routes
+- You can check - https://github.com/encode/databases for how to use the client
+```bash
+request.app.state.client_postgres_read 
+ ```
+</details>
+
+
+
