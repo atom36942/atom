@@ -77,8 +77,8 @@ pip install -r requirements.txt
 - `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
 - `config_key_jwt`: secret key used for signing and verifying JWT tokens
 ```env
-config_postgres_url=postgresql://username:password@localhost:5432/dbname
-config_redis_url=redis://:password@your_host:6379
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+config_redis_url=config_redis_url=redis://localhost:6379
 config_key_root=any random secret key (2n91nIEaJpsqjFUz)
 config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 ```
@@ -373,7 +373,7 @@ if payload["function"] == "your_custom_function":
 - Start Redis server locally or remotely
 - Add the following key to your `.env` file
 ```bash
-config_redis_url=redis://:<password>@<host>:<port>
+config_redis_url=redis://localhost:6379
 ```
 - check `/redis-producer` in `router.py` file for sample useage
 - You can use any other function/channel by extending the producer logic 

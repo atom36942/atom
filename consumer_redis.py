@@ -2,6 +2,7 @@
 from function import function_client_read_redis,function_client_read_redis_consumer
 from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
+from function import function_postgres_query_runner
 
 #config
 import os
@@ -23,9 +24,10 @@ async def logic():
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       async for message in client_redis_consumer.listen():
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():
-            payload=json.loads(message['payload'])
+            payload=json.loads(message['data'])
             if payload["function"]=="function_object_create_postgres":asyncio.create_task(function_object_create_postgres(client_postgres,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
             elif payload["function"]=="function_object_update_postgres":asyncio.create_task(function_object_update_postgres(client_postgres,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
+            elif payload["function"]=="function_postgres_query_runner":asyncio.create_task(function_postgres_query_runner(client_postgres,payload["query"],payload["user_id"]))
             print(f"{payload.get('function')} task created")
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))

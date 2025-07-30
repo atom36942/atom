@@ -7,12 +7,20 @@ async def route_test():
    value=config.get("your_config_key")
    return {"status":1,"message":f"welcome to test"}
 
+#celery
+@router.get("/celery-producer")
+async def route_celery(request:Request):
+   await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",["test",[{"title": "celery test"}],0])
+   await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",["users",[{"id":1,"email":"celery"}],0])
+   await function_producer_celery(request.app.state.client_celery_producer,"function_postgres_query_runner",["update test set title='celery100' where id=109;",1])
+   return {"status":1,"message":"done"}
+
 #kafka publish
 @router.get("/kafka-producer")
 async def route_kafka_publish(request:Request):
    payload_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"kafka2"},{"title":"kafka3"}]}
    payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"kafka"}]}
-   payload_3={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"kafka"}]}
+   payload_3={"function":"function_postgres_query_runner","query":"update test set title='celery100' where id=109;","user_id":1}
    for payload in [payload_1,payload_2,payload_3]:
       await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
    return {"status":1,"message":"done"}
@@ -20,25 +28,21 @@ async def route_kafka_publish(request:Request):
 #rabbitmq publish
 @router.get("/rabbitmq-producer")
 async def route_rabbitmq_publish(request:Request):
-   data_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"rabbitmq2"},{"title":"rabbitmq3"}]}
-   data_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"rabbitmq"}]}
-   for data in [data_1,data_2]:await function_producer_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",data)
+   payload_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"rabbitmq2"},{"title":"rabbitmq3"}]}
+   payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"rabbitmq"}]}
+   payload_3={"function":"function_postgres_query_runner","query":"update test set title='rabbitmq100' where id=337;","user_id":1}
+   for payload in [payload_1,payload_2,payload_3]:
+      await function_producer_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",payload)
    return {"status":1,"message":"done"}
 
 #redis publish
 @router.get("/redis-producer")
 async def route_redis_publish(request:Request):
-   data_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"redis2"},{"title":"redis3"}]}
-   data_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"redis"}]}
-   for data in [data_1,data_2]:await function_producer_redis(request.app.state.client_redis,"channel_1",data)
-   return {"status":1,"message":"done"}
-
-#celery
-@router.get("/celery-producer")
-async def route_celery(request:Request):
-   await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",["test",[{"title": "celery test"}],0])
-   await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",["users",[{"id":1,"email":"celery"}],0])
-   await function_producer_celery(request.app.state.client_celery_producer,"function_postgres_query_runner",["update test set title='celery100' where id=109;",1])
+   payload_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"redis2"},{"title":"redis3"}]}
+   payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"redis"}]}
+   payload_3={"function":"function_postgres_query_runner","query":"update test set title='redis100' where id=355;","user_id":1}
+   for payload in [payload_1,payload_2,payload_3]:
+      await function_producer_redis(request.app.state.client_redis,"channel_1",payload)
    return {"status":1,"message":"done"}
 
 #posthog
