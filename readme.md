@@ -329,7 +329,7 @@ python consumer_kafka.py                # Run with activated virtualenv
 - The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
 - To extend, add more cases:
 ```python
-if data["function"] == "your_custom_function":
+if payload["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 </details>
@@ -358,7 +358,7 @@ python consumer_rabbitmq.py                # Run with activated virtualenv
 - The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
 - To extend, add more cases:
 ```python
-if data["function"] == "your_custom_function":
+if payload["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 </details>
@@ -387,7 +387,7 @@ python consumer_redis.py                # Run with activated virtualenv
 - The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
 - To extend, add more cases:
 ```python
-if data["function"] == "your_custom_function":
+if payload["function"] == "your_custom_function":
     await your_custom_function(...)
 ```
 </details>

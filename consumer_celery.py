@@ -1,6 +1,7 @@
 #function
 from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
+from function import function_postgres_query_runner
 
 #config
 import os
@@ -51,11 +52,26 @@ def celery_task_1(table,object_list,is_serialize):
 
 #task 2
 @client_celery_consumer.task(name="function_object_update_postgres")
-def celery_task_1(table,object_list,is_serialize):
+def celery_task_2(table,object_list,is_serialize):
     try:
         global client_postgres
         def run_wrapper():
             async def wrapper():await function_object_update_postgres(client_postgres,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
+            loop=asyncio.get_event_loop()
+            return loop.run_until_complete(wrapper())
+        return run_wrapper()
+    except Exception as e:
+        print("Exception occurred:",str(e))
+        traceback.print_exc()
+        return None
+    
+#task 3
+@client_celery_consumer.task(name="function_postgres_query_runner")
+def celery_task_3(query,user_id):
+    try:
+        global client_postgres
+        def run_wrapper():
+            async def wrapper():await function_postgres_query_runner(client_postgres,query,user_id)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         return run_wrapper()

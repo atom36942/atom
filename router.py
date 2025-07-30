@@ -10,9 +10,11 @@ async def route_test():
 #kafka publish
 @router.get("/kafka-producer")
 async def route_kafka_publish(request:Request):
-   data_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"kafka2"},{"title":"kafka3"}]}
-   data_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"kafka"}]}
-   for data in [data_1,data_2]:await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",data)
+   payload_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"kafka2"},{"title":"kafka3"}]}
+   payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"kafka"}]}
+   payload_3={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"kafka"}]}
+   for payload in [payload_1,payload_2,payload_3]:
+      await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
    return {"status":1,"message":"done"}
 
 #rabbitmq publish
@@ -36,6 +38,7 @@ async def route_redis_publish(request:Request):
 async def route_celery(request:Request):
    await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",["test",[{"title": "celery test"}],0])
    await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",["users",[{"id":1,"email":"celery"}],0])
+   await function_producer_celery(request.app.state.client_celery_producer,"function_postgres_query_runner",["update test set title='celery100' where id=109;",1])
    return {"status":1,"message":"done"}
 
 #posthog

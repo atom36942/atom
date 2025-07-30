@@ -405,18 +405,18 @@ async def function_cache_api_response(mode,request,response,client_redis,config_
 
 #producer
 import json
-async def function_producer_redis(client_redis,channel_name,data):
-   output=await client_redis.publish(channel_name,json.dumps(data))
+async def function_producer_redis(client_redis,channel_name,payload):
+   output=await client_redis.publish(channel_name,json.dumps(payload))
    return output
 
 import json,aio_pika
-async def function_producer_rabbitmq(client_rabbitmq_channel,channel_name,data):
-   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(data).encode()),routing_key=channel_name)
+async def function_producer_rabbitmq(client_rabbitmq_channel,channel_name,payload):
+   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(payload).encode()),routing_key=channel_name)
    return output
 
 import json
-async def function_producer_kafka(client_kafka_producer,channel_name,data):
-   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(data,indent=2).encode('utf-8'),partition=0)
+async def function_producer_kafka(client_kafka_producer,channel_name,payload):
+   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
 async def function_producer_celery(client_celery_producer,function,param_list):
