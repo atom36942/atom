@@ -52,12 +52,6 @@ async def function_client_read_gsheet(config_gsheet_service_account_json_path,co
    client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
    return client_gsheet
 
-import aio_pika
-async def function_client_read_rabbitmq(config_rabbitmq_url):
-   client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
-   client_rabbitmq_channel=await client_rabbitmq.channel()
-   return client_rabbitmq,client_rabbitmq_channel
-
 from openai import OpenAI
 def function_client_read_openai(config_openai_key):
    client_openai=OpenAI(api_key=config_openai_key)
@@ -96,15 +90,22 @@ async def function_producer_kafka(client_kafka_producer,channel_name,payload):
    output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
-#producer
-import json
-async def function_producer_redis(client_redis,channel_name,payload):
-   output=await client_redis.publish(channel_name,json.dumps(payload))
-   return output
+#rabbitmq
+import aio_pika
+async def function_client_read_rabbitmq(config_rabbitmq_url):
+   client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
+   client_rabbitmq_channel=await client_rabbitmq.channel()
+   return client_rabbitmq,client_rabbitmq_channel
 
 import json,aio_pika
 async def function_producer_rabbitmq(client_rabbitmq_channel,channel_name,payload):
    output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(payload).encode()),routing_key=channel_name)
+   return output
+
+#producer
+import json
+async def function_producer_redis(client_redis,channel_name,payload):
+   output=await client_redis.publish(channel_name,json.dumps(payload))
    return output
 
 #consumer

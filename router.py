@@ -29,7 +29,7 @@ async def route_kafka_publish(request:Request):
 @router.get("/rabbitmq-producer")
 async def route_rabbitmq_publish(request:Request):
    payload_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"rabbitmq2"},{"title":"rabbitmq3"}]}
-   payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"rabbitmq"}]}
+   payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"rabbitmq4"}]}
    payload_3={"function":"function_postgres_query_runner","query":"update test set title='rabbitmq100' where id=337;","user_id":1}
    for payload in [payload_1,payload_2,payload_3]:
       await function_producer_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",payload)

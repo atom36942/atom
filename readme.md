@@ -347,8 +347,8 @@ if payload["function"] == "your_custom_function":
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
 - check `/rabbitmq-producer` in `router.py` file for sample useage
-- You can use any other function/channel by extending the producer logic 
 - You can directly call `function_producer_rabbitmq` in your own routes 
+- You can use any other function/channel by extending the producer logic 
 - Check `consumer_rabbitmq.py` file for consumer logic
 - How to run `consumer_rabbitmq.py` file
 ```bash
