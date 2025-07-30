@@ -7,7 +7,9 @@ config_postgres_url=config.get("config_postgres_url")
 config_postgres_url_read=config.get("config_postgres_url_read")
 config_redis_url=config.get("config_redis_url")
 config_mongodb_url=config.get("config_mongodb_url")
+config_celery_broker_url=config.get("config_celery_broker_url")
 config_rabbitmq_url=config.get("config_rabbitmq_url")
+config_redis_pubsub_url=config.get("config_redis_pubsub_url")
 config_kafka_url=config.get("config_kafka_url")
 config_kafka_username=config.get("config_kafka_username")
 config_kafka_password=config.get("config_kafka_password")
@@ -59,13 +61,14 @@ async def lifespan(app:FastAPI):
       client_postgres_read=await function_client_read_postgres(config_postgres_url_read) if config_postgres_url_read else None
       client_redis=await function_client_read_redis(config_redis_url) if config_redis_url else None
       client_mongodb=await function_client_read_mongodb(config_mongodb_url) if config_mongodb_url else None
+      client_celery_producer=await function_client_read_celery_producer(config_celery_broker_url) if config_celery_broker_url else None
+      client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
+      client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
+      client_redis_pubsub=await function_client_read_redis(config_redis_pubsub_url) if config_redis_pubsub_url else None
       client_s3,client_s3_resource=(await function_client_read_s3(config_s3_region_name,config_aws_access_key_id,config_aws_secret_access_key)) if config_s3_region_name else (None, None)
       client_sns=await function_client_read_sns(config_sns_region_name,config_aws_access_key_id,config_aws_secret_access_key) if config_sns_region_name else None
       client_ses=await function_client_read_ses(config_ses_region_name,config_aws_access_key_id,config_aws_secret_access_key) if config_ses_region_name else None
       client_openai=function_client_read_openai(config_openai_key) if config_openai_key else None
-      client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
-      client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
-      client_celery_producer=await function_client_read_celery_producer(config_redis_url) if config_redis_url else None
       client_posthog=await function_client_read_posthog(config_posthog_project_key,config_posthog_project_host)
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres) if client_postgres else (None, None)
@@ -80,6 +83,7 @@ async def lifespan(app:FastAPI):
       if client_postgres_asyncpg_pool:await client_postgres_asyncpg_pool.close()
       if client_postgres_read:await client_postgres_read.close()
       if client_redis:await client_redis.aclose()
+      if client_redis_pubsub:await client_redis_pubsub.aclose()
       if client_mongodb:client_mongodb.close()
       if client_kafka_producer:await client_kafka_producer.stop()
       if client_rabbitmq_channel and not client_rabbitmq_channel.is_closed:await client_rabbitmq_channel.close()
@@ -286,7 +290,7 @@ async def route_my_object_create(request:Request):
       elif queue.startswith("mongodb"):output=await function_object_create_mongodb(table,[object],queue.split('_')[1],request.app.state.client_mongodb)
       elif queue=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
       elif queue=="rabbitmq":output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",payload)
-      elif queue=="redis":output=await function_producer_redis(request.app.state.client_redis,"channel_1",payload)
+      elif queue=="redis":output=await function_producer_redis(request.app.state.client_redis_pubsub,"channel_1",payload)
       elif queue=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",[table,[object],is_serialize])
    return {"status":1,"message":output}
 

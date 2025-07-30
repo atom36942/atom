@@ -52,21 +52,37 @@ async def function_client_read_gsheet(config_gsheet_service_account_json_path,co
    client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
    return client_gsheet
 
-from celery import Celery
-async def function_client_read_celery_producer(config_redis_url):
-   client_celery_producer=Celery("producer",broker=config_redis_url,backend=config_redis_url)
-   return client_celery_producer
-
-async def function_client_read_redis_consumer(client_redis,channel_name):
-   client_redis_consumer=client_redis.pubsub()
-   await client_redis_consumer.subscribe(channel_name)
-   return client_redis_consumer
-
 import aio_pika
 async def function_client_read_rabbitmq(config_rabbitmq_url):
    client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
    client_rabbitmq_channel=await client_rabbitmq.channel()
    return client_rabbitmq,client_rabbitmq_channel
+
+from openai import OpenAI
+def function_client_read_openai(config_openai_key):
+   client_openai=OpenAI(api_key=config_openai_key)
+   return client_openai
+
+#celery
+from celery import Celery
+async def function_client_read_celery_producer(config_celery_broker_url):
+   client_celery_producer=Celery("producer",broker=config_celery_broker_url,backend=config_celery_broker_url)
+   return client_celery_producer
+
+from celery import Celery
+def function_client_read_celery_consumer(config_celery_broker_url):
+   client_celery_consumer=Celery("worker",broker=config_celery_broker_url,backend=config_celery_broker_url)
+   return client_celery_consumer
+
+async def function_producer_celery(client_celery_producer,function,param_list):
+   output=client_celery_producer.send_task(function,args=param_list)
+   return output.id
+
+#producer
+import json
+async def function_producer_kafka(client_kafka_producer,channel_name,payload):
+   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
+   return output
 
 from aiokafka import AIOKafkaProducer
 async def function_client_read_kafka_producer(config_kafka_url,config_kafka_username,config_kafka_password):
@@ -74,17 +90,28 @@ async def function_client_read_kafka_producer(config_kafka_url,config_kafka_user
     await client_kafka_producer.start()
     return client_kafka_producer
 
+import json
+async def function_producer_redis(client_redis,channel_name,payload):
+   output=await client_redis.publish(channel_name,json.dumps(payload))
+   return output
+
+import json,aio_pika
+async def function_producer_rabbitmq(client_rabbitmq_channel,channel_name,payload):
+   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(payload).encode()),routing_key=channel_name)
+   return output
+
+#consumer
+async def function_client_read_redis_consumer(client_redis,channel_name):
+   client_redis_consumer=client_redis.pubsub()
+   await client_redis_consumer.subscribe(channel_name)
+   return client_redis_consumer
+
 from aiokafka import AIOKafkaConsumer
 async def function_client_read_kafka_consumer(config_kafka_url,config_kafka_username,config_kafka_password,topic_name,group_id,enable_auto_commit):
     client_kafka_consumer=AIOKafkaConsumer(topic_name,bootstrap_servers=config_kafka_url,group_id=group_id, security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=config_kafka_username,sasl_plain_password=config_kafka_password,auto_offset_reset="earliest",enable_auto_commit=enable_auto_commit)
     await client_kafka_consumer.start()
     return client_kafka_consumer
  
-from openai import OpenAI
-def function_client_read_openai(config_openai_key):
-   client_openai=OpenAI(api_key=config_openai_key)
-   return client_openai
-
 #fastapi
 from fastapi import FastAPI
 def function_fastapi_app_read(is_debug,lifespan):
@@ -402,26 +429,6 @@ async def function_cache_api_response(mode,request,response,client_redis,config_
          inmemory_cache[cache_key]={"data":base64.b64encode(gzip.compress(body)).decode(),"expire_at":time.time()+expire_sec}
       response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
    return response
-
-#producer
-import json
-async def function_producer_redis(client_redis,channel_name,payload):
-   output=await client_redis.publish(channel_name,json.dumps(payload))
-   return output
-
-import json,aio_pika
-async def function_producer_rabbitmq(client_rabbitmq_channel,channel_name,payload):
-   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(payload).encode()),routing_key=channel_name)
-   return output
-
-import json
-async def function_producer_kafka(client_kafka_producer,channel_name,payload):
-   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
-   return output
-
-async def function_producer_celery(client_celery_producer,function,param_list):
-   output=client_celery_producer.send_task(function,args=param_list)
-   return output.id
 
 #send
 async def function_send_email_ses(client_ses,email_from,email_to_list,title,body):

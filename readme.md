@@ -78,7 +78,7 @@ pip install -r requirements.txt
 - `config_key_jwt`: secret key used for signing and verifying JWT tokens
 ```env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
-config_redis_url=config_redis_url=redis://localhost:6379
+config_redis_url=redis://localhost:6379
 config_key_root=any random secret key (2n91nIEaJpsqjFUz)
 config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 ```
@@ -285,14 +285,14 @@ config_posthog_project_key=value
 
 <br>
 
-- Start Redis server locally or remotely
+- Start broker server (redis/rabbitmq)
 - Add the following key to your `.env` file
 ```bash
-config_redis_url=redis://:<password>@<host>:<port>
+config_celery_broker_url=redis://localhost:6379
 ```
 - check `/celery-producer` in `router.py` file for sample useage
-- You can use any other function by extending the producer logic 
 - You can directly call `function_producer_celery` in your own routes 
+- You can use any other function by extending the producer logic 
 - Check `consumer_celery.py` file for consumer logic
 - How to run `consumer_celery.py` file
 ```bash
@@ -373,7 +373,7 @@ if payload["function"] == "your_custom_function":
 - Start Redis server locally or remotely
 - Add the following key to your `.env` file
 ```bash
-config_redis_url=redis://localhost:6379
+config_redis_pubsub_url=redis://localhost:6379
 ```
 - check `/redis-producer` in `router.py` file for sample useage
 - You can use any other function/channel by extending the producer logic 

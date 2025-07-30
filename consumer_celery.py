@@ -1,4 +1,5 @@
 #function
+from function import function_client_read_celery_consumer
 from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
@@ -7,15 +8,15 @@ from function import function_postgres_query_runner
 import os
 from dotenv import load_dotenv
 load_dotenv()
-config_redis_url=os.getenv("config_redis_url")
+config_celery_broker_url=os.getenv("config_celery_broker_url")
 config_postgres_url=os.getenv("config_postgres_url")
 
 #import
 import asyncio,traceback
-from celery import Celery,signals
+from celery import signals
 
 #client
-client_celery_consumer=Celery("worker",broker=config_redis_url,backend=config_redis_url)
+client_celery_consumer=function_client_read_celery_consumer(config_celery_broker_url)
 client_postgres=None
 postgres_schema=None
 postgres_column_datatype=None
