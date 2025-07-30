@@ -103,15 +103,15 @@ async def function_producer_rabbitmq(client_rabbitmq_channel,channel_name,payloa
    return output
 
 #redis
-import json
-async def function_producer_redis(client_redis,channel_name,payload):
-   output=await client_redis.publish(channel_name,json.dumps(payload))
-   return output
-
 async def function_client_read_redis_consumer(client_redis,channel_name):
    client_redis_consumer=client_redis.pubsub()
    await client_redis_consumer.subscribe(channel_name)
    return client_redis_consumer
+
+import json
+async def function_producer_redis(client_redis,channel_name,payload):
+   output=await client_redis.publish(channel_name,json.dumps(payload))
+   return output
 
 #fastapi
 from fastapi import FastAPI

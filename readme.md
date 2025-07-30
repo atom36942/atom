@@ -116,7 +116,7 @@ git clone https://github.com/atom36942/atom.git       # Clone the repository
 cd atom                                               # Navigate into project directory
 python3 -m venv venv                                  # Create a virtual environment
 ./venv/bin/pip install -r requirements.txt            # Install requirements
-touch .env                                            # Create .env file for environment variables
+touch .env                                            # Create .env file
 ./venv/bin/python main.py                             # Run directly
 ./venv/bin/uvicorn main:app --reload                  # Start the server with reload
 ./venv/bin/pip install fastapi                        # Install package (ex FastAPI)
@@ -293,12 +293,13 @@ config_celery_broker_url=redis://localhost:6379
 - Check `/celery-producer` in `router.py` file for sample useage
 - Check `consumer_celery.py` file for consumer logic
 - You can extend both producer and consumer
-- How to run `consumer_celery.py` file
+- How to run `consumer_celery.py` file:
 ```bash
 celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
- ./venv/bin/celery -A consumer_celery worker --loglevel=info    # Run without activating virtualenv
+./venv/bin/celery -A consumer_celery worker --loglevel=info    # Run without activating virtualenv
 ```
 </details>
+
 
 
 
@@ -317,7 +318,7 @@ config_kafka_password=value
 - Check `/kafka-producer` in `router.py` file for sample useage
 - Check `consumer_kafka.py` file for consumer logic
 - You can extend both producer and consumer
-- How to run `consumer_kafka.py` file
+- How to run `consumer_kafka.py` file:
 ```bash
 python consumer_kafka.py                # Run with activated virtualenv
 ./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
@@ -340,7 +341,7 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 - Check `/rabbitmq-producer` in `router.py` file for sample useage
 - Check `consumer_rabbitmq.py` file for consumer logic
 - You can extend both producer and consumer
-- How to run `consumer_rabbitmq.py` file
+- How to run `consumer_rabbitmq.py` file:
 ```bash
 python consumer_rabbitmq.py                # Run with activated virtualenv
 ./venv/bin/python consumer_rabbitmq.py     # Run without activating virtualenv
@@ -363,7 +364,7 @@ config_redis_pubsub_url=redis://localhost:6379
 - Check `/redis-producer` in `router.py` file for sample useage
 - Check `consumer_redis.py` file for consumer logic
 - You can extend both producer and consumer
-- How to run `consumer_redis.py` file
+- How to run `consumer_redis.py` file:
 ```bash
 python consumer_redis.py                # Run with activated virtualenv
 ./venv/bin/python consumer_redis.py     # Run without activating virtualenv
