@@ -69,7 +69,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
-### 2 Setup env
+### 2. Setup env
 - Create a `.env` file in the root directory with min 4 keys 
 - You can use local or remote URLs for Postgres and Redis
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
@@ -291,16 +291,13 @@ config_posthog_project_key=value
 config_celery_broker_url=redis://localhost:6379
 ```
 - Check `/celery-producer` in `router.py` file for sample useage
-- You can directly call `function_producer_celery` in your own routes 
-- You can use any other function by extending the producer logic 
 - Check `consumer_celery.py` file for consumer logic
+- You can extend both producer and consumer
 - How to run `consumer_celery.py` file
 ```bash
 celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
  ./venv/bin/celery -A consumer_celery worker --loglevel=info    # Run without activating virtualenv
 ```
-- The consumer dispatches tasks based on the function name passed in the producer
-- To extend, add more cases, you can write more function task logic.
 </details>
 
 
@@ -318,21 +315,15 @@ config_kafka_username=value
 config_kafka_password=value
 ```
 - Check `/kafka-producer` in `router.py` file for sample useage
-- You can directly call `function_producer_kafka` in your own routes 
-- You can use any other function/channel by extending the producer logic 
 - Check `consumer_kafka.py` file for consumer logic
+- You can extend both producer and consumer
 - How to run `consumer_kafka.py` file
 ```bash
 python consumer_kafka.py                # Run with activated virtualenv
 ./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
 ```
-- The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
-- To extend, add more cases:
-```python
-if payload["function"] == "your_custom_function":
-    await your_custom_function(...)
-```
 </details>
+
 
 
 
@@ -347,21 +338,15 @@ if payload["function"] == "your_custom_function":
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
 - Check `/rabbitmq-producer` in `router.py` file for sample useage
-- You can directly call `function_producer_rabbitmq` in your own routes 
-- You can use any other function/channel by extending the producer logic 
 - Check `consumer_rabbitmq.py` file for consumer logic
+- You can extend both producer and consumer
 - How to run `consumer_rabbitmq.py` file
 ```bash
 python consumer_rabbitmq.py                # Run with activated virtualenv
 ./venv/bin/python consumer_rabbitmq.py     # Run without activating virtualenv
 ```
-- The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
-- To extend, add more cases:
-```python
-if payload["function"] == "your_custom_function":
-    await your_custom_function(...)
-```
 </details>
+
 
 
 
@@ -376,21 +361,16 @@ if payload["function"] == "your_custom_function":
 config_redis_pubsub_url=redis://localhost:6379
 ```
 - Check `/redis-producer` in `router.py` file for sample useage
-- You can directly call `function_producer_redis` in your own routes 
-- You can use any other function/channel by extending the producer logic 
 - Check `consumer_redis.py` file for consumer logic
+- You can extend both producer and consumer
 - How to run `consumer_redis.py` file
 ```bash
 python consumer_redis.py                # Run with activated virtualenv
 ./venv/bin/python consumer_redis.py     # Run without activating virtualenv
 ```
-- The consumer dispatches tasks based on the `"function"` key using `if-elif` logic
-- To extend, add more cases:
-```python
-if payload["function"] == "your_custom_function":
-    await your_custom_function(...)
-```
 </details>
+
+
 
 
 
