@@ -318,8 +318,8 @@ config_kafka_username=value
 config_kafka_password=value
 ```
 - check `/kafka-producer` in `router.py` file for sample useage
-- You can use any other function/channel by extending the producer logic 
 - You can directly call `function_producer_kafka` in your own routes 
+- You can use any other function/channel by extending the producer logic 
 - Check `consumer_kafka.py` file for consumer logic
 - How to run `consumer_kafka.py` file
 ```bash
