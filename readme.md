@@ -122,8 +122,10 @@ touch .env                                            # Create .env file
 ./venv/bin/pip install fastapi                        # Install package (ex FastAPI)
 ./venv/bin/pip freeze > requirements.txt              # Freeze updated dependencies
 ./venv/bin/pip install --upgrade fastapi              # Upgrade package (ex FastAPI)
+./venv/bin/pip uninstall fastapi                      # Uninstall package (ex FastAPI)
 ```
 </details>
+
 
 
 
@@ -411,5 +413,24 @@ request.app.state.client_postgres_read
  ```
 </details>
 
+
+
+
+<details>
+<summary>Mongodb</summary>
+
+<br>
+
+- Prebuilt ko
+- Add the following key to your `.env` file
+```bash
+config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
+```
+- Use client_postgres_read in your routes
+- You can check - https://github.com/encode/databases for how to use the client
+```bash
+request.app.state.client_postgres_read 
+ ```
+</details>
 
 
