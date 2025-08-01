@@ -1036,6 +1036,7 @@ import os
 from dotenv import load_dotenv, dotenv_values
 import importlib.util
 from pathlib import Path
+import traceback
 def function_config_read():
    def read_env_file(path):
       load_dotenv(path)
@@ -1048,11 +1049,19 @@ def function_config_read():
          for file in files:
             if file.endswith(".py") and (file.startswith("config") or is_config_folder):
                module_path = os.path.join(root, file)
-               module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
-               spec = importlib.util.spec_from_file_location(module_name, module_path)
-               module = importlib.util.module_from_spec(spec)
-               spec.loader.exec_module(module)
-               output.update({k.lower(): getattr(module, k) for k in dir(module) if not k.startswith("__")})
+               try:
+                  rel_path = os.path.relpath(module_path, base_dir)
+                  module_name = os.path.splitext(rel_path)[0].replace(os.sep, ".")
+                  if not module_name.strip():
+                     continue
+                  spec = importlib.util.spec_from_file_location(module_name, module_path)
+                  if spec and spec.loader:
+                     module = importlib.util.module_from_spec(spec)
+                     spec.loader.exec_module(module)
+                     output.update({k.lower(): getattr(module, k) for k in dir(module) if not k.startswith("__")})
+               except Exception as e:
+                  print(f"[WARN] Failed to load module: {module_path}")
+                  traceback.print_exc()
       return output
    base_dir = Path(__file__).parent
    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
