@@ -171,7 +171,6 @@ import os
 import importlib.util
 from pathlib import Path
 import traceback
-
 def function_add_router(app,pattern):
    base_dir = Path(__file__).parent
    def load_module(module_path):
