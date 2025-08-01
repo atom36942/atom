@@ -1038,16 +1038,36 @@ import importlib.util
 from pathlib import Path
 import traceback
 def function_config_read():
-   def read_env_file(path):
-      load_dotenv(path)
-      return {k.lower(): v for k, v in dotenv_values(path).items()}
-   def read_config_modules(base_dir, skip_dirs):
+   base_dir = Path(__file__).parent
+   def read_env_file():
+      load_dotenv(base_dir / ".env")
+      return {k.lower(): v for k, v in dotenv_values(base_dir / ".env").items()}
+   def read_root_config_py_files():
+      output = {}
+      for file in os.listdir(base_dir):
+         if file.startswith("config") and file.endswith(".py"):
+            module_path = base_dir / file
+            try:
+               module_name = os.path.splitext(file)[0]
+               spec = importlib.util.spec_from_file_location(module_name, module_path)
+               if spec and spec.loader:
+                  module = importlib.util.module_from_spec(spec)
+                  spec.loader.exec_module(module)
+                  output.update({
+                     k.lower(): getattr(module, k)
+                     for k in dir(module) if not k.startswith("__")
+                  })
+            except Exception as e:
+               print(f"[WARN] Failed to load root config file: {module_path}")
+               traceback.print_exc()
+      return output
+   def read_config_folder_files():
       output = {}
       for root, dirs, files in os.walk(base_dir):
-         dirs[:] = [d for d in dirs if d not in skip_dirs]
-         is_config_folder = os.path.basename(root).startswith("config")
+         if os.path.basename(root) != "config":
+            continue
          for file in files:
-            if file.endswith(".py") and (file.startswith("config") or is_config_folder):
+            if file.endswith(".py"):
                module_path = os.path.join(root, file)
                try:
                   rel_path = os.path.relpath(module_path, base_dir)
@@ -1058,15 +1078,18 @@ def function_config_read():
                   if spec and spec.loader:
                      module = importlib.util.module_from_spec(spec)
                      spec.loader.exec_module(module)
-                     output.update({k.lower(): getattr(module, k) for k in dir(module) if not k.startswith("__")})
+                     output.update({
+                        k.lower(): getattr(module, k)
+                        for k in dir(module) if not k.startswith("__")
+                     })
                except Exception as e:
-                  print(f"[WARN] Failed to load module: {module_path}")
+                  print(f"[WARN] Failed to load config folder file: {module_path}")
                   traceback.print_exc()
       return output
-   base_dir = Path(__file__).parent
-   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
-   output = read_env_file(".env")
-   output.update(read_config_modules(base_dir, skip_dirs))
+   output = {}
+   output.update(read_env_file())
+   output.update(read_root_config_py_files())
+   output.update(read_config_folder_files())
    return output
 
 def function_converter_numeric(mode,x):
