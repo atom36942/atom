@@ -1063,34 +1063,36 @@ def function_config_read():
       return output
    def read_config_folder_files():
       output = {}
-      for root, dirs, files in os.walk(base_dir):
-         if os.path.basename(root) != "config":
-            continue
-         for file in files:
-            if file.endswith(".py"):
-               module_path = os.path.join(root, file)
-               try:
-                  rel_path = os.path.relpath(module_path, base_dir)
-                  module_name = os.path.splitext(rel_path)[0].replace(os.sep, ".")
-                  if not module_name.strip():
-                     continue
-                  spec = importlib.util.spec_from_file_location(module_name, module_path)
-                  if spec and spec.loader:
-                     module = importlib.util.module_from_spec(spec)
-                     spec.loader.exec_module(module)
-                     output.update({
-                        k.lower(): getattr(module, k)
-                        for k in dir(module) if not k.startswith("__")
-                     })
-               except Exception as e:
-                  print(f"[WARN] Failed to load config folder file: {module_path}")
-                  traceback.print_exc()
+      config_dir = base_dir / "config"
+      if not config_dir.exists() or not config_dir.is_dir():
+         return output
+      for file in os.listdir(config_dir):
+         if file.endswith(".py"):
+            module_path = config_dir / file
+            try:
+               rel_path = os.path.relpath(module_path, base_dir)
+               module_name = os.path.splitext(rel_path)[0].replace(os.sep, ".")
+               if not module_name.strip():
+                  continue
+               spec = importlib.util.spec_from_file_location(module_name, module_path)
+               if spec and spec.loader:
+                  module = importlib.util.module_from_spec(spec)
+                  spec.loader.exec_module(module)
+                  output.update({
+                     k.lower(): getattr(module, k)
+                     for k in dir(module) if not k.startswith("__")
+                  })
+            except Exception as e:
+               print(f"[WARN] Failed to load config folder file: {module_path}")
+               traceback.print_exc()
       return output
    output = {}
    output.update(read_env_file())
    output.update(read_root_config_py_files())
    output.update(read_config_folder_files())
    return output
+
+
 
 def function_converter_numeric(mode,x):
    MAX_LEN = 30
