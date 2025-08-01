@@ -1,6 +1,5 @@
 #function
 from function import *
-test
 
 #config
 config=function_config_read()
@@ -153,13 +152,13 @@ async def route_root_postgres_init(request:Request):
    await function_postgres_schema_init(request.app.state.client_postgres,request.app.state.config_postgres_schema,function_postgres_schema_read)
    return {"status":1,"message":"done"}
 
-@app.post("/root/postgres-csv-export")
-async def route_root_postgres_csv_export(request:Request):
+@app.post("/root/postgres-export")
+async def route_root_postgres_export(request:Request):
    object,[query]=await function_param_read("body",request,["query"],[])
    return responses.StreamingResponse(function_postgres_stream(request.app.state.client_postgres_asyncpg_pool,query),media_type="text/csv",headers={"Content-Disposition": "attachment; filename=query_result.csv"})
 
-@app.post("/root/postgres-csv-import")
-async def route_root_postgres_csv_import(request:Request):
+@app.post("/root/postgres-import")
+async def route_root_postgres_import(request:Request):
    object,[mode,table,file_list]=await function_param_read("form",request,["mode","table","file_list"],[])
    object_list=await function_file_to_object_list(file_list[-1])
    if mode=="create":output=await function_object_create_postgres(request.app.state.client_postgres,table,object_list,1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
@@ -167,13 +166,20 @@ async def route_root_postgres_csv_import(request:Request):
    if mode=="delete":output=await function_object_delete_postgres(request.app.state.client_postgres,table,object_list,1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":output}
 
-@app.post("/root/redis-csv-import")
-async def route_root_redis_csv_import(request:Request):
+@app.post("/root/redis-import")
+async def route_root_redis_import(request:Request):
    object,[table,file_list,expiry_sec]=await function_param_read("form",request,["table","file_list"],["expiry_sec"])
    object_list=await function_file_to_object_list(file_list[-1])
    key_list=[f"{table}_{item['id']}" for item in object_list]
    await function_object_create_redis(request.app.state.client_redis,key_list,object_list,expiry_sec)
    return {"status":1,"message":"done"}
+
+@app.post("/root/mongodb-import")
+async def route_root_mongodb_import(request:Request):
+   object,[database,table,file_list]=await function_param_read("form",request,["database","table","file_list"],[])
+   object_list=await function_file_to_object_list(file_list[-1])
+   output=await function_object_create_mongodb(request.app.state.client_mongodb,database,table,object_list)
+   return {"status":1,"message":output}
 
 @app.post("/root/s3-bucket-ops")
 async def route_root_s3_bucket_ops(request:Request):

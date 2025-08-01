@@ -383,10 +383,9 @@ python consumer_redis.py                # Run with activated virtualenv
 <br>
 
 - Atom has prebuilt postgres connection using two package Databases/Asyncpg
+- You can use postgres client/pool to execute any raw sql in your router
 - Databases - https://github.com/encode/databases
 - Asyncpg - https://github.com/MagicStack/asyncpg
-- You can use postgres client/pool to execute any raw sql in your router by refering official docs
-- Check `/postgres` in `router.py` file for sample useage
 ```python
 request.app.state.client_postgres 
 request.app.state.client_postgres_asyncpg

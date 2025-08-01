@@ -52,14 +52,6 @@ async def route_posthog(request:Request):
    request.app.state.client_posthog.capture(distinct_id="user_2",event="posthog kt",properties={"name":"atom","title":"testing"})
    return {"status":1,"message":"done"}
 
-#postgres
-@router.get("/postgres")
-async def route_postgres(request:Request):
-   table="test"
-   object={"created_by_id":request.state.user.get("id"),"title":"router"}
-   await function_object_create_postgres(request.app.state.client_postgres,table,[object],0,None,None)
-   return {"status":1,"message":"done"}
-
 #postgres create
 @router.get("/postgres-create")
 async def route_postgres_create(request:Request):
