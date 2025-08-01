@@ -170,21 +170,39 @@ def function_add_sentry(config_sentry_dsn):
 import os
 import importlib.util
 from pathlib import Path
+import traceback
+
 def function_add_router(app,pattern):
    base_dir = Path(__file__).parent
-   skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache"}
-   for root, dirs, files in os.walk(base_dir):
-      dirs[:] = [d for d in dirs if d not in skip_dirs]
-      is_router_folder = os.path.basename(root).startswith(pattern)
-      for file in files:
-         if file.endswith(".py") and (file.startswith(pattern) or is_router_folder):
-            module_path = os.path.join(root, file)
-            module_name = os.path.splitext(os.path.relpath(module_path, base_dir))[0].replace(os.sep, ".")
-            spec = importlib.util.spec_from_file_location(module_name, module_path)
+   def load_module(module_path):
+      try:
+         rel_path = os.path.relpath(module_path, base_dir)
+         module_name = os.path.splitext(rel_path)[0].replace(os.sep, ".")
+         if not module_name.strip():
+            return
+         spec = importlib.util.spec_from_file_location(module_name, module_path)
+         if spec and spec.loader:
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             if hasattr(module, pattern):
                app.include_router(module.router)
+      except Exception as e:
+         print(f"[WARN] Failed to load router module: {module_path}")
+         traceback.print_exc()
+   def add_root_pattern_files():
+      for file in os.listdir(base_dir):
+         if file.startswith(pattern) and file.endswith(".py"):
+            module_path = base_dir / file
+            load_module(module_path)
+   def add_pattern_folder_files():
+      router_dir = base_dir / pattern
+      if router_dir.exists() and router_dir.is_dir():
+         for file in os.listdir(router_dir):
+            if file.endswith(".py"):
+               module_path = router_dir / file
+               load_module(module_path)
+   add_root_pattern_files()
+   add_pattern_folder_files()
    return None
 
 #object
