@@ -1,5 +1,6 @@
 #function
 from function import *
+test
 
 #config
 config=function_config_read()
@@ -287,7 +288,7 @@ async def route_my_object_create(request:Request):
    elif queue:
       payload={"function":"function_object_create_postgres","table":table,"object_list":[object],"is_serialize":is_serialize}
       if queue=="batch":output=await function_object_create_postgres_batch(function_object_create_postgres,request.app.state.client_postgres,table,object,request.app.state.config_batch_object_create,is_serialize,function_object_serialize,request.app.state.cache_postgres_column_datatype)
-      elif queue.startswith("mongodb"):output=await function_object_create_mongodb(table,[object],queue.split('_')[1],request.app.state.client_mongodb)
+      elif queue.startswith("mongodb"):output=await function_object_create_mongodb(request.app.state.client_mongodb,queue.split('_')[1],table,[object])
       elif queue=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
       elif queue=="rabbitmq":output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",payload)
       elif queue=="redis":output=await function_producer_redis(request.app.state.client_redis_producer,"channel_1",payload)

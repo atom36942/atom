@@ -386,6 +386,7 @@ python consumer_redis.py                # Run with activated virtualenv
 - Databases - https://github.com/encode/databases
 - Asyncpg - https://github.com/MagicStack/asyncpg
 - You can use postgres client/pool to execute any raw sql in your router by refering official docs
+- Check `/postgres` in `router.py` file for sample useage
 ```python
 request.app.state.client_postgres 
 request.app.state.client_postgres_asyncpg
@@ -421,15 +422,15 @@ request.app.state.client_postgres_read
 
 <br>
 
-- Prebuilt ko
+- Prebuilt Mongodb connection
+- For documenation - https://motor.readthedocs.io/en/stable/
 - Add the following key to your `.env` file
 ```bash
-config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
+config_mongodb_url=mongodb://localhost:27017
 ```
-- Use client_postgres_read in your routes
-- You can check - https://github.com/encode/databases for how to use the client
+- Use client_mongodb in your routes
 ```bash
-request.app.state.client_postgres_read 
+request.app.state.client_mongodb 
  ```
 </details>
 
