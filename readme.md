@@ -727,10 +727,10 @@ config_batch_log_api=value
 <br>
 
 - Prebuilt `config_postgres_schema` dict is defined in `config.py` to initialize PostgreSQL schema.
-- You can add your own tables and queries to it.
 - It has two keys: `table` and `query`.
 - `table` contains table definitions.
 - `query` contains extra SQL queries to run.
+- You can add your own table and query to it.
 - Understanding `table` columns:-
 ```python
 "type-bigint-0-btree"
@@ -748,4 +748,18 @@ config_batch_log_api=value
 
 
 
+
+<details>
+<summary>Lifespan</summary>
+
+<br>
+
+- Initializes service clients at startup: Postgres, Redis, MongoDB, Kafka, RabbitMQ, Celery, AWS (S3/SNS/SES), OpenAI, PostHog.
+- Supports both sync and async Postgres clients, including read replicas and pools.
+- Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
+- Injects all `config_`, `client_`, and `cache_` variables into `app.state`.
+- Cleans up all clients on shutdown (disconnect/close/flush).
+- No client is required — each is conditionally initialized if config is present.
+- All startup exceptions are logged via `traceback`.
+</details>
 
