@@ -37,7 +37,7 @@ async def function_client_read_s3(config_aws_access_key_id,config_aws_secret_acc
    return client_s3,client_s3_resource
 
 import boto3
-async def function_client_read_sns(config_sns_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+async def function_client_read_sns(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name):
    client_sns=boto3.client("sns",region_name=config_sns_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_sns
 

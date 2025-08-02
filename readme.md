@@ -443,11 +443,11 @@ request.app.state.client_mongodb
 
 
 <details>
-<summary>AWS s3</summary>
+<summary>AWS S3</summary>
 
 <br>
 
-- Prebuilt AWS s3 connection
+- Prebuilt AWS S3 connection
 - Docs - https://boto3.amazonaws.com
 - Add the following key to your `.env` file
 ```bash
@@ -461,4 +461,27 @@ request.app.state.client_s3
 request.app.state.client_s3_resource 
  ```
 </details>
+
+
+
+
+<details>
+<summary>AWS SNS</summary>
+
+<br>
+
+- Prebuilt AWS SNS connection
+- Docs - https://boto3.amazonaws.com
+- Add the following key to your `.env` file
+```bash
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_sns_region_name=value
+```
+- Use client in your routes
+```bash
+request.app.state.client_sns 
+ ```
+</details>
+
 
