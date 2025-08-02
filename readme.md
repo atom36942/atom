@@ -388,9 +388,9 @@ python consumer_redis.py                # Run with activated virtualenv
 <br>
 
 - Atom has prebuilt postgres connection using two package Databases/Asyncpg
-- You can use postgres client/pool to execute any raw sql in your router
 - Databases - https://github.com/encode/databases
 - Asyncpg - https://github.com/MagicStack/asyncpg
+- Use client in your routes to execute any raw sql in your router
 ```python
 request.app.state.client_postgres 
 request.app.state.client_postgres_asyncpg
@@ -401,18 +401,19 @@ request.app.state.client_postgres_asyncpg_pool
 
 
 
+
 <details>
 <summary>Postgres Read Replica</summary>
 
 <br>
 
 - Prebuilt Postgres read replica config is available.
+- docs - https://github.com/encode/databases
 - Add the following key to your `.env` file
 ```bash
 config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
 ```
-- Use client_postgres_read in your routes
-- You can check - https://github.com/encode/databases for how to use the client
+- Use client in your routes
 ```bash
 request.app.state.client_postgres_read 
  ```
@@ -427,15 +428,37 @@ request.app.state.client_postgres_read
 <br>
 
 - Prebuilt Mongodb connection
-- For documenation - https://motor.readthedocs.io/en/stable/
+- Docs - https://motor.readthedocs.io/en/stable
 - Add the following key to your `.env` file
 ```bash
 config_mongodb_url=mongodb://localhost:27017
 ```
-- Use client_mongodb in your routes
+- Use client in your routes
 ```bash
 request.app.state.client_mongodb 
  ```
 </details>
 
+
+
+
+<details>
+<summary>AWS s3</summary>
+
+<br>
+
+- Prebuilt AWS s3 connection
+- Docs - https://boto3.amazonaws.com
+- Add the following key to your `.env` file
+```bash
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_s3_region_name=value
+```
+- Use client in your routes
+```bash
+request.app.state.client_s3 
+request.app.state.client_s3_resource 
+ ```
+</details>
 

@@ -31,7 +31,7 @@ async def function_client_read_posthog(config_posthog_project_key,config_posthog
    return client_posthog
 
 import boto3
-async def function_client_read_s3(config_s3_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+async def function_client_read_s3(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name):
    client_s3=boto3.client("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    client_s3_resource=boto3.resource("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_s3,client_s3_resource
