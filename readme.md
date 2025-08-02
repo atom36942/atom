@@ -797,3 +797,20 @@ config_cors_headers_list
 config_cors_allow_credentials
 ```
 </details>
+
+
+
+
+
+<details>
+<summary>Prometheus</summary>
+
+<br>
+
+- Enable Prometheus metrics by addding below config key:
+```bash
+config_is_prometheus=1
+```
+</details>
+
+
