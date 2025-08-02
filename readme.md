@@ -260,14 +260,17 @@ request.state.user.get("mobile")
 - Add `/admin` in the route path to mark it as an admin API  
 - Check the `curl.txt` file for examples under the admin section  
 - `/admin` APIs are meant for routes that should be restricted to limited users.  
-- Access control is done by middleware using token checks and the `api_access` column in the users table.
+- Access control is check by middleware using token
 - Assign a unique ID in the `config_api` variable in `config.py` (check existing samples there)  
 - Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
 - Example to give user_id=1 access to admin APIs with IDs 1,2,3
 ```sql
 update users set api_access='1,2,3' where id=1
-```  
+```
+- To revoke access, update `api_access` column and refresh token 
 </details>
+
+
 
 
 
@@ -604,3 +607,20 @@ config_google_login_client_id=value
 
 
 
+
+<details>
+<summary>OpenAI</summary>
+
+<br>
+
+- Prebuilt OpenAI connection
+- Docs - https://github.com/openai/openai-python
+- Add the following key to your `.env` file
+```bash
+config_openai_key=value
+```
+- Use client in your routes
+```bash
+request.app.state.client_openai 
+ ```
+</details>

@@ -102,3 +102,4 @@ config_postgres_schema={
 "unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
 }
 }
+

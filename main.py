@@ -2,7 +2,7 @@
 from function import *
 
 #config
-config=function_config_read()
+config=function_add_config()
 config_postgres_url=config.get("config_postgres_url")
 config_postgres_url_read=config.get("config_postgres_url_read")
 config_postgres_min_connection=int(config.get("config_postgres_min_connection",5))
@@ -31,7 +31,7 @@ config_key_jwt=config.get("config_key_jwt")
 config_sentry_dsn=config.get("config_sentry_dsn")
 config_google_login_client_id=config.get("config_google_login_client_id")
 config_openai_key=config.get("config_openai_key")
-config_mode_check_api_access=config.get("config_mode_check_api_access","cache")
+config_mode_check_api_access=config.get("config_mode_check_api_access","token")
 config_mode_check_is_active=config.get("config_mode_check_is_active","token")
 config_token_expire_sec=int(config.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(config.get("config_is_signup",1))
