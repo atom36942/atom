@@ -2,7 +2,7 @@
 from function import *
 
 #config
-config=function_add_config()
+config=function_config_read()
 config_postgres_url=config.get("config_postgres_url")
 config_postgres_url_read=config.get("config_postgres_url_read")
 config_postgres_min_connection=int(config.get("config_postgres_min_connection",5))

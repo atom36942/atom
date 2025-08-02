@@ -168,69 +168,6 @@ def function_add_sentry(config_sentry_dsn):
    return None
 
 import os
-from dotenv import load_dotenv, dotenv_values
-import importlib.util
-from pathlib import Path
-import traceback
-def function_add_config():
-    base_dir = Path(__file__).resolve().parent
-    def read_env_file():
-        env_path = base_dir / ".env"
-        if env_path.exists():
-            load_dotenv(env_path)
-            return {k.lower(): v for k, v in dotenv_values(env_path).items()}
-        return {}
-    def read_root_config_py_files():
-        output = {}
-        for file in os.listdir(base_dir):
-            if file.startswith("config") and file.endswith(".py"):
-                module_path = base_dir / file
-                try:
-                    module_name = os.path.splitext(file)[0]
-                    spec = importlib.util.spec_from_file_location(module_name, module_path)
-                    if spec and spec.loader:
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        output.update({
-                            k.lower(): getattr(module, k)
-                            for k in dir(module) if not k.startswith("__")
-                        })
-                except Exception:
-                    print(f"[WARN] Failed to load root config file: {module_path}")
-                    traceback.print_exc()
-        return output
-    def read_config_folder_files():
-        output = {}
-        config_dir = base_dir / "config"
-        if not config_dir.exists() or not config_dir.is_dir():
-            return output
-        for file in os.listdir(config_dir):
-            if file.endswith(".py"):
-                module_path = config_dir / file
-                try:
-                    rel_path = os.path.relpath(module_path, base_dir)
-                    module_name = os.path.splitext(rel_path)[0].replace(os.sep, ".")
-                    if not module_name.strip():
-                        continue
-                    spec = importlib.util.spec_from_file_location(module_name, module_path)
-                    if spec and spec.loader:
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        output.update({
-                            k.lower(): getattr(module, k)
-                            for k in dir(module) if not k.startswith("__")
-                        })
-                except Exception:
-                    print(f"[WARN] Failed to load config folder file: {module_path}")
-                    traceback.print_exc()
-        return output
-    output = {}
-    output.update(read_env_file())
-    output.update(read_root_config_py_files())
-    output.update(read_config_folder_files())
-    return output
-
-import os
 import importlib.util
 from pathlib import Path
 import traceback
@@ -1007,6 +944,69 @@ async def function_openai_ocr(client_openai,model,file,prompt):
    return output
 
 #utilities
+import os
+from dotenv import load_dotenv, dotenv_values
+import importlib.util
+from pathlib import Path
+import traceback
+def function_config_read():
+    base_dir = Path(__file__).resolve().parent
+    def read_env_file():
+        env_path = base_dir / ".env"
+        if env_path.exists():
+            load_dotenv(env_path)
+            return {k.lower(): v for k, v in dotenv_values(env_path).items()}
+        return {}
+    def read_root_config_py_files():
+        output = {}
+        for file in os.listdir(base_dir):
+            if file.startswith("config") and file.endswith(".py"):
+                module_path = base_dir / file
+                try:
+                    module_name = os.path.splitext(file)[0]
+                    spec = importlib.util.spec_from_file_location(module_name, module_path)
+                    if spec and spec.loader:
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+                        output.update({
+                            k.lower(): getattr(module, k)
+                            for k in dir(module) if not k.startswith("__")
+                        })
+                except Exception:
+                    print(f"[WARN] Failed to load root config file: {module_path}")
+                    traceback.print_exc()
+        return output
+    def read_config_folder_files():
+        output = {}
+        config_dir = base_dir / "config"
+        if not config_dir.exists() or not config_dir.is_dir():
+            return output
+        for file in os.listdir(config_dir):
+            if file.endswith(".py"):
+                module_path = config_dir / file
+                try:
+                    rel_path = os.path.relpath(module_path, base_dir)
+                    module_name = os.path.splitext(rel_path)[0].replace(os.sep, ".")
+                    if not module_name.strip():
+                        continue
+                    spec = importlib.util.spec_from_file_location(module_name, module_path)
+                    if spec and spec.loader:
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+                        output.update({
+                            k.lower(): getattr(module, k)
+                            for k in dir(module) if not k.startswith("__")
+                        })
+                except Exception:
+                    print(f"[WARN] Failed to load config folder file: {module_path}")
+                    traceback.print_exc()
+        return output
+    output = {}
+    output.update(read_env_file())
+    output.update(read_root_config_py_files())
+    output.update(read_config_folder_files())
+    return output
+ 
 import os
 def function_export_path_file(path="."):
     skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
