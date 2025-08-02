@@ -508,6 +508,7 @@ request.app.state.client_ses
 
 
 
+
 <details>
 <summary>Fast2SMS</summary>
 
@@ -563,5 +564,43 @@ config_posthog_project_key=value
 request.app.state.client_posthog 
  ```
 </details>
+
+
+
+
+
+
+<details>
+<summary>Sentry</summary>
+
+<br>
+
+- Prebuilt Sentry connection
+- Docs - https://docs.sentry.io/platforms/python/
+- Logs errors and performance data to Sentry
+- Add the following key to your `.env` file
+```bash
+config_sentry_dsn=value
+```
+</details>
+
+
+
+
+
+
+<details>
+<summary>Google Login</summary>
+
+<br>
+
+- Prebuilt Google Login
+- Add the following key to your `.env` file
+```bash
+config_google_login_client_id=value
+```
+- check api in the auth section of file `curl.txt`
+</details>
+
 
 
