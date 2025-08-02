@@ -231,6 +231,32 @@ from extend_master import *
 
 
 
+
+
+<details>
+<summary>Settings</summary>
+
+<br>
+
+- With below congfig keys,you can control default settings
+- Default values are in main.py config section
+```bash
+config_token_expire_sec=10000                               # token expiry time 
+config_is_signup=0/1                                        # enable/disable signup
+config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
+config_batch_object_create=10                               # control batch for object create
+config_column_disabled_list=value                           # control which keys non admin users can't update
+config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
+config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
+```
+</details>
+
+
+
+
+
+
+
 <details>
 <summary>JWT Token Keys Encoding</summary>
 
@@ -327,7 +353,7 @@ config_celery_broker_url=redis://localhost:6379
 - How to run `consumer_celery.py` file:
 ```bash
 celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
-./venv/bin/celery -A consumer_celery worker --loglevel=info    # Run without activating virtualenv
+./venv/bin/celery -A consumer_celery worker --loglevel=info     # Run without activating virtualenv
 ```
 </details>
 
@@ -645,3 +671,54 @@ config_openai_key=value
 request.app.state.client_openai 
  ```
 </details>
+
+
+
+
+
+<details>
+<summary>API Log</summary>
+
+<br>
+
+- Prebuilt api logs in log_api table in database using atom middleware
+- Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
+```bash
+config_batch_log_api=value
+```
+</details>
+
+
+
+
+
+
+<details>
+<summary>Config API</summary>
+
+<br>
+
+- Prebuilt `config_api` dict in config.py to control api logics
+- You can also add your api in the same dict
+- For ex. `/test` api:
+```python
+"/test":{
+"id":7,
+"is_token":0,
+"is_active_check":1,
+"cache_sec":["inmemory",60],
+"ratelimiter_times_sec":[1,1]
+}
+```
+- id - unique api id
+- is_token - 0/1 - to enable auth
+- is_active_check - 0/1 - to enable user active check
+- cache_sec - to cache api with inmemory/redis option
+- ratelimiter_times_sec - to ratelimit api
+</details>
+
+
+
+
+
+
