@@ -265,10 +265,31 @@ request.state.user.get("mobile")
 - Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
 - Example to give user_id=1 access to admin APIs with IDs 1,2,3
 ```sql
-update users set api_access='1,2,3' where id=1
+update users set api_access='1,2,3' where id=1;
 ```
 - To revoke access, update `api_access` column and refresh token 
 </details>
+
+
+
+
+
+<details>
+<summary>Active Check</summary>
+
+<br>
+
+- You can enable user is_active check for any api in your router
+- This is check by atom middleware using token
+- Add key `is_active_check=1` for that api In `config_api` variable in `config.py`
+- To mark user inactive, set `is_active=0` column in users table
+- To mark user active, set `is_active=1` or `is_active=null` column in users table
+```sql
+update users set is_active=0 where id=1;
+```
+</details>
+
+
 
 
 
