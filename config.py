@@ -26,7 +26,7 @@ config_postgres_schema={
 "is_deleted-smallint-0-btree",
 "is_protected-smallint-0-btree",
 "type-bigint-0-btree",
-"title-text-0-0",
+"title-text-0-btree,gin",
 "description-text-0-0",
 "file_url-text-0-0",
 "link_url-text-0-0",
@@ -35,29 +35,6 @@ config_postgres_schema={
 "remark-text-0-btree,gin",
 "location-geography(POINT)-0-gist",
 "metadata-jsonb-0-gin"
-],
-"log_api":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"type-bigint-0-btree",
-"ip_address-text-0-0",
-"api-text-0-btree,gin",
-"method-text-0-0",
-"query_param-text-0-0",
-"status_code-smallint-0-0",
-"response_time_ms-numeric(1000,3)-0-0",
-"description-text-0-0"
-],
-"otp":[
-"created_at-timestamptz-0-brin",
-"otp-integer-1-0",
-"email-text-0-btree",
-"mobile-text-0-btree"
-],
-"log_password":[
-"created_at-timestamptz-0-0",
-"user_id-bigint-0-0",
-"password-text-0-0"
 ],
 "users":[
 "created_at-timestamptz-0-brin",
@@ -80,6 +57,17 @@ config_postgres_schema={
 "username_bigint-bigint-0-btree",
 "password_bigint-bigint-0-btree"
 ],
+"otp":[
+"created_at-timestamptz-0-brin",
+"otp-integer-1-0",
+"email-text-0-btree",
+"mobile-text-0-btree"
+],
+"log_password":[
+"created_at-timestamptz-0-0",
+"user_id-bigint-0-0",
+"password-text-0-0"
+],
 "message":[
 "created_at-timestamptz-0-brin",
 "updated_at-timestamptz-0-0",
@@ -94,17 +82,29 @@ config_postgres_schema={
 "created_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
 "user_id-bigint-1-btree"
-]
+],
+"log_api":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"type-bigint-0-btree",
+"ip_address-text-0-0",
+"api-text-0-btree,gin",
+"method-text-0-0",
+"query_param-text-0-0",
+"status_code-smallint-0-0",
+"response_time_ms-numeric(1000,3)-0-0",
+"description-text-0-0"
+],
 },
 "query":{
-"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
-"check_username":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
-"unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
-"unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
-"unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
-"unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
-"unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
-"unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
+"users_disable_bulk_delete":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
+"users_check_username":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
+"users_unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
+"users_unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
+"users_unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
+"users_unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
+"users_unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
+"users_unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
 }
 }
 

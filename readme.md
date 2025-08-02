@@ -721,4 +721,31 @@ config_batch_log_api=value
 
 
 
+<details>
+<summary>Config Database</summary>
+
+<br>
+
+- Prebuilt `config_postgres_schema` dict is defined in `config.py` to initialize PostgreSQL schema.
+- You can add your own tables and queries to it.
+- It has two keys: `table` and `query`.
+- `table` contains table definitions.
+- `query` contains extra SQL queries to run.
+- Understanding `table` columns:-
+```python
+"type-bigint-0-btree"
+"title-text-1-btree,gin"
+```
+- each row represent one column in the table
+- `type` or `title` = column name
+- `bigint` or `text` = column datatype
+- `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
+- `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
+</details>
+
+
+
+
+
+
 
