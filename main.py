@@ -67,7 +67,7 @@ async def lifespan(app:FastAPI):
       client_redis_producer=await function_client_read_redis(config_redis_pubsub_url) if config_redis_pubsub_url else None
       client_s3,client_s3_resource=(await function_client_read_s3(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name)) if config_s3_region_name else (None, None)
       client_sns=await function_client_read_sns(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
-      client_ses=await function_client_read_ses(config_ses_region_name,config_aws_access_key_id,config_aws_secret_access_key) if config_ses_region_name else None
+      client_ses=await function_client_read_ses(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
       client_openai=function_client_read_openai(config_openai_key) if config_openai_key else None
       client_posthog=await function_client_read_posthog(config_posthog_project_key,config_posthog_project_host)
       #cache init

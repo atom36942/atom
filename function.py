@@ -42,7 +42,7 @@ async def function_client_read_sns(config_aws_access_key_id,config_aws_secret_ac
    return client_sns
 
 import boto3
-async def function_client_read_ses(config_ses_region_name,config_aws_access_key_id,config_aws_secret_access_key):
+async def function_client_read_ses(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name):
    client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_ses
 

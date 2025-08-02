@@ -485,3 +485,42 @@ request.app.state.client_sns
 </details>
 
 
+
+<details>
+<summary>AWS SES</summary>
+
+<br>
+
+- Prebuilt AWS SES connection
+- Docs - https://boto3.amazonaws.com
+- Add the following key to your `.env` file
+```bash
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_ses_region_name=value
+```
+- Use client in your routes
+```bash
+request.app.state.client_ses 
+ ```
+</details>
+
+
+
+
+<details>
+<summary>Fast2SMS</summary>
+
+<br>
+
+- Prebuilt Fast2SMS connection
+- Docs - https://www.fast2sms.com/docs
+- Add the following key to your `.env` file
+```bash
+config_fast2sms_url=value
+config_fast2sms_key=value
+```
+- check api in the public section of file `curl.txt`
+</details>
+
+
