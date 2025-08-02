@@ -747,13 +747,12 @@ config_batch_log_api=value
 
 
 
-
-
 <details>
-<summary>Lifespan</summary>
+<summary>FastAPI Lifespan</summary>
 
 <br>
 
+- FastAPI backend startup and shutdown logic is handled via the lifespan function in `main.py`
 - Initializes service clients at startup: Postgres, Redis, MongoDB, Kafka, RabbitMQ, Celery, AWS (S3/SNS/SES), OpenAI, PostHog.
 - Supports both sync and async Postgres clients, including read replicas and pools.
 - Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
@@ -763,3 +762,38 @@ config_batch_log_api=value
 - All startup exceptions are logged via `traceback`.
 </details>
 
+
+
+
+
+<details>
+<summary>FastAPI APP Setup</summary>
+
+<br>
+
+- FastAPI APP is setup in the `main.py` app section.
+- Adds CORS as per the config
+- Routers auto-loaded
+- Sentry is enabled if `config_sentry_dsn` is set.
+- Prometheus is added if `config_is_prometheus` is 1.
+</details>
+
+
+
+
+
+
+
+<details>
+<summary>CORS</summary>
+
+<br>
+
+- Configure cors setting by addding below config keys:
+```bash
+config_cors_origin_list
+config_cors_method_list
+config_cors_headers_list
+config_cors_allow_credentials
+```
+</details>

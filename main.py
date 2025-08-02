@@ -44,6 +44,11 @@ config_token_key_list=config.get("config_token_key_list","id,is_active,api_acces
 config_column_disabled_list=config.get("config_column_disabled_list","is_active,is_verified,api_access").split(",")
 config_table_allowed_public_create_list=config.get("config_table_allowed_public_create_list","test").split(",")
 config_table_allowed_public_read_list=config.get("config_table_allowed_public_read_list","test").split(",")
+config_cors_origin_list=config.get("config_cors_origin_list","*").split(",")
+config_cors_method_list=config.get("config_cors_method_list","*").split(",")
+config_cors_headers_list=config.get("config_cors_headers_list","*").split(",")
+config_cors_allow_credentials=config.get("config_cors_allow_credentials",False)
+config_is_prometheus=int(config.get("config_is_prometheus",0))
 config_api=config.get("config_api",{})
 config_postgres_schema=config.get("config_postgres_schema",{})
 
@@ -95,10 +100,10 @@ async def lifespan(app:FastAPI):
 
 #app
 app=function_fastapi_app_read(True,lifespan)
-function_add_cors(app,["*"],["*"],["*"],True)
+function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
 function_add_router(app,"router")
 if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
-if False:function_add_prometheus(app)
+if config_is_prometheus:function_add_prometheus(app)
 
 #middleware
 from fastapi import Request,responses
