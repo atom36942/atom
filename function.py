@@ -26,7 +26,7 @@ async def function_client_read_mongodb(config_mongodb_url):
    return client_mongodb
 
 from posthog import Posthog
-async def function_client_read_posthog(config_posthog_project_key,config_posthog_project_host):
+async def function_client_read_posthog(config_posthog_project_host,config_posthog_project_key):
    client_posthog=Posthog(config_posthog_project_key,host=config_posthog_project_host)
    return client_posthog
 

@@ -524,3 +524,44 @@ config_fast2sms_key=value
 </details>
 
 
+
+
+<details>
+<summary>Resend</summary>
+
+<br>
+
+- Prebuilt Resend connection
+- Docs - https://resend.com/docs/api-reference
+- Add the following key to your `.env` file
+```bash
+config_resend_url=value
+config_resend_key=value
+```
+- check api in the public section of file `curl.txt`
+</details>
+
+
+
+
+
+<details>
+<summary>Posthog</summary>
+
+<br>
+
+- Prebuilt Posthog connection
+- Docs - https://posthog.com/docs/libraries/python
+- Add the following key to your `.env` file
+```bash
+config_posthog_project_host=value
+config_posthog_project_key=value
+```
+- Use client in your routes
+- Check `/posthog` in `router.py` file for sample useage
+```bash
+request.app.state.client_posthog 
+ ```
+</details>
+
+

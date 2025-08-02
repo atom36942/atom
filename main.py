@@ -69,7 +69,7 @@ async def lifespan(app:FastAPI):
       client_sns=await function_client_read_sns(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
       client_ses=await function_client_read_ses(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
       client_openai=function_client_read_openai(config_openai_key) if config_openai_key else None
-      client_posthog=await function_client_read_posthog(config_posthog_project_key,config_posthog_project_host)
+      client_posthog=await function_client_read_posthog(config_posthog_project_host,config_posthog_project_key)
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres) if client_postgres else (None, None)
       cache_users_api_access=await function_column_mapping_read(client_postgres_asyncpg,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int") if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
