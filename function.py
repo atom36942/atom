@@ -617,6 +617,7 @@ async def function_postgres_schema_read(client_postgres):
    '''
    output=await client_postgres.fetch_all(query=query,values={})
    postgres_schema={}
+   postgres_column_datatype={}
    for object in output:
       table,column=object["table"],object["column"]
       column_data={"datatype":object["datatype"],"default":object["default"],"is_null":object["is_null"],"is_index":object["is_index"]}

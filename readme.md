@@ -183,7 +183,7 @@ request.app.state.client_openai
 <br>
 
 - Easily extend Atom by adding your API router files
-- How to add new router 1st way - create any `.py` file starting with `router_` in the root folder
+- How to add new router 1st way - create any `.py` file starting with `router` in the root folder
 - How to add new router 2nd way - place it inside a `router/` folder with any `.py` filename
 - All custom router files are auto-loaded at startup
 - All routes automatically use atom middleware
@@ -201,7 +201,7 @@ request.app.state.client_openai
 
 - Easily extend Atom by adding your config
 - How to add new config 1st way - add it in `.env` file
-- How to add new config 2nd way - create any `.py` file starting with `config_` in the root folder
+- How to add new config 2nd way - create any `.py` file starting with `config` in the root folder
 - How to add new config 3rd way - place it inside a `config/` folder with any `.py` filename
 - How to access - Use `config` var dict in your routes
 - For ex:

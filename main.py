@@ -134,7 +134,7 @@ async def middleware(request,api_function):
       response=function_return_error(error)
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
       type=5
-   if request.app.state.cache_postgres_schema.get("log_api"):
+   if getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
       asyncio.create_task(function_log_create_postgres(function_object_create_postgres,request.app.state.client_postgres,config_batch_log_api,object))
    return response
