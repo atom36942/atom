@@ -64,6 +64,9 @@ Explanation of key files in the repo:
 
 
 
+
+
+
 ## Installation
 
 <details>
@@ -129,12 +132,16 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 
+
+
+
+
+
+
 ## Installation 2
 
-
-
 <details>
-<summary>With Docker</summary>
+<summary>Docker</summary>
 
 <br>
 
@@ -165,6 +172,8 @@ touch .env                                            # Create .env file
 ./venv/bin/pip uninstall fastapi                      # Uninstall package (ex FastAPI)
 ```
 </details>
+
+
 
 
 
