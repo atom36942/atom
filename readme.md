@@ -50,7 +50,14 @@ Explanation of key files in the repo:
 - `Dockerfile` – Build and run the project inside Docker  
 - `.gitignore` – Files/directories to ignore in git
 </details>
-__________________________
+
+
+
+
+
+
+
+
 
 <details>
 <summary>Installation</summary>
@@ -127,6 +134,84 @@ touch .env                                            # Create .env file
 
 
 <details>
+<summary>Extend Atom</summary>
+
+<br>
+
+- Easily extend Atom by adding your API router files
+- How to add new router 1st way - create any `.py` file starting with `router` in the root folder
+- How to add new router 2nd way - place it inside a `router/` folder with any `.py` filename
+- All custom router files are auto-loaded at startup
+- All routes automatically use atom middleware
+- All routes includes atom middleware by defualt having prebuilt auth,admin check,user active check,ratelimter,background apis,caching,api log
+- See `router.py` for sample usage
+</details>
+
+<details>
+<summary>Extend Files</summary>
+
+<br>
+
+- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
+- Add all extend files in `extend_master.py`
+- import `extend_master.py` in your routes
+```python
+from extend import *
+from extend_master import *
+```
+</details>
+
+<details>
+<summary>Extend Config</summary>
+
+<br>
+
+- Easily extend Atom by adding your config
+- How to add new config 1st way - add it in `.env` file
+- How to add new config 2nd way - create any `.py` file starting with `config` in the root folder
+- How to add new config 3rd way - place it inside a `config/` folder with any `.py` filename
+- How to access - Use `config` var dict in your routes
+- For ex:
+```python
+some_value=config.get("xyz")
+```
+</details>
+
+<details>
+<summary>Settings</summary>
+
+<br>
+
+- With below config keys,you can control default settings
+- Default values are in main.py config section
+- You can add them in `.env` or `config` file
+```bash
+config_token_expire_sec=10000                               # token expiry time 
+config_is_signup=0/1                                        # enable/disable signup
+config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
+config_batch_object_create=10                               # control batch for object create
+config_column_disabled_list=value                           # control which keys non admin users can't update
+config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
+config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
+```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<details>
 <summary>API Collection</summary>
 
 <br>
@@ -137,11 +222,6 @@ touch .env                                            # Create .env file
 - `test.sh` executes all active curl commands automatically  
 - Any line starting with `0 curl` is skipped during automated testing with `test.sh`
 </details>
-
-
-
-
-
 
 <details>
 <summary>API Testing</summary>
@@ -164,86 +244,8 @@ touch .env                                            # Create .env file
 
 
 
-<details>
-<summary>Extend Atom</summary>
-
-<br>
-
-- Easily extend Atom by adding your API router files
-- How to add new router 1st way - create any `.py` file starting with `router` in the root folder
-- How to add new router 2nd way - place it inside a `router/` folder with any `.py` filename
-- All custom router files are auto-loaded at startup
-- All routes automatically use atom middleware
-- All routes includes atom middleware by defualt having prebuilt auth,admin check,user active check,ratelimter,background apis,caching,api log
-- See `router.py` for sample usage
-</details>
 
 
-
-
-
-
-
-<details>
-<summary>Extend Config</summary>
-
-<br>
-
-- Easily extend Atom by adding your config
-- How to add new config 1st way - add it in `.env` file
-- How to add new config 2nd way - create any `.py` file starting with `config` in the root folder
-- How to add new config 3rd way - place it inside a `config/` folder with any `.py` filename
-- How to access - Use `config` var dict in your routes
-- For ex:
-```python
-some_value=config.get("xyz")
-```
-</details>
-
-
-
-
-
-
-
-<details>
-<summary>Extend Files</summary>
-
-<br>
-
-- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
-- Add all extend files in `extend_master.py`
-- import `extend_master.py` in your routes
-```python
-from extend import *
-from extend_master import *
-```
-</details>
-
-
-
-
-
-
-
-<details>
-<summary>Settings</summary>
-
-<br>
-
-- With below config keys,you can control default settings
-- Default values are in main.py config section
-- You can add them in `.env` or `config` file
-```bash
-config_token_expire_sec=10000                               # token expiry time 
-config_is_signup=0/1                                        # enable/disable signup
-config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
-config_batch_object_create=10                               # control batch for object create
-config_column_disabled_list=value                           # control which keys non admin users can't update
-config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
-config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
-```
-</details>
 
 
 
