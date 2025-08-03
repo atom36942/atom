@@ -308,6 +308,209 @@ config_cors_allow_credentials
 ```
 </details>
 
+<details>
+<summary>Sentry</summary>
+
+<br>
+
+- Prebuilt Sentry connection
+- Docs - https://docs.sentry.io/platforms/python/
+- Logs errors and performance data to Sentry
+- Add the following key to your `.env` file
+```bash
+config_sentry_dsn=value
+```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<details>
+<summary>Postgres</summary>
+
+<br>
+
+- Atom has prebuilt postgres connection using two package Databases/Asyncpg
+- Databases - https://github.com/encode/databases
+- Asyncpg - https://github.com/MagicStack/asyncpg
+- Use client in your routes to execute any raw sql in your router
+```python
+request.app.state.client_postgres 
+request.app.state.client_postgres_asyncpg
+request.app.state.client_postgres_asyncpg_pool
+ ```
+</details>
+
+<details>
+<summary>Postgres Read Replica</summary>
+
+<br>
+
+- Prebuilt Postgres read replica config is available.
+- docs - https://github.com/encode/databases
+- Add the following key to your `.env` file
+```bash
+config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
+```
+- Use client in your routes
+```bash
+request.app.state.client_postgres_read 
+ ```
+</details>
+
+<details>
+<summary>Posthog</summary>
+
+<br>
+
+- Prebuilt Posthog connection
+- Docs - https://posthog.com/docs/libraries/python
+- Add the following key to your `.env` file
+```bash
+config_posthog_project_host=value
+config_posthog_project_key=value
+```
+- Use client in your routes
+- Check `/posthog` in `router.py` file for sample useage
+```bash
+request.app.state.client_posthog 
+ ```
+</details>
+
+<details>
+<summary>Mongodb</summary>
+
+<br>
+
+- Prebuilt Mongodb connection
+- Docs - https://motor.readthedocs.io/en/stable
+- Add the following key to your `.env` file
+```bash
+config_mongodb_url=mongodb://localhost:27017
+```
+- Use client in your routes
+```bash
+request.app.state.client_mongodb 
+ ```
+</details>
+
+<details>
+<summary>AWS S3</summary>
+
+<br>
+
+- Prebuilt AWS S3 connection
+- Docs - https://boto3.amazonaws.com
+- Add the following key to your `.env` file
+```bash
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_s3_region_name=value
+```
+- Use client in your routes
+```bash
+request.app.state.client_s3 
+request.app.state.client_s3_resource 
+ ```
+</details>
+
+<details>
+<summary>AWS SNS</summary>
+
+<br>
+
+- Prebuilt AWS SNS connection
+- Docs - https://boto3.amazonaws.com
+- Add the following key to your `.env` file
+```bash
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_sns_region_name=value
+```
+- Use client in your routes
+```bash
+request.app.state.client_sns 
+ ```
+</details>
+
+<details>
+<summary>AWS SES</summary>
+
+<br>
+
+- Prebuilt AWS SES connection
+- Docs - https://boto3.amazonaws.com
+- Add the following key to your `.env` file
+```bash
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_ses_region_name=value
+```
+- Use client in your routes
+```bash
+request.app.state.client_ses 
+ ```
+</details>
+
+<details>
+<summary>Fast2SMS</summary>
+
+<br>
+
+- Prebuilt Fast2SMS connection
+- Docs - https://www.fast2sms.com/docs
+- Add the following key to your `.env` file
+```bash
+config_fast2sms_url=value
+config_fast2sms_key=value
+```
+- check api in the public section of file `curl.txt`
+</details>
+
+<details>
+<summary>Resend</summary>
+
+<br>
+
+- Prebuilt Resend connection
+- Docs - https://resend.com/docs/api-reference
+- Add the following key to your `.env` file
+```bash
+config_resend_url=value
+config_resend_key=value
+```
+- check api in the public section of file `curl.txt`
+</details>
+
+<details>
+<summary>OpenAI</summary>
+
+<br>
+
+- Prebuilt OpenAI connection
+- Docs - https://github.com/openai/openai-python
+- Add the following key to your `.env` file
+```bash
+config_openai_key=value
+```
+- Use client in your routes
+```bash
+request.app.state.client_openai 
+ ```
+</details>
+
+
 
 
 
@@ -403,22 +606,6 @@ python consumer_redis.py                # Run with activated virtualenv
 ./venv/bin/python consumer_redis.py     # Run without activating virtualenv
 ```
 </details>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -564,228 +751,6 @@ update users set is_active=0 where id=1;
 
 
 
-<details>
-<summary>PostHog</summary>
-
-<br>
-
-- You can send events to PostHog for analytics or tracking user behavior.
-- Refer sample api `/posthog` in `router.py` for sample usage.
-- Add the following keys to your `.env` file:
-```bash
-config_posthog_project_host=value
-config_posthog_project_key=value
-```
-</details>
-
-
-
-
-<details>
-<summary>Postgres</summary>
-
-<br>
-
-- Atom has prebuilt postgres connection using two package Databases/Asyncpg
-- Databases - https://github.com/encode/databases
-- Asyncpg - https://github.com/MagicStack/asyncpg
-- Use client in your routes to execute any raw sql in your router
-```python
-request.app.state.client_postgres 
-request.app.state.client_postgres_asyncpg
-request.app.state.client_postgres_asyncpg_pool
- ```
-</details>
-
-
-
-
-
-<details>
-<summary>Postgres Read Replica</summary>
-
-<br>
-
-- Prebuilt Postgres read replica config is available.
-- docs - https://github.com/encode/databases
-- Add the following key to your `.env` file
-```bash
-config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
-```
-- Use client in your routes
-```bash
-request.app.state.client_postgres_read 
- ```
-</details>
-
-
-
-
-<details>
-<summary>Mongodb</summary>
-
-<br>
-
-- Prebuilt Mongodb connection
-- Docs - https://motor.readthedocs.io/en/stable
-- Add the following key to your `.env` file
-```bash
-config_mongodb_url=mongodb://localhost:27017
-```
-- Use client in your routes
-```bash
-request.app.state.client_mongodb 
- ```
-</details>
-
-
-
-
-<details>
-<summary>AWS S3</summary>
-
-<br>
-
-- Prebuilt AWS S3 connection
-- Docs - https://boto3.amazonaws.com
-- Add the following key to your `.env` file
-```bash
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_s3_region_name=value
-```
-- Use client in your routes
-```bash
-request.app.state.client_s3 
-request.app.state.client_s3_resource 
- ```
-</details>
-
-
-
-
-<details>
-<summary>AWS SNS</summary>
-
-<br>
-
-- Prebuilt AWS SNS connection
-- Docs - https://boto3.amazonaws.com
-- Add the following key to your `.env` file
-```bash
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_sns_region_name=value
-```
-- Use client in your routes
-```bash
-request.app.state.client_sns 
- ```
-</details>
-
-
-
-<details>
-<summary>AWS SES</summary>
-
-<br>
-
-- Prebuilt AWS SES connection
-- Docs - https://boto3.amazonaws.com
-- Add the following key to your `.env` file
-```bash
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_ses_region_name=value
-```
-- Use client in your routes
-```bash
-request.app.state.client_ses 
- ```
-</details>
-
-
-
-
-
-<details>
-<summary>Fast2SMS</summary>
-
-<br>
-
-- Prebuilt Fast2SMS connection
-- Docs - https://www.fast2sms.com/docs
-- Add the following key to your `.env` file
-```bash
-config_fast2sms_url=value
-config_fast2sms_key=value
-```
-- check api in the public section of file `curl.txt`
-</details>
-
-
-
-
-<details>
-<summary>Resend</summary>
-
-<br>
-
-- Prebuilt Resend connection
-- Docs - https://resend.com/docs/api-reference
-- Add the following key to your `.env` file
-```bash
-config_resend_url=value
-config_resend_key=value
-```
-- check api in the public section of file `curl.txt`
-</details>
-
-
-
-
-
-<details>
-<summary>Posthog</summary>
-
-<br>
-
-- Prebuilt Posthog connection
-- Docs - https://posthog.com/docs/libraries/python
-- Add the following key to your `.env` file
-```bash
-config_posthog_project_host=value
-config_posthog_project_key=value
-```
-- Use client in your routes
-- Check `/posthog` in `router.py` file for sample useage
-```bash
-request.app.state.client_posthog 
- ```
-</details>
-
-
-
-
-
-
-<details>
-<summary>Sentry</summary>
-
-<br>
-
-- Prebuilt Sentry connection
-- Docs - https://docs.sentry.io/platforms/python/
-- Logs errors and performance data to Sentry
-- Add the following key to your `.env` file
-```bash
-config_sentry_dsn=value
-```
-</details>
-
-
-
-
 
 
 <details>
@@ -804,22 +769,7 @@ config_google_login_client_id=value
 
 
 
-<details>
-<summary>OpenAI</summary>
 
-<br>
-
-- Prebuilt OpenAI connection
-- Docs - https://github.com/openai/openai-python
-- Add the following key to your `.env` file
-```bash
-config_openai_key=value
-```
-- Use client in your routes
-```bash
-request.app.state.client_openai 
- ```
-</details>
 
 
 
