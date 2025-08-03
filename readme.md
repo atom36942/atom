@@ -793,7 +793,7 @@ python consumer_redis.py                # Run with activated virtualenv
 
 
 
-## Misc
+## Miscellaneous
 
 <details>
 <summary>Google Login</summary>
