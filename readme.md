@@ -399,15 +399,6 @@ update users set is_active=0 where id=1;
 </details>
 
 <details>
-<summary>Background Execution</summary>
-
-<br>
-
-- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
-- Immediately returns a success response while processing continues in the background.
-</details>
-
-<details>
 <summary>API Caching</summary>
 
 <br>
@@ -436,6 +427,15 @@ update users set is_active=0 where id=1;
 update users set api_access='1,2,3' where id=1;
 ```
 - To revoke access, update `api_access` column and refresh token 
+</details>
+
+<details>
+<summary>Background Execution</summary>
+
+<br>
+
+- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
+- Immediately returns a success response while processing continues in the background.
 </details>
 
 
