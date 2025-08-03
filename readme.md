@@ -1,5 +1,7 @@
+## About
+
 <details>
-<summary>About</summary>
+<summary>What is atom</summary>
 
 <br>
 
@@ -851,7 +853,7 @@ config_google_login_client_id=value
 
 
 
-## FAQ
+
 
 <details>
 <summary><b>What is this project about?</b></summary>
