@@ -66,6 +66,8 @@ Explanation of key files in the repo:
 
 ## Installation
 
+<br>
+
 <details>
 <summary>Installation</summary>
 
