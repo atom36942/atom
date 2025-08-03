@@ -69,6 +69,8 @@ Explanation of key files in the repo:
 <details>
 <summary>Installation</summary>
 
+<div style="margin-left: 20px">
+
 <br>
 
 <details>
