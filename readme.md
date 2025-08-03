@@ -196,9 +196,9 @@ touch .env                                            # Create .env file
 
 <br>
 
-- Easily extend Atom by adding your API router files
-- How to add new router 1st way - create any `.py` file starting with `router` in the root folder
-- How to add new router 2nd way - place it inside a `router/` folder with any `.py` filename
+- Easily extend Atom by adding your API router files in 2 ways
+- 1st way - create any `.py` file starting with `router` in the root folder
+- 2nd way - place it inside a `router` folder with any `.py` filename
 - All custom router files are auto-loaded at startup
 - All routes automatically use atom middleware
 - All routes includes atom middleware by defualt having prebuilt auth,admin check,user active check,ratelimter,background apis,caching,api log
@@ -212,6 +212,7 @@ touch .env                                            # Create .env file
 
 - Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
 - Add all extend files in `extend_master.py`
+- This is an opinionated approach to structure code
 - import `extend_master.py` in your routes
 ```python
 from extend import *
@@ -224,10 +225,11 @@ from extend_master import *
 
 <br>
 
-- Easily extend Atom by adding your config
-- How to add new config 1st way - add it in `.env` file
-- How to add new config 2nd way - create any `.py` file starting with `config` in the root folder
-- How to add new config 3rd way - place it inside a `config/` folder with any `.py` filename
+- Easily extend Atom by adding your config in 4 ways
+- 1st way - add it in `.env` file
+- 2nd way - add it in `config.py` file
+- 3rd way - create any `.py` file starting with `config` in the root folder
+- 4th way - place it inside a `config/` folder with any `.py` filename
 - How to access - Use `config` var dict in your routes
 - For ex:
 ```python
