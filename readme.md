@@ -50,16 +50,7 @@ Explanation of key files in the repo:
 - `Dockerfile` – Build and run the project inside Docker  
 - `.gitignore` – Files/directories to ignore in git
 </details>
-
-
-
-
-
-
-
-
-
-
+__________________________
 
 <details>
 <summary>Installation</summary>
