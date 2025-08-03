@@ -837,6 +837,7 @@ python consumer_redis.py                # Run with activated virtualenv
 <summary>Google Login</summary>
 
 <br>
+
 - Prebuilt Google Login
 - Add the following key to your `.env` file
 ```bash
