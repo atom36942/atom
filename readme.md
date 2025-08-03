@@ -122,8 +122,19 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 
+
+
+
+
+
+
+
+## Installation 2
+
+
+
 <details>
-<summary>Installation With Docker</summary>
+<summary>With Docker</summary>
 
 <br>
 
@@ -136,7 +147,7 @@ docker run -p 8000:8000 atom
 </details>
 
 <details>
-<summary>Installation Without Activating Virtualenv</summary>
+<summary>Without Activating Virtualenv</summary>
 
 <br>
 
@@ -154,6 +165,7 @@ touch .env                                            # Create .env file
 ./venv/bin/pip uninstall fastapi                      # Uninstall package (ex FastAPI)
 ```
 </details>
+
 
 
 
