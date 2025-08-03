@@ -629,8 +629,8 @@ async def function_postgres_schema_read(client_postgres):
 async def function_postgres_schema_init(client_postgres,config_postgres_schema,function_postgres_schema_read):
    if not config_postgres_schema:raise Exception("config_postgres_schema null")
    async def function_init_extension(client_postgres):
-      await client_postgres.execute(query="create extension if not exists postgis;",values={})
-      await client_postgres.execute(query="create extension if not exists pg_trgm;",values={})
+      for extension in ["postgis","pg_trgm"]:
+         await client_postgres.execute(query=f"create extension if not exists {extension};",values={})
       return None
    async def function_init_table(client_postgres,config_postgres_schema,function_postgres_schema_read):
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)

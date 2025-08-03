@@ -67,11 +67,20 @@ Explanation of key files in the repo:
 <summary>Installation</summary>
 
 ### 1. Setup repo
+Mac
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
 python3 -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
+```
+Windows
+```bash
+git clone https://github.com/atom36942/atom.git
+cd atom
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 ### 2. Setup env
@@ -835,4 +844,23 @@ python consumer_redis.py                # Run with activated virtualenv
 config_google_login_client_id=value
 ```
 - check api in the auth section of file `curl.txt`
+</details>
+
+
+
+
+
+
+## FAQ
+
+<details>
+<summary><b>What is this project about?</b></summary>
+<br>
+A lightweight API server with config-driven logic.
+</details>
+
+<details>
+<summary><b>How to run it?</b></summary>
+<br>
+Use `docker-compose up` or run `main.py` directly after setting `.env`.
 </details>
