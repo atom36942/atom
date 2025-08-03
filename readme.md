@@ -259,7 +259,7 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 
 
 
-
+## Core Concept
 
 <details>
 <summary>FastAPI App</summary>
@@ -304,20 +304,6 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 </details>
 
 <details>
-<summary>CORS</summary>
-
-<br>
-
-- Configure cors setting by addding below config keys:
-```bash
-config_cors_origin_list
-config_cors_method_list
-config_cors_headers_list
-config_cors_allow_credentials
-```
-</details>
-
-<details>
 <summary>Client</summary>
 
 <br>
@@ -332,30 +318,6 @@ request.app.state.client_openai
 ```
 </details>
 
-<details>
-<summary>Sentry</summary>
-
-<br>
-
-- Prebuilt Sentry connection
-- Docs - https://docs.sentry.io/platforms/python/
-- Logs errors and performance data to Sentry
-- Add the following key to your `.env` file
-```bash
-config_sentry_dsn=value
-```
-</details>
-
-<details>
-<summary>Prometheus</summary>
-
-<br>
-
-- Enable Prometheus metrics by addding below config key:
-```bash
-config_is_prometheus=1
-```
-</details>
 
 
 
@@ -366,10 +328,7 @@ config_is_prometheus=1
 
 
 
-
-
-
-
+## Modules
 
 <details>
 <summary>Token</summary>
@@ -468,6 +427,20 @@ update users set api_access='1,2,3' where id=1;
 - Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
 ```bash
 config_batch_log_api=value
+```
+</details>
+
+<details>
+<summary>CORS</summary>
+
+<br>
+
+- Configure cors setting by addding below config keys:
+```bash
+config_cors_origin_list
+config_cors_method_list
+config_cors_headers_list
+config_cors_allow_credentials
 ```
 </details>
 
@@ -582,6 +555,31 @@ config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
 ```bash
 request.app.state.client_postgres_read 
  ```
+</details>
+
+<details>
+<summary>Sentry</summary>
+
+<br>
+
+- Prebuilt Sentry connection
+- Docs - https://docs.sentry.io/platforms/python/
+- Logs errors and performance data to Sentry
+- Add the following key to your `.env` file
+```bash
+config_sentry_dsn=value
+```
+</details>
+
+<details>
+<summary>Prometheus</summary>
+
+<br>
+
+- Enable Prometheus metrics by addding below config key:
+```bash
+config_is_prometheus=1
+```
 </details>
 
 <details>
