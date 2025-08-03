@@ -12,10 +12,6 @@
 - Non-opinionated: full flexibility in defining business schema, API structure, and external libraries  
 </details>
 
-
-
-
-
 <details>
 <summary>Tech Stack</summary>
 
@@ -30,11 +26,6 @@ Atom uses a proven tech stack so you can build fast without worrying about stack
 - Task Worker: Celery (for background processing)  
 - Monitoring: Sentry/Prometheus (for error tracking and performance monitoring)  
 </details>
-
-
-
-
-
 
 <details>
 <summary>File Structure</summary>
@@ -59,6 +50,9 @@ Explanation of key files in the repo:
 - `Dockerfile` – Build and run the project inside Docker  
 - `.gitignore` – Files/directories to ignore in git
 </details>
+
+
+
 
 
 
@@ -98,14 +92,6 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 ```
 </details>
 
-
-
-
-
-
-
-
-
 <details>
 <summary>Installation With Docker</summary>
 
@@ -118,12 +104,6 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 </details>
-
-
-
-
-
-
 
 <details>
 <summary>Installation Without Activating Virtualenv</summary>
@@ -144,6 +124,11 @@ touch .env                                            # Create .env file
 ./venv/bin/pip uninstall fastapi                      # Uninstall package (ex FastAPI)
 ```
 </details>
+
+
+
+
+
 
 
 
@@ -307,11 +292,54 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 
 
 <details>
-<summary>Client Initialization</summary>
+<summary>FastAPI APP Setup</summary>
 
 <br>
 
-- All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
+- FastAPI APP is setup in the `main.py` app section.
+- Lifespan events are added
+- Adds CORS as per the config
+- Routers auto-loaded
+- Sentry is enabled if `config_sentry_dsn` is set.
+- Prometheus is added if `config_is_prometheus` is 1.
+</details>
+
+
+
+
+
+
+
+
+
+
+<details>
+<summary>Lifespan</summary>
+
+<br>
+
+- FastAPI backend startup and shutdown logic is handled via the lifespan function in `main.py`
+- Initializes service clients at startup: Postgres, Redis, MongoDB, Kafka, RabbitMQ, Celery, AWS (S3/SNS/SES), OpenAI, PostHog etc
+- Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
+- Injects all `config_`, `client_`, and `cache_` variables into `app.state`.
+- Cleans up all clients on shutdown (disconnect/close/flush).
+- No client is required — each is conditionally initialized if config is present.
+- All startup exceptions are logged via `traceback`.
+</details>
+
+
+
+
+
+
+
+
+<details>
+<summary>Client</summary>
+
+<br>
+
+- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
 - You can access these clients in your custom routes via `request.app.state.{client_name}`
 - Available client list (check `main.py` lifespan section)
 - Example:-
@@ -320,6 +348,35 @@ request.app.state.client_postgres
 request.app.state.client_openai  
 ```
 </details>
+
+
+
+
+
+
+
+
+<details>
+<summary>Middleware</summary>
+
+<br>
+
+- Handles token validation and injects user into `request.state.user` using `function_token_check`.
+- Applies admin access control for apis containing `admin/` via `function_check_api_access`.
+- Checks if user is active when `is_active_check` is set in `config_api`.
+- Enforces rate limiting if `ratelimiter_times_sec` is set for the API.
+- Runs API in background if `is_background=1` is present in query params.
+- Serves cached response if `cache_sec` is set.
+- Captures and logs exceptions; sends to Sentry if configured.
+- Logs API calls to `log_api` table if schema has logging enabled.
+</details>
+
+
+
+
+
+
+
 
 
 
@@ -773,36 +830,15 @@ request.app.state.client_openai
 
 
 
-<details>
-<summary>FastAPI Lifespan</summary>
 
-<br>
 
-- FastAPI backend startup and shutdown logic is handled via the lifespan function in `main.py`
-- Initializes service clients at startup: Postgres, Redis, MongoDB, Kafka, RabbitMQ, Celery, AWS (S3/SNS/SES), OpenAI, PostHog.
-- Supports both sync and async Postgres clients, including read replicas and pools.
-- Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
-- Injects all `config_`, `client_`, and `cache_` variables into `app.state`.
-- Cleans up all clients on shutdown (disconnect/close/flush).
-- No client is required — each is conditionally initialized if config is present.
-- All startup exceptions are logged via `traceback`.
-</details>
 
 
 
 
 
-<details>
-<summary>FastAPI APP Setup</summary>
 
-<br>
 
-- FastAPI APP is setup in the `main.py` app section.
-- Adds CORS as per the config
-- Routers auto-loaded
-- Sentry is enabled if `config_sentry_dsn` is set.
-- Prometheus is added if `config_is_prometheus` is 1.
-</details>
 
 
 
@@ -810,127 +846,23 @@ request.app.state.client_openai
 
 
 
-<details>
-<summary>CORS</summary>
 
-<br>
 
-- Configure cors setting by addding below config keys:
-```bash
-config_cors_origin_list
-config_cors_method_list
-config_cors_headers_list
-config_cors_allow_credentials
-```
-</details>
 
 
 
 
 
-<details>
-<summary>Prometheus</summary>
 
-<br>
 
-- Enable Prometheus metrics by addding below config key:
-```bash
-config_is_prometheus=1
-```
-</details>
 
 
 
 
 
-<details>
-<summary>Middleware</summary>
 
-<br>
 
-- Handles token validation and injects user into `request.state.user` using `function_token_check`.
-- Applies admin access control for apis containing `admin/` via `function_check_api_access`.
-- Checks if user is active when `is_active_check` is set in `config_api`.
-- Enforces rate limiting if `ratelimiter_times_sec` is set for the API.
-- Runs API in background if `is_background=1` is present in query params.
-- Serves cached response if `cache_sec` is set.
-- Captures and logs exceptions; sends to Sentry if configured.
-- Logs API calls to `log_api` table if schema has logging enabled.
-</details>
 
-
-
-
-
-
-
-<details>
-<summary>Token Check</summary>
-
-<br>
-
-- Extracts token from headers, validates it using `function_token_check`.
-- Decoded user info is injected into `request.state.user` for downstream access.
-```bash
-request.state.user.get("id")
-```
-</details>
-
-
-
-
-<details>
-<summary>User Active Check</summary>
-
-<br>
-
-- If `is_active_check=1` is set in `config_api` for an endpoint, verifies user active check.
-- Blocks request if user is marked inactive in the database.
-</details>
-
-
-
-
-
-
-
-<details>
-<summary>Rate Limiter</summary>
-
-<br>
-
-- If `ratelimiter_times_sec` is set in `config_api`, enforces per-user rate limiting using Redis.
-- Prevents abuse by limiting request frequency to defined time intervals.
-</details>
-
-
-
-
-
-<details>
-<summary>Background Execution</summary>
-
-<br>
-
-- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
-- Immediately returns a success response while processing continues in the background.
-</details>
-
-
-
-
-<details>
-<summary>API Caching</summary>
-
-<br>
-
-- If `cache_sec` is set in `config_api`, serves cached response from Inmemory or Redis before executing the API.
-- After API execution, response is cached if not already fetched from cache.
-```bash
-"cache_sec":["inmemory",60]
-"cache_sec":["redis",60]
-```
-</details>
 
 
 
