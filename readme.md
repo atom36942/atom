@@ -385,6 +385,7 @@ python consumer_kafka.py                # Run with activated virtualenv
 
 
 
+
 <details>
 <summary>RabbitMQ</summary>
 
@@ -682,6 +683,8 @@ request.app.state.client_openai
 <br>
 
 - Prebuilt api logs in log_api table in database using atom middleware
+- If `log_api` table exists in schema, logs each API call with metadata like type, user ID, path, status, response time, and error (if any)
+- Logging is done asynchronously using `function_log_create_postgres`.
 - Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
 ```bash
 config_batch_log_api=value
@@ -812,5 +815,99 @@ config_cors_allow_credentials
 config_is_prometheus=1
 ```
 </details>
+
+
+
+
+
+<details>
+<summary>Middleware</summary>
+
+<br>
+
+- Handles token validation and injects user into `request.state.user` using `function_token_check`.
+- Applies admin access control for apis containing `admin/` via `function_check_api_access`.
+- Checks if user is active when `is_active_check` is set in `config_api`.
+- Enforces rate limiting if `ratelimiter_times_sec` is set for the API.
+- Runs API in background if `is_background=1` is present in query params.
+- Serves cached response if `cache_sec` is set.
+- Captures and logs exceptions; sends to Sentry if configured.
+- Logs API calls to `log_api` table if schema has logging enabled.
+</details>
+
+
+
+
+
+
+
+<details>
+<summary>Token Check</summary>
+
+<br>
+
+- Extracts token from headers, validates it using `function_token_check`.
+- Decoded user info is injected into `request.state.user` for downstream access.
+```bash
+request.state.user.get("id")
+```
+</details>
+
+
+
+
+<details>
+<summary>User Active Check</summary>
+
+<br>
+
+- If `is_active_check=1` is set in `config_api` for an endpoint, verifies user active check.
+- Blocks request if user is marked inactive in the database.
+</details>
+
+
+
+
+
+
+
+<details>
+<summary>Rate Limiter</summary>
+
+<br>
+
+- If `ratelimiter_times_sec` is set in `config_api`, enforces per-user rate limiting using Redis.
+- Prevents abuse by limiting request frequency to defined time intervals.
+</details>
+
+
+
+
+
+<details>
+<summary>Background Execution</summary>
+
+<br>
+
+- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
+- Immediately returns a success response while processing continues in the background.
+</details>
+
+
+
+
+<details>
+<summary>API Caching</summary>
+
+<br>
+
+- If `cache_sec` is set in `config_api`, serves cached response from Inmemory or Redis before executing the API.
+- After API execution, response is cached if not already fetched from cache.
+```bash
+"cache_sec":["inmemory",60]
+"cache_sec":["redis",60]
+```
+</details>
+
 
 

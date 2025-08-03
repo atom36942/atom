@@ -146,7 +146,7 @@ async def middleware(request,api_function):
 
 #api
 from fastapi import Request,responses
-import json,time,os,asyncio,sys
+import json,time,os,asyncio
 
 @app.get("/")
 async def route_index(request:Request):
