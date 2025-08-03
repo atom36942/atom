@@ -539,7 +539,7 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 
 
 
-## Clients
+## Client
 
 <details>
 <summary>Postgres</summary>
@@ -550,6 +550,10 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 - Databases - https://github.com/encode/databases
 - Asyncpg - https://github.com/MagicStack/asyncpg
 - Use client in your routes to execute any raw sql in your router
+- Add the following key to your `.env` file
+```bash
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+```
 ```python
 request.app.state.client_postgres 
 request.app.state.client_postgres_asyncpg
@@ -669,36 +673,6 @@ request.app.state.client_ses
 </details>
 
 <details>
-<summary>Fast2SMS</summary>
-
-<br>
-
-- Prebuilt Fast2SMS connection
-- Docs - https://www.fast2sms.com/docs
-- Add the following key to your `.env` file
-```bash
-config_fast2sms_url=value
-config_fast2sms_key=value
-```
-- check api in the public section of file `curl.txt`
-</details>
-
-<details>
-<summary>Resend</summary>
-
-<br>
-
-- Prebuilt Resend connection
-- Docs - https://resend.com/docs/api-reference
-- Add the following key to your `.env` file
-```bash
-config_resend_url=value
-config_resend_key=value
-```
-- check api in the public section of file `curl.txt`
-</details>
-
-<details>
 <summary>OpenAI</summary>
 
 <br>
@@ -727,7 +701,7 @@ request.app.state.client_openai
 
 
 
-
+## Consumer
 
 <details>
 <summary>Celery</summary>
@@ -835,21 +809,40 @@ config_google_login_client_id=value
 - check api in the auth section of file `curl.txt`
 </details>
 
-
-
-
-
-
-
-
 <details>
-<summary><b>What is this project about?</b></summary>
+<summary>Send Otp Fast2SMS</summary>
+
 <br>
-A lightweight API server with config-driven logic.
+
+- Prebuilt Fast2SMS connection
+- Docs - https://www.fast2sms.com/docs
+- Add the following key to your `.env` file
+```bash
+config_fast2sms_url=value
+config_fast2sms_key=value
+```
+- check api in the public section of file `curl.txt`
 </details>
 
 <details>
-<summary><b>How to run it?</b></summary>
+<summary>Send Otp Resend</summary>
+
 <br>
-Use `docker-compose up` or run `main.py` directly after setting `.env`.
+
+- Prebuilt Resend connection
+- Docs - https://resend.com/docs/api-reference
+- Add the following key to your `.env` file
+```bash
+config_resend_url=value
+config_resend_key=value
+```
+- check api in the public section of file `curl.txt`
 </details>
+
+
+
+
+
+
+
+
