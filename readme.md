@@ -324,6 +324,45 @@ request.app.state.client_openai
 </details>
 
 <details>
+<summary>Sentry</summary>
+
+<br>
+
+- Prebuilt Sentry connection
+- Docs - https://docs.sentry.io/platforms/python/
+- Logs errors and performance data to Sentry
+- Add the following key to your `.env` file
+```bash
+config_sentry_dsn=value
+```
+</details>
+
+<details>
+<summary>Prometheus</summary>
+
+<br>
+
+- Enable Prometheus metrics by addding below config key:
+```bash
+config_is_prometheus=1
+```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<details>
 <summary>Token Check</summary>
 
 <br>
@@ -399,30 +438,10 @@ update users set api_access='1,2,3' where id=1;
 - To revoke access, update `api_access` column and refresh token 
 </details>
 
-<details>
-<summary>Sentry</summary>
 
-<br>
 
-- Prebuilt Sentry connection
-- Docs - https://docs.sentry.io/platforms/python/
-- Logs errors and performance data to Sentry
-- Add the following key to your `.env` file
-```bash
-config_sentry_dsn=value
-```
-</details>
 
-<details>
-<summary>Prometheus</summary>
 
-<br>
-
-- Enable Prometheus metrics by addding below config key:
-```bash
-config_is_prometheus=1
-```
-</details>
 
 
 
