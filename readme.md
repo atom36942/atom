@@ -372,6 +372,10 @@ config_is_prometheus=1
 ```bash
 request.state.user.get("id")
 ```
+- How to enable auth for your apis: update below key in `config_api` dict in config.py for the api
+```bash
+is_token=1
+```
 </details>
 
 <details>
