@@ -528,7 +528,7 @@ config_is_prometheus=1
 </details>
 
 <details>
-<summary>Settings</summary>
+<summary>Default Settings</summary>
 
 <br>
 

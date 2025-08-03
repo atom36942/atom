@@ -90,6 +90,7 @@ async def lifespan(app:FastAPI):
       if client_postgres_asyncpg_pool:await client_postgres_asyncpg_pool.close()
       if client_postgres_read:await client_postgres_read.close()
       if client_redis:await client_redis.aclose()
+      if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()
       if client_redis_producer:await client_redis_producer.aclose()
       if client_mongodb:client_mongodb.close()
       if client_kafka_producer:await client_kafka_producer.stop()
