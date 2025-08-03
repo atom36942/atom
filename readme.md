@@ -160,25 +160,10 @@ touch .env                                            # Create .env file
 
 
 
-<details>
-<summary>Client Initialization</summary>
-
-<br>
-
-- All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
-- You can access these clients in your custom routes via `request.app.state.{client_name}`
-- Available client list (check `main.py` lifespan section)
-- Example:-
-```python
-request.app.state.client_postgres 
-request.app.state.client_openai  
-```
-</details>
-
 
 
 <details>
-<summary>Extend Routes</summary>
+<summary>Extend Atom</summary>
 
 <br>
 
@@ -213,7 +198,6 @@ some_value=config.get("xyz")
 
 
 
-
 <details>
 <summary>Extend Files</summary>
 
@@ -230,6 +214,22 @@ from extend_master import *
 
 
 
+
+
+<details>
+<summary>Client Initialization</summary>
+
+<br>
+
+- All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
+- You can access these clients in your custom routes via `request.app.state.{client_name}`
+- Available client list (check `main.py` lifespan section)
+- Example:-
+```python
+request.app.state.client_postgres 
+request.app.state.client_openai  
+```
+</details>
 
 
 
@@ -677,24 +677,6 @@ request.app.state.client_openai
 
 
 
-<details>
-<summary>API Log</summary>
-
-<br>
-
-- Prebuilt api logs in log_api table in database using atom middleware
-- If `log_api` table exists in schema, logs each API call with metadata like type, user ID, path, status, response time, and error (if any)
-- Logging is done asynchronously using `function_log_create_postgres`.
-- Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
-```bash
-config_batch_log_api=value
-```
-</details>
-
-
-
-
-
 
 <details>
 <summary>Config API</summary>
@@ -911,3 +893,18 @@ request.state.user.get("id")
 
 
 
+
+
+<details>
+<summary>API Log</summary>
+
+<br>
+
+- Prebuilt api logs in log_api table in database using atom middleware
+- If `log_api` table exists in schema, logs each API call with metadata like type, user ID, path, status, response time, and error (if any)
+- Logging is done asynchronously using `function_log_create_postgres`.
+- Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
+```bash
+config_batch_log_api=value
+```
+</details>
