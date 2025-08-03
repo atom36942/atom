@@ -287,6 +287,53 @@ some_value=config.get("xyz")
 - Logs API calls to `log_api` table if schema has logging enabled.
 </details>
 
+<details>
+<summary>Config API</summary>
+
+<br>
+
+- Prebuilt `config_api` dict in config.py to control api logics
+- You can also add your api in the same dict
+- For ex. `/test` api:
+```python
+"/test":{
+"id":7,
+"is_token":0,
+"is_active_check":1,
+"cache_sec":["inmemory",60],
+"ratelimiter_times_sec":[1,1]
+}
+```
+- id - unique api id
+- is_token - 0/1 - to enable auth
+- is_active_check - 0/1 - to enable user active check
+- cache_sec - to cache api with inmemory/redis option
+- ratelimiter_times_sec - to ratelimit api
+</details>
+
+<details>
+<summary>Config Database</summary>
+
+<br>
+
+- Prebuilt `config_postgres_schema` dict is defined in `config.py` to initialize PostgreSQL schema.
+- It has two keys: `table` and `query`.
+- `table` contains table definitions.
+- `query` contains extra SQL queries to run.
+- You can add your own table and query to it.
+- Understanding `table` columns:-
+```python
+"type-bigint-0-btree"
+"title-text-1-btree,gin"
+```
+- each row represent one column in the table
+- `type` or `title` = column name
+- `bigint` or `text` = column datatype
+- `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
+- `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
+</details>
+
+
 
 
 
@@ -463,51 +510,6 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 
 
 
-<details>
-<summary>Config API</summary>
-
-<br>
-
-- Prebuilt `config_api` dict in config.py to control api logics
-- You can also add your api in the same dict
-- For ex. `/test` api:
-```python
-"/test":{
-"id":7,
-"is_token":0,
-"is_active_check":1,
-"cache_sec":["inmemory",60],
-"ratelimiter_times_sec":[1,1]
-}
-```
-- id - unique api id
-- is_token - 0/1 - to enable auth
-- is_active_check - 0/1 - to enable user active check
-- cache_sec - to cache api with inmemory/redis option
-- ratelimiter_times_sec - to ratelimit api
-</details>
-
-<details>
-<summary>Config Database</summary>
-
-<br>
-
-- Prebuilt `config_postgres_schema` dict is defined in `config.py` to initialize PostgreSQL schema.
-- It has two keys: `table` and `query`.
-- `table` contains table definitions.
-- `query` contains extra SQL queries to run.
-- You can add your own table and query to it.
-- Understanding `table` columns:-
-```python
-"type-bigint-0-btree"
-"title-text-1-btree,gin"
-```
-- each row represent one column in the table
-- `type` or `title` = column name
-- `bigint` or `text` = column datatype
-- `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
-- `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
-</details>
 
 
 
