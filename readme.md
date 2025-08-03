@@ -579,6 +579,23 @@ request.app.state.client_postgres_read
 </details>
 
 <details>
+<summary>Redis</summary>
+
+<br>
+
+- Prebuilt Redis connection
+- Docs - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
+- Add the following key to your `.env` file
+```bash
+config_redis_url=redis://localhost:6379
+```
+- Use client in your routes
+```bash
+request.app.state.clienclient_redist_mongodb 
+ ```
+</details>
+
+<details>
 <summary>Posthog</summary>
 
 <br>
