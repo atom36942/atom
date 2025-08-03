@@ -63,13 +63,18 @@ Explanation of key files in the repo:
 
 
 
+
 ## Installation
 
 <details>
 <summary>Installation</summary>
 
+<br>
+
 <details>
 <summary>Setup Repo</summary>
+
+<br>
 
 Mac
 ```bash
@@ -92,6 +97,8 @@ pip install -r requirements.txt
 <details>
 <summary>Setup env</summary>
 
+<br>
+
 - Create a `.env` file in the root directory with min 4 keys 
 - You can use local or remote URLs for Postgres and Redis
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
@@ -108,6 +115,8 @@ config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 
 <details>
 <summary>Server Start</summary>
+
+<br>
 
 ```bash
 python main.py                  # Run directly
