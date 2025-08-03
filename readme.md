@@ -438,6 +438,20 @@ update users set api_access='1,2,3' where id=1;
 - Immediately returns a success response while processing continues in the background.
 </details>
 
+<details>
+<summary>API Log</summary>
+
+<br>
+
+- Prebuilt api logs in log_api table in database using atom middleware
+- If `log_api` table exists in schema, logs each API call with metadata like type, user ID, path, status, response time, and error (if any)
+- Logging is done asynchronously using `function_log_create_postgres`.
+- Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
+```bash
+config_batch_log_api=value
+```
+</details>
+
 
 
 
@@ -835,22 +849,6 @@ request.state.user.get("mobile")
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <details>
 <summary>Google Login</summary>
 
@@ -869,33 +867,3 @@ config_google_login_client_id=value
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<details>
-<summary>API Log</summary>
-
-<br>
-
-- Prebuilt api logs in log_api table in database using atom middleware
-- If `log_api` table exists in schema, logs each API call with metadata like type, user ID, path, status, response time, and error (if any)
-- Logging is done asynchronously using `function_log_create_postgres`.
-- Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
-```bash
-config_batch_log_api=value
-```
-</details>
