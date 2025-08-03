@@ -287,6 +287,20 @@ some_value=config.get("xyz")
 - Logs API calls to `log_api` table if schema has logging enabled.
 </details>
 
+
+
+
+
+
+
+
+
+
+
+
+
+## Modules
+
 <details>
 <summary>Client</summary>
 
@@ -301,18 +315,6 @@ request.app.state.client_postgres
 request.app.state.client_openai  
 ```
 </details>
-
-
-
-
-
-
-
-
-
-
-
-## Modules
 
 <details>
 <summary>Token</summary>
