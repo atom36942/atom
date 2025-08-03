@@ -216,22 +216,6 @@ from extend_master import *
 
 
 
-<details>
-<summary>Client Initialization</summary>
-
-<br>
-
-- All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
-- You can access these clients in your custom routes via `request.app.state.{client_name}`
-- Available client list (check `main.py` lifespan section)
-- Example:-
-```python
-request.app.state.client_postgres 
-request.app.state.client_openai  
-```
-</details>
-
-
 
 <details>
 <summary>Settings</summary>
@@ -251,6 +235,28 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 ```
 </details>
 
+
+
+
+
+
+
+
+
+<details>
+<summary>Client Initialization</summary>
+
+<br>
+
+- All service clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
+- You can access these clients in your custom routes via `request.app.state.{client_name}`
+- Available client list (check `main.py` lifespan section)
+- Example:-
+```python
+request.app.state.client_postgres 
+request.app.state.client_openai  
+```
+</details>
 
 
 
