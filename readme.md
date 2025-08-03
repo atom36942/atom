@@ -1,4 +1,4 @@
-## About
+# About
 
 <details>
 <summary>What is atom</summary>
