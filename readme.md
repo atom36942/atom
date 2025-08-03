@@ -206,21 +206,6 @@ touch .env                                            # Create .env file
 </details>
 
 <details>
-<summary>Extend Files</summary>
-
-<br>
-
-- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
-- Add all extend files in `extend_master.py`
-- This is an opinionated approach to structure code
-- import `extend_master.py` in your routes
-```python
-from extend import *
-from extend_master import *
-```
-</details>
-
-<details>
 <summary>Extend Config</summary>
 
 <br>
@@ -234,6 +219,21 @@ from extend_master import *
 - For ex:
 ```python
 some_value=config.get("xyz")
+```
+</details>
+
+<details>
+<summary>Extend Files</summary>
+
+<br>
+
+- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
+- Add all extend files in `extend_master.py`
+- This is an opinionated approach to structure code
+- import `extend_master.py` in your routes
+```python
+from extend import *
+from extend_master import *
 ```
 </details>
 
