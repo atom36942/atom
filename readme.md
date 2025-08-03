@@ -64,7 +64,6 @@ Explanation of key files in the repo:
 
 ## Installation
 
-
 <details>
 <summary>Installation</summary>
 
@@ -147,6 +146,9 @@ touch .env                                            # Create .env file
 
 
 
+
+
+
 ## Extend Atom
 
 <details>
@@ -204,6 +206,7 @@ some_value=config.get("xyz")
 
 
 
+
 ## APIs
 
 <details>
@@ -232,6 +235,7 @@ some_value=config.get("xyz")
 ./test.sh
 ```
 </details>
+
 
 
 
@@ -332,6 +336,7 @@ some_value=config.get("xyz")
 - `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
 - `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
 </details>
+
 
 
 
@@ -509,27 +514,7 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+## Clients
 
 <details>
 <summary>Postgres</summary>
