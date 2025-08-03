@@ -574,7 +574,16 @@ request.app.state.client_postgres
 request.app.state.client_postgres_asyncpg
 request.app.state.client_postgres_asyncpg_pool
  ```
- - Add the following key to your `.env` file for Postgres read replica 
+</details>
+
+<details>
+<summary>Postgres Read Replica</summary>
+
+<br>
+
+- Prebuilt Postgres read replica config is available.
+- docs - https://github.com/encode/databases
+- Add the following key to your `.env` file
 ```bash
 config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
 ```
