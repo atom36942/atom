@@ -421,12 +421,16 @@ update users set is_active=0 where id=1;
 </details>
 
 <details>
-<summary>Rate Limiter</summary>
+<summary>Ratelimiter</summary>
 
 <br>
 
 - If `ratelimiter_times_sec` is set in `config_api`, enforces per-user rate limiting using Redis.
 - Prevents abuse by limiting request frequency to defined time intervals.
+- Add the following key to your `.env` file to enable ratelimiter
+```bash
+config_redis_url_ratelimiter=redis://localhost:6379
+```
 </details>
 
 <details>

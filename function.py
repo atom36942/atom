@@ -410,13 +410,14 @@ async def function_check_is_active(mode,request,cache_users_is_active,client_pos
    if user_is_active==0:raise Exception("user not active")
    return None
 
-async def function_check_ratelimiter(request,client_redis,config_api):
+async def function_check_ratelimiter(request,client_redis_ratelimiter,config_api):
+   if not client_redis_ratelimiter:raise Exception("pls add config_redis_url_ratelimiter in .env")
    limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
    identifier=request.state.user.get("id") if request.state.user else request.client.host
    ratelimiter_key=f"ratelimiter:{request.url.path}:{identifier}"
-   current_count=await client_redis.get(ratelimiter_key)
+   current_count=await client_redis_ratelimiter.get(ratelimiter_key)
    if current_count and int(current_count)+1>limit:raise Exception("ratelimiter exceeded")
-   pipe=client_redis.pipeline()
+   pipe=client_redis_ratelimiter.pipeline()
    pipe.incr(ratelimiter_key)
    if not current_count:pipe.expire(ratelimiter_key,window)
    await pipe.execute()

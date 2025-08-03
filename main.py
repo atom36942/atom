@@ -8,6 +8,7 @@ config_postgres_url_read=config.get("config_postgres_url_read")
 config_postgres_min_connection=int(config.get("config_postgres_min_connection",5))
 config_postgres_max_connection=int(config.get("config_postgres_max_connection",20))
 config_redis_url=config.get("config_redis_url")
+config_redis_url_ratelimiter=config.get("config_redis_url_ratelimiter")
 config_mongodb_url=config.get("config_mongodb_url")
 config_celery_broker_url=config.get("config_celery_broker_url")
 config_rabbitmq_url=config.get("config_rabbitmq_url")
@@ -65,6 +66,7 @@ async def lifespan(app:FastAPI):
       client_postgres_asyncpg_pool=await function_client_read_postgres_asyncpg_pool(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_postgres_read=await function_client_read_postgres(config_postgres_url_read,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url_read else None
       client_redis=await function_client_read_redis(config_redis_url) if config_redis_url else None
+      client_redis_ratelimiter=await function_client_read_redis(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
       client_mongodb=await function_client_read_mongodb(config_mongodb_url) if config_mongodb_url else None
       client_s3,client_s3_resource=(await function_client_read_s3(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name)) if config_s3_region_name else (None, None)
       client_sns=await function_client_read_sns(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
@@ -120,7 +122,7 @@ async def middleware(request,api_function):
       request.state.user=await function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode)
       if "admin/" in api:await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
       if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
-      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis,config_api)
+      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis_ratelimiter,config_api)
       if request.query_params.get("is_background")=="1":
          response=await function_api_response_background(request,api_function)
          type=1
