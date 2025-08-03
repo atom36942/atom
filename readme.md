@@ -213,6 +213,7 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 
 
 
+
 <details>
 <summary>API Collection</summary>
 
@@ -253,11 +254,11 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 
 
 <details>
-<summary>FastAPI APP</summary>
+<summary>FastAPI App</summary>
 
 <br>
 
-- FastAPI APP is setup in the `main.py` app section.
+- FastAPI App is setup in the `main.py` app section.
 - Lifespan events are added
 - Adds CORS as per the config
 - Routers auto-loaded
@@ -363,7 +364,7 @@ config_is_prometheus=1
 
 
 <details>
-<summary>Token Check</summary>
+<summary>Token</summary>
 
 <br>
 
@@ -371,15 +372,21 @@ config_is_prometheus=1
 - Decoded user info is injected into `request.state.user` for downstream access.
 ```bash
 request.state.user.get("id")
+request.state.user.get("is_active")
+request.state.user.get("mobile")
 ```
 - How to enable auth for your apis: update below key in `config_api` dict in config.py for the api
 ```bash
 is_token=1
 ```
+To set extra user keys in token, set `config_token_key_list` in `config.py` or `.env` with first 3 keys as id,is_active,api_access
+```python
+config_token_key_list=id,is_active,api_access,mobile,username
+``` 
 </details>
 
 <details>
-<summary>Active Check</summary>
+<summary>User Active Check</summary>
 
 <br>
 
@@ -455,6 +462,7 @@ update users set api_access='1,2,3' where id=1;
 config_batch_log_api=value
 ```
 </details>
+
 
 
 
@@ -722,6 +730,7 @@ request.app.state.client_openai
 
 
 
+
 <details>
 <summary>Celery</summary>
 
@@ -815,44 +824,6 @@ python consumer_redis.py                # Run with activated virtualenv
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<details>
-<summary>JWT Token Keys Encoding</summary>
-
-<br>
-
-- Set `config_token_key_list` in `config.py` or `.env` to define which user fields go into the JWT token. 
-- Always include: `id`, `is_active`, and `api_access`
-- Add any other fields as needed, like `mobile`, `username`, etc.
-- You can access encoded user keys in your FastAPI routes like:
-```python
-config_token_key_list=id,is_active,api_access,mobile,username
-``` 
-```python
-request.state.user.get("id")
-request.state.user.get("is_active")
-request.state.user.get("mobile")
-```
-</details>
-
-
-
 <details>
 <summary>Google Login</summary>
 
@@ -865,9 +836,3 @@ config_google_login_client_id=value
 ```
 - check api in the auth section of file `curl.txt`
 </details>
-
-
-
-
-
-
