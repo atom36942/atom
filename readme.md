@@ -15,6 +15,7 @@
 
 
 
+
 <details>
 <summary>Tech Stack</summary>
 
@@ -29,6 +30,9 @@ Atom uses a proven tech stack so you can build fast without worrying about stack
 - Task Worker: Celery (for background processing)  
 - Monitoring: Sentry/Prometheus (for error tracking and performance monitoring)  
 </details>
+
+
+
 
 
 
@@ -55,6 +59,11 @@ Explanation of key files in the repo:
 - `Dockerfile` – Build and run the project inside Docker  
 - `.gitignore` – Files/directories to ignore in git
 </details>
+
+
+
+
+
 
 
 
@@ -91,6 +100,12 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 
+
+
+
+
+
+
 <details>
 <summary>Installation With Docker</summary>
 
@@ -103,6 +118,10 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 </details>
+
+
+
+
 
 
 
@@ -129,6 +148,8 @@ touch .env                                            # Create .env file
 
 
 
+
+
 <details>
 <summary>API Collection</summary>
 
@@ -140,6 +161,9 @@ touch .env                                            # Create .env file
 - `test.sh` executes all active curl commands automatically  
 - Any line starting with `0 curl` is skipped during automated testing with `test.sh`
 </details>
+
+
+
 
 
 
@@ -162,6 +186,8 @@ touch .env                                            # Create .env file
 
 
 
+
+
 <details>
 <summary>Extend Atom</summary>
 
@@ -175,6 +201,9 @@ touch .env                                            # Create .env file
 - All routes includes atom middleware by defualt having prebuilt auth,admin check,user active check,ratelimter,background apis,caching,api log
 - See `router.py` for sample usage
 </details>
+
+
+
 
 
 
@@ -198,6 +227,9 @@ some_value=config.get("xyz")
 
 
 
+
+
+
 <details>
 <summary>Extend Files</summary>
 
@@ -217,13 +249,15 @@ from extend_master import *
 
 
 
+
 <details>
 <summary>Settings</summary>
 
 <br>
 
-- With below congfig keys,you can control default settings
+- With below config keys,you can control default settings
 - Default values are in main.py config section
+- You can add them in `.env` or `config` file
 ```bash
 config_token_expire_sec=10000                               # token expiry time 
 config_is_signup=0/1                                        # enable/disable signup
@@ -236,6 +270,35 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 </details>
 
 
+
+
+
+
+
+
+<details>
+<summary>Config API</summary>
+
+<br>
+
+- Prebuilt `config_api` dict in config.py to control api logics
+- You can also add your api in the same dict
+- For ex. `/test` api:
+```python
+"/test":{
+"id":7,
+"is_token":0,
+"is_active_check":1,
+"cache_sec":["inmemory",60],
+"ratelimiter_times_sec":[1,1]
+}
+```
+- id - unique api id
+- is_token - 0/1 - to enable auth
+- is_active_check - 0/1 - to enable user active check
+- cache_sec - to cache api with inmemory/redis option
+- ratelimiter_times_sec - to ratelimit api
+</details>
 
 
 
@@ -679,34 +742,6 @@ request.app.state.client_openai
  ```
 </details>
 
-
-
-
-
-
-<details>
-<summary>Config API</summary>
-
-<br>
-
-- Prebuilt `config_api` dict in config.py to control api logics
-- You can also add your api in the same dict
-- For ex. `/test` api:
-```python
-"/test":{
-"id":7,
-"is_token":0,
-"is_active_check":1,
-"cache_sec":["inmemory",60],
-"ratelimiter_times_sec":[1,1]
-}
-```
-- id - unique api id
-- is_token - 0/1 - to enable auth
-- is_active_check - 0/1 - to enable user active check
-- cache_sec - to cache api with inmemory/redis option
-- ratelimiter_times_sec - to ratelimit api
-</details>
 
 
 
