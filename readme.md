@@ -309,6 +309,97 @@ config_cors_allow_credentials
 </details>
 
 <details>
+<summary>Client</summary>
+
+<br>
+
+- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
+- You can access these clients in your custom routes via `request.app.state.{client_name}`
+- Available client list (check `main.py` lifespan section)
+- Example:-
+```python
+request.app.state.client_postgres 
+request.app.state.client_openai  
+```
+</details>
+
+<details>
+<summary>Token Check</summary>
+
+<br>
+
+- Extracts token from headers, validates it using `function_token_check`.
+- Decoded user info is injected into `request.state.user` for downstream access.
+```bash
+request.state.user.get("id")
+```
+</details>
+
+<details>
+<summary>Active Check</summary>
+
+<br>
+
+- You can enable user is_active check for any api in your router
+- This is check by atom middleware using token
+- Add key `is_active_check=1` for that api In `config_api` variable in `config.py`
+- To mark user inactive, set `is_active=0` column in users table
+- To mark user active, set `is_active=1` or `is_active=null` column in users table
+```sql
+update users set is_active=0 where id=1;
+```
+</details>
+
+<details>
+<summary>Rate Limiter</summary>
+
+<br>
+
+- If `ratelimiter_times_sec` is set in `config_api`, enforces per-user rate limiting using Redis.
+- Prevents abuse by limiting request frequency to defined time intervals.
+</details>
+
+<details>
+<summary>Background Execution</summary>
+
+<br>
+
+- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
+- Immediately returns a success response while processing continues in the background.
+</details>
+
+<details>
+<summary>API Caching</summary>
+
+<br>
+
+- If `cache_sec` is set in `config_api`, serves cached response from Inmemory or Redis before executing the API.
+- After API execution, response is cached if not already fetched from cache.
+```bash
+"cache_sec":["inmemory",60]
+"cache_sec":["redis",60]
+```
+</details>
+
+<details>
+<summary>Admin APIs</summary>
+
+<br>
+
+- Add `/admin` in the route path to mark it as an admin API  
+- Check the `curl.txt` file for examples under the admin section  
+- `/admin` APIs are meant for routes that should be restricted to limited users.  
+- Access control is check by middleware using token
+- Assign a unique ID in the `config_api` variable in `config.py` (check existing samples there)  
+- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
+- Example to give user_id=1 access to admin APIs with IDs 1,2,3
+```sql
+update users set api_access='1,2,3' where id=1;
+```
+- To revoke access, update `api_access` column and refresh token 
+</details>
+
+<details>
 <summary>Sentry</summary>
 
 <br>
@@ -321,6 +412,18 @@ config_cors_allow_credentials
 config_sentry_dsn=value
 ```
 </details>
+
+<details>
+<summary>Prometheus</summary>
+
+<br>
+
+- Enable Prometheus metrics by addding below config key:
+```bash
+config_is_prometheus=1
+```
+</details>
+
 
 
 
@@ -522,9 +625,6 @@ request.app.state.client_openai
 
 
 
-
-
-
 <details>
 <summary>Celery</summary>
 
@@ -623,6 +723,11 @@ python consumer_redis.py                # Run with activated virtualenv
 
 
 
+
+
+
+
+
 <details>
 <summary>Config API</summary>
 
@@ -650,43 +755,6 @@ python consumer_redis.py                # Run with activated virtualenv
 
 
 
-
-<details>
-<summary>Client</summary>
-
-<br>
-
-- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
-- You can access these clients in your custom routes via `request.app.state.{client_name}`
-- Available client list (check `main.py` lifespan section)
-- Example:-
-```python
-request.app.state.client_postgres 
-request.app.state.client_openai  
-```
-</details>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <details>
 <summary>JWT Token Keys Encoding</summary>
 
@@ -708,42 +776,13 @@ request.state.user.get("mobile")
 
 
 
-<details>
-<summary>Admin APIs</summary>
-
-<br>
-
-- Add `/admin` in the route path to mark it as an admin API  
-- Check the `curl.txt` file for examples under the admin section  
-- `/admin` APIs are meant for routes that should be restricted to limited users.  
-- Access control is check by middleware using token
-- Assign a unique ID in the `config_api` variable in `config.py` (check existing samples there)  
-- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
-- Example to give user_id=1 access to admin APIs with IDs 1,2,3
-```sql
-update users set api_access='1,2,3' where id=1;
-```
-- To revoke access, update `api_access` column and refresh token 
-</details>
 
 
 
 
 
-<details>
-<summary>Active Check</summary>
 
-<br>
 
-- You can enable user is_active check for any api in your router
-- This is check by atom middleware using token
-- Add key `is_active_check=1` for that api In `config_api` variable in `config.py`
-- To mark user inactive, set `is_active=0` column in users table
-- To mark user active, set `is_active=1` or `is_active=null` column in users table
-```sql
-update users set is_active=0 where id=1;
-```
-</details>
 
 
 
@@ -765,12 +804,6 @@ config_google_login_client_id=value
 ```
 - check api in the auth section of file `curl.txt`
 </details>
-
-
-
-
-
-
 
 
 
@@ -808,83 +841,6 @@ config_google_login_client_id=value
 
 
 
-
-
-
-
-
-<details>
-<summary>Token Check</summary>
-
-<br>
-
-- Extracts token from headers, validates it using `function_token_check`.
-- Decoded user info is injected into `request.state.user` for downstream access.
-```bash
-request.state.user.get("id")
-```
-</details>
-
-
-
-<details>
-<summary>User Active Check</summary>
-
-<br>
-
-- If `is_active_check=1` is set in `config_api` for an endpoint, verifies user active check.
-- Blocks request if user is marked inactive in the database.
-</details>
-
-
-
-<details>
-<summary>Rate Limiter</summary>
-
-<br>
-
-- If `ratelimiter_times_sec` is set in `config_api`, enforces per-user rate limiting using Redis.
-- Prevents abuse by limiting request frequency to defined time intervals.
-</details>
-
-
-
-<details>
-<summary>Background Execution</summary>
-
-<br>
-
-- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
-- Immediately returns a success response while processing continues in the background.
-</details>
-
-
-
-<details>
-<summary>API Caching</summary>
-
-<br>
-
-- If `cache_sec` is set in `config_api`, serves cached response from Inmemory or Redis before executing the API.
-- After API execution, response is cached if not already fetched from cache.
-```bash
-"cache_sec":["inmemory",60]
-"cache_sec":["redis",60]
-```
-</details>
-
-
-
-<details>
-<summary>Prometheus</summary>
-
-<br>
-
-- Enable Prometheus metrics by addding below config key:
-```bash
-config_is_prometheus=1
-```
-</details>
 
 
 
