@@ -367,9 +367,9 @@ from extend_master import *
 
 <br>
 
-- Prebuilt `config_api` dict in config.py to control api logics
+- Prebuilt `config_api` dict in config.py to control - admin check,auth check,active check,cache,ratelimiter
 - You can also add your api in the same dict
-- For ex. `/test` api:
+- For ex:
 ```python
 "/test":{
 "id":7,
