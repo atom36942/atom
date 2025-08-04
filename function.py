@@ -92,15 +92,24 @@ async def function_producer_kafka(client_kafka_producer,channel_name,payload):
 
 #rabbitmq
 import aio_pika
-async def function_client_read_rabbitmq(config_rabbitmq_url):
+async def function_client_read_rabbitmq_producer(config_rabbitmq_url):
+   client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
+   client_rabbitmq_producer=await client_rabbitmq.channel()
+   return client_rabbitmq,client_rabbitmq_producer
+
+import aio_pika
+async def function_client_read_rabbitmq_consumer(config_rabbitmq_url,config_channel_name):
    client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
    client_rabbitmq_channel=await client_rabbitmq.channel()
-   return client_rabbitmq,client_rabbitmq_channel
+   client_rabbitmq_consumer=await client_rabbitmq_channel.declare_queue(config_channel_name,auto_delete=False)
+   return client_rabbitmq,client_rabbitmq_consumer
 
 import json,aio_pika
-async def function_producer_rabbitmq(client_rabbitmq_channel,channel_name,payload):
-   output=await client_rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=json.dumps(payload).encode()),routing_key=channel_name)
-   return output
+async def function_producer_rabbitmq(client_rabbitmq_producer,channel_name,payload):
+    body=json.dumps(payload).encode()
+    message=aio_pika.Message(body=body)
+    output=await client_rabbitmq_producer.default_exchange.publish(message,routing_key=channel_name)
+    return output
 
 #redis
 async def function_client_read_redis_consumer(client_redis,channel_name):

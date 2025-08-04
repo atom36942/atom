@@ -432,14 +432,12 @@ from extend_master import *
 - All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
 - You can access these clients in your custom routes via `request.app.state.{client_name}`
 - Available client list (check `main.py` lifespan section)
-- Example:-
 ```python
 request.app.state.client_postgres
 request.app.state.client_postgres_asyncpg
 request.app.state.client_postgres_asyncpg_pool
 request.app.state.client_postgres_read
 request.app.state.client_redis
-request.app.state.client_redis_producer
 request.app.state.client_mongodb
 request.app.state.client_s3
 request.app.state.client_s3_resource
@@ -447,10 +445,6 @@ request.app.state.client_sns
 request.app.state.client_ses
 request.app.state.client_openai
 request.app.state.client_posthog
-request.app.state.client_celery_producer
-request.app.state.client_kafka_producer
-request.app.state.client_rabbitmq
-request.app.state.client_rabbitmq_channel
 ```
 </details>
 
@@ -616,6 +610,7 @@ config_table_allowed_public_create_list=post,comment        # control which tabl
 config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
 ```
 </details>
+
 
 
 

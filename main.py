@@ -75,7 +75,7 @@ async def lifespan(app:FastAPI):
       client_posthog=await function_client_read_posthog(config_posthog_project_host,config_posthog_project_key)
       client_celery_producer=await function_client_read_celery_producer(config_celery_broker_url) if config_celery_broker_url else None
       client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
-      client_rabbitmq,client_rabbitmq_channel=await function_client_read_rabbitmq(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
+      client_rabbitmq,client_rabbitmq_producer=await function_client_read_rabbitmq_producer(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
       client_redis_producer=await function_client_read_redis(config_redis_pubsub_url) if config_redis_pubsub_url else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres) if client_postgres else (None, None)
@@ -94,7 +94,7 @@ async def lifespan(app:FastAPI):
       if client_redis_producer:await client_redis_producer.aclose()
       if client_mongodb:client_mongodb.close()
       if client_kafka_producer:await client_kafka_producer.stop()
-      if client_rabbitmq_channel and not client_rabbitmq_channel.is_closed:await client_rabbitmq_channel.close()
+      if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed:await client_rabbitmq_producer.close()
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
       if client_posthog:client_posthog.flush()
    except Exception as e:
@@ -304,7 +304,7 @@ async def route_my_object_create(request:Request):
       if queue=="batch":output=await function_object_create_postgres_batch(function_object_create_postgres,request.app.state.client_postgres,table,object,request.app.state.config_batch_object_create,is_serialize,function_object_serialize,request.app.state.cache_postgres_column_datatype)
       elif queue.startswith("mongodb"):output=await function_object_create_mongodb(request.app.state.client_mongodb,queue.split('_')[1],table,[object])
       elif queue=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
-      elif queue=="rabbitmq":output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",payload)
+      elif queue=="rabbitmq":output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_producer,"channel_1",payload)
       elif queue=="redis":output=await function_producer_redis(request.app.state.client_redis_producer,"channel_1",payload)
       elif queue=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",[table,[object],is_serialize])
    return {"status":1,"message":output}

@@ -32,7 +32,7 @@ async def route_rabbitmq_publish(request:Request):
    payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"rabbitmq4"}]}
    payload_3={"function":"function_postgres_query_runner","query":"update test set title='rabbitmq100' where id=337;","user_id":1}
    for payload in [payload_1,payload_2,payload_3]:
-      await function_producer_rabbitmq(request.app.state.client_rabbitmq_channel,"channel_1",payload)
+      await function_producer_rabbitmq(request.app.state.client_rabbitmq_producer,"channel_1",payload)
    return {"status":1,"message":"done"}
 
 #redis publish
