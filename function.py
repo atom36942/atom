@@ -1061,13 +1061,21 @@ async def function_create_where_string(object,function_object_serialize,postgres
    object={k:v for k,v in object.items() if (k in postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
    where_operator={k:v.split(',',1)[0] for k,v in object.items()}
    where_value={k:v.split(',',1)[1] for k,v in object.items()}
-   object_list=await function_object_serialize([where_value],postgres_column_datatype)
+   object_list = await function_object_serialize([where_value], postgres_column_datatype)
    where_value=object_list[0]
-   where_string_list=[f"({key} {where_operator[key]} :{key} or :{key} is null)" for key in [*object]]
+   where_string_list=[]
+   for key in object:
+      op=where_operator[key]
+      val=where_value[key]
+      if val == 'null' and op.lower() in ['is','is not']:
+         where_string_list.append(f"({key} {op.lower()} null)")
+         where_value.pop(key, None)
+      else:
+         where_string_list.append(f"({key} {op} :{key})")
    where_string_joined=' and '.join(where_string_list)
    where_string=f"where {where_string_joined}" if where_string_joined else ""
    return where_string,where_value
-   
+
 async def function_add_creator_data(client_postgres,user_key,object_list):
     object_list=[dict(object) for object in object_list]
     created_by_ids={str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
@@ -1102,7 +1110,7 @@ async def function_object_serialize(object_list,postgres_column_datatype):
       for key,value in object.items():
          datatype=postgres_column_datatype.get(key)
          if not datatype:continue
-         if not value:continue
+         if value in [None,"null"]:continue
          elif key in ["password"]:object_list[index][key]=hashlib.sha256(str(value).encode()).hexdigest()
          elif datatype=="text" and value in ["","null"]:object_list[index][key]=None
          elif datatype=="text":object_list[index][key]=value.strip()
