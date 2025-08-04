@@ -259,8 +259,8 @@ from extend_master import *
 - All atom APIs are defined in main.py
 - All atom APIs are listed in `curl.txt` as ready-to-run `curl` commands  
 - You can copy-paste any of these directly into Postman (use "Raw Text" option)  
-- `test.sh` executes all active curl commands automatically  
-- Any line starting with `0 curl` is skipped during automated testing with `test.sh`
+- Any curl starting with `0` is skipped during automated testing with `test.sh`
+- `curl.txt` has 8 section - index,root,auth,my,public,private,admin,router
 </details>
 
 <details>
@@ -272,7 +272,8 @@ from extend_master import *
 - It reads all curl commands from `curl.txt`
 - Executes them one by one as a quick integration test
 - To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
-- Testing Summary (URL, status code, execution time) will be saved to `curl.csv`
+- Testing Summary (API,Status Code,Response Time (ms)) will be saved to `curl.csv` in the root folder
+- How to run script:
 ```bash
 ./test.sh
 ```
