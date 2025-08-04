@@ -396,16 +396,16 @@ from extend_master import *
 - `table` contains table definitions.
 - `query` contains extra SQL queries to run.
 - You can add your own table and query to it.
-- Understanding `table` columns:-
+- Understanding `table` columns with different possibility for `title` column
 ```python
-"type-bigint-0-btree"
+"title-text-0-0"
+"title-text-0-btree"
 "title-text-1-btree,gin"
 ```
-- each row represent one column in the table
-- `type` or `title` = column name
-- `bigint` or `text` = column datatype
+- `title` = column name
+- `text` = column datatype
 - `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
-- `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
+- `0` or `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
 </details>
 
 
