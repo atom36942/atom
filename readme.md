@@ -431,10 +431,13 @@ from extend_master import *
 - Databases - https://github.com/encode/databases
 - Asyncpg - https://github.com/MagicStack/asyncpg
 - Use client in your routes to execute any raw sql in your router
+- It is used for primary database
 - Add the following key to your `.env` file
 ```bash
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 ```
+- Use client in your routes
+- You will also get pool client to manaage connection
 ```python
 request.app.state.client_postgres 
 request.app.state.client_postgres_asyncpg
@@ -449,6 +452,7 @@ request.app.state.client_postgres_asyncpg_pool
 
 - Prebuilt Postgres read replica config is available.
 - docs - https://github.com/encode/databases
+- It is used for reducing load in primary database for read queries
 - Add the following key to your `.env` file
 ```bash
 config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
@@ -466,13 +470,14 @@ request.app.state.client_postgres_read
 
 - Prebuilt Redis connection
 - Docs - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
+- It is used for cache data
 - Add the following key to your `.env` file
 ```bash
 config_redis_url=redis://localhost:6379
 ```
 - Use client in your routes
 ```bash
-request.app.state.clienclient_redist_mongodb 
+request.app.state.client_redis 
  ```
 </details>
 
@@ -483,6 +488,7 @@ request.app.state.clienclient_redist_mongodb
 
 - Prebuilt Posthog connection
 - Docs - https://posthog.com/docs/libraries/python
+- It is used for sending events
 - Add the following key to your `.env` file
 ```bash
 config_posthog_project_host=value
@@ -502,6 +508,7 @@ request.app.state.client_posthog
 
 - Prebuilt Mongodb connection
 - Docs - https://motor.readthedocs.io/en/stable
+- It is used for secondary database
 - Add the following key to your `.env` file
 ```bash
 config_mongodb_url=mongodb://localhost:27017
@@ -519,6 +526,7 @@ request.app.state.client_mongodb
 
 - Prebuilt AWS S3 connection
 - Docs - https://boto3.amazonaws.com
+- It is used for object storage
 - Add the following key to your `.env` file
 ```bash
 config_aws_access_key_id=value
@@ -539,6 +547,7 @@ request.app.state.client_s3_resource
 
 - Prebuilt AWS SNS connection
 - Docs - https://boto3.amazonaws.com
+- It is used for sending otps
 - Add the following key to your `.env` file
 ```bash
 config_aws_access_key_id=value
@@ -558,6 +567,7 @@ request.app.state.client_sns
 
 - Prebuilt AWS SES connection
 - Docs - https://boto3.amazonaws.com
+- It is used for sending emails
 - Add the following key to your `.env` file
 ```bash
 config_aws_access_key_id=value
@@ -577,6 +587,7 @@ request.app.state.client_ses
 
 - Prebuilt OpenAI connection
 - Docs - https://github.com/openai/openai-python
+- It is used for llm oeprations
 - Add the following key to your `.env` file
 ```bash
 config_openai_key=value
