@@ -631,6 +631,106 @@ request.app.state.client_openai
 
 
 
+
+
+
+
+## Consumer
+
+<details>
+<summary>Celery</summary>
+
+<br>
+
+- Start broker server (redis/rabbitmq)
+- Add the following key to your `.env` file
+```bash
+config_celery_broker_url=redis://localhost:6379
+```
+- Check `/celery-producer` in `router.py` file for sample useage
+- Check `consumer_celery.py` file for consumer logic
+- You can extend both producer and consumer
+- How to run `consumer_celery.py` file:
+```bash
+celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
+./venv/bin/celery -A consumer_celery worker --loglevel=info     # Run without activating virtualenv
+```
+</details>
+
+<details>
+<summary>Kafka</summary>
+
+<br>
+
+- Start Kafka server locally or remotely with SASL/PLAIN 
+- Add the following key to your `.env` file
+```bash
+config_kafka_url=value
+config_kafka_username=value
+config_kafka_password=value
+```
+- Check `/kafka-producer` in `router.py` file for sample useage
+- Check `consumer_kafka.py` file for consumer logic
+- You can extend both producer and consumer
+- How to run `consumer_kafka.py` file:
+```bash
+python consumer_kafka.py                # Run with activated virtualenv
+./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
+```
+</details>
+
+<details>
+<summary>RabbitMQ</summary>
+
+<br>
+
+- Start RabbitMQ server locally or remotely
+- Add the following key to your `.env` file
+```bash
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+```
+- Check `/rabbitmq-producer` in `router.py` file for sample useage
+- Check `consumer_rabbitmq.py` file for consumer logic
+- You can extend both producer and consumer
+- How to run `consumer_rabbitmq.py` file:
+```bash
+python consumer_rabbitmq.py                # Run with activated virtualenv
+./venv/bin/python consumer_rabbitmq.py     # Run without activating virtualenv
+```
+</details>
+
+<details>
+<summary>Redis Pub/Sub</summary>
+
+<br>
+
+- Start Redis server locally or remotely
+- Add the following key to your `.env` file
+```bash
+config_redis_pubsub_url=redis://localhost:6379
+```
+- Check `/redis-producer` in `router.py` file for sample useage
+- Check `consumer_redis.py` file for consumer logic
+- You can extend both producer and consumer
+- How to run `consumer_redis.py` file:
+```bash
+python consumer_redis.py                # Run with activated virtualenv
+./venv/bin/python consumer_redis.py     # Run without activating virtualenv
+```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Modules
 
 <details>
@@ -795,128 +895,6 @@ config_table_allowed_public_create_list=post,comment        # control which tabl
 config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
 ```
 </details>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Consumer
-
-<details>
-<summary>Celery</summary>
-
-<br>
-
-- Start broker server (redis/rabbitmq)
-- Add the following key to your `.env` file
-```bash
-config_celery_broker_url=redis://localhost:6379
-```
-- Check `/celery-producer` in `router.py` file for sample useage
-- Check `consumer_celery.py` file for consumer logic
-- You can extend both producer and consumer
-- How to run `consumer_celery.py` file:
-```bash
-celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
-./venv/bin/celery -A consumer_celery worker --loglevel=info     # Run without activating virtualenv
-```
-</details>
-
-<details>
-<summary>Kafka</summary>
-
-<br>
-
-- Start Kafka server locally or remotely with SASL/PLAIN 
-- Add the following key to your `.env` file
-```bash
-config_kafka_url=value
-config_kafka_username=value
-config_kafka_password=value
-```
-- Check `/kafka-producer` in `router.py` file for sample useage
-- Check `consumer_kafka.py` file for consumer logic
-- You can extend both producer and consumer
-- How to run `consumer_kafka.py` file:
-```bash
-python consumer_kafka.py                # Run with activated virtualenv
-./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
-```
-</details>
-
-<details>
-<summary>RabbitMQ</summary>
-
-<br>
-
-- Start RabbitMQ server locally or remotely
-- Add the following key to your `.env` file
-```bash
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-```
-- Check `/rabbitmq-producer` in `router.py` file for sample useage
-- Check `consumer_rabbitmq.py` file for consumer logic
-- You can extend both producer and consumer
-- How to run `consumer_rabbitmq.py` file:
-```bash
-python consumer_rabbitmq.py                # Run with activated virtualenv
-./venv/bin/python consumer_rabbitmq.py     # Run without activating virtualenv
-```
-</details>
-
-<details>
-<summary>Redis Pub/Sub</summary>
-
-<br>
-
-- Start Redis server locally or remotely
-- Add the following key to your `.env` file
-```bash
-config_redis_pubsub_url=redis://localhost:6379
-```
-- Check `/redis-producer` in `router.py` file for sample useage
-- Check `consumer_redis.py` file for consumer logic
-- You can extend both producer and consumer
-- How to run `consumer_redis.py` file:
-```bash
-python consumer_redis.py                # Run with activated virtualenv
-./venv/bin/python consumer_redis.py     # Run without activating virtualenv
-```
-</details>
-
-
-
-
-
-
-
-
-
-## Miscellaneous
 
 <details>
 <summary>Google Login</summary>
