@@ -48,8 +48,7 @@ async def route_redis_publish(request:Request):
 #posthog
 @router.get("/posthog")
 async def route_posthog(request:Request):
-   request.app.state.client_posthog.capture(distinct_id="user_1",event="test")
-   request.app.state.client_posthog.capture(distinct_id="user_2",event="posthog kt",properties={"name":"atom","title":"testing"})
+   request.app.state.client_posthog.capture(distinct_id="user_1",event="signup",properties={"name":"atom"})
    return {"status":1,"message":"done"}
 
 #postgres create
