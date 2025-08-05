@@ -420,211 +420,6 @@ from extend_master import *
 
 
 
-
-
-## Modules
-
-<details>
-<summary>Client</summary>
-
-<br>
-
-- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
-- You can access these clients in your custom routes via `request.app.state.{client_name}`
-- Available client list (check `main.py` lifespan section)
-```python
-request.app.state.client_postgres
-request.app.state.client_postgres_asyncpg
-request.app.state.client_postgres_asyncpg_pool
-request.app.state.client_postgres_read
-request.app.state.client_redis
-request.app.state.client_mongodb
-request.app.state.client_s3
-request.app.state.client_s3_resource
-request.app.state.client_sns
-request.app.state.client_ses
-request.app.state.client_openai
-request.app.state.client_posthog
-```
-</details>
-
-<details>
-<summary>Token</summary>
-
-<br>
-
-- Extracts token from headers, validates it using `function_token_check`.
-- Decoded user info is injected into `request.state.user` for downstream access.
-```bash
-request.state.user.get("id")
-request.state.user.get("is_active")
-request.state.user.get("mobile")
-```
-- How to enable auth for your apis: update below key in `config_api` dict in config.py for the api
-```bash
-is_token=1
-```
-To set extra user keys in token, set `config_token_key_list` in `config.py` or `.env` with first 3 keys as id,is_active,api_access
-```python
-config_token_key_list=id,is_active,api_access,mobile,username
-``` 
-</details>
-
-<details>
-<summary>User Active Check</summary>
-
-<br>
-
-- You can enable user is_active check for any api in your router
-- This is check by atom middleware using token
-- Add key `is_active_check=1` for that api In `config_api` variable in `config.py`
-- To mark user inactive, set `is_active=0` column in users table
-- To mark user active, set `is_active=1` or `is_active=null` column in users table
-```sql
-update users set is_active=0 where id=1;
-```
-</details>
-
-<details>
-<summary>Ratelimiter</summary>
-
-<br>
-
-- If `ratelimiter_times_sec` is set in `config_api`, enforces per-user rate limiting using Redis.
-- Prevents abuse by limiting request frequency to defined time intervals.
-- Identifier is token else host
-- Add the following key to your `.env` file to enable ratelimiter
-```bash
-config_redis_url_ratelimiter=redis://localhost:6379
-```
-</details>
-
-<details>
-<summary>API Caching</summary>
-
-<br>
-
-- If `cache_sec` is set in `config_api`, serves cached response from Inmemory or Redis before executing the API.
-- After API execution, response is cached if not already fetched from cache.
-```bash
-"cache_sec":["inmemory",60]
-"cache_sec":["redis",60]
-```
-</details>
-
-<details>
-<summary>Admin APIs</summary>
-
-<br>
-
-- Add `/admin` in the route path to mark it as an admin API  
-- Check the `curl.txt` file for examples under the admin section  
-- `/admin` APIs are meant for routes that should be restricted to limited users.  
-- Access control is check by middleware using token
-- Assign a unique ID in the `config_api` variable in `config.py` (check existing samples there)  
-- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
-- Example to give user_id=1 access to admin APIs with IDs 1,2,3
-```sql
-update users set api_access='1,2,3' where id=1;
-```
-- To revoke access, update `api_access` column and refresh token 
-</details>
-
-<details>
-<summary>Background Execution</summary>
-
-<br>
-
-- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
-- Immediately returns a success response while processing continues in the background.
-</details>
-
-<details>
-<summary>API Log</summary>
-
-<br>
-
-- Prebuilt api logs in log_api table in database using atom middleware
-- If `log_api` table exists in schema, logs each API call with metadata like type, user ID, path, status, response time, and error (if any)
-- Logging is done asynchronously using `function_log_create_postgres`.
-- Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
-```bash
-config_batch_log_api=value
-```
-</details>
-
-<details>
-<summary>CORS</summary>
-
-<br>
-
-- Configure cors setting by addding below config keys:
-```bash
-config_cors_origin_list
-config_cors_method_list
-config_cors_headers_list
-config_cors_allow_credentials
-```
-</details>
-
-<details>
-<summary>Sentry</summary>
-
-<br>
-
-- Prebuilt Sentry connection
-- Docs - https://docs.sentry.io/platforms/python/
-- Logs errors and performance data to Sentry
-- Add the following key to your `.env` file
-```bash
-config_sentry_dsn=value
-```
-</details>
-
-<details>
-<summary>Prometheus</summary>
-
-<br>
-
-- Enable Prometheus metrics by addding below config key:
-```bash
-config_is_prometheus=1
-```
-</details>
-
-<details>
-<summary>Default Settings</summary>
-
-<br>
-
-- With below config keys,you can control default settings
-- Default values are in main.py config section
-- You can add them in `.env` or `config.py` file
-```bash
-config_token_expire_sec=10000                               # token expiry time 
-config_is_signup=0/1                                        # enable/disable signup
-config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
-config_batch_object_create=10                               # control batch for object create
-config_column_disabled_list=value                           # control which keys non admin users can't update
-config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
-config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
-```
-</details>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Client
 
 <details>
@@ -791,6 +586,211 @@ config_openai_key=value
 request.app.state.client_openai 
  ```
 </details>
+
+
+
+
+
+
+
+
+
+
+
+## Modules
+
+<details>
+<summary>Client</summary>
+
+<br>
+
+- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
+- You can access these clients in your custom routes via `request.app.state.{client_name}`
+- Available client list (check `main.py` lifespan section)
+- Ex:
+```python
+request.app.state.client_postgres
+```
+</details>
+
+<details>
+<summary>Token</summary>
+
+<br>
+
+- Extracts token from headers, validates it using `function_token_check`.
+- Decoded user info is injected into `request.state.user` for downstream access.
+```bash
+request.state.user.get("id")
+request.state.user.get("is_active")
+request.state.user.get("mobile")
+```
+- How to enable auth for your apis: update below key in `config_api` dict in config.py for the api
+```bash
+is_token=1
+```
+To set extra user keys in token, set `config_token_key_list` in `config.py` or `.env` with first 4 keys as id,type,is_active,api_access
+```python
+config_token_key_list=id,type,is_active,api_access,mobile,username
+``` 
+</details>
+
+<details>
+<summary>User Active Check</summary>
+
+<br>
+
+- You can enable user is_active check for any api in your router
+- This is check by atom middleware using token
+- Add key `is_active_check=1` for that api In `config_api` variable in `config.py`
+- To mark user inactive, set `is_active=0` column in users table
+- To mark user active, set `is_active=1` or `is_active=null` column in users table
+```sql
+update users set is_active=0 where id=1;
+```
+</details>
+
+<details>
+<summary>Ratelimiter</summary>
+
+<br>
+
+- If `ratelimiter_times_sec` is set in `config_api`, enforces per-user rate limiting using Redis.
+- Prevents abuse by limiting request frequency to defined time intervals.
+- Identifier is token else host
+- Add the following key to your `.env` file to enable ratelimiter
+```bash
+config_redis_url_ratelimiter=redis://localhost:6379
+```
+</details>
+
+<details>
+<summary>API Caching</summary>
+
+<br>
+
+- If `cache_sec` is set in `config_api`, serves cached response from Inmemory or Redis before executing the API.
+- After API execution, response is cached if not already fetched from cache.
+```bash
+"cache_sec":["inmemory",60]
+"cache_sec":["redis",60]
+```
+</details>
+
+<details>
+<summary>Admin APIs</summary>
+
+<br>
+
+- Add `/admin` in the route path to mark it as an admin API  
+- Check the `curl.txt` file for examples under the admin section  
+- `/admin` APIs are meant for routes that should be restricted to limited users.  
+- Access control is check by middleware using token
+- Assign a unique ID in the `config_api` variable in `config.py` (check existing samples there)  
+- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
+- Example to give user_id=1 access to admin APIs with IDs 1,2,3
+```sql
+update users set api_access='1,2,3' where id=1;
+```
+- To revoke access, update `api_access` column and refresh token 
+</details>
+
+<details>
+<summary>Background Execution</summary>
+
+<br>
+
+- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
+- Immediately returns a success response while processing continues in the background.
+</details>
+
+<details>
+<summary>API Log</summary>
+
+<br>
+
+- Prebuilt api logs in log_api table in database using atom middleware
+- If `log_api` table exists in schema, logs each API call with metadata like type, user ID, path, status, response time, and error (if any)
+- Logging is done asynchronously using `function_log_create_postgres`.
+- Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
+```bash
+config_batch_log_api=value
+```
+</details>
+
+<details>
+<summary>CORS</summary>
+
+<br>
+
+- Configure cors setting by addding below config keys:
+```bash
+config_cors_origin_list
+config_cors_method_list
+config_cors_headers_list
+config_cors_allow_credentials
+```
+</details>
+
+<details>
+<summary>Sentry</summary>
+
+<br>
+
+- Prebuilt Sentry connection
+- Docs - https://docs.sentry.io/platforms/python/
+- Logs errors and performance data to Sentry
+- Add the following key to your `.env` file
+```bash
+config_sentry_dsn=value
+```
+</details>
+
+<details>
+<summary>Prometheus</summary>
+
+<br>
+
+- Enable Prometheus metrics by addding below config key:
+```bash
+config_is_prometheus=1
+```
+</details>
+
+<details>
+<summary>Default Settings</summary>
+
+<br>
+
+- With below config keys,you can control default settings
+- Default values are in main.py config section
+- You can add them in `.env` or `config.py` file
+```bash
+config_token_expire_sec=10000                               # token expiry time 
+config_is_signup=0/1                                        # enable/disable signup
+config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
+config_batch_object_create=10                               # control batch for object create
+config_column_disabled_list=value                           # control which keys non admin users can't update
+config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
+config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
+```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
