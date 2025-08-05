@@ -438,6 +438,8 @@ config_postgres_url=postgresql://atom@127.0.0.1/postgres
 ```
 - Use client in your routes
 - You will also get pool client to manaage connection
+- Check function `function_read_user_single` in `function.py`
+- Check function `function_read_user_single`, `function_column_mapping_read`, `function_postgres_stream` in `function.py` for sample usage
 ```python
 request.app.state.client_postgres 
 request.app.state.client_postgres_asyncpg
@@ -458,6 +460,7 @@ request.app.state.client_postgres_asyncpg_pool
 config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
 ```
 - Use client in your routes
+- Check api `/my/object-read` in `main.py` for sample usage
 ```bash
 request.app.state.client_postgres_read 
  ```
@@ -476,28 +479,9 @@ request.app.state.client_postgres_read
 config_redis_url=redis://localhost:6379
 ```
 - Use client in your routes
+- Check `function_object_create_redis` in `function.py` for sample usage
 ```bash
 request.app.state.client_redis 
- ```
-</details>
-
-<details>
-<summary>Posthog</summary>
-
-<br>
-
-- Prebuilt Posthog connection
-- Docs - https://posthog.com/docs/libraries/python
-- It is used for sending events
-- Add the following key to your `.env` file
-```bash
-config_posthog_project_host=value
-config_posthog_project_key=value
-```
-- Use client in your routes
-- Check `/posthog` in `router.py` file for sample useage
-```bash
-request.app.state.client_posthog 
  ```
 </details>
 
@@ -514,6 +498,7 @@ request.app.state.client_posthog
 config_mongodb_url=mongodb://localhost:27017
 ```
 - Use client in your routes
+- Check `function_object_create_mongodb` in `function.py` for sample usage
 ```bash
 request.app.state.client_mongodb 
  ```
@@ -534,6 +519,7 @@ config_aws_secret_access_key=value
 config_s3_region_name=value
 ```
 - Use client in your routes
+- Check `function_object_create_mongodb` in `function.py` for sample usage
 ```bash
 request.app.state.client_s3 
 request.app.state.client_s3_resource 
@@ -577,6 +563,26 @@ config_ses_region_name=value
 - Use client in your routes
 ```bash
 request.app.state.client_ses 
+ ```
+</details>
+
+<details>
+<summary>Posthog</summary>
+
+<br>
+
+- Prebuilt Posthog connection
+- Docs - https://posthog.com/docs/libraries/python
+- It is used for sending events
+- Add the following key to your `.env` file
+```bash
+config_posthog_project_host=value
+config_posthog_project_key=value
+```
+- Use client in your routes
+- Check `/posthog` in `router.py` file for sample useage
+```bash
+request.app.state.client_posthog 
  ```
 </details>
 
