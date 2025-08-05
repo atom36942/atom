@@ -363,6 +363,20 @@ from extend_master import *
 </details>
 
 <details>
+<summary>Client</summary>
+
+<br>
+
+- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
+- You can access these clients in your custom routes via `request.app.state.{client_name}`
+- Available client list (check `main.py` lifespan section)
+- Ex:
+```python
+request.app.state.client_postgres
+```
+</details>
+
+<details>
 <summary>Config API</summary>
 
 <br>
@@ -618,20 +632,6 @@ request.app.state.client_openai
 
 
 ## Modules
-
-<details>
-<summary>Client</summary>
-
-<br>
-
-- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
-- You can access these clients in your custom routes via `request.app.state.{client_name}`
-- Available client list (check `main.py` lifespan section)
-- Ex:
-```python
-request.app.state.client_postgres
-```
-</details>
 
 <details>
 <summary>Token</summary>
