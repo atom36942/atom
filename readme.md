@@ -640,6 +640,27 @@ request.app.state.client_celery_producer
   - Check `/celery-producer` in `router.py` file for sample useage
 </details>
 
+<details>
+<summary>Celery Consumer</summary>
+
+<br>
+
+- Prebuilt Celery Consumer file `consumer_celery.py`
+- Add the following key to your `.env` file
+```bash
+config_celery_broker_url=redis://localhost:6379
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+```
+- How to run file:
+```bash
+celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
+./venv/bin/celery -A consumer_celery worker --loglevel=info     # Run without activating virtualenv
+```
+- You can extend consumer logic by adding more task consumer functions
+</details>
+
+
+
 
 
 
@@ -657,25 +678,7 @@ request.app.state.client_celery_producer
 
 ## Consumer
 
-<details>
-<summary>Celery</summary>
 
-<br>
-
-- Start broker server (redis/rabbitmq)
-- Add the following key to your `.env` file
-```bash
-config_celery_broker_url=redis://localhost:6379
-```
-- Check `/celery-producer` in `router.py` file for sample useage
-- Check `consumer_celery.py` file for consumer logic
-- You can extend both producer and consumer
-- How to run `consumer_celery.py` file:
-```bash
-celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
-./venv/bin/celery -A consumer_celery worker --loglevel=info     # Run without activating virtualenv
-```
-</details>
 
 <details>
 <summary>Kafka</summary>
