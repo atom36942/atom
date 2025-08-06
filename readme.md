@@ -621,6 +621,26 @@ request.app.state.client_openai
  ```
 </details>
 
+<details>
+<summary>Celery Producer</summary>
+
+<br>
+
+- Prebuilt Celery Producer connection
+- Docs - https://github.com/celery/celery
+- It is used for Task Queue
+- Add the following key to your `.env` file
+```bash
+config_celery_broker_url=redis://localhost:6379
+```
+- How to use client:
+```bash
+request.app.state.client_celery_producer 
+ ```
+  - Check `/celery-producer` in `router.py` file for sample useage
+</details>
+
+
 
 
 
