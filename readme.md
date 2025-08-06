@@ -678,8 +678,6 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 
 ## Consumer
 
-
-
 <details>
 <summary>Kafka</summary>
 
