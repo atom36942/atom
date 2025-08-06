@@ -600,7 +600,7 @@ config_posthog_project_key=value
 ```bash
 request.app.state.client_posthog 
  ```
- - Check `/posthog` in `router.py` file for sample useage
+ - Check api `/admin/postgres-runner` in `main.py` file for sample useage
 </details>
 
 <details>

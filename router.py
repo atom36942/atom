@@ -10,7 +10,6 @@ async def route_test():
 #celery
 @router.get("/celery-producer")
 async def route_celery(request:Request):
-   await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",["test",[{"title": "celery2"},{"title": "celery3"}],0])
    await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",["users",[{"id":1,"email":"celery4"}],0])
    await function_producer_celery(request.app.state.client_celery_producer,"function_postgres_query_runner",["update test set title='celery4' where id=109;",1])
    return {"status":1,"message":"done"}
@@ -43,12 +42,6 @@ async def route_redis_publish(request:Request):
    payload_3={"function":"function_postgres_query_runner","query":"update test set title='redis100' where id=355;","user_id":1}
    for payload in [payload_1,payload_2,payload_3]:
       await function_producer_redis(request.app.state.client_redis_producer,"channel_1",payload)
-   return {"status":1,"message":"done"}
-
-#posthog
-@router.get("/posthog")
-async def route_posthog(request:Request):
-   request.app.state.client_posthog.capture(distinct_id="user_1",event="signup",properties={"name":"atom"})
    return {"status":1,"message":"done"}
 
 #postgres create

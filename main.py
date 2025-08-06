@@ -97,6 +97,7 @@ async def lifespan(app:FastAPI):
       if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed:await client_rabbitmq_producer.close()
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
       if client_posthog:client_posthog.flush()
+      if client_posthog:client_posthog.shutdown()
    except Exception as e:
       print(str(e))
       print(traceback.format_exc())
@@ -534,10 +535,11 @@ async def route_admin_object_read(request:Request):
    object_list=await function_object_read_postgres(request.app.state.client_postgres,table,object,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":object_list}
 
-@app.post("/admin/db-runner")
-async def route_admin_db_runner(request:Request):
+@app.post("/admin/postgres-runner")
+async def route_admin_postgres_runner(request:Request):
    object,[query]=await function_param_read("body",request,["query"],[])
    output=await function_postgres_query_runner(request.app.state.client_postgres,query,request.state.user["id"])
+   if request.app.state.client_posthog:request.app.state.client_posthog.capture(distinct_id=request.state.user["id"],event="postgres_runner",properties={"query":query})
    return {"status":1,"message":output}
 
 #server start
