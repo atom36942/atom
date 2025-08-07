@@ -335,7 +335,7 @@ from extend_master import *
 </details>
 
 <details>
-<summary>App</summary>
+<summary>FastAPI App</summary>
 
 <br>
 
@@ -410,7 +410,7 @@ request.app.state.client_postgres
 - `table` contains table definitions.
 - `query` contains extra SQL queries to run.
 - You can add your own table and query to it.
-- Understanding `table` columns with different possibility for `title` column
+- Understanding columns with different possibility for `title` column as an ex:
 ```python
 "title-text-0-0"
 "title-text-0-btree"
@@ -444,22 +444,19 @@ request.app.state.client_postgres
 - Atom has prebuilt postgres connection using two package Databases/Asyncpg
 - Databases - https://github.com/encode/databases
 - Asyncpg - https://github.com/MagicStack/asyncpg
-- How to use client: to execute any raw sql in your router
+- How to access client in your routes: to execute any raw sql in your router
 - It is used for primary database
 - Add the following key to your `.env` file
 ```bash
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 ```
-- How to use client:
-- You will also get pool client to manaage connection
-usage
+- How to access client in your routes:
 ```python
 request.app.state.client_postgres 
 request.app.state.client_postgres_asyncpg
 request.app.state.client_postgres_asyncpg_pool
  ```
- - Check `function_read_user_single` in `function.py`
-- Check `function_read_user_single`, `function_column_mapping_read`, `function_postgres_stream` in `function.py` for sample 
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -474,11 +471,11 @@ request.app.state.client_postgres_asyncpg_pool
 ```bash
 config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_postgres_read 
  ```
- - Check api `/my/object-read` in `main.py` for sample usage
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -493,11 +490,11 @@ request.app.state.client_postgres_read
 ```bash
 config_redis_url=redis://localhost:6379
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_redis 
  ```
- - Check `function_object_create_redis` in `function.py` for sample usage
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -512,11 +509,11 @@ request.app.state.client_redis
 ```bash
 config_mongodb_url=mongodb://localhost:27017
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_mongodb 
  ```
- - Check `function_object_create_mongodb` in `function.py` for sample usage
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -533,12 +530,12 @@ config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_s3_region_name=value
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_s3 
 request.app.state.client_s3_resource 
  ```
- - Check `function_object_create_mongodb` in `function.py` for sample usage
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -555,11 +552,11 @@ config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_sns_region_name=value
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_sns 
  ```
-- Check api `/public/otp-send-mobile-sns` in `main.py` for sample usage
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -576,11 +573,11 @@ config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_ses_region_name=value
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_ses 
  ```
-- Check api `/public/otp-send-email-ses` in `main.py` for sample usage
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -596,11 +593,11 @@ request.app.state.client_ses
 config_posthog_project_host=value
 config_posthog_project_key=value
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_posthog 
  ```
- - Check api `/admin/postgres-runner` in `main.py` file for sample useage
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -615,10 +612,11 @@ request.app.state.client_posthog
 ```bash
 config_openai_key=value
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_openai 
  ```
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
@@ -633,11 +631,11 @@ request.app.state.client_openai
 ```bash
 config_celery_broker_url=redis://localhost:6379
 ```
-- How to use client:
+- How to access client in your routes:
 ```bash
 request.app.state.client_celery_producer 
  ```
-  - Check `/celery-producer` in `router.py` file for sample useage
+- Search `function_producer_celery` in `main.py`  file for sample useage
 </details>
 
 <details>

@@ -4,7 +4,7 @@ config_api={
 "/admin/ids-update":{"id":3},
 "/admin/ids-delete":{"id":4}, 
 "/admin/object-read":{"id":5,"cache_sec":["redis",100]},
-"/admin/postgres-runner":{"id":6},
+"/admin/postgres-query-runner":{"id":6},
 "/test":{
 "id":7,
 "is_token":0,

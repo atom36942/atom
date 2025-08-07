@@ -45,7 +45,8 @@ def celery_task_1(table,object_list,is_serialize):
             async def wrapper():await function_object_create_postgres(client_postgres,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
-        return run_wrapper()
+        run_wrapper()
+        return None
     except Exception as e:
         print("Exception occurred:",str(e))
         traceback.print_exc()
@@ -60,7 +61,8 @@ def celery_task_2(table,object_list,is_serialize):
             async def wrapper():await function_object_update_postgres(client_postgres,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
-        return run_wrapper()
+        run_wrapper()
+        return None
     except Exception as e:
         print("Exception occurred:",str(e))
         traceback.print_exc()
@@ -75,7 +77,8 @@ def celery_task_3(query,user_id):
             async def wrapper():await function_postgres_query_runner(client_postgres,query,user_id)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
-        return run_wrapper()
+        run_wrapper()
+        return None
     except Exception as e:
         print("Exception occurred:",str(e))
         traceback.print_exc()

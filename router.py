@@ -7,13 +7,6 @@ async def route_test():
    value=config.get("your_config_key")
    return {"status":1,"message":f"welcome to test"}
 
-#celery
-@router.get("/celery-producer")
-async def route_celery(request:Request):
-   await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",["users",[{"id":1,"email":"celery4"}],0])
-   await function_producer_celery(request.app.state.client_celery_producer,"function_postgres_query_runner",["update test set title='celery4' where id=109;",1])
-   return {"status":1,"message":"done"}
-
 #kafka publish
 @router.get("/kafka-producer")
 async def route_kafka_publish(request:Request):
