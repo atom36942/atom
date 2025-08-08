@@ -516,6 +516,7 @@ async def function_api_admin_object_update(request:Request):
    if request.app.state.cache_postgres_schema.get(table).get("updated_by_id"):object["updated_by_id"]=request.state.user["id"]
    if not queue:output=await function_object_update_postgres(request.app.state.client_postgres,table,[object],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    elif queue=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",[table,[object],1])
+   elif queue=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",{"function":"function_object_update_postgres","table":table,"object_list":[object],"is_serialize":1})
    return {"status":1,"message":output}
 
 @app.put("/admin/ids-update")
@@ -541,6 +542,7 @@ async def function_api_admin_postgres_query_runner(request:Request):
    object,[query,queue]=await function_param_read("body",request,["query"],["queue"])
    if not queue:output=await function_postgres_query_runner(request.app.state.client_postgres,query,request.state.user["id"])
    elif queue=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_postgres_query_runner",[query,request.state.user["id"]])
+   elif queue=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",{"function":"function_postgres_query_runner","query":query,"user_id":request.state.user["id"]})
    if False:request.app.state.client_posthog.capture(distinct_id=request.state.user["id"],event="postgres_query_runner",properties={"query":query})
    return {"status":1,"message":output}
 

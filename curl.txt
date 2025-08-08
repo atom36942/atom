@@ -83,7 +83,6 @@ curl -X POST "$baseurl/admin/postgres-query-runner?queue=celery" -H "Authorizati
 
 #router
 curl -X GET "$baseurl/test"
-0 curl -X GET "$baseurl/kafka-producer"
 curl -X GET "$baseurl/rabbitmq-producer"
 curl -X GET "$baseurl/redis-producer"
 curl -X GET "$baseurl/postgres-create"

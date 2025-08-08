@@ -7,16 +7,6 @@ async def route_test():
    value=config.get("your_config_key")
    return {"status":1,"message":f"welcome to test"}
 
-#kafka publish
-@router.get("/kafka-producer")
-async def route_kafka_publish(request:Request):
-   payload_1={"function":"function_object_create_postgres","table":"test","object_list":[{"title":"kafka2"},{"title":"kafka3"}]}
-   payload_2={"function":"function_object_update_postgres","table":"users","object_list":[{"id":1,"email":"kafka4"}]}
-   payload_3={"function":"function_postgres_query_runner","query":"update test set title='celery100' where id=109;","user_id":1}
-   for payload in [payload_1,payload_2,payload_3]:
-      await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
-   return {"status":1,"message":"done"}
-
 #rabbitmq publish
 @router.get("/rabbitmq-producer")
 async def route_rabbitmq_publish(request:Request):

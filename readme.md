@@ -662,7 +662,7 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 <br>
 
 - Prebuilt Producer connection
-- You can use any function to add it in queue
+- You can use any function which is in Consumer to add it in queue
 - Add the following key to your `.env` file
 ```bash
 config_celery_broker_url=redis://localhost:6379
@@ -721,7 +721,7 @@ python consumer_kafka.py                # Run with activated virtualenv
 <br>
 
 - Prebuilt Producer connection
-- You can use any function to add it in queue
+- You can use any function which is in Consumer to add it in queue
 - Add the following key to your `.env` file
 ```bash
 config_kafka_url=value
