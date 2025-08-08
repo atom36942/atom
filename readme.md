@@ -620,6 +620,25 @@ request.app.state.client_openai
 </details>
 
 <details>
+<summary>Celery Consumer</summary>
+
+<br>
+
+- Prebuilt Celery Consumer file `consumer_celery.py`
+- You can add more functions in consumer
+- Add the following key to your `.env` file
+```bash
+config_celery_broker_url=redis://localhost:6379
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+```
+- How to run file:
+```bash
+celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
+./venv/bin/celery -A consumer_celery worker --loglevel=info     # Run without activating virtualenv
+```
+</details>
+
+<details>
 <summary>Celery Producer</summary>
 
 <br>
@@ -638,24 +657,9 @@ request.app.state.client_celery_producer
 - Search `function_producer_celery` in `main.py`  file for sample useage
 </details>
 
-<details>
-<summary>Celery Consumer</summary>
 
-<br>
 
-- Prebuilt Celery Consumer file `consumer_celery.py`
-- Add the following key to your `.env` file
-```bash
-config_celery_broker_url=redis://localhost:6379
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-```
-- How to run file:
-```bash
-celery -A consumer_celery worker --loglevel=info                # Run with activated virtualenv
-./venv/bin/celery -A consumer_celery worker --loglevel=info     # Run without activating virtualenv
-```
-- You can extend consumer logic by adding more task consumer functions
-</details>
+
 
 
 
