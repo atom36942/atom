@@ -681,15 +681,26 @@ request.app.state.client_celery_producer
 
 
 
+
+
+
+
+
+
+
+
+## Kafka
+
 <details>
-<summary>Kafka Consumer</summary>
+<summary>Consumer</summary>
 
 <br>
 
-- Prebuilt Kafka Consumer in `consumer_kafka.py`
+- Prebuilt Consumer in `consumer_kafka.py`
+- Docs - https://github.com/aio-libs/aiokafka
 - You can add more functions in consumer to processs
-- Start Kafka server locally or remotely with SASL/PLAIN
 - You can add more groups and channels
+- Start Kafka server locally or remotely with SASL/PLAIN
 - Add the following key to your `.env` file
 ```bash
 config_kafka_url=value
@@ -705,23 +716,35 @@ python consumer_kafka.py                # Run with activated virtualenv
 </details>
 
 <details>
-<summary>Kafka Producer</summary>
+<summary>Producer</summary>
 
 <br>
 
-- Prebuilt Kafka Producer connection
-- Docs - https://github.com/aio-libs/aiokafka
-- It is used for Task Queue
+- Prebuilt Producer connection
+- You can use any function to add it in queue
 - Add the following key to your `.env` file
 ```bash
-config_celery_broker_url=redis://localhost:6379
+config_kafka_url=value
+config_kafka_username=value
+config_kafka_password=value
 ```
 - How to access client in your routes:
 ```bash
-request.app.state.client_celery_producer 
+request.app.state.client_kafka_producer 
  ```
 - Search client name in `main.py` or `function.py` for understaning usage
 </details>
+
+
+
+
+
+
+
+
+
+
+
 
 
 
