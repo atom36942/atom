@@ -619,13 +619,31 @@ request.app.state.client_openai
 - Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Celery
+
 <details>
-<summary>Celery Consumer</summary>
+<summary>Consumer</summary>
 
 <br>
 
-- Prebuilt Celery Consumer file `consumer_celery.py`
-- You can add more functions in consumer
+- Prebuilt Consumer in `consumer_celery.py`
+- Docs - https://github.com/celery/celery
+- You can add more functions in consumer to processs
 - Add the following key to your `.env` file
 ```bash
 config_celery_broker_url=redis://localhost:6379
@@ -639,12 +657,60 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 </details>
 
 <details>
-<summary>Celery Producer</summary>
+<summary>Producer</summary>
 
 <br>
 
-- Prebuilt Celery Producer connection
-- Docs - https://github.com/celery/celery
+- Prebuilt Producer connection
+- You can use any function to add it in queue
+- Add the following key to your `.env` file
+```bash
+config_celery_broker_url=redis://localhost:6379
+```
+- How to access client in your routes:
+```bash
+request.app.state.client_celery_producer 
+ ```
+- Search client name in `main.py` or `function.py` for understaning usage
+</details>
+
+
+
+
+
+
+
+
+<details>
+<summary>Kafka Consumer</summary>
+
+<br>
+
+- Prebuilt Kafka Consumer in `consumer_kafka.py`
+- You can add more functions in consumer to processs
+- Start Kafka server locally or remotely with SASL/PLAIN
+- You can add more groups and channels
+- Add the following key to your `.env` file
+```bash
+config_kafka_url=value
+config_kafka_username=value
+config_kafka_password=value
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+```
+- How to run file:
+```bash
+python consumer_kafka.py                # Run with activated virtualenv
+./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
+```
+</details>
+
+<details>
+<summary>Kafka Producer</summary>
+
+<br>
+
+- Prebuilt Kafka Producer connection
+- Docs - https://github.com/aio-libs/aiokafka
 - It is used for Task Queue
 - Add the following key to your `.env` file
 ```bash
@@ -654,11 +720,8 @@ config_celery_broker_url=redis://localhost:6379
 ```bash
 request.app.state.client_celery_producer 
  ```
-- Search `function_producer_celery` in `main.py`  file for sample useage
+- Search client name in `main.py` or `function.py` for understaning usage
 </details>
-
-
-
 
 
 
@@ -679,28 +742,6 @@ request.app.state.client_celery_producer
 
 
 ## Consumer
-
-<details>
-<summary>Kafka</summary>
-
-<br>
-
-- Start Kafka server locally or remotely with SASL/PLAIN 
-- Add the following key to your `.env` file
-```bash
-config_kafka_url=value
-config_kafka_username=value
-config_kafka_password=value
-```
-- Check `/kafka-producer` in `router.py` file for sample useage
-- Check `consumer_kafka.py` file for consumer logic
-- You can extend both producer and consumer
-- How to run `consumer_kafka.py` file:
-```bash
-python consumer_kafka.py                # Run with activated virtualenv
-./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
-```
-</details>
 
 <details>
 <summary>RabbitMQ</summary>
