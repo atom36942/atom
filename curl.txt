@@ -88,5 +88,3 @@ curl -X GET "$baseurl/rabbitmq-producer"
 curl -X GET "$baseurl/redis-producer"
 curl -X GET "$baseurl/postgres-create"
 curl -X GET "$baseurl/postgres-update"
-
-
