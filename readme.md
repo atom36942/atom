@@ -987,18 +987,6 @@ config_is_prometheus=1
 </details>
 
 <details>
-<summary>Google Login</summary>
-
-<br>
-
-- Add the following key to your `.env` file
-```bash
-config_google_login_client_id=value
-```
-- check api in the auth section of file `curl.txt`
-</details>
-
-<details>
 <summary>Send Otp Fast2SMS</summary>
 
 <br>
@@ -1026,10 +1014,16 @@ config_resend_key=value
 - check api in the public section of file `curl.txt`
 </details>
 
+<details>
+<summary>Google Login</summary>
 
+<br>
 
-
-
-
+- Add the following key to your `.env` file
+```bash
+config_google_login_client_id=value
+```
+- check api in the auth section of file `curl.txt`
+</details>
 
 
