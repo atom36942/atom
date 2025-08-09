@@ -843,25 +843,40 @@ request.app.state.client_redis_producer
 ## FAQ
 
 <details>
-<summary>Token</summary>
+<summary>Default Settings</summary>
 
 <br>
 
-- Extracts token from headers, validates it using `function_token_check`.
+- With below config keys,you can control default settings
+- Default values are in main.py config section
+- You can add them in `.env` or `config.py`
+```bash
+config_token_expire_sec=10000                               # token expiry time 
+config_token_user_key_list=id,mobile                        # token user keys 
+config_is_signup=0/1                                        # enable/disable signup
+config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
+config_batch_object_create=10                               # control batch for object create
+config_column_disabled_list=value                           # control which keys non admin users can't update
+config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
+config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
+```
+</details>
+
+<details>
+<summary>How to enable auth</summary>
+
+<br>
+
+- update below key in `config_api` dict in `config.py` for your api:
+```bash
+is_token=1
+```
 - Decoded user info is injected into `request.state.user` for downstream access.
 ```bash
 request.state.user.get("id")
 request.state.user.get("is_active")
 request.state.user.get("mobile")
 ```
-- How to enable auth for your apis: update below key in `config_api` dict in config.py for the api
-```bash
-is_token=1
-```
-To set extra user keys in token, set `config_token_key_list` in `config.py` or `.env` with first 4 keys as id,type,is_active,api_access
-```python
-config_token_key_list=id,type,is_active,api_access,mobile,username
-``` 
 </details>
 
 <details>
@@ -983,25 +998,6 @@ config_sentry_dsn=value
 - Enable Prometheus metrics by addding below config key:
 ```bash
 config_is_prometheus=1
-```
-</details>
-
-<details>
-<summary>Default Settings</summary>
-
-<br>
-
-- With below config keys,you can control default settings
-- Default values are in main.py config section
-- You can add them in `.env` or `config.py` file
-```bash
-config_token_expire_sec=10000                               # token expiry time 
-config_is_signup=0/1                                        # enable/disable signup
-config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
-config_batch_object_create=10                               # control batch for object create
-config_column_disabled_list=value                           # control which keys non admin users can't update
-config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
-config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
 ```
 </details>
 

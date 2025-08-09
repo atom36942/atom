@@ -5,13 +5,7 @@ config_api={
 "/admin/ids-delete":{"id":4}, 
 "/admin/object-read":{"id":5,"cache_sec":["redis",100]},
 "/admin/postgres-query-runner":{"id":6},
-"/test":{
-"id":7,
-"is_token":0,
-"is_active_check":1,
-"cache_sec":["inmemory",60],
-"ratelimiter_times_sec":[1,3]
-},
+"/test":{"id":7,"is_token":0,"is_active_check":1,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
 }
 
 config_postgres_schema={

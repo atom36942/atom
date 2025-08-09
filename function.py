@@ -420,7 +420,7 @@ async def function_check_is_active(mode,request,cache_users_is_active,client_pos
    return None
 
 async def function_check_ratelimiter(request,client_redis_ratelimiter,config_api):
-   if not client_redis_ratelimiter:raise Exception("pls add config_redis_url_ratelimiter in .env")
+   if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
    limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
    identifier=request.state.user.get("id") if request.state.user else request.client.host
    ratelimiter_key=f"ratelimiter:{request.url.path}:{identifier}"
@@ -745,46 +745,46 @@ async def function_auth_signup_username_password_bigint(client_postgres,type,use
    return output[0]
 
 import hashlib
-async def function_auth_login_password_username(client_postgres,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list):
+async def function_auth_login_password_username(client_postgres,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
    query=f"select * from users where type=:type and username=:username and password=:password order by id desc limit 1;"
    values={"type":type,"username":username,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
    return token
 
 import hashlib
-async def function_auth_login_password_username_bigint(client_postgres,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list):
+async def function_auth_login_password_username_bigint(client_postgres,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
    query=f"select * from users where type=:type and username_bigint=:username_bigint and password_bigint=:password_bigint order by id desc limit 1;"
    values={"type":type,"username_bigint":username_bigint,"password_bigint":password_bigint}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
    return token
 
 import hashlib
-async def function_auth_login_password_email(client_postgres,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list):
+async def function_auth_login_password_email(client_postgres,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
    query=f"select * from users where type=:type and email=:email and password=:password order by id desc limit 1;"
    values={"type":type,"email":email,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
    return token
 
 import hashlib
-async def function_auth_login_password_mobile(client_postgres,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list):
+async def function_auth_login_password_mobile(client_postgres,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
    query=f"select * from users where type=:type and mobile=:mobile and password=:password order by id desc limit 1;"
    values={"type":type,"mobile":mobile,"password":hashlib.sha256(str(password).encode()).hexdigest()}
    output=await client_postgres.fetch_all(query=query,values=values)
    user=output[0] if output else None
    if not user:raise Exception("user not found")
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
    return token
 
-async def function_auth_login_otp_email(client_postgres,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list):
+async def function_auth_login_otp_email(client_postgres,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
    await function_otp_verify("email",otp,email,client_postgres)
    query=f"select * from users where type=:type and email=:email order by id desc limit 1;"
    values={"type":type,"email":email}
@@ -795,10 +795,10 @@ async def function_auth_login_otp_email(client_postgres,type,email,function_otp_
       values={"type":type,"email":email}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
    return token
 
-async def function_auth_login_otp_mobile(client_postgres,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list):
+async def function_auth_login_otp_mobile(client_postgres,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
    await function_otp_verify("mobile",otp,mobile,client_postgres)
    query=f"select * from users where type=:type and mobile=:mobile order by id desc limit 1;"
    values={"type":type,"mobile":mobile}
@@ -809,13 +809,13 @@ async def function_auth_login_otp_mobile(client_postgres,type,mobile,function_ot
       values={"type":type,"mobile":mobile}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
    return token
 
 import json
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_request
-async def function_auth_login_google(client_postgres,type,google_token,config_google_login_client_id,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_key_list):
+async def function_auth_login_google(client_postgres,type,google_token,config_google_login_client_id,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
    request=google_request.Request()
    id_info=id_token.verify_oauth2_token(google_token,request,config_google_login_client_id)
    google_user={"sub": id_info.get("sub"),"email": id_info.get("email"),"name": id_info.get("name"),"picture": id_info.get("picture"),"email_verified": id_info.get("email_verified")}
@@ -828,7 +828,7 @@ async def function_auth_login_google(client_postgres,type,google_token,config_go
       values={"type":type,"google_id":google_user["sub"],"google_data":json.dumps(google_user)}
       output=await client_postgres.fetch_all(query=query,values=values)
       user=output[0] if output else None
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
    return token
 
 #crud
