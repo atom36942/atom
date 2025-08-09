@@ -991,7 +991,6 @@ config_is_prometheus=1
 
 <br>
 
-- Prebuilt Google Login
 - Add the following key to your `.env` file
 ```bash
 config_google_login_client_id=value
@@ -1004,7 +1003,6 @@ config_google_login_client_id=value
 
 <br>
 
-- Prebuilt Fast2SMS connection
 - Docs - https://www.fast2sms.com/docs
 - Add the following key to your `.env` file
 ```bash
@@ -1019,7 +1017,6 @@ config_fast2sms_key=value
 
 <br>
 
-- Prebuilt Resend connection
 - Docs - https://resend.com/docs/api-reference
 - Add the following key to your `.env` file
 ```bash
