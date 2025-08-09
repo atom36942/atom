@@ -67,6 +67,11 @@ Explanation of key files in the repo:
 
 
 
+
+
+
+
+
 ## Installation
 
 <details>
@@ -138,6 +143,8 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 
+
+
 ## Installation 2
 
 <details>
@@ -172,7 +179,6 @@ touch .env                                            # Create .env file
 ./venv/bin/pip uninstall fastapi                      # Uninstall package (ex FastAPI)
 ```
 </details>
-
 
 
 
@@ -249,6 +255,11 @@ from extend_master import *
 
 
 
+
+
+
+
+
 ## APIs
 
 <details>
@@ -278,6 +289,10 @@ from extend_master import *
 ./test.sh
 ```
 </details>
+
+
+
+
 
 
 
@@ -421,6 +436,12 @@ request.app.state.client_postgres
 - `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
 - `0` or `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
 </details>
+
+
+
+
+
+
 
 
 
@@ -633,6 +654,9 @@ request.app.state.client_openai
 
 
 
+
+
+
 ## Queue
 
 <details>
@@ -813,7 +837,10 @@ request.app.state.client_redis_producer
 
 
 
-## Modules
+
+
+
+## FAQ
 
 <details>
 <summary>Token</summary>
