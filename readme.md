@@ -867,9 +867,9 @@ config_table_allowed_public_read_list=users,post            # control which tabl
 
 <br>
 
-- update below key in `config_api` dict in `config.py` for your api:
+- Add below key in `config_api` dict in `config.py` for your api:
 ```bash
-is_token=1
+"is_token":0
 ```
 - Decoded user info is injected into `request.state.user` for downstream access.
 ```bash
@@ -880,31 +880,29 @@ request.state.user.get("mobile")
 </details>
 
 <details>
-<summary>User Active Check</summary>
+<summary>How to enable user Active Check</summary>
 
 <br>
 
-- You can enable user is_active check for any api in your router
-- This is check by atom middleware using token
-- Add key `is_active_check=1` for that api In `config_api` variable in `config.py`
-- To mark user inactive, set `is_active=0` column in users table
-- To mark user active, set `is_active=1` or `is_active=null` column in users table
-```sql
-update users set is_active=0 where id=1;
+- Add below key in `config_api` dict in `config.py` for your api:
+```bash
+"is_active_check":1
 ```
 </details>
 
 <details>
-<summary>Ratelimiter</summary>
+<summary>How to enable Ratelimiter</summary>
 
 <br>
 
-- If `ratelimiter_times_sec` is set in `config_api`, enforces per-user rate limiting using Redis.
-- Prevents abuse by limiting request frequency to defined time intervals.
-- Identifier is token else host
-- Add the following key to your `.env` file to enable ratelimiter
+- Add the following key to your `.env` file
+- Default is `config_redis_url`
 ```bash
 config_redis_url_ratelimiter=redis://localhost:6379
+```
+- Add below key in `config_api` dict in `config.py` for your api:
+```bash
+"ratelimiter_times_sec":[1,3]
 ```
 </details>
 
