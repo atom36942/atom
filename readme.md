@@ -633,10 +633,10 @@ request.app.state.client_openai
 
 
 
-## Celery
+## Queue
 
 <details>
-<summary>Consumer</summary>
+<summary>Celery Consumer</summary>
 
 <br>
 
@@ -656,7 +656,7 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 </details>
 
 <details>
-<summary>Producer</summary>
+<summary>Celery Producer</summary>
 
 <br>
 
@@ -673,19 +673,8 @@ request.app.state.client_celery_producer
 - Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
-
-
-
-
-
-
-
-
-
-## Kafka
-
 <details>
-<summary>Consumer</summary>
+<summary>Kafka Consumer</summary>
 
 <br>
 
@@ -709,7 +698,7 @@ python consumer_kafka.py                # Run with activated virtualenv
 </details>
 
 <details>
-<summary>Producer</summary>
+<summary>Kafka Producer</summary>
 
 <br>
 
@@ -728,19 +717,8 @@ request.app.state.client_kafka_producer
 - Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
-
-
-
-
-
-
-
-
-
-## Rabbitmq
-
 <details>
-<summary>Consumer</summary>
+<summary>Rabbitmq Consumer</summary>
 
 <br>
 
@@ -761,7 +739,7 @@ python consumer_rabbitmq.py                # Run with activated virtualenv
 </details>
 
 <details>
-<summary>Producer</summary>
+<summary>Rabbitmq Producer</summary>
 
 <br>
 
@@ -778,21 +756,8 @@ request.app.state.client_rabbitmq_producer
 - Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
-
-
-
-
-
-
-
-
-
-
-
-## Redis Pub/Sub
-
 <details>
-<summary>Consumer</summary>
+<summary>Redis Consumer</summary>
 
 <br>
 
@@ -813,7 +778,7 @@ python consumer_redis.py                # Run with activated virtualenv
 </details>
 
 <details>
-<summary>Producer</summary>
+<summary>Redis Producer</summary>
 
 <br>
 
