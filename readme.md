@@ -206,8 +206,8 @@ touch .env                                            # Create .env file
 - 1st way - create any `.py` file starting with `router` in the root folder
 - 2nd way - place it inside a `router` folder with any `.py` filename
 - All custom router files are auto-loaded at startup
-- All routes automatically use atom middleware
-- All routes includes atom middleware by defualt having prebuilt auth,admin check,user active check,ratelimter,background apis,caching,api log
+- All routes automatically use middleware
+- All routes includes middleware by defualt having prebuilt auth,admin check,user active check,ratelimter,background apis,caching,api log
 - See `router.py` for sample usage
 </details>
 
@@ -859,6 +859,11 @@ config_batch_object_create=10                               # control batch for 
 config_column_disabled_list=value                           # control which keys non admin users can't update
 config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
 config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
+config_batch_log_api=10                                     # control batch insert for api logs
+config_cors_origin_list=x,y,z                               # control cors
+config_cors_method_list=x,y,z                               # control cors
+config_cors_headers_list=x,y,z                              # control cors
+config_cors_allow_credentials=False                         # control cors
 ```
 </details>
 
@@ -924,7 +929,7 @@ config_redis_url_ratelimiter=redis://localhost:6379
 <br>
 
 - Add `/admin` in the route path to mark it as an admin API  
-- Check the `curl.txt` file for examples under the admin section  
+- Check the `curl.txt` file for examples
 - `/admin` APIs are meant for routes that should be restricted to limited users.  
 - Access control is check by middleware using token
 - Assign a unique ID in the `config_api` variable in `config.py` (check existing samples there)  
@@ -937,50 +942,34 @@ update users set api_access='1,2,3' where id=1;
 </details>
 
 <details>
-<summary>Background Execution</summary>
+<summary>How to Execute API in Background</summary>
 
 <br>
 
-- If `is_background=1` is in query params, runs the API function as a background task using `function_api_response_background`.
+- Send below key in query params:
+```python
+is_background=1
+```
+- Check the `curl.txt` file for examples
 - Immediately returns a success response while processing continues in the background.
 </details>
 
 <details>
-<summary>API Log</summary>
+<summary>How to check API Log</summary>
 
 <br>
 
-- Prebuilt api logs in log_api table in database using atom middleware
-- If `log_api` table exists in schema, logs each API call with metadata like type, user ID, path, status, response time, and error (if any)
-- Logging is done asynchronously using `function_log_create_postgres`.
-- Add the following key to your `.env` file to control batch insert of log(optional,default is 10)
-```bash
-config_batch_log_api=value
-```
+- Prebuilt api logs in `log_api` table in database
+- Logging is done asynchronously
 </details>
 
 <details>
-<summary>CORS</summary>
-
-<br>
-
-- Configure cors setting by addding below config keys:
-```bash
-config_cors_origin_list
-config_cors_method_list
-config_cors_headers_list
-config_cors_allow_credentials
-```
-</details>
 
 <details>
-<summary>Sentry</summary>
+<summary>How to enable Sentry</summary>
 
 <br>
 
-- Prebuilt Sentry connection
-- Docs - https://docs.sentry.io/platforms/python/
-- Logs errors and performance data to Sentry
 - Add the following key to your `.env` file
 ```bash
 config_sentry_dsn=value
@@ -988,11 +977,11 @@ config_sentry_dsn=value
 </details>
 
 <details>
-<summary>Prometheus</summary>
+<summary>How to enable Prometheus</summary>
 
 <br>
 
-- Enable Prometheus metrics by addding below config key:
+- Add the following key to your `.env` file 
 ```bash
 config_is_prometheus=1
 ```
