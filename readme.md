@@ -963,7 +963,6 @@ is_background=1
 - Logging is done asynchronously
 </details>
 
-<details>
 
 <details>
 <summary>How to enable Sentry</summary>
