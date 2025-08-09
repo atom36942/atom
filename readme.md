@@ -907,12 +907,11 @@ config_redis_url_ratelimiter=redis://localhost:6379
 </details>
 
 <details>
-<summary>API Caching</summary>
+<summary>How to enable API Caching</summary>
 
 <br>
 
-- If `cache_sec` is set in `config_api`, serves cached response from Inmemory or Redis before executing the API.
-- After API execution, response is cached if not already fetched from cache.
+- Add below key in `config_api` dict in `config.py` for your api using two options:
 ```bash
 "cache_sec":["inmemory",60]
 "cache_sec":["redis",60]
@@ -920,7 +919,7 @@ config_redis_url_ratelimiter=redis://localhost:6379
 </details>
 
 <details>
-<summary>Admin APIs</summary>
+<summary>How to create Admin APIs</summary>
 
 <br>
 
