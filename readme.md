@@ -71,7 +71,7 @@ Explanation of key files in the repo:
 
 <br>
 
-- Backend startup and shutdown logic is handled via the lifespan function in `main.py`
+- Backend startup and shutdown logic is handled via the lifespan function
 - Initializes service clients.
 - Reads and caches Postgres schema and other data.
 - Set app state with config,client and cache.
