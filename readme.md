@@ -837,38 +837,19 @@ request.app.state.client_redis_producer
 
 
 
-
-
-
-## FAQ
+## API Settings
 
 <details>
-<summary>Default Settings</summary>
+<summary>How to check API Log</summary>
 
 <br>
 
-- With below config keys,you can control default settings
-- Default values are in main.py config section
-- You can add them in `.env` or `config.py`
-```bash
-config_token_expire_sec=10000                               # token expiry time 
-config_token_user_key_list=id,mobile                        # token user keys 
-config_is_signup=0/1                                        # enable/disable signup
-config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
-config_batch_object_create=10                               # control batch for object create
-config_column_disabled_list=value                           # control which keys non admin users can't update
-config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
-config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
-config_batch_log_api=10                                     # control batch insert for api logs
-config_cors_origin_list=x,y,z                               # control cors
-config_cors_method_list=x,y,z                               # control cors
-config_cors_headers_list=x,y,z                              # control cors
-config_cors_allow_credentials=False                         # control cors
-```
+- Prebuilt api logs in `log_api` table in database
+- Logging is done asynchronously
 </details>
 
 <details>
-<summary>API: How to enable auth</summary>
+<summary>How to enable auth</summary>
 
 <br>
 
@@ -885,18 +866,19 @@ request.state.user.get("mobile")
 </details>
 
 <details>
-<summary>API: How to enable user Active Check</summary>
+<summary>How to enable Caching</summary>
 
 <br>
 
-- Add below key in `config_api` dict in `config.py` for your api:
+- Add below key in `config_api` dict in `config.py` for your api using two options:
 ```bash
-"is_active_check":1
+"cache_sec":["inmemory",60]
+"cache_sec":["redis",60]
 ```
 </details>
 
 <details>
-<summary>API: How to enable Ratelimiter</summary>
+<summary>How to enable Ratelimiter</summary>
 
 <br>
 
@@ -912,19 +894,31 @@ config_redis_url_ratelimiter=redis://localhost:6379
 </details>
 
 <details>
-<summary>API: How to enable Caching</summary>
+<summary>How to enable user Active Check</summary>
 
 <br>
 
-- Add below key in `config_api` dict in `config.py` for your api using two options:
+- Add below key in `config_api` dict in `config.py` for your api:
 ```bash
-"cache_sec":["inmemory",60]
-"cache_sec":["redis",60]
+"is_active_check":1
 ```
 </details>
 
 <details>
-<summary>API: How to create Admin APIs</summary>
+<summary>How to Execute API in Background</summary>
+
+<br>
+
+- Send below key in query params:
+```python
+is_background=1
+```
+- Check the `curl.txt` file for examples
+- Immediately returns a success response while processing continues in the background.
+</details>
+
+<details>
+<summary>How to create Admin APIs</summary>
 
 <br>
 
@@ -944,28 +938,58 @@ update users set api_access='1,2,3' where id=1;
 - To revoke access, update `api_access` column and refresh token 
 </details>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## FAQ
+
 <details>
-<summary>API: How to Execute API in Background</summary>
+<summary>Default Settings</summary>
 
 <br>
 
-- Send below key in query params:
-```python
-is_background=1
+- With below config keys,you can control default settings
+- Default values are in main.py config section
+- You can add them in `.env` or `config.py` to update default value
+- Each key is independent of each other
+```bash
+config_token_expire_sec=10000                               # token expiry time 
+config_token_user_key_list=id,mobile                        # token user keys 
+config_is_signup=0/1                                        # enable/disable signup
+config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
+config_batch_object_create=10                               # control batch for object create
+config_column_disabled_list=value                           # control which keys non admin users can't update
+config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
+config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
+config_batch_log_api=10                                     # control batch insert for api logs
+config_cors_origin_list=x,y,z                               # control cors
+config_cors_method_list=x,y,z                               # control cors
+config_cors_headers_list=x,y,z                              # control cors
+config_cors_allow_credentials=False                         # control cors
 ```
-- Check the `curl.txt` file for examples
-- Immediately returns a success response while processing continues in the background.
 </details>
-
-<details>
-<summary>API: How to check Log</summary>
-
-<br>
-
-- Prebuilt api logs in `log_api` table in database
-- Logging is done asynchronously
-</details>
-
 
 <details>
 <summary>How to enable Sentry</summary>
