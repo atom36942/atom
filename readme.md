@@ -125,7 +125,7 @@ Uninstall package (ex FastAPI)
 - Idea – Founder, Define problem, scope, and core features.
 - Design – UI/UX, Convert idea into clear user flows and visual layouts.
 - Frontend – Frontend Developer, Build responsive UI from approved designs.
-- Backend – Backend Developer, Develop APIs, database, and business logic.
+- Backend – Backend Developer, Develop APIs, database, and business logic(atom can be used)
 - Frontend Deployment – Frontend Developer, Deploy code to server.
 - Backend Deployment – Backend Developer, Deploy backend to server.
 - Testing – QA, Verify functionality, log defects, approve prototype.
