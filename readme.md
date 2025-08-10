@@ -868,7 +868,7 @@ config_cors_allow_credentials=False                         # control cors
 </details>
 
 <details>
-<summary>How to enable auth</summary>
+<summary>API: How to enable auth</summary>
 
 <br>
 
@@ -885,7 +885,7 @@ request.state.user.get("mobile")
 </details>
 
 <details>
-<summary>How to enable user Active Check</summary>
+<summary>API: How to enable user Active Check</summary>
 
 <br>
 
@@ -896,7 +896,7 @@ request.state.user.get("mobile")
 </details>
 
 <details>
-<summary>How to enable Ratelimiter</summary>
+<summary>API: How to enable Ratelimiter</summary>
 
 <br>
 
@@ -912,7 +912,7 @@ config_redis_url_ratelimiter=redis://localhost:6379
 </details>
 
 <details>
-<summary>How to enable API Caching</summary>
+<summary>API: How to enable Caching</summary>
 
 <br>
 
@@ -924,7 +924,7 @@ config_redis_url_ratelimiter=redis://localhost:6379
 </details>
 
 <details>
-<summary>How to create Admin APIs</summary>
+<summary>API: How to create Admin APIs</summary>
 
 <br>
 
@@ -945,7 +945,7 @@ update users set api_access='1,2,3' where id=1;
 </details>
 
 <details>
-<summary>How to Execute API in Background</summary>
+<summary>API: How to Execute API in Background</summary>
 
 <br>
 
@@ -958,7 +958,7 @@ is_background=1
 </details>
 
 <details>
-<summary>How to check API Log</summary>
+<summary>API: How to check Log</summary>
 
 <br>
 
