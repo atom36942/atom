@@ -234,15 +234,15 @@ venv\Scripts\activate                 # Windows
 
 <br>
 
-Install base packages
+Install requirements
 ```bash
 pip install -r requirements.txt                     # if venv is activated
 ./venv/bin/pip install -r requirements.txt          # if venv is not activated
 ```
-Extra packages Commands
+Extra Commands
 ```bash
 ./venv/bin/pip install fastapi                        # Install package (ex FastAPI)
-./venv/bin/pip freeze > requirements.txt              # Freeze updated dependencies
+./venv/bin/pip freeze > requirements.txt              # Freeze requirements
 ./venv/bin/pip install --upgrade fastapi              # Upgrade package (ex FastAPI)
 ./venv/bin/pip uninstall fastapi                      # Uninstall package (ex FastAPI)
 ```
