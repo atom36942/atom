@@ -158,7 +158,7 @@ request.app.state.client_postgres
 
 <br>
 
-- Prebuilt `config_api` dict in config.py to control - admin check,auth check,active check,cache,ratelimiter
+- Prebuilt `config_api` dict in `config.py` to control api various logic as shown in ex.
 - You can also add your api in the same dict
 - For ex:
 ```python
