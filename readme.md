@@ -69,24 +69,8 @@ Explanation of key files in the repo:
 
 ## Core Concept
 
-<details>
-<summary>main.py</summary>
 
-<br>
 
-- File `main.py` is the core file in the repo
-- Contains all important logic
-- Major section - function,config,lifespan,app,middleware,api,server start
-</details>
-
-<details>
-<summary>function.py</summary>
-
-<br>
-
-- File `function.py` contains all pure functions used anywhere in the repo
-- Each function can be used anywhere without any side-effects
-</details>
 
 <details>
 <summary>config.py</summary>
