@@ -88,10 +88,10 @@ Explanation of key files in the repo:
 - Applies admin access control for admin apis.
 - Checks if user is active for api if enabled.
 - Enforces rate limiting for api if enabled.
-- Runs API in background if `is_background=1` is present in query params.
+- Runs API in background if enabled.
 - Serves cached response for api if enabled.
 - Captures and logs exceptions to Sentry if enabled.
-- Logs API calls to `log_api` table
+- Logs API calls if enabled.
 </details>
 
 
