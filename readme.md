@@ -75,22 +75,29 @@ Explanation of key files in the repo:
 ## Installation
 
 <details>
-<summary>Setup repo</summary>
+<summary>Download repo</summary>
+
+<br>
+
+```bash
+git clone https://github.com/atom36942/atom.git
+cd atom
+```
+</details>
+
+<details>
+<summary>Setup venv</summary>
 
 <br>
 
 Mac
 ```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 Windows
 ```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
@@ -98,7 +105,7 @@ pip install -r requirements.txt
 </details>
 
 <details>
-<summary>Setup env</summary>
+<summary>Setup .env</summary>
 
 <br>
 
