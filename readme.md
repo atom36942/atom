@@ -1,7 +1,7 @@
 ## About
 
 <details>
-<summary>About</summary>
+<summary>What is atom</summary>
 
 <br>
 
