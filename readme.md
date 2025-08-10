@@ -932,7 +932,10 @@ config_redis_url_ratelimiter=redis://localhost:6379
 - Check the `curl.txt` file for examples
 - `/admin` APIs are meant for routes that should be restricted to limited users.  
 - Access control is check by middleware using token
-- Assign a unique ID in the `config_api` variable in `config.py` (check existing samples there)  
+- Assign a unique ID in the `config_api` in `config.py`:
+```bash
+"id":3
+```
 - Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
 - Example to give user_id=1 access to admin APIs with IDs 1,2,3
 ```sql
@@ -1024,6 +1027,111 @@ config_resend_key=value
 config_google_login_client_id=value
 ```
 - check api in the auth section of file `curl.txt`
+</details>
+
+<details>
+<summary>How to init database</summary>
+
+<br>
+
+- Extend config_postgres_schema as per your needs.
+- Keep base table/queries as it is
+- check api in the auth section of file `curl.txt`
+```python
+config_postgres_schema={
+"table":{
+"test":[
+"created_at-timestamptz-0-brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_verified-smallint-0-btree",
+"is_deleted-smallint-0-btree",
+"is_protected-smallint-0-btree",
+"type-bigint-0-btree",
+"title-text-0-btree,gin",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0",
+"rating-numeric(10,3)-0-0",
+"remark-text-0-btree,gin",
+"location-geography(POINT)-0-gist",
+"metadata-jsonb-0-gin"
+],
+"users":[
+"created_at-timestamptz-0-brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_verified-smallint-0-btree",
+"is_deleted-smallint-0-btree",
+"is_protected-smallint-0-btree",
+"type-bigint-1-btree",
+"username-text-0-btree",
+"password-text-0-btree",
+"google_id-text-0-btree",
+"google_data-jsonb-0-0",
+"email-text-0-btree",
+"mobile-text-0-btree",
+"api_access-text-0-0",
+"last_active_at-timestamptz-0-0",
+"username_bigint-bigint-0-btree",
+"password_bigint-bigint-0-btree"
+],
+"otp":[
+"created_at-timestamptz-0-brin",
+"otp-integer-1-0",
+"email-text-0-btree",
+"mobile-text-0-btree"
+],
+"log_password":[
+"created_at-timestamptz-0-0",
+"user_id-bigint-0-0",
+"password-text-0-0"
+],
+"message":[
+"created_at-timestamptz-0-brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-1-btree",
+"updated_by_id-bigint-0-0",
+"is_deleted-smallint-0-btree",
+"user_id-bigint-1-btree",
+"description-text-1-0",
+"is_read-smallint-0-btree"
+],
+"report_user":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-1-btree",
+"user_id-bigint-1-btree"
+],
+"log_api":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"type-bigint-0-btree",
+"ip_address-text-0-0",
+"api-text-0-btree,gin",
+"method-text-0-0",
+"query_param-text-0-0",
+"status_code-smallint-0-0",
+"response_time_ms-numeric(1000,3)-0-0",
+"description-text-0-0"
+],
+},
+"query":{
+"users_disable_bulk_delete":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
+"users_check_username":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
+"users_unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
+"users_unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
+"users_unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
+"users_unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
+"users_unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
+"users_unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
+}
+}
+```
 </details>
 
 
