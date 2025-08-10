@@ -99,46 +99,18 @@ Explanation of key files in the repo:
 
 <br>
 
-Install package (ex FastAPI)
 ```bash
-./venv/bin/pip install fastapi
-```
-Freeze requirements.txt
-```bash
-./venv/bin/pip freeze > requirements.txt
-```
-Upgrade package (ex FastAPI)
-```bash
-./venv/bin/pip install --upgrade fastapi
-```
-Uninstall package (ex FastAPI)
-```bash
-./venv/bin/pip uninstall fastapi
-```
-Stop PID
-```bash
-lsof -ti :8000 | xargs kill -9
-```
-Reset Postgres Schema
-```bash
-drop schema if exists public cascade;
-create schema if not exists public;
-```
-Export Postgres table
-```bash
-\copy table to 'path'  delimiter ',' csv header;
-```
-Export Postgres query
-```bash
-\copy (query) to 'path'  delimiter ',' csv header;
-```
-Import Postgres table
-```bash
-\copy table from 'path' delimiter ',' csv header;
-```
-Import Postgres column
-```bash
-\copy table(column) from 'path' delimiter ',' csv header;
+./venv/bin/pip install fastapi                              # Install package (ex FastAPI)
+./venv/bin/pip freeze > requirements.txt                    # Freeze requirements.txt
+./venv/bin/pip install --upgrade fastapi                    # Upgrade package (ex FastAPI)
+./venv/bin/pip uninstall fastapi                            # Uninstall package (ex FastAPI)
+lsof -ti :8000 | xargs kill -9                              # Stop Python PID
+drop schema if exists public cascade;                       # Drop Postgres Schema
+create schema if not exists public;                         # Create Postgres Schema
+\copy table to 'path'  delimiter ',' csv header;            # Export Postgres table
+\copy (query) to 'path'  delimiter ',' csv header;          # Export Postgres query
+\copy table from 'path' delimiter ',' csv header;           # Import Postgres table
+\copy table(column) from 'path' delimiter ',' csv header;   # Import Postgres column
 ```
 </details>
 
