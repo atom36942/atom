@@ -95,7 +95,17 @@ Explanation of key files in the repo:
 
 - File `config.py` contains all extra configs
 - You can define any config with any datatypes
-- You can use with config var in your routes
+- You can use with `config` var in your routes
+```bash
+xyz=123
+xyz="atom"
+xyz=[1,2,3]
+xyz={"name":"atom"}
+```
+- You can use in your apis using:-
+```python
+config.get(xyz)
+```
 </details>
 
 <details>
