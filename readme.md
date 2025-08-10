@@ -223,9 +223,13 @@ python3 -m venv venv
 
 <br>
 
+Mac
 ```bash
-source venv/bin/activate              # Mac
-venv\Scripts\activate                 # Windows
+source venv/bin/activate
+```
+Windows
+```bash
+venv\Scripts\activate
 ```
 </details>
 
