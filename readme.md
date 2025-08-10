@@ -117,6 +117,21 @@ Uninstall package (ex FastAPI)
 ```
 </details>
 
+<details>
+<summary>SOP for developing an idea</summary>
+
+<br>
+
+- Idea – Founder, Define problem, scope, and core features.
+- Design – UI/UX, Convert idea into clear user flows and visual layouts.
+- Frontend – Frontend Developer, Build responsive UI from approved designs.
+- Backend – Backend Developer, Develop APIs, database, and business logic.
+- Frontend Deployment – Frontend Developer, Deploy code to server.
+- Backend Deployment – Backend Developer, Deploy backend to server.
+- Testing – QA, Verify functionality, log defects, approve prototype.
+- Project Live – Founder, Make the prototype publicly accessible and announce launch.
+</details>
+
 
 
 
@@ -192,7 +207,7 @@ If venv is not activated
 - Create a `.env` file in the root directory with min 4 keys 
 - You can use local or remote URLs for Postgres and Redis
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
-- `config_redis_url`: used for caching, rate limiting, background tasks, etc.  
+- `config_redis_url`: used for caching,rate limiting etc 
 - `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
 - `config_key_jwt`: secret key used for signing and verifying JWT tokens
 ```env
