@@ -105,7 +105,7 @@ pip install -r requirements.txt
 </details>
 
 <details>
-<summary>Setup .env</summary>
+<summary>Setup env</summary>
 
 <br>
 
@@ -296,7 +296,7 @@ from extend_master import *
 ## APIs
 
 <details>
-<summary>API Collection</summary>
+<summary>How to find atom APIs Collection</summary>
 
 <br>
 
@@ -308,7 +308,7 @@ from extend_master import *
 </details>
 
 <details>
-<summary>API Testing</summary>
+<summary>How to test all atom APIs</summary>
 
 <br>
 
@@ -321,6 +321,105 @@ from extend_master import *
 ```bash
 ./test.sh
 ```
+</details>
+
+<details>
+<summary>How to check API Log</summary>
+
+<br>
+
+- Prebuilt api logs in `log_api` table in database
+- Logging is done asynchronously
+</details>
+
+<details>
+<summary>How to enable auth</summary>
+
+<br>
+
+- Add below key in `config_api` dict in `config.py` for your api:
+```bash
+"is_token":0
+```
+- Decoded user info is injected into `request.state.user` for downstream access.
+```bash
+request.state.user.get("id")
+request.state.user.get("is_active")
+request.state.user.get("mobile")
+```
+</details>
+
+<details>
+<summary>How to enable Caching</summary>
+
+<br>
+
+- Add below key in `config_api` dict in `config.py` for your api using two options:
+```bash
+"cache_sec":["inmemory",60]
+"cache_sec":["redis",60]
+```
+</details>
+
+<details>
+<summary>How to enable Ratelimiter</summary>
+
+<br>
+
+- Add the following key to your `.env` file
+- Default is `config_redis_url`
+```bash
+config_redis_url_ratelimiter=redis://localhost:6379
+```
+- Add below key in `config_api` dict in `config.py` for your api:
+```bash
+"ratelimiter_times_sec":[1,3]
+```
+</details>
+
+<details>
+<summary>How to enable user Active Check</summary>
+
+<br>
+
+- Add below key in `config_api` dict in `config.py` for your api:
+```bash
+"is_active_check":1
+```
+</details>
+
+<details>
+<summary>How to Execute API in Background</summary>
+
+<br>
+
+- Send below key in query params:
+```python
+is_background=1
+```
+- Check the `curl.txt` file for examples
+- Immediately returns a success response while processing continues in the background.
+</details>
+
+<details>
+<summary>How to create Admin APIs</summary>
+
+<br>
+
+- Add `/admin` in the route path to mark it as an admin API  
+- Check the `curl.txt` file for examples
+- `/admin` APIs are meant for routes that should be restricted to limited users.  
+- Access control is check by middleware using token
+- Assign a unique ID in the `config_api` in `config.py`:
+```bash
+"id":3
+```
+- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
+- Example to give user_id=1 access to admin APIs with IDs 1,2,3
+```sql
+update users set api_access='1,2,3' where id=1;
+```
+- To revoke access, update `api_access` column and refresh token 
 </details>
 
 
@@ -851,128 +950,6 @@ request.app.state.client_redis_producer
  ```
 - Search client name in `main.py` or `function.py` for understaning usage
 </details>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## API Settings
-
-<details>
-<summary>How to check API Log</summary>
-
-<br>
-
-- Prebuilt api logs in `log_api` table in database
-- Logging is done asynchronously
-</details>
-
-<details>
-<summary>How to enable auth</summary>
-
-<br>
-
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"is_token":0
-```
-- Decoded user info is injected into `request.state.user` for downstream access.
-```bash
-request.state.user.get("id")
-request.state.user.get("is_active")
-request.state.user.get("mobile")
-```
-</details>
-
-<details>
-<summary>How to enable Caching</summary>
-
-<br>
-
-- Add below key in `config_api` dict in `config.py` for your api using two options:
-```bash
-"cache_sec":["inmemory",60]
-"cache_sec":["redis",60]
-```
-</details>
-
-<details>
-<summary>How to enable Ratelimiter</summary>
-
-<br>
-
-- Add the following key to your `.env` file
-- Default is `config_redis_url`
-```bash
-config_redis_url_ratelimiter=redis://localhost:6379
-```
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"ratelimiter_times_sec":[1,3]
-```
-</details>
-
-<details>
-<summary>How to enable user Active Check</summary>
-
-<br>
-
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"is_active_check":1
-```
-</details>
-
-<details>
-<summary>How to Execute API in Background</summary>
-
-<br>
-
-- Send below key in query params:
-```python
-is_background=1
-```
-- Check the `curl.txt` file for examples
-- Immediately returns a success response while processing continues in the background.
-</details>
-
-<details>
-<summary>How to create Admin APIs</summary>
-
-<br>
-
-- Add `/admin` in the route path to mark it as an admin API  
-- Check the `curl.txt` file for examples
-- `/admin` APIs are meant for routes that should be restricted to limited users.  
-- Access control is check by middleware using token
-- Assign a unique ID in the `config_api` in `config.py`:
-```bash
-"id":3
-```
-- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
-- Example to give user_id=1 access to admin APIs with IDs 1,2,3
-```sql
-update users set api_access='1,2,3' where id=1;
-```
-- To revoke access, update `api_access` column and refresh token 
-</details>
-
-
-
 
 
 
