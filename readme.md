@@ -67,6 +67,153 @@ Explanation of key files in the repo:
 
 
 
+## Core Concept
+
+<details>
+<summary>main.py</summary>
+
+<br>
+
+- File `main.py` is the core file in the repo
+- Contains all important logic
+- Major section - function,config,lifespan,app,middleware,api,server start
+</details>
+
+<details>
+<summary>function.py</summary>
+
+<br>
+
+- File `function.py` contains all pure functions used anywhere in the repo
+- Each function can be used anywhere without any side-effects
+</details>
+
+<details>
+<summary>config.py</summary>
+
+<br>
+
+- File `config.py` contains all extra configs
+- You can define any config with any datatypes
+- You can use with config var in your routes
+</details>
+
+<details>
+<summary>Lifespan</summary>
+
+<br>
+
+- FastAPI backend startup and shutdown logic is handled via the lifespan function in `main.py`
+- Initializes service clients if config is present:Postgres,Redis,MongoDB,Kafka,RabbitMQ,Celery,AWS (S3/SNS/SES),OpenAI,PostHog etc
+- Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
+- Injects all `config_`, `client_`, and `cache_` variables into `app.state`.
+- Cleans up all clients on shutdown (disconnect/close/flush).
+- All startup exceptions are logged via `traceback`.
+</details>
+
+<details>
+<summary>FastAPI App</summary>
+
+<br>
+
+- FastAPI App is setup in the `main.py` app section.
+- Lifespan events are added
+- Adds CORS as per the config
+- Routers auto-loaded
+- Sentry is enabled if `config_sentry_dsn` is set.
+- Prometheus is added if `config_is_prometheus` is 1.
+</details>
+
+<details>
+<summary>Middleware</summary>
+
+<br>
+
+- Handles token validation and injects user into `request.state.user`
+- Applies admin access control for apis containing `admin/`.
+- Checks if user is active when `is_active_check` is set in `config_api`.
+- Enforces rate limiting if `ratelimiter_times_sec` is set for the API.
+- Runs API in background if `is_background=1` is present in query params.
+- Serves cached response if `cache_sec` is set.
+- Captures and logs exceptions; sends to Sentry if configured.
+- Logs API calls to `log_api` table if schema has logging enabled.
+</details>
+
+<details>
+<summary>Client</summary>
+
+<br>
+
+- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
+- You can access these clients in your custom routes via `request.app.state.{client_name}`
+- Available client list (check `main.py` lifespan section)
+- Ex:
+```python
+request.app.state.client_postgres
+```
+</details>
+
+<details>
+<summary>Config API</summary>
+
+<br>
+
+- Prebuilt `config_api` dict in config.py to control - admin check,auth check,active check,cache,ratelimiter
+- You can also add your api in the same dict
+- For ex:
+```python
+"/test":{
+"id":7,
+"is_token":0,
+"is_active_check":1,
+"cache_sec":["inmemory",60],
+"ratelimiter_times_sec":[1,1]
+}
+```
+- id - unique api id used in admin apis check
+- is_token - 0/1 - to enable auth
+- is_active_check - 0/1 - to enable user active check
+- cache_sec - to cache api with inmemory/redis option
+- ratelimiter_times_sec - to ratelimit api
+</details>
+
+<details>
+<summary>Config Database</summary>
+
+<br>
+
+- Prebuilt `config_postgres_schema` dict is defined in `config.py` to initialize PostgreSQL schema.
+- It has two keys: `table` and `query`.
+- `table` contains table definitions.
+- `query` contains extra SQL queries to run.
+- You can add your own table and query to it.
+- Understanding columns with different possibility for `title` column as an ex:
+```python
+"title-text-0-0"
+"title-text-0-btree"
+"title-text-1-btree,gin"
+```
+- `title` = column name
+- `text` = column datatype
+- `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
+- `0` or `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -424,150 +571,6 @@ update users set api_access='1,2,3' where id=1;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Core Concept
-
-<details>
-<summary>main.py</summary>
-
-<br>
-
-- File `main.py` is the core file in the repo
-- Contains all important logic
-- Major section - function,config,lifespan,app,middleware,api,server start
-</details>
-
-<details>
-<summary>function.py</summary>
-
-<br>
-
-- File `function.py` contains all pure functions used anywhere in the repo
-- Each function can be used anywhere without any side-effects
-</details>
-
-<details>
-<summary>config.py</summary>
-
-<br>
-
-- File `config.py` contains all extra configs
-- You can define any config with any datatypes
-- You can use with config var in your routes
-</details>
-
-<details>
-<summary>Lifespan</summary>
-
-<br>
-
-- FastAPI backend startup and shutdown logic is handled via the lifespan function in `main.py`
-- Initializes service clients if config is present:Postgres,Redis,MongoDB,Kafka,RabbitMQ,Celery,AWS (S3/SNS/SES),OpenAI,PostHog etc
-- Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
-- Injects all `config_`, `client_`, and `cache_` variables into `app.state`.
-- Cleans up all clients on shutdown (disconnect/close/flush).
-- All startup exceptions are logged via `traceback`.
-</details>
-
-<details>
-<summary>FastAPI App</summary>
-
-<br>
-
-- FastAPI App is setup in the `main.py` app section.
-- Lifespan events are added
-- Adds CORS as per the config
-- Routers auto-loaded
-- Sentry is enabled if `config_sentry_dsn` is set.
-- Prometheus is added if `config_is_prometheus` is 1.
-</details>
-
-<details>
-<summary>Middleware</summary>
-
-<br>
-
-- Handles token validation and injects user into `request.state.user`
-- Applies admin access control for apis containing `admin/`.
-- Checks if user is active when `is_active_check` is set in `config_api`.
-- Enforces rate limiting if `ratelimiter_times_sec` is set for the API.
-- Runs API in background if `is_background=1` is present in query params.
-- Serves cached response if `cache_sec` is set.
-- Captures and logs exceptions; sends to Sentry if configured.
-- Logs API calls to `log_api` table if schema has logging enabled.
-</details>
-
-<details>
-<summary>Client</summary>
-
-<br>
-
-- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
-- You can access these clients in your custom routes via `request.app.state.{client_name}`
-- Available client list (check `main.py` lifespan section)
-- Ex:
-```python
-request.app.state.client_postgres
-```
-</details>
-
-<details>
-<summary>Config API</summary>
-
-<br>
-
-- Prebuilt `config_api` dict in config.py to control - admin check,auth check,active check,cache,ratelimiter
-- You can also add your api in the same dict
-- For ex:
-```python
-"/test":{
-"id":7,
-"is_token":0,
-"is_active_check":1,
-"cache_sec":["inmemory",60],
-"ratelimiter_times_sec":[1,1]
-}
-```
-- id - unique api id used in admin apis check
-- is_token - 0/1 - to enable auth
-- is_active_check - 0/1 - to enable user active check
-- cache_sec - to cache api with inmemory/redis option
-- ratelimiter_times_sec - to ratelimit api
-</details>
-
-<details>
-<summary>Config Database</summary>
-
-<br>
-
-- Prebuilt `config_postgres_schema` dict is defined in `config.py` to initialize PostgreSQL schema.
-- It has two keys: `table` and `query`.
-- `table` contains table definitions.
-- `query` contains extra SQL queries to run.
-- You can add your own table and query to it.
-- Understanding columns with different possibility for `title` column as an ex:
-```python
-"title-text-0-0"
-"title-text-0-btree"
-"title-text-1-btree,gin"
-```
-- `title` = column name
-- `text` = column datatype
-- `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
-- `0` or `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
-</details>
 
 
 
