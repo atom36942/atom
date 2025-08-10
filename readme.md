@@ -54,6 +54,46 @@ Explanation of key files in the repo:
 - `.gitignore` – Files/directories to ignore in git
 </details>
 
+<details>
+<summary>FastAPI App</summary>
+
+<br>
+
+- FastAPI App is setup in file `main.py` app section with Lifespan events
+- Cors is enabled as per config
+- Routers auto-loaded
+- Sentry is enabled as per config
+- Prometheus is enabled as per config
+</details>
+
+<details>
+<summary>Lifespan</summary>
+
+<br>
+
+- Backend startup and shutdown logic is handled via the lifespan function in `main.py`
+- Initializes service clients
+- Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
+- Injects all `config_`, `client_`, and `cache_` variables into `app.state`.
+- Cleans up all clients on shutdown (disconnect/close/flush).
+- All startup exceptions are logged via `traceback`.
+</details>
+
+<details>
+<summary>Middleware</summary>
+
+<br>
+
+- Handles token validation and injects user into `request.state.user`
+- Applies admin access control for apis containing `admin/`.
+- Checks if user is active when `is_active_check` is set in `config_api`.
+- Enforces rate limiting if `ratelimiter_times_sec` is set for the API.
+- Runs API in background if `is_background=1` is present in query params.
+- Serves cached response if `cache_sec` is set.
+- Captures and logs exceptions; sends to Sentry if configured.
+- Logs API calls to `log_api` table if schema has logging enabled.
+</details>
+
 
 
 
@@ -68,9 +108,6 @@ Explanation of key files in the repo:
 
 
 ## Core Concept
-
-
-
 
 <details>
 <summary>config.py</summary>
@@ -89,61 +126,6 @@ xyz={"name":"atom"}
 - You can use in your routes using:-
 ```python
 config.get(xyz)
-```
-</details>
-
-<details>
-<summary>Lifespan</summary>
-
-<br>
-
-- FastAPI backend startup and shutdown logic is handled via the lifespan function in `main.py`
-- Initializes service clients if config is present:Postgres,Redis,MongoDB,Kafka,RabbitMQ,Celery,AWS (S3/SNS/SES),OpenAI,PostHog etc
-- Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
-- Injects all `config_`, `client_`, and `cache_` variables into `app.state`.
-- Cleans up all clients on shutdown (disconnect/close/flush).
-- All startup exceptions are logged via `traceback`.
-</details>
-
-<details>
-<summary>FastAPI App</summary>
-
-<br>
-
-- FastAPI App is setup in the `main.py` app section.
-- Lifespan events are added
-- Adds CORS as per the config
-- Routers auto-loaded
-- Sentry is enabled if `config_sentry_dsn` is set.
-- Prometheus is added if `config_is_prometheus` is 1.
-</details>
-
-<details>
-<summary>Middleware</summary>
-
-<br>
-
-- Handles token validation and injects user into `request.state.user`
-- Applies admin access control for apis containing `admin/`.
-- Checks if user is active when `is_active_check` is set in `config_api`.
-- Enforces rate limiting if `ratelimiter_times_sec` is set for the API.
-- Runs API in background if `is_background=1` is present in query params.
-- Serves cached response if `cache_sec` is set.
-- Captures and logs exceptions; sends to Sentry if configured.
-- Logs API calls to `log_api` table if schema has logging enabled.
-</details>
-
-<details>
-<summary>Client</summary>
-
-<br>
-
-- All clients are initialized once during app startup using the FastAPI lifespan event in `main.py`
-- You can access these clients in your custom routes via `request.app.state.{client_name}`
-- Available client list (check `main.py` lifespan section)
-- Ex:
-```python
-request.app.state.client_postgres
 ```
 </details>
 
