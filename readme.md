@@ -115,6 +115,31 @@ Uninstall package (ex FastAPI)
 ```bash
 ./venv/bin/pip uninstall fastapi
 ```
+Stop PID
+```bash
+lsof -ti :8000 | xargs kill -9
+```
+Reset Postgres Schema
+```bash
+drop schema if exists public cascade;
+create schema if not exists public;
+```
+Export Postgres table
+```bash
+\copy table to 'path'  delimiter ',' csv header;
+```
+Export Postgres query
+```bash
+\copy (query) to 'path'  delimiter ',' csv header;
+```
+Import Postgres table
+```bash
+\copy table from 'path' delimiter ',' csv header;
+```
+Import Postgres column
+```bash
+\copy table(column) from 'path' delimiter ',' csv header;
+```
 </details>
 
 <details>
