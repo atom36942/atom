@@ -311,13 +311,16 @@ config_cors_allow_credentials=False                         # control cors
 
 <br>
 
-Direct
 ```bash
-python main.py                  # Run directly
-uvicorn main:app --reload       # Run with auto-reload (dev)
+python main.py   
 ```
 
-Docker
+With reload
+```bash
+uvicorn main:app --reload
+```
+
+With Docker
 ```bash
 docker build -t atom .
 docker run -p 8000:8000 atom
