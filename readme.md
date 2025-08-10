@@ -72,11 +72,11 @@ Explanation of key files in the repo:
 <br>
 
 - Backend startup and shutdown logic is handled via the lifespan function in `main.py`
-- Initializes service clients
-- Reads and caches Postgres schema, `users.api_access`, and `users.is_active` if columns exist.
-- Injects all `config_`, `client_`, and `cache_` variables into `app.state`.
+- Initializes service clients.
+- Reads and caches Postgres schema and other data.
+- Set app state with config,client and cache.
 - Cleans up all clients on shutdown (disconnect/close/flush).
-- All startup exceptions are logged via `traceback`.
+- All startup exceptions are logged via traceback.
 </details>
 
 <details>
@@ -84,14 +84,14 @@ Explanation of key files in the repo:
 
 <br>
 
-- Handles token validation and injects user into `request.state.user`
-- Applies admin access control for apis containing `admin/`.
-- Checks if user is active when `is_active_check` is set in `config_api`.
-- Enforces rate limiting if `ratelimiter_times_sec` is set for the API.
+- Handles token validation and injects user into request state.
+- Applies admin access control for admin apis.
+- Checks if user is active for api if enabled.
+- Enforces rate limiting for api if enabled.
 - Runs API in background if `is_background=1` is present in query params.
-- Serves cached response if `cache_sec` is set.
-- Captures and logs exceptions; sends to Sentry if configured.
-- Logs API calls to `log_api` table if schema has logging enabled.
+- Serves cached response for api if enabled.
+- Captures and logs exceptions to Sentry if enabled.
+- Logs API calls to `log_api` table
 </details>
 
 
