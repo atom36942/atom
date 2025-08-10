@@ -102,7 +102,7 @@ xyz="atom"
 xyz=[1,2,3]
 xyz={"name":"atom"}
 ```
-- You can use in your apis using:-
+- You can use in your routes using:-
 ```python
 config.get(xyz)
 ```
@@ -311,9 +311,16 @@ config_cors_allow_credentials=False                         # control cors
 
 <br>
 
+Direct
 ```bash
 python main.py                  # Run directly
 uvicorn main:app --reload       # Run with auto-reload (dev)
+```
+
+Docker
+```bash
+docker build -t atom .
+docker run -p 8000:8000 atom
 ```
 </details>
 
@@ -336,19 +343,6 @@ uvicorn main:app --reload       # Run with auto-reload (dev)
 
 
 ## Installation 2
-
-<details>
-<summary>Docker</summary>
-
-<br>
-
-```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
-docker build -t atom .
-docker run -p 8000:8000 atom
-```
-</details>
 
 <details>
 <summary>Without Activating Virtualenv</summary>
