@@ -122,14 +122,13 @@ Uninstall package (ex FastAPI)
 
 <br>
 
-- Idea – Founder: Define problem, scope, and core features.
-- Design – UI/UX: Convert idea into clear user flows and visual layouts.
-- Frontend – Frontend Developer: Build responsive UI from approved designs.
-- Backend – Backend Developer: Develop APIs, database, and business logic (Atom can be used).
-- Frontend Deployment – Frontend Developer: Deploy code to server.
-- Backend Deployment – Backend Developer: Deploy backend to server.
-- Testing – QA: Verify functionality, log defects, approve prototype.
-- Project Live – Founder: Make the prototype publicly accessible and announce launch.
+- `Idea` – Founder: Define problem, scope, and core features.
+- `Design` – UI/UX: Convert idea into clear user flows and visual layouts.
+- `Frontend` – Frontend Developer: Build responsive UI from approved designs.
+- `Backend` – Backend Developer: Develop APIs, database, and business logic (Atom can be used).
+- `Deployment` – Backend Developer: Deploy code to server.
+- `Testing` – QA: Verify functionality, log defects, approve prototype.
+- `Live` – Founder: Make the prototype publicly accessible and announce launch.
 </details>
 
 
