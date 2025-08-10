@@ -117,7 +117,7 @@ config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 </details>
 
 <details>
-<summary>Default Settings(Optional)</summary>
+<summary>Default Settings (optional)</summary>
 
 <br>
 
