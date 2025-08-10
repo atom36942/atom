@@ -94,6 +94,29 @@ Explanation of key files in the repo:
 - Logs API calls if enabled.
 </details>
 
+<details>
+<summary>Useful Commands</summary>
+
+<br>
+
+Install package (ex FastAPI)
+```bash
+./venv/bin/pip install fastapi
+```
+Freeze requirements.txt
+```bash
+./venv/bin/pip freeze > requirements.txt
+```
+Upgrade package (ex FastAPI)
+```bash
+./venv/bin/pip install --upgrade fastapi
+```
+Uninstall package (ex FastAPI)
+```bash
+./venv/bin/pip uninstall fastapi
+```
+</details>
+
 
 
 
@@ -151,17 +174,13 @@ venv\Scripts\activate
 
 <br>
 
-Install requirements
+If venv is activated
 ```bash
-pip install -r requirements.txt                     # if venv is activated
-./venv/bin/pip install -r requirements.txt          # if venv is not activated
+pip install -r requirements.txt
 ```
-Extra Commands
+If venv is not activated
 ```bash
-./venv/bin/pip install fastapi                      # Install package (ex FastAPI)
-./venv/bin/pip freeze > requirements.txt            # Freeze requirements
-./venv/bin/pip install --upgrade fastapi            # Upgrade package (ex FastAPI)
-./venv/bin/pip uninstall fastapi                    # Uninstall package (ex FastAPI)
+./venv/bin/pip install -r requirements.txt
 ```
 </details>
 
