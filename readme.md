@@ -195,7 +195,7 @@ config.get(xyz)
 
 
 
-## Installation
+## How to use atom
 
 <details>
 <summary>Download repo</summary>
@@ -241,10 +241,10 @@ pip install -r requirements.txt                     # if venv is activated
 ```
 Extra Commands
 ```bash
-./venv/bin/pip install fastapi                        # Install package (ex FastAPI)
-./venv/bin/pip freeze > requirements.txt              # Freeze requirements
-./venv/bin/pip install --upgrade fastapi              # Upgrade package (ex FastAPI)
-./venv/bin/pip uninstall fastapi                      # Uninstall package (ex FastAPI)
+./venv/bin/pip install fastapi                      # Install package (ex FastAPI)
+./venv/bin/pip freeze > requirements.txt            # Freeze requirements
+./venv/bin/pip install --upgrade fastapi            # Upgrade package (ex FastAPI)
+./venv/bin/pip uninstall fastapi                    # Uninstall package (ex FastAPI)
 ```
 </details>
 
