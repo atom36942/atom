@@ -294,6 +294,28 @@ from extend_master import *
 </details>
 
 <details>
+<summary>Enable: Sentry (optional)</summary>
+
+<br>
+
+- Add the following key to your `.env` file
+```bash
+config_sentry_dsn=value
+```
+</details>
+
+<details>
+<summary>Enable: Prometheus (optional)</summary>
+
+<br>
+
+- Add the following key to your `.env` file 
+```bash
+config_is_prometheus=1
+```
+</details>
+
+<details>
 <summary>Server Start</summary>
 
 <br>
@@ -862,28 +884,6 @@ request.app.state.client_redis_producer
 
 
 ## FAQ
-
-<details>
-<summary>How to enable Sentry</summary>
-
-<br>
-
-- Add the following key to your `.env` file
-```bash
-config_sentry_dsn=value
-```
-</details>
-
-<details>
-<summary>How to enable Prometheus</summary>
-
-<br>
-
-- Add the following key to your `.env` file 
-```bash
-config_is_prometheus=1
-```
-</details>
 
 <details>
 <summary>Send Otp Fast2SMS</summary>
