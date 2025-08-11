@@ -241,7 +241,7 @@ config_cors_allow_credentials=False                         # control cors
 </details>
 
 <details>
-<summary>Extend Router</summary>
+<summary>Extend Router (optional)</summary>
 
 <br>
 
@@ -255,7 +255,7 @@ config_cors_allow_credentials=False                         # control cors
 </details>
 
 <details>
-<summary>Extend Config</summary>
+<summary>Extend Config (optional)</summary>
 
 <br>
 
@@ -279,7 +279,7 @@ config.get(xyz)
 </details>
 
 <details>
-<summary>Extend Extra Files</summary>
+<summary>Extend Extra Files (optional)</summary>
 
 <br>
 
