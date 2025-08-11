@@ -241,47 +241,6 @@ config_cors_allow_credentials=False                         # control cors
 </details>
 
 <details>
-<summary>Server Start</summary>
-
-<br>
-
-```bash
-python main.py                              # if venv is activated
-./venv/bin/python main.py                   # if venv is not activated
-```
-
-With reload
-```bash
-uvicorn main:app --reload                   # if venv is activated
-./venv/bin/uvicorn main:app --reload        # if venv is not activated
-```
-
-With Docker
-```bash
-docker build -t atom .
-docker run -p 8000:8000 atom
-```
-</details>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Extend Atom
-
-<details>
 <summary>Extend Router</summary>
 
 <br>
@@ -308,12 +267,19 @@ docker run -p 8000:8000 atom
 - How to access - Use `config` var dict in your routes
 - For ex:
 ```python
-some_value=config.get("xyz")
+xyz=123
+xyz="atom"
+xyz=[1,2,3]
+xyz={"name":"atom"}
+```
+- You can use in your routes using:-
+```python
+config.get(xyz)
 ```
 </details>
 
 <details>
-<summary>Extend Files</summary>
+<summary>Extend Extra Files</summary>
 
 <br>
 
@@ -327,6 +293,28 @@ from extend_master import *
 ```
 </details>
 
+<details>
+<summary>Server Start</summary>
+
+<br>
+
+```bash
+python main.py                              # if venv is activated
+./venv/bin/python main.py                   # if venv is not activated
+```
+
+With reload
+```bash
+uvicorn main:app --reload                   # if venv is activated
+./venv/bin/uvicorn main:app --reload        # if venv is not activated
+```
+
+With Docker
+```bash
+docker build -t atom .
+docker run -p 8000:8000 atom
+```
+</details>
 
 
 
