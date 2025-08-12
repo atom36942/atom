@@ -233,6 +233,7 @@ config_column_disabled_list=value                           # control which keys
 config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
 config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
 config_batch_log_api=10                                     # control batch insert for api logs
+config_batch_log_api=0                                      # enable/disable api logs
 config_cors_origin_list=x,y,z                               # control cors
 config_cors_method_list=x,y,z                               # control cors
 config_cors_headers_list=x,y,z                              # control cors
@@ -785,7 +786,7 @@ celery -A consumer_celery worker --loglevel=info                # Run with activ
 <br>
 
 - Prebuilt Producer connection
-- - You can use any function which is handled in Consumer to add it in queue
+- You can use any function which is handled in Consumer to add it in queue
 - Add the following key to your `.env` file
 ```bash
 config_celery_broker_url=redis://localhost:6379
@@ -827,7 +828,7 @@ python consumer_kafka.py                # Run with activated virtualenv
 <br>
 
 - Prebuilt Producer connection
-- - You can use any function which is handled in Consumer to add it in queue
+- You can use any function which is handled in Consumer to add it in queue
 - Add the following key to your `.env` file
 ```bash
 config_kafka_url=value
