@@ -172,8 +172,9 @@ def function_add_app_state(var_dict,app,prefix_tuple):
             setattr(app.state, k, v)
 
 import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 def function_add_sentry(config_sentry_dsn):
-   sentry_sdk.init(dsn=config_sentry_dsn,traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
+   sentry_sdk.init(dsn=config_sentry_dsn,integrations=[FastApiIntegration()],traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
 import os

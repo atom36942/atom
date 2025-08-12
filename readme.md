@@ -100,27 +100,21 @@ Explanation of key files in the repo:
 <br>
 
 ```bash
-#Install package
+#Package
 ./venv/bin/pip install fastapi
-#Freeze requirements.txt                  
-./venv/bin/pip freeze > requirements.txt
-#Upgrade package
 ./venv/bin/pip install --upgrade fastapi
-#Uninstall package (ex FastAPI)
 ./venv/bin/pip uninstall fastapi
+./venv/bin/pip freeze > requirements.txt
 #Stop Python PID
 lsof -ti :8000 | xargs kill -9
-#Drop Postgres Schema                    
+#Reset Postgres                    
 drop schema if exists public cascade;
-#Create Postgres Schema                 
 create schema if not exists public;
-#Export Postgres table
+#Export Postgres
 \copy table to 'path'  delimiter ',' csv header;
-#Export Postgres query            
 \copy (query) to 'path'  delimiter ',' csv header;
-#Import Postgres table       
+#Import Postgres       
 \copy table from 'path' delimiter ',' csv header;
-#Import Postgres column     
 \copy table(column) from 'path' delimiter ',' csv header;   
 ```
 </details>
