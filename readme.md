@@ -539,16 +539,7 @@ update users set api_access='1,2,3' where id=1;
 
 <br>
 
-Docs
-- Databases - https://github.com/encode/databases
-- Asyncpg - https://github.com/MagicStack/asyncpg
-- Redis - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
-- Mongodb - https://motor.readthedocs.io/en/stable
-- AWS S3/SNS/SES - https://boto3.amazonaws.com
-- Posthog - https://posthog.com/docs/libraries/python
-- OpenAI - https://github.com/openai/openai-python
-
-- How to enable: add below key in .env
+How to enable: add below key in .env
 ```bash
 #postgres
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
@@ -598,7 +589,14 @@ request.app.state.client_ses
 request.app.state.client_posthog
 request.app.state.client_openai 
  ```
- - Search client name in `main.py` or `function.py` for understaning usage
+- Search client name in `main.py` or `function.py` for understaning usage. Docs link below:-
+- Databases - https://github.com/encode/databases
+- Asyncpg - https://github.com/MagicStack/asyncpg
+- Redis - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
+- Mongodb - https://motor.readthedocs.io/en/stable
+- AWS S3/SNS/SES - https://boto3.amazonaws.com
+- Posthog - https://posthog.com/docs/libraries/python
+- OpenAI - https://github.com/openai/openai-python
 </details>
 
 
