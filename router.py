@@ -7,7 +7,6 @@ async def route_test():
    value=config.get("your_config_key")
    return {"status":1,"message":f"welcome to test"}
 
-
 #postgres create
 @router.get("/postgres-create")
 async def route_postgres_create(request:Request):

@@ -404,10 +404,10 @@ docker run -p 8000:8000 atom
 
 
 
-## APIs
+## API
 
 <details>
-<summary>How to find atom APIs Collection</summary>
+<summary>Collection</summary>
 
 <br>
 
@@ -419,7 +419,7 @@ docker run -p 8000:8000 atom
 </details>
 
 <details>
-<summary>How to test all atom APIs</summary>
+<summary>Testing</summary>
 
 <br>
 
@@ -435,7 +435,7 @@ docker run -p 8000:8000 atom
 </details>
 
 <details>
-<summary>How to check API Log</summary>
+<summary>Log</summary>
 
 <br>
 
@@ -444,7 +444,7 @@ docker run -p 8000:8000 atom
 </details>
 
 <details>
-<summary>How to enable auth</summary>
+<summary>Enable auth</summary>
 
 <br>
 
@@ -461,7 +461,7 @@ request.state.user.get("mobile")
 </details>
 
 <details>
-<summary>How to enable Caching</summary>
+<summary>Enable Caching</summary>
 
 <br>
 
@@ -473,7 +473,7 @@ request.state.user.get("mobile")
 </details>
 
 <details>
-<summary>How to enable Ratelimiter</summary>
+<summary>Enable Ratelimiter</summary>
 
 <br>
 
@@ -489,7 +489,7 @@ config_redis_url_ratelimiter=redis://localhost:6379
 </details>
 
 <details>
-<summary>How to enable user Active Check</summary>
+<summary>Enable user Active Check</summary>
 
 <br>
 
@@ -500,7 +500,7 @@ config_redis_url_ratelimiter=redis://localhost:6379
 </details>
 
 <details>
-<summary>How to Execute API in Background</summary>
+<summary>Execute API in Background</summary>
 
 <br>
 
@@ -513,7 +513,7 @@ is_background=1
 </details>
 
 <details>
-<summary>How to create Admin APIs</summary>
+<summary>Create Admin APIs</summary>
 
 <br>
 
@@ -532,6 +532,7 @@ update users set api_access='1,2,3' where id=1;
 ```
 - To revoke access, update `api_access` column and refresh token 
 </details>
+
 
 
 
