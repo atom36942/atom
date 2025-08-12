@@ -534,212 +534,77 @@ update users set api_access='1,2,3' where id=1;
 - To revoke access, update `api_access` column and refresh token 
 </details>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Client
-
 <details>
-<summary>Postgres</summary>
+<summary>Client</summary>
 
 <br>
 
-- Atom has prebuilt postgres connection using two package Databases/Asyncpg
+Docs
 - Databases - https://github.com/encode/databases
 - Asyncpg - https://github.com/MagicStack/asyncpg
-- How to access client in your routes: to execute any raw sql in your router
-- It is used for primary database
-- Add the following key to your `.env` file
+- Redis - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
+- Mongodb - https://motor.readthedocs.io/en/stable
+- AWS S3/SNS/SES - https://boto3.amazonaws.com
+- Posthog - https://posthog.com/docs/libraries/python
+- OpenAI - https://github.com/openai/openai-python
+
+- How to enable: add below key in .env
 ```bash
+#postgres
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
-```
-- How to access client in your routes:
-```python
-request.app.state.client_postgres 
-request.app.state.client_postgres_asyncpg
-request.app.state.client_postgres_asyncpg_pool
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
-</details>
-
-<details>
-<summary>Postgres Read Replica</summary>
-
-<br>
-
-- Prebuilt Postgres read replica config is available.
-- docs - https://github.com/encode/databases
-- It is used for reducing load in primary database for read queries
-- Add the following key to your `.env` file
-```bash
 config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
-```
-- How to access client in your routes:
-```bash
-request.app.state.client_postgres_read 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
-</details>
 
-<details>
-<summary>Redis</summary>
-
-<br>
-
-- Prebuilt Redis connection
-- Docs - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
-- It is used for cache data
-- Add the following key to your `.env` file
-```bash
+#redis
 config_redis_url=redis://localhost:6379
-```
-- How to access client in your routes:
-```bash
-request.app.state.client_redis 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
-</details>
 
-<details>
-<summary>Mongodb</summary>
-
-<br>
-
-- Prebuilt Mongodb connection
-- Docs - https://motor.readthedocs.io/en/stable
-- It is used for secondary database
-- Add the following key to your `.env` file
-```bash
+#mongodb
 config_mongodb_url=mongodb://localhost:27017
-```
-- How to access client in your routes:
-```bash
-request.app.state.client_mongodb 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
-</details>
 
-<details>
-<summary>AWS S3</summary>
-
-<br>
-
-- Prebuilt AWS S3 connection
-- Docs - https://boto3.amazonaws.com
-- It is used for object storage
-- Add the following key to your `.env` file
-```bash
+#AWS S3
 config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_s3_region_name=value
-```
-- How to access client in your routes:
-```bash
-request.app.state.client_s3 
-request.app.state.client_s3_resource 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
-</details>
 
-<details>
-<summary>AWS SNS</summary>
-
-<br>
-
-- Prebuilt AWS SNS connection
-- Docs - https://boto3.amazonaws.com
-- It is used for sending otps
-- Add the following key to your `.env` file
-```bash
+#AWS SNS
 config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_sns_region_name=value
-```
-- How to access client in your routes:
-```bash
-request.app.state.client_sns 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
-</details>
 
-<details>
-<summary>AWS SES</summary>
-
-<br>
-
-- Prebuilt AWS SES connection
-- Docs - https://boto3.amazonaws.com
-- It is used for sending emails
-- Add the following key to your `.env` file
-```bash
+#AWS SES
 config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_ses_region_name=value
-```
-- How to access client in your routes:
-```bash
-request.app.state.client_ses 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
-</details>
 
-<details>
-<summary>Posthog</summary>
-
-<br>
-
-- Prebuilt Posthog connection
-- Docs - https://posthog.com/docs/libraries/python
-- It is used for sending events
-- Add the following key to your `.env` file
-```bash
+#Posthog
 config_posthog_project_host=value
 config_posthog_project_key=value
-```
-- How to access client in your routes:
-```bash
-request.app.state.client_posthog 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
-</details>
 
-<details>
-<summary>OpenAI</summary>
-
-<br>
-
-- Prebuilt OpenAI connection
-- Docs - https://github.com/openai/openai-python
-- It is used for llm oeprations
-- Add the following key to your `.env` file
-```bash
+#OpenAI
 config_openai_key=value
 ```
-- How to access client in your routes:
-```bash
+
+How to access client in your routes.
+```python
+request.app.state.client_postgres
+request.app.state.client_postgres_asyncpg
+request.app.state.client_postgres_asyncpg_pool
+request.app.state.client_postgres_read
+request.app.state.client_redis
+request.app.state.client_mongodb
+request.app.state.client_s3
+request.app.state.client_s3_resource
+request.app.state.client_sns
+request.app.state.client_ses
+request.app.state.client_posthog
 request.app.state.client_openai 
  ```
-- Search client name in `main.py` or `function.py` for understaning usage
+ - Search client name in `main.py` or `function.py` for understaning usage
 </details>
+
+
+
+
+
 
 
 
