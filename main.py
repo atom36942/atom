@@ -12,10 +12,10 @@ config_redis_url_ratelimiter=config.get("config_redis_url_ratelimiter",config_re
 config_mongodb_url=config.get("config_mongodb_url")
 config_celery_broker_url=config.get("config_celery_broker_url")
 config_rabbitmq_url=config.get("config_rabbitmq_url")
-config_redis_pubsub_url=config.get("config_redis_pubsub_url")
 config_kafka_url=config.get("config_kafka_url")
 config_kafka_username=config.get("config_kafka_username")
 config_kafka_password=config.get("config_kafka_password")
+config_redis_pubsub_url=config.get("config_redis_pubsub_url")
 config_aws_access_key_id=config.get("config_aws_access_key_id")
 config_aws_secret_access_key=config.get("config_aws_secret_access_key")
 config_s3_region_name=config.get("config_s3_region_name")
@@ -36,11 +36,12 @@ config_mode_check_api_access=config.get("config_mode_check_api_access","token")
 config_mode_check_is_active=config.get("config_mode_check_is_active","token")
 config_token_expire_sec=int(config.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(config.get("config_is_signup",1))
-config_is_otp_verify=int(config.get("config_is_otp_verify",1))
-config_batch_log_api=int(config.get("config_batch_log_api",10))
 config_is_log_api=int(config.get("config_is_log_api",1))
+config_is_prometheus=int(config.get("config_is_prometheus",0))
+config_is_otp_verify_profile_update=int(config.get("config_is_otp_verify_profile_update",1))
+config_batch_log_api=int(config.get("config_batch_log_api",10))
 config_batch_object_create=int(config.get("config_batch_object_create",10))
-config_limit_cache_users_api_access=int(config.get("config_limit_cache_users_api_access",1000))
+config_limit_cache_users_api_access=int(config.get("config_limit_cache_users_api_access",0))
 config_limit_cache_users_is_active=int(config.get("config_limit_cache_users_is_active",0))
 config_token_user_key_list=config.get("config_token_user_key_list","id,type,is_active,api_access").split(",")
 config_column_update_disabled_list=config.get("config_column_update_disabled_list","is_active,is_verified,api_access").split(",")
@@ -50,7 +51,6 @@ config_cors_origin_list=config.get("config_cors_origin_list","*").split(",")
 config_cors_method_list=config.get("config_cors_method_list","*").split(",")
 config_cors_headers_list=config.get("config_cors_headers_list","*").split(",")
 config_cors_allow_credentials=config.get("config_cors_allow_credentials",False)
-config_is_prometheus=int(config.get("config_is_prometheus",0))
 config_api=config.get("config_api",{})
 config_postgres_schema=config.get("config_postgres_schema",{})
 
@@ -122,31 +122,31 @@ async def middleware(request,api_function):
       error=None
       api=request.url.path
       request.state.user={}
-      request.state.user=await function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode)
-      if "admin/" in api:await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
-      if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
-      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis_ratelimiter,config_api)
+      request.state.user=await function_token_check(request,request.app.state.config_key_root,request.app.state.config_key_jwt,request.app.state.config_api,function_token_decode)
+      if "admin/" in api:await function_check_api_access(request.app.state.config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,request.app.state.config_api)
+      if request.app.state.config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(request.app.state.config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
+      if request.app.state.config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis_ratelimiter,request.app.state.config_api)
       if request.query_params.get("is_background")=="1":
          response=await function_api_response_background(request,api_function)
          type=1
-      elif config_api.get(api,{}).get("cache_sec"):
-         response=await function_cache_api_response("get",request,None,request.app.state.client_redis,config_api)
+      elif request.app.state.config_api.get(api,{}).get("cache_sec"):
+         response=await function_cache_api_response("get",request,None,request.app.state.client_redis,request.app.state.config_api)
          type=2
       if not response:
          response=await api_function(request)
          type=3
-         if config_api.get(api,{}).get("cache_sec"):
-            response=await function_cache_api_response("set",request,response,request.app.state.client_redis,config_api)
+         if request.app.state.config_api.get(api,{}).get("cache_sec"):
+            response=await function_cache_api_response("set",request,response,request.app.state.client_redis,request.app.state.config_api)
             type=4
    except Exception as e:
       error=str(e)
       print(traceback.format_exc())
       response=function_return_error(error)
-      if config_sentry_dsn:sentry_sdk.capture_exception(e)
+      if request.app.state.config_sentry_dsn:sentry_sdk.capture_exception(e)
       type=5
-   if config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
+   if request.app.state.config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-      asyncio.create_task(function_log_create_postgres(function_object_create_postgres,request.app.state.client_postgres,config_batch_log_api,object))
+      asyncio.create_task(function_log_create_postgres(function_object_create_postgres,request.app.state.client_postgres,request.app.state.config_batch_log_api,object))
    return response
 
 #api
@@ -336,7 +336,7 @@ async def function_api_my_object_update(request:Request):
    if table=="users":
       if object["id"]!=request.state.user["id"]:return function_return_error ("wrong id")
       if any(key in object and len(object)!=3 for key in ["password"]):return function_return_error("object length should be 2")
-      if request.app.state.config_is_otp_verify and any(key in object and not otp for key in ["email","mobile"]):return function_return_error("otp missing")
+      if request.app.state.config_is_otp_verify_profile_update and any(key in object and not otp for key in ["email","mobile"]):return function_return_error("otp missing")
    if otp:
       email,mobile=object.get("email"),object.get("mobile")
       if email:await function_otp_verify("email",otp,email,request.app.state.client_postgres)

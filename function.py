@@ -389,9 +389,9 @@ async def function_api_response_background(request,api_function):
    response.background=BackgroundTask(api_function_new)
    return response
 
-async def function_check_api_access(mode,request,cache_users_api_access,client_postgres,config_api):
-   if mode=="token":user_api_access_list=[int(item.strip()) for item in request.state.user["api_access"].split(",")] if request.state.user["api_access"] else []
-   elif mode=="cache":user_api_access_list=cache_users_api_access.get(request.state.user["id"],"absent")
+async def function_check_api_access(config_mode_check_api_access,request,cache_users_api_access,client_postgres,config_api):
+   if config_mode_check_api_access=="token":user_api_access_list=[int(item.strip()) for item in request.state.user["api_access"].split(",")] if request.state.user["api_access"] else []
+   elif config_mode_check_api_access=="cache":user_api_access_list=cache_users_api_access.get(request.state.user["id"],"absent")
    if user_api_access_list=="absent":
       query="select id,api_access from users where id=:id;"
       values={"id":request.state.user["id"]}
@@ -406,9 +406,9 @@ async def function_check_api_access(mode,request,cache_users_api_access,client_p
    if api_id not in user_api_access_list:raise Exception("api access denied")
    return None
 
-async def function_check_is_active(mode,request,cache_users_is_active,client_postgres):
-   if mode=="token":user_is_active=request.state.user["is_active"]
-   elif mode=="cache":user_is_active=cache_users_is_active.get(request.state.user["id"],"absent")
+async def function_check_is_active(config_mode_check_is_active,request,cache_users_is_active,client_postgres):
+   if config_mode_check_is_active=="token":user_is_active=request.state.user["is_active"]
+   elif config_mode_check_is_active=="cache":user_is_active=cache_users_is_active.get(request.state.user["id"],"absent")
    if user_is_active=="absent":
       query="select id,is_active from users where id=:id;"
       values={"id":request.state.user["id"]}
