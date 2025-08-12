@@ -38,6 +38,7 @@ config_token_expire_sec=int(config.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(config.get("config_is_signup",1))
 config_is_otp_verify=int(config.get("config_is_otp_verify",1))
 config_batch_log_api=int(config.get("config_batch_log_api",10))
+config_is_api_log=int(config.get("config_is_api_log",1))
 config_batch_object_create=int(config.get("config_batch_object_create",10))
 config_limit_cache_users_api_access=int(config.get("config_limit_cache_users_api_access",1000))
 config_limit_cache_users_is_active=int(config.get("config_limit_cache_users_is_active",0))
@@ -143,7 +144,7 @@ async def middleware(request,api_function):
       response=function_return_error(error)
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
       type=5
-   if getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
+   if config_is_api_log and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
       asyncio.create_task(function_log_create_postgres(function_object_create_postgres,request.app.state.client_postgres,config_batch_log_api,object))
    return response
