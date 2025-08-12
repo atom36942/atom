@@ -105,14 +105,18 @@ Explanation of key files in the repo:
 ./venv/bin/pip install --upgrade fastapi
 ./venv/bin/pip uninstall fastapi
 ./venv/bin/pip freeze > requirements.txt
+
 #Stop Python PID
 lsof -ti :8000 | xargs kill -9
+
 #Reset Postgres                    
 drop schema if exists public cascade;
 create schema if not exists public;
+
 #Export Postgres
 \copy table to 'path'  delimiter ',' csv header;
 \copy (query) to 'path'  delimiter ',' csv header;
+
 #Import Postgres       
 \copy table from 'path' delimiter ',' csv header;
 \copy table(column) from 'path' delimiter ',' csv header;   
@@ -232,31 +236,39 @@ config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 #postgres
 config_postgres_min_connection=5
 config_postgres_max_connection=20
+
 #ratelimiter
 config_redis_url_ratelimiter=value
+
 #token
 config_token_expire_sec=10000
 config_token_user_key_list=id,mobile
+
 #enable/disable
 config_is_signup=1
 config_is_otp_verify_profile_update=1
 config_is_log_api=1
 config_is_prometheus==0
+
 #batch
 config_batch_log_api=10
 config_batch_object_create=10
+
 #cors                             
 config_cors_origin_list=x,y,z                   
 config_cors_method_list=x,y,z
 config_cors_headers_list=x,y,z
 config_cors_allow_credentials=False
+
 #crud
 config_public_table_create_list=post,comment
 config_public_table_read_list=users,post
 config_column_update_disabled_list=is_active,is_verified
+
 #mode
 config_mode_check_api_access=token/cache
 config_mode_check_is_active=token/cache
+
 #cache
 config_limit_cache_users_api_access=0
 config_limit_cache_users_is_active=0     
