@@ -294,6 +294,52 @@ from extend_master import *
 </details>
 
 <details>
+<summary>Configure: API (optional)</summary>
+
+<br>
+
+- Prebuilt `config_api` dict in `config.py` to control api various logic as shown in ex.
+- You can add your api in the same dict.
+- For ex:
+```python
+"/test":{
+"id":7,
+"is_token":0,
+"is_active_check":1,
+"cache_sec":["inmemory/redis",60],
+"ratelimiter_times_sec":[1,1]
+}
+```
+- id - unique api id used in admin apis check
+- is_token - 0/1 - to enable auth
+- is_active_check - 0/1 - to enable user active check
+- cache_sec - to cache api with inmemory/redis option
+- ratelimiter_times_sec - to ratelimit api
+</details>
+
+<details>
+<summary>Configure: Database (optional)</summary>
+
+<br>
+
+- Prebuilt `config_postgres_schema` dict is defined in `config.py` to initialize PostgreSQL schema.
+- It has two keys: `table` and `query`.
+- `table` contains table definitions.
+- `query` contains extra SQL queries to run.
+- You can add your own table and query to it.
+- Understanding columns with different possibility for `title` column as an ex:
+```python
+"title-text-0-0"
+"title-text-0-btree"
+"title-text-1-btree,gin"
+```
+- `title` = column name
+- `text` = column datatype
+- `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
+- `0` or `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
+</details>
+
+<details>
 <summary>Enable: Sentry (optional)</summary>
 
 <br>
@@ -342,7 +388,6 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 </details>
-
 
 
 
