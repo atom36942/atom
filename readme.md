@@ -100,24 +100,24 @@ Explanation of key files in the repo:
 <br>
 
 ```bash
-#Package
+#package
 ./venv/bin/pip install fastapi
 ./venv/bin/pip install --upgrade fastapi
 ./venv/bin/pip uninstall fastapi
 ./venv/bin/pip freeze > requirements.txt
 
-#Stop Python PID
+#stop python
 lsof -ti :8000 | xargs kill -9
 
-#Reset Postgres                    
+#reset postgres                    
 drop schema if exists public cascade;
 create schema if not exists public;
 
-#Export Postgres
+#export postgres
 \copy table to 'path'  delimiter ',' csv header;
 \copy (query) to 'path'  delimiter ',' csv header;
 
-#Import Postgres       
+#import postgres       
 \copy table from 'path' delimiter ',' csv header;
 \copy table(column) from 'path' delimiter ',' csv header;   
 ```
@@ -379,7 +379,7 @@ from extend_master import *
 
 <br>
 
-- Add the following key to your `.env` file
+Add the following key to your `.env` file
 ```bash
 config_sentry_dsn=value
 ```
@@ -390,7 +390,7 @@ config_sentry_dsn=value
 
 <br>
 
-- Add the following key to your `.env` file 
+Add the following key to your `.env` file 
 ```bash
 config_is_prometheus=1
 ```
