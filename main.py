@@ -38,14 +38,14 @@ config_token_expire_sec=int(config.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(config.get("config_is_signup",1))
 config_is_otp_verify=int(config.get("config_is_otp_verify",1))
 config_batch_log_api=int(config.get("config_batch_log_api",10))
-config_is_api_log=int(config.get("config_is_api_log",1))
+config_is_log_api=int(config.get("config_is_log_api",1))
 config_batch_object_create=int(config.get("config_batch_object_create",10))
 config_limit_cache_users_api_access=int(config.get("config_limit_cache_users_api_access",1000))
 config_limit_cache_users_is_active=int(config.get("config_limit_cache_users_is_active",0))
 config_token_user_key_list=config.get("config_token_user_key_list","id,type,is_active,api_access").split(",")
-config_column_disabled_list=config.get("config_column_disabled_list","is_active,is_verified,api_access").split(",")
-config_table_allowed_public_create_list=config.get("config_table_allowed_public_create_list","test").split(",")
-config_table_allowed_public_read_list=config.get("config_table_allowed_public_read_list","test").split(",")
+config_column_update_disabled_list=config.get("config_column_update_disabled_list","is_active,is_verified,api_access").split(",")
+config_public_table_create_list=config.get("config_public_table_create_list","test").split(",")
+config_public_table_read_list=config.get("config_public_table_read_list","test").split(",")
 config_cors_origin_list=config.get("config_cors_origin_list","*").split(",")
 config_cors_method_list=config.get("config_cors_method_list","*").split(",")
 config_cors_headers_list=config.get("config_cors_headers_list","*").split(",")
@@ -144,7 +144,7 @@ async def middleware(request,api_function):
       response=function_return_error(error)
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
       type=5
-   if config_is_api_log and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
+   if config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
       asyncio.create_task(function_log_create_postgres(function_object_create_postgres,request.app.state.client_postgres,config_batch_log_api,object))
    return response
@@ -299,7 +299,7 @@ async def function_api_my_object_create(request:Request):
    object["created_by_id"]=request.state.user["id"]
    if table in ["users"]:return function_return_error("table not allowed")
    if len(object)<=1:return function_return_error ("object issue")
-   if any(key in request.app.state.config_column_disabled_list for key in object):return function_return_error(" object key not allowed")
+   if any(key in request.app.state.config_column_update_disabled_list for key in object):return function_return_error(" object key not allowed")
    if not queue:output=await function_object_create_postgres(request.app.state.client_postgres,table,[object],is_serialize,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    elif queue:
       payload={"function":"function_object_create_postgres","table":table,"object_list":[object],"is_serialize":is_serialize}
@@ -332,7 +332,7 @@ async def function_api_my_object_update(request:Request):
    object["updated_by_id"]=request.state.user["id"]
    if "id" not in object:return function_return_error ("id missing")
    if len(object)<=2:return function_return_error ("object length issue")
-   if any(key in request.app.state.config_column_disabled_list for key in object):return function_return_error(" object key not allowed")
+   if any(key in request.app.state.config_column_update_disabled_list for key in object):return function_return_error(" object key not allowed")
    if table=="users":
       if object["id"]!=request.state.user["id"]:return function_return_error ("wrong id")
       if any(key in object and len(object)!=3 for key in ["password"]):return function_return_error("object length should be 2")
@@ -349,7 +349,7 @@ async def function_api_my_object_update(request:Request):
 async def function_api_my_ids_update(request:Request):
    object,[table,ids,column,value]=await function_param_read("body",request,["table","ids","column","value"],[])
    if table in ["users"]:return function_return_error("table not allowed")
-   if column in request.app.state.config_column_disabled_list:return function_return_error("column not allowed")
+   if column in request.app.state.config_column_update_disabled_list:return function_return_error("column not allowed")
    await function_update_ids(request.app.state.client_postgres,table,ids,column,value,request.state.user["id"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
@@ -458,14 +458,14 @@ async def function_api_public_object_create(request:Request):
    object_1,[table,is_serialize]=await function_param_read("query",request,["table"],["is_serialize"])
    object,[]=await function_param_read("body",request,[],[])
    is_serialize=int(is_serialize) if is_serialize else 0
-   if table not in request.app.state.config_table_allowed_public_create_list:return function_return_error("table not allowed")
+   if table not in request.app.state.config_public_table_create_list:return function_return_error("table not allowed")
    output=await function_object_create_postgres(request.app.state.client_postgres,table,[object],is_serialize,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":output}
 
 @app.get("/public/object-read")
 async def function_api_public_object_read(request:Request):
    object,[table,creator_key]=await function_param_read("query",request,["table"],["creator_key"])
-   if table not in request.app.state.config_table_allowed_public_read_list:return function_return_error("table not allowed")
+   if table not in request.app.state.config_public_table_read_list:return function_return_error("table not allowed")
    object_list=await function_object_read_postgres(request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres,table,object,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    if object_list and creator_key:object_list=await function_add_creator_data(request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres,creator_key,object_list)
    return {"status":1,"message":object_list}

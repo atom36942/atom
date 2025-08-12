@@ -224,20 +224,25 @@ config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 - You can add them in `.env` or `config.py` to update default value
 - Each key is independent of each other
 ```bash
-config_token_expire_sec=10000                               # token expiry time 
-config_token_user_key_list=id,mobile                        # token user keys 
-config_is_signup=0/1                                        # enable/disable signup
-config_is_otp_verify=0/1                                    # enable/disable otp verify in user profile update
-config_batch_object_create=10                               # control batch for object create
-config_column_disabled_list=value                           # control which keys non admin users can't update
-config_table_allowed_public_create_list=post,comment        # control which table insert is allowed in public
-config_table_allowed_public_read_list=users,post            # control which table read is allowed in public
-config_batch_log_api=10                                     # control batch insert for api logs
-config_batch_log_api=0                                      # enable/disable api logs
-config_cors_origin_list=x,y,z                               # control cors
-config_cors_method_list=x,y,z                               # control cors
-config_cors_headers_list=x,y,z                              # control cors
-config_cors_allow_credentials=False                         # control cors
+#token
+config_token_expire_sec=10000
+config_token_user_key_list=id,mobile
+#enable/disable
+config_is_signup=0/1
+config_is_otp_verify=0/1
+config_is_log_api=0/1
+#batch
+config_batch_log_api=10
+config_batch_object_create=10
+#cors                             
+config_cors_origin_list=x,y,z                   
+config_cors_method_list=x,y,z
+config_cors_headers_list=x,y,z
+config_cors_allow_credentials=False
+#crud
+config_public_table_create_list=post,comment
+config_public_table_read_list=users,post
+config_column_update_disabled_list=is_active,is_verified                     
 ```
 </details>
 
