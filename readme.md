@@ -401,20 +401,18 @@ config_is_prometheus=1
 
 <br>
 
-If venv is activated
+Direct
 ```bash
+#if venv is activated
 python main.py
-```
-If venv is not activated
-```bash
+
+#if venv is mot activated
 ./venv/bin/python main.py
-```
-If venv is activated - reload
-```bash
+
+#if venv is activated - reload
 uvicorn main:app --reload
-```
-If venv is not activated - reload
-```bash
+
+#if venv is not activated - reload
 ./venv/bin/uvicorn main:app --reload
 ```
 With Docker
@@ -423,7 +421,6 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 </details>
-
 
 
 
