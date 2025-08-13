@@ -260,13 +260,13 @@ config_limit_cache_users_is_active=0
 - How to access - Use `config` var dict in your routes
 - For ex:
 ```python
+#how to define
 xyz=123
 xyz="atom"
 xyz=[1,2,3]
 xyz={"name":"atom"}
-```
-- You can use in your routes using:-
-```python
+
+#how to use
 config.get(xyz)
 ```
 </details>
