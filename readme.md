@@ -114,50 +114,19 @@ create schema if not exists public;
 ## How to use atom
 
 <details>
-<summary>Download repo</summary>
+<summary>Setup repo</summary>
 
 <br>
 
 ```bash
+#download repo
 git clone https://github.com/atom36942/atom.git
 cd atom
-```
-</details>
 
-<details>
-<summary>Create venv</summary>
-
-<br>
-
-```bash
+#create venv
 python3 -m venv venv
-```
-</details>
 
-<details>
-<summary>Activate venv (optional)</summary>
-
-<br>
-
-```bash
-#mac
-source venv/bin/activate
-
-#window
-venv\Scripts\activate
-```
-</details>
-
-<details>
-<summary>Install Requirements</summary>
-
-<br>
-
-```bash
-#if venv is activated
-pip install -r requirements.txt
-
-#if venv not is activated
+#install requirements
 ./venv/bin/pip install -r requirements.txt
 ```
 </details>
