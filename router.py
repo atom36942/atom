@@ -7,22 +7,6 @@ async def route_test():
    value=config.get("your_config_key")
    return {"status":1,"message":f"welcome to test"}
 
-#postgres create
-@router.get("/postgres-create")
-async def route_postgres_create(request:Request):
-   table="test"
-   object={"created_by_id":request.state.user.get("id"),"title":"router"}
-   await function_object_create_postgres(request.app.state.client_postgres,table,[object],0,None,None)
-   return {"status":1,"message":"done"}
-
-#postgres update
-@router.get("/postgres-update")
-async def route_postgres_update(request:Request):
-   table="users"
-   object={"id":1,"email":"atom1","mobile":"atom2"}
-   await function_object_update_postgres(request.app.state.client_postgres,table,[object],0,None,None)
-   return {"status":1,"message":"done"}
-
 #websocket
 from fastapi import WebSocket,WebSocketDisconnect
 @router.websocket("/ws")

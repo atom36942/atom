@@ -55,46 +55,6 @@ Explanation of key files in the repo:
 </details>
 
 <details>
-<summary>FastAPI App</summary>
-
-<br>
-
-- FastAPI App is setup in file `main.py` app section with Lifespan events
-- Cors is enabled as per config
-- Routers auto-loaded
-- Sentry is enabled as per config
-- Prometheus is enabled as per config
-</details>
-
-<details>
-<summary>Lifespan</summary>
-
-<br>
-
-- Backend startup and shutdown logic is handled via the lifespan function
-- Initializes service clients.
-- Reads and caches Postgres schema and other data.
-- Set app state with config,client and cache.
-- Cleans up all clients on shutdown (disconnect/close/flush).
-- All startup exceptions are logged via traceback.
-</details>
-
-<details>
-<summary>Middleware</summary>
-
-<br>
-
-- Handles token validation and injects user into request state.
-- Applies admin access control for admin apis.
-- Checks if user is active for api if enabled.
-- Enforces rate limiting for api if enabled.
-- Runs API in background if enabled.
-- Serves cached response for api if enabled.
-- Captures and logs exceptions to Sentry if enabled.
-- Logs API calls if enabled.
-</details>
-
-<details>
 <summary>Useful Commands</summary>
 
 <br>
@@ -582,26 +542,26 @@ config_redis_url=redis://localhost:6379
 #mongodb
 config_mongodb_url=mongodb://localhost:27017
 
-#AWS S3
+#aws s3
 config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_s3_region_name=value
 
-#AWS SNS
+#aws sns
 config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_sns_region_name=value
 
-#AWS SES
+#aws ses
 config_aws_access_key_id=value
 config_aws_secret_access_key=value
 config_ses_region_name=value
 
-#Posthog
+#posthog
 config_posthog_project_host=value
 config_posthog_project_key=value
 
-#OpenAI
+#openai
 config_openai_key=value
 ```
 
