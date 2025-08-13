@@ -84,7 +84,7 @@ create schema if not exists public;
 </details>
 
 <details>
-<summary>SOP for developing an idea</summary>
+<summary>SOP for developing an Idea</summary>
 
 <br>
 
@@ -139,12 +139,11 @@ python3 -m venv venv
 
 <br>
 
-Mac
 ```bash
+#mac
 source venv/bin/activate
-```
-Windows
-```bash
+
+#window
 venv\Scripts\activate
 ```
 </details>
@@ -154,12 +153,11 @@ venv\Scripts\activate
 
 <br>
 
-If venv is activated
 ```bash
+#if venv is activated
 pip install -r requirements.txt
-```
-If venv is not activated
-```bash
+
+#if venv not is activated
 ./venv/bin/pip install -r requirements.txt
 ```
 </details>
