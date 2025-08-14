@@ -535,153 +535,115 @@ request.app.state.client_openai
 
 <br>
 
-- Prebuilt Consumer/Producer
+- Prebuilt Consumer/Producer client
 - Docs - https://github.com/celery/celery
-- You can add more functions in consumer to processs
+- You can add more functions in consumer/producer
 - Search producer client in `main.py` or `function.py` for understaning usage
-- Add the following key to your `.env` file
+- Commands:
 ```bash
-#.env config for consumer
+#consumer .env
 config_celery_broker_url=redis://localhost:6379
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 
-#run consumer when venv is activated
-celery -A consumer_celery worker --loglevel=info
-
-#run consumer when venv is not activated
+##consumer run
 ./venv/bin/celery -A consumer_celery worker --loglevel=info
 
-#.env config for producer
+#producer .env
 config_celery_broker_url=redis://localhost:6379
 
-#how to use producer client in your apis
+#producer client
 request.app.state.client_celery_producer 
 ```
 </details>
 
 
-
 <details>
-<summary>Kafka Consumer</summary>
+<summary>Kafka</summary>
 
 <br>
 
-- Prebuilt Consumer in `consumer_kafka.py`
+- Prebuilt Consumer/Producer client
 - Docs - https://github.com/aio-libs/aiokafka
-- You can add more functions in consumer to processs
-- You can add more groups and channels
-- Start Kafka server locally or remotely with SASL/PLAIN
-- Add the following key to your `.env` file
+- You can add more functions in consumer/producer
+- Search producer client in `main.py` or `function.py` for understaning usage
+- Commands:
 ```bash
+#consumer .env
 config_kafka_url=value
 config_kafka_username=value
 config_kafka_password=value
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
-```
-- How to run file:
-```bash
-python consumer_kafka.py                # Run with activated virtualenv
-./venv/bin/python consumer_kafka.py     # Run without activating virtualenv
-```
-</details>
 
-<details>
-<summary>Kafka Producer</summary>
+##consumer run
+./venv/bin/python consumer_kafka.py
 
-<br>
-
-- Prebuilt Producer connection
-- You can use any function which is handled in Consumer to add it in queue
-- Add the following key to your `.env` file
-```bash
+#producer .env
 config_kafka_url=value
 config_kafka_username=value
 config_kafka_password=value
+
+#producer client
+request.app.state.client_kafka_producer
 ```
-- How to access client in your routes:
-```bash
-request.app.state.client_kafka_producer 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
-<summary>Rabbitmq Consumer</summary>
+<summary>Rabbitmq</summary>
 
 <br>
 
-- Prebuilt Consumer in `consumer_rabbitmq.py`
+- Prebuilt Consumer/Producer client
 - Docs - https://github.com/mosquito/aio-pika
-- You can add more functions in consumer to processs
-- You can add more channels
-- Add the following key to your `.env` file
+- You can add more functions in consumer/producer
+- Search producer client in `main.py` or `function.py` for understaning usage
+- Commands:
 ```bash
+#consumer .env
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
-```
-- How to run file:
-```bash
-python consumer_rabbitmq.py                # Run with activated virtualenv
-./venv/bin/python consumer_rabbitmq.py     # Run without activating virtualenv
-```
-</details>
 
-<details>
-<summary>Rabbitmq Producer</summary>
+##consumer run
+./venv/bin/python consumer_rabbitmq.py
 
-<br>
-
-- Prebuilt Producer connection
-- You can use any function which is handled in Consumer to add it in queue
-- Add the following key to your `.env` file
-```bash
+#producer .env
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
+
+#producer client
+request.app.state.client_rabbitmq_producer
 ```
-- How to access client in your routes:
-```bash
-request.app.state.client_rabbitmq_producer 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
 </details>
 
 <details>
-<summary>Redis Consumer</summary>
+<summary>Redis</summary>
 
 <br>
 
-- Prebuilt Consumer in `consumer_redis.py`
+- Prebuilt Consumer/Producer client
 - Docs - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
-- You can add more functions in consumer to processs
-- You can add more channels
-- Add the following key to your `.env` file
+- You can add more functions in consumer/producer
+- Search producer client in `main.py` or `function.py` for understaning usage
+- Commands:
 ```bash
+#consumer .env
 config_redis_pubsub_url=redis://localhost:6379
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
-```
-- How to run file:
-```bash
-python consumer_redis.py                # Run with activated virtualenv
-./venv/bin/python consumer_redis.py     # Run without activating virtualenv
-```
-</details>
 
-<details>
-<summary>Redis Producer</summary>
-
-<br>
-
-- Prebuilt Producer connection
-- You can use any function which is handled in Consumer to add it in queue
-- Add the following key to your `.env` file
-```bash
+##consumer run
 config_redis_pubsub_url=redis://localhost:6379
+
+#producer .env
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+
+#producer client
+request.app.state.client_redis_producer
 ```
-- How to access client in your routes:
-```bash
-request.app.state.client_redis_producer 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage
 </details>
+
+
+
+
+
+
 
 
 
