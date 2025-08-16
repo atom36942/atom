@@ -113,29 +113,7 @@ config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 
 
 
-<details>
-<summary>Extend Atom: Config (optional)</summary>
 
-<br>
-
-- Easily extend Atom by adding your config in 4 ways
-- 1st way - add it in `.env` file
-- 2nd way - add it in `config.py` file
-- 3rd way - create any `.py` file starting with `config` in the root folder
-- 4th way - place it inside a `config/` folder with any `.py` filename
-- How to access - Use `config` var dict in your routes
-- For ex:
-```python
-#how to define
-xyz=123
-xyz="atom"
-xyz=[1,2,3]
-xyz={"name":"atom"}
-
-#how to use
-config.get(xyz)
-```
-</details>
 
 <details>
 <summary>Extend Atom: Files (optional)</summary>
@@ -263,7 +241,7 @@ config_limit_cache_users_is_active=0
 
 <br>
 
-- Easily extend Atom by adding your API router files in 2 ways.
+- Easily extend Atom by adding your API router files.
 - See `router.py` for sample usage
 - Ex to create a router service called llm.
 ```bash
@@ -272,6 +250,34 @@ touch router_llm.py
 
 #2nd way
 mkdir -p router && touch router/llm.py
+```
+</details>
+
+<details>
+<summary>Config</summary>
+
+<br>
+
+- Easily extend Atom by adding your config.
+- Use `config` var dict in your routes to access entire config
+- Ex to add a key called openai_key using different ways
+```bash
+#1st way
+echo "openai_key=sk-xxxxxx" >> .env
+
+#2nd
+echo "openai_key = 'sk-xxxxxx'" >> config.py
+
+#3rd
+touch config_custom.py
+echo "openai_key = 'sk-xxxxxx'" >> config_custom.py
+
+#4th way
+mkdir -p config && touch config/openai.py
+echo "openai_key = 'sk-xxxxxx'" >> config/openai.py
+
+#how to use
+config.get(openai_key)
 ```
 </details>
 
