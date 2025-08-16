@@ -97,7 +97,6 @@ python3 -m venv venv
 <br>
 
 - Create a `.env` file in the root directory with min 4 keys 
-- You can use local or remote URLs for Postgres and Redis
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
 - `config_redis_url`: used for caching,rate limiting etc 
 - `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
@@ -239,20 +238,13 @@ config_is_prometheus=1
 
 Direct
 ```bash
-#if venv is activated
-python main.py
-
-#if venv is mot activated
+#direct
 ./venv/bin/python main.py
 
-#if venv is activated - reload
-uvicorn main:app --reload
-
-#if venv is not activated - reload
+#reload
 ./venv/bin/uvicorn main:app --reload
-```
-With Docker
-```bash
+
+#docker
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
