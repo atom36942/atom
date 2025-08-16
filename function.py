@@ -1449,3 +1449,31 @@ def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_projec
     save_summary_to_file(blockers, improvements, top_active, on_time)
     return "✅ Executive JIRA summary saved to 'jira.txt'"
 
+from jira import JIRA
+import pandas as pd
+from datetime import datetime, date, timedelta
+import calendar
+def function_jira_worklog(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_csv="jira_worklog.csv"):
+    today = date.today()
+    if not start_date:
+        start_date = today.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        end_date = today.replace(day=last_day).strftime("%Y-%m-%d")
+    jira = JIRA(server=jira_base_url, basic_auth=(jira_email, jira_token))
+    jql = f"worklogDate >= {start_date} AND worklogDate <= {end_date}"
+    issues = jira.search_issues(jql, maxResults=False, expand="worklog")
+    data = []
+    for i in issues:
+        for wl in i.fields.worklog.worklogs:
+            wl_date = datetime.strptime(wl.started[:10], "%Y-%m-%d").date()
+            if start_date <= wl_date.strftime("%Y-%m-%d") <= end_date:
+                data.append((wl.author.displayName, wl_date, wl.timeSpentSeconds / 3600))
+    df = pd.DataFrame(data, columns=["author", "date", "hours"])
+    df_pivot = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0)
+    df_pivot = df_pivot.round(0).astype(int)
+    df_pivot.columns = [d.strftime("%Y-%m-%d") for d in df_pivot.columns]
+    df_pivot.to_csv(output_csv)
+    return df_pivot
+
+

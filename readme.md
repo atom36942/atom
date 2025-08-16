@@ -54,48 +54,8 @@ Explanation of key files in the repo:
 - `.gitignore` – Files/directories to ignore in git
 </details>
 
-<details>
-<summary>Useful Commands</summary>
 
-<br>
 
-```bash
-#package
-./venv/bin/pip install fastapi
-./venv/bin/pip install --upgrade fastapi
-./venv/bin/pip uninstall fastapi
-./venv/bin/pip freeze > requirements.txt
-
-#stop python
-lsof -ti :8000 | xargs kill -9
-
-#reset postgres                    
-drop schema if exists public cascade;
-create schema if not exists public;
-
-#export postgres
-\copy table to 'path'  delimiter ',' csv header;
-\copy (query) to 'path'  delimiter ',' csv header;
-
-#import postgres       
-\copy table from 'path' delimiter ',' csv header;
-\copy table(column) from 'path' delimiter ',' csv header;   
-```
-</details>
-
-<details>
-<summary>SOP for developing an Idea</summary>
-
-<br>
-
-- `Idea` – Founder: Define problem, scope, and core features.
-- `Design` – UI/UX: Convert idea into clear user flows and visual layouts.
-- `Frontend` – Frontend Developer: Build responsive UI from approved designs.
-- `Backend` – Backend Developer: Develop APIs, database, and business logic (Atom can be used).
-- `Deployment` – Backend Developer: Deploy code to server.
-- `Testing` – QA: Verify functionality, log defects, approve prototype.
-- `Live` – Founder: Make the prototype publicly accessible and announce launch.
-</details>
 
 
 
@@ -629,10 +589,10 @@ config_redis_pubsub_url=redis://localhost:6379
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 
 ##consumer run
-config_redis_pubsub_url=redis://localhost:6379
+./venv/bin/python consumer_redis.py
 
 #producer .env
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_redis_pubsub_url=redis://localhost:6379
 
 #producer client
 request.app.state.client_redis_producer
@@ -660,7 +620,50 @@ request.app.state.client_redis_producer
 
 
 
-## FAQ
+## Misc
+
+<details>
+<summary>Useful Commands</summary>
+
+<br>
+
+```bash
+#package
+./venv/bin/pip install fastapi
+./venv/bin/pip install --upgrade fastapi
+./venv/bin/pip uninstall fastapi
+./venv/bin/pip freeze > requirements.txt
+
+#stop python
+lsof -ti :8000 | xargs kill -9
+
+#reset postgres                    
+drop schema if exists public cascade;
+create schema if not exists public;
+
+#export postgres
+\copy table to 'path'  delimiter ',' csv header;
+\copy (query) to 'path'  delimiter ',' csv header;
+
+#import postgres       
+\copy table from 'path' delimiter ',' csv header;
+\copy table(column) from 'path' delimiter ',' csv header;   
+```
+</details>
+
+<details>
+<summary>SOP for developing an Idea</summary>
+
+<br>
+
+- `Idea` – Founder: Define problem, scope, and core features.
+- `Design` – UI/UX: Convert idea into clear user flows and visual layouts.
+- `Frontend` – Frontend Developer: Build responsive UI from approved designs.
+- `Backend` – Backend Developer: Develop APIs, database, and business logic (Atom can be used).
+- `Deployment` – Backend Developer: Deploy code to server.
+- `Testing` – QA: Verify functionality, log defects, approve prototype.
+- `Live` – Founder: Make the prototype publicly accessible and announce launch.
+</details>
 
 <details>
 <summary>Send Otp Fast2SMS</summary>
