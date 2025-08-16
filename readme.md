@@ -71,7 +71,7 @@ Explanation of key files in the repo:
 
 
 
-## How to use atom
+## Installation
 
 <details>
 <summary>Setup repo</summary>
@@ -109,71 +109,9 @@ config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 ```
 </details>
 
-<details>
-<summary>Default Settings (optional)</summary>
 
-<br>
 
-- With below config keys,you can control default settings
-- Default values are in main.py config section
-- You can add them in `.env` or `config.py` to update default value
-- Each key is independent of each other
-```bash
-#postgres
-config_postgres_min_connection=5
-config_postgres_max_connection=20
 
-#ratelimiter
-config_redis_url_ratelimiter=value
-
-#token
-config_token_expire_sec=10000
-config_token_user_key_list=id,mobile
-
-#enable/disable
-config_is_signup=1
-config_is_otp_verify_profile_update=1
-config_is_log_api=1
-config_is_prometheus==0
-
-#batch
-config_batch_log_api=10
-config_batch_object_create=10
-
-#cors                             
-config_cors_origin_list=x,y,z                   
-config_cors_method_list=x,y,z
-config_cors_headers_list=x,y,z
-config_cors_allow_credentials=False
-
-#crud
-config_public_table_create_list=post,comment
-config_public_table_read_list=users,post
-config_column_update_disabled_list=is_active,is_verified
-
-#mode
-config_mode_check_api_access=token/cache
-config_mode_check_is_active=token/cache
-
-#cache
-config_limit_cache_users_api_access=0
-config_limit_cache_users_is_active=0     
-```
-</details>
-
-<details>
-<summary>Extend Atom: Router (optional)</summary>
-
-<br>
-
-- Easily extend Atom by adding your API router files in 2 ways
-- 1st way - create any `.py` file starting with `router` in the root folder
-- 2nd way - place it inside a `router` folder with any `.py` filename
-- All custom router files are auto-loaded at startup
-- All routes automatically use middleware
-- All routes includes middleware by defualt having prebuilt auth,admin check,user active check,ratelimter,background apis,caching,api log
-- See `router.py` for sample usage
-</details>
 
 <details>
 <summary>Extend Atom: Config (optional)</summary>
@@ -249,6 +187,95 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 </details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Extend Atom
+
+<details>
+<summary>Default Settings</summary>
+
+<br>
+
+- With below config keys,you can control default settings
+- Default values are in main.py config section
+- You can add them in `.env` or `config.py` to update default value
+- Each key is independent of each other
+```bash
+#postgres
+config_postgres_min_connection=5
+config_postgres_max_connection=20
+
+#ratelimiter
+config_redis_url_ratelimiter=value
+
+#token
+config_token_expire_sec=10000
+config_token_user_key_list=id,mobile
+
+#enable/disable
+config_is_signup=1
+config_is_otp_verify_profile_update=1
+config_is_log_api=1
+config_is_prometheus==0
+
+#batch
+config_batch_log_api=10
+config_batch_object_create=10
+
+#cors                             
+config_cors_origin_list=x,y,z                   
+config_cors_method_list=x,y,z
+config_cors_headers_list=x,y,z
+config_cors_allow_credentials=False
+
+#crud
+config_public_table_create_list=post,comment
+config_public_table_read_list=users,post
+config_column_update_disabled_list=is_active,is_verified
+
+#mode
+config_mode_check_api_access=token/cache
+config_mode_check_is_active=token/cache
+
+#cache
+config_limit_cache_users_api_access=0
+config_limit_cache_users_is_active=0     
+```
+</details>
+
+<details>
+<summary>Router</summary>
+
+<br>
+
+- Easily extend Atom by adding your API router files in 2 ways.
+- See `router.py` for sample usage
+- Ex to create a router service called llm.
+```bash
+#1st way
+touch router_llm.py
+
+#2nd way
+mkdir -p router && touch router/llm.py
+```
+</details>
+
+
 
 
 
