@@ -258,6 +258,21 @@ from extend_master import *
 ```
 </details>
 
+<details>
+<summary>Enable Monitoring</summary>
+
+<br>
+
+Add the following key to your `.env` file
+```bash
+#sentry
+config_sentry_dsn=value
+
+#prometheus
+config_is_prometheus=1
+```
+</details>
+
 
 
 
