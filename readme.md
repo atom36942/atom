@@ -109,44 +109,6 @@ config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 ```
 </details>
 
-
-
-
-
-
-
-<details>
-<summary>Extend Atom: Files (optional)</summary>
-
-<br>
-
-- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
-- Add all extend files in `extend_master.py`
-- This is an opinionated approach to structure code
-- import `extend_master.py` in your routes
-```python
-from extend import *
-from extend_master import *
-```
-</details>
-
-<details>
-<summary>Enable Monitoring (optional)</summary>
-
-<br>
-
-Add the following key to your `.env` file
-```bash
-#sentry
-config_sentry_dsn=value
-
-#prometheus
-config_is_prometheus=1
-```
-</details>
-
-</details>
-
 <details>
 <summary>Server Start</summary>
 
@@ -237,7 +199,7 @@ config_limit_cache_users_is_active=0
 </details>
 
 <details>
-<summary>Router</summary>
+<summary>Add Router</summary>
 
 <br>
 
@@ -254,7 +216,7 @@ mkdir -p router && touch router/llm.py
 </details>
 
 <details>
-<summary>Config</summary>
+<summary>Add Config</summary>
 
 <br>
 
@@ -278,6 +240,21 @@ echo "openai_key = 'sk-xxxxxx'" >> config/openai.py
 
 #how to use
 config.get(openai_key)
+```
+</details>
+
+<details>
+<summary>Add extra Files</summary>
+
+<br>
+
+- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
+- Add all extend files in `extend_master.py`
+- This is an opinionated approach to structure code
+- import `extend_master.py` in your routes
+```python
+from extend import *
+from extend_master import *
 ```
 </details>
 
