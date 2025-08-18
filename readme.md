@@ -470,39 +470,6 @@ config_is_prometheus=1
 </details>
 
 <details>
-<summary>Send Otp</summary>
-
-<br>
-
-- Fast2SMS - https://www.fast2sms.com/docs
-- Resend - https://resend.com/docs/api-reference
-- Check api in the public section of file `curl.txt`
-- Add the following key to your `.env` file
-```bash
-#fast2sms
-config_fast2sms_url=value
-config_fast2sms_key=value
-
-#resend
-config_resend_url=value
-config_resend_key=value
-```
-</details>
-
-<details>
-<summary>Google Login</summary>
-
-<br>
-
-- Check api in the auth section of file `curl.txt`
-- Add the following key to your `.env` file
-```bash
-#google
-config_google_login_client_id=value
-```
-</details>
-
-<details>
 <summary>Client</summary>
 
 <br>
@@ -760,6 +727,40 @@ update users set api_access='1,2,3' where id=1;
 - To revoke access, update `api_access` column and refresh token 
 </details>
 
+<details>
+<summary>Send Otp</summary>
+
+<br>
+
+- Fast2SMS - https://www.fast2sms.com/docs
+- Resend - https://resend.com/docs/api-reference
+- Check api in the public section of file `curl.txt`
+- Add the following key to your `.env` file
+```bash
+#fast2sms
+config_fast2sms_url=value
+config_fast2sms_key=value
+
+#resend
+config_resend_url=value
+config_resend_key=value
+```
+</details>
+
+<details>
+<summary>Google Login</summary>
+
+<br>
+
+- Check api in the auth section of file `curl.txt`
+- Add the following key to your `.env` file
+```bash
+#google
+config_google_login_client_id=value
+```
+</details>
+
+
 
 
 
@@ -826,5 +827,4 @@ create schema if not exists public;
 - `Testing` – QA: Verify functionality, log defects, approve prototype.
 - `Live` – Founder: Make the prototype publicly accessible and announce launch.
 </details>
-
 
