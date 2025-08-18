@@ -193,7 +193,7 @@ config.get(openai_key)
 </details>
 
 <details>
-<summary>Add extra Files</summary>
+<summary>Add Files</summary>
 
 <br>
 
@@ -206,6 +206,8 @@ from extend import *
 from extend_master import *
 ```
 </details>
+
+
 
 
 
@@ -304,12 +306,20 @@ config_is_prometheus=1
 
 
 
-## FAQ
 
 
+
+
+
+
+
+
+
+
+## API
 
 <details>
-<summary>API Collection</summary>
+<summary>Collection</summary>
 
 <br>
 
@@ -321,7 +331,7 @@ config_is_prometheus=1
 </details>
 
 <details>
-<summary>API Testing</summary>
+<summary>Testing</summary>
 
 <br>
 
@@ -337,176 +347,13 @@ config_is_prometheus=1
 </details>
 
 <details>
-<summary>API Log</summary>
+<summary>Log</summary>
 
 <br>
 
 - Prebuilt api logs in `log_api` table in database
 - Logging is done asynchronously
 </details>
-
-<details>
-<summary>Enable auth</summary>
-
-<br>
-
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"is_token":0
-```
-- Decoded user info is injected into `request.state.user` for downstream access.
-```bash
-request.state.user.get("id")
-request.state.user.get("is_active")
-request.state.user.get("mobile")
-```
-</details>
-
-<details>
-<summary>Enable Caching</summary>
-
-<br>
-
-- Add below key in `config_api` dict in `config.py` for your api using two options:
-```bash
-"cache_sec":["inmemory",60]
-"cache_sec":["redis",60]
-```
-</details>
-
-<details>
-<summary>Enable Ratelimiter</summary>
-
-<br>
-
-- Add the following key to your `.env` file
-- Default is `config_redis_url`
-```bash
-config_redis_url_ratelimiter=redis://localhost:6379
-```
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"ratelimiter_times_sec":[1,3]
-```
-</details>
-
-<details>
-<summary>Enable user Active Check</summary>
-
-<br>
-
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"is_active_check":1
-```
-</details>
-
-<details>
-<summary>Execute API in Background</summary>
-
-<br>
-
-- Send below key in query params:
-```python
-is_background=1
-```
-- Check the `curl.txt` file for examples
-- Immediately returns a success response while processing continues in the background.
-</details>
-
-<details>
-<summary>Create Admin APIs</summary>
-
-<br>
-
-- Add `/admin` in the route path to mark it as an admin API  
-- Check the `curl.txt` file for examples
-- `/admin` APIs are meant for routes that should be restricted to limited users.  
-- Access control is check by middleware using token
-- Assign a unique ID in the `config_api` in `config.py`:
-```bash
-"id":3
-```
-- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
-- Example to give user_id=1 access to admin APIs with IDs 1,2,3
-```sql
-update users set api_access='1,2,3' where id=1;
-```
-- To revoke access, update `api_access` column and refresh token 
-</details>
-
-<details>
-<summary>Client</summary>
-
-<br>
-
-How to enable: add below key in .env
-```bash
-#postgres
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
-
-#redis
-config_redis_url=redis://localhost:6379
-
-#mongodb
-config_mongodb_url=mongodb://localhost:27017
-
-#aws s3
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_s3_region_name=value
-
-#aws sns
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_sns_region_name=value
-
-#aws ses
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_ses_region_name=value
-
-#posthog
-config_posthog_project_host=value
-config_posthog_project_key=value
-
-#openai
-config_openai_key=value
-```
-
-How to access client in your routes.
-```python
-request.app.state.client_postgres
-request.app.state.client_postgres_asyncpg
-request.app.state.client_postgres_asyncpg_pool
-request.app.state.client_postgres_read
-request.app.state.client_redis
-request.app.state.client_mongodb
-request.app.state.client_s3
-request.app.state.client_s3_resource
-request.app.state.client_sns
-request.app.state.client_ses
-request.app.state.client_posthog
-request.app.state.client_openai 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage. Docs link below:-
-- Databases - https://github.com/encode/databases
-- Asyncpg - https://github.com/MagicStack/asyncpg
-- Redis - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
-- Mongodb - https://motor.readthedocs.io/en/stable
-- AWS S3/SNS/SES - https://boto3.amazonaws.com
-- Posthog - https://posthog.com/docs/libraries/python
-- OpenAI - https://github.com/openai/openai-python
-</details>
-
-
-
-
-
-
-
-
 
 
 
@@ -842,6 +689,161 @@ config_postgres_schema={
 }
 }
 ```
+</details>
+
+<details>
+<summary>Enable auth</summary>
+
+<br>
+
+- Add below key in `config_api` dict in `config.py` for your api:
+```bash
+"is_token":0
+```
+- Decoded user info is injected into `request.state.user` for downstream access.
+```bash
+request.state.user.get("id")
+request.state.user.get("is_active")
+request.state.user.get("mobile")
+```
+</details>
+
+<details>
+<summary>Enable Caching</summary>
+
+<br>
+
+- Add below key in `config_api` dict in `config.py` for your api using two options:
+```bash
+"cache_sec":["inmemory",60]
+"cache_sec":["redis",60]
+```
+</details>
+
+<details>
+<summary>Enable Ratelimiter</summary>
+
+<br>
+
+- Add the following key to your `.env` file
+- Default is `config_redis_url`
+```bash
+config_redis_url_ratelimiter=redis://localhost:6379
+```
+- Add below key in `config_api` dict in `config.py` for your api:
+```bash
+"ratelimiter_times_sec":[1,3]
+```
+</details>
+
+<details>
+<summary>Enable user Active Check</summary>
+
+<br>
+
+- Add below key in `config_api` dict in `config.py` for your api:
+```bash
+"is_active_check":1
+```
+</details>
+
+<details>
+<summary>Execute API in Background</summary>
+
+<br>
+
+- Send below key in query params:
+```python
+is_background=1
+```
+- Check the `curl.txt` file for examples
+- Immediately returns a success response while processing continues in the background.
+</details>
+
+<details>
+<summary>Create Admin APIs</summary>
+
+<br>
+
+- Add `/admin` in the route path to mark it as an admin API  
+- Check the `curl.txt` file for examples
+- `/admin` APIs are meant for routes that should be restricted to limited users.  
+- Access control is check by middleware using token
+- Assign a unique ID in the `config_api` in `config.py`:
+```bash
+"id":3
+```
+- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
+- Example to give user_id=1 access to admin APIs with IDs 1,2,3
+```sql
+update users set api_access='1,2,3' where id=1;
+```
+- To revoke access, update `api_access` column and refresh token 
+</details>
+
+<details>
+<summary>Client</summary>
+
+<br>
+
+How to enable: add below key in .env
+```bash
+#postgres
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
+
+#redis
+config_redis_url=redis://localhost:6379
+
+#mongodb
+config_mongodb_url=mongodb://localhost:27017
+
+#aws s3
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_s3_region_name=value
+
+#aws sns
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_sns_region_name=value
+
+#aws ses
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_ses_region_name=value
+
+#posthog
+config_posthog_project_host=value
+config_posthog_project_key=value
+
+#openai
+config_openai_key=value
+```
+
+How to access client in your routes.
+```python
+request.app.state.client_postgres
+request.app.state.client_postgres_asyncpg
+request.app.state.client_postgres_asyncpg_pool
+request.app.state.client_postgres_read
+request.app.state.client_redis
+request.app.state.client_mongodb
+request.app.state.client_s3
+request.app.state.client_s3_resource
+request.app.state.client_sns
+request.app.state.client_ses
+request.app.state.client_posthog
+request.app.state.client_openai 
+ ```
+- Search client name in `main.py` or `function.py` for understaning usage. Docs link below:-
+- Databases - https://github.com/encode/databases
+- Asyncpg - https://github.com/MagicStack/asyncpg
+- Redis - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
+- Mongodb - https://motor.readthedocs.io/en/stable
+- AWS S3/SNS/SES - https://boto3.amazonaws.com
+- Posthog - https://posthog.com/docs/libraries/python
+- OpenAI - https://github.com/openai/openai-python
 </details>
 
 
