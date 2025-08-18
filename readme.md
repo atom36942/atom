@@ -147,58 +147,6 @@ docker run -p 8000:8000 atom
 ## Extend Atom
 
 <details>
-<summary>Default Settings</summary>
-
-<br>
-
-- With below config keys,you can control default settings
-- Default values are in main.py config section
-- You can add them in `.env` or `config.py` to update default value
-- Each key is independent of each other
-```bash
-#postgres
-config_postgres_min_connection=5
-config_postgres_max_connection=20
-
-#ratelimiter
-config_redis_url_ratelimiter=value
-
-#token
-config_token_expire_sec=10000
-config_token_user_key_list=id,mobile
-
-#enable/disable
-config_is_signup=1
-config_is_otp_verify_profile_update=1
-config_is_log_api=1
-config_is_prometheus==0
-
-#batch
-config_batch_log_api=10
-config_batch_object_create=10
-
-#cors                             
-config_cors_origin_list=x,y,z                   
-config_cors_method_list=x,y,z
-config_cors_headers_list=x,y,z
-config_cors_allow_credentials=False
-
-#crud
-config_public_table_create_list=post,comment
-config_public_table_read_list=users,post
-config_column_update_disabled_list=is_active,is_verified
-
-#mode
-config_mode_check_api_access=token/cache
-config_mode_check_is_active=token/cache
-
-#cache
-config_limit_cache_users_api_access=0
-config_limit_cache_users_is_active=0     
-```
-</details>
-
-<details>
 <summary>Add Router</summary>
 
 <br>
@@ -258,20 +206,7 @@ from extend_master import *
 ```
 </details>
 
-<details>
-<summary>Enable Monitoring</summary>
 
-<br>
-
-Add the following key to your `.env` file
-```bash
-#sentry
-config_sentry_dsn=value
-
-#prometheus
-config_is_prometheus=1
-```
-</details>
 
 
 
@@ -290,6 +225,73 @@ config_is_prometheus=1
 
 
 ## FAQ
+
+<details>
+<summary>Default Settings</summary>
+
+<br>
+
+- With below config keys,you can control default settings
+- Default values are in main.py config section
+- You can add them in `.env` or `config.py` to update default value
+- Each key is independent of each other
+```bash
+#postgres
+config_postgres_min_connection=5
+config_postgres_max_connection=20
+
+#ratelimiter
+config_redis_url_ratelimiter=value
+
+#token
+config_token_expire_sec=10000
+config_token_user_key_list=id,mobile
+
+#enable/disable
+config_is_signup=1
+config_is_otp_verify_profile_update=1
+config_is_log_api=1
+config_is_prometheus==0
+
+#batch
+config_batch_log_api=10
+config_batch_object_create=10
+
+#cors                             
+config_cors_origin_list=x,y,z                   
+config_cors_method_list=x,y,z
+config_cors_headers_list=x,y,z
+config_cors_allow_credentials=False
+
+#crud
+config_public_table_create_list=post,comment
+config_public_table_read_list=users,post
+config_column_update_disabled_list=is_active,is_verified
+
+#mode
+config_mode_check_api_access=token/cache
+config_mode_check_is_active=token/cache
+
+#cache
+config_limit_cache_users_api_access=0
+config_limit_cache_users_is_active=0     
+```
+</details>
+
+<details>
+<summary>Enable Monitoring</summary>
+
+<br>
+
+Add the following key to your `.env` file
+```bash
+#sentry
+config_sentry_dsn=value
+
+#prometheus
+config_is_prometheus=1
+```
+</details>
 
 <details>
 <summary>API Collection</summary>
