@@ -353,13 +353,26 @@ config_is_prometheus=1
 - Check api in the public section of file `curl.txt`
 - Add the following key to your `.env` file
 ```bash
-#Fast2SMS
+#fast2sms
 config_fast2sms_url=value
 config_fast2sms_key=value
 
-#Resend
+#resend
 config_resend_url=value
 config_resend_key=value
+```
+</details>
+
+<details>
+<summary>Login</summary>
+
+<br>
+
+- Check api in the auth section of file `curl.txt`
+- Add the following key to your `.env` file
+```bash
+#google
+config_google_login_client_id=value
 ```
 </details>
 
@@ -554,21 +567,6 @@ create schema if not exists public;
 - `Deployment` – Backend Developer: Deploy code to server.
 - `Testing` – QA: Verify functionality, log defects, approve prototype.
 - `Live` – Founder: Make the prototype publicly accessible and announce launch.
-</details>
-
-
-
-
-<details>
-<summary>Google Login</summary>
-
-<br>
-
-- Add the following key to your `.env` file
-```bash
-config_google_login_client_id=value
-```
-- check api in the auth section of file `curl.txt`
 </details>
 
 <details>
