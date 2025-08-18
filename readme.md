@@ -564,74 +564,13 @@ request.app.state.client_openai
  ```
 </details>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Misc
-
 <details>
-<summary>Useful Commands</summary>
+<summary>Database Init</summary>
 
 <br>
 
-```bash
-#package
-./venv/bin/pip install fastapi
-./venv/bin/pip install --upgrade fastapi
-./venv/bin/pip uninstall fastapi
-./venv/bin/pip freeze > requirements.txt
-
-#stop python
-lsof -ti :8000 | xargs kill -9
-
-#reset postgres                    
-drop schema if exists public cascade;
-create schema if not exists public;
-
-#export postgres
-\copy table to 'path'  delimiter ',' csv header;
-\copy (query) to 'path'  delimiter ',' csv header;
-
-#import postgres       
-\copy table from 'path' delimiter ',' csv header;
-\copy table(column) from 'path' delimiter ',' csv header;   
-```
-</details>
-
-<details>
-<summary>SOP for developing an Idea</summary>
-
-<br>
-
-- `Idea` – Founder: Define problem, scope, and core features.
-- `Design` – UI/UX: Convert idea into clear user flows and visual layouts.
-- `Frontend` – Frontend Developer: Build responsive UI from approved designs.
-- `Backend` – Backend Developer: Develop APIs, database, and business logic (Atom can be used).
-- `Deployment` – Backend Developer: Deploy code to server.
-- `Testing` – QA: Verify functionality, log defects, approve prototype.
-- `Live` – Founder: Make the prototype publicly accessible and announce launch.
-</details>
-
-<details>
-<summary>How to init database</summary>
-
-<br>
-
-- Extend config_postgres_schema as per your needs.
-- Keep base table/queries as it is
-- check api in the auth section of file `curl.txt`
+- Extend below config_postgres_schema as per your schema.
+- Replace it in config.py
 ```python
 config_postgres_schema={
 "table":{
@@ -727,6 +666,88 @@ config_postgres_schema={
 }
 }
 ```
+- It has two keys: table and query.
+- Table contains table definitions.
+- Query contains extra SQL queries to run.
+- Understanding schema:-
+```python
+"type-bigint-0-btree"
+"title-text-1-btree,gin"
+```
+- each row represent one column in the table
+- `type` or `title` = column name
+- `bigint` or `text` = column datatype
+- `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
+- `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
+- Hit below curl to init the database
+- Token root is from .env (`config_key_root`)
+```curl
+curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
+```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Misc
+
+<details>
+<summary>Useful Commands</summary>
+
+<br>
+
+```bash
+#package
+./venv/bin/pip install fastapi
+./venv/bin/pip install --upgrade fastapi
+./venv/bin/pip uninstall fastapi
+./venv/bin/pip freeze > requirements.txt
+
+#stop python
+lsof -ti :8000 | xargs kill -9
+
+#reset postgres                    
+drop schema if exists public cascade;
+create schema if not exists public;
+
+#export postgres
+\copy table to 'path'  delimiter ',' csv header;
+\copy (query) to 'path'  delimiter ',' csv header;
+
+#import postgres       
+\copy table from 'path' delimiter ',' csv header;
+\copy table(column) from 'path' delimiter ',' csv header;   
+```
+</details>
+
+<details>
+<summary>SOP for developing an Idea</summary>
+
+<br>
+
+- `Idea` – Founder: Define problem, scope, and core features.
+- `Design` – UI/UX: Convert idea into clear user flows and visual layouts.
+- `Frontend` – Frontend Developer: Build responsive UI from approved designs.
+- `Backend` – Backend Developer: Develop APIs, database, and business logic (Atom can be used).
+- `Deployment` – Backend Developer: Deploy code to server.
+- `Testing` – QA: Verify functionality, log defects, approve prototype.
+- `Live` – Founder: Make the prototype publicly accessible and announce launch.
 </details>
 
 <details>
