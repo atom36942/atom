@@ -686,6 +686,45 @@ curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
 ```
 </details>
 
+<details>
+<summary>Config API</summary>
+
+<br>
+
+- Update below `config_api` dict in `config.py` for your api settings:
+```bash
+config_api={
+"/admin/object-create":{"id":1},
+"/admin/object-update":{"id":2},
+"/admin/ids-update":{"id":3},
+"/admin/ids-delete":{"id":4}, 
+"/admin/object-read":{"id":5,"cache_sec":["redis",100]},
+"/admin/postgres-query-runner":{"id":6},
+"/test":{"id":7,"is_token":0,"is_active_check":1,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
+}
+```
+- enable auth - is_token:1
+- enable user active check - is_active_check:1
+- enable caching - cache_sec:["inmemory/redis",60]
+- enable ratelimiter - ratelimiter_times_sec:[1,3]
+</details>
+
+<details>
+<summary>Token Decode</summary>
+
+<br>
+
+- Decoded user info is injected into `request.state.user` for downstream access.
+```bash
+request.state.user.get("id")
+request.state.user.get("is_active")
+request.state.user.get("mobile")
+```
+</details>
+
+
+
+
 
 
 
@@ -750,61 +789,23 @@ create schema if not exists public;
 - `Live` – Founder: Make the prototype publicly accessible and announce launch.
 </details>
 
-<details>
-<summary>Enable auth</summary>
 
-<br>
 
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"is_token":0
-```
-- Decoded user info is injected into `request.state.user` for downstream access.
-```bash
-request.state.user.get("id")
-request.state.user.get("is_active")
-request.state.user.get("mobile")
-```
-</details>
 
-<details>
-<summary>Enable Caching</summary>
 
-<br>
 
-- Add below key in `config_api` dict in `config.py` for your api using two options:
-```bash
-"cache_sec":["inmemory",60]
-"cache_sec":["redis",60]
-```
-</details>
 
-<details>
-<summary>Enable Ratelimiter</summary>
 
-<br>
 
-- Add the following key to your `.env` file
-- Default is `config_redis_url`
-```bash
-config_redis_url_ratelimiter=redis://localhost:6379
-```
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"ratelimiter_times_sec":[1,3]
-```
-</details>
 
-<details>
-<summary>Enable user Active Check</summary>
 
-<br>
 
-- Add below key in `config_api` dict in `config.py` for your api:
-```bash
-"is_active_check":1
-```
-</details>
+
+
+
+
+
+
 
 <details>
 <summary>Execute API in Background</summary>
