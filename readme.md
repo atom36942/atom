@@ -681,6 +681,27 @@ config_api={
 </details>
 
 <details>
+<summary>Admin APIs</summary>
+
+<br>
+
+- Add `/admin` in the route path to mark it as an admin API  
+- Check the `curl.txt` file for examples
+- `/admin` APIs are meant for routes that should be restricted to limited users.  
+- Access control is check by middleware using token
+- Assign a unique ID in the `config_api` in `config.py`:
+```bash
+"id":3
+```
+- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
+- Example to give user_id=1 access to admin APIs with IDs 1,2,3
+```sql
+update users set api_access='1,2,3' where id=1;
+```
+- To revoke access, update `api_access` column and refresh token 
+</details>
+
+<details>
 <summary>Token Decode</summary>
 
 <br>
@@ -704,27 +725,6 @@ request.state.user.get("mobile")
 ```python
 is_background=1
 ```
-</details>
-
-<details>
-<summary>Admin APIs</summary>
-
-<br>
-
-- Add `/admin` in the route path to mark it as an admin API  
-- Check the `curl.txt` file for examples
-- `/admin` APIs are meant for routes that should be restricted to limited users.  
-- Access control is check by middleware using token
-- Assign a unique ID in the `config_api` in `config.py`:
-```bash
-"id":3
-```
-- Only users whose `api_access` column in the database contains that API ID will be allowed to access it  
-- Example to give user_id=1 access to admin APIs with IDs 1,2,3
-```sql
-update users set api_access='1,2,3' where id=1;
-```
-- To revoke access, update `api_access` column and refresh token 
 </details>
 
 <details>
