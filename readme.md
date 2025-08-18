@@ -364,7 +364,7 @@ config_resend_key=value
 </details>
 
 <details>
-<summary>Login</summary>
+<summary>Google Login</summary>
 
 <br>
 
@@ -374,6 +374,71 @@ config_resend_key=value
 #google
 config_google_login_client_id=value
 ```
+</details>
+
+<details>
+<summary>Client</summary>
+
+<br>
+
+- Search client name in `main.py` or `function.py` for understaning usage. Docs link below:-
+- Databases - https://github.com/encode/databases
+- Asyncpg - https://github.com/MagicStack/asyncpg
+- Redis - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
+- Mongodb - https://motor.readthedocs.io/en/stable
+- AWS S3/SNS/SES - https://boto3.amazonaws.com
+- Posthog - https://posthog.com/docs/libraries/python
+- OpenAI - https://github.com/openai/openai-python
+- How to enable: add below key in .env
+```bash
+#postgres
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
+
+#redis
+config_redis_url=redis://localhost:6379
+
+#mongodb
+config_mongodb_url=mongodb://localhost:27017
+
+#aws s3
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_s3_region_name=value
+
+#aws sns
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_sns_region_name=value
+
+#aws ses
+config_aws_access_key_id=value
+config_aws_secret_access_key=value
+config_ses_region_name=value
+
+#posthog
+config_posthog_project_host=value
+config_posthog_project_key=value
+
+#openai
+config_openai_key=value
+```
+
+How to access client in your routes.
+```python
+request.app.state.client_postgres
+request.app.state.client_postgres_asyncpg
+request.app.state.client_postgres_asyncpg_pool
+request.app.state.client_postgres_read
+request.app.state.client_redis
+request.app.state.client_mongodb
+request.app.state.client_s3
+request.app.state.client_s3_resource
+request.app.state.client_sns
+request.app.state.client_ses
+request.app.state.client_posthog
+request.app.state.client_openai 
+ ```
 </details>
 
 
@@ -764,69 +829,6 @@ update users set api_access='1,2,3' where id=1;
 - To revoke access, update `api_access` column and refresh token 
 </details>
 
-<details>
-<summary>Client</summary>
 
-<br>
-
-How to enable: add below key in .env
-```bash
-#postgres
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
-
-#redis
-config_redis_url=redis://localhost:6379
-
-#mongodb
-config_mongodb_url=mongodb://localhost:27017
-
-#aws s3
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_s3_region_name=value
-
-#aws sns
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_sns_region_name=value
-
-#aws ses
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_ses_region_name=value
-
-#posthog
-config_posthog_project_host=value
-config_posthog_project_key=value
-
-#openai
-config_openai_key=value
-```
-
-How to access client in your routes.
-```python
-request.app.state.client_postgres
-request.app.state.client_postgres_asyncpg
-request.app.state.client_postgres_asyncpg_pool
-request.app.state.client_postgres_read
-request.app.state.client_redis
-request.app.state.client_mongodb
-request.app.state.client_s3
-request.app.state.client_s3_resource
-request.app.state.client_sns
-request.app.state.client_ses
-request.app.state.client_posthog
-request.app.state.client_openai 
- ```
-- Search client name in `main.py` or `function.py` for understaning usage. Docs link below:-
-- Databases - https://github.com/encode/databases
-- Asyncpg - https://github.com/MagicStack/asyncpg
-- Redis - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
-- Mongodb - https://motor.readthedocs.io/en/stable
-- AWS S3/SNS/SES - https://boto3.amazonaws.com
-- Posthog - https://posthog.com/docs/libraries/python
-- OpenAI - https://github.com/openai/openai-python
-</details>
 
 
