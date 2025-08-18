@@ -153,6 +153,7 @@ docker run -p 8000:8000 atom
 
 - Easily extend Atom by adding your API router files.
 - See `router.py` for sample usage
+- All APIs in the router file will be automatically added
 - Ex to create a router service called llm.
 ```bash
 #1st way
@@ -219,12 +220,7 @@ from extend_master import *
 
 
 
-
-
-
-
-
-## FAQ
+## Configuration
 
 <details>
 <summary>Default Settings</summary>
@@ -292,6 +288,25 @@ config_sentry_dsn=value
 config_is_prometheus=1
 ```
 </details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## FAQ
+
+
 
 <details>
 <summary>API Collection</summary>
