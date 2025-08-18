@@ -141,6 +141,58 @@ docker run -p 8000:8000 atom
 
 
 
+## API
+
+<details>
+<summary>Collection</summary>
+
+<br>
+
+- All atom APIs are defined in main.py
+- All atom APIs are listed in `curl.txt` as ready-to-run `curl` commands  
+- You can copy-paste any of these directly into Postman (use "Raw Text" option)  
+- Any curl starting with `0` is skipped during automated testing with `test.sh`
+- Major section - index,root,auth,my,public,private,admin,router
+</details>
+
+<details>
+<summary>Testing</summary>
+
+<br>
+
+- You can use the `test.sh` script to run a batch of API tests.
+- It reads all curl commands from `curl.txt`
+- Executes them one by one as a quick integration test
+- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
+- Testing Summary (API,Status Code,Response Time (ms)) will be saved to `curl.csv` in the root folder
+- How to run script:
+```bash
+./test.sh
+```
+</details>
+
+<details>
+<summary>Log</summary>
+
+<br>
+
+- Prebuilt api logs in `log_api` table in database
+- Logging is done asynchronously
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -298,7 +350,7 @@ config_is_prometheus=1
 
 - Fast2SMS - https://www.fast2sms.com/docs
 - Resend - https://resend.com/docs/api-reference
-- check api in the public section of file `curl.txt`
+- Check api in the public section of file `curl.txt`
 - Add the following key to your `.env` file
 ```bash
 #Fast2SMS
@@ -312,69 +364,6 @@ config_resend_key=value
 </details>
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## API
-
-<details>
-<summary>Collection</summary>
-
-<br>
-
-- All atom APIs are defined in main.py
-- All atom APIs are listed in `curl.txt` as ready-to-run `curl` commands  
-- You can copy-paste any of these directly into Postman (use "Raw Text" option)  
-- Any curl starting with `0` is skipped during automated testing with `test.sh`
-- Major section - index,root,auth,my,public,private,admin,router
-</details>
-
-<details>
-<summary>Testing</summary>
-
-<br>
-
-- You can use the `test.sh` script to run a batch of API tests.
-- It reads all curl commands from `curl.txt`
-- Executes them one by one as a quick integration test
-- To disable a specific curl command, prefix the curl command with `0` in `curl.txt`
-- Testing Summary (API,Status Code,Response Time (ms)) will be saved to `curl.csv` in the root folder
-- How to run script:
-```bash
-./test.sh
-```
-</details>
-
-<details>
-<summary>Log</summary>
-
-<br>
-
-- Prebuilt api logs in `log_api` table in database
-- Logging is done asynchronously
-</details>
 
 
 
