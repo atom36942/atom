@@ -289,10 +289,10 @@ config_is_prometheus=1
 
 
 
-## API
+## FAQ
 
 <details>
-<summary>Collection</summary>
+<summary>API Collection</summary>
 
 <br>
 
@@ -304,7 +304,7 @@ config_is_prometheus=1
 </details>
 
 <details>
-<summary>Testing</summary>
+<summary>API Testing</summary>
 
 <br>
 
@@ -320,7 +320,7 @@ config_is_prometheus=1
 </details>
 
 <details>
-<summary>Log</summary>
+<summary>API Log</summary>
 
 <br>
 
