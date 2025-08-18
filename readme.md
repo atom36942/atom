@@ -703,6 +703,7 @@ config_api={
 "/test":{"id":7,"is_token":0,"is_active_check":1,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
 }
 ```
+- enable admin check - id:100
 - enable auth - is_token:1
 - enable user active check - is_active_check:1
 - enable caching - cache_sec:["inmemory/redis",60]
