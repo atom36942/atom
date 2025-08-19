@@ -112,6 +112,7 @@ if config_is_prometheus:function_add_prometheus(app)
 
 #middleware
 from fastapi import Request,responses
+from starlette.background import BackgroundTask
 import time,traceback,asyncio
 @app.middleware("http")
 async def middleware(request,api_function):
@@ -151,7 +152,7 @@ async def middleware(request,api_function):
 
 #api
 from fastapi import Request,responses
-import json,time,os,asyncio
+import json,time,os,asyncio,uuid
 
 @app.get("/")
 async def function_api_index(request:Request):
@@ -165,7 +166,8 @@ async def function_api_root_postgres_init(request:Request):
 @app.post("/root/postgres-export")
 async def function_api_root_postgres_export(request:Request):
    object,[query]=await function_param_read("body",request,["query"],[])
-   return responses.StreamingResponse(function_postgres_stream(request.app.state.client_postgres_asyncpg_pool,query),media_type="text/csv",headers={"Content-Disposition": "attachment; filename=query_result.csv"})
+   stream=function_postgres_query_read_stream(request.app.state.client_postgres_asyncpg_pool,query)
+   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition": "attachment; filename=export_postgres.csv"})
 
 @app.post("/root/postgres-import")
 async def function_api_root_postgres_import(request:Request):
@@ -485,6 +487,14 @@ async def function_api_public_page(filename:str):
    if not os.path.isfile(file_path):return function_return_error ("file not found")
    with open(file_path, "r", encoding="utf-8") as file:html_content=file.read()
    return responses.HTMLResponse(content=html_content)
+
+@app.post("/public/jira-worklog")
+async def function_api_public_jira_worklog(request:Request):
+   object,[jira_base_url,jira_email,jira_token,start_date,end_date]=await function_param_read("body",request,["jira_base_url","jira_email","jira_token"],["start_date","end_date"])
+   output_path=f"export_jira_worklog_{__import__('time').time():.0f}.csv"
+   function_jira_worklog(jira_base_url,jira_email,jira_token,start_date,end_date,output_path)
+   stream=function_stream_file(output_path)
+   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment; filename=export_jira_worklog.csv"},background=BackgroundTask(lambda: os.remove(output_path)))
 
 @app.post("/private/file-upload-s3-direct")
 async def function_api_private_file_upload_s3_direct(request:Request):

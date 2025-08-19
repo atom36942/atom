@@ -584,7 +584,7 @@ async def function_postgres_query_runner(client_postgres,query,user_id=1):
 
 import csv,re
 from io import StringIO
-async def function_postgres_stream(client_postgres_asyncpg_pool,query):
+async def function_postgres_query_read_stream(client_postgres_asyncpg_pool,query):
    if not re.match(r"^\s*SELECT\s", query,flags=re.IGNORECASE):raise Exception(status_code=400, detail="Only SELECT queries are allowed.")
    async with client_postgres_asyncpg_pool.acquire() as client_postgres_asyncpg:
       async with client_postgres_asyncpg.transaction():
@@ -1304,7 +1304,7 @@ def function_ocr_tesseract(file_path):
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
-def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key):
+def function_jira_summary(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path="export_jira_summary.txt"):
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)
@@ -1404,7 +1404,7 @@ def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_projec
             line = re.sub(r'\s+', ' ', line)
             cleaned.append(f"- {line}")
         return cleaned
-    def save_summary_to_file(blockers, improvements, top_active, on_time, filename="jira.txt"):
+    def save_summary_to_file(blockers, improvements, top_active, on_time, filename=output_path):
         def numbered(lines):
             return [f"{i+1}. {line}" for i, line in enumerate(lines)]
         with open(filename, "w", encoding="utf-8") as f:
@@ -1447,13 +1447,13 @@ def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_projec
     improvements = summarize_with_ai(prompt_improvement + "\n" + all_prompt_text)
     top_active, on_time = calculate_activity_and_performance(issues_done)
     save_summary_to_file(blockers, improvements, top_active, on_time)
-    return "✅ Executive JIRA summary saved to 'jira.txt'"
-
+    return f"saved to {output_path}"
+     
 from jira import JIRA
 import pandas as pd
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 import calendar
-def function_jira_worklog(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_csv="jira_worklog.csv"):
+def function_jira_worklog(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path="export_jira_worklog.csv"):
     today = date.today()
     if not start_date:
         start_date = today.replace(day=1).strftime("%Y-%m-%d")
@@ -1461,19 +1461,28 @@ def function_jira_worklog(jira_base_url, jira_email, jira_token, start_date=None
         last_day = calendar.monthrange(today.year, today.month)[1]
         end_date = today.replace(day=last_day).strftime("%Y-%m-%d")
     jira = JIRA(server=jira_base_url, basic_auth=(jira_email, jira_token))
-    jql = f"worklogDate >= {start_date} AND worklogDate <= {end_date}"
-    issues = jira.search_issues(jql, maxResults=False, expand="worklog")
-    data = []
+    issues = jira.search_issues(f"worklogDate >= {start_date} AND worklogDate <= {end_date}", maxResults=False, expand="worklog")
+    data, assignees = [], set()
     for i in issues:
+        if i.fields.assignee:
+            assignees.add(i.fields.assignee.displayName)
         for wl in i.fields.worklog.worklogs:
-            wl_date = datetime.strptime(wl.started[:10], "%Y-%m-%d").date()
-            if start_date <= wl_date.strftime("%Y-%m-%d") <= end_date:
+            wl_date = wl.started[:10]
+            if start_date <= wl_date <= end_date:
                 data.append((wl.author.displayName, wl_date, wl.timeSpentSeconds / 3600))
-    df = pd.DataFrame(data, columns=["author", "date", "hours"])
+    df = pd.DataFrame(data, columns=["author","date","hours"])
     df_pivot = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0)
-    df_pivot = df_pivot.round(0).astype(int)
-    df_pivot.columns = [d.strftime("%Y-%m-%d") for d in df_pivot.columns]
-    df_pivot.to_csv(output_csv)
-    return df_pivot
+    df_pivot = df_pivot.reindex(assignees, fill_value=0).round(0).astype(int)
+    df_pivot.to_csv(output_path)
+    return f"saved to {output_path}"
+ 
+import os
+async def function_stream_file(path,chunk_size=1024*1024):
+   with open(path, "rb") as f:
+      while chunk := f.read(chunk_size):
+         yield chunk
+
+
+
 
 

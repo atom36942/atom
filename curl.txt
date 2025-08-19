@@ -3,7 +3,7 @@ curl -X GET "$baseurl"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select * from users"}' -o export.csv
+curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select * from users"}' -o export_postgres.csv
 0 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
 0 curl -X POST "$baseurl/root/redis-import" -H "Authorization: Bearer $token_root" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/redis.csv"
 0 curl -X POST "$baseurl/root/mongodb-import" -H "Authorization: Bearer $token_root" -F "database=test" -F "table=test" -F "file=@/Users/atom/Downloads/mongodb.csv"
@@ -32,7 +32,7 @@ curl -X POST "$baseurl/my/object-create?table=test&queue=batch" -H "Authorizatio
 curl -X POST "$baseurl/my/object-create?table=test&queue=mongodb_test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"mongodb"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"celery"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=kafka" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"kafka"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"rabbitmq"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"redis"}'
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/object-read?table=test&id=>,1&page=2&limit=3" -H "Authorization: Bearer $token"
@@ -66,6 +66,7 @@ curl -X GET "$baseurl/public/object-read?table=test&creator_key=username,email"
 curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.231313,3.4512323,100,1000"
 curl -X GET "$baseurl/public/info"
 0 curl -X GET "$baseurl/public/page/about"
+curl -X POST "http://localhost:8000/public/jira-worklog" -H "Content-Type: application/json" -d '{"jira_base_url":"xyz","jira_email":"xyz","jira_token":"xyz"}' -o export_jira_worklog.csv
 
 #private
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "key=key1.png---key2.png---key3.png" -F "file=@file1" -F "file=@file2" -F "file=@file3"
@@ -83,3 +84,4 @@ curl -X POST "$baseurl/admin/postgres-query-runner?queue=celery" -H "Authorizati
 
 #router
 curl -X GET "$baseurl/test"
+

@@ -11,10 +11,13 @@ baseurl="http://127.0.0.1:8000"
 token_root="$config_key_root"
 token="$token"
 username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-output_file="./curl_testing.csv"
+output_file="export_curl_testing.csv"
+ENABLE_LOG=0
 
 # Initialize CSV file with headers
-echo "API,Status Code,Response Time (ms)" > "$output_file"
+if [ "$ENABLE_LOG" -eq 1 ]; then
+    echo "API,Status Code,Response Time (ms)" > "$output_file"
+fi
 
 # Count variables
 count=0
@@ -74,7 +77,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         ((count++))
 
         # Log results in CSV file
+        if [ "$ENABLE_LOG" -eq 1 ]; then
         echo "$url,$status_code,$execution_time" >> "$output_file"
+        fi
 
         # Check response status
         if [[ "$status_code" -eq 200 ]]; then
