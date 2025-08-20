@@ -242,7 +242,7 @@ from extend_master import *
 
 
 
-## FAQ
+## Feature
 
 <details>
 <summary>API Collection</summary>
