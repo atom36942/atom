@@ -488,8 +488,8 @@ async def function_api_public_page(filename:str):
    with open(file_path, "r", encoding="utf-8") as file:html_content=file.read()
    return responses.HTMLResponse(content=html_content)
 
-@app.post("/public/jira-worklog")
-async def function_api_public_jira_worklog(request:Request):
+@app.post("/public/jira-worklog-export")
+async def function_api_public_jira_worklog_export(request:Request):
    object,[jira_base_url,jira_email,jira_token,start_date,end_date]=await function_param_read("body",request,["jira_base_url","jira_email","jira_token"],["start_date","end_date"])
    output_path=f"export_jira_worklog_{__import__('time').time():.0f}.csv"
    function_jira_worklog(jira_base_url,jira_email,jira_token,start_date,end_date,output_path)

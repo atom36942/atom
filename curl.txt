@@ -66,7 +66,7 @@ curl -X GET "$baseurl/public/object-read?table=test&creator_key=username,email"
 curl -X GET "$baseurl/public/object-read?table=test&location_filter=1.231313,3.4512323,100,1000"
 curl -X GET "$baseurl/public/info"
 0 curl -X GET "$baseurl/public/page/about"
-curl -X POST "http://localhost:8000/public/jira-worklog" -H "Content-Type: application/json" -d '{"jira_base_url":"xyz","jira_email":"xyz","jira_token":"xyz"}' -o export_jira_worklog.csv
+0 curl -X POST "http://localhost:8000/public/jira-worklog-export" -H "Content-Type: application/json" -d '{"jira_base_url":"xyz","jira_email":"xyz","jira_token":"xyz"}' -o export_jira_worklog.csv
 
 #private
 0 curl -X POST "$baseurl/private/file-upload-s3-direct" -H "Authorization: Bearer $token" -F "bucket=master" -F "key=key1.png---key2.png---key3.png" -F "file=@file1" -F "file=@file2" -F "file=@file3"

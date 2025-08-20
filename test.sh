@@ -12,7 +12,7 @@ token_root="$config_key_root"
 token="$token"
 username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 output_file="export_curl_testing.csv"
-ENABLE_LOG=0
+ENABLE_LOG=1
 
 # Initialize CSV file with headers
 if [ "$ENABLE_LOG" -eq 1 ]; then

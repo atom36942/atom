@@ -1018,21 +1018,6 @@ def function_config_read():
     output.update(read_config_folder_files())
     return output
  
-import os
-def function_export_path_file(path="."):
-    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
-    path = os.path.abspath(path)
-    out_path = os.path.join(path, "files.txt")
-    with open(out_path, "w") as out_file:
-        for root, dirs, files in os.walk(path):
-            dirs[:] = [d for d in dirs if d not in skip_dirs]
-            for file in files:
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, path)
-                out_file.write(rel_path + "\n")
-    print(f"Saved to: {out_path}")
-    return None
- 
 import sys
 def function_variable_size_kb_read(namespace):
    result = {}
@@ -1179,53 +1164,7 @@ def function_converter_bigint(mode,x):
          chars.append(INDEX_TO_CHAR[index])
       output=''.join(reversed(chars))
    return output
-  
-import os,json,requests
-def function_grafana_dashboards_export(host,username,password,max_limit,export_dir):
-   session = requests.Session()
-   session.auth = (username, password)
-   def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
-   def ensure_dir(path):os.makedirs(path, exist_ok=True)
-   def get_organizations():
-      r = session.get(f"{host}/api/orgs")
-      r.raise_for_status()
-      return r.json()
-   def switch_org(org_id):return session.post(f"{host}/api/user/using/{org_id}").status_code == 200
-   def get_dashboards(org_id):
-      headers = {"X-Grafana-Org-Id": str(org_id)}
-      r = session.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers=headers)
-      if r.status_code == 422:return []
-      r.raise_for_status()
-      return r.json()
-   def get_dashboard_json(uid):
-      r = session.get(f"{host}/api/dashboards/uid/{uid}")
-      r.raise_for_status()
-      return r.json()
-   def export_dashboard(org_name, folder_name, dashboard_meta):
-      uid = dashboard_meta["uid"]
-      data = get_dashboard_json(uid)
-      dashboard_only = data["dashboard"]
-      path = os.path.join(export_dir, sanitize(org_name), sanitize(folder_name or "General"))
-      ensure_dir(path)
-      file_path = os.path.join(path, f"{sanitize(dashboard_meta['title'])}.json")
-      with open(file_path, "w", encoding="utf-8") as f:json.dump(dashboard_only, f, indent=2)
-      print(f"✅ {org_name}/{folder_name}/{dashboard_meta['title']}")
-   try:
-      orgs = get_organizations()
-   except Exception as e:
-      print("❌ Failed to fetch organizations:", e)
-      return
-   for org in orgs:
-      if not switch_org(org["id"]):continue
-      try:
-         dashboards = get_dashboards(org["id"])
-      except Exception as e:
-         print("❌ Failed to fetch dashboards:",e)
-         continue
-      for dash in dashboards:
-         try:export_dashboard(org["name"], dash.get("folderTitle", "General"), dash)
-         except Exception as e:print("❌ Failed to export", dash.get("title"), ":", e)
-         
+
 import asyncpg,random
 from mimesis import Person,Address,Food,Text,Code,Datetime
 async def function_create_fake_data(config_postgres_url,TOTAL_ROWS,BATCH_SIZE):
@@ -1301,6 +1240,74 @@ def function_ocr_tesseract(file_path):
     except Exception as e:
         raise RuntimeError(f"OCR failed: {e}")
      
+import os
+async def function_stream_file(path,chunk_size=1024*1024):
+   with open(path, "rb") as f:
+      while chunk := f.read(chunk_size):
+         yield chunk
+
+#export
+import os
+def function_export_path_file(path="."):
+    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
+    path = os.path.abspath(path)
+    out_path = os.path.join(path, "files.txt")
+    with open(out_path, "w") as out_file:
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
+            for file in files:
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, path)
+                out_file.write(rel_path + "\n")
+    print(f"Saved to: {out_path}")
+    return None
+  
+import os,json,requests
+def function_grafana_dashboards_export(host,username,password,max_limit,export_dir):
+   session = requests.Session()
+   session.auth = (username, password)
+   def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
+   def ensure_dir(path):os.makedirs(path, exist_ok=True)
+   def get_organizations():
+      r = session.get(f"{host}/api/orgs")
+      r.raise_for_status()
+      return r.json()
+   def switch_org(org_id):return session.post(f"{host}/api/user/using/{org_id}").status_code == 200
+   def get_dashboards(org_id):
+      headers = {"X-Grafana-Org-Id": str(org_id)}
+      r = session.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers=headers)
+      if r.status_code == 422:return []
+      r.raise_for_status()
+      return r.json()
+   def get_dashboard_json(uid):
+      r = session.get(f"{host}/api/dashboards/uid/{uid}")
+      r.raise_for_status()
+      return r.json()
+   def export_dashboard(org_name, folder_name, dashboard_meta):
+      uid = dashboard_meta["uid"]
+      data = get_dashboard_json(uid)
+      dashboard_only = data["dashboard"]
+      path = os.path.join(export_dir, sanitize(org_name), sanitize(folder_name or "General"))
+      ensure_dir(path)
+      file_path = os.path.join(path, f"{sanitize(dashboard_meta['title'])}.json")
+      with open(file_path, "w", encoding="utf-8") as f:json.dump(dashboard_only, f, indent=2)
+      print(f"✅ {org_name}/{folder_name}/{dashboard_meta['title']}")
+   try:
+      orgs = get_organizations()
+   except Exception as e:
+      print("❌ Failed to fetch organizations:", e)
+      return
+   for org in orgs:
+      if not switch_org(org["id"]):continue
+      try:
+         dashboards = get_dashboards(org["id"])
+      except Exception as e:
+         print("❌ Failed to fetch dashboards:",e)
+         continue
+      for dash in dashboards:
+         try:export_dashboard(org["name"], dash.get("folderTitle", "General"), dash)
+         except Exception as e:print("❌ Failed to export", dash.get("title"), ":", e)
+         
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
@@ -1476,11 +1483,6 @@ def function_jira_worklog(jira_base_url, jira_email, jira_token, start_date=None
     df_pivot.to_csv(output_path)
     return f"saved to {output_path}"
  
-import os
-async def function_stream_file(path,chunk_size=1024*1024):
-   with open(path, "rb") as f:
-      while chunk := f.read(chunk_size):
-         yield chunk
 
 
 
