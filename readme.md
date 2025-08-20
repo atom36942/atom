@@ -71,6 +71,12 @@ Explanation of key files in the repo:
 
 
 
+
+
+
+
+
+
 ## Installation
 
 <details>
@@ -142,6 +148,17 @@ docker run -p 8000:8000 atom
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 ## Extend Atom
 
 <details>
@@ -197,8 +214,8 @@ config.get(openai_key)
 
 - Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
 - Add all extend files in `extend_master.py`
-- This is an opinionated approach to structure code
 - import `extend_master.py` in your routes
+- This is an opinionated approach to structure code
 ```python
 from extend import *
 from extend_master import *
@@ -209,131 +226,6 @@ from extend_master import *
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Queue
-
-<details>
-<summary>Celery</summary>
-
-<br>
-
-- Prebuilt Consumer/Producer client
-- Docs - https://github.com/celery/celery
-- You can add more functions in consumer/producer
-- Search producer client in `main.py` or `function.py` for understaning usage
-- Commands:
-```bash
-#consumer .env
-config_celery_broker_url=redis://localhost:6379
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-
-##consumer run
-./venv/bin/celery -A consumer_celery worker --loglevel=info
-
-#producer .env
-config_celery_broker_url=redis://localhost:6379
-
-#producer client
-request.app.state.client_celery_producer 
-```
-</details>
-
-
-<details>
-<summary>Kafka</summary>
-
-<br>
-
-- Prebuilt Consumer/Producer client
-- Docs - https://github.com/aio-libs/aiokafka
-- You can add more functions in consumer/producer
-- Search producer client in `main.py` or `function.py` for understaning usage
-- Commands:
-```bash
-#consumer .env
-config_kafka_url=value
-config_kafka_username=value
-config_kafka_password=value
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-
-##consumer run
-./venv/bin/python consumer_kafka.py
-
-#producer .env
-config_kafka_url=value
-config_kafka_username=value
-config_kafka_password=value
-
-#producer client
-request.app.state.client_kafka_producer
-```
-</details>
-
-<details>
-<summary>Rabbitmq</summary>
-
-<br>
-
-- Prebuilt Consumer/Producer client
-- Docs - https://github.com/mosquito/aio-pika
-- You can add more functions in consumer/producer
-- Search producer client in `main.py` or `function.py` for understaning usage
-- Commands:
-```bash
-#consumer .env
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-
-##consumer run
-./venv/bin/python consumer_rabbitmq.py
-
-#producer .env
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-
-#producer client
-request.app.state.client_rabbitmq_producer
-```
-</details>
-
-<details>
-<summary>Redis</summary>
-
-<br>
-
-- Prebuilt Consumer/Producer client
-- Docs - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
-- You can add more functions in consumer/producer
-- Search producer client in `main.py` or `function.py` for understaning usage
-- Commands:
-```bash
-#consumer .env
-config_redis_pubsub_url=redis://localhost:6379
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-
-##consumer run
-./venv/bin/python consumer_redis.py
-
-#producer .env
-config_redis_pubsub_url=redis://localhost:6379
-
-#producer client
-request.app.state.client_redis_producer
-```
-</details>
 
 
 
@@ -747,6 +639,114 @@ config_google_login_client_id=value
 ```
 </details>
 
+<details>
+<summary>Celery</summary>
+
+<br>
+
+- Prebuilt Consumer/Producer client
+- Docs - https://github.com/celery/celery
+- You can add more functions in consumer/producer
+- Search producer client in `main.py` or `function.py` for understaning usage
+- Commands:
+```bash
+#consumer .env
+config_celery_broker_url=redis://localhost:6379
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+
+##consumer run
+./venv/bin/celery -A consumer_celery worker --loglevel=info
+
+#producer .env
+config_celery_broker_url=redis://localhost:6379
+
+#producer client
+request.app.state.client_celery_producer 
+```
+</details>
+
+
+<details>
+<summary>Kafka</summary>
+
+<br>
+
+- Prebuilt Consumer/Producer client
+- Docs - https://github.com/aio-libs/aiokafka
+- You can add more functions in consumer/producer
+- Search producer client in `main.py` or `function.py` for understaning usage
+- Commands:
+```bash
+#consumer .env
+config_kafka_url=value
+config_kafka_username=value
+config_kafka_password=value
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+
+##consumer run
+./venv/bin/python consumer_kafka.py
+
+#producer .env
+config_kafka_url=value
+config_kafka_username=value
+config_kafka_password=value
+
+#producer client
+request.app.state.client_kafka_producer
+```
+</details>
+
+<details>
+<summary>Rabbitmq</summary>
+
+<br>
+
+- Prebuilt Consumer/Producer client
+- Docs - https://github.com/mosquito/aio-pika
+- You can add more functions in consumer/producer
+- Search producer client in `main.py` or `function.py` for understaning usage
+- Commands:
+```bash
+#consumer .env
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+
+##consumer run
+./venv/bin/python consumer_rabbitmq.py
+
+#producer .env
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+
+#producer client
+request.app.state.client_rabbitmq_producer
+```
+</details>
+
+<details>
+<summary>Redis Pub-Sub</summary>
+
+<br>
+
+- Prebuilt Consumer/Producer client
+- Docs - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
+- You can add more functions in consumer/producer
+- Search producer client in `main.py` or `function.py` for understaning usage
+- Commands:
+```bash
+#consumer .env
+config_redis_pubsub_url=redis://localhost:6379
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+
+##consumer run
+./venv/bin/python consumer_redis.py
+
+#producer .env
+config_redis_pubsub_url=redis://localhost:6379
+
+#producer client
+request.app.state.client_redis_producer
+```
+</details>
 
 
 
