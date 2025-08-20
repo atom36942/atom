@@ -150,11 +150,11 @@ echo "openai_key = 'sk-xxxxxx'" >> config/openai.py
 #how to use
 config.get(openai_key)
 ```
-Add Files
-- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
-- Add all extend files in `extend_master.py`
-- import `extend_master.py` in your routes
+Add Extra Files
 - This is an opinionated approach to structure code
+- Add extra file logic in `extend_{logic}.py` like function,import,schema,etc
+- Import all extend files in `extend_master.py`
+- Import `extend_master.py` in your routes
 ```python
 from extend import *
 from extend_master import *
