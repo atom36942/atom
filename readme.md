@@ -116,6 +116,52 @@ config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 </details>
 
 <details>
+<summary>Extend Atom</summary>
+
+<br>
+
+Add Router
+```bash
+#1st way
+touch router_llm.py
+
+#2nd way
+mkdir -p router && touch router/llm.py
+
+#import(add as 1st line in all router)
+from extend import *
+```
+Add Config
+```bash
+#1st way
+echo "openai_key=sk-xxxxxx" >> .env
+
+#2nd
+echo "openai_key = 'sk-xxxxxx'" >> config.py
+
+#3rd
+touch config_custom.py
+echo "openai_key = 'sk-xxxxxx'" >> config_custom.py
+
+#4th way
+mkdir -p config && touch config/openai.py
+echo "openai_key = 'sk-xxxxxx'" >> config/openai.py
+
+#how to use
+config.get(openai_key)
+```
+Add Files
+- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
+- Add all extend files in `extend_master.py`
+- import `extend_master.py` in your routes
+- This is an opinionated approach to structure code
+```python
+from extend import *
+from extend_master import *
+```
+</details>
+
+<details>
 <summary>Server Start</summary>
 
 <br>
@@ -141,86 +187,6 @@ docker run -p 8000:8000 atom
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Extend Atom
-
-<details>
-<summary>Add Router</summary>
-
-<br>
-
-- Easily extend Atom by adding your API router files.
-- See `router.py` for sample usage
-- All APIs in the router file will be automatically added
-- Ex to create a router service called llm.
-```bash
-#1st way
-touch router_llm.py
-
-#2nd way
-mkdir -p router && touch router/llm.py
-```
-</details>
-
-<details>
-<summary>Add Config</summary>
-
-<br>
-
-- Easily extend Atom by adding your config.
-- Use `config` var dict in your routes to access entire config
-- Ex to add a key called openai_key using different ways
-```bash
-#1st way
-echo "openai_key=sk-xxxxxx" >> .env
-
-#2nd
-echo "openai_key = 'sk-xxxxxx'" >> config.py
-
-#3rd
-touch config_custom.py
-echo "openai_key = 'sk-xxxxxx'" >> config_custom.py
-
-#4th way
-mkdir -p config && touch config/openai.py
-echo "openai_key = 'sk-xxxxxx'" >> config/openai.py
-
-#how to use
-config.get(openai_key)
-```
-</details>
-
-<details>
-<summary>Add Files</summary>
-
-<br>
-
-- Add extra file logic in `extend_{logic}.py` like function,import,pydantic,etc
-- Add all extend files in `extend_master.py`
-- import `extend_master.py` in your routes
-- This is an opinionated approach to structure code
-```python
-from extend import *
-from extend_master import *
-```
-</details>
 
 
 
