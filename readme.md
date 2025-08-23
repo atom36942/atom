@@ -63,7 +63,6 @@ Atom uses a proven tech stack so you can build fast without worrying about stack
 
 <br>
 
-Setup Repo
 ```bash
 #download repo
 git clone https://github.com/atom36942/atom.git
@@ -74,24 +73,17 @@ python3 -m venv venv
 
 #install requirements
 ./venv/bin/pip install -r requirements.txt
-```
-Setup env
-- Create a `.env` file in the root directory with min 4 keys 
-```env
+
+#setup .env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
-config_key_root=any random secret key (2n91nIEaJpsqjFUz)
-config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
-```
-Server Start
-```bash
-#direct
-./venv/bin/python main.py
+config_key_root=2n91nIEaJpsqjFUz
+config_key_jwt=2n91nIEaJpsqjFUz
 
-#reload
+#server start direct
 ./venv/bin/uvicorn main:app --reload
 
-#docker
+#server start docker
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
