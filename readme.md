@@ -13,7 +13,6 @@ About
 - Non-opinionated: full flexibility in defining business schema, API structure, and external libraries
 
 Tech Stack
-Atom uses a proven tech stack so you can build fast without worrying about stack choices.
 - Language: Python  
 - Framework: FastAPI (for building async APIs)  
 - Database: PostgreSQL (primary relational database)  
