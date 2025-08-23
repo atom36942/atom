@@ -77,10 +77,6 @@ python3 -m venv venv
 ```
 Setup env
 - Create a `.env` file in the root directory with min 4 keys 
-- `config_postgres_url`: primary database (PostgreSQL) connection URL  
-- `config_redis_url`: used for caching,rate limiting etc 
-- `config_key_root`: secret key to authenticate root-user APIs - /root/{api}  
-- `config_key_jwt`: secret key used for signing and verifying JWT tokens
 ```env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
