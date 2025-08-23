@@ -151,7 +151,7 @@ request.app.state.client_redis_producer
 
 
 <details>
-<summary>Useful Commands</summary>
+<summary>Commands</summary>
 
 <br>
 
@@ -194,7 +194,7 @@ create schema if not exists public;
 
 
 <details>
-<summary>SOP for developing an Idea</summary>
+<summary>SOP</summary>
 
 <br>
 
