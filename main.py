@@ -40,7 +40,7 @@ config_is_log_api=int(config.get("config_is_log_api",1))
 config_is_prometheus=int(config.get("config_is_prometheus",0))
 config_is_otp_verify_profile_update=int(config.get("config_is_otp_verify_profile_update",1))
 config_batch_log_api=int(config.get("config_batch_log_api",10))
-config_batch_object_create=int(config.get("config_batch_object_create",10))
+config_batch_object_create=int(config.get("config_batch_object_create",3))
 config_limit_cache_users_api_access=int(config.get("config_limit_cache_users_api_access",0))
 config_limit_cache_users_is_active=int(config.get("config_limit_cache_users_is_active",0))
 config_token_user_key_list=config.get("config_token_user_key_list","id,type,is_active,api_access").split(",")
@@ -57,7 +57,7 @@ config_postgres_schema=config.get("config_postgres_schema",{})
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import traceback
+import traceback,asyncio
 @asynccontextmanager
 async def lifespan(app:FastAPI):
    try:
@@ -86,6 +86,8 @@ async def lifespan(app:FastAPI):
       function_add_app_state({**globals(),**locals()},app,("config_","client_","cache_"))
       #app shutdown
       yield
+      await function_log_create_postgres("flush",function_object_create_postgres,client_postgres,None,None)
+      await function_object_create_postgres_batch("flush",function_object_create_postgres,client_postgres,None,None,None,1,function_object_serialize,cache_postgres_column_datatype)
       if client_postgres:await client_postgres.disconnect()
       if client_postgres_asyncpg:await client_postgres_asyncpg.close()
       if client_postgres_asyncpg_pool:await client_postgres_asyncpg_pool.close()
@@ -148,7 +150,7 @@ async def middleware(request,api_function):
       type=5
    if request.app.state.config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-      asyncio.create_task(function_log_create_postgres(function_object_create_postgres,request.app.state.client_postgres,request.app.state.config_batch_log_api,object))
+      asyncio.create_task(function_log_create_postgres("append",function_object_create_postgres,request.app.state.client_postgres,request.app.state.config_batch_log_api,object))
    return response
 
 #api
@@ -306,7 +308,7 @@ async def function_api_my_object_create(request:Request):
    if not queue:output=await function_object_create_postgres(request.app.state.client_postgres,table,[object],is_serialize,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    elif queue:
       payload={"function":"function_object_create_postgres","table":table,"object_list":[object],"is_serialize":is_serialize}
-      if queue=="batch":output=await function_object_create_postgres_batch(function_object_create_postgres,request.app.state.client_postgres,table,object,request.app.state.config_batch_object_create,is_serialize,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+      if queue=="batch":output=await function_object_create_postgres_batch("append",function_object_create_postgres,request.app.state.client_postgres,table,object,request.app.state.config_batch_object_create,is_serialize,function_object_serialize,request.app.state.cache_postgres_column_datatype)
       elif queue.startswith("mongodb"):output=await function_object_create_mongodb(request.app.state.client_mongodb,queue.split('_')[1],table,[object])
       elif queue=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
       elif queue=="rabbitmq":output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_producer,"channel_1",payload)

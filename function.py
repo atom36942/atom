@@ -416,11 +416,12 @@ async def function_token_check(request,config_key_root,config_key_jwt,config_api
 
 import json
 buffer_log_api=[]
-async def function_log_create_postgres(function_object_create_postgres,client_postgres,config_batch_log_api,object):
+async def function_log_create_postgres(mode,function_object_create_postgres,client_postgres,config_batch_log_api,object):
    try:
       global buffer_log_api
-      buffer_log_api.append(object)
-      if len(buffer_log_api)>=config_batch_log_api:
+      if mode=="append":
+         buffer_log_api.append(object)
+      if (mode=="flush" and buffer_log_api) or (mode=="append" and len(buffer_log_api)>=config_batch_log_api):
          await function_object_create_postgres(client_postgres,"log_api",buffer_log_api,0,None,None)
          buffer_log_api=[]
    except Exception as e:print(str(e))
@@ -1106,18 +1107,25 @@ async def function_object_create_postgres(client_postgres,table,object_list,is_s
 
 buffer_object_create={}
 table_object_key={}
-async def function_object_create_postgres_batch(function_object_create_postgres,client_postgres,table,object,config_batch_object_create,is_serialize,function_object_serialize,postgres_column_datatype):
+async def function_object_create_postgres_batch(mode,function_object_create_postgres,client_postgres,table,object,config_batch_object_create,is_serialize,function_object_serialize,postgres_column_datatype):
    global buffer_object_create, table_object_key
-   if table not in buffer_object_create:
-      buffer_object_create[table]=[]
-   if table not in table_object_key or table_object_key[table]==[]:
-      table_object_key[table]=list(object.keys())
-   if list(object.keys())!=table_object_key[table]:raise Exception(f"keys should be {table_object_key[table]}")
-   buffer_object_create[table].append(object)
-   if len(buffer_object_create[table])>=config_batch_object_create:
-      await function_object_create_postgres(client_postgres,table,buffer_object_create[table],is_serialize,function_object_serialize,postgres_column_datatype)
-      buffer_object_create[table]=[]
-      table_object_key[table]=[]
+   if mode=="append":
+      if table not in buffer_object_create:
+         buffer_object_create[table]=[]
+      if table not in table_object_key or table_object_key[table]==[]:
+         table_object_key[table]=list(object.keys())
+      if list(object.keys())!=table_object_key[table]:raise Exception(f"keys should be {table_object_key[table]}")
+      buffer_object_create[table].append(object)
+      if len(buffer_object_create[table])>=config_batch_object_create:
+         await function_object_create_postgres(client_postgres,table,buffer_object_create[table],is_serialize,function_object_serialize,postgres_column_datatype)
+         buffer_object_create[table]=[]
+         table_object_key[table]=[]
+   elif mode=="flush":
+      for tbl,rows in buffer_object_create.items():
+         if rows:
+            await function_object_create_postgres(client_postgres,tbl,rows,is_serialize,function_object_serialize,postgres_column_datatype)
+            buffer_object_create[tbl]=[]
+            table_object_key[tbl]=[]
    return None
 
 async def function_object_create_postgres_asyncpg(client_postgres_asyncpg,table,object_list):
