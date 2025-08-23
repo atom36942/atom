@@ -109,6 +109,7 @@ function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cor
 function_add_router(app,"router")
 if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
 if config_is_prometheus:function_add_prometheus(app)
+function_delete_files_extension(".",[".csv",".png",".jpg"])
 
 #middleware
 from fastapi import Request,responses

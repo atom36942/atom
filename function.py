@@ -1,3 +1,15 @@
+import os
+def function_delete_files_extension(folder_path=".", extension_list=None) -> None:
+    if extension_list is None:
+        extension_list = []
+    for root, dirs, files in os.walk(folder_path):
+        dirs[:] = [d for d in dirs if not (d.startswith('.') or d.lower() == 'venv')]
+        for filename in files:
+            if any(filename.endswith(ext) for ext in extension_list):
+                file_path = os.path.join(root, filename)
+                os.remove(file_path)
+    return None
+
 import requests, csv
 from requests.auth import HTTPBasicAuth
 def function_export_jira_filter_count(jira_base_url, jira_email, jira_token, output_path="export_jira_filter_count.csv"):
