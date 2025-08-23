@@ -1,5 +1,5 @@
 <details>
-<summary>What is atom</summary>
+<summary>About</summary>
 
 <br>
 
@@ -32,60 +32,38 @@ Atom uses a proven tech stack so you can build fast without worrying about stack
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <details>
-<summary>File Structure</summary>
+<summary>Installation</summary>
 
 <br>
 
-Explanation of key files in the repo:
-- `function.py` – Core business logic or utility functions
-- `.env` – Config variables used across the app  
-- `config.py` – Config variables used across the app  
-- `main.py` – FastAPI Server + core APIs 
-- `extend.py` – Logic for extneding router
-- `router.py` – Samples for extending the APIs  
-- `curl.txt` – List of curl requests used for testing  
-- `test.sh` – Shell script to execute curl.txt tests  
-- `consumer_redis.py` – Redis consumer for pub/sub or queue  
-- `consumer_rabbitmq.py` – RabbitMQ consumer  
-- `consumer_kafka.py` – Kafka consumer  
-- `consumer_celery.py` – Celery worker 
-- `requirements.txt` – Python dependencies
-- `readme.md` – Project documentation   
-- `Dockerfile` – Build and run the project inside Docker  
-- `.gitignore` – Files/directories to ignore in git
-</details>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Installation
-
-<details>
-<summary>Setup repo</summary>
-
-<br>
-
+Setup Repo
 ```bash
 #download repo
 git clone https://github.com/atom36942/atom.git
@@ -97,13 +75,7 @@ python3 -m venv venv
 #install requirements
 ./venv/bin/pip install -r requirements.txt
 ```
-</details>
-
-<details>
-<summary>Setup env</summary>
-
-<br>
-
+Setup env
 - Create a `.env` file in the root directory with min 4 keys 
 - `config_postgres_url`: primary database (PostgreSQL) connection URL  
 - `config_redis_url`: used for caching,rate limiting etc 
@@ -115,60 +87,7 @@ config_redis_url=redis://localhost:6379
 config_key_root=any random secret key (2n91nIEaJpsqjFUz)
 config_key_jwt=any random secret key (2n91nIEaJpsqjFUz)
 ```
-</details>
-
-<details>
-<summary>Extend Atom</summary>
-
-<br>
-
-Add Router
-```bash
-#1st way
-touch router_llm.py
-
-#2nd way
-mkdir -p router && touch router/llm.py
-
-#import(add as 1st line in all router)
-from extend import *
-```
-Add Config
-```bash
-#1st way
-echo "openai_key=sk-xxxxxx" >> .env
-
-#2nd
-echo "openai_key = 'sk-xxxxxx'" >> config.py
-
-#3rd
-touch config_custom.py
-echo "openai_key = 'sk-xxxxxx'" >> config_custom.py
-
-#4th way
-mkdir -p config && touch config/openai.py
-echo "openai_key = 'sk-xxxxxx'" >> config/openai.py
-
-#how to use
-config.get(openai_key)
-```
-Add Extra Files
-- This is an opinionated approach to structure code
-- Add extra file logic in `extend_{logic}.py` like function,import,schema,etc
-- Import all extend files in `extend_custom.py`
-- Import `extend_custom.py` in your routes
-```python
-from extend import *
-from extend_custom import *
-```
-</details>
-
-<details>
-<summary>Server Start</summary>
-
-<br>
-
-Direct
+Server Start
 ```bash
 #direct
 ./venv/bin/python main.py
@@ -181,6 +100,15 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 </details>
+
+
+
+
+
+
+
+
+
 
 
 
