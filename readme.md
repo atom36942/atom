@@ -80,57 +80,60 @@ docker run -p 8000:8000 atom
 
 <br>
 
-Consumer
+Consumer env
 ```bash
-#celery env
+#celery
 config_celery_broker_url=redis://localhost:6379
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 
-#kafka env
+#kafka
 config_kafka_url=value
 config_kafka_username=value
 config_kafka_password=value
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 
-#rabbitmq env
+#rabbitmq
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 
-#redis .env
+#redis
 config_redis_pubsub_url=redis://localhost:6379
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
-
-#celery run
+```
+Consumer run
+```bash
+#celery
 cd consumer
 ./venv/bin/celery -A consumer_celery worker --loglevel=info
 
-#kafka run
+#kafka
 cd consumer
 ./venv/bin/python consumer_kafka.py
 
-#rabbitmq run
+#rabbitmq
 ./venv/bin/python consumer_rabbitmq.py
 
-#redis run
+#redis
 ./venv/bin/python consumer_redis.py
 ```
-Producer
+Producer env
 ```bash
-#celery env
+#celery
 config_celery_broker_url=redis://localhost:6379
 
-#kafka env
+#kafka
 config_kafka_url=value
 config_kafka_username=value
 config_kafka_password=value
 
-#rabbitmq env
+#rabbitmq
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 
-#redis env
+#redis
 config_redis_pubsub_url=redis://localhost:6379
-
-#client
+```
+#Producer client
+```bash
 request.app.state.client_celery_producer
 request.app.state.client_kafka_producer
 request.app.state.client_rabbitmq_producer
