@@ -1,4 +1,4 @@
-# About
+## About
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
@@ -9,7 +9,7 @@
 - Tech Stack:Python,FastAPI,PostgreSQL,Redis,S3,Celery,RabbitMQ,Kafka,Sentry
 
 
-# Installation
+## Installation
 ```bash
 #download repo
 git clone https://github.com/atom36942/atom.git
@@ -62,7 +62,7 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 
-# Commands
+## Commands
 ```bash
 #package
 ./venv/bin/pip install fastapi
