@@ -59,29 +59,25 @@ config_key_jwt=2n91nIEaJpsqjFUz
 #server start docker
 docker build -t atom .
 docker run -p 8000:8000 atom
-```
-</details>
 
-
-
-
-
-
-
-
-
-<details>
-<summary>API Collection</summary>
-
-<br>
-
-- All atom apis are defined as curl in `curl.txt`
-- All atom apis can be tested using `curl.sh`
-- How to test:
-```bash
+#test curls
 ./curl.sh
 ```
 </details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -160,15 +156,6 @@ docker run -p 8000:8000 atom
 
 
 
-
-<details>
-<summary>API Log</summary>
-
-<br>
-
-- Prebuilt api logs in `log_api` table in database
-- Logging is done asynchronously
-</details>
 
 <details>
 <summary>Default Settings</summary>
