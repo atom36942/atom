@@ -9,18 +9,7 @@
 - Tech Stack:Python,FastAPI,PostgreSQL,Redis,S3,Celery,RabbitMQ,Kafka,Sentry
 
 
-
-
-
-
-
-
-
-<details>
-<summary>Installation</summary>
-
-<br>
-
+# Installation
 ```bash
 #download repo
 git clone https://github.com/atom36942/atom.git
@@ -72,23 +61,8 @@ config_limit_cache_users_is_active=0
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
-</details>
 
-
-
-
-
-
-
-
-
-
-
-<details>
-<summary>Commands</summary>
-
-<br>
-
+# Commands
 ```bash
 #package
 ./venv/bin/pip install fastapi
@@ -120,7 +94,6 @@ cd consumer && ./venv/bin/python kafka.py
 cd consumer && ./venv/bin/python rabbitmq.py
 cd consumer && ./venv/bin/python redis.py
 ```
-</details>
 
 
 
