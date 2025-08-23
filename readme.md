@@ -28,6 +28,11 @@ Tech Stack
 
 
 
+
+
+
+
+
 <details>
 <summary>Installation</summary>
 
@@ -44,11 +49,38 @@ python3 -m venv venv
 #install requirements
 ./venv/bin/pip install -r requirements.txt
 
-#setup .env
+#setup env must
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
 config_key_root=2n91nIEaJpsqjFUz
 config_key_jwt=2n91nIEaJpsqjFUz
+
+#setup env optional
+config_sentry_dsn=value
+
+#setup env default
+config_postgres_min_connection=5
+config_postgres_max_connection=20
+config_redis_url_ratelimiter=value
+config_token_expire_sec=10000
+config_token_user_key_list=id,mobile
+config_is_signup=1
+config_is_otp_verify_profile_update=1
+config_is_log_api=1
+config_is_prometheus==0
+config_batch_log_api=10
+config_batch_object_create=10
+config_cors_origin_list=x,y,z                   
+config_cors_method_list=x,y,z
+config_cors_headers_list=x,y,z
+config_cors_allow_credentials=False
+config_public_table_create_list=post,comment
+config_public_table_read_list=users,post
+config_column_update_disabled_list=is_active,is_verified
+config_mode_check_api_access=token/cache
+config_mode_check_is_active=token/cache
+config_limit_cache_users_api_access=0
+config_limit_cache_users_is_active=0 
 
 #server start direct
 ./venv/bin/uvicorn main:app --reload
@@ -58,6 +90,9 @@ docker build -t atom .
 docker run -p 8000:8000 atom
 ```
 </details>
+
+
+
 
 
 
@@ -104,6 +139,73 @@ create schema if not exists public;
 
 
 
+
+
+
+
+
+<details>
+<summary>Client</summary>
+
+<br>
+
+```python
+request.app.state.client_postgres
+request.app.state.client_postgres_asyncpg
+request.app.state.client_postgres_asyncpg_pool
+request.app.state.client_postgres_read
+request.app.state.client_redis
+request.app.state.client_mongodb
+request.app.state.client_s3
+request.app.state.client_s3_resource
+request.app.state.client_sns
+request.app.state.client_ses
+request.app.state.client_posthog
+request.app.state.client_openai 
+ ```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<details>
+<summary>Config API</summary>
+
+<br>
+
+```python
+config_api={
+"/test":{
+"id":7,
+"is_token":0,
+"is_active_check":1,
+"cache_sec":["inmemory/redis",60],
+"ratelimiter_times_sec":[1,3]
+},
+}
+```
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
 <details>
 <summary>SOP</summary>
 
@@ -117,6 +219,9 @@ create schema if not exists public;
 - `Testing` – QA: Verify functionality, log defects, approve prototype.
 - `Live` – Founder: Make the prototype publicly accessible and announce launch.
 </details>
+
+
+
 
 
 
@@ -218,285 +323,20 @@ request.app.state.client_redis_producer
 
 
 
+
 ## zzz
 
-<details>
-<summary>Default Settings</summary>
 
-<br>
 
-- With below config keys,you can control default settings
-- Default values are in main.py config section
-- You can add them in `.env` or `config.py` to update default value
-- Each key is independent of each other
-```bash
-#postgres
-config_postgres_min_connection=5
-config_postgres_max_connection=20
 
-#ratelimiter
-config_redis_url_ratelimiter=value
 
-#token
-config_token_expire_sec=10000
-config_token_user_key_list=id,mobile
 
-#enable/disable
-config_is_signup=1
-config_is_otp_verify_profile_update=1
-config_is_log_api=1
-config_is_prometheus==0
 
-#batch
-config_batch_log_api=10
-config_batch_object_create=10
 
-#cors                             
-config_cors_origin_list=x,y,z                   
-config_cors_method_list=x,y,z
-config_cors_headers_list=x,y,z
-config_cors_allow_credentials=False
 
-#crud
-config_public_table_create_list=post,comment
-config_public_table_read_list=users,post
-config_column_update_disabled_list=is_active,is_verified
 
-#mode
-config_mode_check_api_access=token/cache
-config_mode_check_is_active=token/cache
 
-#cache
-config_limit_cache_users_api_access=0
-config_limit_cache_users_is_active=0     
-```
-</details>
 
-<details>
-<summary>Enable Monitoring</summary>
-
-<br>
-
-Add the following key to your `.env` file
-```bash
-#sentry
-config_sentry_dsn=value
-
-#prometheus
-config_is_prometheus=1
-```
-</details>
-
-<details>
-<summary>Client</summary>
-
-<br>
-
-- Search client name in `main.py` or `function.py` for understaning usage. Docs link below:-
-- Databases - https://github.com/encode/databases
-- Asyncpg - https://github.com/MagicStack/asyncpg
-- Redis - https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html
-- Mongodb - https://motor.readthedocs.io/en/stable
-- AWS S3/SNS/SES - https://boto3.amazonaws.com
-- Posthog - https://posthog.com/docs/libraries/python
-- OpenAI - https://github.com/openai/openai-python
-- How to enable: add below key in .env
-```bash
-#postgres
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-config_postgres_url_read=postgresql://atom@127.0.0.1/postgres
-
-#redis
-config_redis_url=redis://localhost:6379
-
-#mongodb
-config_mongodb_url=mongodb://localhost:27017
-
-#aws s3
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_s3_region_name=value
-
-#aws sns
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_sns_region_name=value
-
-#aws ses
-config_aws_access_key_id=value
-config_aws_secret_access_key=value
-config_ses_region_name=value
-
-#posthog
-config_posthog_project_host=value
-config_posthog_project_key=value
-
-#openai
-config_openai_key=value
-```
-
-How to access client in your routes.
-```python
-request.app.state.client_postgres
-request.app.state.client_postgres_asyncpg
-request.app.state.client_postgres_asyncpg_pool
-request.app.state.client_postgres_read
-request.app.state.client_redis
-request.app.state.client_mongodb
-request.app.state.client_s3
-request.app.state.client_s3_resource
-request.app.state.client_sns
-request.app.state.client_ses
-request.app.state.client_posthog
-request.app.state.client_openai 
- ```
-</details>
-
-<details>
-<summary>Database Init</summary>
-
-<br>
-
-- Extend below config_postgres_schema as per your schema.
-- Replace it in config.py
-```python
-config_postgres_schema={
-"table":{
-"test":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-0-btree",
-"title-text-0-btree,gin",
-"description-text-0-0",
-"file_url-text-0-0",
-"link_url-text-0-0",
-"tag-text-0-0",
-"rating-numeric(10,3)-0-0",
-"remark-text-0-btree,gin",
-"location-geography(POINT)-0-gist",
-"metadata-jsonb-0-gin"
-],
-"users":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-1-btree",
-"username-text-0-btree",
-"password-text-0-btree",
-"google_id-text-0-btree",
-"google_data-jsonb-0-0",
-"email-text-0-btree",
-"mobile-text-0-btree",
-"api_access-text-0-0",
-"last_active_at-timestamptz-0-0",
-"username_bigint-bigint-0-btree",
-"password_bigint-bigint-0-btree"
-],
-"otp":[
-"created_at-timestamptz-0-brin",
-"otp-integer-1-0",
-"email-text-0-btree",
-"mobile-text-0-btree"
-],
-"log_password":[
-"created_at-timestamptz-0-0",
-"user_id-bigint-0-0",
-"password-text-0-0"
-],
-"message":[
-"created_at-timestamptz-0-brin",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
-"updated_by_id-bigint-0-0",
-"is_deleted-smallint-0-btree",
-"user_id-bigint-1-btree",
-"description-text-1-0",
-"is_read-smallint-0-btree"
-],
-"report_user":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
-"user_id-bigint-1-btree"
-],
-"log_api":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"type-bigint-0-btree",
-"ip_address-text-0-0",
-"api-text-0-btree,gin",
-"method-text-0-0",
-"query_param-text-0-0",
-"status_code-smallint-0-0",
-"response_time_ms-numeric(1000,3)-0-0",
-"description-text-0-0"
-],
-},
-"query":{
-"users_disable_bulk_delete":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure function_delete_disable_bulk(1);",
-"users_check_username":"alter table users add constraint constraint_check_users_username check (username = lower(username) and username not like '% %' and trim(username) = username);",
-"users_unique_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
-"users_unique_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
-"users_unique_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
-"users_unique_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
-"users_unique_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
-"users_unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
-}
-}
-```
-- It has two keys: table and query.
-- Table contains table definitions.
-- Query contains extra SQL queries to run.
-- Understanding schema:-
-```python
-"type-bigint-0-btree"
-"title-text-1-btree,gin"
-```
-- each row represent one column in the table
-- `type` or `title` = column name
-- `bigint` or `text` = column datatype
-- `0` or `1` = column can be be null or not. if 0, it can be null else 1 which will force not null constraint
-- `btree` or `btree,gin`  = index on that column. if 0, no index. it can be multiple also with comma separated values
-- Hit below curl to init the database
-- Token root is from .env (`config_key_root`)
-```curl
-curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
-```
-</details>
-
-<details>
-<summary>Config API</summary>
-
-<br>
-
-- Update below `config_api` dict in `config.py` for your api settings:
-```bash
-config_api={
-"/admin/object-create":{"id":1},
-"/admin/object-update":{"id":2},
-"/admin/ids-update":{"id":3},
-"/admin/ids-delete":{"id":4}, 
-"/admin/object-read":{"id":5,"cache_sec":["redis",100]},
-"/admin/postgres-query-runner":{"id":6},
-"/test":{"id":7,"is_token":0,"is_active_check":1,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
-}
-```
-- enable admin check - id:100
-- enable auth - is_token:1
-- enable user active check - is_active_check:1
-- enable caching - cache_sec:["inmemory/redis",60]
-- enable ratelimiter - ratelimiter_times_sec:[1,3]
-</details>
 
 <details>
 <summary>Admin APIs</summary>
