@@ -120,7 +120,13 @@ create schema if not exists public;
 
 #import postgres       
 \copy table from 'path' delimiter ',' csv header;
-\copy table(column) from 'path' delimiter ',' csv header; 
+\copy table(column) from 'path' delimiter ',' csv header;
+
+#consumer
+cd consumer && ./venv/bin/celery -A celery worker --loglevel=info
+cd consumer && ./venv/bin/python kafka.py
+cd consumer && ./venv/bin/python rabbitmq.py
+cd consumer && ./venv/bin/python redis.py
 ```
 </details>
 
@@ -169,67 +175,6 @@ create schema if not exists public;
 
 
 
-<details>
-<summary>Queue</summary>
-
-<br>
-
-Consumer env
-```bash
-#celery
-config_celery_broker_url=redis://localhost:6379
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-
-#kafka
-config_kafka_url=value
-config_kafka_username=value
-config_kafka_password=value
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-
-#rabbitmq
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-
-#redis
-config_redis_pubsub_url=redis://localhost:6379
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-```
-Consumer run
-```bash
-#celery
-cd consumer
-./venv/bin/celery -A consumer_celery worker --loglevel=info
-
-#kafka
-cd consumer
-./venv/bin/python consumer_kafka.py
-
-#rabbitmq
-cd consumer
-./venv/bin/python consumer_rabbitmq.py
-
-#redis
-cd consumer
-./venv/bin/python consumer_redis.py
-```
-Producer env
-```bash
-#celery
-config_celery_broker_url=redis://localhost:6379
-
-#kafka
-config_kafka_url=value
-config_kafka_username=value
-config_kafka_password=value
-
-#rabbitmq
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-
-#redis
-config_redis_pubsub_url=redis://localhost:6379
-```
-
-</details>
 
 
 
