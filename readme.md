@@ -144,31 +144,6 @@ create schema if not exists public;
 
 
 
-<details>
-<summary>Client</summary>
-
-<br>
-
-```python
-request.app.state.client_postgres
-request.app.state.client_postgres_asyncpg
-request.app.state.client_postgres_asyncpg_pool
-request.app.state.client_postgres_read
-request.app.state.client_redis
-request.app.state.client_mongodb
-request.app.state.client_s3
-request.app.state.client_s3_resource
-request.app.state.client_sns
-request.app.state.client_ses
-request.app.state.client_posthog
-request.app.state.client_openai
-request.app.state.client_celery_producer
-request.app.state.client_kafka_producer
-request.app.state.client_rabbitmq_producer
-request.app.state.client_redis_producer
- ```
-</details>
-
 
 
 
