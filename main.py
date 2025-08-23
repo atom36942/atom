@@ -112,6 +112,7 @@ function_add_router(app,"router")
 if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
 if config_is_prometheus:function_add_prometheus(app)
 function_delete_files_extension(".",[".csv",".png",".jpg"])
+function_check_required_env(config,["config_postgres_url","config_redis_url","config_key_root","config_key_jwt"])
 
 #middleware
 from fastapi import Request,responses

@@ -1,3 +1,11 @@
+import sys
+def function_check_required_env(config, required_keys):
+    missing = [key for key in required_keys if not config.get(key)]
+    if missing:
+        print(f"Error: Missing required environment variables: {', '.join(missing)}", file=sys.stderr)
+        sys.exit(1)
+    return None
+
 import os
 def function_delete_files_extension(folder_path=".", extension_list=None) -> None:
     if extension_list is None:

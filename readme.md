@@ -93,6 +93,9 @@ cd consumer && ./venv/bin/celery -A celery worker --loglevel=info
 cd consumer && ./venv/bin/python kafka.py
 cd consumer && ./venv/bin/python rabbitmq.py
 cd consumer && ./venv/bin/python redis.py
+
+#p95
+SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)::numeric, 2) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
 ```
 
 
