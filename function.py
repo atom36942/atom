@@ -1,3 +1,24 @@
+import requests, csv
+from requests.auth import HTTPBasicAuth
+def function_export_jira_filter_count(jira_base_url, jira_email, jira_token, output_path="export_jira_filter_count.csv"):
+    auth = HTTPBasicAuth(jira_email, jira_token)
+    headers = {"Accept": "application/json"}
+    resp = requests.get(f"{jira_base_url}/rest/api/3/filter/my", headers=headers, auth=auth, params={"maxResults": 1000})
+    if resp.status_code != 200:
+        return f"error {resp.status_code}: {resp.text}"
+    data = resp.json()
+    filters = sorted(data, key=lambda x: x.get("name", "").lower())
+    with open(output_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["filter_name", "issue_count"])
+        for flt in filters:
+            jql_url = f"{jira_base_url}/rest/api/3/search"
+            jql_params = {"jql": flt.get("jql", ""), "maxResults": 0}
+            jql_resp = requests.get(jql_url, headers=headers, auth=auth, params=jql_params)
+            count = jql_resp.json().get("total", 0) if jql_resp.status_code == 200 else f"error {jql_resp.status_code}"
+            writer.writerow([flt.get("name", ""), count])
+    return f"saved to {output_path}"
+
 from jira import JIRA
 import pandas as pd
 from datetime import datetime, date

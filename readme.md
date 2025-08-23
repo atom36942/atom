@@ -1,24 +1,18 @@
-## About
-
 <details>
 <summary>What is atom</summary>
 
 <br>
 
+About
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
 - Built-in support for Postgres, Redis, S3, Kafka, and many other services  
 - Production-ready to build APIs, background jobs, and integrations quickly  
 - Minimal boilerplate so you don’t have to reinvent the wheel each time  
-- Non-opinionated: full flexibility in defining business schema, API structure, and external libraries  
-</details>
+- Non-opinionated: full flexibility in defining business schema, API structure, and external libraries
 
-<details>
-<summary>Tech Stack</summary>
-
-<br>
-
+Tech Stack
 Atom uses a proven tech stack so you can build fast without worrying about stack choices.
 - Language: Python  
 - Framework: FastAPI (for building async APIs)  
@@ -29,6 +23,14 @@ Atom uses a proven tech stack so you can build fast without worrying about stack
 - Task Worker: Celery (for background processing)  
 - Monitoring: Sentry/Prometheus (for error tracking and performance monitoring)  
 </details>
+
+
+
+
+
+
+
+
 
 <details>
 <summary>File Structure</summary>
@@ -153,11 +155,11 @@ config.get(openai_key)
 Add Extra Files
 - This is an opinionated approach to structure code
 - Add extra file logic in `extend_{logic}.py` like function,import,schema,etc
-- Import all extend files in `extend_master.py`
-- Import `extend_master.py` in your routes
+- Import all extend files in `extend_custom.py`
+- Import `extend_custom.py` in your routes
 ```python
 from extend import *
-from extend_master import *
+from extend_custom import *
 ```
 </details>
 
