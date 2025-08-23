@@ -161,7 +161,11 @@ request.app.state.client_s3_resource
 request.app.state.client_sns
 request.app.state.client_ses
 request.app.state.client_posthog
-request.app.state.client_openai 
+request.app.state.client_openai
+request.app.state.client_celery_producer
+request.app.state.client_kafka_producer
+request.app.state.client_rabbitmq_producer
+request.app.state.client_redis_producer
  ```
 </details>
 
@@ -177,23 +181,6 @@ request.app.state.client_openai
 
 
 
-<details>
-<summary>Config API</summary>
-
-<br>
-
-```python
-config_api={
-"/test":{
-"id":7,
-"is_token":0,
-"is_active_check":1,
-"cache_sec":["inmemory/redis",60],
-"ratelimiter_times_sec":[1,3]
-},
-}
-```
-</details>
 
 
 
@@ -205,20 +192,6 @@ config_api={
 
 
 
-
-<details>
-<summary>SOP</summary>
-
-<br>
-
-- `Idea` – Founder: Define problem, scope, and core features.
-- `Design` – UI/UX: Convert idea into clear user flows and visual layouts.
-- `Frontend` – Frontend Developer: Build responsive UI from approved designs.
-- `Backend` – Backend Developer: Develop APIs, database, and business logic (Atom can be used).
-- `Deployment` – Backend Developer: Deploy code to server.
-- `Testing` – QA: Verify functionality, log defects, approve prototype.
-- `Live` – Founder: Make the prototype publicly accessible and announce launch.
-</details>
 
 
 
@@ -289,13 +262,7 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 #redis
 config_redis_pubsub_url=redis://localhost:6379
 ```
-Producer client
-```bash
-request.app.state.client_celery_producer
-request.app.state.client_kafka_producer
-request.app.state.client_rabbitmq_producer
-request.app.state.client_redis_producer
-```
+
 </details>
 
 
