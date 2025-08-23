@@ -111,9 +111,11 @@ cd consumer
 ./venv/bin/python consumer_kafka.py
 
 #rabbitmq
+cd consumer
 ./venv/bin/python consumer_rabbitmq.py
 
 #redis
+cd consumer
 ./venv/bin/python consumer_redis.py
 ```
 Producer env
@@ -132,7 +134,7 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 #redis
 config_redis_pubsub_url=redis://localhost:6379
 ```
-#Producer client
+Producer client
 ```bash
 request.app.state.client_celery_producer
 request.app.state.client_kafka_producer
