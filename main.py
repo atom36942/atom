@@ -54,6 +54,16 @@ config_cors_headers_list=config.get("config_cors_headers_list","*").split(",")
 config_cors_allow_credentials=config.get("config_cors_allow_credentials",False)
 config_api=config.get("config_api",{})
 config_postgres_schema=config.get("config_postgres_schema",{})
+config_postgres_clean={
+"log_api":365,
+"otp":365,
+}
+
+config_users_profile_key={
+"log_api_count":"select count(*) from log_api where ",
+"test_count":365
+}
+
 
 #lifespan
 from fastapi import FastAPI
@@ -75,7 +85,7 @@ async def lifespan(app:FastAPI):
       client_ses=await function_client_read_ses(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
       client_openai=function_client_read_openai(config_openai_key) if config_openai_key else None
       client_posthog=await function_client_read_posthog(config_posthog_project_host,config_posthog_project_key)
-      client_celery_producer=await function_client_read_celery_producer(config_celery_broker_url) if config_celery_broker_url else None
+      client_celery_producer=await function_client_read_celery_producer(config_celery_broker_url,config_celery_broker_url) if config_celery_broker_url else None
       client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
       client_rabbitmq,client_rabbitmq_producer=await function_client_read_rabbitmq_producer(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
       client_redis_producer=await function_client_read_redis(config_redis_pubsub_url) if config_redis_pubsub_url else None
@@ -102,7 +112,7 @@ async def lifespan(app:FastAPI):
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
       if client_posthog:client_posthog.flush()
       if client_posthog:client_posthog.shutdown()
-      function_delete_files(".",[],["export_"])
+      function_delete_files(".",[".csv"],["export_"])
    except Exception as e:
       print(str(e))
       print(traceback.format_exc())
@@ -167,6 +177,11 @@ async def function_api_index(request:Request):
 @app.get("/root/postgres-init")
 async def function_api_root_postgres_init(request:Request):
    await function_postgres_schema_init(request.app.state.client_postgres,request.app.state.config_postgres_schema,function_postgres_schema_read)
+   return {"status":1,"message":"done"}
+
+@app.delete("/root/postgres-clean")
+async def function_api_root_postgres_clean(request:Request):
+   await function_postgres_clean(request.app.state.client_postgres,request.app.state.config_postgres_clean)
    return {"status":1,"message":"done"}
 
 @app.post("/root/postgres-export")

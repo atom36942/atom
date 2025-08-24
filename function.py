@@ -1,3 +1,11 @@
+import datetime
+async def function_postgres_clean(client_postgres,config_postgres_clean):
+    for table_name, days in config_postgres_clean.items():
+        threshold_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+        query = f"DELETE FROM {table_name} WHERE created_at < '{threshold_date}'"
+        await client_postgres.execute(query)
+    return None
+
 import asyncpg, csv, re
 async def function_export_postgres_query(postgres_url, query, batch_size=1000, output_path="export_postgres_query.csv"):
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise ValueError("Only read-only queries allowed")
@@ -1488,13 +1496,13 @@ def function_client_read_openai(config_openai_key):
    return client_openai
 
 from celery import Celery
-async def function_client_read_celery_producer(config_celery_broker_url):
-   client_celery_producer=Celery("producer",broker=config_celery_broker_url,backend=config_celery_broker_url)
+async def function_client_read_celery_producer(config_celery_broker_url,config_celery_backend_url):
+   client_celery_producer=Celery("producer",broker=config_celery_broker_url,backend=config_celery_backend_url)
    return client_celery_producer
 
 from celery import Celery
-def function_client_read_celery_consumer(config_celery_broker_url):
-   client_celery_consumer=Celery("worker",broker=config_celery_broker_url,backend=config_celery_broker_url)
+def function_client_read_celery_consumer(config_celery_broker_url,config_celery_backend_url):
+   client_celery_consumer=Celery("worker",broker=config_celery_broker_url,backend=config_celery_backend_url)
    return client_celery_consumer
 
 async def function_producer_celery(client_celery_producer,function,param_list):

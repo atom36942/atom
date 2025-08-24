@@ -3,6 +3,7 @@ curl -X GET "$baseurl"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
+curl -X DELETE "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token_root"
 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d "{\"query\":\"$query\"}" -o export_postgres.csv
 0 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
 0 curl -X POST "$baseurl/root/redis-import" -H "Authorization: Bearer $token_root" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/redis.csv"

@@ -3,7 +3,6 @@ set -euo pipefail
 
 [ -f .env ] && export $(grep -v '^#' .env | xargs)
 
-# Variables
 input_file="curl.txt"
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
@@ -15,17 +14,14 @@ output_report="export_curl_report.csv"
 ENABLE_REPORT=0
 query="select * from users limit 10;"
 
-# Initialize files
 [ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_report"
 : > "$output_curl"
-: > "$output_fail"
 
 count=0; count_success=0; count_fail=0; total_response_time=0
 
 while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" != curl* ]] && continue
 
-    # Replace placeholders
     command_line=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
                                       -e "s|\$token_root|$token_root|g" \
                                       -e "s|\$token|$token|g" \
@@ -35,13 +31,10 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     url=$(echo "$command_line" | sed -n 's/^curl[^"]*"\([^"]*\)".*/\1/p')
     echo "🚀 $url"
 
-    # Save multi-line curl for Postman
     echo "$command_line" | sed 's/ -H / \\\n  -H /g; s/ -d / \\\n  -d /g' >> "$output_curl"
     echo >> "$output_curl"
 
     response_file=$(mktemp)
-
-    # Execute full command safely with bash -c, capture stdout/stderr
     status_time=$(bash -c "$command_line -s -o \"$response_file\" -w '%{http_code} %{time_total}'" 2>&1)
     status_code=$(echo "$status_time" | awk '{print $1}')
     time_total=$(echo "$status_time" | awk '{print $2}')
@@ -51,7 +44,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     ((count++))
     [ "$ENABLE_REPORT" -eq 1 ] && echo "$url,$status_code,$execution_time" >> "$output_report"
 
-    # Read response body
     body=$(<"$response_file")
     [ -z "$body" ] && body="(empty response)"
 
@@ -60,7 +52,10 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         ((count_success++))
     else
         echo "❌ $body"
-        # Log failure with blank line
+        # Create file only on first failure
+        if [[ $count_fail -eq 0 ]]; then
+            : > "$output_fail"
+        fi
         {
             echo "🚀 $url"
             echo "❌ $body"
@@ -82,7 +77,5 @@ echo "❌ Fail: $count_fail"
 echo "⏳ Avg Response Time: ${avg_response_time}ms"
 [ "$ENABLE_REPORT" -eq 1 ] && echo "📄 Results saved in: $output_report"
 echo "📄 Full curl commands saved in: $output_curl"
-if [[ $count_fail -gt 0 ]]; then
-    echo "📄 Failed responses saved in: $output_fail"
-fi
+[[ $count_fail -gt 0 ]] && echo "📄 Failed responses saved in: $output_fail"
 echo "--------------------------------------"

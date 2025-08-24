@@ -12,8 +12,6 @@
 
 
 
-
-
 ## Installation
 ```bash
 #download repo
@@ -46,10 +44,6 @@ config_sentry_dsn=value
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
-
-
-
-
 
 
 

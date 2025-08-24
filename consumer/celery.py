@@ -16,7 +16,7 @@ import asyncio,traceback
 from celery import signals
 
 #client
-client_celery_consumer=function_client_read_celery_consumer(config_celery_broker_url)
+client_celery_consumer=function_client_read_celery_consumer(config_celery_broker_url,config_celery_broker_url)
 client_postgres=None
 postgres_schema=None
 postgres_column_datatype=None
