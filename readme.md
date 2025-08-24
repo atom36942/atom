@@ -34,8 +34,8 @@ config_key_jwt=UZit5LLGZmqqvScH8E8PAZSsYKSt21LDzYwAyJ6hIrvpRrv4clHM8asr6gATOgPB
 
 #setup env optional
 config_mongodb_url=mongodb://localhost:27017
-config_celery_broker_url=redis://localhost:6379
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_celery_broker_url=redis://localhost:6379
 config_redis_pubsub_url=redis://localhost:6379
 config_sentry_dsn=value
 
@@ -98,6 +98,12 @@ postgres_url = "postgresql://atom@127.0.0.1/postgres?sslmode=disable"
 query = "SELECT * FROM users"
 x=function_export_postgres_query(postgres_url,query)
 asyncio.run(x)
+
+#brew
+brew services list
+brew services start <service_name>
+brew services stop <service_name>
+brew services restart <service_name>
 ```
 
 
