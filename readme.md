@@ -57,7 +57,7 @@ docker run -p 8000:8000 atom
 
 
 ## Commands
-```python
+```bash
 #package
 ./venv/bin/pip install fastapi
 ./venv/bin/pip install --upgrade fastapi
