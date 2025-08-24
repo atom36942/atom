@@ -1,109 +1,53 @@
 #!/bin/bash
+set -euo pipefail
 
-# env file
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-fi
+[ -f .env ] && export $(grep -v '^#' .env | xargs)
 
-#var
 input_file="curl.txt"
 baseurl="http://127.0.0.1:8000"
-token_root="$config_key_root"
-token="$token"
+token_root="${config_key_root:-}"
+token="${token:-}"
 username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-output_file="export_curl_testing.csv"
-ENABLE_LOG=1
+output_file="export_curl_report.csv"
+output_curl="export_curl_full.txt"   # <<< new
+ENABLE_REPORT=0
 
-# Initialize CSV file with headers
-if [ "$ENABLE_LOG" -eq 1 ]; then
-    echo "API,Status Code,Response Time (ms)" > "$output_file"
-fi
+[ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_file"
+echo "" > "$output_curl"   # clear file each run
 
-# Count variables
-count=0
-count_success=0
-count_fail=0
-total_response_time=0  # To calculate average response time
+count=0; count_success=0; count_fail=0; total_response_time=0
 
-# Check if gdate (GNU date) is installed for nanosecond support
-if command -v gdate &>/dev/null; then
-    DATE_CMD="gdate"
-else
-    DATE_CMD="date"
-fi
-
-# Read the curl commands from the file and process each line
 while IFS= read -r line || [[ -n "$line" ]]; do
-    # Check if the line contains a curl command
-    if [[ "$line" == curl* ]]; then
-        # Replace the placeholders with actual variable values
-        command=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
-                             -e "s|\$token_root|$token_root|g" \
-                             -e "s|\$token|$token|g" \
-                             -e "s|\$username|$username|g" \
-                             )
-        # Extract and print only the URL for readability
-        url=$(echo "$command" | sed -n 's/^curl -X [A-Z]* "\([^"]*\)".*/\1/p')
-        echo "🚀 $url"
+    [[ "$line" != curl* ]] && continue
 
-        # Start time (use nanoseconds if gdate is available, otherwise fallback to seconds)
-        if [ "$DATE_CMD" == "gdate" ]; then
-            start_time=$($DATE_CMD +%s%N)  # Nanoseconds timestamp using gdate
-        else
-            start_time=$($DATE_CMD +%s)  # Seconds timestamp on macOS without gdate
-        fi
+    command=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
+                                 -e "s|\$token_root|$token_root|g" \
+                                 -e "s|\$token|$token|g" \
+                                 -e "s|\$username|$username|g")
 
-        # Run the curl command, capturing both response body and status code
-        response=$(eval "$command -s -w '\n%{http_code}'")
+    url=$(echo "$command" | sed -n 's/^curl[^"]*"\([^"]*\)".*/\1/p')
+    echo "🚀 $url"
 
-        # End time (use nanoseconds if gdate is available, otherwise fallback to seconds)
-        if [ "$DATE_CMD" == "gdate" ]; then
-            end_time=$($DATE_CMD +%s%N)  # Nanoseconds timestamp using gdate
-            execution_time=$(( (end_time - start_time) / 1000000 ))  # Convert to ms
-        else
-            end_time=$($DATE_CMD +%s)  # Seconds timestamp on macOS without gdate
-            execution_time=$(( (end_time - start_time) * 1000 ))  # Convert to ms
-        fi
+    # <<< Save exact curl for Postman
+    echo "$command" >> "$output_curl"
 
-        total_response_time=$((total_response_time + execution_time))  # Accumulate response time
+    read -r status_code time_total <<<$(eval "$command -s -o /dev/null -w '%{http_code} %{time_total}'")
+    execution_time=$(awk -v t="$time_total" 'BEGIN{printf("%d", t*1000)}')
 
-        # Extract HTTP status code (last line of response)
-        status_code=$(echo "$response" | awk 'END {print}')
+    total_response_time=$((total_response_time + execution_time)); ((count++))
+    [ "$ENABLE_REPORT" -eq 1 ] && echo "$url,$status_code,$execution_time" >> "$output_file"
 
-        # Extract response body (all lines except the last one)
-        body=$(echo "$response" | sed '$d')
-
-        # Increment the counter
-        ((count++))
-
-        # Log results in CSV file
-        if [ "$ENABLE_LOG" -eq 1 ]; then
-        echo "$url,$status_code,$execution_time" >> "$output_file"
-        fi
-
-        # Check response status
-        if [[ "$status_code" -eq 200 ]]; then
-            echo -e "✅ Success (${execution_time}ms)\n"
-             # echo "📄 (${body})"
-            ((count_success++))
-        else
-            echo -e "❌ $body\n"
-            ((count_fail++))
-        fi
+    if [[ "$status_code" -eq 200 ]]; then
+        echo "✅ Success (${execution_time}ms)"
+        ((count_success++))
     else
-        # If it's not a curl command, skip it
-        continue
+        echo "❌ Fail (HTTP $status_code)"
+        ((count_fail++))
     fi
+    echo
 done < "$input_file"
 
-# Calculate average response time (avoid division by zero)
-if [[ $count -gt 0 ]]; then
-    avg_response_time=$((total_response_time / count))
-else
-    avg_response_time=0
-fi
-
-# Final summary message
+avg_response_time=$(( count>0 ? total_response_time/count : 0 ))
 echo "--------------------------------------"
 echo "📊 API Execution Summary"
 echo "🚀 Total: $count"
@@ -111,4 +55,5 @@ echo "✅ Success: $count_success"
 echo "❌ Fail: $count_fail"
 echo "⏳ Avg Response Time: ${avg_response_time}ms"
 echo "📄 Results saved in: $output_file"
+echo "📄 Full curl commands saved in: $output_curl"   # <<< new
 echo "--------------------------------------"

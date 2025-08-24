@@ -565,6 +565,12 @@ async def function_api_admin_postgres_query_runner(request:Request):
    if False:request.app.state.client_posthog.capture(distinct_id=request.state.user["id"],event="postgres_query_runner",properties={"query":query})
    return {"status":1,"message":output}
 
+@app.post("/admin/postgres-export")
+async def function_api_root_postgres_export(request:Request):
+   object,[query]=await function_param_read("body",request,["query"],[])
+   stream=function_postgres_query_read_stream(request.app.state.client_postgres_asyncpg_pool,query)
+   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition": "attachment; filename=export_postgres.csv"})
+
 #server start
 import asyncio
 if __name__=="__main__":
