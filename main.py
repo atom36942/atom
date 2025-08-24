@@ -37,6 +37,7 @@ config_mode_check_is_active=config.get("config_mode_check_is_active","token")
 config_token_expire_sec=int(config.get("config_token_expire_sec",365*24*60*60))
 config_is_signup=int(config.get("config_is_signup",1))
 config_is_log_api=int(config.get("config_is_log_api",1))
+config_is_traceback=int(config.get("config_is_traceback",0))
 config_is_prometheus=int(config.get("config_is_prometheus",0))
 config_is_otp_verify_profile_update=int(config.get("config_is_otp_verify_profile_update",1))
 config_batch_log_api=int(config.get("config_batch_log_api",10))
@@ -101,6 +102,7 @@ async def lifespan(app:FastAPI):
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
       if client_posthog:client_posthog.flush()
       if client_posthog:client_posthog.shutdown()
+      function_delete_files(".",[],["export_"])
    except Exception as e:
       print(str(e))
       print(traceback.format_exc())
@@ -111,7 +113,6 @@ function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cor
 function_add_router(app,"router")
 if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
 if config_is_prometheus:function_add_prometheus(app)
-function_delete_files_extension(".",[".csv",".png",".jpg"])
 function_check_required_env(config,["config_postgres_url","config_redis_url","config_key_root","config_key_jwt"])
 
 #middleware
@@ -145,10 +146,11 @@ async def middleware(request,api_function):
             type=4
    except Exception as e:
       error=str(e)
-      print(traceback.format_exc())
+      if config_is_traceback:print(traceback.format_exc())
       response=function_return_error(error)
       if request.app.state.config_sentry_dsn:sentry_sdk.capture_exception(e)
       type=5
+      print(error)
    if request.app.state.config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
       asyncio.create_task(function_log_create_postgres("append",function_object_create_postgres,request.app.state.client_postgres,request.app.state.config_batch_log_api,object))
