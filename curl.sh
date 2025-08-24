@@ -9,14 +9,14 @@ baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
 token="${token:-}"
 username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-output_file="export_curl_report.csv"
-output_curl="export_curl_full.txt"
+output_curl="export_curl.txt"
 output_fail="export_curl_fail.log"
+output_report="export_curl_report.csv"
 ENABLE_REPORT=0
 query="select * from users limit 10;"
 
 # Initialize files
-[ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_file"
+[ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_report"
 : > "$output_curl"
 : > "$output_fail"
 
@@ -49,7 +49,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
     total_response_time=$((total_response_time + execution_time))
     ((count++))
-    [ "$ENABLE_REPORT" -eq 1 ] && echo "$url,$status_code,$execution_time" >> "$output_file"
+    [ "$ENABLE_REPORT" -eq 1 ] && echo "$url,$status_code,$execution_time" >> "$output_report"
 
     # Read response body
     body=$(<"$response_file")
@@ -80,7 +80,7 @@ echo "🚀 Total: $count"
 echo "✅ Success: $count_success"
 echo "❌ Fail: $count_fail"
 echo "⏳ Avg Response Time: ${avg_response_time}ms"
-[ "$ENABLE_REPORT" -eq 1 ] && echo "📄 Results saved in: $output_file"
+[ "$ENABLE_REPORT" -eq 1 ] && echo "📄 Results saved in: $output_report"
 echo "📄 Full curl commands saved in: $output_curl"
 if [[ $count_fail -gt 0 ]]; then
     echo "📄 Failed responses saved in: $output_fail"

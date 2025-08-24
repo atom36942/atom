@@ -1,3 +1,21 @@
+import asyncpg, csv, re
+async def function_export_postgres_query(postgres_url, query, batch_size=1000, output_path="export_postgres_query.csv"):
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise ValueError("Only read-only queries allowed")
+    conn = await asyncpg.connect(dsn=postgres_url)
+    try:
+        async with conn.transaction():
+            writer = None
+            f = None
+            async for record in conn.cursor(query, prefetch=batch_size):
+                if writer is None:
+                    f = open(output_path, "w", newline="")
+                    writer = csv.writer(f)
+                    writer.writerow(record.keys())
+                writer.writerow(record.values())
+            if f: f.close()
+    finally: await conn.close()
+    return f"saved to {output_path}"
+
 import sys
 def function_check_required_env(config, required_keys):
     missing = [key for key in required_keys if not config.get(key)]
@@ -12,8 +30,9 @@ def function_delete_files(folder_path=".", extension_list=None, file_prefix_list
         extension_list = []
     if file_prefix_list is None:
         file_prefix_list = []
+    skip_dirs = ('venv', 'env', '__pycache__', 'node_modules')
     for root, dirs, files in os.walk(folder_path):
-        dirs[:] = [d for d in dirs if not (d.startswith('.') or d.lower() == 'venv')]
+        dirs[:] = [d for d in dirs if not (d.startswith('.') or d.lower() in skip_dirs)]
         for filename in files:
             if any(filename.endswith(ext) for ext in extension_list) or any(filename.startswith(prefix) for prefix in file_prefix_list):
                 file_path = os.path.join(root, filename)
@@ -1253,25 +1272,33 @@ async def function_postgres_query_runner(client_postgres,query,user_id=1):
    output=await client_postgres.fetch_all(query=query,values={})
    return output
 
-import csv,re
+import csv, re
 from io import StringIO
-async def function_postgres_query_read_stream(client_postgres_asyncpg_pool,query):
-   if not re.match(r"^\s*SELECT\s", query,flags=re.IGNORECASE):raise Exception(status_code=400, detail="Only SELECT queries are allowed.")
-   async with client_postgres_asyncpg_pool.acquire() as client_postgres_asyncpg:
-      async with client_postgres_asyncpg.transaction():
-         stmt = await client_postgres_asyncpg.prepare(query)
-         column_names = [attr.name for attr in stmt.get_attributes()]
-         stream = StringIO()
-         writer = csv.writer(stream)
-         writer.writerow(column_names)
-         yield stream.getvalue()
-         stream.seek(0)
-         stream.truncate(0)
-         async for row in client_postgres_asyncpg.cursor(query):
-               writer.writerow(row)
-               yield stream.getvalue()
-               stream.seek(0)
-               stream.truncate(0)
+async def function_postgres_query_read_stream(client_postgres_asyncpg_pool, query, batch_size=1000, output_path=None):
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise ValueError("Only read-only queries allowed")
+    async with client_postgres_asyncpg_pool.acquire() as client_postgres_asyncpg:
+        async with client_postgres_asyncpg.transaction():
+            f = open(output_path, "w", newline="") if output_path else None
+            writer_file = csv.writer(f) if f else None
+            stream = StringIO()
+            writer_stream = csv.writer(stream)
+            header_written = False
+            async for row in client_postgres_asyncpg.cursor(query, prefetch=batch_size):
+                if not header_written:
+                    writer_stream.writerow(row.keys())
+                    if writer_file:
+                        writer_file.writerow(row.keys())
+                    yield stream.getvalue()
+                    stream.seek(0)
+                    stream.truncate(0)
+                    header_written = True
+                writer_stream.writerow(row.values())
+                if writer_file:
+                    writer_file.writerow(row.values())
+                yield stream.getvalue()
+                stream.seek(0)
+                stream.truncate(0)
+            if f: f.close()
 
 async def function_postgres_schema_read(client_postgres):
    query='''

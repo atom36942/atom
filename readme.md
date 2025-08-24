@@ -9,6 +9,11 @@
 - Tech Stack:Python,FastAPI,PostgreSQL,Redis,S3,Celery,RabbitMQ,Kafka,Sentry
 
 
+
+
+
+
+
 ## Installation
 ```bash
 #download repo
@@ -22,37 +27,17 @@ python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 
 #setup env must
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
+config_postgres_url=postgresql://atom@127.0.0.1/postgres?sslmode=disable
 config_redis_url=redis://localhost:6379
-config_key_root=2n91nIEaJpsqjFUz
-config_key_jwt=2n91nIEaJpsqjFUz
+config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt21LDzYwAyJ6hIrvpRrv4clHM8asr6gATOgPB
+config_key_jwt=UZit5LLGZmqqvScH8E8PAZSsYKSt21LDzYwAyJ6hIrvpRrv4clHM8asr6gATOgPB
 
 #setup env optional
+config_mongodb_url=mongodb://localhost:27017
+config_celery_broker_url=redis://localhost:6379
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_redis_pubsub_url=redis://localhost:6379
 config_sentry_dsn=value
-
-#setup env default
-config_postgres_min_connection=5
-config_postgres_max_connection=20
-config_redis_url_ratelimiter=value
-config_token_expire_sec=10000
-config_token_user_key_list=id,mobile
-config_is_signup=1
-config_is_otp_verify_profile_update=1
-config_is_log_api=1
-config_is_prometheus==0
-config_batch_log_api=10
-config_batch_object_create=10
-config_cors_origin_list=x,y,z                   
-config_cors_method_list=x,y,z
-config_cors_headers_list=x,y,z
-config_cors_allow_credentials=False
-config_public_table_create_list=post,comment
-config_public_table_read_list=users,post
-config_column_update_disabled_list=is_active,is_verified
-config_mode_check_api_access=token/cache
-config_mode_check_is_active=token/cache
-config_limit_cache_users_api_access=0
-config_limit_cache_users_is_active=0 
 
 #server start direct
 ./venv/bin/uvicorn main:app --reload
@@ -61,6 +46,15 @@ config_limit_cache_users_is_active=0
 docker build -t atom .
 docker run -p 8000:8000 atom
 ```
+
+
+
+
+
+
+
+
+
 
 ## Commands
 ```bash
@@ -96,6 +90,14 @@ cd consumer && ./venv/bin/python redis.py
 
 #p95
 SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)::numeric, 2) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
+
+#asyncio
+from function import function_export_postgres_query
+import asyncio
+postgres_url = "postgresql://atom@127.0.0.1/postgres?sslmode=disable"
+query = "SELECT * FROM users"
+x=function_export_postgres_query(postgres_url,query)
+asyncio.run(x)
 ```
 
 
