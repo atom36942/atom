@@ -1,3 +1,10 @@
+async def function_read_user_count(client_postgres,user_id,config_users_profile_key):
+    output = {}
+    for key, query in config_users_profile_key.items():
+        row = await client_postgres.fetch_one(query=query, values={"user_id": user_id})
+        output[key] = row[0] if row else 0
+    return output
+ 
 import datetime
 async def function_postgres_clean(client_postgres,config_postgres_clean):
     for table_name, days in config_postgres_clean.items():

@@ -60,10 +60,9 @@ config_postgres_clean={
 }
 
 config_users_profile_key={
-"log_api_count":"select count(*) from log_api where ",
-"test_count":365
+"log_api_count":"select count(*) from log_api where created_by_id=:user_id",
+"test_count":"select count(*) from test where created_by_id=:user_id"
 }
-
 
 #lifespan
 from fastapi import FastAPI
@@ -297,8 +296,9 @@ async def function_api_auth_login_google(request:Request):
 @app.get("/my/profile")
 async def function_api_my_profile(request:Request):
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
+   output=await function_read_user_count(request.app.state.client_postgres,request.state.user["id"],config_users_profile_key)
    asyncio.create_task(function_update_last_active_at(request.app.state.client_postgres,request.state.user["id"]))
-   return {"status":1,"message":user}
+   return {"status":1,"message":user|output}
 
 @app.get("/my/token-refresh")
 async def function_api_my_token_refresh(request:Request):
