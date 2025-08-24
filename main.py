@@ -59,7 +59,7 @@ config_postgres_clean={
 "otp":365,
 }
 
-config_users_profile_key={
+config_user_count_key={
 "log_api_count":"select count(*) from log_api where created_by_id=:user_id",
 "test_count":"select count(*) from test where created_by_id=:user_id"
 }
@@ -132,7 +132,7 @@ import time,traceback,asyncio
 async def middleware(request,api_function):
    try:
       start=time.time()
-      type=None
+      response_type=None
       response=None
       error=None
       api=request.url.path
@@ -143,25 +143,25 @@ async def middleware(request,api_function):
       if request.app.state.config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis_ratelimiter,request.app.state.config_api)
       if request.query_params.get("is_background")=="1":
          response=await function_api_response_background(request,api_function)
-         type=1
+         response_type=1
       elif request.app.state.config_api.get(api,{}).get("cache_sec"):
          response=await function_cache_api_response("get",request,None,request.app.state.client_redis,request.app.state.config_api)
-         type=2
+         response_type=2
       if not response:
          response=await api_function(request)
-         type=3
+         response_type=3
          if request.app.state.config_api.get(api,{}).get("cache_sec"):
             response=await function_cache_api_response("set",request,response,request.app.state.client_redis,request.app.state.config_api)
-            type=4
+            response_type=4
    except Exception as e:
       error=str(e)
       if config_is_traceback:print(traceback.format_exc())
       response=function_return_error(error)
       if request.app.state.config_sentry_dsn:sentry_sdk.capture_exception(e)
-      type=5
+      response_type=5
       print(error)
    if request.app.state.config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
-      object={"type":type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
+      object={"response_type":response_type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":request.app.state.config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
       asyncio.create_task(function_log_create_postgres("append",function_object_create_postgres,request.app.state.client_postgres,request.app.state.config_batch_log_api,object))
    return response
 
@@ -296,9 +296,16 @@ async def function_api_auth_login_google(request:Request):
 @app.get("/my/profile")
 async def function_api_my_profile(request:Request):
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   output=await function_read_user_count(request.app.state.client_postgres,request.state.user["id"],config_users_profile_key)
+   output=await function_read_user_count(request.app.state.client_postgres,request.state.user["id"],config_user_count_key)
    asyncio.create_task(function_update_last_active_at(request.app.state.client_postgres,request.state.user["id"]))
    return {"status":1,"message":user|output}
+
+@app.get("/my/api-usage")
+async def function_api_my_api_usage(request:Request):
+   object,[days]=await function_param_read("query",request,[],["days"])
+   if not days:days=7
+   object_list=await function_log_api_usage(request.app.state.client_postgres,days,request.state.user["id"])
+   return {"status":1,"message":object_list}
 
 @app.get("/my/token-refresh")
 async def function_api_my_token_refresh(request:Request):

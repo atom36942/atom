@@ -1,6 +1,13 @@
-async def function_read_user_count(client_postgres,user_id,config_users_profile_key):
+async def function_log_api_usage(client_postgres,days,user_id=None):
+   query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=:user_id or :user_id is null) group by api limit 1000;"
+   values={"user_id":user_id}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   output={object["api"]:object["count"] for object in object_list}
+   return output
+
+async def function_read_user_count(client_postgres,user_id,config_user_count_key):
     output = {}
-    for key, query in config_users_profile_key.items():
+    for key, query in config_user_count_key.items():
         row = await client_postgres.fetch_one(query=query, values={"user_id": user_id})
         output[key] = row[0] if row else 0
     return output
@@ -959,7 +966,7 @@ async def function_delete_user_single(client_postgres,mode,user_id):
    await client_postgres.execute(query=query,values=values)
    return None
 
-async def function_update_ids(client_postgres,table,ids,column,value,updated_by_id,created_by_id):
+async def function_update_ids(client_postgres,table,ids,column,value,updated_by_id,created_by_id=None):
    query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
    values={"value":value,"created_by_id":created_by_id,"updated_by_id":updated_by_id}
    await client_postgres.execute(query=query,values=values)
@@ -1400,12 +1407,10 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
                for index_type in index_type_list:
                   index_name=f"index_{table}_{column_name}_{index_type}"
                   if index_name not in index_name_list:
-                     if index_type=="gin" and column_datatype=="text":
-                        query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name} gin_trgm_ops);"
-                        await client_postgres.execute(query=query,values={})
-                     else:
-                        query=f"create index concurrently if not exists {index_name} on {table} using {index_type} ({column_name});"
-                        await client_postgres.execute(query=query,values={})
+                     if index_type == "gin" and column_datatype == "text":col_def = f"{column_name} gin_trgm_ops"
+                     else:col_def = column_name
+                     query = f"create index concurrently if not exists {index_name} " f"on {table} using {index_type} ({col_def});"
+                     await client_postgres.execute(query=query, values={})
       return None
    async def function_init_query_default(client_postgres,function_postgres_schema_read):
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
@@ -1428,7 +1433,7 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
       if postgres_schema.get("users") and postgres_schema.get("log_password"):
          for query in [query_log_password_change_1,query_log_password_change_2]:await client_postgres.execute(query=query,values={})
       return None
-   async def function_init_query_client(client_postgres,config_postgres_schema):
+   async def function_init_query_custom(client_postgres,config_postgres_schema):
       constraint_name_list={object["constraint_name"].lower() for object in (await client_postgres.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
       for query in config_postgres_schema["query"].values():
          if query.split()[0]=="0":continue
@@ -1441,7 +1446,7 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
    await function_init_nullable(client_postgres,config_postgres_schema,function_postgres_schema_read)
    await function_init_index(client_postgres,config_postgres_schema)
    await function_init_query_default(client_postgres,function_postgres_schema_read)
-   await function_init_query_client(client_postgres,config_postgres_schema)
+   await function_init_query_custom(client_postgres,config_postgres_schema)
    return None
 
 from databases import Database

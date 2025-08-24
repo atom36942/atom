@@ -25,6 +25,7 @@ curl -X POST "$baseurl/auth/login-password" -H "Content-Type: application/json" 
 
 #my
 curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
+curl -X GET "$baseurl/my/api-usage" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=soft" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"my","location":"POINT(17.794387 -83.03215)"}'
