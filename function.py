@@ -358,20 +358,20 @@ def function_return_error(message):
 async def function_param_read(mode,request,must,optional):
    param=[]
    if mode=="query":
-      object=dict(request.query_params)
+      obj=dict(request.query_params)
    if mode=="form":
       form_data=await request.form()
-      object={key:value for key,value in form_data.items() if isinstance(value,str)}
-      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in object and file.filename]
-      object["file_list"]=file_list
+      obj={key:value for key,value in form_data.items() if isinstance(value,str)}
+      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in obj and file.filename]
+      obj["file_list"]=file_list
    if mode=="body":
-      object=await request.json()
+      obj=await request.json()
    for item in must:
-      if item not in object:raise Exception(f"{item} missing from {mode} param")
-      param.append(object[item])
+      if item not in obj:raise Exception(f"{item} missing from {mode} param")
+      param.append(obj[item])
    for item in optional:
-      param.append(object.get(item))
-   return object,param
+      param.append(obj.get(item))
+   return obj,param
 
 from fastapi.middleware.cors import CORSMiddleware
 def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
@@ -432,8 +432,8 @@ def function_add_router(app,pattern):
    return None
 
 import jwt,json,time
-async def function_token_encode(config_key_jwt,config_token_expire_sec,key_list,object):
-   data=dict(object)
+async def function_token_encode(config_key_jwt,config_token_expire_sec,key_list,obj):
+   data=dict(obj)
    payload={k:data.get(k) for k in key_list}
    payload=json.dumps(payload,default=str)
    token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":payload},config_key_jwt)
@@ -460,11 +460,11 @@ async def function_token_check(request,config_key_root,config_key_jwt,config_api
 
 import json
 buffer_log_api=[]
-async def function_log_create_postgres(mode,function_object_create_postgres,client_postgres,config_batch_log_api,object):
+async def function_log_create_postgres(mode,function_object_create_postgres,client_postgres,config_batch_log_api,obj):
    try:
       global buffer_log_api
       if mode=="append":
-         buffer_log_api.append(object)
+         buffer_log_api.append(obj)
       if (mode=="flush" and buffer_log_api) or (mode=="append" and len(buffer_log_api)>=config_batch_log_api):
          await function_object_create_postgres(client_postgres,"log_api",buffer_log_api,0,None,None)
          buffer_log_api=[]
@@ -764,14 +764,14 @@ async def function_column_mapping_read(client_postgres_asyncpg,table,column_1,co
          count += len(batch)
    return output
 
-async def function_create_where_string(object,function_object_serialize,postgres_column_datatype):
-   object={k:v for k,v in object.items() if (k in postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
-   where_operator={k:v.split(',',1)[0] for k,v in object.items()}
-   where_value={k:v.split(',',1)[1] for k,v in object.items()}
+async def function_create_where_string(obj,function_object_serialize,postgres_column_datatype):
+   obj={k:v for k,v in obj.items() if (k in postgres_column_datatype and k not in ["metadata","location","table","order","limit","page"] and v is not None)}
+   where_operator={k:v.split(',',1)[0] for k,v in obj.items()}
+   where_value={k:v.split(',',1)[1] for k,v in obj.items()}
    object_list = await function_object_serialize([where_value], postgres_column_datatype)
    where_value=object_list[0]
    where_string_list=[]
-   for key in object:
+   for key in obj:
       op=where_operator[key]
       val=where_value[key]
       if val == 'null' and op.lower() in ['is','is not']:
@@ -784,37 +784,37 @@ async def function_create_where_string(object,function_object_serialize,postgres
    return where_string,where_value
 
 async def function_add_creator_data(client_postgres,user_key,object_list):
-    object_list=[dict(object) for object in object_list]
-    created_by_ids={str(object["created_by_id"]) for object in object_list if object.get("created_by_id")}
+    object_list=[dict(obj) for obj in object_list]
+    created_by_ids={str(obj["created_by_id"]) for obj in object_list if obj.get("created_by_id")}
     users={}
     if created_by_ids:
         query = f"SELECT * FROM users WHERE id IN ({','.join(created_by_ids)});"
         users = {str(user["id"]): dict(user) for user in await client_postgres.fetch_all(query=query,values={})}
-    for object in object_list:
-        created_by_id = str(object.get("created_by_id"))
+    for obj in object_list:
+        created_by_id = str(obj.get("created_by_id"))
         if created_by_id in users:
             for key in user_key.split(","):
-                object[f"creator_{key}"] = users[created_by_id].get(key)
+                obj[f"creator_{key}"] = users[created_by_id].get(key)
         else:
             for key in user_key.split(","):
-                object[f"creator_{key}"] = None
+                obj[f"creator_{key}"] = None
     return object_list
  
 async def function_ownership_check(client_postgres,table,id,user_id):
    if table=="users":
-      if id!=user_id:raise Exception("object ownership issue")
+      if id!=user_id:raise Exception("obj ownership issue")
    if table!="users":
       query=f"select created_by_id from {table} where id=:id;"
       values={"id":id}
       output=await client_postgres.fetch_all(query=query,values=values)
-      if not output:raise Exception("no object")
-      if output[0]["created_by_id"]!=user_id:raise Exception("object ownership issue")
+      if not output:raise Exception("no obj")
+      if output[0]["created_by_id"]!=user_id:raise Exception("obj ownership issue")
    return None
 
 import hashlib,datetime,json
 async def function_object_serialize(object_list,postgres_column_datatype):
-   for index,object in enumerate(object_list):
-      for key,value in object.items():
+   for index,obj in enumerate(object_list):
+      for key,value in obj.items():
          datatype=postgres_column_datatype.get(key)
          if not datatype:continue
          if value in [None,"null"]:continue
@@ -963,7 +963,7 @@ async def function_log_api_usage(client_postgres,days,created_by_id=None):
    query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=:user_id or :user_id is null) group by api limit 1000;"
    values={"user_id":created_by_id}
    object_list=await client_postgres.fetch_all(query=query,values=values)
-   output={object["api"]:object["count"] for object in object_list}
+   output={obj["api"]:obj["count"] for obj in object_list}
    return output
 
 async def function_update_ids(client_postgres,table,ids,column,value,updated_by_id,created_by_id=None):
@@ -1158,15 +1158,15 @@ async def function_object_create_postgres(client_postgres,table,object_list,is_s
 
 buffer_object_create={}
 table_object_key={}
-async def function_object_create_postgres_batch(mode,function_object_create_postgres,client_postgres,table,object,config_batch_object_create,is_serialize,function_object_serialize,postgres_column_datatype):
+async def function_object_create_postgres_batch(mode,function_object_create_postgres,client_postgres,table,obj,config_batch_object_create,is_serialize,function_object_serialize,postgres_column_datatype):
    global buffer_object_create, table_object_key
    if mode=="append":
       if table not in buffer_object_create:
          buffer_object_create[table]=[]
       if table not in table_object_key or table_object_key[table]==[]:
-         table_object_key[table]=list(object.keys())
-      if list(object.keys())!=table_object_key[table]:raise Exception(f"keys should be {table_object_key[table]}")
-      buffer_object_create[table].append(object)
+         table_object_key[table]=list(obj.keys())
+      if list(obj.keys())!=table_object_key[table]:raise Exception(f"keys should be {table_object_key[table]}")
+      buffer_object_create[table].append(obj)
       if len(buffer_object_create[table])>=config_batch_object_create:
          await function_object_create_postgres(client_postgres,table,buffer_object_create[table],is_serialize,function_object_serialize,postgres_column_datatype)
          buffer_object_create[table]=[]
@@ -1188,16 +1188,16 @@ async def function_object_create_postgres_asyncpg(client_postgres_asyncpg,table,
 
 async def function_object_create_redis(client_redis,key_list,object_list,expiry_sec):
    async with client_redis.pipeline(transaction=True) as pipe:
-      for index,object in enumerate(object_list):
+      for index,obj in enumerate(object_list):
          key=key_list[index]
-         if not expiry_sec:pipe.set(key,json.dumps(object))
-         else:pipe.setex(key,expiry_sec,json.dumps(object))
+         if not expiry_sec:pipe.set(key,json.dumps(obj))
+         else:pipe.setex(key,expiry_sec,json.dumps(obj))
       await pipe.execute()
    return None
 
 async def function_object_create_gsheet(client_gsheet,spreadsheet_id,sheet_name,object_list):
-   for object in object_list:
-      row=[object[key] for key in sorted(object.keys())]
+   for obj in object_list:
+      row=[obj[key] for key in sorted(obj.keys())]
       output=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name).append_row(row)
    return output
 
@@ -1206,14 +1206,14 @@ async def function_object_create_mongodb(client_mongodb,database,table,object_li
    output=await mongodb_client_database[table].insert_many(object_list)
    return str(output)
 
-async def function_object_read_postgres(client_postgres,table,object,function_create_where_string,function_object_serialize,postgres_column_datatype):
-   order,limit,page=object.get("order","id desc"),int(object.get("limit",100)),int(object.get("page",1))
-   column=object.get("column","*")
-   location_filter=object.get("location_filter")
+async def function_object_read_postgres(client_postgres,table,obj,function_create_where_string,function_object_serialize,postgres_column_datatype):
+   order,limit,page=obj.get("order","id desc"),int(obj.get("limit",100)),int(obj.get("page",1))
+   column=obj.get("column","*")
+   location_filter=obj.get("location_filter")
    if location_filter:
       location_filter_split=location_filter.split(",")
       long,lat,min_meter,max_meter=float(location_filter_split[0]),float(location_filter_split[1]),int(location_filter_split[2]),int(location_filter_split[3])
-   where_string,where_value=await function_create_where_string(object,function_object_serialize,postgres_column_datatype)
+   where_string,where_value=await function_create_where_string(obj,function_object_serialize,postgres_column_datatype)
    if location_filter:query=f'''with x as (select * from {table} {where_string}),y as (select *,st_distance(location,st_point({long},{lat})::geography) as distance_meter from x) select * from y where distance_meter between {min_meter} and {max_meter} order by {order} limit {limit} offset {(page-1)*limit};'''
    else:query=f"select {column} from {table} {where_string} order by {order} limit {limit} offset {(page-1)*limit};"
    object_list=await client_postgres.fetch_all(query=query,values=where_value)
@@ -1269,8 +1269,8 @@ async def function_object_delete_postgres(client_postgres,table,object_list,is_s
       async with client_postgres.transaction():output=await client_postgres.execute_many(query=query,values=object_list)
    return output
 
-async def function_object_delete_postgres_any(client_postgres,table,object,function_create_where_string,function_object_serialize,postgres_column_datatype):
-   where_string,where_value=await function_create_where_string(object,function_object_serialize,postgres_column_datatype)
+async def function_object_delete_postgres_any(client_postgres,table,obj,function_create_where_string,function_object_serialize,postgres_column_datatype):
+   where_string,where_value=await function_create_where_string(obj,function_object_serialize,postgres_column_datatype)
    query=f"delete from {table} {where_string};"
    await client_postgres.execute(query=query,values=where_value)
    return None
@@ -1349,9 +1349,9 @@ async def function_postgres_schema_read(client_postgres):
    output=await client_postgres.fetch_all(query=query,values={})
    postgres_schema={}
    postgres_column_datatype={}
-   for object in output:
-      table,column=object["table"],object["column"]
-      column_data={"datatype":object["datatype"],"default":object["default"],"is_null":object["is_null"],"is_index":object["is_index"]}
+   for obj in output:
+      table,column=obj["table"],obj["column"]
+      column_data={"datatype":obj["datatype"],"default":obj["default"],"is_null":obj["is_null"],"is_index":obj["is_index"]}
       if table not in postgres_schema:postgres_schema[table]={}
       postgres_schema[table][column]=column_data
    postgres_column_datatype={k:v["datatype"] for table,column in postgres_schema.items() for k,v in column.items()}
@@ -1395,7 +1395,7 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
                await client_postgres.execute(query=query,values={})
       return None
    async def function_init_index(client_postgres,config_postgres_schema):
-      index_name_list=[object["indexname"] for object in (await client_postgres.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
+      index_name_list=[obj["indexname"] for obj in (await client_postgres.fetch_all(query="SELECT indexname FROM pg_indexes WHERE schemaname='public';",values={}))]
       for table,column_list in config_postgres_schema["table"].items():
          for column in column_list:
             column_name,column_datatype,column_is_mandatory,column_index_type=column.split("-")
@@ -1434,7 +1434,7 @@ async def function_postgres_schema_init(client_postgres,config_postgres_schema,f
          for query in [query_log_password_change_1,query_log_password_change_2]:await client_postgres.execute(query=query,values={})
       return None
    async def function_init_query_custom(client_postgres,config_postgres_schema):
-      constraint_name_list={object["constraint_name"].lower() for object in (await client_postgres.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
+      constraint_name_list={obj["constraint_name"].lower() for obj in (await client_postgres.fetch_all(query="select constraint_name from information_schema.constraint_column_usage;",values={}))}
       for query in config_postgres_schema["query"].values():
          if query.split()[0]=="0":continue
          if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:continue
