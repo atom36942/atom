@@ -12,7 +12,7 @@ config_api={
 config_postgres_schema={
 "table":{
 "test":[
-"created_at-timestamptz-0-brin",
+"created_at-timestamptz-0-btree,brin",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-0-0",
 "updated_by_id-bigint-0-0",
@@ -32,7 +32,7 @@ config_postgres_schema={
 "metadata-jsonb-0-gin"
 ],
 "log_api":[
-"created_at-timestamptz-0-brin",
+"created_at-timestamptz-0-btree,brin",
 "created_by_id-bigint-0-btree",
 "response_type-smallint-0-btree",
 "ip_address-text-0-0",
@@ -45,7 +45,7 @@ config_postgres_schema={
 "description-text-0-0"
 ],
 "users":[
-"created_at-timestamptz-0-brin",
+"created_at-timestamptz-0-btree,brin",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-0-0",
 "updated_by_id-bigint-0-0",
@@ -66,7 +66,7 @@ config_postgres_schema={
 "password_bigint-bigint-0-btree"
 ],
 "otp":[
-"created_at-timestamptz-0-brin",
+"created_at-timestamptz-0-btree,brin",
 "otp-integer-1-0",
 "email-text-0-btree",
 "mobile-text-0-btree"
@@ -77,7 +77,7 @@ config_postgres_schema={
 "password-text-0-0"
 ],
 "message":[
-"created_at-timestamptz-0-brin",
+"created_at-timestamptz-0-btree,brin",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
 "updated_by_id-bigint-0-0",
