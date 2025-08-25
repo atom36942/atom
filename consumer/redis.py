@@ -4,10 +4,12 @@ from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
-#config
+#env read
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
+#config
 config_redis_pubsub_url=os.getenv("config_redis_pubsub_url")
 config_postgres_url=os.getenv("config_postgres_url")
 config_channel_name="channel_1"
