@@ -1,10 +1,3 @@
-async def function_log_api_usage(client_postgres,days,user_id=None):
-   query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=:user_id or :user_id is null) group by api limit 1000;"
-   values={"user_id":user_id}
-   object_list=await client_postgres.fetch_all(query=query,values=values)
-   output={object["api"]:object["count"] for object in object_list}
-   return output
-
 async def function_read_user_count(client_postgres,user_id,config_user_count_key):
     output = {}
     for key, query in config_user_count_key.items():
@@ -966,25 +959,32 @@ async def function_delete_user_single(client_postgres,mode,user_id):
    await client_postgres.execute(query=query,values=values)
    return None
 
+async def function_log_api_usage(client_postgres,days,created_by_id=None):
+   query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=:user_id or :user_id is null) group by api limit 1000;"
+   values={"user_id":created_by_id}
+   object_list=await client_postgres.fetch_all(query=query,values=values)
+   output={object["api"]:object["count"] for object in object_list}
+   return output
+
 async def function_update_ids(client_postgres,table,ids,column,value,updated_by_id,created_by_id=None):
-   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
-   values={"value":value,"created_by_id":created_by_id,"updated_by_id":updated_by_id}
+   query=f"update {table} set {column}=:value,updated_by_id=:updated_by_id where id in ({ids}) and (created_by_id=:user_id or :user_id is null);"
+   values={"value":value,"updated_by_id":updated_by_id,"user_id":created_by_id}
    await client_postgres.execute(query=query,values=values)
    return None
 
-async def function_delete_ids(client_postgres,table,ids,created_by_id):
-   query=f"delete from {table} where id in ({ids}) and (created_by_id=:created_by_id or :created_by_id is null);"
-   values={"created_by_id":created_by_id}
+async def function_delete_ids(client_postgres,table,ids,created_by_id=None):
+   query=f"delete from {table} where id in ({ids}) and (created_by_id=:user_id or :user_id is null);"
+   values={"user_id":created_by_id}
    await client_postgres.execute(query=query,values=values)
    return None
 
-async def function_parent_object_read(client_postgres,table,parent_column,parent_table,order,limit,offset,user_id):
+async def function_parent_object_read(client_postgres,table,parent_column,parent_table,order,limit,offset,created_by_id=None):
    query=f'''
    with
-   x as (select {parent_column} from {table} where (created_by_id=:created_by_id or :created_by_id is null) order by {order} limit {limit} offset {offset}) 
+   x as (select {parent_column} from {table} where (created_by_id=:user_id or :user_id is null) order by {order} limit {limit} offset {offset}) 
    select ct.* from x left join {parent_table}  as ct on x.{parent_column}=ct.id;
    '''
-   values={"created_by_id":user_id}
+   values={"user_id":created_by_id}
    object_list=await client_postgres.fetch_all(query=query,values=values)
    return object_list
 
