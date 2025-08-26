@@ -1,4 +1,4 @@
-async def function_read_user_count(client_postgres,user_id,config_user_count_key):
+async def function_read_user_query_count(client_postgres,user_id,config_user_count_key):
     output = {}
     for key, query in config_user_count_key.items():
         row = await client_postgres.fetch_one(query=query, values={"user_id": user_id})
@@ -355,23 +355,48 @@ from fastapi import responses
 def function_return_error(message):
    return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
 
-async def function_param_read(mode,request,must,optional):
-   param=[]
-   if mode=="query":
-      obj=dict(request.query_params)
-   if mode=="form":
-      form_data=await request.form()
-      obj={key:value for key,value in form_data.items() if isinstance(value,str)}
-      file_list=[file for key,value in form_data.items() for file in form_data.getlist(key)  if key not in obj and file.filename]
-      obj["file_list"]=file_list
-   if mode=="body":
-      obj=await request.json()
-   for item in must:
-      if item not in obj:raise Exception(f"{item} missing from {mode} param")
-      param.append(obj[item])
-   for item in optional:
-      param.append(obj.get(item))
-   return obj,param
+async def function_param_read(request, mode, config):
+    if mode == "query":
+        param = dict(request.query_params)
+    elif mode == "form":
+        form_data = await request.form()
+        param = {k: v for k, v in form_data.items() if isinstance(v, str)}
+        param.update({
+            k: [f for f in form_data.getlist(k) if getattr(f, "filename", None)]
+            for k in form_data.keys()
+            if any(getattr(f, "filename", None) for f in form_data.getlist(k))
+        })
+    elif mode == "body":
+        param = await request.json()
+    else:
+        raise Exception(f"Invalid mode: {mode}")
+    def cast(value, dtype):
+        if dtype == "int":
+            return int(value)
+        if dtype == "float":
+            return float(value)
+        if dtype == "bool":
+            return str(value).lower() in ("1", "true", "yes", "on")
+        if dtype == "list":
+            if isinstance(value, str):
+                return [v.strip() for v in value.split(",")]
+            if isinstance(value, list):
+                return value
+            return [value]
+        if dtype == "file":
+            return value if isinstance(value, list) else [value]
+        return value
+    for key, mandatory, dtype, default in config:
+        if mandatory and key not in param:
+            raise Exception(f"{key} missing from {mode} param")
+        value = param.get(key, default)
+        if dtype and value is not None:
+            try:
+                value = cast(value, dtype)
+            except Exception:
+                raise Exception(f"{key} must be of type {dtype}")
+        param[key] = value
+    return param
 
 from fastapi.middleware.cors import CORSMiddleware
 def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
