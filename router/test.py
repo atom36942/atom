@@ -16,8 +16,8 @@ async def websocket_endpoint(websocket:WebSocket):
       while True:
          data=await websocket.receive_text()
          table="test"
-         object={"title":data}
-         await function_object_create_postgres(websocket.app.state.client_postgres,table,[object],0,None,None)
+         obj={"title":data}
+         await function_object_create_postgres(websocket.app.state.client_postgres,table,[obj],0,None,None)
          await websocket.send_text(f"echo: {data}")
    except WebSocketDisconnect:
       print("client disconnected")
