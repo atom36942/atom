@@ -1,14 +1,10 @@
-#function
+#import
 from function import *
 
 #config
-config=function_config_read()
-config_postgres_url=config.get("config_postgres_url")
-config_postgres_url_read=config.get("config_postgres_url_read")
-config_postgres_min_connection=int(config.get("config_postgres_min_connection",5))
-config_postgres_max_connection=int(config.get("config_postgres_max_connection",20))
-config_redis_url=config.get("config_redis_url")
-config_redis_url_ratelimiter=config.get("config_redis_url_ratelimiter",config_redis_url)
+
+
+
 config_mongodb_url=config.get("config_mongodb_url")
 config_celery_broker_url=config.get("config_celery_broker_url")
 config_rabbitmq_url=config.get("config_rabbitmq_url")

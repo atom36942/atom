@@ -10,13 +10,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #config
+#config
 config_kafka_url=os.getenv("config_kafka_url")
 config_kafka_username=os.getenv("config_kafka_username")
 config_kafka_password=os.getenv("config_kafka_password")
 config_postgres_url=os.getenv("config_postgres_url")
-config_channel_name="channel_1"
-config_group_id="group_1"
-config_enable_auto_commit=True
+config_channel_name=os.getenv("config_channel_name") or "channel_1"
+config_group_id=os.getenv("config_group_id") or "group_1"
+config_enable_auto_commit = (os.getenv("config_enable_auto_commit") or "True").lower() == "true"
 
 #import
 import asyncio,json

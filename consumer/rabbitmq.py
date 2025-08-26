@@ -12,7 +12,7 @@ load_dotenv()
 #config
 config_rabbitmq_url=os.getenv("config_rabbitmq_url")
 config_postgres_url=os.getenv("config_postgres_url")
-config_channel_name="channel_1"
+config_channel_name=os.getenv("config_channel_name") or "channel_1"
 
 #import
 import asyncio,json,aio_pika

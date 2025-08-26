@@ -1,3 +1,23 @@
+#env read
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+#postgres
+config_postgres_url=os.getenv("config_postgres_url")
+config_postgres_url_read=os.getenv("config_postgres_url_read")
+config_postgres_min_connection=int(os.getenv("config_postgres_min_connection") or 5)
+config_postgres_max_connection=int(os.getenv("config_postgres_max_connection") or 20)
+
+#redis
+config_redis_url=os.getenv("config_redis_url")
+config_redis_url_ratelimiter=os.getenv("config_redis_url_ratelimiter") or config_redis_url
+
+
+
+
+
+#api
 config_api={
 "/admin/object-create":{"id":1},
 "/admin/object-update":{"id":2},
@@ -9,6 +29,7 @@ config_api={
 "/test":{"id":100,"is_token":0,"is_active_check":1,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
 }
 
+#postgres
 config_postgres_schema={
 "table":{
 "test":[
