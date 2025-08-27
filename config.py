@@ -22,15 +22,15 @@ config_kafka_url=os.getenv("config_kafka_url")
 config_kafka_username=os.getenv("config_kafka_username")
 config_kafka_password=os.getenv("config_kafka_password")
 
-#redis pubsub
-config_redis_pubsub_url=os.getenv("config_redis_pubsub_url") or config_redis_url
-
 #celery
-config_celery_broker_url=os.getenv("config_celery_broker_url") or config_redis_url
-config_celery_backend_url=os.getenv("config_celery_backend_url") or config_redis_url
+config_celery_broker_url=os.getenv("config_celery_broker_url")
+config_celery_backend_url=os.getenv("config_celery_backend_url")
 
 #rabbitmq
 config_rabbitmq_url=os.getenv("config_rabbitmq_url")
+
+#redis pubsub
+config_redis_pubsub_url=os.getenv("config_redis_pubsub_url")
 
 #mongodb
 config_mongodb_url=os.getenv("config_mongodb_url")
@@ -95,7 +95,7 @@ config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_
 config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_active") or 10)
 config_column_update_disabled_list=(os.getenv("config_column_update_disabled_list") or "is_active,is_verified,api_access").split(",")
 
-#misc dict
+#dict
 config_user_count_key={
 "log_api_count":"select count(*) from log_api where created_by_id=:user_id",
 "test_count":"select count(*) from test where created_by_id=:user_id"
@@ -104,8 +104,6 @@ config_postgres_clean={
 "log_api":365,
 "otp":365,
 }
-
-#api
 config_api={
 "/admin/object-create":{"id":1},
 "/admin/object-update":{"id":2},
@@ -116,8 +114,6 @@ config_api={
 "/admin/postgres-export":{"id":7},
 "/test":{"id":100,"is_token":0,"is_active_check":1,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
 }
-
-#postgres
 config_postgres_schema={
 "table":{
 "test":[
@@ -212,5 +208,3 @@ config_postgres_schema={
 "users_unique_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
 }
 }
-
-
