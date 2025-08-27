@@ -1,64 +1,8 @@
-#import
+#function
 from function import *
 
 #config
-
-
-
-config_mongodb_url=config.get("config_mongodb_url")
-config_celery_broker_url=config.get("config_celery_broker_url")
-config_rabbitmq_url=config.get("config_rabbitmq_url")
-config_kafka_url=config.get("config_kafka_url")
-config_kafka_username=config.get("config_kafka_username")
-config_kafka_password=config.get("config_kafka_password")
-config_redis_pubsub_url=config.get("config_redis_pubsub_url")
-config_aws_access_key_id=config.get("config_aws_access_key_id")
-config_aws_secret_access_key=config.get("config_aws_secret_access_key")
-config_s3_region_name=config.get("config_s3_region_name")
-config_sns_region_name=config.get("config_sns_region_name")
-config_ses_region_name=config.get("config_ses_region_name")
-config_fast2sms_url=config.get("config_fast2sms_url")
-config_fast2sms_key=config.get("config_fast2sms_key")
-config_resend_url=config.get("config_resend_url")
-config_resend_key=config.get("config_resend_key")
-config_posthog_project_host=config.get("config_posthog_project_host")
-config_posthog_project_key=config.get("config_posthog_project_key")
-config_key_root=config.get("config_key_root")
-config_key_jwt=config.get("config_key_jwt")
-config_sentry_dsn=config.get("config_sentry_dsn")
-config_google_login_client_id=config.get("config_google_login_client_id")
-config_openai_key=config.get("config_openai_key")
-config_mode_check_api_access=config.get("config_mode_check_api_access","token")
-config_mode_check_is_active=config.get("config_mode_check_is_active","token")
-config_token_expire_sec=int(config.get("config_token_expire_sec",365*24*60*60))
-config_is_signup=int(config.get("config_is_signup",1))
-config_is_log_api=int(config.get("config_is_log_api",1))
-config_is_traceback=int(config.get("config_is_traceback",0))
-config_is_prometheus=int(config.get("config_is_prometheus",0))
-config_is_otp_verify_profile_update=int(config.get("config_is_otp_verify_profile_update",1))
-config_batch_log_api=int(config.get("config_batch_log_api",10))
-config_batch_object_create=int(config.get("config_batch_object_create",3))
-config_limit_cache_users_api_access=int(config.get("config_limit_cache_users_api_access",0))
-config_limit_cache_users_is_active=int(config.get("config_limit_cache_users_is_active",0))
-config_token_user_key_list=config.get("config_token_user_key_list","id,type,is_active,api_access").split(",")
-config_column_update_disabled_list=config.get("config_column_update_disabled_list","is_active,is_verified,api_access").split(",")
-config_public_table_create_list=config.get("config_public_table_create_list","test").split(",")
-config_public_table_read_list=config.get("config_public_table_read_list","test").split(",")
-config_cors_origin_list=config.get("config_cors_origin_list","*").split(",")
-config_cors_method_list=config.get("config_cors_method_list","*").split(",")
-config_cors_headers_list=config.get("config_cors_headers_list","*").split(",")
-config_cors_allow_credentials=config.get("config_cors_allow_credentials",False)
-config_api=config.get("config_api",{})
-config_postgres_schema=config.get("config_postgres_schema",{})
-config_postgres_clean={
-"log_api":365,
-"otp":365,
-}
-
-config_user_count_key={
-"log_api_count":"select count(*) from log_api where created_by_id=:user_id",
-"test_count":"select count(*) from test where created_by_id=:user_id"
-}
+from config import *
 
 #lifespan
 from fastapi import FastAPI
@@ -80,7 +24,7 @@ async def lifespan(app:FastAPI):
       client_ses=await function_client_read_ses(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
       client_openai=function_client_read_openai(config_openai_key) if config_openai_key else None
       client_posthog=await function_client_read_posthog(config_posthog_project_host,config_posthog_project_key)
-      client_celery_producer=await function_client_read_celery_producer(config_celery_broker_url,config_celery_broker_url) if config_celery_broker_url else None
+      client_celery_producer=await function_client_read_celery_producer(config_celery_broker_url,config_celery_backend_url) if config_celery_broker_url else None
       client_kafka_producer=await function_client_read_kafka_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
       client_rabbitmq,client_rabbitmq_producer=await function_client_read_rabbitmq_producer(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
       client_redis_producer=await function_client_read_redis(config_redis_pubsub_url) if config_redis_pubsub_url else None
@@ -118,7 +62,6 @@ function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cor
 function_add_router(app,"router")
 if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
 if config_is_prometheus:function_add_prometheus(app)
-function_check_required_env(config,["config_postgres_url","config_redis_url","config_key_root","config_key_jwt"])
 
 #middleware
 from fastapi import Request,responses

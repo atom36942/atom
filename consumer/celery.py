@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #config
-config_celery_broker_url=os.getenv("config_celery_broker_url")
+config_redis_url=os.getenv("config_redis_url")
+config_celery_broker_url=os.getenv("config_celery_broker_url") or config_redis_url
+config_celery_backend_url=os.getenv("config_celery_backend_url") or config_redis_url
 config_postgres_url=os.getenv("config_postgres_url")
 
 #import
@@ -18,7 +20,7 @@ import asyncio,traceback
 from celery import signals
 
 #client
-client_celery_consumer=function_client_read_celery_consumer(config_celery_broker_url,config_celery_broker_url)
+client_celery_consumer=function_client_read_celery_consumer(config_celery_broker_url,config_celery_backend_url)
 client_postgres=None
 postgres_schema=None
 postgres_column_datatype=None

@@ -3,6 +3,10 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+#key
+config_key_root=os.getenv("config_key_root")
+config_key_jwt=os.getenv("config_key_jwt")
+
 #postgres
 config_postgres_url=os.getenv("config_postgres_url")
 config_postgres_url_read=os.getenv("config_postgres_url_read")
@@ -13,9 +17,93 @@ config_postgres_max_connection=int(os.getenv("config_postgres_max_connection") o
 config_redis_url=os.getenv("config_redis_url")
 config_redis_url_ratelimiter=os.getenv("config_redis_url_ratelimiter") or config_redis_url
 
+#kafka
+config_kafka_url=os.getenv("config_kafka_url")
+config_kafka_username=os.getenv("config_kafka_username")
+config_kafka_password=os.getenv("config_kafka_password")
 
+#redis pubsub
+config_redis_pubsub_url=os.getenv("config_redis_pubsub_url") or config_redis_url
 
+#celery
+config_celery_broker_url=os.getenv("config_celery_broker_url") or config_redis_url
+config_celery_backend_url=os.getenv("config_celery_backend_url") or config_redis_url
 
+#rabbitmq
+config_rabbitmq_url=os.getenv("config_rabbitmq_url")
+
+#mongodb
+config_mongodb_url=os.getenv("config_mongodb_url")
+
+#aws
+config_aws_access_key_id=os.getenv("config_aws_access_key_id")
+config_aws_secret_access_key=os.getenv("config_aws_secret_access_key")
+config_s3_region_name=os.getenv("config_s3_region_name")
+config_sns_region_name=os.getenv("config_sns_region_name")
+config_ses_region_name=os.getenv("config_ses_region_name")
+
+#fast2sms
+config_fast2sms_url=os.getenv("config_fast2sms_url")
+config_fast2sms_key=os.getenv("config_fast2sms_key")
+
+#resend
+config_resend_url=os.getenv("config_resend_url")
+config_resend_key=os.getenv("config_resend_key")
+
+#posthog
+config_posthog_project_host=os.getenv("config_posthog_project_host")
+config_posthog_project_key=os.getenv("config_posthog_project_key")
+
+#sentry
+config_sentry_dsn=os.getenv("config_sentry_dsn")
+
+#gogole login
+config_google_login_client_id=os.getenv("config_google_login_client_id")
+
+#openai
+config_openai_key=os.getenv("config_openai_key")
+
+#switch
+config_is_signup=int(os.getenv("config_is_signup") or 1)
+config_is_log_api=int(os.getenv("config_is_log_api") or 1)
+config_is_traceback=int(os.getenv("config_is_traceback") or 0)
+config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
+config_is_otp_verify_profile_update=int(os.getenv("config_is_otp_verify_profile_update") or 1)
+
+#cors
+config_cors_origin_list=(os.getenv("config_cors_origin_list") or "*").split(",")
+config_cors_method_list=(os.getenv("config_cors_method_list") or "*").split(",")
+config_cors_headers_list=(os.getenv("config_cors_headers_list") or "*").split(",")
+config_cors_allow_credentials=(os.getenv("config_cors_allow_credentials") or "False").lower() == "true"
+
+#token
+config_token_expire_sec=int(os.getenv("config_token_expire_sec") or 365*24*60*60)
+config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_access").split(",")
+
+#batch
+config_batch_log_api=int(os.getenv("config_batch_log_api") or 10)
+config_batch_object_create=int(os.getenv("config_batch_object_create") or 3)
+
+#public
+config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test").split(",")
+config_public_table_read_list=(os.getenv("config_public_table_read_list") or "test").split(",")
+
+#misc
+config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token"
+config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
+config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_access") or 10)
+config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_active") or 10)
+config_column_update_disabled_list=(os.getenv("config_column_update_disabled_list") or "is_active,is_verified,api_access").split(",")
+
+#misc dict
+config_user_count_key={
+"log_api_count":"select count(*) from log_api where created_by_id=:user_id",
+"test_count":"select count(*) from test where created_by_id=:user_id"
+}
+config_postgres_clean={
+"log_api":365,
+"otp":365,
+}
 
 #api
 config_api={
