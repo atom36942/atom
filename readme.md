@@ -51,6 +51,12 @@ docker run -p 8000:8000 atom
 ./venv/bin/pip uninstall fastapi
 ./venv/bin/pip freeze > requirements.txt
 
+#consumer
+cd consumer && ./venv/bin/celery -A celery worker --loglevel=info
+cd consumer && ./venv/bin/python kafka.py
+cd consumer && ./venv/bin/python rabbitmq.py
+cd consumer && ./venv/bin/python redis.py
+
 #test curls
 ./curl.sh
 
@@ -68,12 +74,6 @@ create schema if not exists public;
 #import postgres       
 \copy table from 'path' delimiter ',' csv header;
 \copy table(column) from 'path' delimiter ',' csv header;
-
-#consumer
-cd consumer && ./venv/bin/celery -A celery worker --loglevel=info
-cd consumer && ./venv/bin/python kafka.py
-cd consumer && ./venv/bin/python rabbitmq.py
-cd consumer && ./venv/bin/python redis.py
 
 #p95
 SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)::numeric, 2) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
