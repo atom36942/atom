@@ -91,6 +91,10 @@ brew services list
 brew services start <service_name>
 brew services stop <service_name>
 brew services restart <service_name>
+
+#local urls
+config_mongodb_url=mongodb://localhost:27017
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
 
 

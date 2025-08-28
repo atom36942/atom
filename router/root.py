@@ -47,4 +47,13 @@ async def function_api_root_redis_import_create(request:Request):
    await function_object_create_redis(request.app.state.client_redis,key_list,object_list,param.get("expiry_sec"))
    return {"status":1,"message":"done"}
 
+@router.post("/root/mongodb-import-create")
+async def function_api_root_mongodb_import_create(request:Request):
+   param=await function_param_read(request,"form",[["database",None,1,None],["table",None,1,None],["file","file",1,[]]])
+   object_list=await function_file_to_object_list(param.get("file")[-1])
+   output=await function_object_create_mongodb(request.app.state.client_mongodb,param.get("database"),param.get("table"),object_list)
+   return {"status":1,"message":output}
+
+
+
 

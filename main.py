@@ -124,12 +124,6 @@ async def function_api_index(request:Request):
 
 
 
-@app.post("/root/mongodb-import")
-async def function_api_root_mongodb_import(request:Request):
-   param=await function_param_read(request,"form",[["database",1,None,None],["table",1,None,None],["file",1,"file",[]]])
-   object_list=await function_file_to_object_list(param.get("file")[-1])
-   output=await function_object_create_mongodb(request.app.state.client_mongodb,param.get("database"),param.get("table"),object_list)
-   return {"status":1,"message":output}
 
 @app.post("/root/s3-bucket-ops")
 async def function_api_root_s3_bucket_ops(request:Request):
