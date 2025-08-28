@@ -120,33 +120,6 @@ async def function_api_index(request:Request):
 
 #api
 
-
-
-
-
-
-@app.post("/root/s3-bucket-ops")
-async def function_api_root_s3_bucket_ops(request:Request):
-   param=await function_param_read(request,"body",[["mode",1,None,None],["bucket",1,None,None]])
-   if param.get("mode")=="create":output=await function_s3_bucket_create(request.app.state.config_s3_region_name,request.app.state.client_s3,param.get("bucket"))
-   if param.get("mode")=="public":output=await function_s3_bucket_public(request.app.state.client_s3,param.get("bucket"))
-   if param.get("mode")=="empty":output=await function_s3_bucket_empty(request.app.state.client_s3_resource,param.get("bucket"))
-   if param.get("mode")=="delete":output=await function_s3_bucket_delete(request.app.state.client_s3,param.get("bucket"))
-   return {"status":1,"message":output}
-
-@app.delete("/root/s3-url-delete")
-async def function_api_root_s3_url_empty(request:Request):
-    param=await function_param_read(request,"body",[["url",1,None,None]])
-    for item in param["url"].split("---"):output=await function_s3_url_delete(request.app.state.client_s3_resource,item)
-    return {"status":1,"message":output}
-
-@app.get("/root/reset-global")
-async def function_api_root_reset_global(request:Request):
-    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres)
-    request.app.state.cache_users_api_access=await function_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int")
-    request.app.state.cache_users_is_active=await function_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","id","is_active",config_limit_cache_users_api_access,1,None)
-    return {"status":1,"message":"done"}
- 
 @app.post("/auth/signup")
 async def function_api_auth_signup(request:Request):
     if request.app.state.config_is_signup==0:return function_return_error("signup disabled")

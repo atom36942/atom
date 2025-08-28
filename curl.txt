@@ -5,7 +5,10 @@ curl -X GET "$baseurl"
 curl -X GET "$baseurl/root/postgres-init" \
   -H "Authorization: Bearer $token_root"
 
-curl -X DELETE "$baseurl/root/postgres-clean" \
+curl -X GET "$baseurl/root/reset-global" \
+  -H "Authorization: Bearer $token_root"
+
+curl -X GET "$baseurl/root/postgres-clean" \
   -H "Authorization: Bearer $token_root"
 
 curl -X POST "$baseurl/root/postgres-export" \
@@ -34,6 +37,41 @@ curl -X POST "$baseurl/root/redis-import-create" \
   -F "table=test" \
   -F "expiry_sec=100" \
   -F "file=@/Users/atom/Downloads/update.csv"
+
+curl -X POST "$baseurl/root/mongodb-import-create" \
+  -H "Authorization: Bearer $token_root" \
+  -F "database=test" \
+  -F "table=test" \
+  -F "file=@/Users/atom/Downloads/update.csv"
+
+0 curl -X POST "$baseurl/root/s3-bucket-create" \
+  -H "Authorization: Bearer $token_root" \
+  -H "Content-Type: application/json" \
+  -d '{"bucket":"master"}'
+
+0 curl -X POST "$baseurl/root/s3-bucket-public" \
+  -H "Authorization: Bearer $token_root" \
+  -H "Content-Type: application/json" \
+  -d '{"bucket":"master"}'
+
+0 curl -X POST "$baseurl/root/s3-bucket-empty" \
+  -H "Authorization: Bearer $token_root" \
+  -H "Content-Type: application/json" \
+  -d '{"bucket":"master"}'
+
+0 curl -X POST "$baseurl/root/s3-bucket-delete" \
+  -H "Authorization: Bearer $token_root" \
+  -H "Content-Type: application/json" \
+  -d '{"bucket":"master"}'
+
+0 curl -X POST "$baseurl/root/s3-url-delete" \
+  -H "Authorization: Bearer $token_root" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"url1---url2---url3"}'
+
+
+
+
 
 
 

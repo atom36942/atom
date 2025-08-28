@@ -7,7 +7,14 @@ async def function_api_root_postgres_init(request:Request):
    await function_postgres_schema_init(request.app.state.client_postgres,request.app.state.config_postgres_schema,function_postgres_schema_read)
    return {"status":1,"message":"done"}
 
-@router.delete("/root/postgres-clean")
+@router.get("/root/reset-global")
+async def function_api_root_reset_global(request:Request):
+    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres)
+    request.app.state.cache_users_api_access=await function_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","id","api_access",request.app.state.config_limit_cache_users_api_access,0,"split_int")
+    request.app.state.cache_users_is_active=await function_column_mapping_read(request.app.state.client_postgres_asyncpg,"users","id","is_active",request.app.state.config_limit_cache_users_api_access,1,None)
+    return {"status":1,"message":"done"}
+ 
+@router.get("/root/postgres-clean")
 async def function_api_root_postgres_clean(request:Request):
    await function_postgres_clean(request.app.state.client_postgres,request.app.state.config_postgres_clean)
    return {"status":1,"message":"done"}
@@ -54,6 +61,35 @@ async def function_api_root_mongodb_import_create(request:Request):
    output=await function_object_create_mongodb(request.app.state.client_mongodb,param.get("database"),param.get("table"),object_list)
    return {"status":1,"message":output}
 
+@router.post("/root/s3-bucket-create")
+async def function_api_root_s3_bucket_create(request:Request):
+   param=await function_param_read(request,"body",[["bucket",None,1,None]])
+   output=await function_s3_bucket_create(request.app.state.config_s3_region_name,request.app.state.client_s3,param.get("bucket"))
+   return {"status":1,"message":output}
+
+@router.post("/root/s3-bucket-public")
+async def function_api_root_s3_bucket_public(request:Request):
+   param=await function_param_read(request,"body",[["bucket",None,1,None]])
+   output=await function_s3_bucket_public(request.app.state.client_s3,param.get("bucket"))
+   return {"status":1,"message":output}
+
+@router.post("/root/s3-bucket-empty")
+async def function_api_root_s3_bucket_empty(request:Request):
+   param=await function_param_read(request,"body",[["bucket",None,1,None]])
+   output=await function_s3_bucket_empty(request.app.state.client_s3_resource,param.get("bucket"))
+   return {"status":1,"message":output}
+
+@router.post("/root/s3-bucket-delete")
+async def function_api_root_s3_bucket_delete(request:Request):
+   param=await function_param_read(request,"body",[["bucket",None,1,None]])
+   output=await function_s3_bucket_delete(request.app.state.client_s3,param.get("bucket"))
+   return {"status":1,"message":output}
+
+@router.post("/root/s3-url-delete")
+async def function_api_root_s3_url_delete(request:Request):
+    param=await function_param_read(request,"body",[["url",None,1,None]])
+    for item in param["url"].split("---"):output=await function_s3_url_delete(request.app.state.client_s3_resource,item)
+    return {"status":1,"message":output}
 
 
 
