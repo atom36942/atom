@@ -15,7 +15,6 @@ output_report="export_curl_report.csv"
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
 token="${token:-}"
-username="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 
 # initialize report and curl output files
 [ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_report"
@@ -36,8 +35,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     # substitute variables BEFORE execution
     command_line=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
                                   -e "s|\$token_root|$token_root|g" \
-                                  -e "s|\$token|$token|g" \
-                                  -e "s|\$username|$username|g")
+                                  -e "s|\$token|$token|g")
 
     # extract URL (first quoted string after curl)
     url=$(echo "$command_line" | sed -n 's/^curl[^"]*"\([^"]*\)".*/\1/p')

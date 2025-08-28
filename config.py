@@ -96,7 +96,7 @@ config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_ac
 config_column_update_disabled_list=(os.getenv("config_column_update_disabled_list") or "is_active,is_verified,api_access").split(",")
 
 #dict
-config_user_count_key={
+config_user_count_query={
 "log_api_count":"select count(*) from log_api where created_by_id=:user_id",
 "test_count":"select count(*) from test where created_by_id=:user_id"
 }

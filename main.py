@@ -120,90 +120,9 @@ async def function_api_index(request:Request):
 
 #api
 
-@app.post("/auth/signup")
-async def function_api_auth_signup(request:Request):
-    if request.app.state.config_is_signup==0:return function_return_error("signup disabled")
-    param=await function_param_read(request,"body",[["type",1,"int",None],["username",1,None,None],["password",1,None,None]])
-    user=await function_auth_signup_username_password(request.app.state.client_postgres,param["type"],param["username"],param["password"])
-    token=await function_token_encode(request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list,user)
-    return {"status":1,"message":token}
- 
-@app.post("/auth/signup-bigint")
-async def function_api_auth_signup_bigint(request:Request):
-    if request.app.state.config_is_signup==0:return function_return_error("signup disabled")
-    param=await function_param_read(request,"body",[["type",1,"int",None],["username_bigint",1,None,None],["password_bigint",1,None,None]])
-    user=await function_auth_signup_username_password_bigint(request.app.state.client_postgres,param["type"],param["username_bigint"],param["password_bigint"])
-    token=await function_token_encode(request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list,user)
-    return {"status":1,"message":token}
- 
-@app.post("/auth/login-password")
-async def function_api_auth_login_password(request:Request):
-    param=await function_param_read(request,"body",[["type",1,"int",None],["password",1,None,None],["username",1,None,None]])
-    token=await function_auth_login_password_username(request.app.state.client_postgres,param["type"],param["password"],param["username"],function_token_encode,request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list)
-    return {"status":1,"message":token}
 
-@app.post("/auth/login-password-bigint")
-async def function_api_auth_login_password_bigint(request:Request):
-    param=await function_param_read(request,"body",[["type",1,"int",None],["password_bigint",1,None,None],["username_bigint",1,None,None]])
-    token=await function_auth_login_password_username_bigint(request.app.state.client_postgres,param["type"],param["password_bigint"],param["username_bigint"],function_token_encode,request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list)
-    return {"status":1,"message":token}
 
-@app.post("/auth/login-password-email")
-async def function_api_auth_login_password_email(request:Request):
-    param=await function_param_read(request,"body",[["type",1,"int",None],["password",1,None,None],["email",1,None,None]])
-    token=await function_auth_login_password_email(request.app.state.client_postgres,param["type"],param["password"],param["email"],function_token_encode,request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list)
-    return {"status":1,"message":token}
 
-@app.post("/auth/login-password-mobile")
-async def function_api_auth_login_password_mobile(request:Request):
-    param=await function_param_read(request,"body",[["type",1,"int",None],["password",1,None,None],["mobile",1,None,None]])
-    token=await function_auth_login_password_mobile(request.app.state.client_postgres,param["type"],param["password"],param["mobile"],function_token_encode,request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list)
-    return {"status":1,"message":token}
-
-@app.post("/auth/login-otp-email")
-async def function_api_auth_login_otp_email(request:Request):
-    param=await function_param_read(request,"body",[["type",1,"int",None],["otp",1,"int",None],["email",1,None,None]])
-    token=await function_auth_login_otp_email(request.app.state.client_postgres,param["type"],param["email"],function_otp_verify,param["otp"],function_token_encode,request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list)
-    return {"status":1,"message":token}
-
-@app.post("/auth/login-otp-mobile")
-async def function_api_auth_login_otp_mobile(request:Request):
-    param=await function_param_read(request,"body",[["type",1,"int",None],["otp",1,"int",None],["mobile",1,None,None]])
-    token=await function_auth_login_otp_mobile(request.app.state.client_postgres,param["type"],param["mobile"],function_otp_verify,param["otp"],function_token_encode,request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list)
-    return {"status":1,"message":token}
-
-@app.post("/auth/login-google")
-async def function_api_auth_login_google(request:Request):
-    param=await function_param_read(request,"body",[["type",1,"int",None],["google_token",1,None,None]])
-    token=await function_auth_login_google(request.app.state.client_postgres,param["type"],param["google_token"],request.app.state.config_google_login_client_id,function_token_encode,request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list)
-    return {"status":1,"message":token}
-
-@app.get("/my/profile")
-async def function_api_my_profile(request:Request):
-   user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   output=await function_read_user_query_count(request.app.state.client_postgres,request.state.user["id"],config_user_count_key)
-   asyncio.create_task(function_update_last_active_at(request.app.state.client_postgres,request.state.user["id"]))
-   return {"status":1,"message":user|output}
-
-@app.get("/my/api-usage")
-async def function_api_my_api_usage(request:Request):
-   param=await function_param_read(request,"query",[["days",0,"int",7]])
-   object_list=await function_log_api_usage(request.app.state.client_postgres,param["days"],request.state.user["id"])
-   return {"status":1,"message":object_list}
-
-@app.get("/my/token-refresh")
-async def function_api_my_token_refresh(request:Request):
-   user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   token=await function_token_encode(request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list,user)
-   return {"status":1,"message":token}
-
-@app.delete("/my/account-delete")
-async def function_api_my_account_delete(request:Request):
-   param=await function_param_read(request,"query",[["mode",1,None,None]])
-   user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   if user["api_access"]:return function_return_error("not allowed as you have api_access")
-   await function_delete_user_single(request.app.state.client_postgres,param["mode"],request.state.user["id"])
-   return {"status":1,"message":"done"}
 
 @app.post("/my/object-create")
 async def function_api_my_object_create(request:Request):
@@ -257,21 +176,6 @@ async def function_api_my_parent_read(request:Request):
    output=await function_parent_object_read(request.app.state.client_postgres,param["table"],param["parent_column"],param["parent_table"],param["order"],param["limit"],(param["page"]-1)*param["limit"],request.state.user["id"])
    return {"status":1,"message":output}
 
-@app.put("/my/ids-update")
-async def function_api_my_ids_update(request:Request):
-   param=await function_param_read(request,"body",[["table",1,None,None],["ids",1,None,None],["column",1,None,None],["value",1,None,None]])
-   if param["table"] in ["users"]:return function_return_error("table not allowed")
-   if param["column"] in request.app.state.config_column_update_disabled_list:return function_return_error("column not allowed")
-   await function_update_ids(request.app.state.client_postgres,param["table"],param["ids"],param["column"],param["value"],request.state.user["id"],request.state.user["id"])
-   return {"status":1,"message":"done"}
-
-@app.delete("/my/ids-delete")
-async def function_api_my_ids_delete(request:Request):
-   param=await function_param_read(request,"body",[["table",1,None,None],["ids",1,None,None]])
-   if param["table"] in ["users"]:return function_return_error("table not allowed")
-   await function_delete_ids(request.app.state.client_postgres,param["table"],param["ids"],request.state.user["id"])
-   return {"status":1,"message":"done"}
-
 @app.delete("/my/object-delete-any")
 async def function_api_my_object_delete_any(request:Request):
    param=await function_param_read(request,"query",[["table",1,None,None]])
@@ -280,39 +184,6 @@ async def function_api_my_object_delete_any(request:Request):
    await function_object_delete_postgres_any(request.app.state.client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":"done"}
 
-@app.get("/my/message-received")
-async def function_api_my_message_received(request:Request):
-   param=await function_param_read(request,"query",[["order",0,None,"id desc"],["limit",0,"int",100],["page",0,"int",1],["is_unread",0,None,None]])
-   object_list=await function_message_received(request.app.state.client_postgres,request.state.user["id"],param["order"],param["limit"],(param["page"]-1)*param["limit"],param["is_unread"])
-   if object_list:asyncio.create_task(function_message_object_mark_read(request.app.state.client_postgres,object_list))
-   return {"status":1,"message":object_list}
-
-@app.get("/my/message-inbox")
-async def function_api_my_message_inbox(request:Request):
-   param=await function_param_read(request,"query",[["order",0,None,"id desc"],["limit",0,"int",100],["page",0,"int",1],["is_unread",0,None,None]])
-   object_list=await function_message_inbox(request.app.state.client_postgres,request.state.user["id"],param["order"],param["limit"],(param["page"]-1)*param["limit"],param["is_unread"])
-   return {"status":1,"message":object_list}
-
-@app.get("/my/message-thread")
-async def function_api_my_message_thread(request:Request):
-   param=await function_param_read(request,"query",[["user_id",1,"int",None],["order",0,None,"id desc"],["limit",0,"int",100],["page",0,"int",1]])
-   object_list=await function_message_thread(request.app.state.client_postgres,request.state.user["id"],param["user_id"],param["order"],param["limit"],(param["page"]-1)*param["limit"])
-   asyncio.create_task(function_message_thread_mark_read(request.app.state.client_postgres,request.state.user["id"],param["user_id"]))
-   return {"status":1,"message":object_list}
-
-@app.delete("/my/message-delete-bulk")
-async def function_api_my_message_delete_bulk(request:Request):
-   param=await function_param_read(request,"query",[["mode",1,None,None]])
-   if param["mode"]=="all":await function_message_delete_user_all(request.app.state.client_postgres,request.state.user["id"])
-   if param["mode"]=="created":await function_message_delete_user_created(request.app.state.client_postgres,request.state.user["id"])
-   if param["mode"]=="received":await function_message_delete_user_received(request.app.state.client_postgres,request.state.user["id"])
-   return {"status":1,"message":"done"}
-
-@app.delete("/my/message-delete-single")
-async def function_api_my_message_delete_single(request:Request):
-   param=await function_param_read(request,"query",[["id",1,"int",None]])
-   await function_message_delete_user_single(request.app.state.client_postgres,request.state.user["id"],param["id"])
-   return {"status":1,"message":"done"}
 
 @app.post("/public/otp-send-mobile-sns")
 async def function_api_public_otp_send_mobile_sns(request:Request):

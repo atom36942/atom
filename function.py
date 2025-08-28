@@ -41,9 +41,9 @@ async def function_param_read(request, mode, config):
         param[key] = value
     return param
  
-async def function_read_user_query_count(client_postgres,user_id,config_user_count_key):
+async def function_read_user_query_count(client_postgres,user_id,config_user_count_query):
     output = {}
-    for key, query in config_user_count_key.items():
+    for key, query in config_user_count_query.items():
         row = await client_postgres.fetch_one(query=query, values={"user_id": user_id})
         output[key] = row[0] if row else 0
     return output
@@ -977,7 +977,7 @@ async def function_read_user_single(client_postgres,user_id):
    if not user:raise Exception("user not found")
    return user
 
-async def function_delete_user_single(client_postgres,mode,user_id):
+async def function_delete_user_single(mode,client_postgres,user_id):
    if mode=="soft":query="update users set is_deleted=1 where id=:id;"
    if mode=="hard":query="delete from users where id=:id;"
    values={"id":user_id}
