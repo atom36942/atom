@@ -4,7 +4,6 @@ from extend import *
 #test
 @router.get("/test")
 async def route_test():
-   value=config.get("your_config_key")
    return {"status":1,"message":f"welcome to test"}
 
 #websocket
