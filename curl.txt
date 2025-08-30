@@ -1,7 +1,7 @@
 #index
 curl -X GET "$baseurl"
 curl -X GET "$baseurl/test"
-curl -X GET "$baseurl/page/test"
+curl -X GET "$baseurl/page/about"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
@@ -84,6 +84,8 @@ curl -X GET "$baseurl/my/profile" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/token-refresh" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/api-usage" -H "Authorization: Bearer $token"
 0 curl -X DELETE "$baseurl/my/account-delete?mode=soft" -H "Authorization: Bearer $token"
+curl -X DELETE "$baseurl/my/object-delete-any?table=test&id=>,1" -H "Authorization: Bearer $token"
+curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-received" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-inbox" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-thread?user_id=1" -H "Authorization: Bearer $token"
@@ -143,6 +145,17 @@ curl -X PUT "$baseurl/my/object-update?table=users" \
 
 #public
 curl -X GET "$baseurl/public/info"
+curl -X GET "$baseurl/public/object-read?table=test"
+curl -X GET "$baseurl/public/object-read?table=test&order=id%20asc"
+curl -X GET "$baseurl/public/object-read?table=test&limit=100"
+curl -X GET "$baseurl/public/object-read?table=test&page=2"
+curl -X GET "$baseurl/public/object-read?table=test&column=id,title"
+curl -X GET "$baseurl/public/object-read?table=test&location_filter=23.7275,37.9838,100,1000"
+curl -X GET "$baseurl/public/object-read?table=test&creator_key=username,email"
+curl -X GET "$baseurl/public/object-read?table=test&id=>,1"
+curl -X GET "$baseurl/public/object-read?table=test&created_at=>,2000-01-01T00:00:00"
+curl -X GET "$baseurl/public/object-read?table=test&title=is,null"
+curl -X GET "$baseurl/public/object-read?table=test&order=id%20asc&limit=100&page=2&column=id,title&location_filter=23.7275,37.9838,100,1000&creator_key=username,email&id=>,1&created_at=>,2000-01-01T00:00:00&title=is,null"
 0 curl -X GET "$baseurl/public/otp-verify?mode=email&data=test&otp=123"
 0 curl -X GET "$baseurl/public/otp-send-mobile-sns?mobile=test"
 0 curl -X GET "$baseurl/public/otp-send-mobile-fast2sms?mobile=test"
@@ -173,6 +186,8 @@ curl -X POST "$baseurl/public/object-create?table=test" \
   -F "key_list=test1.png,test2.csv"
 
 #admin
+curl -X GET "$baseurl/admin/object-read?table=test" -H "Authorization: Bearer $token"
+
 curl -X PUT "$baseurl/admin/ids-update" \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
@@ -198,3 +213,8 @@ curl -X POST "$baseurl/admin/object-create?table=test" \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
   -d '{"type":1,"title":"test200"}'
+
+curl -X PUT "$baseurl/admin/object-update?table=test" \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"id":5,"title":"test2000"}'

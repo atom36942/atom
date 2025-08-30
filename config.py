@@ -1,4 +1,4 @@
-#env read
+#env
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -114,7 +114,8 @@ config_api={
 "/admin/object-read":{"id":5,"cache_sec":["redis",100]},
 "/admin/postgres-query-runner":{"id":6},
 "/admin/postgres-export":{"id":7},
-"/test":{"id":100,"is_token":0,"is_active_check":1,"cache_sec":["inmemory",60],"ratelimiter_times_sec":[1,3]},
+"/public/object-read":{"id":8,"cache_sec":["inmemory",60]},
+"/test":{"id":100,"is_token":0,"is_active_check":1,"cache_sec":["redis",60],"ratelimiter_times_sec":[1,3]},
 }
 config_postgres_schema={
 "table":{

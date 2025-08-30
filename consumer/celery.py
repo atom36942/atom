@@ -4,7 +4,7 @@ from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
-#env read
+#env
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -14,7 +14,7 @@ config_celery_broker_url=os.getenv("config_celery_broker_url")
 config_celery_backend_url=os.getenv("config_celery_backend_url")
 config_postgres_url=os.getenv("config_postgres_url")
 
-#import
+#package
 import asyncio,traceback
 from celery import signals
 

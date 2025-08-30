@@ -10,6 +10,15 @@ async def function_api_public_info(request:Request):
    }
    return {"status":1,"message":output}
 
+@router.get("/public/object-read")
+async def function_api_public_object_read(request:Request):
+   param=await function_param_read(request,"query",[["table",None,1,None],["creator_key","list",0,[]]])
+   if param["table"] not in request.app.state.config_public_table_read_list:return function_return_error("table not allowed")
+   client_postgres=request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres
+   object_list=await function_object_read_postgres(client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   if param["creator_key"]:object_list=await function_add_creator_data(object_list,param["creator_key"],client_postgres)
+   return {"status":1,"message":object_list}
+
 @router.post("/public/object-create")
 async def function_api_public_object_create(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0]])
@@ -68,16 +77,4 @@ async def function_api_public_jira_worklog_export(request:Request):
    function_export_jira_worklog(param["jira_base_url"],param["jira_email"],param["jira_token"],param["start_date"],param["end_date"],output_path)
    stream=function_stream_file(output_path)
    return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment; name=export_jira_worklog.csv"},background=BackgroundTask(lambda: os.remove(output_path)))
-
-
-
-
-
-
-
-
-
-
-
-
 

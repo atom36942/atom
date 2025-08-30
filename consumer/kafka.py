@@ -4,12 +4,11 @@ from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
-#env read
+#env
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
-#config
 #config
 config_kafka_url=os.getenv("config_kafka_url")
 config_kafka_username=os.getenv("config_kafka_username")
@@ -19,7 +18,7 @@ config_channel_name=os.getenv("config_channel_name") or "channel_1"
 config_group_id=os.getenv("config_group_id") or "group_1"
 config_enable_auto_commit = (os.getenv("config_enable_auto_commit") or "True").lower() == "true"
 
-#import
+#package
 import asyncio,json
 
 #logic

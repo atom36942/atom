@@ -14,30 +14,21 @@
 
 ## Installation
 ```bash
-#download repo
+#setup
 git clone https://github.com/atom36942/atom.git
 cd atom
-
-#create venv
 python3 -m venv venv
-
-#install requirements
 ./venv/bin/pip install -r requirements.txt
 
-#setup env
+#env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres?sslmode=disable
 config_redis_url=redis://localhost:6379
 config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt21LDzYwAyJ6hIrvpRrv4clHM8asr6gATOgPB
 config_key_jwt=UZit5LLGZmqqvScH8E8PAZSsYKSt21LDzYwAyJ6hIrvpRrv4clHM8asr6gATOgPB
 
-#server start direct
+#start
 ./venv/bin/uvicorn main:app --reload
-
-#server start docker
-docker build -t atom .
-docker run -p 8000:8000 atom
 ```
-
 
 
 
@@ -47,6 +38,10 @@ docker run -p 8000:8000 atom
 ```bash
 #test curls
 ./curl.sh
+
+#docker
+docker build -t atom .
+docker run -p 8000:8000 atom
 
 #package
 ./venv/bin/pip install fastapi

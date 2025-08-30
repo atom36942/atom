@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>atom</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #121212; color: #e0e0e0; }
+    header { background: #1f1f1f; padding: 20px; text-align: center; }
+    header h1 { margin-bottom: 0.2em; color: #00ffcc; }
+    header p { margin-top: 0.2em; color: #ccc; }
+    .repo-btn {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #28a745;
+      color: white;
+      font-weight: bold;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    .repo-btn:hover { background: #218838; }
+    main { display: flex; flex-wrap: wrap; justify-content: center; padding: 20px; gap: 20px; }
+    .card {
+      background: #1e1e1e;
+      border-radius: 10px;
+      padding: 20px;
+      width: 300px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    h2 { color: #00ffcc; margin-top: 0; }
+    p, li { color: #ccc; }
+    ul { padding-left: 20px; }
+    pre { background: #333; padding: 10px; overflow-x: auto; border-radius: 5px; color: #fff; }
+    footer { text-align: center; padding: 20px; font-size: 0.9em; color: #888; }
+    a { color: #00ffcc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>atom</h1>
+    <p>Open-source backend framework for large-scale apps</p>
+    <a href="https://github.com/atom36942/atom" class="repo-btn" target="_blank">View on GitHub</a>
+  </header>
+  <main>
+    <div class="card">
+      <h2>About</h2>
+      <p><strong>atom36942/atom</strong> is a modular backend framework combining functional and procedural styles, designed to speed up development with minimal boilerplate.</p>
+    </div>
+    <div class="card">
+      <h2>Key Features</h2>
+      <ul>
+        <li>Modular architecture</li>
+        <li>Pure functions</li>
+        <li>Supports Postgres, Redis, S3, Kafka</li>
+        <li>Production-ready APIs & jobs</li>
+        <li>Minimal boilerplate</li>
+        <li>Flexible business schema</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Installation</h2>
+      <pre><code>git clone https://github.com/atom36942/atom.git
+cd atom
+pip install -r requirements.txt</code></pre>
+    </div>
+    <div class="card">
+      <h2>Usage</h2>
+      <pre><code>python main.py</code></pre>
+    </div>
+    <div class="card">
+      <h2>Contributing</h2>
+      <p>Fork the repo and submit pull requests with improvements or bug fixes.</p>
+    </div>
+    <div class="card">
+      <h2>License</h2>
+      <p>MIT License - see <a href="https://github.com/atom36942/atom/blob/main/LICENSE">LICENSE</a></p>
+    </div>
+  </main>
+  <footer>
+    <p>Hosted on <a href="https://github.com/atom36942/atom">GitHub</a></p>
+  </footer>
+</body>
+</html>

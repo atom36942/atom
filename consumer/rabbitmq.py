@@ -4,7 +4,7 @@ from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
-#env read
+#env
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -14,7 +14,7 @@ config_rabbitmq_url=os.getenv("config_rabbitmq_url")
 config_postgres_url=os.getenv("config_postgres_url")
 config_channel_name=os.getenv("config_channel_name") or "channel_1"
 
-#import
+#package
 import asyncio,json,aio_pika
 
 #logic

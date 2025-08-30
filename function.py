@@ -809,22 +809,23 @@ async def function_create_where_string(obj,function_object_serialize,postgres_co
    where_string=f"where {where_string_joined}" if where_string_joined else ""
    return where_string,where_value
 
-async def function_add_creator_data(client_postgres,user_key,object_list):
-    object_list=[dict(obj) for obj in object_list]
-    created_by_ids={str(obj["created_by_id"]) for obj in object_list if obj.get("created_by_id")}
-    users={}
-    if created_by_ids:
-        query = f"SELECT * FROM users WHERE id IN ({','.join(created_by_ids)});"
-        users = {str(user["id"]): dict(user) for user in await client_postgres.fetch_all(query=query,values={})}
-    for obj in object_list:
-        created_by_id = str(obj.get("created_by_id"))
-        if created_by_id in users:
-            for key in user_key.split(","):
-                obj[f"creator_{key}"] = users[created_by_id].get(key)
-        else:
-            for key in user_key.split(","):
-                obj[f"creator_{key}"] = None
-    return object_list
+async def function_add_creator_data(object_list,user_key_list,client_postgres):
+   if not object_list:return object_list
+   object_list=[dict(obj) for obj in object_list]
+   created_by_ids={str(obj["created_by_id"]) for obj in object_list if obj.get("created_by_id")}
+   users={}
+   if created_by_ids:
+      query = f"SELECT * FROM users WHERE id IN ({','.join(created_by_ids)});"
+      users = {str(user["id"]): dict(user) for user in await client_postgres.fetch_all(query=query,values={})}
+   for obj in object_list:
+      created_by_id = str(obj.get("created_by_id"))
+      if created_by_id in users:
+         for key in user_key_list:
+               obj[f"creator_{key}"] = users[created_by_id].get(key)
+      else:
+         for key in user_key_list:
+               obj[f"creator_{key}"] = None
+   return object_list
  
 async def function_ownership_check(client_postgres,table,id,user_id):
    if table=="users":

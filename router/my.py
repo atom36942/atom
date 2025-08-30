@@ -93,6 +93,23 @@ async def function_api_my_object_create_mongodb(request:Request):
    output=await function_object_create_mongodb(request.app.state.client_mongodb,param["database"],param["table"],[obj])
    return {"status":1,"message":output}
 
+@router.delete("/my/object-delete-any")
+async def function_api_my_object_delete_any(request:Request):
+   param=await function_param_read(request,"query",[["table",None,1,None]])
+   param["created_by_id"]=f"=,{request.state.user['id']}"
+   if param["table"] in ["users"]:return function_return_error("table not allowed")
+   await function_object_delete_postgres_any(request.app.state.client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   return {"status":1,"message":"done"}
+
+@router.get("/my/object-read")
+async def function_api_my_object_read(request:Request):
+   param=await function_param_read(request,"query",[["table",None,1,None],["creator_key","list",0,[]]])
+   param["created_by_id"]=f"=,{request.state.user['id']}"
+   client_postgres=request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres
+   object_list=await function_object_read_postgres(client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   if param["creator_key"]:object_list=await function_add_creator_data(object_list,param["creator_key"],client_postgres)
+   return {"status":1,"message":object_list}
+
 @router.post("/my/object-create")
 async def function_api_my_object_create(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
