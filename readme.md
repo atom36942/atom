@@ -45,14 +45,14 @@ docker run -p 8000:8000 atom
 
 ## Misc
 ```bash
+#test curls
+./curl.sh
+
 #package
 ./venv/bin/pip install fastapi
 ./venv/bin/pip install --upgrade fastapi
 ./venv/bin/pip uninstall fastapi
 ./venv/bin/pip freeze > requirements.txt
-
-#test curls
-./curl.sh
 
 #consumer
 venv/bin/celery -A consumer.celery worker --loglevel=info

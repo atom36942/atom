@@ -193,3 +193,8 @@ curl -X POST "$baseurl/admin/postgres-query-runner" \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
   -d '{"query":"select 1;"}'
+
+curl -X POST "$baseurl/admin/object-create?table=test" \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"type":1,"title":"test200"}'

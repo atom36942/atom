@@ -135,7 +135,6 @@ async def function_api_my_object_delete_any(request:Request):
    await function_object_delete_postgres_any(request.app.state.client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":"done"}
 
-
 @app.get("/public/object-read")
 async def function_api_public_object_read(request:Request):
    param=await function_param_read(request,"query",[["table",1,None,None],["creator_key",0,None,None]])
@@ -145,17 +144,6 @@ async def function_api_public_object_read(request:Request):
    return {"status":1,"message":object_list}
 
 
-
-
-
-
-@app.post("/admin/object-create")
-async def function_api_admin_object_create(request:Request):
-   param=await function_param_read(request,"query",[["table",1,None,None],["is_serialize",0,"int",1]])
-   obj=await function_param_read(request,"body",[])
-   if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):obj["created_by_id"]=request.state.user["id"]
-   output=await function_object_create_postgres(request.app.state.client_postgres,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   return {"status":1,"message":output}
 
 @app.put("/admin/object-update")
 async def function_api_admin_object_update(request:Request):

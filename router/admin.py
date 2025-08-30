@@ -32,5 +32,12 @@ async def function_api_admin_postgres_query_runner(request:Request):
    if False:request.app.state.client_posthog.capture(distinct_id=request.state.user["id"],event="postgres_query_runner",properties={"query":param["query"]})
    return {"status":1,"message":output}
 
-
+@router.post("/admin/object-create")
+async def function_api_admin_object_create(request:Request):
+   param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0]])
+   obj=await function_param_read(request,"body",[])
+   if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):obj["created_by_id"]=request.state.user["id"]
+   if len(obj)<=1:return function_return_error("obj issue")
+   output=await function_object_create_postgres(request.app.state.client_postgres,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   return {"status":1,"message":output}
 
