@@ -124,44 +124,13 @@ async def function_api_index(request:Request):
 
 
 
-@app.post("/my/object-create")
-async def function_api_my_object_create(request:Request):
-   param=await function_param_read(request,"query",[["table",1,None,None],["is_serialize",0,"int",0],["queue",0,None,None]])
-   obj=await function_param_read(request,"body",[])
-   obj["created_by_id"]=request.state.user["id"]
-   if param["table"] in ["users"]:return function_return_error("table not allowed")
-   if len(obj)<=1:return function_return_error("obj issue")
-   if any(key in request.app.state.config_column_update_disabled_list for key in obj):return function_return_error("obj key not allowed")
-   if not param["queue"]:output=await function_object_create_postgres(request.app.state.client_postgres,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   elif param["queue"]:
-      payload={"function":"function_object_create_postgres","table":param["table"],"object_list":[obj],"is_serialize":param["is_serialize"]}
-      if param["queue"]=="batch":output=await function_object_create_postgres_batch("append",function_object_create_postgres,request.app.state.client_postgres,param["table"],obj,request.app.state.config_batch_object_create,param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
-      elif param["queue"].startswith("mongodb"):output=await function_object_create_mongodb(request.app.state.client_mongodb,param["queue"].split('_')[1],param["table"],[obj])
-      elif param["queue"]=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
-      elif param["queue"]=="rabbitmq":output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_producer,"channel_1",payload)
-      elif param["queue"]=="redis":output=await function_producer_redis(request.app.state.client_redis_producer,"channel_1",payload)
-      elif param["queue"]=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",[param["table"],[obj],param["is_serialize"]])
-   return {"status":1,"message":output}
 
-@app.put("/my/object-update")
-async def function_api_my_object_update(request:Request):
-   param=await function_param_read(request,"query",[["table",1,None,None],["otp",0,"int",0]])
-   obj=await function_param_read(request,"body",[])
-   obj["updated_by_id"]=request.state.user["id"]
-   if "id" not in obj:return function_return_error("id missing")
-   if len(obj)<=2:return function_return_error("obj length issue")
-   if any(key in request.app.state.config_column_update_disabled_list for key in obj):return function_return_error("obj key not allowed")
-   if param["table"]=="users":
-      if obj["id"]!=request.state.user["id"]:return function_return_error("wrong id")
-      if any(key in obj and len(obj)!=3 for key in ["password"]):return function_return_error("obj length should be 2")
-      if request.app.state.config_is_otp_verify_profile_update and any(key in obj and not param["otp"] for key in ["email","mobile"]):return function_return_error("otp missing")
-   if param["otp"]:
-      email,mobile=obj.get("email"),obj.get("mobile")
-      if email:await function_otp_verify("email",param["otp"],email,request.app.state.client_postgres)
-      elif mobile:await function_otp_verify("mobile",param["otp"],mobile,request.app.state.client_postgres)
-   if param["table"]=="users":output=await function_object_update_postgres(request.app.state.client_postgres,"users",[obj],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   else:output=await function_object_update_postgres_user(request.app.state.client_postgres,param["table"],[obj],request.state.user["id"],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   return {"status":1,"message":output}
+
+
+
+
+
+
 
 @app.get("/my/object-read")
 async def function_api_my_object_read(request:Request):
@@ -170,12 +139,6 @@ async def function_api_my_object_read(request:Request):
    object_list=await function_object_read_postgres(request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":object_list}
 
-@app.get("/my/parent-read")
-async def function_api_my_parent_read(request:Request):
-   param=await function_param_read(request,"query",[["table",1,None,None],["parent_table",1,None,None],["parent_column",1,None,None],["order",0,None,"id desc"],["limit",0,"int",100],["page",0,"int",1]])
-   output=await function_parent_object_read(request.app.state.client_postgres,param["table"],param["parent_column"],param["parent_table"],param["order"],param["limit"],(param["page"]-1)*param["limit"],request.state.user["id"])
-   return {"status":1,"message":output}
-
 @app.delete("/my/object-delete-any")
 async def function_api_my_object_delete_any(request:Request):
    param=await function_param_read(request,"query",[["table",1,None,None]])
@@ -183,6 +146,15 @@ async def function_api_my_object_delete_any(request:Request):
    if param["table"] in ["users"]:return function_return_error("table not allowed")
    await function_object_delete_postgres_any(request.app.state.client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":"done"}
+
+
+
+
+
+
+
+
+
 
 
 @app.post("/public/otp-send-mobile-sns")

@@ -9,37 +9,31 @@ async def function_api_my_profile(request:Request):
    asyncio.create_task(function_update_last_active_at(request.app.state.client_postgres,request.state.user["id"]))
    return {"status":1,"message":user|output}
 
-@router.get("/my/api-usage")
-async def function_api_my_api_usage(request:Request):
-   param=await function_param_read(request,"query",[["days","int",0,7]])
-   object_list=await function_log_api_usage(request.app.state.client_postgres,param["days"],request.state.user["id"])
-   return {"status":1,"message":object_list}
-
 @router.get("/my/token-refresh")
 async def function_api_my_token_refresh(request:Request):
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
    token=await function_token_encode(request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list,user)
    return {"status":1,"message":token}
 
-@router.get("/my/account-delete-soft")
-async def function_api_my_account_delete_soft(request:Request):
+@router.get("/my/api-usage")
+async def function_api_my_api_usage(request:Request):
+   param=await function_param_read(request,"query",[["days","int",0,7]])
+   object_list=await function_log_api_usage(request.app.state.client_postgres,param["days"],request.state.user["id"])
+   return {"status":1,"message":object_list}
+
+@router.delete("/my/account-delete")
+async def function_api_my_account_delete(request:Request):
+   param=await function_param_read(request,"query",[["mode",None,1,None]])
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
    if user["api_access"]:return function_return_error("not allowed as you have api_access")
-   await function_delete_user_single("soft",request.app.state.client_postgres,request.state.user["id"])
+   await function_delete_user_single(param.get("mode"),request.app.state.client_postgres,request.state.user["id"])
    return {"status":1,"message":"done"}
 
-@router.get("/my/account-delete-hard")
-async def function_api_my_account_delete_hard(request:Request):
-   user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   if user["api_access"]:return function_return_error("not allowed as you have api_access")
-   await function_delete_user_single("hard",request.app.state.client_postgres,request.state.user["id"])
-   return {"status":1,"message":"done"}
-
-@router.post("/my/ids-update")
+@router.put("/my/ids-update")
 async def function_api_my_ids_update(request:Request):
    param=await function_param_read(request,"body",[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
    if param["table"] in ["users"]:return function_return_error("table not allowed")
-   if param["column"] in request.app.state.config_column_update_disabled_list:return function_return_error("column not allowed")
+   if param["column"] in request.app.state.config_column_disabled_list:return function_return_error("column not allowed")
    await function_update_ids(request.app.state.client_postgres,param["table"],param["ids"],param["column"],param["value"],request.state.user["id"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
@@ -50,4 +44,89 @@ async def function_api_my_ids_delete(request:Request):
    await function_delete_ids(request.app.state.client_postgres,param["table"],param["ids"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
+@router.get("/my/message-received")
+async def function_api_my_message_received(request:Request):
+   param=await function_param_read(request,"query",[["is_unread","int",0,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   object_list=await function_message_received(request.app.state.client_postgres,request.state.user["id"],param["order"],param["limit"],(param["page"]-1)*param["limit"],param["is_unread"])
+   if object_list:asyncio.create_task(function_message_object_mark_read(request.app.state.client_postgres,object_list))
+   return {"status":1,"message":object_list}
 
+@router.get("/my/message-inbox")
+async def function_api_my_message_inbox(request:Request):
+   param=await function_param_read(request,"query",[["is_unread","int",0,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   object_list=await function_message_inbox(request.app.state.client_postgres,request.state.user["id"],param["order"],param["limit"],(param["page"]-1)*param["limit"],param["is_unread"])
+   return {"status":1,"message":object_list}
+
+@router.get("/my/message-thread")
+async def function_api_my_message_thread(request:Request):
+   param=await function_param_read(request,"query",[["user_id","int",1,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   object_list=await function_message_thread(request.app.state.client_postgres,request.state.user["id"],param["user_id"],param["order"],param["limit"],(param["page"]-1)*param["limit"])
+   asyncio.create_task(function_message_thread_mark_read(request.app.state.client_postgres,request.state.user["id"],param["user_id"]))
+   return {"status":1,"message":object_list}
+
+@router.delete("/my/message-delete-single")
+async def function_api_my_message_delete_single(request:Request):
+   param=await function_param_read(request,"query",[["id","int",1,None]])
+   await function_message_delete_single(request.app.state.client_postgres,request.state.user["id"],param["id"])
+   return {"status":1,"message":"done"}
+
+@router.delete("/my/message-delete-bulk")
+async def function_api_my_message_delete_bulk(request:Request):
+   param=await function_param_read(request,"query",[["mode",None,1,None]])
+   await function_message_delete_bulk(param.get("mode"),request.app.state.client_postgres,request.state.user["id"])
+   return {"status":1,"message":"done"}
+
+@router.get("/my/parent-read")
+async def function_api_my_parent_read(request:Request):
+   param=await function_param_read(request,"query",[["table",None,1,None],["parent_table",None,1,None],["parent_column",None,1,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   output=await function_parent_object_read(request.app.state.client_postgres,param["table"],param["parent_column"],param["parent_table"],param["order"],param["limit"],(param["page"]-1)*param["limit"],request.state.user["id"])
+   return {"status":1,"message":output}
+
+@router.post("/my/object-create-mongodb")
+async def function_api_my_object_create_mongodb(request:Request):
+   param=await function_param_read(request,"query",[["database",None,1,None],["table",None,1,None]])
+   obj=await function_param_read(request,"body",[])
+   obj["created_by_id"]=request.state.user["id"]
+   if param["table"] in ["users"]:return function_return_error("table not allowed")
+   if len(obj)<=1:return function_return_error("obj issue")
+   if any(key in request.app.state.config_column_disabled_list for key in obj):return function_return_error("obj key not allowed")
+   output=await function_object_create_mongodb(request.app.state.client_mongodb,param["database"],param["table"],[obj])
+   return {"status":1,"message":output}
+
+@router.post("/my/object-create")
+async def function_api_my_object_create(request:Request):
+   param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
+   obj=await function_param_read(request,"body",[])
+   obj["created_by_id"]=request.state.user["id"]
+   if param["table"] in ["users"]:return function_return_error("table not allowed")
+   if len(obj)<=1:return function_return_error("obj issue")
+   if any(key in request.app.state.config_column_disabled_list for key in obj):return function_return_error("obj key not allowed")
+   if not param["queue"]:output=await function_object_create_postgres(request.app.state.client_postgres,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   elif param["queue"]=="batch":output=await function_object_create_postgres_batch("append",function_object_create_postgres,request.app.state.client_postgres,param["table"],obj,request.app.state.config_batch_object_create,param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   else:
+      payload={"function":"function_object_create_postgres","table":param["table"],"object_list":[obj],"is_serialize":param["is_serialize"]}
+      if param["queue"]=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
+      elif param["queue"]=="rabbitmq":output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_producer,"channel_1",payload)
+      elif param["queue"]=="redis":output=await function_producer_redis(request.app.state.client_redis_producer,"channel_1",payload)
+      elif param["queue"]=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",[param["table"],[obj],param["is_serialize"]])
+   return {"status":1,"message":output}
+
+@router.put("/my/object-update")
+async def function_api_my_object_update(request:Request):
+   param=await function_param_read(request,"query",[["table",None,1,None],["otp","int",0,0]])
+   obj=await function_param_read(request,"body",[])
+   obj["updated_by_id"]=request.state.user["id"]
+   if "id" not in obj:return function_return_error("id missing")
+   if len(obj)<=2:return function_return_error("obj length issue")
+   if any(key in request.app.state.config_column_disabled_list for key in obj):return function_return_error("obj key not allowed")
+   if param["table"]=="users":
+      if obj["id"]!=request.state.user["id"]:return function_return_error("wrong id")
+      if any(key in obj and len(obj)!=3 for key in ["password"]):return function_return_error("obj length should be 2")
+      if request.app.state.config_is_otp_verify_profile_update and any(key in obj and not param["otp"] for key in ["email","mobile"]):return function_return_error("otp missing")
+   if param["otp"]:
+      email,mobile=obj.get("email"),obj.get("mobile")
+      if email:await function_otp_verify("email",param["otp"],email,request.app.state.client_postgres)
+      elif mobile:await function_otp_verify("mobile",param["otp"],mobile,request.app.state.client_postgres)
+   if param["table"]=="users":output=await function_object_update_postgres(request.app.state.client_postgres,"users",[obj],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   else:output=await function_object_update_postgres_user(request.app.state.client_postgres,param["table"],[obj],request.state.user["id"],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   return {"status":1,"message":output}

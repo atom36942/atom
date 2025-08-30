@@ -82,7 +82,7 @@ config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,
 
 #batch
 config_batch_log_api=int(os.getenv("config_batch_log_api") or 10)
-config_batch_object_create=int(os.getenv("config_batch_object_create") or 3)
+config_batch_object_create=int(os.getenv("config_batch_object_create") or 10)
 
 #public
 config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test").split(",")
@@ -93,7 +93,7 @@ config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
 config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_access") or 10)
 config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_active") or 10)
-config_column_update_disabled_list=(os.getenv("config_column_update_disabled_list") or "is_active,is_verified,api_access").split(",")
+config_column_disabled_list=(os.getenv("config_column_disabled_list") or "is_active,is_verified,api_access").split(",")
 
 #dict
 config_user_count_query={

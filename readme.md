@@ -52,10 +52,10 @@ docker run -p 8000:8000 atom
 ./venv/bin/pip freeze > requirements.txt
 
 #consumer
-cd consumer && ./venv/bin/celery -A celery worker --loglevel=info
-cd consumer && ./venv/bin/python kafka.py
-cd consumer && ./venv/bin/python rabbitmq.py
-cd consumer && ./venv/bin/python redis.py
+venv/bin/celery -A consumer.celery worker --loglevel=info
+venv/bin/python -m consumer.kafka
+venv/bin/python -m consumer.rabbitmq
+venv/bin/python -m consumer.redis
 
 #test curls
 ./curl.sh
@@ -86,7 +86,7 @@ query = "SELECT * FROM users"
 x=function_export_postgres_query(postgres_url,query)
 asyncio.run(x)
 
-#local urls
+#url
 config_mongodb_url=mongodb://localhost:27017
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```

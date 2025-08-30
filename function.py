@@ -1013,14 +1013,14 @@ async def function_parent_object_read(client_postgres,table,parent_column,parent
    object_list=await client_postgres.fetch_all(query=query,values=values)
    return object_list
 
-async def function_message_inbox(client_postgres,user_id,order,limit,offset,is_unread):
+async def function_message_inbox(client_postgres,user_id,order,limit,offset,is_unread=None):
    if not is_unread:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};'''
    elif int(is_unread)==1:query=f'''with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=:created_by_id or user_id=:user_id)),y as (select max(id) as id from x group by unique_id),z as (select m.* from y left join message as m on y.id=m.id),a as (select * from z where user_id=:user_id and is_read!=1 is null) select * from a order by {order} limit {limit} offset {offset};'''
    values={"created_by_id":user_id,"user_id":user_id}
    object_list=await client_postgres.fetch_all(query=query,values=values)
    return object_list
 
-async def function_message_received(client_postgres,user_id,order,limit,offset,is_unread):
+async def function_message_received(client_postgres,user_id,order,limit,offset,is_unread=None):
    if not is_unread:query=f"select * from message where user_id=:user_id order by {order} limit {limit} offset {offset};"
    elif int(is_unread)==1:query=f"select * from message where user_id=:user_id and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
    values={"user_id":user_id}
@@ -1047,26 +1047,16 @@ async def function_message_object_mark_read(client_postgres,object_list):
    except Exception as e:print(str(e))
    return None
 
-async def function_message_delete_user_single(client_postgres,user_id,message_id):
+async def function_message_delete_single(client_postgres,user_id,message_id):
    query="delete from message where id=:id and (created_by_id=:user_id or user_id=:user_id);"
    values={"user_id":user_id,"id":message_id}
    await client_postgres.execute(query=query,values=values)
    return None
 
-async def function_message_delete_user_created(client_postgres,user_id):
-   query="delete from message where created_by_id=:user_id;"
-   values={"user_id":user_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
-
-async def function_message_delete_user_received(client_postgres,user_id):
-   query="delete from message where user_id=:user_id;"
-   values={"user_id":user_id}
-   await client_postgres.execute(query=query,values=values)
-   return None
-
-async def function_message_delete_user_all(client_postgres,user_id):
-   query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
+async def function_message_delete_bulk(mode,client_postgres,user_id):
+   if mode=="created":query="delete from message where created_by_id=:user_id;"
+   elif mode=="received":query="delete from message where user_id=:user_id;"
+   elif mode=="all":query="delete from message where (created_by_id=:user_id or user_id=:user_id);"
    values={"user_id":user_id}
    await client_postgres.execute(query=query,values=values)
    return None
@@ -1217,6 +1207,13 @@ async def function_object_create_redis(client_redis,key_list,object_list,expiry_
          key=key_list[index]
          if not expiry_sec:pipe.set(key,json.dumps(obj))
          else:pipe.setex(key,expiry_sec,json.dumps(obj))
+      await pipe.execute()
+   return None
+
+async def function_object_delete_redis(client_redis,object_list):
+   async with client_redis.pipeline(transaction=True) as pipe:
+      for obj in object_list:
+         pipe.delete(obj["key"])
       await pipe.execute()
    return None
 
