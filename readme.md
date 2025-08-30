@@ -21,10 +21,10 @@ python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 
 #env
-config_postgres_url=postgresql://atom@127.0.0.1/postgres?sslmode=disable
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
-config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt21LDzYwAyJ6hIrvpRrv4clHM8asr6gATOgPB
-config_key_jwt=UZit5LLGZmqqvScH8E8PAZSsYKSt21LDzYwAyJ6hIrvpRrv4clHM8asr6gATOgPB
+config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt
+config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
 
 #start
 ./venv/bin/uvicorn main:app --reload

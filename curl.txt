@@ -1,7 +1,7 @@
 #index
 curl -X GET "$baseurl"
 curl -X GET "$baseurl/test"
-curl -X GET "$baseurl/page/about"
+curl -X GET "$baseurl/page/test"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
