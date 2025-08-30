@@ -26,7 +26,7 @@ async def function_api_my_account_delete(request:Request):
    param=await function_param_read(request,"query",[["mode",None,1,None]])
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
    if user["api_access"]:return function_return_error("not allowed as you have api_access")
-   await function_delete_user_single(param.get("mode"),request.app.state.client_postgres,request.state.user["id"])
+   await function_delete_user_single(param["mode"],request.app.state.client_postgres,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.put("/my/ids-update")
@@ -73,7 +73,7 @@ async def function_api_my_message_delete_single(request:Request):
 @router.delete("/my/message-delete-bulk")
 async def function_api_my_message_delete_bulk(request:Request):
    param=await function_param_read(request,"query",[["mode",None,1,None]])
-   await function_message_delete_bulk(param.get("mode"),request.app.state.client_postgres,request.state.user["id"])
+   await function_message_delete_bulk(param["mode"],request.app.state.client_postgres,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.get("/my/parent-read")
@@ -105,10 +105,10 @@ async def function_api_my_object_create(request:Request):
    elif param["queue"]=="batch":output=await function_object_create_postgres_batch("append",function_object_create_postgres,request.app.state.client_postgres,param["table"],obj,request.app.state.config_batch_object_create,param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
    else:
       payload={"function":"function_object_create_postgres","table":param["table"],"object_list":[obj],"is_serialize":param["is_serialize"]}
-      if param["queue"]=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
+      if param["queue"]=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",[param["table"],[obj],param["is_serialize"]])
+      elif param["queue"]=="kafka":output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",payload)
       elif param["queue"]=="rabbitmq":output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_producer,"channel_1",payload)
       elif param["queue"]=="redis":output=await function_producer_redis(request.app.state.client_redis_producer,"channel_1",payload)
-      elif param["queue"]=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",[param["table"],[obj],param["is_serialize"]])
    return {"status":1,"message":output}
 
 @router.put("/my/object-update")

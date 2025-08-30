@@ -35,13 +35,6 @@ config_redis_pubsub_url=os.getenv("config_redis_pubsub_url")
 #mongodb
 config_mongodb_url=os.getenv("config_mongodb_url")
 
-#aws
-config_aws_access_key_id=os.getenv("config_aws_access_key_id")
-config_aws_secret_access_key=os.getenv("config_aws_secret_access_key")
-config_s3_region_name=os.getenv("config_s3_region_name")
-config_sns_region_name=os.getenv("config_sns_region_name")
-config_ses_region_name=os.getenv("config_ses_region_name")
-
 #fast2sms
 config_fast2sms_url=os.getenv("config_fast2sms_url")
 config_fast2sms_key=os.getenv("config_fast2sms_key")
@@ -62,6 +55,15 @@ config_google_login_client_id=os.getenv("config_google_login_client_id")
 
 #openai
 config_openai_key=os.getenv("config_openai_key")
+
+#aws
+config_aws_access_key_id=os.getenv("config_aws_access_key_id")
+config_aws_secret_access_key=os.getenv("config_aws_secret_access_key")
+config_s3_region_name=os.getenv("config_s3_region_name")
+config_sns_region_name=os.getenv("config_sns_region_name")
+config_ses_region_name=os.getenv("config_ses_region_name")
+config_limit_s3_kb=int(os.getenv("config_limit_s3_kb") or 100)
+config_s3_presigned_expire_sec=int(os.getenv("config_s3_presigned_expire_sec") or 60)
 
 #switch
 config_is_signup=int(os.getenv("config_is_signup") or 1)

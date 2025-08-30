@@ -67,7 +67,7 @@ async def function_api_public_jira_worklog_export(request:Request):
    output_path=f"export_jira_worklog_{__import__('time').time():.0f}.csv"
    function_export_jira_worklog(param["jira_base_url"],param["jira_email"],param["jira_token"],param["start_date"],param["end_date"],output_path)
    stream=function_stream_file(output_path)
-   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment; filename=export_jira_worklog.csv"},background=BackgroundTask(lambda: os.remove(output_path)))
+   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment; name=export_jira_worklog.csv"},background=BackgroundTask(lambda: os.remove(output_path)))
 
 
 

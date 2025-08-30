@@ -653,28 +653,29 @@ async def function_s3_url_delete(client_s3_resource,url):
    output=client_s3_resource.Object(bucket,key).delete()
    return output
 
-async def function_s3_file_upload_presigned(config_s3_region_name,client_s3,bucket,key,expiry_sec,limit_size_kb):
+import uuid
+from io import BytesIO
+async def function_s3_upload_file(bucket,key,file,client_s3,config_s3_region_name,config_limit_s3_kb=100):
+    if not key:
+        if "." not in file.filename:raise Exception("file must have extension")
+        key=f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}"
+    if "." not in key:raise Exception("extension must")
+    file_content=await file.read()
+    file.file.close()
+    file_size_kb=round(len(file_content)/1024)
+    if file_size_kb>config_limit_s3_kb:raise Exception("file size issue")
+    client_s3.upload_fileobj(BytesIO(file_content),bucket,key)
+    output={file.filename:f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"}
+    return output
+
+import uuid
+async def function_s3_upload_presigned(bucket,key,client_s3,config_s3_region_name,config_limit_s3_kb=100,config_s3_presigned_expire_sec=60):
+   if not key:key=f"{uuid.uuid4().hex}.bin"
    if "." not in key:raise Exception("extension must")
-   output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=expiry_sec, Conditions=[['content-length-range',1,limit_size_kb*1024]])
+   output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=config_s3_presigned_expire_sec,Conditions=[['content-length-range',1,config_limit_s3_kb*1024]])
    for k,v in output["fields"].items():output[k]=v
    del output["fields"]
    output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
-   return output
-
-import uuid
-from io import BytesIO
-async def function_s3_file_upload_direct(config_s3_region_name,client_s3,bucket,key_list,file_list):
-   if not key_list:key_list=[f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}" for file in file_list]
-   output={}
-   for index,file in enumerate(file_list):
-      key=key_list[index]
-      if "." not in key:raise Exception("extension must")
-      file_content=await file.read()
-      file_size_kb=round(len(file_content)/1024)
-      if file_size_kb>100:raise Exception("file size issue")
-      client_s3.upload_fileobj(BytesIO(file_content),bucket,key)
-      output[file.filename]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
-      file.file.close()
    return output
 
 async def function_openai_prompt(client_openai,model,prompt,is_web_search,previous_response_id):

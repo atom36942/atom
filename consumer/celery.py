@@ -76,6 +76,7 @@ def celery_task_2(table,object_list,is_serialize):
 def celery_task_3(query,user_id):
     try:
         global client_postgres
+        print("done")
         def run_wrapper():
             async def wrapper():await function_postgres_query_runner(client_postgres,query,user_id)
             loop=asyncio.get_event_loop()

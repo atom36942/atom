@@ -1,5 +1,7 @@
 #index
 curl -X GET "$baseurl"
+curl -X GET "$baseurl/test"
+curl -X GET "$baseurl/page/test"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
@@ -155,7 +157,39 @@ curl -X POST "$baseurl/public/object-create?table=test" \
   -H "Content-Type: application/json" \
   -d '{"type":1,"title":"test100"}'
 
-curl -X POST "$baseurl/public/jira-worklog-export" \
+0 curl -X POST "$baseurl/public/jira-worklog-export" \
   -H "Content-Type: application/json" \
   -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test"}' \
   -o export_jira_worklog.csv
+
+#private
+0 curl -X GET "$baseurl/private/s3-upload-presigned?bucket=test&key=test"
+
+0 curl -X POST "$baseurl/private/s3-upload-file" \
+  -H "Authorization: Bearer $token" \
+  -F "bucket=test" \
+  -F "file=@file1" \
+  -F "file=@file2" \
+  -F "key_list=test1.png,test2.csv"
+
+#admin
+curl -X PUT "$baseurl/admin/ids-update" \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"table":"test","ids":"1,2,3","column":"is_deleted","value":1}'
+
+curl -X POST "$baseurl/admin/ids-delete" \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"table":"test","ids":"1,2,3"}'
+
+0 curl -X POST "$baseurl/admin/postgres-export" \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"select 1;"}' \
+  -o export_postgres.csv
+
+curl -X POST "$baseurl/admin/postgres-query-runner" \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"select 1;"}'

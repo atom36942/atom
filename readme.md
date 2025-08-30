@@ -51,14 +51,18 @@ docker run -p 8000:8000 atom
 ./venv/bin/pip uninstall fastapi
 ./venv/bin/pip freeze > requirements.txt
 
+#test curls
+./curl.sh
+
 #consumer
 venv/bin/celery -A consumer.celery worker --loglevel=info
 venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 
-#test curls
-./curl.sh
+#url
+config_mongodb_url=mongodb://localhost:27017
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
 
 #stop python
 lsof -ti :8000 | xargs kill -9
@@ -85,10 +89,6 @@ postgres_url = "postgresql://atom@127.0.0.1/postgres?sslmode=disable"
 query = "SELECT * FROM users"
 x=function_export_postgres_query(postgres_url,query)
 asyncio.run(x)
-
-#url
-config_mongodb_url=mongodb://localhost:27017
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
 ```
 
 

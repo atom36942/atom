@@ -35,10 +35,10 @@ async def logic():
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))
    finally:
-      await client_rabbitmq_consumer.close()
-      await client_rabbitmq.close()
-      await client_postgres.disconnect()
-   
+      if client_rabbitmq_consumer and hasattr(client_rabbitmq_consumer, 'channel'): await client_rabbitmq_consumer.channel.close()
+      if client_rabbitmq and not client_rabbitmq.is_closed: await client_rabbitmq.close()
+      if client_postgres: await client_postgres.disconnect()
+
 #main
 if __name__ == "__main__":
     try:asyncio.run(logic())
