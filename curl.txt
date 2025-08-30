@@ -124,11 +124,6 @@ curl -X POST "$baseurl/my/object-create?table=test&queue=batch" \
   -H "Content-Type: application/json" \
   -d '{"type":1,"title":"test5"}'
 
-curl -X POST "$baseurl/my/object-create?table=test&queue=celery" \
-  -H "Authorization: Bearer $token" \
-  -H "Content-Type: application/json" \
-  -d '{"type":1,"title":"test6"}'
-
 curl -X PUT "$baseurl/my/object-update?table=test" \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
@@ -144,7 +139,23 @@ curl -X PUT "$baseurl/my/object-update?table=users" \
   -H "Content-Type: application/json" \
   -d '{"id":1,"email":"test"}'
 
+#public
+curl -X GET "$baseurl/public/info"
+0 curl -X GET "$baseurl/public/otp-verify?mode=email&data=test&otp=123"
+0 curl -X GET "$baseurl/public/otp-send-mobile-sns?mobile=test"
+0 curl -X GET "$baseurl/public/otp-send-mobile-fast2sms?mobile=test"
+0 curl -X GET "$baseurl/public/otp-send-email-ses?email=test&sender_email=test"
+0 curl -X GET "$baseurl/public/otp-send-email-resend?email=test&sender_email=test"
 
+0 curl -X POST "$baseurl/public/otp-send-mobile-sns-template" \
+  -H "Content-Type: application/json" \
+  -d '{"mobile":"test","message":"test","template_id":"test","entity_id":"test","sender_id":"test"}'
 
+curl -X POST "$baseurl/public/object-create?table=test" \
+  -H "Content-Type: application/json" \
+  -d '{"type":1,"title":"test100"}'
 
-
+curl -X POST "$baseurl/public/jira-worklog-export" \
+  -H "Content-Type: application/json" \
+  -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test"}' \
+  -o export_jira_worklog.csv

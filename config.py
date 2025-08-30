@@ -66,7 +66,7 @@ config_openai_key=os.getenv("config_openai_key")
 #switch
 config_is_signup=int(os.getenv("config_is_signup") or 1)
 config_is_log_api=int(os.getenv("config_is_log_api") or 1)
-config_is_traceback=int(os.getenv("config_is_traceback") or 0)
+config_is_traceback=int(os.getenv("config_is_traceback") or 1)
 config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
 config_is_otp_verify_profile_update=int(os.getenv("config_is_otp_verify_profile_update") or 1)
 
@@ -82,7 +82,7 @@ config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,
 
 #batch
 config_batch_log_api=int(os.getenv("config_batch_log_api") or 10)
-config_batch_object_create=int(os.getenv("config_batch_object_create") or 10)
+config_batch_object_create=int(os.getenv("config_batch_object_create") or 3)
 
 #public
 config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test").split(",")

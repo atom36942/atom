@@ -617,7 +617,7 @@ async def function_otp_generate(mode,data,client_postgres):
    await client_postgres.execute(query=query,values=values)
    return otp
 
-async def function_otp_verify(mode,otp,data,client_postgres):
+async def function_otp_verify(mode,data,otp,client_postgres):
    if mode=="email":
       query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=:email order by id desc limit 1;"
       values={"email":data}

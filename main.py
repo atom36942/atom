@@ -120,18 +120,6 @@ async def function_api_index(request:Request):
 
 #api
 
-
-
-
-
-
-
-
-
-
-
-
-
 @app.get("/my/object-read")
 async def function_api_my_object_read(request:Request):
    param=await function_param_read(request,"query",[["table",1,None,None]])
@@ -148,71 +136,6 @@ async def function_api_my_object_delete_any(request:Request):
    return {"status":1,"message":"done"}
 
 
-
-
-
-
-
-
-
-
-
-@app.post("/public/otp-send-mobile-sns")
-async def function_api_public_otp_send_mobile_sns(request:Request):
-   param=await function_param_read(request,"body",[["mobile",1,None,None]])
-   otp=await function_otp_generate("mobile",param["mobile"],request.app.state.client_postgres)
-   await function_send_mobile_message_sns(request.app.state.client_sns,param["mobile"],str(otp))
-   return {"status":1,"message":"done"}
-
-@app.post("/public/otp-send-mobile-sns-template")
-async def function_api_public_otp_send_mobile_sns_template(request:Request):
-   param=await function_param_read(request,"body",[["mobile",1,None,None],["message",1,None,None],["template_id",1,None,None],["entity_id",1,None,None],["sender_id",1,None,None]])
-   otp=await function_otp_generate("mobile",param["mobile"],request.app.state.client_postgres)
-   message=param["message"].format(otp=otp)
-   await function_send_mobile_message_sns_template(request.app.state.client_sns,param["mobile"],message,param["template_id"],param["entity_id"],param["sender_id"])
-   return {"status":1,"message":"done"}
-
-@app.post("/public/otp-send-mobile-fast2sms")
-async def function_api_public_otp_send_mobile_fast2sms(request:Request):
-   param=await function_param_read(request,"body",[["mobile",1,None,None]])
-   otp=await function_otp_generate("mobile",param["mobile"],request.app.state.client_postgres)
-   output=await function_send_mobile_otp_fast2sms(request.app.state.config_fast2sms_url,request.app.state.config_fast2sms_key,param["mobile"],otp)
-   return {"status":1,"message":output}
-
-@app.post("/public/otp-send-email-ses")
-async def function_api_public_otp_send_email_ses(request:Request):
-   param=await function_param_read(request,"body",[["email",1,None,None],["sender_email",1,None,None]])
-   otp=await function_otp_generate("email",param["email"],request.app.state.client_postgres)
-   await function_send_email_ses(request.app.state.client_ses,param["sender_email"],[param["email"]],"your otp code",str(otp))
-   return {"status":1,"message":"done"}
-
-@app.post("/public/otp-send-email-resend")
-async def function_api_public_otp_send_email_resend(request:Request):
-   param=await function_param_read(request,"body",[["email",1,None,None],["sender_email",1,None,None]])
-   otp=await function_otp_generate("email",param["email"],request.app.state.client_postgres)
-   await function_send_email_resend(request.app.state.config_resend_url,request.app.state.config_resend_key,param["sender_email"],[param["email"]],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
-   return {"status":1,"message":"done"}
-
-@app.post("/public/otp-verify-email")
-async def function_api_public_otp_verify_email(request:Request):
-   param=await function_param_read(request,"body",[["otp",1,"int",None],["email",1,None,None]])
-   await function_otp_verify("email",param["otp"],param["email"],request.app.state.client_postgres)
-   return {"status":1,"message":"done"}
-
-@app.post("/public/otp-verify-mobile")
-async def function_api_public_otp_verify_mobile(request:Request):
-   param=await function_param_read(request,"body",[["otp",1,"int",None],["mobile",1,None,None]])
-   await function_otp_verify("mobile",param["otp"],param["mobile"],request.app.state.client_postgres)
-   return {"status":1,"message":"done"}
-
-@app.post("/public/object-create")
-async def function_api_public_object_create(request:Request):
-   param=await function_param_read(request,"query",[["table",1,None,None],["is_serialize",0,"int",0]])
-   obj=await function_param_read(request,"body",[])
-   if param["table"] not in request.app.state.config_public_table_create_list:return function_return_error("table not allowed")
-   output=await function_object_create_postgres(request.app.state.client_postgres,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   return {"status":1,"message":output}
-
 @app.get("/public/object-read")
 async def function_api_public_object_read(request:Request):
    param=await function_param_read(request,"query",[["table",1,None,None],["creator_key",0,None,None]])
@@ -221,13 +144,6 @@ async def function_api_public_object_read(request:Request):
    if object_list and param["creator_key"]:object_list=await function_add_creator_data(request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres,param["creator_key"],object_list)
    return {"status":1,"message":object_list}
 
-@app.get("/public/info")
-async def function_api_public_info(request:Request):
-   output={
-   "api_list":[route.path for route in request.app.routes],
-   "postgres_schema":request.app.state.cache_postgres_schema
-   }
-   return {"status":1,"message":output}
 
 @app.get("/public/page/{filename}")
 async def function_api_public_page(filename:str):
@@ -237,13 +153,6 @@ async def function_api_public_page(filename:str):
    with open(file_path,"r",encoding="utf-8") as file:html_content=file.read()
    return responses.HTMLResponse(content=html_content)
 
-@app.post("/public/jira-worklog-export")
-async def function_api_public_jira_worklog_export(request:Request):
-   param=await function_param_read(request,"body",[["jira_base_url",1,None,None],["jira_email",1,None,None],["jira_token",1,None,None],["start_date",0,None,None],["end_date",0,None,None]])
-   output_path=f"export_jira_worklog_{__import__('time').time():.0f}.csv"
-   function_export_jira_worklog(param["jira_base_url"],param["jira_email"],param["jira_token"],param["start_date"],param["end_date"],output_path)
-   stream=function_stream_file(output_path)
-   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment; filename=export_jira_worklog.csv"},background=BackgroundTask(lambda: os.remove(output_path)))
 
 @app.post("/private/file-upload-s3-direct")
 async def function_api_private_file_upload_s3_direct(request:Request):
