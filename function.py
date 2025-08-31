@@ -1,3 +1,7 @@
+async def function_extend_client():
+   output={}
+   return output
+   
 async def function_param_read(request, mode, config):
     if mode == "query":
         param = dict(request.query_params)
