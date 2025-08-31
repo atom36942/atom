@@ -1,5 +1,5 @@
 #function
-from function import function_client_read_redis,function_client_read_redis_consumer
+from function import function_redis_client_read,function_redis_client_read_consumer
 from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
@@ -20,8 +20,8 @@ import asyncio,json
 #logic
 async def logic():
    try:
-      client_redis=await function_client_read_redis(config_redis_pubsub_url)
-      client_redis_consumer=await function_client_read_redis_consumer(client_redis,config_channel_name)
+      client_redis=await function_redis_client_read(config_redis_pubsub_url)
+      client_redis_consumer=await function_redis_client_read_consumer(client_redis,config_channel_name)
       client_postgres=await function_client_read_postgres(config_postgres_url)
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       async for message in client_redis_consumer.listen():

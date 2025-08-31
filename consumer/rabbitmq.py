@@ -1,5 +1,5 @@
 #function
-from function import function_client_read_rabbitmq_consumer
+from function import function_rabbitmq_client_read_consumer
 from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
@@ -29,7 +29,7 @@ async def logic():
             print(f"{payload.get('function')} task created")
       client_postgres=await function_client_read_postgres(config_postgres_url)
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
-      client_rabbitmq,client_rabbitmq_consumer=await function_client_read_rabbitmq_consumer(config_rabbitmq_url,config_channel_name)
+      client_rabbitmq,client_rabbitmq_consumer=await function_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
       await client_rabbitmq_consumer.consume(aqmp_callback)
       await asyncio.Future()
    except asyncio.CancelledError:print("consumer cancelled")

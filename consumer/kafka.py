@@ -1,5 +1,5 @@
 #function
-from function import function_client_read_kafka_consumer
+from function import function_kafka_client_read_consumer
 from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
@@ -24,7 +24,7 @@ import asyncio,json
 #logic
 async def logic():
    try:
-      client_kafka_consumer=await function_client_read_kafka_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_group_id,config_enable_auto_commit)
+      client_kafka_consumer=await function_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_group_id,config_enable_auto_commit)
       client_postgres=await function_client_read_postgres(config_postgres_url)
       postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
       async for message in client_kafka_consumer:

@@ -1,5 +1,5 @@
 #function
-from function import function_client_read_celery_consumer
+from function import function_celery_client_read_consumer
 from function import function_client_read_postgres,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
@@ -19,7 +19,7 @@ import asyncio,traceback
 from celery import signals
 
 #client
-client_celery_consumer=function_client_read_celery_consumer(config_celery_broker_url,config_celery_backend_url)
+client_celery_consumer=function_celery_client_read_consumer(config_celery_broker_url,config_celery_backend_url)
 client_postgres=None
 postgres_schema=None
 postgres_column_datatype=None
