@@ -87,7 +87,6 @@ asyncio.run(x)
 
 #page
 http://127.0.0.1:8000/page/test
-http://127.0.0.1:8000/page/jiraworklog
 ```
 
 
