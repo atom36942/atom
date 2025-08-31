@@ -119,6 +119,8 @@ async def middleware(request,api_function):
    if config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       obj_log={"response_type":response_type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
       asyncio.create_task(function_log_create_postgres("append",function_object_create_postgres,request.app.state.client_postgres,config_batch_log_api,obj_log))
+   #posthog
+   if False:request.app.state.client_posthog.capture(distinct_id=request.state.user.get("id"),event="api",properties=obj_log)
    #final
    return response
 

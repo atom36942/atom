@@ -19,6 +19,17 @@ async def function_api_root_postgres_clean(request:Request):
    await function_postgres_clean(request.app.state.client_postgres,config_postgres_clean)
    return {"status":1,"message":"done"}
 
+@router.post("/root/postgres-query-runner")
+async def function_api_root_postgres_query_runner(request:Request):
+    param=await function_param_read(request,"body",[["query",None,1,None]])
+    obj=await function_param_read(request,"query",[["queue",None,0,None]])
+    if not obj["queue"]: output=await function_postgres_query_runner(request.app.state.client_postgres,param["query"])
+    elif obj["queue"]=="celery": output=await function_producer_celery(request.app.state.client_celery_producer,"function_postgres_query_runner",[param["query"]])
+    elif obj["queue"]=="kafka": output=await function_producer_kafka(request.app.state.client_kafka_producer,"channel_1",{"function":"function_postgres_query_runner","query":param["query"]})
+    elif obj["queue"]=="rabbitmq": output=await function_producer_rabbitmq(request.app.state.client_rabbitmq_producer,"channel_1",{"function":"function_postgres_query_runner","query":param["query"]})
+    elif obj["queue"]=="redis": output=await function_producer_redis(request.app.state.client_redis_producer,"channel_1",{"function":"function_postgres_query_runner","query":param["query"]})
+    return {"status":1,"message":output}
+
 @router.post("/root/postgres-export")
 async def function_api_root_postgres_export(request:Request):
    param=await function_param_read(request,"body",[["query",None,1,None]])

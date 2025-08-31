@@ -116,8 +116,6 @@ config_api={
 "/admin/ids-update":{"id":3},
 "/admin/ids-delete":{"id":4}, 
 "/admin/object-read":{"id":5,"cache_sec":["redis",100]},
-"/admin/postgres-query-runner":{"id":6},
-"/admin/postgres-export":{"id":7},
 "/public/object-read":{"id":8,"cache_sec":["inmemory",60]},
 "/test":{"id":100,"is_token":0,"is_active_check":1,"cache_sec":["redis",60],"ratelimiter_times_sec":[1,3]},
 }

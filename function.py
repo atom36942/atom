@@ -1318,19 +1318,12 @@ async def function_postgres_drop_all_index(client_postgres):
    await client_postgres.execute(query=query,values={})
    return None
 
-async def function_postgres_query_runner(client_postgres,query,user_id=1):
-   block_word=["drop","truncate"]
-   stop_word=["drop","delete","update","insert","alter","truncate","create", "rename","replace","merge","grant","revoke","execute","call","comment","set","disable","enable","lock","unlock"]
-   must_word=["select"]
-   for item in block_word:
-      if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
-   if user_id!=1:
-      for item in stop_word:
-         if item in query.lower():raise Exception(f"{item} keyword not allowed in query")
-      for item in must_word:
-         if item not in query.lower():raise Exception(f"{item} keyword not allowed in query")
-   output=await client_postgres.fetch_all(query=query,values={})
-   return output
+async def function_postgres_query_runner(client_postgres, query):
+    block_word = ["drop", "truncate"]
+    for item in block_word:
+        if item in query.lower(): raise Exception(f"{item} keyword not allowed in query")
+    output = await client_postgres.fetch_all(query=query, values={})
+    return output
 
 import csv, re
 from io import StringIO

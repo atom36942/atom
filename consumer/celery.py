@@ -73,12 +73,12 @@ def celery_task_2(table,object_list,is_serialize):
     
 #task 3
 @client_celery_consumer.task(name="function_postgres_query_runner")
-def celery_task_3(query,user_id):
+def celery_task_3(query):
     try:
         global client_postgres
         print("done")
         def run_wrapper():
-            async def wrapper():await function_postgres_query_runner(client_postgres,query,user_id)
+            async def wrapper():await function_postgres_query_runner(client_postgres,query)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         run_wrapper()
