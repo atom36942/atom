@@ -1,6 +1,20 @@
 async def function_extend_client():
    output={}
    return output
+
+def function_render_html(name: str):
+    if ".." in name: 
+        raise Exception("invalid name")
+    match = None
+    for root, dirs, files in os.walk("."):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "venv"]
+        if f"{name}.html" in files:
+            match = os.path.join(root, f"{name}.html")
+            break
+    if not match: 
+        raise Exception("file not found")
+    with open(match, "r", encoding="utf-8") as file:
+        return file.read()
    
 async def function_param_read(request, mode, config):
     if mode == "query":

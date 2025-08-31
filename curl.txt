@@ -172,7 +172,7 @@ curl -X POST "$baseurl/public/object-create?table=test" \
 
 0 curl -X POST "$baseurl/public/jira-worklog-export" \
   -H "Content-Type: application/json" \
-  -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test"}' \
+  -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test","start_date":"test","end_date":"test"}' \
   -o export_jira_worklog.csv
 
 #private

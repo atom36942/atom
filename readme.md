@@ -84,8 +84,11 @@ postgres_url = "postgresql://atom@127.0.0.1/postgres?sslmode=disable"
 query = "SELECT * FROM users"
 x=function_export_postgres_query(postgres_url,query)
 asyncio.run(x)
-```
 
+#page
+http://127.0.0.1:8000/page/test
+http://127.0.0.1:8000/page/jiraworklog
+```
 
 
 
