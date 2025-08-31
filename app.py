@@ -33,7 +33,7 @@ async def lifespan(app:FastAPI):
       cache_users_api_access=await function_column_mapping_read(client_postgres_asyncpg,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int") if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("api_access") else {}
       cache_users_is_active=await function_column_mapping_read(client_postgres_asyncpg,"users","id","is_active",config_limit_cache_users_api_access,1,None) if client_postgres_asyncpg and cache_postgres_schema.get("users",{}).get("is_active") else {}
       #app state set
-      function_add_app_state({**globals(),**locals()},app,("config_","client_","cache_"))
+      function_add_app_state({**globals(),**locals()},app,("client_","cache_"))
       #app shutdown
       yield
       await function_log_create_postgres("flush",function_object_create_postgres,client_postgres,None,None)
