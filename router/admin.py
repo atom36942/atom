@@ -19,6 +19,7 @@ async def function_api_admin_ids_update(request:Request):
 @router.post("/admin/ids-delete")
 async def function_api_admin_ids_delete(request:Request):
    param=await function_param_read(request,"body",[["table",None,1,None],["ids",None,1,None]])
+   if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    await function_delete_ids(request.app.state.client_postgres,param["table"],param["ids"],None)
    return {"status":1,"message":"done"}
 
@@ -45,7 +46,7 @@ async def function_api_admin_object_create(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0]])
    obj=await function_param_read(request,"body",[])
    if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):obj["created_by_id"]=request.state.user["id"]
-   if len(obj)<=1:return function_return_error("obj issue")
+   if len(obj)<=1:raise Exception("obj issue")
    output=await function_object_create_postgres(request.app.state.client_postgres,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":output}
 
@@ -53,8 +54,8 @@ async def function_api_admin_object_create(request:Request):
 async def function_api_admin_object_update(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["queue",None,0,None]])
    obj=await function_param_read(request,"body",[])
-   if "id" not in obj:return function_return_error("id missing")
-   if len(obj)<=1:return function_return_error("obj length issue")
+   if "id" not in obj:raise Exception("id missing")
+   if len(obj)<=1:raise Exception("obj length issue")
    if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):obj["updated_by_id"]=request.state.user["id"]
    if not param["queue"]:output=await function_object_update_postgres(request.app.state.client_postgres,param["table"],[obj],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    elif param["queue"]=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_update_postgres",[param["table"],[obj],1])

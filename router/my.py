@@ -5,14 +5,14 @@ from extend import *
 @router.get("/my/profile")
 async def function_api_my_profile(request:Request):
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   output=await function_read_user_query_count(request.app.state.client_postgres,request.state.user["id"],request.app.state.config_user_count_query)
+   output=await function_read_user_query_count(request.app.state.client_postgres,request.state.user["id"],config_user_count_query)
    asyncio.create_task(function_update_last_active_at(request.app.state.client_postgres,request.state.user["id"]))
    return {"status":1,"message":user|output}
 
 @router.get("/my/token-refresh")
 async def function_api_my_token_refresh(request:Request):
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   token=await function_token_encode(request.app.state.config_key_jwt,request.app.state.config_token_expire_sec,request.app.state.config_token_user_key_list,user)
+   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
    return {"status":1,"message":token}
 
 @router.get("/my/api-usage")
@@ -25,22 +25,23 @@ async def function_api_my_api_usage(request:Request):
 async def function_api_my_account_delete(request:Request):
    param=await function_param_read(request,"query",[["mode",None,1,None]])
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   if user["api_access"]:return function_return_error("not allowed as you have api_access")
+   if user["api_access"]:raise Exception("not allowed as you have api_access")
    await function_delete_user_single(param["mode"],request.app.state.client_postgres,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.put("/my/ids-update")
 async def function_api_my_ids_update(request:Request):
    param=await function_param_read(request,"body",[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
-   if param["table"] in ["users"]:return function_return_error("table not allowed")
-   if param["column"] in request.app.state.config_column_disabled_list:return function_return_error("column not allowed")
+   if param["table"] in ["users"]:raise Exception("table not allowed")
+   if param["column"] in config_column_disabled_list:raise Exception("column not allowed")
    await function_update_ids(request.app.state.client_postgres,param["table"],param["ids"],param["column"],param["value"],request.state.user["id"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.post("/my/ids-delete")
 async def function_api_my_ids_delete(request:Request):
    param=await function_param_read(request,"body",[["table",None,1,None],["ids",None,1,None]])
-   if param["table"] in ["users"]:return function_return_error("table not allowed")
+   if param["table"] in ["users"]:raise Exception("table not allowed")
+   if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    await function_delete_ids(request.app.state.client_postgres,param["table"],param["ids"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
@@ -87,9 +88,9 @@ async def function_api_my_object_create_mongodb(request:Request):
    param=await function_param_read(request,"query",[["database",None,1,None],["table",None,1,None]])
    obj=await function_param_read(request,"body",[])
    obj["created_by_id"]=request.state.user["id"]
-   if param["table"] in ["users"]:return function_return_error("table not allowed")
-   if len(obj)<=1:return function_return_error("obj issue")
-   if any(key in request.app.state.config_column_disabled_list for key in obj):return function_return_error("obj key not allowed")
+   if param["table"] in ["users"]:raise Exception("table not allowed")
+   if len(obj)<=1:raise Exception("obj issue")
+   if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
    output=await function_object_create_mongodb(request.app.state.client_mongodb,param["database"],param["table"],[obj])
    return {"status":1,"message":output}
 
@@ -97,7 +98,7 @@ async def function_api_my_object_create_mongodb(request:Request):
 async def function_api_my_object_delete_any(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
-   if param["table"] in ["users"]:return function_return_error("table not allowed")
+   if param["table"] in ["users"]:raise Exception("table not allowed")
    await function_object_delete_postgres_any(request.app.state.client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":"done"}
 
@@ -115,11 +116,11 @@ async def function_api_my_object_create(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
    obj=await function_param_read(request,"body",[])
    obj["created_by_id"]=request.state.user["id"]
-   if param["table"] in ["users"]:return function_return_error("table not allowed")
-   if len(obj)<=1:return function_return_error("obj issue")
-   if any(key in request.app.state.config_column_disabled_list for key in obj):return function_return_error("obj key not allowed")
+   if param["table"] in ["users"]:raise Exception("table not allowed")
+   if len(obj)<=1:raise Exception("obj issue")
+   if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
    if not param["queue"]:output=await function_object_create_postgres(request.app.state.client_postgres,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   elif param["queue"]=="batch":output=await function_object_create_postgres_batch("append",function_object_create_postgres,request.app.state.client_postgres,param["table"],obj,request.app.state.config_batch_object_create,param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   elif param["queue"]=="batch":output=await function_object_create_postgres_batch("append",function_object_create_postgres,request.app.state.client_postgres,param["table"],obj,config_batch_object_create,param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
    else:
       payload={"function":"function_object_create_postgres","table":param["table"],"object_list":[obj],"is_serialize":param["is_serialize"]}
       if param["queue"]=="celery":output=await function_producer_celery(request.app.state.client_celery_producer,"function_object_create_postgres",[param["table"],[obj],param["is_serialize"]])
@@ -133,13 +134,13 @@ async def function_api_my_object_update(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["otp","int",0,0]])
    obj=await function_param_read(request,"body",[])
    obj["updated_by_id"]=request.state.user["id"]
-   if "id" not in obj:return function_return_error("id missing")
-   if len(obj)<=2:return function_return_error("obj length issue")
-   if any(key in request.app.state.config_column_disabled_list for key in obj):return function_return_error("obj key not allowed")
+   if "id" not in obj:raise Exception("id missing")
+   if len(obj)<=2:raise Exception("obj length issue")
+   if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
    if param["table"]=="users":
-      if obj["id"]!=request.state.user["id"]:return function_return_error("wrong id")
-      if any(key in obj and len(obj)!=3 for key in ["password"]):return function_return_error("obj length should be 2")
-      if request.app.state.config_is_otp_verify_profile_update and any(key in obj and not param["otp"] for key in ["email","mobile"]):return function_return_error("otp missing")
+      if obj["id"]!=request.state.user["id"]:raise Exception("wrong id")
+      if any(key in obj and len(obj)!=3 for key in ["password"]):raise Exception("obj length should be 2")
+      if config_is_otp_verify_profile_update and any(key in obj and not param["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
    if param["otp"]:
       email,mobile=obj.get("email"),obj.get("mobile")
       if email:await function_otp_verify("email",param["otp"],email,request.app.state.client_postgres)

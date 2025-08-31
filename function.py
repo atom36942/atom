@@ -394,10 +394,6 @@ async def function_server_start(app):
    server=uvicorn.Server(config)
    await server.serve()
    
-from fastapi import responses
-def function_return_error(message):
-   return responses.JSONResponse(status_code=400,content={"status":0,"message":message})
-
 from fastapi.middleware.cors import CORSMiddleware
 def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
    app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)

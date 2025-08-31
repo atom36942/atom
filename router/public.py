@@ -13,7 +13,7 @@ async def function_api_public_info(request:Request):
 @router.get("/public/object-read")
 async def function_api_public_object_read(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["creator_key","list",0,[]]])
-   if param["table"] not in request.app.state.config_public_table_read_list:return function_return_error("table not allowed")
+   if param["table"] not in config_public_table_read_list:raise Exception("table not allowed")
    client_postgres=request.app.state.client_postgres_read if request.app.state.client_postgres_read else request.app.state.client_postgres
    object_list=await function_object_read_postgres(client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    if param["creator_key"]:object_list=await function_add_creator_data(object_list,param["creator_key"],client_postgres)
@@ -23,8 +23,8 @@ async def function_api_public_object_read(request:Request):
 async def function_api_public_object_create(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0]])
    obj=await function_param_read(request,"body",[])
-   if param["table"] not in request.app.state.config_public_table_create_list:return function_return_error("table not allowed")
-   if len(obj)<=1:return function_return_error("obj issue")
+   if param["table"] not in config_public_table_create_list:raise Exception("table not allowed")
+   if len(obj)<=1:raise Exception("obj issue")
    output=await function_object_create_postgres(request.app.state.client_postgres,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":output}
 
@@ -45,7 +45,7 @@ async def function_api_public_otp_send_mobile_sns(request:Request):
 async def function_api_public_otp_send_mobile_fast2sms(request:Request):
    param=await function_param_read(request,"query",[["mobile",None,1,None]])
    otp=await function_otp_generate("mobile",param["mobile"],request.app.state.client_postgres)
-   output=await function_send_mobile_otp_fast2sms(request.app.state.config_fast2sms_url,request.app.state.config_fast2sms_key,param["mobile"],otp)
+   output=await function_send_mobile_otp_fast2sms(config_fast2sms_url,config_fast2sms_key,param["mobile"],otp)
    return {"status":1,"message":output}
 
 @router.get("/public/otp-send-email-ses")
@@ -59,7 +59,7 @@ async def function_api_public_otp_send_email_ses(request:Request):
 async def function_api_public_otp_send_email_resend(request:Request):
    param=await function_param_read(request,"query",[["email",None,1,None],["sender_email",None,1,None]])
    otp=await function_otp_generate("email",param["email"],request.app.state.client_postgres)
-   await function_send_email_resend(request.app.state.config_resend_url,request.app.state.config_resend_key,param["sender_email"],[param["email"]],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
+   await function_send_email_resend(config_resend_url,config_resend_key,param["sender_email"],[param["email"]],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
    return {"status":1,"message":"done"}
 
 @router.post("/public/otp-send-mobile-sns-template")
