@@ -9,6 +9,7 @@ curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 curl -X GET "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token_root"
 0 curl -X GET "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
 curl -X POST "$baseurl/root/postgres-query-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select 1;"}'
+curl -X POST "$baseurl/root/postgres-query-runner?queue=celery" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select 1;"}'
 0 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select 1;"}' -o export_postgres.csv
 0 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
 0 curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token_root" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/update.csv"
@@ -47,6 +48,7 @@ curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $t
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test2"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test4"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=batch" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test5"}'
+curl -X POST "$baseurl/my/object-create?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test5"}'
 curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test8"}'
 curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":"123"}'
 0 curl -X PUT "$baseurl/my/object-update?table=users&otp=123" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"email":"test"}'
@@ -83,3 +85,4 @@ curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Co
 curl -X POST "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,3"}'
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test200"}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":5,"title":"test2000"}'
+curl -X PUT "$baseurl/admin/object-update?table=test?queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":5,"title":"test2000"}'

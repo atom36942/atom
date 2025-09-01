@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #key
-config_key_root=os.getenv("config_key_root")
 config_key_jwt=os.getenv("config_key_jwt")
+config_key_root=os.getenv("config_key_root")
 
 #postgres
 config_postgres_url=os.getenv("config_postgres_url")

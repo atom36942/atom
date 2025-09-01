@@ -4,14 +4,12 @@ set -euo pipefail
 # load .env variables
 [ -f .env ] && export $(grep -v '^#' .env | xargs)
 
-# config files
+# config
 input_file="curl.txt"
 output_curl="export_curl.txt"
 output_fail="export_curl_fail.log"
 ENABLE_REPORT=0
 output_report="export_curl_report.csv"
-
-# config curl
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
 token="${token:-}"

@@ -1,0 +1,15 @@
+import boto3
+async def function_aws_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name):
+   client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   return client_ses
+
+import boto3
+async def function_aws_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name):
+   client_sns=boto3.client("sns",region_name=config_sns_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   return client_sns
+
+import boto3
+async def function_aws_s3_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name):
+   client_s3=boto3.client("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   client_s3_resource=boto3.resource("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
+   return client_s3,client_s3_resource

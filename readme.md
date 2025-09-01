@@ -23,8 +23,13 @@ python3 -m venv venv
 #env
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
-config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt
 config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
+config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt
+config_mongodb_url=mongodb://localhost:27017
+config_celery_broker_url=redis://localhost:6379
+config_celery_backend_url=redis://localhost:6379
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_redis_pubsub_url=redis://localhost:6379
 
 #start
 ./venv/bin/uvicorn main:app --reload
@@ -55,10 +60,6 @@ venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 
-#url
-config_mongodb_url=mongodb://localhost:27017
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-
 #stop python
 lsof -ti :8000 | xargs kill -9
 
@@ -80,7 +81,7 @@ SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)
 #asyncio
 from function import function_export_postgres_query
 import asyncio
-postgres_url = "postgresql://atom@127.0.0.1/postgres?sslmode=disable"
+postgres_url = "postgresql://atom@127.0.0.1/postgres"
 query = "SELECT * FROM users"
 x=function_export_postgres_query(postgres_url,query)
 asyncio.run(x)
@@ -88,54 +89,5 @@ asyncio.run(x)
 #page
 http://127.0.0.1:8000/page/test
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
