@@ -10,8 +10,6 @@
 
 
 
-
-
 ## Installation
 ```bash
 #setup
@@ -34,8 +32,6 @@ config_redis_pubsub_url=redis://localhost:6379
 #start
 ./venv/bin/uvicorn main:app --reload
 ```
-
-
 
 
 

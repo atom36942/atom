@@ -9,16 +9,16 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import traceback
 @asynccontextmanager
-async def lifespan(app:FastAPI):
+async def function_lifespan(app:FastAPI):
    try:
       #client init
       client_postgres=await function_client_read_postgres(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_redis=await function_redis_client_read(config_redis_url) if config_redis_url else None
       client_redis_ratelimiter=await function_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
       client_mongodb=await function_mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
-      client_s3,client_s3_resource=(await function_aws_s3_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name)) if config_s3_region_name else (None, None)
-      client_sns=await function_aws_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
-      client_ses=await function_aws_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
+      client_s3,client_s3_resource=(await function_s3_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name)) if config_s3_region_name else (None, None)
+      client_sns=await function_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
+      client_ses=await function_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
       client_openai=function_openai_client_read(config_openai_key) if config_openai_key else None
       client_posthog=await function_posthog_client_read(config_posthog_project_host,config_posthog_project_key)
       client_celery_producer=await function_celery_client_read_producer(config_celery_broker_url,config_celery_backend_url) if config_celery_broker_url else None
@@ -52,7 +52,7 @@ async def lifespan(app:FastAPI):
       print(traceback.format_exc())
       
 #app
-app=function_fastapi_app_read(True,lifespan)
+app=function_fastapi_app_read(True,function_lifespan)
 
 #cors
 function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
