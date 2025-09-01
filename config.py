@@ -103,8 +103,8 @@ config_column_disabled_list=(os.getenv("config_column_disabled_list") or "is_act
 
 #dict
 config_user_count_query={
-"log_api_count":"select count(*) from log_api where created_by_id=:user_id",
-"test_count":"select count(*) from test where created_by_id=:user_id"
+"log_api_count":"select count(*) from log_api where created_by_id=$1",
+"test_count":"select count(*) from test where created_by_id=$1"
 }
 config_postgres_clean={
 "log_api":365,
@@ -113,9 +113,9 @@ config_postgres_clean={
 config_api={
 "/admin/object-create":{"id":1},
 "/admin/object-update":{"id":2},
-"/admin/ids-update":{"id":3},
-"/admin/ids-delete":{"id":4}, 
-"/admin/object-read":{"id":5,"cache_sec":["redis",100]},
+"/admin/object-read":{"id":3},
+"/admin/ids-update":{"id":4},
+"/admin/ids-delete":{"id":5},
 "/public/object-read":{"id":8,"cache_sec":["inmemory",60]},
 "/test":{"id":100,"is_token":0,"is_active_check":1,"cache_sec":["redis",60],"ratelimiter_times_sec":[1,3]},
 }

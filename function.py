@@ -115,6 +115,390 @@ def function_config_read():
     output.update(read_config_folder_files())
     return output
 
+#postgres
+async def function_postgres_column_mapping_read(client_postgres,table,column_1,column_2,limit,is_null,transformer):
+   output={}
+   where_clause="" if is_null else f"WHERE {column_2} IS NOT NULL"
+   async with client_postgres.acquire() as conn:
+      stmt=await conn.prepare(f"SELECT {column_1},{column_2} FROM {table} {where_clause} ORDER BY {column_1} DESC")
+      cursor=stmt.cursor()
+      count=0
+      while count<limit:
+         batch=await cursor.fetch(10000)
+         if not batch:break
+         if transformer=="split_int":output.update({row[column_1]:[int(item.strip()) for item in row[column_2].split(",")] if row[column_2] else [] for row in batch})
+         else:output.update({row[column_1]:row[column_2] for row in batch})
+         count+=len(batch)
+         if count>=limit:break
+   return output
+
+import datetime
+async def function_postgres_clean(client_postgres,config_postgres_clean):
+   async with client_postgres.acquire() as conn:
+      for table_name,days in config_postgres_clean.items():
+         threshold_date=datetime.datetime.utcnow()-datetime.timedelta(days=days)
+         query=f"DELETE FROM {table_name} WHERE created_at < $1"
+         await conn.execute(query,threshold_date)
+   return None
+
+import asyncpg
+async def function_postgres_client_read(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
+   client_postgres=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
+   return client_postgres
+
+import asyncpg, csv, re
+async def function_postgres_export(postgres_url, query, batch_size=1000, output_path="export_postgres.csv"):
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise ValueError("Only read-only queries allowed")
+    conn = await asyncpg.connect(postgres_url)
+    try:
+        async with conn.transaction():
+            writer = None
+            f = None
+            async for record in conn.cursor(query, prefetch=batch_size):
+                if writer is None:
+                    f = open(output_path, "w", newline="")
+                    writer = csv.writer(f)
+                    writer.writerow(record.keys())
+                writer.writerow(record.values())
+            if f: f.close()
+    finally: await conn.close()
+    return f"saved to {output_path}"
+
+import asyncpg,random
+from mimesis import Person,Address,Food,Text,Code,Datetime
+async def function_postgres_create_fake_data(postgres_url,TOTAL_ROWS,BATCH_SIZE):
+   conn = await asyncpg.connect(postgres_url)
+   person = Person()
+   address = Address()
+   food = Food()
+   text_gen = Text()
+   code = Code()
+   dt = Datetime()
+   TABLES = {
+   "customers": [("name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("birth_date", "DATE", lambda: dt.date()), ("signup_code", "TEXT", lambda: code.imei()), ("loyalty_points", "INT", lambda: random.randint(0, 10000)), ("favorite_fruit", "TEXT", lambda: food.fruit())],
+   "orders": [("order_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("order_date", "DATE", lambda: dt.date()), ("shipping_city", "TEXT", lambda: address.city()), ("total_amount", "INT", lambda: random.randint(10, 5000)), ("status", "TEXT", lambda: random.choice(["pending", "shipped", "delivered", "cancelled"])), ("item_count", "INT", lambda: random.randint(1, 20)), ("shipping_country", "TEXT", lambda: address.country())],
+   "products": [("product_name", "TEXT", lambda: food.fruit()), ("category", "TEXT", lambda: random.choice(["electronics", "clothing", "food", "books"])), ("price", "INT", lambda: random.randint(5, 1000)), ("supplier_city", "TEXT", lambda: address.city()), ("stock_quantity", "INT", lambda: random.randint(0, 500)), ("manufacture_date", "DATE", lambda: dt.date()), ("expiry_date", "DATE", lambda: dt.date()), ("sku_code", "TEXT", lambda: code.imei())],
+   "employees": [("full_name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("city", "TEXT", lambda: address.city()), ("salary", "INT", lambda: random.randint(30000, 150000)), ("hire_date", "DATE", lambda: dt.date()), ("employee_id", "TEXT", lambda: code.imei())],
+   "suppliers": [("supplier_name", "TEXT", lambda: person.full_name()), ("contact_email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("phone_number", "TEXT", lambda: person.telephone()), ("rating", "INT", lambda: random.randint(1, 5))],
+   "invoices": [("invoice_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("invoice_date", "DATE", lambda: dt.date()), ("amount_due", "INT", lambda: random.randint(100, 10000)), ("due_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["paid", "unpaid", "overdue"]))],
+   "payments": [("payment_id", "TEXT", lambda: code.imei()), ("invoice_number", "TEXT", lambda: code.imei()), ("payment_date", "DATE", lambda: dt.date()), ("amount", "INT", lambda: random.randint(50, 10000)), ("payment_method", "TEXT", lambda: random.choice(["credit_card", "paypal", "bank_transfer"])), ("status", "TEXT", lambda: random.choice(["completed", "pending", "failed"]))],
+   "departments": [("department_name", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("manager", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city()), ("budget", "INT", lambda: random.randint(50000, 1000000))],
+   "projects": [("project_name", "TEXT", lambda: text_gen.word()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("budget", "INT", lambda: random.randint(10000, 500000)), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"]))],
+   "inventory": [("item_name", "TEXT", lambda: food.spices()), ("quantity", "INT", lambda: random.randint(0, 1000)), ("warehouse_location", "TEXT", lambda: address.city()), ("last_restock_date", "DATE", lambda: dt.date())],
+   "shipments": [("shipment_id", "TEXT", lambda: code.imei()), ("order_number", "TEXT", lambda: code.imei()), ("shipment_date", "DATE", lambda: dt.date()), ("delivery_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["in_transit", "delivered", "delayed"]))],
+   "reviews": [("review_id", "TEXT", lambda: code.imei()), ("product_name", "TEXT", lambda: food.fruit()), ("customer_name", "TEXT", lambda: person.full_name()), ("rating", "INT", lambda: random.randint(1, 5)), ("review_date", "DATE", lambda: dt.date()), ("comments", "TEXT", lambda: text_gen.sentence())],
+   "tasks": [("task_name", "TEXT", lambda: text_gen.word()), ("assigned_to", "TEXT", lambda: person.full_name()), ("due_date", "DATE", lambda: dt.date()), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"])), ("status", "TEXT", lambda: random.choice(["pending", "in_progress", "completed"]))],
+   "assets": [("asset_tag", "TEXT", lambda: code.imei()), ("asset_name", "TEXT", lambda: food.fruit()), ("purchase_date", "DATE", lambda: dt.date()), ("warranty_expiry", "DATE", lambda: dt.date()), ("value", "INT", lambda: random.randint(100, 10000))],
+   "locations": [("location_name", "TEXT", lambda: address.city()), ("address", "TEXT", lambda: address.address()), ("country", "TEXT", lambda: address.country()), ("postal_code", "TEXT", lambda: address.postal_code())],
+   "meetings": [("meeting_id", "TEXT", lambda: code.imei()), ("topic", "TEXT", lambda: text_gen.word()), ("meeting_date", "DATE", lambda: dt.date()), ("organizer", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city())],
+   "tickets": [("ticket_id", "TEXT", lambda: code.imei()), ("issue", "TEXT", lambda: text_gen.sentence()), ("reported_by", "TEXT", lambda: person.full_name()), ("status", "TEXT", lambda: random.choice(["open", "closed", "in_progress"])), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"]))],
+   "subscriptions": [("subscription_id", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("plan_type", "TEXT", lambda: random.choice(["basic", "premium", "enterprise"]))],
+   }
+   async def create_tables(conn,TABLES):
+      for table_name, columns in TABLES.items():
+         await conn.execute(f"DROP TABLE IF EXISTS {table_name};")
+         columns_def = ", ".join(f"{name} {dtype}" for name, dtype, _ in columns)
+         query = f"CREATE TABLE IF NOT EXISTS {table_name} (id bigint primary key generated always as identity not null, {columns_def});"
+         await conn.execute(query)
+   async def insert_batch(conn, table_name, columns, batch_values):
+      cols = ", ".join(name for name, _, _ in columns)
+      placeholders = ", ".join(f"${i+1}" for i in range(len(columns)))
+      query = f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})"
+      await conn.executemany(query, batch_values)
+   async def generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE):
+      for table_name, columns in TABLES.items():
+         print(f"Inserting data into {table_name}...")
+         batch_values = []
+         for _ in range(TOTAL_ROWS):
+               row = tuple(gen() for _, _, gen in columns)
+               batch_values.append(row)
+               if len(batch_values) == BATCH_SIZE:
+                  await insert_batch(conn, table_name, columns, batch_values)
+                  batch_values.clear()
+         if batch_values:await insert_batch(conn, table_name, columns, batch_values)
+         print(f"Completed inserting {TOTAL_ROWS} rows into {table_name}")
+   await create_tables(conn,TABLES)
+   await generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE)
+   await conn.close()
+   return None
+
+#auth
+import hashlib
+async def function_auth_signup_username_password(client_postgres,type,username,password):
+    query="insert into users (type,username,password) values ($1,$2,$3) returning *;"
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
+    return output[0]
+
+async def function_auth_signup_username_password_bigint(client_postgres,type,username_bigint,password_bigint):
+    query="insert into users (type,username_bigint,password_bigint) values ($1,$2,$3) returning *;"
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch(query,type,username_bigint,password_bigint)
+    return output[0]
+
+import hashlib
+async def function_auth_login_password_username(client_postgres,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    query="select * from users where type=$1 and username=$2 and password=$3 order by id desc limit 1;"
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
+    user = output[0] if output else None
+    if not user: raise Exception("user not found")
+    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    return token
+
+async def function_auth_login_password_username_bigint(client_postgres,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    query="select * from users where type=$1 and username_bigint=$2 and password_bigint=$3 order by id desc limit 1;"
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch(query,type,username_bigint,password_bigint)
+    user = output[0] if output else None
+    if not user: raise Exception("user not found")
+    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    return token
+
+import hashlib
+async def function_auth_login_password_email(client_postgres,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    query="select * from users where type=$1 and email=$2 and password=$3 order by id desc limit 1;"
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch(query,type,email,hashlib.sha256(str(password).encode()).hexdigest())
+    user = output[0] if output else None
+    if not user: raise Exception("user not found")
+    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    return token
+
+import hashlib
+async def function_auth_login_password_mobile(client_postgres,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    query="select * from users where type=$1 and mobile=$2 and password=$3 order by id desc limit 1;"
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch(query,type,mobile,hashlib.sha256(str(password).encode()).hexdigest())
+    user = output[0] if output else None
+    if not user: raise Exception("user not found")
+    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    return token
+
+async def function_auth_login_otp_email(client_postgres,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    await function_otp_verify("email",otp,email,client_postgres)
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch("select * from users where type=$1 and email=$2 order by id desc limit 1;",type,email)
+        user = output[0] if output else None
+        if not user:
+            output = await conn.fetch("insert into users (type,email) values ($1,$2) returning *;",type,email)
+            user = output[0] if output else None
+    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    return token
+
+async def function_auth_login_otp_mobile(client_postgres,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    await function_otp_verify("mobile",otp,mobile,client_postgres)
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch("select * from users where type=$1 and mobile=$2 order by id desc limit 1;",type,mobile)
+        user = output[0] if output else None
+        if not user:
+            output = await conn.fetch("insert into users (type,mobile) values ($1,$2) returning *;",type,mobile)
+            user = output[0] if output else None
+    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    return token
+
+import json
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_request
+async def function_auth_login_google(client_postgres, type, google_token, config_google_login_client_id, function_token_encode, config_key_jwt, config_token_expire_sec, config_token_user_key_list):
+    request = google_request.Request()
+    id_info = id_token.verify_oauth2_token(google_token, request, config_google_login_client_id)
+    google_user = {"sub": id_info.get("sub"), "email": id_info.get("email"), "name": id_info.get("name"), "picture": id_info.get("picture"), "email_verified": id_info.get("email_verified")}
+    async with client_postgres.acquire() as conn:
+        output = await conn.fetch("SELECT * FROM users WHERE type=$1 AND google_id=$2 ORDER BY id DESC LIMIT 1", type, google_user["sub"])
+        user = output[0] if output else None
+        if not user:
+            output = await conn.fetch("INSERT INTO users (type, google_id, google_data) VALUES ($1, $2, $3) RETURNING *", type, google_user["sub"], json.dumps(google_user))
+            user = output[0] if output else None
+    token = await function_token_encode(config_key_jwt, config_token_expire_sec, config_token_user_key_list, user)
+    return token
+
+#message
+async def function_message_inbox(client_postgres,user_id,order,limit,offset,is_unread=None):
+   if not is_unread:
+      query=f'''
+      with x as (
+         select id,abs(created_by_id-user_id) as unique_id 
+         from message 
+         where (created_by_id=$1 or user_id=$1)
+      ),y as (select max(id) as id from x group by unique_id),
+      z as (select m.* from y left join message as m on y.id=m.id)
+      select * from z order by {order} limit {limit} offset {offset};
+      '''
+   else:
+      query=f'''
+      with x as (
+         select id,abs(created_by_id-user_id) as unique_id 
+         from message 
+         where (created_by_id=$1 or user_id=$1)
+      ),y as (select max(id) as id from x group by unique_id),
+      z as (select m.* from y left join message as m on y.id=m.id),
+      a as (select * from z where user_id=$1 and (is_read!=1 or is_read is null))
+      select * from a order by {order} limit {limit} offset {offset};
+      '''
+   async with client_postgres.acquire() as conn:
+      return await conn.fetch(query,user_id)
+
+async def function_message_received(client_postgres,user_id,order,limit,offset,is_unread=None):
+   if not is_unread:
+      query=f"select * from message where user_id=$1 order by {order} limit {limit} offset {offset};"
+   else:
+      query=f"select * from message where user_id=$1 and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
+   async with client_postgres.acquire() as conn:
+      return await conn.fetch(query,user_id)
+
+async def function_message_thread(client_postgres,user_id_1,user_id_2,order,limit,offset):
+   query=f'''
+   select * from message 
+   where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) 
+   order by {order} limit {limit} offset {offset};
+   '''
+   async with client_postgres.acquire() as conn:
+      return await conn.fetch(query,user_id_1,user_id_2)
+
+async def function_message_thread_mark_read(client_postgres,user_id_1,user_id_2):
+   query="update message set is_read=1 where created_by_id=$1 and user_id=$2;"
+   async with client_postgres.acquire() as conn:
+      await conn.execute(query,user_id_2,user_id_1)
+   return None
+
+async def function_message_object_mark_read(client_postgres,object_list):
+   try:
+      ids=','.join(str(item['id']) for item in object_list)
+      query=f"update message set is_read=1 where id in ({ids});"
+      async with client_postgres.acquire() as conn:
+         await conn.execute(query)
+   except Exception as e:
+      print(str(e))
+   return None
+
+async def function_message_delete_single(client_postgres,user_id,message_id):
+   query="delete from message where id=$1 and (created_by_id=$2 or user_id=$2);"
+   async with client_postgres.acquire() as conn:
+      await conn.execute(query,message_id,user_id)
+   return None
+
+async def function_message_delete_bulk(mode,client_postgres,user_id):
+   if mode=="created":
+      query="delete from message where created_by_id=$1;"
+   elif mode=="received":
+      query="delete from message where user_id=$1;"
+   elif mode=="all":
+      query="delete from message where (created_by_id=$1 or user_id=$1);"
+   async with client_postgres.acquire() as conn:
+      await conn.execute(query,user_id)
+   return None
+
+#crud
+async def function_update_ids(client_postgres,table,ids,column,value,updated_by_id,created_by_id=None):
+   query=f"update {table} set {column}=$1,updated_by_id=$2 where id in ({ids}) and (created_by_id=$3 or $3 is null);"
+   async with client_postgres.acquire() as conn:
+      await conn.execute(query,value,updated_by_id,created_by_id)
+   return None
+
+async def function_delete_ids(client_postgres,table,ids,created_by_id=None):
+   query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
+   async with client_postgres.acquire() as conn:
+      await conn.execute(query,created_by_id)
+   return None
+
+async def function_parent_object_read(client_postgres,table,parent_column,parent_table,order,limit,offset,created_by_id=None):
+   query=f'''
+   with x as (
+      select {parent_column} from {table} 
+      where (created_by_id=$1 or $1 is null) 
+      order by {order} limit {limit} offset {offset}
+   ) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;
+   '''
+   async with client_postgres.acquire() as conn:
+      rows=await conn.fetch(query,created_by_id)
+   return rows
+
+import datetime
+async def function_update_last_active_at(client_postgres, user_id):
+    try:
+        query = "UPDATE users SET last_active_at=$1 WHERE id=$2;"
+        async with client_postgres.acquire() as conn:
+            await conn.execute(query, datetime.datetime.now(), user_id)
+    except Exception as e:
+        print(str(e))
+    return None
+
+async def function_read_user_single(client_postgres, user_id):
+    query = "SELECT * FROM users WHERE id=$1;"
+    async with client_postgres.acquire() as conn:
+        row = await conn.fetchrow(query, user_id)
+    user = dict(row) if row else None
+    if not user:
+        raise Exception("user not found")
+    return user
+
+async def function_delete_user_single(mode, client_postgres, user_id):
+    if mode == "soft":
+        query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
+    elif mode == "hard":
+        query = "DELETE FROM users WHERE id=$1;"
+    else:
+        raise Exception("Invalid mode")
+    async with client_postgres.acquire() as conn:
+        await conn.execute(query, user_id)
+    return None
+
+async def function_add_creator_data(client_postgres,object_list,user_key_list):
+   if not object_list:return object_list
+   object_list=[dict(obj) for obj in object_list]
+   created_by_ids={str(obj["created_by_id"]) for obj in object_list if obj.get("created_by_id")}
+   users={}
+   if created_by_ids:
+      query=f"SELECT * FROM users WHERE id IN ({','.join(created_by_ids)});"
+      users={str(user["id"]):dict(user) for user in await client_postgres.fetch_all(query=query,values={})}
+   for obj in object_list:
+      created_by_id=str(obj.get("created_by_id"))
+      if created_by_id in users:
+         for key in user_key_list:
+            obj[f"creator_{key}"]=users[created_by_id].get(key)
+      else:
+         for key in user_key_list:
+            obj[f"creator_{key}"]=None
+   return object_list
+
+async def function_ownership_check(client_postgres,table,id,user_id):
+   if table=="users":
+      if id!=user_id:raise Exception("obj ownership issue")
+   if table!="users":
+      query=f"select created_by_id from {table} where id=:id;"
+      values={"id":id}
+      output=await client_postgres.fetch_all(query=query,values=values)
+      if not output:raise Exception("no obj")
+      if output[0]["created_by_id"]!=user_id:raise Exception("obj ownership issue")
+   return None
+
+import random
+async def function_otp_generate(mode,data,client_postgres):
+   otp=random.randint(100000,999999)
+   async with client_postgres.acquire() as conn:
+      if mode=="email":await conn.execute("insert into otp (otp,email) values ($1,$2)",otp,data.strip().lower())
+      if mode=="mobile":await conn.execute("insert into otp (otp,mobile) values ($1,$2)",otp,data.strip().lower())
+   return otp
+
+async def function_otp_verify(mode,data,otp,client_postgres):
+   async with client_postgres.acquire() as conn:
+      if mode=="email":rows=await conn.fetch("select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=$1 order by id desc limit 1",data)
+      if mode=="mobile":rows=await conn.fetch("select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=$1 order by id desc limit 1",data)
+   if not rows:raise Exception("otp not found")
+   if int(rows[0]["otp"])!=int(otp):raise Exception("otp mismatch")
+   return None
+
+async def function_read_user_count(client_postgres,config_user_count_query,user_id):
+   output={}
+   async with client_postgres.acquire() as conn:
+      for key,query in config_user_count_query.items():
+         rows=await conn.fetch(query,user_id)
+         row=rows[0] if rows else None
+         output[key]=row[0] if row else 0
+   return output
+
+
 #api
 import csv,io
 async def function_file_to_object_list(file):
@@ -189,68 +573,6 @@ async def function_param_read(request, mode, config):
         param[key] = value
     return param
 
-#converter
-def function_converter_numeric(mode,x):
-   MAX_LEN = 30
-   CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
-   BASE = len(CHARS)
-   CHAR_TO_NUM = {ch: i for i, ch in enumerate(CHARS)}
-   NUM_TO_CHAR = {i: ch for i, ch in enumerate(CHARS)}
-   if mode=="encode":
-      if len(x) > MAX_LEN:raise Exception(f"String too long (max {MAX_LEN} characters)")
-      num = 0
-      for ch in x:
-         if ch not in CHAR_TO_NUM:raise Exception(f"Unsupported character: '{ch}'")
-         num = num * BASE + CHAR_TO_NUM[ch]
-      output=len(x) * (BASE ** MAX_LEN) + num
-   if mode=="decode":
-      length = x // (BASE ** MAX_LEN)
-      num = x % (BASE ** MAX_LEN)
-      chars = []
-      for _ in range(length):
-         num, rem = divmod(num, BASE)
-         chars.append(NUM_TO_CHAR[rem])
-      output=''.join(reversed(chars))
-   return output
-
-def function_converter_bigint(mode,x):
-   MAX_LENGTH = 11
-   CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789_'
-   BASE = len(CHARSET)
-   LENGTH_BITS = 6
-   VALUE_BITS = 64 - LENGTH_BITS
-   CHAR_TO_INDEX = {c: i for i, c in enumerate(CHARSET)}
-   INDEX_TO_CHAR = {i: c for i, c in enumerate(CHARSET)}
-   if mode=="encode":
-      if len(x) > MAX_LENGTH:raise Exception(f"text length exceeds {MAX_LENGTH} characters.")
-      value = 0
-      for char in x:
-         if char not in CHAR_TO_INDEX:raise Exception(f"Invalid character: {char}")
-         value = value * BASE + CHAR_TO_INDEX[char]
-      output=(len(x) << VALUE_BITS) | value
-   if mode=="decode":
-      length = x >> VALUE_BITS
-      value = x & ((1 << VALUE_BITS) - 1)
-      chars = []
-      for _ in range(length):
-         value, index = divmod(value, BASE)
-         chars.append(INDEX_TO_CHAR[index])
-      output=''.join(reversed(chars))
-   return output
-
-#gsheet
-import gspread
-from google.oauth2.service_account import Credentials
-async def function_gsheet_client_read(config_gsheet_service_account_json_path,config_gsheet_scope_list):
-   client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
-   return client_gsheet
-
-async def function_gsheet_object_read(client_gsheet,spreadsheet_id,sheet_name,cell_boundary):
-   worksheet=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name)
-   if cell_boundary:output=worksheet.get(cell_boundary)
-   else:output=worksheet.get_all_records()
-   return output
-
 #fastapi
 from fastapi import FastAPI
 def function_fastapi_app_read(is_debug,lifespan):
@@ -320,6 +642,183 @@ def function_add_router(app,pattern):
    add_root_pattern_files()
    add_pattern_folder_files()
    return None
+
+async def function_check_ratelimiter(request,client_redis_ratelimiter,config_api):
+   if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
+   limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
+   identifier=request.state.user.get("id") if request.state.user else request.client.host
+   ratelimiter_key=f"ratelimiter:{request.url.path}:{identifier}"
+   current_count=await client_redis_ratelimiter.get(ratelimiter_key)
+   if current_count and int(current_count)+1>limit:raise Exception("ratelimiter exceeded")
+   pipe=client_redis_ratelimiter.pipeline()
+   pipe.incr(ratelimiter_key)
+   if not current_count:pipe.expire(ratelimiter_key,window)
+   await pipe.execute()
+   return None
+
+async def function_check_api_access(config_mode_check_api_access,request,cache_users_api_access,client_postgres,config_api):
+   if config_mode_check_api_access=="token":
+      user_api_access_list=[int(item.strip()) for item in request.state.user["api_access"].split(",")] if request.state.user["api_access"] else []
+   elif config_mode_check_api_access=="cache":
+      user_api_access_list=cache_users_api_access.get(request.state.user["id"],"absent")
+   if user_api_access_list=="absent":
+      async with client_postgres.acquire() as conn:
+         rows=await conn.fetch("select id,api_access from users where id=$1",request.state.user["id"])
+      user=rows[0] if rows else None
+      if not user:raise Exception("user not found")
+      api_access_str=user["api_access"]
+      if not api_access_str:raise Exception("api access denied")
+      user_api_access_list=[int(item.strip()) for item in api_access_str.split(",")]
+   api_id=config_api.get(request.url.path,{}).get("id")
+   if not api_id:raise Exception("api id not mapped")
+   if api_id not in user_api_access_list:raise Exception("api access denied")
+   return None
+
+async def function_check_is_active(config_mode_check_is_active,request,cache_users_is_active,client_postgres):
+   if config_mode_check_is_active=="token":user_is_active=request.state.user["is_active"]
+   elif config_mode_check_is_active=="cache":user_is_active=cache_users_is_active.get(request.state.user["id"],"absent")
+   if user_is_active=="absent":
+      async with client_postgres.acquire() as conn:
+         rows=await conn.fetch("select id,is_active from users where id=$1",request.state.user["id"])
+      user=rows[0] if rows else None
+      if not user:raise Exception("user not found")
+      user_is_active=user["is_active"]
+   if user_is_active==0:raise Exception("user not active")
+   return None
+
+from fastapi import Response
+import gzip,base64,time
+inmemory_cache={}
+async def function_api_response_cache(mode,request,response,client_redis,config_api):
+   query_param_sorted="&".join(f"{k}={v}" for k, v in sorted(request.query_params.items()))
+   identifier=request.state.user.get("id") if "my/" in request.url.path else 0
+   cache_key=f"cache:{request.url.path}?{query_param_sorted}:{identifier}"
+   cache_mode,expire_sec=config_api.get(request.url.path,{}).get("cache_sec",(None,None))
+   if mode=="get":
+      response=None
+      cached_response=None
+      if cache_mode=="redis":
+         cached_response=await client_redis.get(cache_key)
+         if cached_response:response=Response(content=gzip.decompress(base64.b64decode(cached_response)).decode(),status_code=200,media_type="application/json")
+      if cache_mode=="inmemory":
+         cache_item=inmemory_cache.get(cache_key)
+         if cache_item and cache_item["expire_at"]>time.time():response=Response(content=gzip.decompress(base64.b64decode(cache_item["data"])).decode(),status_code=200,media_type="application/json")
+   if mode=="set":
+      body=b"".join([chunk async for chunk in response.body_iterator])
+      if cache_mode=="redis":
+         await client_redis.setex(cache_key,expire_sec,base64.b64encode(gzip.compress(body)).decode())
+      if cache_mode=="inmemory":
+         inmemory_cache[cache_key]={"data":base64.b64encode(gzip.compress(body)).decode(),"expire_at":time.time()+expire_sec}
+      response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
+   return response
+
+from fastapi import Request,responses
+from starlette.background import BackgroundTask
+async def function_api_response_background(request,api_function):
+   body=await request.body()
+   async def receive():return {"type":"http.request","body":body}
+   async def api_function_new():
+      request_new=Request(scope=request.scope,receive=receive)
+      await api_function(request_new)
+   response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
+   response.background=BackgroundTask(api_function_new)
+   return response
+
+async def function_log_api_usage(client_postgres,days,created_by_id=None):
+   query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=$1 or $1 is null) group by api limit 1000;"
+   async with client_postgres.acquire() as conn:
+      rows=await conn.fetch(query,created_by_id)
+   return {r["api"]:r["count"] for r in rows}
+
+#token
+import jwt,json
+async def function_token_decode(token,config_key_jwt):
+   user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
+   return user
+
+import jwt,json,time
+async def function_token_encode(config_key_jwt,config_token_expire_sec,key_list,obj):
+   data=dict(obj)
+   payload={k:data.get(k) for k in key_list}
+   payload=json.dumps(payload,default=str)
+   token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":payload},config_key_jwt)
+   return token
+
+async def function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode):
+   user={}
+   api=request.url.path
+   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
+   if api.startswith("/root"):
+      if token!=config_key_root:raise Exception("token root mismatch")
+   else:
+      if token:user=await function_token_decode(token,config_key_jwt)
+      if api.startswith("/my") and not token:raise Exception("token missing")
+      elif api.startswith("/private") and not token:raise Exception("token missing")
+      elif api.startswith("/admin") and not token:raise Exception("token missing")
+      elif config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
+   return user
+
+#converter
+def function_converter_numeric(mode,x):
+   MAX_LEN = 30
+   CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_.@#"
+   BASE = len(CHARS)
+   CHAR_TO_NUM = {ch: i for i, ch in enumerate(CHARS)}
+   NUM_TO_CHAR = {i: ch for i, ch in enumerate(CHARS)}
+   if mode=="encode":
+      if len(x) > MAX_LEN:raise Exception(f"String too long (max {MAX_LEN} characters)")
+      num = 0
+      for ch in x:
+         if ch not in CHAR_TO_NUM:raise Exception(f"Unsupported character: '{ch}'")
+         num = num * BASE + CHAR_TO_NUM[ch]
+      output=len(x) * (BASE ** MAX_LEN) + num
+   if mode=="decode":
+      length = x // (BASE ** MAX_LEN)
+      num = x % (BASE ** MAX_LEN)
+      chars = []
+      for _ in range(length):
+         num, rem = divmod(num, BASE)
+         chars.append(NUM_TO_CHAR[rem])
+      output=''.join(reversed(chars))
+   return output
+
+def function_converter_bigint(mode,x):
+   MAX_LENGTH = 11
+   CHARSET = 'abcdefghijklmnopqrstuvwxyz0123456789_'
+   BASE = len(CHARSET)
+   LENGTH_BITS = 6
+   VALUE_BITS = 64 - LENGTH_BITS
+   CHAR_TO_INDEX = {c: i for i, c in enumerate(CHARSET)}
+   INDEX_TO_CHAR = {i: c for i, c in enumerate(CHARSET)}
+   if mode=="encode":
+      if len(x) > MAX_LENGTH:raise Exception(f"text length exceeds {MAX_LENGTH} characters.")
+      value = 0
+      for char in x:
+         if char not in CHAR_TO_INDEX:raise Exception(f"Invalid character: {char}")
+         value = value * BASE + CHAR_TO_INDEX[char]
+      output=(len(x) << VALUE_BITS) | value
+   if mode=="decode":
+      length = x >> VALUE_BITS
+      value = x & ((1 << VALUE_BITS) - 1)
+      chars = []
+      for _ in range(length):
+         value, index = divmod(value, BASE)
+         chars.append(INDEX_TO_CHAR[index])
+      output=''.join(reversed(chars))
+   return output
+
+#gsheet
+import gspread
+from google.oauth2.service_account import Credentials
+async def function_gsheet_client_read(config_gsheet_service_account_json_path,config_gsheet_scope_list):
+   client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
+   return client_gsheet
+
+async def function_gsheet_object_read(client_gsheet,spreadsheet_id,sheet_name,cell_boundary):
+   worksheet=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name)
+   if cell_boundary:output=worksheet.get(cell_boundary)
+   else:output=worksheet.get_all_records()
+   return output
 
 #posthog
 from posthog import Posthog
@@ -433,6 +932,10 @@ async def function_ses_client_read(config_aws_access_key_id,config_aws_secret_ac
    client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_ses
 
+async def function_ses_send_email(client_ses,email_from,email_to_list,title,body):
+   client_ses.send_email(Source=email_from,Destination={"ToAddresses":email_to_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+   return None
+
 import boto3
 async def function_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name):
    client_sns=boto3.client("sns",region_name=config_sns_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
@@ -468,6 +971,14 @@ async def function_s3_url_delete(client_s3_resource,url):
    output=client_s3_resource.Object(bucket,key).delete()
    return output
 
+async def function_sns_send_mobile_message(client_sns,mobile,message):
+   client_sns.publish(PhoneNumber=mobile,Message=message)
+   return None
+
+async def function_sns_send_mobile_message_template(client_sns,mobile,message,template_id,entity_id,sender_id):
+   client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   return None
+
 import uuid
 from io import BytesIO
 async def function_s3_upload_file(bucket,key,file,client_s3,config_s3_region_name,config_limit_s3_kb=100):
@@ -491,6 +1002,24 @@ async def function_s3_upload_presigned(bucket,key,client_s3,config_s3_region_nam
    for k,v in output["fields"].items():output[k]=v
    del output["fields"]
    output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
+   return output
+
+#resend
+import httpx
+async def function_resend_send_email(config_resend_url,config_resend_key,email_from,email_to_list,title,body):
+   payload={"from":email_from,"to":email_to_list,"subject":title,"html":body}
+   headers={"Authorization":f"Bearer {config_resend_key}","Content-Type": "application/json"}
+   async with httpx.AsyncClient() as client:
+      output=await client.post(config_resend_url,json=payload,headers=headers)
+   if output.status_code!=200:raise Exception(f"{output.text}")
+   return None
+
+#fast2sms
+import requests
+async def function_fast2sms_send_otp_mobile(config_fast2sms_url,config_fast2sms_key,mobile,otp):
+   response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
+   output=response.json()
+   if output.get("return") is not True:raise Exception(f"{output.get('message')}")
    return output
 
 #openai
@@ -550,7 +1079,7 @@ def function_export_grafana_dashboard(host, username, password, max_limit, outpu
     try:
         orgs = get_organizations()
     except Exception as e:
-        print("❌ Failed to fetch organizations:", e)
+        print("❌ Failed to get organizations:", e)
         return
     for org in orgs:
         if not switch_org(org["id"]):
@@ -558,7 +1087,7 @@ def function_export_grafana_dashboard(host, username, password, max_limit, outpu
         try:
             dashboards = get_dashboards(org["id"])
         except Exception as e:
-            print("❌ Failed to fetch dashboards:", e)
+            print("❌ Failed to get dashboards:", e)
             continue
         for dash in dashboards:
             try:

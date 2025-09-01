@@ -74,14 +74,6 @@ create schema if not exists public;
 #p95
 SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)::numeric, 2) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
 
-#asyncio
-from function import function_export_postgres_query
-import asyncio
-postgres_url = "postgresql://atom@127.0.0.1/postgres"
-query = "SELECT * FROM users"
-x=function_export_postgres_query(postgres_url,query)
-asyncio.run(x)
-
 #page
 http://127.0.0.1:8000/page/test
 ```

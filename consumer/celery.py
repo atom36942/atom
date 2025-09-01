@@ -1,6 +1,6 @@
 #function
 from function import function_celery_client_read_consumer
-from function import function_client_read_postgres,function_postgres_schema_read
+from function import function_postgres_client_read,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
@@ -29,7 +29,7 @@ postgres_column_datatype=None
 def init_worker(**kwargs):
     global client_postgres,postgres_schema,postgres_column_datatype
     loop=asyncio.get_event_loop()
-    client_postgres=loop.run_until_complete(function_client_read_postgres(config_postgres_url))
+    client_postgres=loop.run_until_complete(function_postgres_client_read(config_postgres_url))
     postgres_schema,postgres_column_datatype=loop.run_until_complete(function_postgres_schema_read(client_postgres))
 
 #shutdown

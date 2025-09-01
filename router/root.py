@@ -10,8 +10,8 @@ async def function_api_root_postgres_init(request:Request):
 @router.get("/root/reset-global")
 async def function_api_root_reset_global(request:Request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres)
-    request.app.state.cache_users_api_access=await function_column_mapping_read(request.app.state.client_postgres,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int")
-    request.app.state.cache_users_is_active=await function_column_mapping_read(request.app.state.client_postgres,"users","id","is_active",config_limit_cache_users_api_access,1,None)
+    request.app.state.cache_users_api_access=await function_postgres_column_mapping_read(request.app.state.client_postgres,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int")
+    request.app.state.cache_users_is_active=await function_postgres_column_mapping_read(request.app.state.client_postgres,"users","id","is_active",config_limit_cache_users_api_access,1,None)
     return {"status":1,"message":"done"}
  
 @router.get("/root/postgres-clean")

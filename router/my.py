@@ -5,7 +5,7 @@ from extend import *
 @router.get("/my/profile")
 async def function_api_my_profile(request:Request):
    user=await function_read_user_single(request.app.state.client_postgres,request.state.user["id"])
-   output=await function_read_user_query_count(request.app.state.client_postgres,request.state.user["id"],config_user_count_query)
+   output=await function_read_user_count(request.app.state.client_postgres,config_user_count_query,request.state.user["id"])
    asyncio.create_task(function_update_last_active_at(request.app.state.client_postgres,request.state.user["id"]))
    return {"status":1,"message":user|output}
 
@@ -83,17 +83,6 @@ async def function_api_my_parent_read(request:Request):
    output=await function_parent_object_read(request.app.state.client_postgres,param["table"],param["parent_column"],param["parent_table"],param["order"],param["limit"],(param["page"]-1)*param["limit"],request.state.user["id"])
    return {"status":1,"message":output}
 
-@router.post("/my/object-create-mongodb")
-async def function_api_my_object_create_mongodb(request:Request):
-   param=await function_param_read(request,"query",[["database",None,1,None],["table",None,1,None]])
-   obj=await function_param_read(request,"body",[])
-   obj["created_by_id"]=request.state.user["id"]
-   if param["table"] in ["users"]:raise Exception("table not allowed")
-   if len(obj)<=1:raise Exception("obj issue")
-   if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
-   output=await function_object_create_mongodb(request.app.state.client_mongodb,param["database"],param["table"],[obj])
-   return {"status":1,"message":output}
-
 @router.delete("/my/object-delete-any")
 async def function_api_my_object_delete_any(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None]])
@@ -107,8 +96,19 @@ async def function_api_my_object_read(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["creator_key","list",0,[]]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
    object_list=await function_object_read_postgres(request.app.state.client_postgres,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   if param["creator_key"]:object_list=await function_add_creator_data(object_list,param["creator_key"],request.app.state.client_postgres)
+   if param["creator_key"]:object_list=await function_add_creator_data(request.app.state.client_postgres,object_list,param["creator_key"])
    return {"status":1,"message":object_list}
+
+@router.post("/my/object-create-mongodb")
+async def function_api_my_object_create_mongodb(request:Request):
+   param=await function_param_read(request,"query",[["database",None,1,None],["table",None,1,None]])
+   obj=await function_param_read(request,"body",[])
+   obj["created_by_id"]=request.state.user["id"]
+   if param["table"] in ["users"]:raise Exception("table not allowed")
+   if len(obj)<=1:raise Exception("obj issue")
+   if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
+   output=await function_object_create_mongodb(request.app.state.client_mongodb,param["database"],param["table"],[obj])
+   return {"status":1,"message":output}
 
 @router.post("/my/object-create")
 async def function_api_my_object_create(request:Request):
