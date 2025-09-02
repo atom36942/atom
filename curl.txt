@@ -7,8 +7,8 @@ curl -X GET "$baseurl/page/test"
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
 curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 curl -X GET "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token_root"
-curl -X POST "$baseurl/root/postgres-query-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select 1;"}'
-curl -X POST "$baseurl/root/postgres-query-runner?queue=celery" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select 1;"}'
+curl -X POST "$baseurl/root/postgres-query-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"read","query":"select 1;"}'
+curl -X POST "$baseurl/root/postgres-query-runner?queue=celery" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"read","query":"select 1;"}'
 0 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select 1;"}' -o export_postgres.csv
 0 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/create.csv"
 0 curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token_root" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/update.csv"

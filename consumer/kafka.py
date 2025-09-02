@@ -1,6 +1,6 @@
 #function
 from function import function_kafka_client_read_consumer
-from function import function_postgres_client_read,function_postgres_schema_read
+from function import function_postgres_client_pool_read,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
@@ -25,21 +25,21 @@ import asyncio,json
 async def logic():
    try:
       client_kafka_consumer=await function_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_group_id,config_enable_auto_commit)
-      client_postgres=await function_postgres_client_read(config_postgres_url)
-      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres)
+      client_postgres_pool=await function_postgres_client_pool_read(config_postgres_url)
+      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres_pool)
       async for message in client_kafka_consumer:
          if message.topic=="channel_1":
             payload=json.loads(message.value.decode('utf-8'))
-            if payload["function"]=="function_object_create_postgres":asyncio.create_task(function_object_create_postgres(client_postgres,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
-            elif payload["function"]=="function_object_update_postgres":asyncio.create_task(function_object_update_postgres(client_postgres,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
-            elif payload["function"]=="function_postgres_query_runner":asyncio.create_task(function_postgres_query_runner(client_postgres,payload["query"]))
+            if payload["function"]=="function_object_create_postgres":asyncio.create_task(function_object_create_postgres(client_postgres_pool,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
+            elif payload["function"]=="function_object_update_postgres":asyncio.create_task(function_object_update_postgres(client_postgres_pool,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
+            elif payload["function"]=="function_postgres_query_runner":asyncio.create_task(function_postgres_query_runner(client_postgres_pool,payload["mode"],payload["query"]))
             if not config_enable_auto_commit:await client_kafka_consumer.commit()
             print(f"{payload.get('function')} task created")
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))
    finally:
       await client_kafka_consumer.stop()
-      await client_postgres.disconnect()
+      await client_postgres_pool.disconnect()
    
 #main
 if __name__ == "__main__":

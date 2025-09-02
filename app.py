@@ -12,7 +12,7 @@ import traceback
 async def function_lifespan(app:FastAPI):
    try:
       #client init
-      client_postgres=await function_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
+      client_postgres_pool=await function_postgres_client_pool_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_redis=await function_redis_client_read(config_redis_url) if config_redis_url else None
       client_redis_ratelimiter=await function_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
       client_mongodb=await function_mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
@@ -27,16 +27,16 @@ async def function_lifespan(app:FastAPI):
       client_redis_producer=await function_redis_client_read(config_redis_pubsub_url) if config_redis_pubsub_url else None
       client_extend=await function_extend_client()
       #cache init
-      cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres) if client_postgres else (None, None)
-      cache_users_api_access=await function_postgres_column_mapping_read(client_postgres,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int") if client_postgres and cache_postgres_schema.get("users",{}).get("api_access") else {}
-      cache_users_is_active=await function_postgres_column_mapping_read(client_postgres,"users","id","is_active",config_limit_cache_users_api_access,1,None) if client_postgres and cache_postgres_schema.get("users",{}).get("is_active") else {}
+      cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)
+      cache_users_api_access=await function_postgres_column_mapping_read(client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int") if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
+      cache_users_is_active=await function_postgres_column_mapping_read(client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,1,None) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       #app state set
       function_add_app_state({**globals(),**locals()},app,("client_","cache_"))
       #app shutdown
       yield
-      await function_postgres_log_create("flush",function_object_create_postgres,client_postgres,None,None)
-      await function_object_create_postgres_batch("flush",function_object_create_postgres,client_postgres,None,None,None,1,function_object_serialize,cache_postgres_column_datatype)
-      if client_postgres:await client_postgres.close()
+      await function_postgres_log_create("flush",function_object_create_postgres,client_postgres_pool,None,None)
+      await function_object_create_postgres_batch("flush",function_object_create_postgres,client_postgres_pool,None,None,None,1,function_object_serialize,cache_postgres_column_datatype)
+      if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
       if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()
       if client_mongodb:client_mongodb.close()
@@ -82,9 +82,9 @@ async def middleware(request,api_function):
       #auth check
       request.state.user=await function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode)
       #admin check
-      if api.startswith("/admin"):await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres,config_api)
+      if api.startswith("/admin"):await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres_pool,config_api)
       #active check
-      if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres)
+      if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres_pool)
       #ratelimiter check
       if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis_ratelimiter,config_api)
       #background response
@@ -112,7 +112,7 @@ async def middleware(request,api_function):
    #log api
    if config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       obj_log={"response_type":response_type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-      asyncio.create_task(function_postgres_log_create("append",function_object_create_postgres,request.app.state.client_postgres,config_batch_log_api,obj_log))
+      asyncio.create_task(function_postgres_log_create("append",function_object_create_postgres,request.app.state.client_postgres_pool,config_batch_log_api,obj_log))
    #posthog
    if False:request.app.state.client_posthog.capture(distinct_id=request.state.user.get("id"),event="api",properties=obj_log)
    #final

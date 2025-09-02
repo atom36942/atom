@@ -1,6 +1,6 @@
 #function
 from function import function_celery_client_read_consumer
-from function import function_postgres_client_read,function_postgres_schema_read
+from function import function_postgres_client_pool_read,function_postgres_schema_read
 from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
@@ -20,32 +20,32 @@ from celery import signals
 
 #client
 client_celery_consumer=function_celery_client_read_consumer(config_celery_broker_url,config_celery_backend_url)
-client_postgres=None
+client_postgres_pool=None
 postgres_schema=None
 postgres_column_datatype=None
 
 #startup
 @signals.worker_process_init.connect
 def init_worker(**kwargs):
-    global client_postgres,postgres_schema,postgres_column_datatype
+    global client_postgres_pool,postgres_schema,postgres_column_datatype
     loop=asyncio.get_event_loop()
-    client_postgres=loop.run_until_complete(function_postgres_client_read(config_postgres_url))
-    postgres_schema,postgres_column_datatype=loop.run_until_complete(function_postgres_schema_read(client_postgres))
+    client_postgres_pool=loop.run_until_complete(function_postgres_client_pool_read(config_postgres_url))
+    postgres_schema,postgres_column_datatype=loop.run_until_complete(function_postgres_schema_read(client_postgres_pool))
 
 #shutdown
 @signals.worker_process_shutdown.connect
 def shutdown_worker(**kwargs):
-    global client_postgres
+    global client_postgres_pool
     loop=asyncio.get_event_loop()
-    loop.run_until_complete(client_postgres.disconnect())
+    loop.run_until_complete(client_postgres_pool.disconnect())
 
 #task 1
 @client_celery_consumer.task(name="function_object_create_postgres")
 def celery_task_1(table,object_list,is_serialize):
     try:
-        global client_postgres
+        global client_postgres_pool
         def run_wrapper():
-            async def wrapper():await function_object_create_postgres(client_postgres,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
+            async def wrapper():await function_object_create_postgres(client_postgres_pool,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         run_wrapper()
@@ -59,9 +59,9 @@ def celery_task_1(table,object_list,is_serialize):
 @client_celery_consumer.task(name="function_object_update_postgres")
 def celery_task_2(table,object_list,is_serialize):
     try:
-        global client_postgres
+        global client_postgres_pool
         def run_wrapper():
-            async def wrapper():await function_object_update_postgres(client_postgres,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
+            async def wrapper():await function_object_update_postgres(client_postgres_pool,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         run_wrapper()
@@ -73,12 +73,12 @@ def celery_task_2(table,object_list,is_serialize):
     
 #task 3
 @client_celery_consumer.task(name="function_postgres_query_runner")
-def celery_task_3(query):
+def celery_task_3(mode,query):
     try:
-        global client_postgres
+        global client_postgres_pool
         print("done")
         def run_wrapper():
-            async def wrapper():await function_postgres_query_runner(client_postgres,query)
+            async def wrapper():await function_postgres_query_runner(client_postgres_pool,mode,query)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         run_wrapper()
