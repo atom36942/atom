@@ -114,18 +114,7 @@ def function_config_read():
     return output
 
 async def function_postgres_drop_all_index(client_postgres_pool):
-    query = """
-    DO $$
-    DECLARE r RECORD;
-    BEGIN
-        FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' 
-                  AND indexname LIKE 'index_%')
-        LOOP
-            EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname);
-        END LOOP;
-    END
-    $$;
-    """
+    query = "DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(query)
     return None
@@ -170,10 +159,67 @@ async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
          await conn.execute(query,threshold_date)
    return None
 
-import asyncpg
-async def function_postgres_client_pool_read(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
-   client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
-   return client_postgres_pool
+import asyncio
+buffer_object_create = {}
+table_object_key = {}
+buffer_lock = asyncio.Lock()
+async def function_postgres_object_create_batch(mode,function_postgres_object_create,client_postgres_pool,table,obj,batch=10):
+   global buffer_object_create, table_object_key
+   async with buffer_lock:
+      if mode=="append":
+         if table not in buffer_object_create:
+            buffer_object_create[table]=[]
+         if table not in table_object_key or not table_object_key[table]:
+            table_object_key[table]=list(obj.keys())
+         if set(obj.keys())!=set(table_object_key[table]):
+            raise Exception(f"keys should be {table_object_key[table]}")
+         buffer_object_create[table].append(obj)
+         if len(buffer_object_create[table])>=batch:
+            await function_postgres_object_create(client_postgres_pool,table,buffer_object_create[table])
+            buffer_object_create[table].clear()
+      elif mode=="flush":
+         for tbl,rows in buffer_object_create.items():
+            if rows:
+               await function_postgres_object_create(client_postgres_pool,tbl,rows)
+               rows.clear()
+   return None
+
+async def function_postgres_object_create(client_postgres_pool, table, object_list, returning_ids=False, conflict_columns=None, batch_size=5000):
+    cols = list(object_list[0].keys())
+    col_count = len(cols)
+    max_batch = 65535 // col_count
+    batch_size = min(batch_size, max_batch)
+    conflict_clause = ""
+    if conflict_columns:
+        conflict_clause = f"on conflict ({','.join(conflict_columns)}) do nothing"
+    else:
+        conflict_clause = "on conflict do nothing"
+    async with client_postgres_pool.acquire() as conn:
+        if len(object_list) == 1:
+            ph = ", ".join([f"${i}" for i in range(1, col_count + 1)])
+            q = f"insert into {table} ({','.join(cols)}) values ({ph}) {conflict_clause} returning id;"
+            row = await conn.fetchrow(q, *object_list[0].values())
+            return row["id"] if row else None
+        else:
+            ids = [] if returning_ids else None
+            async with conn.transaction():
+                for i in range(0, len(object_list), batch_size):
+                    batch = object_list[i:i + batch_size]
+                    vals, rows_sql = [], []
+                    for j, obj in enumerate(batch):
+                        start = j * col_count + 1
+                        ph = ", ".join([f"${k}" for k in range(start, start + col_count)])
+                        rows_sql.append(f"({ph})")
+                        vals.extend(obj.values())
+                    q = f"insert into {table} ({','.join(cols)}) values {','.join(rows_sql)} {conflict_clause}"
+                    if returning_ids:
+                        q += " returning id;"
+                    if returning_ids:
+                        rows = await conn.fetch(q, *vals)
+                        ids.extend([r["id"] for r in rows])
+                    else:
+                        await conn.execute(q, *vals)
+            return ids if returning_ids else None
 
 async def function_postgres_schema_read(client_postgres_pool):
     query = """
@@ -300,18 +346,7 @@ async def function_postgres_init(client_postgres_pool, config_postgres_schema, f
             for column in column_list:
                 column_name, column_datatype, column_is_mandatory, column_index_type = column.split("-")
                 if column_index_type == "0":
-                    query = f"""
-                    DO $$
-                    DECLARE r RECORD;
-                    BEGIN
-                        FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' 
-                                  AND indexname ILIKE 'index_{table}_{column_name}_%')
-                        LOOP
-                            EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname);
-                        END LOOP;
-                    END
-                    $$;
-                    """
+                    query = f"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname ILIKE 'index_{table}_{column_name}_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
                     await conn.execute(query)
                 else:
                     index_type_list = column_index_type.split(",")
@@ -343,7 +378,12 @@ async def function_postgres_init(client_postgres_pool, config_postgres_schema, f
         await function_init_index(conn, config_postgres_schema)
         await function_init_query(conn, config_postgres_schema)
     return None
-  
+
+import asyncpg
+async def function_postgres_client_pool_read(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
+   client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
+   return client_postgres_pool
+ 
 import asyncpg, csv, re
 async def function_postgres_export(postgres_url, query, batch_size=1000, output_path="export_postgres.csv"):
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise ValueError("Only read-only queries allowed")
@@ -433,13 +473,7 @@ async def function_delete_ids(client_postgres_pool,table,ids,created_by_id=None)
    return None
 
 async def function_parent_object_read(client_postgres_pool,table,parent_column,parent_table,order,limit,offset,created_by_id=None):
-   query=f'''
-   with x as (
-      select {parent_column} from {table} 
-      where (created_by_id=$1 or $1 is null) 
-      order by {order} limit {limit} offset {offset}
-   ) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;
-   '''
+   query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {offset}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
    async with client_postgres_pool.acquire() as conn:
       rows=await conn.fetch(query,created_by_id)
    return rows
@@ -532,30 +566,13 @@ async def function_read_user_count(client_postgres_pool,config_user_count_query,
          output[key]=row[0] if row else 0
    return output
 
-async def function_message_inbox(client_postgres_pool,user_id,order,limit,offset,is_unread=None):
-   if not is_unread:
-      query=f'''
-      with x as (
-         select id,abs(created_by_id-user_id) as unique_id 
-         from message 
-         where (created_by_id=$1 or user_id=$1)
-      ),y as (select max(id) as id from x group by unique_id),
-      z as (select m.* from y left join message as m on y.id=m.id)
-      select * from z order by {order} limit {limit} offset {offset};
-      '''
-   else:
-      query=f'''
-      with x as (
-         select id,abs(created_by_id-user_id) as unique_id 
-         from message 
-         where (created_by_id=$1 or user_id=$1)
-      ),y as (select max(id) as id from x group by unique_id),
-      z as (select m.* from y left join message as m on y.id=m.id),
-      a as (select * from z where user_id=$1 and (is_read!=1 or is_read is null))
-      select * from a order by {order} limit {limit} offset {offset};
-      '''
-   async with client_postgres_pool.acquire() as conn:
-      return await conn.fetch(query,user_id)
+async def function_message_inbox(client_postgres_pool, user_id, order, limit, offset, is_unread=None):
+    if not is_unread:
+        query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};"
+    else:
+        query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and (is_read!=1 or is_read is null)) select * from a order by {order} limit {limit} offset {offset};"
+    async with client_postgres_pool.acquire() as conn:
+        return await conn.fetch(query, user_id)
 
 async def function_message_received(client_postgres_pool,user_id,order,limit,offset,is_unread=None):
    if not is_unread:
@@ -565,14 +582,10 @@ async def function_message_received(client_postgres_pool,user_id,order,limit,off
    async with client_postgres_pool.acquire() as conn:
       return await conn.fetch(query,user_id)
 
-async def function_message_thread(client_postgres_pool,user_id_1,user_id_2,order,limit,offset):
-   query=f'''
-   select * from message 
-   where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) 
-   order by {order} limit {limit} offset {offset};
-   '''
-   async with client_postgres_pool.acquire() as conn:
-      return await conn.fetch(query,user_id_1,user_id_2)
+async def function_message_thread(client_postgres_pool, user_id_1, user_id_2, order, limit, offset):
+    query = f"select * from message where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) order by {order} limit {limit} offset {offset};"
+    async with client_postgres_pool.acquire() as conn:
+        return await conn.fetch(query, user_id_1, user_id_2)
 
 async def function_message_thread_mark_read(client_postgres_pool,user_id_1,user_id_2):
    query="update message set is_read=1 where created_by_id=$1 and user_id=$2;"

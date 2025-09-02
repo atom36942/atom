@@ -112,17 +112,17 @@ async def function_api_my_object_create_mongodb(request:Request):
 
 @router.post("/my/object-create")
 async def function_api_my_object_create(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
+   param=await function_param_read(request,"query",[["table",None,1,None],["queue",None,0,None]])
    obj=await function_param_read(request,"body",[])
    obj["created_by_id"]=request.state.user["id"]
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if len(obj)<=1:raise Exception("obj issue")
    if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
-   if not param["queue"]:output=await function_object_create_postgres(request.app.state.client_postgres_pool,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   elif param["queue"]=="batch":output=await function_object_create_postgres_batch("append",function_object_create_postgres,request.app.state.client_postgres_pool,param["table"],obj,config_batch_object_create,param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   if not param["queue"]:output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
+   elif param["queue"]=="batch":output=await function_postgres_object_create_batch("append",function_postgres_object_create,request.app.state.client_postgres_pool,param["table"],obj,config_batch_object_create)
    else:
-      payload={"function":"function_object_create_postgres","table":param["table"],"object_list":[obj],"is_serialize":param["is_serialize"]}
-      if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,"function_object_create_postgres",[param["table"],[obj],param["is_serialize"]])
+      payload={"function":"function_postgres_object_create","table":param["table"],"object_list":[obj]}
+      if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,"function_postgres_object_create",[param["table"],[obj]])
       elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,"channel_1",payload)
       elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,"channel_1",payload)
       elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,"channel_1",payload)

@@ -12,11 +12,11 @@ async def function_api_public_info(request:Request):
 
 @router.post("/public/object-create")
 async def function_api_public_object_create(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0]])
+   param=await function_param_read(request,"query",[["table",None,1,None]])
    obj=await function_param_read(request,"body",[])
    if param["table"] not in config_public_table_create_list:raise Exception("table not allowed")
    if len(obj)<=1:raise Exception("obj issue")
-   output=await function_object_create_postgres(request.app.state.client_postgres_pool,param["table"],[obj],param["is_serialize"],function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
    return {"status":1,"message":output}
 
 @router.get("/public/object-read")

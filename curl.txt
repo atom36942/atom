@@ -44,9 +44,8 @@ curl -X GET "$baseurl/my/parent-read?table=report_user&parent_column=user_id&par
 curl -X DELETE "$baseurl/my/object-delete-any?table=test&id=>,1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"
 0 curl -X POST "$baseurl/my/object-create-mongodb?database=test&table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
-curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test1","location": "POINT(17.794387 -83.03215)"}'
+curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test1","location":"POINT(17.794387 -83.03215)","created_at":"2025-09-02T10:30:00","metadata":{"source":"api","env":"dev"}}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test2"}'
-curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test4"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=batch" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test5"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test5"}'
 curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test8"}'

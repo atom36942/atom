@@ -1,7 +1,7 @@
 #function
 from function import function_redis_client_read,function_redis_client_read_consumer
 from function import function_postgres_client_pool_read,function_postgres_schema_read
-from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
+from function import function_postgres_object_create,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
 #env
@@ -27,7 +27,7 @@ async def logic():
       async for message in client_redis_consumer.listen():
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():
             payload=json.loads(message['data'])
-            if payload["function"]=="function_object_create_postgres":asyncio.create_task(function_object_create_postgres(client_postgres_pool,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
+            if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["object_list"]))
             elif payload["function"]=="function_object_update_postgres":asyncio.create_task(function_object_update_postgres(client_postgres_pool,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
             elif payload["function"]=="function_postgres_query_runner":asyncio.create_task(function_postgres_query_runner(client_postgres_pool,payload["mode"],payload["query"]))
             print(f"{payload.get('function')} task created")

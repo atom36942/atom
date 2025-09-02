@@ -1,7 +1,7 @@
 #function
 from function import function_celery_client_read_consumer
 from function import function_postgres_client_pool_read,function_postgres_schema_read
-from function import function_object_create_postgres,function_object_update_postgres,function_object_serialize
+from function import function_postgres_object_create,function_object_update_postgres,function_object_serialize
 from function import function_postgres_query_runner
 
 #env
@@ -40,12 +40,12 @@ def shutdown_worker(**kwargs):
     loop.run_until_complete(client_postgres_pool.disconnect())
 
 #task 1
-@client_celery_consumer.task(name="function_object_create_postgres")
-def celery_task_1(table,object_list,is_serialize):
+@client_celery_consumer.task(name="function_postgres_object_create")
+def celery_task_1(table,object_list):
     try:
         global client_postgres_pool
         def run_wrapper():
-            async def wrapper():await function_object_create_postgres(client_postgres_pool,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
+            async def wrapper():await function_postgres_object_create(client_postgres_pool,table,object_list)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         run_wrapper()
