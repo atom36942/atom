@@ -118,8 +118,8 @@ async def function_api_my_object_create(request:Request):
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if len(obj)<=1:raise Exception("obj issue")
    if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
-   if not param["queue"]:output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
-   elif param["queue"]=="batch":output=await function_postgres_object_create_batch("append",function_postgres_object_create,request.app.state.client_postgres_pool,param["table"],obj,config_batch_object_create)
+   if not param["queue"]:output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],[obj])
+   elif param["queue"]=="buffer":output=await function_postgres_object_create("buffer",request.app.state.client_postgres_pool,param["table"],obj)
    else:
       payload={"function":"function_postgres_object_create","table":param["table"],"object_list":[obj]}
       if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,"function_postgres_object_create",[param["table"],[obj]])

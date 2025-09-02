@@ -46,7 +46,7 @@ curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $toke
 0 curl -X POST "$baseurl/my/object-create-mongodb?database=test&table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test1","location":"POINT(17.794387 -83.03215)","created_at":"2025-09-02T10:30:00","metadata":{"source":"api","env":"dev"}}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test2"}'
-curl -X POST "$baseurl/my/object-create?table=test&queue=batch" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test5"}'
+curl -X POST "$baseurl/my/object-create?table=test&queue=buffer" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test5"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test5"}'
 curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test8"}'
 curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":"123"}'

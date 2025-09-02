@@ -45,7 +45,7 @@ def celery_task_1(table,object_list):
     try:
         global client_postgres_pool
         def run_wrapper():
-            async def wrapper():await function_postgres_object_create(client_postgres_pool,table,object_list)
+            async def wrapper():await function_postgres_object_create("now",client_postgres_pool,table,object_list)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         run_wrapper()

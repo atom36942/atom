@@ -40,7 +40,7 @@ async def function_api_root_postgres_export(request:Request):
 async def function_api_root_postgres_import(request:Request):
    param=await function_param_read(request,"form",[["mode",None,1,None],["table",None,1,None],["file","file",1,[]]])
    object_list=await function_file_to_object_list(param["file"][-1])
-   if param["mode"]=="create":output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],object_list)
+   if param["mode"]=="create":output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],object_list)
    elif param["mode"]=="update":output=await function_object_update_postgres(request.app.state.client_postgres_pool,param["table"],object_list,1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    elif param["mode"]=="delete":output=await function_object_delete_postgres(request.app.state.client_postgres_pool,param["table"],object_list,1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":output}

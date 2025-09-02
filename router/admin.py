@@ -8,7 +8,7 @@ async def function_api_admin_object_create(request:Request):
    obj=await function_param_read(request,"body",[])
    if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):obj["created_by_id"]=request.state.user["id"]
    if len(obj)<=1:raise Exception("obj issue")
-   output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
+   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],[obj])
    return {"status":1,"message":output}
 
 @router.put("/admin/object-update")

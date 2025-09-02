@@ -92,7 +92,6 @@ config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_ac
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 100)
 
 #misc
-config_batch_object_create=int(os.getenv("config_batch_object_create") or 10)
 config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token"
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
 config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))

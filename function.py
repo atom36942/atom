@@ -159,67 +159,109 @@ async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
          await conn.execute(query,threshold_date)
    return None
 
+async def function_postgres_object_update(client_postgres_pool, table, object_list,user_id=None, batch_size=5000):
+    if not object_list:return None
+    cols = [c for c in object_list[0] if c != "id"]
+    col_count = len(cols)
+    max_batch = 65535 // (col_count + 1 + (1 if user_id else 0))
+    batch_size = min(batch_size, max_batch)
+    async with client_postgres_pool.acquire() as conn:
+        if len(object_list) == 1:
+            params = [object_list[0][c] for c in cols] + [object_list[0]["id"]]
+            where_clause = f"id=${len(params)}"
+            if user_id:
+                params.append(user_id)
+                where_clause += f" AND created_by_id=${len(params)}"
+            set_clause = ",".join([f"{c}=${i+1}" for i, c in enumerate(cols)])
+            query = f"UPDATE {table} SET {set_clause} WHERE {where_clause} RETURNING id;"
+            row = await conn.fetch(query, *params)
+            return row[0]["id"] if row else None
+        else:
+            async with conn.transaction():
+                for i in range(0, len(object_list), batch_size):
+                    batch = object_list[i:i + batch_size]
+                    vals = []
+                    id_list = []
+                    set_clauses = []
+
+                    for col_idx, col in enumerate(cols):
+                        case_statements = []
+                        for row_idx, obj in enumerate(batch):
+                            vals.extend([obj[col]])
+                            vals.append(obj["id"])
+                            param_idx = len(vals)
+                            if user_id:
+                                vals.append(user_id)
+                                case_stmt = f"WHEN id=${param_idx-1} AND created_by_id=${param_idx} THEN ${param_idx-2}"
+                            else:
+                                case_stmt = f"WHEN id=${param_idx-1} THEN ${param_idx-2}"
+                            case_statements.append(case_stmt)
+                        set_clauses.append(f"{col} = CASE {' '.join(case_statements)} ELSE {col} END")
+
+                    id_list = [obj["id"] for obj in batch]
+                    where_clause = f"id IN ({','.join(str(id_) for id_ in id_list)})"
+                    if user_id:
+                        where_clause += f" AND created_by_id={user_id}"
+                    query = f"UPDATE {table} SET {', '.join(set_clauses)} WHERE {where_clause};"
+                    await conn.execute(query, *vals)
+            return None
+
 import asyncio
 buffer_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def function_postgres_object_create_batch(mode,function_postgres_object_create,client_postgres_pool,table,obj,batch=10):
-   global buffer_object_create, table_object_key
-   async with buffer_lock:
-      if mode=="append":
-         if table not in buffer_object_create:
-            buffer_object_create[table]=[]
-         if table not in table_object_key or not table_object_key[table]:
-            table_object_key[table]=list(obj.keys())
-         if set(obj.keys())!=set(table_object_key[table]):
-            raise Exception(f"keys should be {table_object_key[table]}")
-         buffer_object_create[table].append(obj)
-         if len(buffer_object_create[table])>=batch:
-            await function_postgres_object_create(client_postgres_pool,table,buffer_object_create[table])
-            buffer_object_create[table].clear()
-      elif mode=="flush":
-         for tbl,rows in buffer_object_create.items():
-            if rows:
-               await function_postgres_object_create(client_postgres_pool,tbl,rows)
-               rows.clear()
-   return None
-
-async def function_postgres_object_create(client_postgres_pool, table, object_list, returning_ids=False, conflict_columns=None, batch_size=5000):
-    cols = list(object_list[0].keys())
-    col_count = len(cols)
-    max_batch = 65535 // col_count
-    batch_size = min(batch_size, max_batch)
-    conflict_clause = ""
-    if conflict_columns:
-        conflict_clause = f"on conflict ({','.join(conflict_columns)}) do nothing"
-    else:
-        conflict_clause = "on conflict do nothing"
-    async with client_postgres_pool.acquire() as conn:
-        if len(object_list) == 1:
-            ph = ", ".join([f"${i}" for i in range(1, col_count + 1)])
-            q = f"insert into {table} ({','.join(cols)}) values ({ph}) {conflict_clause} returning id;"
-            row = await conn.fetchrow(q, *object_list[0].values())
-            return row["id"] if row else None
-        else:
-            ids = [] if returning_ids else None
+async def function_postgres_object_create(mode, client_postgres_pool, table=None, obj=None,buffer=10, returning_ids=False, conflict_columns=None, batch_size=5000):
+    global buffer_object_create, table_object_key
+    async def _execute_insert(tbl, objs):
+        cols = list(objs[0].keys())
+        col_count = len(cols)
+        max_batch = 65535 // col_count
+        batch_size_eff = min(batch_size, max_batch)
+        conflict_clause = f"on conflict ({','.join(conflict_columns)}) do nothing" if conflict_columns else "on conflict do nothing"
+        ids = [] if returning_ids else None
+        async with client_postgres_pool.acquire() as conn:
+            if len(objs) == 1:
+                ph = ", ".join([f"${i}" for i in range(1, col_count+1)])
+                row = await conn.fetchrow(f"insert into {tbl} ({','.join(cols)}) values ({ph}) {conflict_clause} returning id;", *objs[0].values())
+                return row["id"] if row else None
             async with conn.transaction():
-                for i in range(0, len(object_list), batch_size):
-                    batch = object_list[i:i + batch_size]
+                for i in range(0, len(objs), batch_size_eff):
+                    batch = objs[i:i+batch_size_eff]
                     vals, rows_sql = [], []
-                    for j, obj in enumerate(batch):
-                        start = j * col_count + 1
-                        ph = ", ".join([f"${k}" for k in range(start, start + col_count)])
-                        rows_sql.append(f"({ph})")
-                        vals.extend(obj.values())
-                    q = f"insert into {table} ({','.join(cols)}) values {','.join(rows_sql)} {conflict_clause}"
+                    for j, o in enumerate(batch):
+                        start = j*col_count+1
+                        rows_sql.append(f"({', '.join([f'${k}' for k in range(start,start+col_count)])})")
+                        vals.extend(o.values())
+                    q = f"insert into {tbl} ({','.join(cols)}) values {','.join(rows_sql)} {conflict_clause}"
                     if returning_ids:
                         q += " returning id;"
-                    if returning_ids:
-                        rows = await conn.fetch(q, *vals)
-                        ids.extend([r["id"] for r in rows])
+                        fetched = await conn.fetch(q, *vals)
+                        ids.extend([r["id"] for r in fetched])
                     else:
                         await conn.execute(q, *vals)
-            return ids if returning_ids else None
+        return ids if returning_ids else None
+    async with buffer_lock:
+        if mode == "now":
+            return await _execute_insert(table, [obj])
+        elif mode == "buffer":
+            if table not in buffer_object_create: buffer_object_create[table] = []
+            if table not in table_object_key or not table_object_key[table]: table_object_key[table] = list(obj.keys())
+            if set(obj.keys()) != set(table_object_key[table]): raise Exception(f"keys should be {table_object_key[table]}")
+            buffer_object_create[table].append(obj)
+            if len(buffer_object_create[table]) >= buffer:
+                objs = buffer_object_create[table]
+                buffer_object_create[table] = []
+                return await _execute_insert(table, objs)
+            return None
+        elif mode == "flush":
+            results = {}
+            for tbl, rows in buffer_object_create.items():
+                if not rows: continue
+                results[tbl] = await _execute_insert(tbl, rows)
+                buffer_object_create[tbl] = []
+            return results
+        else:
+            raise ValueError("mode must be 'now', 'add', or 'flush'")
 
 async def function_postgres_schema_read(client_postgres_pool):
     query = """

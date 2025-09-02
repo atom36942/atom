@@ -23,7 +23,7 @@ async def logic():
       async def aqmp_callback(message:aio_pika.IncomingMessage):
          async with message.process():
             payload=json.loads(message.body)
-            if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["object_list"]))
+            if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create("now",client_postgres_pool,payload["table"],payload["object_list"]))
             elif payload["function"]=="function_object_update_postgres":asyncio.create_task(function_object_update_postgres(client_postgres_pool,payload["table"],payload["object_list"],payload.get("is_serialize",0),function_object_serialize,postgres_column_datatype))
             elif payload["function"]=="function_postgres_query_runner":asyncio.create_task(function_postgres_query_runner(client_postgres_pool,payload["mode"],payload["query"]))
             print(f"{payload.get('function')} task created")

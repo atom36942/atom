@@ -16,7 +16,7 @@ async def function_api_public_object_create(request:Request):
    obj=await function_param_read(request,"body",[])
    if param["table"] not in config_public_table_create_list:raise Exception("table not allowed")
    if len(obj)<=1:raise Exception("obj issue")
-   output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
+   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],[obj])
    return {"status":1,"message":output}
 
 @router.get("/public/object-read")

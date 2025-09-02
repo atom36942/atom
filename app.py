@@ -34,7 +34,7 @@ async def function_lifespan(app:FastAPI):
       function_add_app_state({**globals(),**locals()},app,("client_","cache_"))
       #app shutdown
       yield
-      await function_postgres_object_create_batch("flush",function_postgres_object_create,client_postgres_pool,None,None)
+      await function_postgres_object_create("flush",client_postgres_pool)
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
       if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()
@@ -111,7 +111,7 @@ async def middleware(request,api_function):
    #log api
    if config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
       obj_log={"response_type":response_type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
-      asyncio.create_task(function_postgres_object_create_batch("append",function_postgres_object_create,request.app.state.client_postgres_pool,obj_log))
+      asyncio.create_task(function_postgres_object_create("buffer",request.app.state.client_postgres_pool,"log_api",obj_log))
    #posthog
    if False:request.app.state.client_posthog.capture(distinct_id=request.state.user.get("id"),event="api",properties=obj_log)
    #final
