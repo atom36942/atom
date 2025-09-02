@@ -88,14 +88,14 @@ async def function_api_my_object_delete_any(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
    if param["table"] in ["users"]:raise Exception("table not allowed")
-   await function_object_delete_postgres_any(request.app.state.client_postgres_pool,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   await function_postgres_object_delete(request.app.state.client_postgres_pool,param,request.app.state.cache_postgres_schema)
    return {"status":1,"message":"done"}
 
 @router.get("/my/object-read")
 async def function_api_my_object_read(request:Request):
    param=await function_param_read(request,"query",[["table",None,1,None],["creator_key","list",0,[]]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
-   object_list=await function_object_read_postgres(request.app.state.client_postgres_pool,param["table"],param,function_create_where_string,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   object_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param)
    if param["creator_key"]:object_list=await function_add_creator_data(request.app.state.client_postgres_pool,object_list,param["creator_key"])
    return {"status":1,"message":object_list}
 
@@ -144,6 +144,6 @@ async def function_api_my_object_update(request:Request):
       email,mobile=obj.get("email"),obj.get("mobile")
       if email:await function_otp_verify("email",param["otp"],email,request.app.state.client_postgres_pool)
       elif mobile:await function_otp_verify("mobile",param["otp"],mobile,request.app.state.client_postgres_pool)
-   if param["table"]=="users":output=await function_object_update_postgres(request.app.state.client_postgres_pool,"users",[obj],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
-   else:output=await function_object_update_postgres_user(request.app.state.client_postgres_pool,param["table"],[obj],request.state.user["id"],1,function_object_serialize,request.app.state.cache_postgres_column_datatype)
+   if param["table"]=="users":output=await function_postgres_object_update(request.app.state.client_postgres_pool,"users",[obj])
+   else:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj],request.state.user["id"])
    return {"status":1,"message":output}

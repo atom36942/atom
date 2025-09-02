@@ -1,7 +1,7 @@
 #function
 from function import function_celery_client_read_consumer
 from function import function_postgres_client_pool_read,function_postgres_schema_read
-from function import function_postgres_object_create,function_object_update_postgres,function_object_serialize
+from function import function_postgres_object_create,function_postgres_object_update
 from function import function_postgres_query_runner
 
 #env
@@ -56,12 +56,12 @@ def celery_task_1(table,object_list):
         return None
 
 #task 2
-@client_celery_consumer.task(name="function_object_update_postgres")
+@client_celery_consumer.task(name="function_postgres_object_update")
 def celery_task_2(table,object_list,is_serialize):
     try:
         global client_postgres_pool
         def run_wrapper():
-            async def wrapper():await function_object_update_postgres(client_postgres_pool,table,object_list,is_serialize,function_object_serialize,postgres_column_datatype)
+            async def wrapper():await function_postgres_object_update(client_postgres_pool,table,object_list)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         run_wrapper()

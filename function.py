@@ -159,15 +159,146 @@ async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
          await conn.execute(query,threshold_date)
    return None
 
-async def function_postgres_object_update(client_postgres_pool, table, object_list,user_id=None, batch_size=5000):
-    if not object_list:return None
-    cols = [c for c in object_list[0] if c != "id"]
+async def function_postgres_object_read(client_postgres_pool, obj):
+    """
+    Sample usage:
+    await function_postgres_object_read(pool, {"table": "users", "status": "=,active"})
+    await function_postgres_object_read(pool, {"table": "orders", "created_by_id": "=,10", "order": "created_at desc", "limit": 100, "page": 2})
+    await function_postgres_object_read(pool, {"table": "products", "category": "=,electronics", "column": "id,name,category,created_at", "limit": 50})
+    await function_postgres_object_read(pool, {"table": "users", "created_at": ">=,2025-01-01", "order": "created_at desc", "limit": 10})
+    await function_postgres_object_read(pool, {"table": "stores", "location_filter": "17.78,83.03,500,1000"})
+    """
+    table = obj.get("table")
+    if not table:
+        raise ValueError("Table name must be provided in obj['table']")
+    columns = obj.get("column", "*")
+    order = obj.get("order", "id desc")
+    limit = int(obj.get("limit", 100))
+    page = int(obj.get("page", 1))
+    location_filter = obj.get("location_filter")
+    filters = {k: v for k, v in obj.items() if k not in ["table", "order", "limit", "page", "column", "location_filter"]}
+    conditions = []
+    values = []
+    idx = 1
+    for col, expr in filters.items():
+        try:
+            op, val = expr.split(",", 1)
+        except ValueError:
+            raise ValueError(f"Invalid format for {col}: {expr}, expected 'operator,value'")
+        op = op.strip().lower()
+        val = val.strip()
+
+        if val.lower() == "null":
+            if op in ["is", "is not"]:
+                conditions.append(f"{col} {op.upper()} NULL")
+            else:
+                raise ValueError(f"Null can only be used with 'is' or 'is not' for column {col}")
+        elif op in ["in", "not in"]:
+            items = [v.strip() for v in val.split("|")]
+            placeholders = []
+            for item in items:
+                placeholders.append(f"${idx}")
+                values.append(item)
+                idx += 1
+            conditions.append(f"{col} {op.upper()} ({','.join(placeholders)})")
+        else:
+            conditions.append(f"{col} {op} ${idx}")
+            values.append(val)
+            idx += 1
+    where_string = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    if location_filter:
+        try:
+            parts = location_filter.split(",")
+            long, lat = float(parts[0]), float(parts[1])
+            min_meter, max_meter = int(parts[2]), int(parts[3])
+        except Exception:
+            raise ValueError("Invalid location_filter format. Expected 'long,lat,min_meter,max_meter'")
+        query = f"""
+            WITH x AS (SELECT {columns} FROM {table} {where_string}),
+                 y AS (SELECT *, ST_Distance(location, ST_Point({long}, {lat})::geography) AS distance_meter FROM x)
+            SELECT * FROM y
+            WHERE distance_meter BETWEEN {min_meter} AND {max_meter}
+            ORDER BY {order} LIMIT {limit} OFFSET {(page - 1) * limit};
+        """
+    else:
+        query = f"SELECT {columns} FROM {table} {where_string} ORDER BY {order} LIMIT {limit} OFFSET {(page - 1) * limit};"
+    async with client_postgres_pool.acquire() as conn:
+        try:
+            records = await conn.fetch(query, *values)
+            return [dict(r) for r in records]
+        except Exception as e:
+            raise ValueError(f"Failed to read: {e}")
+
+async def function_postgres_object_delete(client_postgres_pool, obj):
+    """
+    Sample usage:
+    await function_postgres_object_delete(pool, {"table": "users", "id": ">=,1", "status": "=,active"})
+    await function_postgres_object_delete(pool, {"table": "orders", "status": "in,open|pending", "created_by_id": "=,10"})
+    await function_postgres_object_delete(pool, {"table": "products", "deleted_at": "is not,null", "category": "=,electronics"})
+    """
+    table = obj.get("table")
+    if not table:
+        raise ValueError("Table name must be provided in obj['table']")
+    filters = {k: v for k, v in obj.items() if k != "table"}
+    if not filters:
+        raise ValueError("No columns provided to delete")
+    conditions = []
+    values = []
+    idx = 1
+    for col, expr in filters.items():
+        try:
+            op, val = expr.split(",", 1)
+        except ValueError:
+            raise ValueError(f"Invalid format for {col}: {expr}, expected 'operator,value'")
+        op = op.strip().lower()
+        val = val.strip()
+        if val.lower() == "null":
+            if op in ["is", "is not"]:
+                conditions.append(f"{col} {op.upper()} NULL")
+            else:
+                raise ValueError(f"Null can only be used with 'is' or 'is not' for column {col}")
+        elif op in ["in", "not in"]:
+            items = [v.strip() for v in val.split("|")]
+            placeholders = []
+            for item in items:
+                placeholders.append(f"${idx}")
+                values.append(item)
+                idx += 1
+            conditions.append(f"{col} {op.upper()} ({','.join(placeholders)})")
+        else:
+            conditions.append(f"{col} {op} ${idx}")
+            values.append(val)
+            idx += 1
+    where_string = " AND ".join(conditions)
+    query = f"DELETE FROM {table} WHERE {where_string};"
+    async with client_postgres_pool.acquire() as conn:
+        try:
+            result = await conn.execute(query, *values)
+            return int(result.split()[1])
+        except Exception as e:
+            raise ValueError(f"Failed to delete: {e}")
+
+async def function_postgres_object_update(client_postgres_pool, table, obj_list,user_id=None, batch_size=5000):
+    """
+    Updates rows in a PostgreSQL table using asyncpg.
+    Sample usage:
+    ```python
+    # Case 1: Update without user_id filter
+    obj = {"id": 2, "name": "Bob", "age": 25}
+    await function_postgres_object_update(pool, "users", [obj])
+    # Case 2: Update with user_id filter
+    obj = {"id": 1, "name": "Alice", "age": 30}
+    await function_postgres_object_update(pool, "users", [obj], user_id=42)
+    ```
+    """
+    if not obj_list:return None
+    cols = [c for c in obj_list[0] if c != "id"]
     col_count = len(cols)
     max_batch = 65535 // (col_count + 1 + (1 if user_id else 0))
     batch_size = min(batch_size, max_batch)
     async with client_postgres_pool.acquire() as conn:
-        if len(object_list) == 1:
-            params = [object_list[0][c] for c in cols] + [object_list[0]["id"]]
+        if len(obj_list) == 1:
+            params = [obj_list[0][c] for c in cols] + [obj_list[0]["id"]]
             where_clause = f"id=${len(params)}"
             if user_id:
                 params.append(user_id)
@@ -178,8 +309,8 @@ async def function_postgres_object_update(client_postgres_pool, table, object_li
             return row[0]["id"] if row else None
         else:
             async with conn.transaction():
-                for i in range(0, len(object_list), batch_size):
-                    batch = object_list[i:i + batch_size]
+                for i in range(0, len(obj_list), batch_size):
+                    batch = obj_list[i:i + batch_size]
                     vals = []
                     id_list = []
                     set_clauses = []
@@ -205,14 +336,28 @@ async def function_postgres_object_update(client_postgres_pool, table, object_li
                     query = f"UPDATE {table} SET {', '.join(set_clauses)} WHERE {where_clause};"
                     await conn.execute(query, *vals)
             return None
-
+        
 import asyncio
 buffer_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def function_postgres_object_create(mode, client_postgres_pool, table=None, obj=None,buffer=10, returning_ids=False, conflict_columns=None, batch_size=5000):
+async def function_postgres_object_create(mode, client_postgres_pool, table=None, obj_list=None, buffer=10, returning_ids=False, conflict_columns=None, batch_size=5000):
+    """
+    Examples:
+    # Single row insert immediately
+    await function_postgres_object_create("now", pool, table="users", obj_list=[{"name":"Alice","age":30}])
+    # Bulk insert immediately
+    await function_postgres_object_create("now", pool, table="users",obj_list=[{"name":"Alice","age":30},{"name":"Bob","age":25},{"name":"Carol","age":28}])
+    # Add rows to buffer (auto-flush if buffer reaches default 10)
+    await function_postgres_object_create("buffer", pool, table="users",obj_list=[{"name":"Dave","age":40},{"name":"Eve","age":35}])
+    # Flush all buffers manually
+    await function_postgres_object_create("flush", pool)
+    # Returning inserted IDs
+    await function_postgres_object_create("now", pool, table="users",obj_list=[{"name":"Alice","age":30}], returning_ids=True)
+    """
     global buffer_object_create, table_object_key
     async def _execute_insert(tbl, objs):
+        if not objs: return None
         cols = list(objs[0].keys())
         col_count = len(cols)
         max_batch = 65535 // col_count
@@ -220,10 +365,6 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
         conflict_clause = f"on conflict ({','.join(conflict_columns)}) do nothing" if conflict_columns else "on conflict do nothing"
         ids = [] if returning_ids else None
         async with client_postgres_pool.acquire() as conn:
-            if len(objs) == 1:
-                ph = ", ".join([f"${i}" for i in range(1, col_count+1)])
-                row = await conn.fetchrow(f"insert into {tbl} ({','.join(cols)}) values ({ph}) {conflict_clause} returning id;", *objs[0].values())
-                return row["id"] if row else None
             async with conn.transaction():
                 for i in range(0, len(objs), batch_size_eff):
                     batch = objs[i:i+batch_size_eff]
@@ -242,26 +383,32 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
         return ids if returning_ids else None
     async with buffer_lock:
         if mode == "now":
-            return await _execute_insert(table, [obj])
+            return await _execute_insert(table, obj_list)
         elif mode == "buffer":
             if table not in buffer_object_create: buffer_object_create[table] = []
-            if table not in table_object_key or not table_object_key[table]: table_object_key[table] = list(obj.keys())
-            if set(obj.keys()) != set(table_object_key[table]): raise Exception(f"keys should be {table_object_key[table]}")
-            buffer_object_create[table].append(obj)
+            if table not in table_object_key or not table_object_key[table]: table_object_key[table] = list(obj_list[0].keys())
+            for o in obj_list:
+                if set(o.keys()) != set(table_object_key[table]): 
+                    raise Exception(f"keys should be {table_object_key[table]}")
+            buffer_object_create[table].extend(obj_list)
             if len(buffer_object_create[table]) >= buffer:
-                objs = buffer_object_create[table]
+                objs_to_insert = buffer_object_create[table]
                 buffer_object_create[table] = []
-                return await _execute_insert(table, objs)
+                return await _execute_insert(table, objs_to_insert)
             return None
         elif mode == "flush":
             results = {}
             for tbl, rows in buffer_object_create.items():
                 if not rows: continue
-                results[tbl] = await _execute_insert(tbl, rows)
-                buffer_object_create[tbl] = []
+                try:
+                    results[tbl] = await _execute_insert(tbl, rows)
+                except Exception as e:
+                    results[tbl] = e
+                finally:
+                    buffer_object_create[tbl] = []
             return results
         else:
-            raise ValueError("mode must be 'now', 'add', or 'flush'")
+            raise ValueError("mode must be 'now', 'buffer', or 'flush'")
 
 async def function_postgres_schema_read(client_postgres_pool):
     query = """
