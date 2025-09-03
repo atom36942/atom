@@ -1,8 +1,6 @@
 #function
-from function import function_rabbitmq_client_read_consumer
-from function import function_postgres_client_pool_read,function_postgres_schema_read
+from function import function_rabbitmq_client_read_consumer,function_postgres_client_read_pool
 from function import function_postgres_object_create,function_postgres_object_update
-from function import function_postgres_query_runner
 
 #env
 import os
@@ -23,12 +21,10 @@ async def logic():
       async def aqmp_callback(message:aio_pika.IncomingMessage):
          async with message.process():
             payload=json.loads(message.body)
-            if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create("now",client_postgres_pool,payload["table"],payload["object_list"]))
-            elif payload["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["object_list"]))
-            elif payload["function"]=="function_postgres_query_runner":asyncio.create_task(function_postgres_query_runner(client_postgres_pool,payload["mode"],payload["query"]))
+            if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
+            elif payload["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
             print(f"{payload.get('function')} task created")
-      client_postgres_pool=await function_postgres_client_pool_read(config_postgres_url)
-      postgres_schema,postgres_column_datatype=await function_postgres_schema_read(client_postgres_pool)
+      client_postgres_pool=await function_postgres_client_read_pool(config_postgres_url)
       client_rabbitmq,client_rabbitmq_consumer=await function_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
       await client_rabbitmq_consumer.consume(aqmp_callback)
       await asyncio.Future()
@@ -37,7 +33,7 @@ async def logic():
    finally:
       if client_rabbitmq_consumer and hasattr(client_rabbitmq_consumer, 'channel'): await client_rabbitmq_consumer.channel.close()
       if client_rabbitmq and not client_rabbitmq.is_closed: await client_rabbitmq.close()
-      if client_postgres_pool: await client_postgres_pool.disconnect()
+      if client_postgres_pool: await client_postgres_pool.close()
 
 #main
 if __name__ == "__main__":

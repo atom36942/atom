@@ -1,7 +1,3 @@
-#router
-from fastapi import APIRouter
-router=APIRouter()
-
 #function
 from function import *
 
@@ -11,3 +7,7 @@ from config import *
 #package
 from fastapi import Request,responses
 import json,time,os,asyncio,uuid
+
+#router
+from fastapi import APIRouter
+router=APIRouter()
