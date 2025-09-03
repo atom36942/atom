@@ -941,7 +941,7 @@ async def function_auth_login_password_username(client_postgres_pool,type,passwo
         output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
     user = output[0] if output else None
     if not user: raise Exception("user not found")
-    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
 async def function_auth_login_password_username_bigint(client_postgres_pool,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
@@ -950,7 +950,7 @@ async def function_auth_login_password_username_bigint(client_postgres_pool,type
         output = await conn.fetch(query,type,username_bigint,password_bigint)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
-    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
 import hashlib
@@ -960,7 +960,7 @@ async def function_auth_login_password_email(client_postgres_pool,type,password,
         output = await conn.fetch(query,type,email,hashlib.sha256(str(password).encode()).hexdigest())
     user = output[0] if output else None
     if not user: raise Exception("user not found")
-    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
 import hashlib
@@ -970,7 +970,7 @@ async def function_auth_login_password_mobile(client_postgres_pool,type,password
         output = await conn.fetch(query,type,mobile,hashlib.sha256(str(password).encode()).hexdigest())
     user = output[0] if output else None
     if not user: raise Exception("user not found")
-    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
 async def function_auth_login_otp_email(client_postgres_pool,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
@@ -981,7 +981,7 @@ async def function_auth_login_otp_email(client_postgres_pool,type,email,function
         if not user:
             output = await conn.fetch("insert into users (type,email) values ($1,$2) returning *;",type,email)
             user = output[0] if output else None
-    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
 async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
@@ -992,7 +992,7 @@ async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,functi
         if not user:
             output = await conn.fetch("insert into users (type,mobile) values ($1,$2) returning *;",type,mobile)
             user = output[0] if output else None
-    token = await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
 import json
@@ -1008,7 +1008,7 @@ async def function_auth_login_google(client_postgres_pool, type, google_token, c
         if not user:
             output = await conn.fetch("INSERT INTO users (type, google_id, google_data) VALUES ($1, $2, $3) RETURNING *", type, google_user["sub"], json.dumps(google_user))
             user = output[0] if output else None
-    token = await function_token_encode(config_key_jwt, config_token_expire_sec, config_token_user_key_list, user)
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
 #api
@@ -1129,7 +1129,6 @@ async def function_check_is_active(config_mode_check_is_active,request,cache_use
    if user_is_active==0:raise Exception("user not active")
    return None
 
-
 from fastapi import Response
 import gzip,base64,time
 inmemory_cache={}
@@ -1175,9 +1174,9 @@ async def function_token_decode(token,config_key_jwt):
    return user
 
 import jwt,json,time
-async def function_token_encode(config_key_jwt,config_token_expire_sec,key_list,obj):
-   data=dict(obj)
-   payload={k:data.get(k) for k in key_list}
+async def function_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,key_list=None):
+   obj=dict(obj)
+   payload={k:obj.get(k) for k in key_list} if key_list else obj
    payload=json.dumps(payload,default=str)
    token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":payload},config_key_jwt)
    return token
@@ -1407,8 +1406,8 @@ async def function_rabbitmq_client_read_consumer(config_rabbitmq_url,config_chan
 
 import json,aio_pika
 async def function_rabbitmq_producer(client_rabbitmq_producer,channel_name,payload):
-    body=json.dumps(payload).encode()
-    message=aio_pika.Message(body=body)
+    payload=json.dumps(payload).encode()
+    message=aio_pika.Message(body=payload)
     output=await client_rabbitmq_producer.default_exchange.publish(message,routing_key=channel_name)
     return output
 

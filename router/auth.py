@@ -18,7 +18,7 @@ async def function_api_auth_signup_username_password_bigint(request:Request):
     param=await function_param_read(request,"body",[["type","int",1,None],["username_bigint","int",1,None],["password_bigint","int",1,None]])
     if param["type"] not in config_auth_type_list:raise Exception("type not allowed")
     user=await function_auth_signup_username_password_bigint(request.app.state.client_postgres_pool,param["type"],param["username_bigint"],param["password_bigint"])
-    token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+    token=await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     output={"user":user,"token":token}
     return {"status":1,"message":output}
 

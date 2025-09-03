@@ -12,7 +12,7 @@ async def function_api_my_profile(request:Request):
 @router.get("/my/token-refresh")
 async def function_api_my_token_refresh(request:Request):
    user=await function_read_user_single(request.app.state.client_postgres_pool,request.state.user["id"])
-   token=await function_token_encode(config_key_jwt,config_token_expire_sec,config_token_user_key_list,user)
+   token=await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
    return {"status":1,"message":token}
 
 @router.get("/my/api-usage")
