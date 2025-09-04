@@ -1,5 +1,5 @@
 #function
-from function import function_celery_client_read_consumer,function_postgres_client_read_pool
+from function import function_celery_client_read_consumer,function_postgres_client_read
 from function import function_postgres_object_create,function_postgres_object_update
 
 #env
@@ -25,7 +25,7 @@ client_postgres_pool=None
 def init_worker(**kwargs):
     global client_postgres_pool
     loop=asyncio.get_event_loop()
-    client_postgres_pool=loop.run_until_complete(function_postgres_client_read_pool(config_postgres_url))
+    client_postgres_pool=loop.run_until_complete(function_postgres_client_read(config_postgres_url))
 
 #shutdown
 @signals.worker_process_shutdown.connect

@@ -1,5 +1,5 @@
 #function
-from function import function_rabbitmq_client_read_consumer,function_postgres_client_read_pool
+from function import function_rabbitmq_client_read_consumer,function_postgres_client_read
 from function import function_postgres_object_create,function_postgres_object_update
 
 #env
@@ -24,7 +24,7 @@ async def logic():
             if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
             elif payload["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
             print(f"{payload.get('function')} task created")
-      client_postgres_pool=await function_postgres_client_read_pool(config_postgres_url)
+      client_postgres_pool=await function_postgres_client_read(config_postgres_url)
       client_rabbitmq,client_rabbitmq_consumer=await function_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
       await client_rabbitmq_consumer.consume(aqmp_callback)
       await asyncio.Future()

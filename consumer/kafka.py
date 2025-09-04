@@ -1,5 +1,5 @@
 #function
-from function import function_kafka_client_read_consumer,function_postgres_client_read_pool
+from function import function_kafka_client_read_consumer,function_postgres_client_read
 from function import function_postgres_object_create,function_postgres_object_update
 
 #env
@@ -23,7 +23,7 @@ import asyncio,json
 async def logic():
    try:
       client_kafka_consumer=await function_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_group_id,config_enable_auto_commit)
-      client_postgres_pool=await function_postgres_client_read_pool(config_postgres_url)
+      client_postgres_pool=await function_postgres_client_read(config_postgres_url)
       async for message in client_kafka_consumer:
          if message.topic=="channel_1":
             payload=json.loads(message.value.decode('utf-8'))

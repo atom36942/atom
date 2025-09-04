@@ -671,7 +671,7 @@ async def function_postgres_schema_read(client_postgres_pool):
     return postgres_schema, postgres_column_datatype
 
 import asyncpg
-async def function_postgres_client_read_pool(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
+async def function_postgres_client_read(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
    client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
    return client_postgres_pool
  

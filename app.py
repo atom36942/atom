@@ -12,7 +12,7 @@ import traceback
 async def function_lifespan(app:FastAPI):
    try:
       #client init
-      client_postgres_pool=await function_postgres_client_read_pool(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
+      client_postgres_pool=await function_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_redis=await function_redis_client_read(config_redis_url) if config_redis_url else None
       client_redis_ratelimiter=await function_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
       client_mongodb=await function_mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
