@@ -45,7 +45,7 @@ async def function_lifespan(app:FastAPI):
       if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed:await client_rabbitmq_producer.close()
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
       if client_redis_producer:await client_redis_producer.aclose()
-      function_delete_files(".",[".csv"],["export_"])
+      function_delete_files(["export_"],[".csv"],".")
    except Exception as e:
       print(str(e))
       print(traceback.format_exc())

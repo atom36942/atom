@@ -5,7 +5,7 @@ async def function_extend_client():
 
 #zzz
 import os
-def function_delete_files(folder_path=".", extension_list=None, file_prefix_list=None):
+def function_delete_files(file_prefix_list=None,extension_list=None,folder_path="."):
     if extension_list is None:
         extension_list = []
     if file_prefix_list is None:
@@ -97,7 +97,7 @@ def function_config_read():
     return output
 
 import sys
-def function_variable_size_kb_read(namespace):
+def function_variable_size_kb_read(namespace=globals()):
    result = {}
    for name, var in namespace.items():
       if not name.startswith("__"):
@@ -108,12 +108,280 @@ def function_variable_size_kb_read(namespace):
    return sorted_result
 
 import sys
-def function_check_required_env(config, required_keys):
-    missing = [key for key in required_keys if not config.get(key)]
+def function_check_required_env(config,required_key_list):
+    missing = [key for key in required_key_list if not config.get(key)]
     if missing:
         print(f"Error: Missing required environment variables: {', '.join(missing)}", file=sys.stderr)
         sys.exit(1)
     return None
+
+#crud
+async def function_delete_ids(client_postgres_pool,table,ids,created_by_id=None):
+   query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
+   async with client_postgres_pool.acquire() as conn:
+      await conn.execute(query,created_by_id)
+   return None
+
+async def function_update_ids(client_postgres_pool,table,ids,column,value,updated_by_id=1,created_by_id=None):
+   query=f"update {table} set {column}=$1,updated_by_id=$2 where id in ({ids}) and (created_by_id=$3 or $3 is null);"
+   async with client_postgres_pool.acquire() as conn:
+      await conn.execute(query,value,updated_by_id,created_by_id)
+   return None
+
+async def function_parent_object_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order="id desc",limit=100,page=1):
+   query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
+   async with client_postgres_pool.acquire() as conn:
+      rows=await conn.fetch(query,created_by_id)
+   return rows
+
+async def function_ownership_check(client_postgres_pool, table, id, user_id):
+    if table == "users":
+        if id != user_id:raise Exception("obj ownership issue")
+    else:
+        query = f"SELECT created_by_id FROM {table} WHERE id = $1;"
+        row = await client_postgres_pool.fetchrow(query, id)
+        if not row:raise Exception("no obj")
+        if row["created_by_id"] != user_id:raise Exception("obj ownership issue")
+    return None
+
+async def function_api_usage(client_postgres_pool,days=7,created_by_id=None):
+   query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=$1 or $1 is null) group by api limit 1000;"
+   async with client_postgres_pool.acquire() as conn:
+      rows=await conn.fetch(query,created_by_id)
+   return {r["api"]:r["count"] for r in rows}
+
+async def function_add_creator_data(client_postgres_pool, obj_list, creator_key_list=["username"]):
+    if not obj_list:
+        return obj_list
+    obj_list = [dict(obj) for obj in obj_list]
+    created_by_ids = {str(obj["created_by_id"]) for obj in obj_list if obj.get("created_by_id")}
+    users = {}
+    if created_by_ids:
+        query = f"SELECT * FROM users WHERE id = ANY($1);"
+        rows = await client_postgres_pool.fetch(query, list(map(int, created_by_ids)))
+        users = {str(user["id"]): dict(user) for user in rows}
+    for obj in obj_list:
+        created_by_id = str(obj.get("created_by_id"))
+        if created_by_id in users:
+            for key in creator_key_list:
+                obj[f"creator_{key}"] = users[created_by_id].get(key)
+        else:
+            for key in creator_key_list:
+                obj[f"creator_{key}"] = None
+    return obj_list
+
+#user
+async def function_user_query_count_read(client_postgres_pool,user_id,config_user_count_query):
+   output={}
+   async with client_postgres_pool.acquire() as conn:
+      for key,query in config_user_count_query.items():
+         rows=await conn.fetch(query,user_id)
+         row=rows[0] if rows else None
+         output[key]=row[0] if row else 0
+   return output
+
+import datetime
+async def function_user_update_last_active_at(client_postgres_pool,user_id):
+    try:
+        query = "UPDATE users SET last_active_at=$1 WHERE id=$2;"
+        async with client_postgres_pool.acquire() as conn:
+            await conn.execute(query, datetime.datetime.now(), user_id)
+    except Exception as e:
+        print(str(e))
+    return None
+
+async def function_user_delete_single(mode, client_postgres_pool,user_id):
+    if mode == "soft":
+        query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
+    elif mode == "hard":
+        query = "DELETE FROM users WHERE id=$1;"
+    else:
+        raise Exception("Invalid mode")
+    async with client_postgres_pool.acquire() as conn:
+        await conn.execute(query, user_id)
+    return None
+
+async def function_user_read_single(client_postgres_pool,user_id):
+    query = "SELECT * FROM users WHERE id=$1;"
+    async with client_postgres_pool.acquire() as conn:
+        row = await conn.fetchrow(query, user_id)
+    user = dict(row) if row else None
+    if not user:
+        raise Exception("user not found")
+    return user
+
+#otp
+import random
+async def function_otp_generate(client_postgres_pool,email,mobile):
+    if not email and not mobile:raise Exception("email/mobile any one is must")
+    if email and mobile:raise Exception("only one of email or mobile is allowed")
+    otp=random.randint(100000,999999)
+    if email:
+        query="insert into otp (otp,email) values ($1,$2);"
+        values=(otp,email.strip().lower())
+    else:
+        query="insert into otp (otp,mobile) values ($1,$2);"
+        values=(otp,mobile.strip())
+    async with client_postgres_pool.acquire() as conn:
+        await conn.execute(query,*values)
+    return otp
+
+async def function_otp_verify(client_postgres_pool,otp,email,mobile):
+    if not email and not mobile:raise Exception("email/mobile any one is must")
+    if email and mobile:raise Exception("only one of email or mobile is allowed")
+    if email:
+        query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=$1 order by id desc limit 1;"
+        value=email.strip().lower()
+    else:
+        query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=$1 order by id desc limit 1;"
+        value=mobile.strip()
+    async with client_postgres_pool.acquire() as conn:
+        output=await conn.fetch(query,value)
+    if not output:raise Exception("otp not found")
+    if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
+    return None
+
+#message
+async def function_message_inbox(client_postgres_pool, user_id,  is_unread=None,  order="id desc",limit=100,page=1):
+    if not is_unread:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {(page-1)*limit};"
+    else:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and (is_read!=1 or is_read is null)) select * from a order by {order} limit {limit} offset {(page-1)*limit};"
+    async with client_postgres_pool.acquire() as conn:
+        return await conn.fetch(query, user_id)
+
+async def function_message_received(client_postgres_pool,user_id,is_unread=None, order="id desc",limit=100,page=1):
+   if not is_unread:query=f"select * from message where user_id=$1 order by {order} limit {limit} offset {(page-1)*limit};"
+   else:query=f"select * from message where user_id=$1 and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
+   async with client_postgres_pool.acquire() as conn:
+      return await conn.fetch(query,user_id)
+
+async def function_message_thread(client_postgres_pool, user_id_1, user_id_2, order="id desc",limit=100,page=1):
+    query = f"select * from message where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) order by {order} limit {limit} offset {(page-1)*limit};"
+    async with client_postgres_pool.acquire() as conn:
+        return await conn.fetch(query, user_id_1, user_id_2)
+
+async def function_message_thread_mark_read(client_postgres_pool,user_id_1,user_id_2):
+   query="update message set is_read=1 where created_by_id=$1 and user_id=$2;"
+   async with client_postgres_pool.acquire() as conn:
+      await conn.execute(query,user_id_2,user_id_1)
+   return None
+
+async def function_message_object_mark_read(client_postgres_pool,obj_list):
+   try:
+      ids=','.join(str(item['id']) for item in obj_list)
+      query=f"update message set is_read=1 where id in ({ids});"
+      async with client_postgres_pool.acquire() as conn:
+         await conn.execute(query)
+   except Exception as e:
+      print(str(e))
+   return None
+
+async def function_message_delete_single(client_postgres_pool,message_id,user_id):
+   query="delete from message where id=$1 and (created_by_id=$2 or user_id=$2);"
+   async with client_postgres_pool.acquire() as conn:
+      await conn.execute(query,message_id,user_id)
+   return None
+
+async def function_message_delete_bulk(mode,client_postgres_pool,user_id):
+   if mode=="created":
+      query="delete from message where created_by_id=$1;"
+   elif mode=="received":
+      query="delete from message where user_id=$1;"
+   elif mode=="all":
+      query="delete from message where (created_by_id=$1 or user_id=$1);"
+   async with client_postgres_pool.acquire() as conn:
+      await conn.execute(query,user_id)
+   return None
+
+#auth
+import hashlib
+async def function_auth_signup_username_password(client_postgres_pool,type,username,password):
+    query="insert into users (type,username,password) values ($1,$2,$3) returning *;"
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
+    return output[0]
+
+async def function_auth_signup_username_password_bigint(client_postgres_pool,type,username_bigint,password_bigint):
+    query="insert into users (type,username_bigint,password_bigint) values ($1,$2,$3) returning *;"
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch(query,type,username_bigint,password_bigint)
+    return output[0]
+
+import hashlib
+async def function_auth_login_password_username(client_postgres_pool,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    query="select * from users where type=$1 and username=$2 and password=$3 order by id desc limit 1;"
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
+    user = output[0] if output else None
+    if not user: raise Exception("user not found")
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    return token
+
+async def function_auth_login_password_username_bigint(client_postgres_pool,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    query="select * from users where type=$1 and username_bigint=$2 and password_bigint=$3 order by id desc limit 1;"
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch(query,type,username_bigint,password_bigint)
+    user = output[0] if output else None
+    if not user: raise Exception("user not found")
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    return token
+
+import hashlib
+async def function_auth_login_password_email(client_postgres_pool,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    query="select * from users where type=$1 and email=$2 and password=$3 order by id desc limit 1;"
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch(query,type,email,hashlib.sha256(str(password).encode()).hexdigest())
+    user = output[0] if output else None
+    if not user: raise Exception("user not found")
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    return token
+
+import hashlib
+async def function_auth_login_password_mobile(client_postgres_pool,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    query="select * from users where type=$1 and mobile=$2 and password=$3 order by id desc limit 1;"
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch(query,type,mobile,hashlib.sha256(str(password).encode()).hexdigest())
+    user = output[0] if output else None
+    if not user: raise Exception("user not found")
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    return token
+
+async def function_auth_login_otp_email(client_postgres_pool,type,email,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    await function_otp_verify(client_postgres_pool,otp,email,None)
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch("select * from users where type=$1 and email=$2 order by id desc limit 1;",type,email)
+        user = output[0] if output else None
+        if not user:
+            output = await conn.fetch("insert into users (type,email) values ($1,$2) returning *;",type,email)
+            user = output[0] if output else None
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    return token
+
+async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+    await function_otp_verify(client_postgres_pool,otp,None,mobile)
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch("select * from users where type=$1 and mobile=$2 order by id desc limit 1;",type,mobile)
+        user = output[0] if output else None
+        if not user:
+            output = await conn.fetch("insert into users (type,mobile) values ($1,$2) returning *;",type,mobile)
+            user = output[0] if output else None
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    return token
+
+import json
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_request
+async def function_auth_login_google(client_postgres_pool, type, google_token, config_google_login_client_id, function_token_encode, config_key_jwt, config_token_expire_sec, config_token_user_key_list):
+    request = google_request.Request()
+    id_info = id_token.verify_oauth2_token(google_token, request, config_google_login_client_id)
+    google_user = {"sub": id_info.get("sub"), "email": id_info.get("email"), "name": id_info.get("name"), "picture": id_info.get("picture"), "email_verified": id_info.get("email_verified")}
+    async with client_postgres_pool.acquire() as conn:
+        output = await conn.fetch("SELECT * FROM users WHERE type=$1 AND google_id=$2 ORDER BY id DESC LIMIT 1", type, google_user["sub"])
+        user = output[0] if output else None
+        if not user:
+            output = await conn.fetch("INSERT INTO users (type, google_id, google_data) VALUES ($1, $2, $3) RETURNING *", type, google_user["sub"], json.dumps(google_user))
+            user = output[0] if output else None
+    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    return token
 
 #postgres
 async def function_postgres_query_runner(client_postgres_pool,mode,query):
@@ -380,7 +648,7 @@ async def function_postgres_object_read(client_postgres_pool, table, obj):
         except Exception as e:
             raise Exception(f"Failed to read: {e}")
 
-async def function_postgres_object_update(client_postgres_pool, table, obj_list,user_id=None, batch_size=5000):
+async def function_postgres_object_update(client_postgres_pool, table, obj_list, user_id=None, batch_size=5000):
     """
     1.Update without user_id filter
     await function_postgres_object_update(pool, "users", [{"id": 2, "name": "Bob", "age": 25}])
@@ -440,11 +708,11 @@ buffer_lock = asyncio.Lock()
 async def function_postgres_object_create(client_postgres_pool, table=None, obj_list=None, mode="now", buffer=10, returning_ids=False, conflict_columns=None, batch_size=5000):
     """
     1.Single row insert immediately
-    await function_postgres_object_create(pool, table="users", obj_list=[{"name":"Alice","age":30}])
+    await function_postgres_object_create(pool,"users",[{"name":"Alice","age":30}])
     2.Bulk insert immediately
-    await function_postgres_object_create(pool, table="users",obj_list=[{"name":"Alice","age":30},{"name":"Bob","age":25},{"name":"Carol","age":28}])
+    await function_postgres_object_create(pool,"users",[{"name":"Alice","age":30},{"name":"Bob","age":25},{"name":"Carol","age":28}])
     3.Add rows to buffer (auto-flush if buffer reaches default 10)
-    await function_postgres_object_create(pool, table="users",obj_list=[{"name":"Dave","age":40},{"name":"Eve","age":35}], "buffer")
+    await function_postgres_object_create(pool,"users",[{"name":"Dave","age":40},{"name":"Eve","age":35}], "buffer")
     4.Flush all buffers manually
     await function_postgres_object_create(pool,None,None,"flush")
     5.Returning inserted IDs
@@ -505,37 +773,44 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
         else:
             raise Exception("mode must be 'now', 'buffer', or 'flush'")
 
-import csv, re
-from io import StringIO
-async def function_postgres_stream(client_postgres_pool, query, batch_size=1000, output_path=None):
+import re, asyncio,contextlib
+async def function_postgres_stream(client_postgres_pool, query, chunk_size_bytes=1_048_576, include_header=True):
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
-        raise Exception("Only read-only queries allowed")
+        raise ValueError("Only read-only queries allowed")
     async with client_postgres_pool.acquire() as conn:
-        f = open(output_path, "w", newline="") if output_path else None
-        writer_file = csv.writer(f) if f else None
-        stream = StringIO()
-        writer_stream = csv.writer(stream)
-        header_written = False
-        async for row in conn.cursor(query):
-            if not header_written:
-                writer_stream.writerow(row.keys())
-                if writer_file:
-                    writer_file.writerow(row.keys())
-                yield stream.getvalue()
-                stream.seek(0)
-                stream.truncate(0)
-                header_written = True
-            writer_stream.writerow(row.values())
-            if writer_file:
-                writer_file.writerow(row.values())
-                f.flush()
-            yield stream.getvalue()
-            stream.seek(0)
-            stream.truncate(0)
-        if f:
-            f.close()
-            
-async def function_postgres_schema_init(client_postgres_pool, function_postgres_schema_read, config_postgres_schema):
+        queue = asyncio.Queue(maxsize=4)
+        loop = asyncio.get_running_loop()
+        async def producer():
+            buf = bytearray()
+            def sink(b):
+                nonlocal buf
+                buf += b
+                if len(buf) >= chunk_size_bytes:
+                    try:
+                        queue.put_nowait(bytes(buf))
+                    except asyncio.QueueFull:
+                        loop.call_soon(asyncio.create_task, queue.put(bytes(buf)))
+                    buf.clear()
+            try:
+                await conn.copy_from_query(query, sink, format="csv", header=include_header)
+                if buf:
+                    await queue.put(bytes(buf))
+            finally:
+                await queue.put(None)
+        prod_task = asyncio.create_task(producer())
+        try:
+            while True:
+                chunk = await queue.get()
+                if chunk is None:
+                    break
+                yield chunk.decode("utf-8", errors="strict")
+        finally:
+            if not prod_task.done():
+                prod_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await prod_task
+
+async def function_postgres_schema_init(client_postgres_pool, config_postgres_schema, function_postgres_schema_read):
     if not config_postgres_schema:
         raise Exception("config_postgres_schema null")
     async def function_init_extension(conn):
@@ -613,7 +888,7 @@ async def function_postgres_schema_init(client_postgres_pool, function_postgres_
         await function_init_query(conn, config_postgres_schema)
     return None
 
-async def function_postgres_drop_all_index(client_postgres_pool):
+async def function_postgres_index_drop_all(client_postgres_pool):
     query = "DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(query)
@@ -667,7 +942,7 @@ async def function_postgres_schema_read(client_postgres_pool):
             postgres_schema[table] = {}
         postgres_schema[table][column] = column_data
     postgres_column_datatype = {col: data["datatype"] for table, cols in postgres_schema.items() for col, data in cols.items()}
-    return postgres_schema, postgres_column_datatype
+    return postgres_schema,postgres_column_datatype
 
 import asyncpg
 async def function_postgres_client_read(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
@@ -749,262 +1024,6 @@ async def function_postgres_create_fake_data(postgres_url,TOTAL_ROWS=1000,BATCH_
    await generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE)
    await conn.close()
    return None
-
-#crud
-async def function_update_ids(client_postgres_pool,table,ids,column,value,updated_by_id,created_by_id=None):
-   query=f"update {table} set {column}=$1,updated_by_id=$2 where id in ({ids}) and (created_by_id=$3 or $3 is null);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,value,updated_by_id,created_by_id)
-   return None
-
-async def function_delete_ids(client_postgres_pool,table,ids,created_by_id=None):
-   query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,created_by_id)
-   return None
-
-async def function_parent_object_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order="id desc",limit=100,page=1):
-   query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
-   async with client_postgres_pool.acquire() as conn:
-      rows=await conn.fetch(query,created_by_id)
-   return rows
-
-import datetime
-async def function_update_last_active_at(client_postgres_pool, user_id):
-    try:
-        query = "UPDATE users SET last_active_at=$1 WHERE id=$2;"
-        async with client_postgres_pool.acquire() as conn:
-            await conn.execute(query, datetime.datetime.now(), user_id)
-    except Exception as e:
-        print(str(e))
-    return None
-
-async def function_read_user_single(client_postgres_pool, user_id):
-    query = "SELECT * FROM users WHERE id=$1;"
-    async with client_postgres_pool.acquire() as conn:
-        row = await conn.fetchrow(query, user_id)
-    user = dict(row) if row else None
-    if not user:
-        raise Exception("user not found")
-    return user
-
-async def function_delete_user_single(mode, client_postgres_pool, user_id):
-    if mode == "soft":
-        query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
-    elif mode == "hard":
-        query = "DELETE FROM users WHERE id=$1;"
-    else:
-        raise Exception("Invalid mode")
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(query, user_id)
-    return None
-
-async def function_add_creator_data(client_postgres_pool, obj_list, user_key_list):
-    if not obj_list:
-        return obj_list
-    obj_list = [dict(obj) for obj in obj_list]
-    created_by_ids = {str(obj["created_by_id"]) for obj in obj_list if obj.get("created_by_id")}
-    users = {}
-    if created_by_ids:
-        query = f"SELECT * FROM users WHERE id = ANY($1);"
-        rows = await client_postgres_pool.fetch(query, list(map(int, created_by_ids)))
-        users = {str(user["id"]): dict(user) for user in rows}
-    for obj in obj_list:
-        created_by_id = str(obj.get("created_by_id"))
-        if created_by_id in users:
-            for key in user_key_list:
-                obj[f"creator_{key}"] = users[created_by_id].get(key)
-        else:
-            for key in user_key_list:
-                obj[f"creator_{key}"] = None
-    return obj_list
-
-async def function_ownership_check(client_postgres_pool, table, id, user_id):
-    if table == "users":
-        if id != user_id:
-            raise Exception("obj ownership issue")
-    else:
-        query = f"SELECT created_by_id FROM {table} WHERE id = $1;"
-        row = await client_postgres_pool.fetchrow(query, id)
-        if not row:
-            raise Exception("no obj")
-        if row["created_by_id"] != user_id:
-            raise Exception("obj ownership issue")
-    return None
-
-async def function_read_user_count(client_postgres_pool,config_user_count_query,user_id):
-   output={}
-   async with client_postgres_pool.acquire() as conn:
-      for key,query in config_user_count_query.items():
-         rows=await conn.fetch(query,user_id)
-         row=rows[0] if rows else None
-         output[key]=row[0] if row else 0
-   return output
-
-async def function_log_api_usage(client_postgres_pool,days,created_by_id=None):
-   query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=$1 or $1 is null) group by api limit 1000;"
-   async with client_postgres_pool.acquire() as conn:
-      rows=await conn.fetch(query,created_by_id)
-   return {r["api"]:r["count"] for r in rows}
-
-#otp
-import random
-async def function_otp_generate(mode, data, client_postgres_pool):
-    otp = random.randint(100000, 999999)
-    query = f"INSERT INTO otp (otp, {mode}) VALUES ($1, $2)"
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(query, otp, data.strip().lower())
-    return otp
-
-async def function_otp_verify(mode, data, otp, client_postgres_pool):
-    query = f"SELECT otp FROM otp WHERE created_at > current_timestamp - interval '10 minutes' AND {mode} = $1 ORDER BY id DESC LIMIT 1"
-    async with client_postgres_pool.acquire() as conn:
-        rows = await conn.fetch(query, data.strip().lower())
-    if not rows or int(rows[0]["otp"]) != int(otp):
-        raise Exception("otp mismatch or not found")
-    return None
-
-#message
-async def function_message_inbox(client_postgres_pool, user_id,  is_unread=None,  order="id desc",limit=100,page=1):
-    if not is_unread:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {(page-1)*limit};"
-    else:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and (is_read!=1 or is_read is null)) select * from a order by {order} limit {limit} offset {(page-1)*limit};"
-    async with client_postgres_pool.acquire() as conn:
-        return await conn.fetch(query, user_id)
-
-async def function_message_received(client_postgres_pool,user_id,is_unread=None, order="id desc",limit=100,page=1):
-   if not is_unread:query=f"select * from message where user_id=$1 order by {order} limit {limit} offset {(page-1)*limit};"
-   else:query=f"select * from message where user_id=$1 and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
-   async with client_postgres_pool.acquire() as conn:
-      return await conn.fetch(query,user_id)
-
-async def function_message_thread(client_postgres_pool, user_id_1, user_id_2, order="id desc",limit=100,page=1):
-    query = f"select * from message where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) order by {order} limit {limit} offset {(page-1)*limit};"
-    async with client_postgres_pool.acquire() as conn:
-        return await conn.fetch(query, user_id_1, user_id_2)
-
-async def function_message_thread_mark_read(client_postgres_pool,user_id_1,user_id_2):
-   query="update message set is_read=1 where created_by_id=$1 and user_id=$2;"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,user_id_2,user_id_1)
-   return None
-
-async def function_message_object_mark_read(client_postgres_pool,obj_list):
-   try:
-      ids=','.join(str(item['id']) for item in obj_list)
-      query=f"update message set is_read=1 where id in ({ids});"
-      async with client_postgres_pool.acquire() as conn:
-         await conn.execute(query)
-   except Exception as e:
-      print(str(e))
-   return None
-
-async def function_message_delete_single(client_postgres_pool,message_id,user_id):
-   query="delete from message where id=$1 and (created_by_id=$2 or user_id=$2);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,message_id,user_id)
-   return None
-
-async def function_message_delete_bulk(mode,client_postgres_pool,user_id):
-   if mode=="created":
-      query="delete from message where created_by_id=$1;"
-   elif mode=="received":
-      query="delete from message where user_id=$1;"
-   elif mode=="all":
-      query="delete from message where (created_by_id=$1 or user_id=$1);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,user_id)
-   return None
-
-#auth
-import hashlib
-async def function_auth_signup_username_password(client_postgres_pool,type,username,password):
-    query="insert into users (type,username,password) values ($1,$2,$3) returning *;"
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
-    return output[0]
-
-async def function_auth_signup_username_password_bigint(client_postgres_pool,type,username_bigint,password_bigint):
-    query="insert into users (type,username_bigint,password_bigint) values ($1,$2,$3) returning *;"
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,username_bigint,password_bigint)
-    return output[0]
-
-import hashlib
-async def function_auth_login_password_username(client_postgres_pool,type,password,username,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
-    query="select * from users where type=$1 and username=$2 and password=$3 order by id desc limit 1;"
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
-    user = output[0] if output else None
-    if not user: raise Exception("user not found")
-    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
-
-async def function_auth_login_password_username_bigint(client_postgres_pool,type,password_bigint,username_bigint,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
-    query="select * from users where type=$1 and username_bigint=$2 and password_bigint=$3 order by id desc limit 1;"
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,username_bigint,password_bigint)
-    user = output[0] if output else None
-    if not user: raise Exception("user not found")
-    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
-
-import hashlib
-async def function_auth_login_password_email(client_postgres_pool,type,password,email,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
-    query="select * from users where type=$1 and email=$2 and password=$3 order by id desc limit 1;"
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,email,hashlib.sha256(str(password).encode()).hexdigest())
-    user = output[0] if output else None
-    if not user: raise Exception("user not found")
-    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
-
-import hashlib
-async def function_auth_login_password_mobile(client_postgres_pool,type,password,mobile,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
-    query="select * from users where type=$1 and mobile=$2 and password=$3 order by id desc limit 1;"
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,mobile,hashlib.sha256(str(password).encode()).hexdigest())
-    user = output[0] if output else None
-    if not user: raise Exception("user not found")
-    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
-
-async def function_auth_login_otp_email(client_postgres_pool,type,email,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
-    await function_otp_verify("email",otp,email,client_postgres_pool)
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch("select * from users where type=$1 and email=$2 order by id desc limit 1;",type,email)
-        user = output[0] if output else None
-        if not user:
-            output = await conn.fetch("insert into users (type,email) values ($1,$2) returning *;",type,email)
-            user = output[0] if output else None
-    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
-
-async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
-    await function_otp_verify("mobile",otp,mobile,client_postgres_pool)
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch("select * from users where type=$1 and mobile=$2 order by id desc limit 1;",type,mobile)
-        user = output[0] if output else None
-        if not user:
-            output = await conn.fetch("insert into users (type,mobile) values ($1,$2) returning *;",type,mobile)
-            user = output[0] if output else None
-    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
-
-import json
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_request
-async def function_auth_login_google(client_postgres_pool, type, google_token, config_google_login_client_id, function_token_encode, config_key_jwt, config_token_expire_sec, config_token_user_key_list):
-    request = google_request.Request()
-    id_info = id_token.verify_oauth2_token(google_token, request, config_google_login_client_id)
-    google_user = {"sub": id_info.get("sub"), "email": id_info.get("email"), "name": id_info.get("name"), "picture": id_info.get("picture"), "email_verified": id_info.get("email_verified")}
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch("SELECT * FROM users WHERE type=$1 AND google_id=$2 ORDER BY id DESC LIMIT 1", type, google_user["sub"])
-        user = output[0] if output else None
-        if not user:
-            output = await conn.fetch("INSERT INTO users (type, google_id, google_data) VALUES ($1, $2, $3) RETURNING *", type, google_user["sub"], json.dumps(google_user))
-            user = output[0] if output else None
-    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
 
 #api
 import csv,io
@@ -1202,7 +1221,7 @@ async def function_token_check(request,config_api,config_key_root,config_key_jwt
       elif config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
    return user
 
-#fastapi
+#app
 from fastapi import FastAPI
 def function_fastapi_app_read(is_debug,lifespan):
    app=FastAPI(debug=is_debug,lifespan=lifespan)

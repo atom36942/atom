@@ -27,9 +27,9 @@ async def function_api_admin_object_update(request:Request):
 
 @router.get("/admin/object-read")
 async def function_api_admin_object_read(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None],["creator_key","list",0,[]]])
+   param=await function_param_read("query",request,[["table",None,1,None],["creator_key_list","list",0,[]]])
    obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param)
-   if param["creator_key"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key"])
+   if param["creator_key_list"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key_list"])
    return {"status":1,"message":obj_list}
 
 @router.put("/admin/ids-update")

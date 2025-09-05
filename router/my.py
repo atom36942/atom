@@ -4,29 +4,29 @@ from extend import *
 #api
 @router.get("/my/profile")
 async def function_api_my_profile(request:Request):
-   user=await function_read_user_single(request.app.state.client_postgres_pool,request.state.user["id"])
-   output=await function_read_user_count(request.app.state.client_postgres_pool,config_user_count_query,request.state.user["id"])
-   asyncio.create_task(function_update_last_active_at(request.app.state.client_postgres_pool,request.state.user["id"]))
+   user=await function_user_read_single(request.app.state.client_postgres_pool,request.state.user["id"])
+   output=await function_user_query_count_read(request.app.state.client_postgres_pool,request.state.user["id"],config_user_count_query)
+   asyncio.create_task(function_user_update_last_active_at(request.app.state.client_postgres_pool,request.state.user["id"]))
    return {"status":1,"message":user|output}
 
 @router.get("/my/token-refresh")
 async def function_api_my_token_refresh(request:Request):
-   user=await function_read_user_single(request.app.state.client_postgres_pool,request.state.user["id"])
+   user=await function_user_read_single(request.app.state.client_postgres_pool,request.state.user["id"])
    token=await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
    return {"status":1,"message":token}
 
 @router.get("/my/api-usage")
 async def function_api_my_api_usage(request:Request):
    param=await function_param_read("query",request,[["days","int",0,7]])
-   obj_list=await function_log_api_usage(request.app.state.client_postgres_pool,param["days"],request.state.user["id"])
+   obj_list=await function_api_usage(request.app.state.client_postgres_pool,param["days"],request.state.user["id"])
    return {"status":1,"message":obj_list}
 
 @router.delete("/my/account-delete")
 async def function_api_my_account_delete(request:Request):
    param=await function_param_read("query",request,[["mode",None,1,None]])
-   user=await function_read_user_single(request.app.state.client_postgres_pool,request.state.user["id"])
+   user=await function_user_read_single(request.app.state.client_postgres_pool,request.state.user["id"])
    if user["api_access"]:raise Exception("not allowed as you have api_access")
-   await function_delete_user_single(param["mode"],request.app.state.client_postgres_pool,request.state.user["id"])
+   await function_user_delete_single(param["mode"],request.app.state.client_postgres_pool,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.put("/my/ids-update")
@@ -93,10 +93,10 @@ async def function_api_my_object_delete_any(request:Request):
 
 @router.get("/my/object-read")
 async def function_api_my_object_read(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None],["creator_key","list",0,[]]])
+   param=await function_param_read("query",request,[["table",None,1,None],["creator_key_list","list",0,[]]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
    obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param)
-   if param["creator_key"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key"])
+   if param["creator_key_list"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key_list"])
    return {"status":1,"message":obj_list}
 
 @router.post("/my/object-create-mongodb")
@@ -142,8 +142,8 @@ async def function_api_my_object_update(request:Request):
       if config_is_otp_verify_profile_update and any(key in obj and not param["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
    if param["otp"]:
       email,mobile=obj.get("email"),obj.get("mobile")
-      if email:await function_otp_verify("email",param["otp"],email,request.app.state.client_postgres_pool)
-      elif mobile:await function_otp_verify("mobile",param["otp"],mobile,request.app.state.client_postgres_pool)
+      if email:await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],email,None)
+      elif mobile:await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],None,mobile)
    if param["table"]=="users":output=await function_postgres_object_update(request.app.state.client_postgres_pool,"users",[obj])
    else:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj],request.state.user["id"])
    return {"status":1,"message":output}
