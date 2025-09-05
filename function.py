@@ -763,8 +763,8 @@ async def function_delete_ids(client_postgres_pool,table,ids,created_by_id=None)
       await conn.execute(query,created_by_id)
    return None
 
-async def function_parent_object_read(client_postgres_pool,table,parent_column,parent_table,order,limit,offset,created_by_id=None):
-   query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {offset}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
+async def function_parent_object_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order="id desc",limit=100,page=1):
+   query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
    async with client_postgres_pool.acquire() as conn:
       rows=await conn.fetch(query,created_by_id)
    return rows
@@ -865,23 +865,19 @@ async def function_otp_verify(mode, data, otp, client_postgres_pool):
     return None
 
 #message
-async def function_message_inbox(client_postgres_pool, user_id, order, limit, offset, is_unread=None):
-    if not is_unread:
-        query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {offset};"
-    else:
-        query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and (is_read!=1 or is_read is null)) select * from a order by {order} limit {limit} offset {offset};"
+async def function_message_inbox(client_postgres_pool, user_id,  is_unread=None,  order="id desc",limit=100,page=1):
+    if not is_unread:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {(page-1)*limit};"
+    else:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and (is_read!=1 or is_read is null)) select * from a order by {order} limit {limit} offset {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         return await conn.fetch(query, user_id)
 
-async def function_message_received(client_postgres_pool,user_id,order,limit,offset,is_unread=None):
-   if not is_unread:
-      query=f"select * from message where user_id=$1 order by {order} limit {limit} offset {offset};"
-   else:
-      query=f"select * from message where user_id=$1 and is_read is distinct from 1 order by {order} limit {limit} offset {offset};"
+async def function_message_received(client_postgres_pool,user_id,is_unread=None, order="id desc",limit=100,page=1):
+   if not is_unread:query=f"select * from message where user_id=$1 order by {order} limit {limit} offset {(page-1)*limit};"
+   else:query=f"select * from message where user_id=$1 and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
    async with client_postgres_pool.acquire() as conn:
       return await conn.fetch(query,user_id)
 
-async def function_message_thread(client_postgres_pool, user_id_1, user_id_2, order="id desc", limit=100, page=1):
+async def function_message_thread(client_postgres_pool, user_id_1, user_id_2, order="id desc",limit=100,page=1):
     query = f"select * from message where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) order by {order} limit {limit} offset {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         return await conn.fetch(query, user_id_1, user_id_2)

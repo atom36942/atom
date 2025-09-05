@@ -48,14 +48,14 @@ async def function_api_my_ids_delete(request:Request):
 @router.get("/my/message-received")
 async def function_api_my_message_received(request:Request):
    param=await function_param_read("query",request,[["is_unread","int",0,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
-   obj_list=await function_message_received(request.app.state.client_postgres_pool,request.state.user["id"],param["order"],param["limit"],(param["page"]-1)*param["limit"],param["is_unread"])
+   obj_list=await function_message_received(request.app.state.client_postgres_pool,request.state.user["id"],param["is_unread"],param["order"],param["limit"],param["page"])
    if obj_list:asyncio.create_task(function_message_object_mark_read(request.app.state.client_postgres_pool,obj_list))
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-inbox")
 async def function_api_my_message_inbox(request:Request):
    param=await function_param_read("query",request,[["is_unread","int",0,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
-   obj_list=await function_message_inbox(request.app.state.client_postgres_pool,request.state.user["id"],param["order"],param["limit"],(param["page"]-1)*param["limit"],param["is_unread"])
+   obj_list=await function_message_inbox(request.app.state.client_postgres_pool,request.state.user["id"],param["is_unread"],param["order"],param["limit"],param["page"])
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-thread")
@@ -80,7 +80,7 @@ async def function_api_my_message_delete_bulk(request:Request):
 @router.get("/my/parent-read")
 async def function_api_my_parent_read(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["parent_table",None,1,None],["parent_column",None,1,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
-   output=await function_parent_object_read(request.app.state.client_postgres_pool,param["table"],param["parent_column"],param["parent_table"],param["order"],param["limit"],(param["page"]-1)*param["limit"],request.state.user["id"])
+   output=await function_parent_object_read(request.app.state.client_postgres_pool,param["table"],param["parent_column"],param["parent_table"],request.state.user["id"],param["order"],param["limit"],param["page"])
    return {"status":1,"message":output}
 
 @router.delete("/my/object-delete-any")
