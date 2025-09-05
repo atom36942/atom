@@ -131,7 +131,7 @@ async def function_postgres_query_runner(client_postgres_pool,mode,query):
                 return await conn.execute(query)
     return None
 
-async def function_postgres_map_two_column(client_postgres_pool,table,column_1,column_2,limit,is_null,transformer):
+async def function_postgres_map_two_column(client_postgres_pool,table,column_1,column_2,limit=1000,is_null=True):
    output={}
    where_clause="" if is_null else f"WHERE {column_2} IS NOT NULL"
    async with client_postgres_pool.acquire() as conn:
@@ -141,8 +141,7 @@ async def function_postgres_map_two_column(client_postgres_pool,table,column_1,c
       while count<limit:
          batch=await cursor.fetch(10000)
          if not batch:break
-         if transformer=="split_int":output.update({row[column_1]:[int(item.strip()) for item in row[column_2].split(",")] if row[column_2] else [] for row in batch})
-         else:output.update({row[column_1]:row[column_2] for row in batch})
+         output.update({row[column_1]:row[column_2] for row in batch})
          count+=len(batch)
          if count>=limit:break
    return output
@@ -1086,7 +1085,7 @@ async def function_param_read(request, mode, config):
     return param
 
 #middleware
-async def function_check_ratelimiter(request,client_redis_ratelimiter,config_api):
+async def function_check_ratelimiter(request,config_api,client_redis_ratelimiter):
    if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
    limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
    identifier=request.state.user.get("id") if request.state.user else request.client.host
@@ -1099,27 +1098,9 @@ async def function_check_ratelimiter(request,client_redis_ratelimiter,config_api
    await pipe.execute()
    return None
 
-async def function_check_api_access(config_mode_check_api_access,request,cache_users_api_access,client_postgres_pool,config_api):
-   if config_mode_check_api_access=="token":
-      user_api_access_list=[int(item.strip()) for item in request.state.user["api_access"].split(",")] if request.state.user["api_access"] else []
-   elif config_mode_check_api_access=="cache":
-      user_api_access_list=cache_users_api_access.get(request.state.user["id"],"absent")
-   if user_api_access_list=="absent":
-      async with client_postgres_pool.acquire() as conn:
-         rows=await conn.fetch("select id,api_access from users where id=$1",request.state.user["id"])
-      user=rows[0] if rows else None
-      if not user:raise Exception("user not found")
-      api_access_str=user["api_access"]
-      if not api_access_str:raise Exception("api access denied")
-      user_api_access_list=[int(item.strip()) for item in api_access_str.split(",")]
-   api_id=config_api.get(request.url.path,{}).get("id")
-   if not api_id:raise Exception("api id not mapped")
-   if api_id not in user_api_access_list:raise Exception("api access denied")
-   return None
-
-async def function_check_is_active(config_mode_check_is_active,request,cache_users_is_active,client_postgres_pool):
-   if config_mode_check_is_active=="token":user_is_active=request.state.user["is_active"]
-   elif config_mode_check_is_active=="cache":user_is_active=cache_users_is_active.get(request.state.user["id"],"absent")
+async def function_check_is_active(request,client_postgres_pool,mode="token",cache_users_is_active={}):
+   if mode=="token":user_is_active=request.state.user.get("is_active","absent")
+   elif mode=="cache":user_is_active=cache_users_is_active.get(request.state.user["id"],"absent")
    if user_is_active=="absent":
       async with client_postgres_pool.acquire() as conn:
          rows=await conn.fetch("select id,is_active from users where id=$1",request.state.user["id"])
@@ -1129,10 +1110,27 @@ async def function_check_is_active(config_mode_check_is_active,request,cache_use
    if user_is_active==0:raise Exception("user not active")
    return None
 
+async def function_check_api_access(request,config_api,client_postgres_pool,mode="token",cache_users_api_access={}):
+   if mode=="token":user_api_access=request.state.user.get(request.state.user["id"],[])
+   elif mode=="cache":user_api_access=cache_users_api_access.get(request.state.user["id"],[])
+   if user_api_access:user_api_access_list=[int(item.strip()) for item in user_api_access.split(",")]
+   else:
+      async with client_postgres_pool.acquire() as conn:
+         rows=await conn.fetch("select id,api_access from users where id=$1",request.state.user["id"])
+      user=rows[0] if rows else None
+      if not user:raise Exception("user not found")
+      user_api_access=user["api_access"]
+      if not user_api_access:raise Exception("api access denied")
+      user_api_access_list=[int(item.strip()) for item in user_api_access.split(",")]
+   api_id=config_api.get(request.url.path,{}).get("id")
+   if not api_id:raise Exception("api id not mapped")
+   if api_id not in user_api_access_list:raise Exception("api access denied")
+   return None
+
 from fastapi import Response
 import gzip,base64,time
 inmemory_cache={}
-async def function_api_response_cache(mode,request,response,client_redis,config_api):
+async def function_api_response_cache(mode,config_api,client_redis,request,response):
    query_param_sorted="&".join(f"{k}={v}" for k, v in sorted(request.query_params.items()))
    identifier=request.state.user.get("id") if "my/" in request.url.path else 0
    cache_key=f"cache:{request.url.path}?{query_param_sorted}:{identifier}"
@@ -1181,7 +1179,7 @@ async def function_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,
    token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":payload},config_key_jwt)
    return token
 
-async def function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode):
+async def function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode):
    user={}
    api=request.url.path
    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
@@ -1217,7 +1215,7 @@ def function_add_prometheus(app):
    Instrumentator().instrument(app).expose(app)
    return None
 
-def function_add_app_state(var_dict,app,prefix_tuple):
+def function_add_state(var_dict,app,prefix_tuple):
     for k, v in var_dict.items():
         if k.startswith(prefix_tuple):
             setattr(app.state, k, v)
@@ -1361,7 +1359,7 @@ async def function_mongodb_object_create(client_mongodb,database,table,obj_list)
 import pytesseract
 from PIL import Image
 from pdf2image import convert_from_path
-def function_export_ocr_tesseract(file_path, output_path="export_ocr.txt"):
+def function_ocr_tesseract_export(file_path, output_path="export_ocr.txt"):
     if file_path.lower().endswith('.pdf'):
         images = convert_from_path(file_path)
         text = ''
@@ -1467,7 +1465,7 @@ async def function_redis_object_delete(client_redis,obj_list):
       await pipe.execute()
    return None
 
-#aws
+#ses
 import boto3
 async def function_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name):
    client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
@@ -1477,19 +1475,35 @@ async def function_ses_send_email(client_ses,email_from,email_to_list,title,body
    client_ses.send_email(Source=email_from,Destination={"ToAddresses":email_to_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
    return None
 
+#sns
+async def function_sns_send_mobile_message(client_sns,mobile,message):
+   client_sns.publish(PhoneNumber=mobile,Message=message)
+   return None
+
+async def function_sns_send_mobile_message_template(client_sns,mobile,message,template_id,entity_id,sender_id):
+   client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+   return None
+
 import boto3
 async def function_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name):
    client_sns=boto3.client("sns",region_name=config_sns_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_sns
 
+#s3
 import boto3
 async def function_s3_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name):
    client_s3=boto3.client("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    client_s3_resource=boto3.resource("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
    return client_s3,client_s3_resource
 
-async def function_s3_bucket_create(config_s3_region_name,client_s3,bucket):
+async def function_s3_bucket_create(client_s3,config_s3_region_name,bucket):
    output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
+   return output
+
+async def function_s3_url_delete(client_s3_resource,url):
+   bucket=url.split("//",1)[1].split(".",1)[0]
+   key=url.rsplit("/",1)[1]
+   output=client_s3_resource.Object(bucket,key).delete()
    return output
 
 async def function_s3_bucket_public(client_s3,bucket):
@@ -1506,23 +1520,9 @@ async def function_s3_bucket_delete(client_s3,bucket):
    output=client_s3.delete_bucket(Bucket=bucket)
    return output
 
-async def function_s3_url_delete(client_s3_resource,url):
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   output=client_s3_resource.Object(bucket,key).delete()
-   return output
-
-async def function_sns_send_mobile_message(client_sns,mobile,message):
-   client_sns.publish(PhoneNumber=mobile,Message=message)
-   return None
-
-async def function_sns_send_mobile_message_template(client_sns,mobile,message,template_id,entity_id,sender_id):
-   client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
-   return None
-
 import uuid
 from io import BytesIO
-async def function_s3_upload_file(bucket,key,file,client_s3,config_s3_region_name,config_limit_s3_kb=100):
+async def function_s3_upload_file(bucket,file,client_s3,config_s3_region_name,key=None,config_limit_s3_kb=100):
     if not key:
         if "." not in file.filename:raise Exception("file must have extension")
         key=f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}"
@@ -1536,7 +1536,7 @@ async def function_s3_upload_file(bucket,key,file,client_s3,config_s3_region_nam
     return output
 
 import uuid
-async def function_s3_upload_presigned(bucket,key,client_s3,config_s3_region_name,config_limit_s3_kb=100,config_s3_presigned_expire_sec=60):
+async def function_s3_upload_presigned(bucket,client_s3,config_s3_region_name,key=None,config_limit_s3_kb=100,config_s3_presigned_expire_sec=60):
    if not key:key=f"{uuid.uuid4().hex}.bin"
    if "." not in key:raise Exception("extension must")
    output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=config_s3_presigned_expire_sec,Conditions=[['content-length-range',1,config_limit_s3_kb*1024]])
@@ -1586,7 +1586,7 @@ async def function_openai_ocr(client_openai,model,file,prompt):
 
 #grafana
 import os, json, requests
-def function_export_grafana_dashboard(host, username, password, max_limit, output_path="export_grafana"):
+def function_grafana_dashboard_export(host, username, password, max_limit, output_path="export_grafana"):
     session = requests.Session()
     session.auth = (username, password)
     def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
@@ -1643,7 +1643,7 @@ from jira import JIRA
 import pandas as pd
 from datetime import date
 import calendar
-def function_export_jira_worklog(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path="export_jira_worklog.csv"):
+def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path="export_jira_worklog.csv"):
     today = date.today()
     if not start_date:
         start_date = today.replace(day=1).strftime("%Y-%m-%d")
@@ -1668,7 +1668,7 @@ def function_export_jira_worklog(jira_base_url, jira_email, jira_token, start_da
 
 import requests, csv
 from requests.auth import HTTPBasicAuth
-def function_export_jira_filter_count(jira_base_url, jira_email, jira_token, output_path="export_jira_filter_count.csv"):
+def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path="export_jira_filter_count.csv"):
     auth = HTTPBasicAuth(jira_email, jira_token)
     headers = {"Accept": "application/json"}
     resp = requests.get(f"{jira_base_url}/rest/api/3/filter/my", headers=headers, auth=auth, params={"maxResults": 1000})
@@ -1690,7 +1690,7 @@ def function_export_jira_filter_count(jira_base_url, jira_email, jira_token, out
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
-def function_export_jira_summary(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path="export_jira_summary.txt"):
+def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path="export_jira_summary.txt"):
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)

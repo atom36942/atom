@@ -10,8 +10,8 @@ async def function_api_root_postgres_init(request:Request):
 @router.get("/root/reset-global")
 async def function_api_root_reset_global(request:Request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres_pool)
-    request.app.state.cache_users_api_access=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int")
-    request.app.state.cache_users_is_active=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,1,None)
+    request.app.state.cache_users_api_access=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,False)
+    request.app.state.cache_users_is_active=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,True)
     return {"status":1,"message":"done"}
  
 @router.get("/root/postgres-clean")
@@ -71,7 +71,7 @@ async def function_api_root_s3_url_delete(request:Request):
 @router.get("/root/s3-bucket-ops")
 async def function_api_root_s3_bucket_ops(request:Request):
    param=await function_param_read(request,"query",[["mode",None,1,None],["bucket",None,1,None]])
-   if param["mode"]=="create":output=await function_s3_bucket_create(config_s3_region_name,request.app.state.client_s3,param["bucket"])
+   if param["mode"]=="create":output=await function_s3_bucket_create(request.app.state.client_s3,config_s3_region_name,param["bucket"])
    elif param["mode"]=="public":output=await function_s3_bucket_public(request.app.state.client_s3,param["bucket"])
    elif param["mode"]=="empty":output=await function_s3_bucket_empty(request.app.state.client_s3_resource,param["bucket"])
    elif param["mode"]=="delete":output=await function_s3_bucket_delete(request.app.state.client_s3,param["bucket"])

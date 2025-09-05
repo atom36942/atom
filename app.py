@@ -28,10 +28,10 @@ async def function_lifespan(app:FastAPI):
       client_extend=await function_extend_client()
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)
-      cache_users_api_access=await function_postgres_map_two_column(client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,0,"split_int") if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
-      cache_users_is_active=await function_postgres_map_two_column(client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,1,None) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
+      cache_users_api_access=await function_postgres_map_two_column(client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,False) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
+      cache_users_is_active=await function_postgres_map_two_column(client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,True) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       #app state set
-      function_add_app_state({**globals(),**locals()},app,("client_","cache_"))
+      function_add_state({**globals(),**locals()},app,("client_","cache_"))
       #app shutdown
       yield
       await function_postgres_object_create(client_postgres_pool,None,None,"flush")
@@ -78,28 +78,28 @@ async def middleware(request,api_function):
       error=None
       api=request.url.path
       request.state.user={}
-      #auth check
-      request.state.user=await function_token_check(request,config_key_root,config_key_jwt,config_api,function_token_decode)
+      #check
+      request.state.user=await function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode)
       #admin check
-      if api.startswith("/admin"):await function_check_api_access(config_mode_check_api_access,request,request.app.state.cache_users_api_access,request.app.state.client_postgres_pool,config_api)
+      if api.startswith("/admin"):await function_check_api_access(request,config_api,request.app.state.client_postgres_pool,config_mode_check_api_access,request.app.state.cache_users_api_access)
       #active check
-      if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(config_mode_check_is_active,request,request.app.state.cache_users_is_active,request.app.state.client_postgres_pool)
+      if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(request,request.app.state.client_postgres_pool,config_mode_check_is_active,request.app.state.cache_users_is_active)
       #ratelimiter check
-      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,request.app.state.client_redis_ratelimiter,config_api)
+      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,config_api,request.app.state.client_redis_ratelimiter)
       #background response
       if request.query_params.get("is_background")=="1":
          response=await function_api_response_background(request,api_function)
          response_type=1
       #cache response
       elif config_api.get(api,{}).get("cache_sec"):
-         response=await function_api_response_cache("get",request,None,request.app.state.client_redis,config_api)
+         response=await function_api_response_cache("get",config_api,request.app.state.client_redis,request,None)
          response_type=2
       #default response
       if not response:
          response=await api_function(request)
          response_type=3
          if config_api.get(api,{}).get("cache_sec"):
-            response=await function_api_response_cache("set",request,response,request.app.state.client_redis,config_api)
+            response=await function_api_response_cache("set",config_api,request.app.state.client_redis,request,response)
             response_type=4
    #error
    except Exception as e:
