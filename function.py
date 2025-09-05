@@ -434,7 +434,7 @@ async def function_postgres_object_update(client_postgres_pool, table, obj_list,
             return None
         
 import asyncio
-buffer_object_create = {}
+inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
 async def function_postgres_object_create(client_postgres_pool, table=None, obj_list=None, mode="now", buffer=10, returning_ids=False, conflict_columns=None, batch_size=5000):
@@ -450,7 +450,7 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
     5.Returning inserted IDs
     await function_postgres_object_create(pool, table="users",obj_list=[{"name":"Alice","age":30}], returning_ids=True)
     """
-    global buffer_object_create, table_object_key
+    global inmemory_cache_object_create, table_object_key
     async def _execute_insert(tbl, objs):
         if not objs: return None
         cols = list(objs[0].keys())
@@ -480,27 +480,27 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
         if mode == "now":
             return await _execute_insert(table, obj_list)
         elif mode == "buffer":
-            if table not in buffer_object_create: buffer_object_create[table] = []
+            if table not in inmemory_cache_object_create: inmemory_cache_object_create[table] = []
             if table not in table_object_key or not table_object_key[table]: table_object_key[table] = list(obj_list[0].keys())
             for o in obj_list:
                 if set(o.keys()) != set(table_object_key[table]): 
                     raise Exception(f"keys should be {table_object_key[table]}")
-            buffer_object_create[table].extend(obj_list)
-            if len(buffer_object_create[table]) >= buffer:
-                objs_to_insert = buffer_object_create[table]
-                buffer_object_create[table] = []
+            inmemory_cache_object_create[table].extend(obj_list)
+            if len(inmemory_cache_object_create[table]) >= buffer:
+                objs_to_insert = inmemory_cache_object_create[table]
+                inmemory_cache_object_create[table] = []
                 return await _execute_insert(table, objs_to_insert)
             return None
         elif mode == "flush":
             results = {}
-            for tbl, rows in buffer_object_create.items():
+            for tbl, rows in inmemory_cache_object_create.items():
                 if not rows: continue
                 try:
                     results[tbl] = await _execute_insert(tbl, rows)
                 except Exception as e:
                     results[tbl] = e
                 finally:
-                    buffer_object_create[tbl] = []
+                    inmemory_cache_object_create[tbl] = []
             return results
         else:
             raise Exception("mode must be 'now', 'buffer', or 'flush'")
@@ -881,8 +881,8 @@ async def function_message_received(client_postgres_pool,user_id,order,limit,off
    async with client_postgres_pool.acquire() as conn:
       return await conn.fetch(query,user_id)
 
-async def function_message_thread(client_postgres_pool, user_id_1, user_id_2, order, limit, offset):
-    query = f"select * from message where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) order by {order} limit {limit} offset {offset};"
+async def function_message_thread(client_postgres_pool, user_id_1, user_id_2, order="id desc", limit=100, page=1):
+    query = f"select * from message where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) order by {order} limit {limit} offset {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         return await conn.fetch(query, user_id_1, user_id_2)
 
@@ -902,7 +902,7 @@ async def function_message_object_mark_read(client_postgres_pool,obj_list):
       print(str(e))
    return None
 
-async def function_message_delete_single(client_postgres_pool,user_id,message_id):
+async def function_message_delete_single(client_postgres_pool,message_id,user_id):
    query="delete from message where id=$1 and (created_by_id=$2 or user_id=$2);"
    async with client_postgres_pool.acquire() as conn:
       await conn.execute(query,message_id,user_id)
@@ -972,7 +972,7 @@ async def function_auth_login_password_mobile(client_postgres_pool,type,password
     token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
-async def function_auth_login_otp_email(client_postgres_pool,type,email,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+async def function_auth_login_otp_email(client_postgres_pool,type,email,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
     await function_otp_verify("email",otp,email,client_postgres_pool)
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch("select * from users where type=$1 and email=$2 order by id desc limit 1;",type,email)
@@ -983,7 +983,7 @@ async def function_auth_login_otp_email(client_postgres_pool,type,email,function
     token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
-async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,function_otp_verify,otp,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
     await function_otp_verify("mobile",otp,mobile,client_postgres_pool)
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch("select * from users where type=$1 and mobile=$2 order by id desc limit 1;",type,mobile)
@@ -1027,21 +1027,21 @@ async def function_stream_file(path,chunk_size=1024*1024):
          yield chunk
 
 import os
-def function_render_html(name: str):
-    if ".." in name: 
+def function_render_html(filename):
+    if ".." in filename: 
         raise Exception("invalid name")
     match = None
     for root, dirs, files in os.walk("."):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d != "venv"]
-        if f"{name}.html" in files:
-            match = os.path.join(root, f"{name}.html")
+        if f"{filename}.html" in files:
+            match = os.path.join(root, f"{filename}.html")
             break
     if not match: 
         raise Exception("file not found")
     with open(match, "r", encoding="utf-8") as file:
         return file.read()
     
-async def function_param_read(request, mode, config):
+async def function_param_read(mode, request, config):
     if mode == "query":
         param = dict(request.query_params)
     elif mode == "form":
@@ -1085,73 +1085,76 @@ async def function_param_read(request, mode, config):
     return param
 
 #middleware
-async def function_check_ratelimiter(request,config_api,client_redis_ratelimiter):
-   if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
-   limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
-   identifier=request.state.user.get("id") if request.state.user else request.client.host
-   ratelimiter_key=f"ratelimiter:{request.url.path}:{identifier}"
-   current_count=await client_redis_ratelimiter.get(ratelimiter_key)
-   if current_count and int(current_count)+1>limit:raise Exception("ratelimiter exceeded")
-   pipe=client_redis_ratelimiter.pipeline()
-   pipe.incr(ratelimiter_key)
-   if not current_count:pipe.expire(ratelimiter_key,window)
-   await pipe.execute()
-   return None
+async def function_check_ratelimiter(request,config_api):
+    if not config_api.get(request.url.path,{}).get("ratelimiter_times_sec"):return None
+    client_redis_ratelimiter=request.app.state.client_redis_ratelimiter
+    if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
+    limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
+    identifier=request.state.user.get("id") if request.state.user else request.client.host
+    ratelimiter_key=f"ratelimiter:{request.url.path}:{identifier}"
+    current_count=await client_redis_ratelimiter.get(ratelimiter_key)
+    if current_count and int(current_count)+1>limit:raise Exception("ratelimiter exceeded")
+    pipe=client_redis_ratelimiter.pipeline()
+    pipe.incr(ratelimiter_key)
+    if not current_count:pipe.expire(ratelimiter_key,window)
+    await pipe.execute()
+    return None
 
-async def function_check_is_active(request,client_postgres_pool,mode="token",cache_users_is_active={}):
-   if mode=="token":user_is_active=request.state.user.get("is_active","absent")
-   elif mode=="cache":user_is_active=cache_users_is_active.get(request.state.user["id"],"absent")
-   if user_is_active=="absent":
-      async with client_postgres_pool.acquire() as conn:
-         rows=await conn.fetch("select id,is_active from users where id=$1",request.state.user["id"])
-      user=rows[0] if rows else None
-      if not user:raise Exception("user not found")
-      user_is_active=user["is_active"]
-   if user_is_active==0:raise Exception("user not active")
-   return None
+async def function_check_is_active(request,config_api,mode="token"):
+    if not config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user:return None
+    if mode=="token":user_is_active=request.state.user.get("is_active","absent")
+    elif mode=="cache":user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
+    if user_is_active=="absent":
+        async with request.app.state.client_postgres_pool.acquire() as conn:
+            rows=await conn.fetch("select id,is_active from users where id=$1",request.state.user["id"])
+        user=rows[0] if rows else None
+        if not user:raise Exception("user not found")
+        user_is_active=user["is_active"]
+    if user_is_active==0:raise Exception("user not active")
+    return None
 
-async def function_check_api_access(request,config_api,client_postgres_pool,mode="token",cache_users_api_access={}):
-   if mode=="token":user_api_access=request.state.user.get(request.state.user["id"],[])
-   elif mode=="cache":user_api_access=cache_users_api_access.get(request.state.user["id"],[])
-   if user_api_access:user_api_access_list=[int(item.strip()) for item in user_api_access.split(",")]
-   else:
-      async with client_postgres_pool.acquire() as conn:
-         rows=await conn.fetch("select id,api_access from users where id=$1",request.state.user["id"])
-      user=rows[0] if rows else None
-      if not user:raise Exception("user not found")
-      user_api_access=user["api_access"]
-      if not user_api_access:raise Exception("api access denied")
-      user_api_access_list=[int(item.strip()) for item in user_api_access.split(",")]
-   api_id=config_api.get(request.url.path,{}).get("id")
-   if not api_id:raise Exception("api id not mapped")
-   if api_id not in user_api_access_list:raise Exception("api access denied")
-   return None
+async def function_check_api_access(request,config_api,mode="token"):
+    if not request.url.path.startswith("/admin"):return None
+    if mode=="token":user_api_access=request.state.user.get(request.state.user["id"],[])
+    elif mode=="cache":user_api_access=request.app.state.cache_users_api_access.get(request.state.user["id"],[])
+    if user_api_access:user_api_access_list=[int(item.strip()) for item in user_api_access.split(",")]
+    else:
+        async with request.app.state.client_postgres_pool.acquire() as conn:
+            rows=await conn.fetch("select id,api_access from users where id=$1",request.state.user["id"])
+        user=rows[0] if rows else None
+        if not user:raise Exception("user not found")
+        user_api_access=user["api_access"]
+        if not user_api_access:raise Exception("api access denied")
+        user_api_access_list=[int(item.strip()) for item in user_api_access.split(",")]
+    api_id=config_api.get(request.url.path,{}).get("id")
+    if not api_id:raise Exception("api id not mapped")
+    if api_id not in user_api_access_list:raise Exception("api access denied")
+    return None
 
 from fastapi import Response
 import gzip,base64,time
-inmemory_cache={}
-async def function_api_response_cache(mode,config_api,client_redis,request,response):
-   query_param_sorted="&".join(f"{k}={v}" for k, v in sorted(request.query_params.items()))
-   identifier=request.state.user.get("id") if "my/" in request.url.path else 0
-   cache_key=f"cache:{request.url.path}?{query_param_sorted}:{identifier}"
-   cache_mode,expire_sec=config_api.get(request.url.path,{}).get("cache_sec",(None,None))
-   if mode=="get":
-      response=None
-      cached_response=None
-      if cache_mode=="redis":
-         cached_response=await client_redis.get(cache_key)
-         if cached_response:response=Response(content=gzip.decompress(base64.b64decode(cached_response)).decode(),status_code=200,media_type="application/json")
-      if cache_mode=="inmemory":
-         cache_item=inmemory_cache.get(cache_key)
-         if cache_item and cache_item["expire_at"]>time.time():response=Response(content=gzip.decompress(base64.b64decode(cache_item["data"])).decode(),status_code=200,media_type="application/json")
-   if mode=="set":
-      body=b"".join([chunk async for chunk in response.body_iterator])
-      if cache_mode=="redis":
-         await client_redis.setex(cache_key,expire_sec,base64.b64encode(gzip.compress(body)).decode())
-      if cache_mode=="inmemory":
-         inmemory_cache[cache_key]={"data":base64.b64encode(gzip.compress(body)).decode(),"expire_at":time.time()+expire_sec}
-      response=Response(content=body, status_code=response.status_code, media_type=response.media_type)
-   return response
+inmemory_cache_api={}
+async def function_api_response_cache(mode,config_api,request,response):
+    client_redis=request.app.state.client_redis
+    query_param_sorted="&".join(f"{k}={v}" for k,v in sorted(request.query_params.items()))
+    identifier=request.state.user.get("id") if "my/" in request.url.path else 0
+    cache_key=f"cache:{request.url.path}?{query_param_sorted}:{identifier}"
+    cache_mode,expire_sec=config_api.get(request.url.path,{}).get("cache_sec",(None,None))
+    if mode=="get":
+        response=None
+        data=None
+        if cache_mode=="redis":data=await client_redis.get(cache_key)
+        if cache_mode=="inmemory":
+            cache_item=inmemory_cache_api.get(cache_key)
+            if cache_item and cache_item["expire_at"]>time.time():data=cache_item["data"]
+        if data:response=Response(content=gzip.decompress(base64.b64decode(data)).decode(),status_code=200,media_type="application/json",headers={"x-cache":"hit"})
+    if mode=="set":
+        body=await response.body()
+        compressed=base64.b64encode(gzip.compress(body)).decode()
+        if cache_mode=="redis":await client_redis.setex(cache_key,expire_sec,compressed)
+        if cache_mode=="inmemory":inmemory_cache_api[cache_key]={"data":compressed,"expire_at":time.time()+expire_sec}
+        response=Response(content=body,status_code=response.status_code,media_type=response.media_type,headers=dict(response.headers))
+    return response
 
 from fastapi import Request,responses
 from starlette.background import BackgroundTask
@@ -1164,6 +1167,16 @@ async def function_api_response_background(request,api_function):
    response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
    response.background=BackgroundTask(api_function_new)
    return response
+
+async def function_api_response(request,api_function,config_api,function_api_response_background,function_api_response_cache):
+    cache_sec=config_api.get(request.url.path,{}).get("cache_sec")
+    response,response_type=None,0
+    if request.query_params.get("is_background")=="1":response=await function_api_response_background(request,api_function);response_type=1
+    elif cache_sec:response=await function_api_response_cache("get",config_api,request,None);response_type=2
+    if not response:
+        response=await api_function(request);response_type=3
+        if cache_sec:response=await function_api_response_cache("set",config_api,request,response);response_type=4
+    return response,response_type
 
 #token
 import jwt,json

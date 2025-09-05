@@ -17,13 +17,13 @@ async def function_api_my_token_refresh(request:Request):
 
 @router.get("/my/api-usage")
 async def function_api_my_api_usage(request:Request):
-   param=await function_param_read(request,"query",[["days","int",0,7]])
+   param=await function_param_read("query",request,[["days","int",0,7]])
    obj_list=await function_log_api_usage(request.app.state.client_postgres_pool,param["days"],request.state.user["id"])
    return {"status":1,"message":obj_list}
 
 @router.delete("/my/account-delete")
 async def function_api_my_account_delete(request:Request):
-   param=await function_param_read(request,"query",[["mode",None,1,None]])
+   param=await function_param_read("query",request,[["mode",None,1,None]])
    user=await function_read_user_single(request.app.state.client_postgres_pool,request.state.user["id"])
    if user["api_access"]:raise Exception("not allowed as you have api_access")
    await function_delete_user_single(param["mode"],request.app.state.client_postgres_pool,request.state.user["id"])
@@ -31,7 +31,7 @@ async def function_api_my_account_delete(request:Request):
 
 @router.put("/my/ids-update")
 async def function_api_my_ids_update(request:Request):
-   param=await function_param_read(request,"body",[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
+   param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if param["column"] in config_column_disabled_list:raise Exception("column not allowed")
    await function_update_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],request.state.user["id"],request.state.user["id"])
@@ -39,7 +39,7 @@ async def function_api_my_ids_update(request:Request):
 
 @router.post("/my/ids-delete")
 async def function_api_my_ids_delete(request:Request):
-   param=await function_param_read(request,"body",[["table",None,1,None],["ids",None,1,None]])
+   param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None]])
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    await function_delete_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],request.state.user["id"])
@@ -47,45 +47,45 @@ async def function_api_my_ids_delete(request:Request):
 
 @router.get("/my/message-received")
 async def function_api_my_message_received(request:Request):
-   param=await function_param_read(request,"query",[["is_unread","int",0,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   param=await function_param_read("query",request,[["is_unread","int",0,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
    obj_list=await function_message_received(request.app.state.client_postgres_pool,request.state.user["id"],param["order"],param["limit"],(param["page"]-1)*param["limit"],param["is_unread"])
    if obj_list:asyncio.create_task(function_message_object_mark_read(request.app.state.client_postgres_pool,obj_list))
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-inbox")
 async def function_api_my_message_inbox(request:Request):
-   param=await function_param_read(request,"query",[["is_unread","int",0,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   param=await function_param_read("query",request,[["is_unread","int",0,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
    obj_list=await function_message_inbox(request.app.state.client_postgres_pool,request.state.user["id"],param["order"],param["limit"],(param["page"]-1)*param["limit"],param["is_unread"])
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-thread")
 async def function_api_my_message_thread(request:Request):
-   param=await function_param_read(request,"query",[["user_id","int",1,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
-   obj_list=await function_message_thread(request.app.state.client_postgres_pool,request.state.user["id"],param["user_id"],param["order"],param["limit"],(param["page"]-1)*param["limit"])
+   param=await function_param_read("query",request,[["user_id","int",1,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   obj_list=await function_message_thread(request.app.state.client_postgres_pool,request.state.user["id"],param["user_id"],param["order"],param["limit"],param["page"])
    asyncio.create_task(function_message_thread_mark_read(request.app.state.client_postgres_pool,request.state.user["id"],param["user_id"]))
    return {"status":1,"message":obj_list}
 
 @router.delete("/my/message-delete-single")
 async def function_api_my_message_delete_single(request:Request):
-   param=await function_param_read(request,"query",[["id","int",1,None]])
-   await function_message_delete_single(request.app.state.client_postgres_pool,request.state.user["id"],param["id"])
+   param=await function_param_read("query",request,[["id","int",1,None]])
+   await function_message_delete_single(request.app.state.client_postgres_pool,param["id"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.delete("/my/message-delete-bulk")
 async def function_api_my_message_delete_bulk(request:Request):
-   param=await function_param_read(request,"query",[["mode",None,1,None]])
+   param=await function_param_read("query",request,[["mode",None,1,None]])
    await function_message_delete_bulk(param["mode"],request.app.state.client_postgres_pool,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.get("/my/parent-read")
 async def function_api_my_parent_read(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None],["parent_table",None,1,None],["parent_column",None,1,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   param=await function_param_read("query",request,[["table",None,1,None],["parent_table",None,1,None],["parent_column",None,1,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
    output=await function_parent_object_read(request.app.state.client_postgres_pool,param["table"],param["parent_column"],param["parent_table"],param["order"],param["limit"],(param["page"]-1)*param["limit"],request.state.user["id"])
    return {"status":1,"message":output}
 
 @router.delete("/my/object-delete-any")
 async def function_api_my_object_delete_any(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None]])
+   param=await function_param_read("query",request,[["table",None,1,None]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
    if param["table"] in ["users"]:raise Exception("table not allowed")
    await function_postgres_object_delete(request.app.state.client_postgres_pool,param["table"],param)
@@ -93,7 +93,7 @@ async def function_api_my_object_delete_any(request:Request):
 
 @router.get("/my/object-read")
 async def function_api_my_object_read(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None],["creator_key","list",0,[]]])
+   param=await function_param_read("query",request,[["table",None,1,None],["creator_key","list",0,[]]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
    obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param)
    if param["creator_key"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key"])
@@ -101,8 +101,8 @@ async def function_api_my_object_read(request:Request):
 
 @router.post("/my/object-create-mongodb")
 async def function_api_my_object_create_mongodb(request:Request):
-   param=await function_param_read(request,"query",[["database",None,1,None],["table",None,1,None]])
-   obj=await function_param_read(request,"body",[])
+   param=await function_param_read("query",request,[["database",None,1,None],["table",None,1,None]])
+   obj=await function_param_read("body",request,[])
    obj["created_by_id"]=request.state.user["id"]
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if len(obj)<=1:raise Exception("obj issue")
@@ -112,8 +112,8 @@ async def function_api_my_object_create_mongodb(request:Request):
 
 @router.post("/my/object-create")
 async def function_api_my_object_create(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None],["queue",None,0,None]])
-   obj=await function_param_read(request,"body",[])
+   param=await function_param_read("query",request,[["table",None,1,None],["queue",None,0,None]])
+   obj=await function_param_read("body",request,[])
    obj["created_by_id"]=request.state.user["id"]
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if len(obj)<=1:raise Exception("obj issue")
@@ -130,8 +130,8 @@ async def function_api_my_object_create(request:Request):
 
 @router.put("/my/object-update")
 async def function_api_my_object_update(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None],["otp","int",0,0]])
-   obj=await function_param_read(request,"body",[])
+   param=await function_param_read("query",request,[["table",None,1,None],["otp","int",0,0]])
+   obj=await function_param_read("body",request,[])
    obj["updated_by_id"]=request.state.user["id"]
    if "id" not in obj:raise Exception("id missing")
    if len(obj)<=2:raise Exception("obj length issue")

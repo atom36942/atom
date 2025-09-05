@@ -4,7 +4,7 @@ from extend import *
 #api
 @router.post("/private/s3-upload-file")
 async def function_api_private_s3_upload_file(request:Request):
-   param=await function_param_read(request,"form",[["bucket",None,1,None],["key_list","list",0,[]],["file","file",1,[]]])
+   param=await function_param_read("form",request,[["bucket",None,1,None],["key_list","list",0,[]],["file","file",1,[]]])
    output={}
    for index,f in enumerate(param["file"]):
       key=param["key_list"][index] if index<len(param["key_list"]) else None
@@ -13,7 +13,7 @@ async def function_api_private_s3_upload_file(request:Request):
 
 @router.get("/private/s3-upload-presigned")
 async def function_api_private_s3_upload_presigned(request:Request):
-   param=await function_param_read(request,"query",[["bucket",None,1,None],["key",None,0,None]])
+   param=await function_param_read("query",request,[["bucket",None,1,None],["key",None,0,None]])
    output=function_s3_upload_presigned(param["bucket"],request.app.state.client_s3,config_s3_region_name,param["key"],config_limit_s3_kb,config_s3_presigned_expire_sec)
    return {"status":1,"message":output}
 

@@ -80,27 +80,11 @@ async def middleware(request,api_function):
       request.state.user={}
       #check
       request.state.user=await function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode)
-      #admin check
-      if api.startswith("/admin"):await function_check_api_access(request,config_api,request.app.state.client_postgres_pool,config_mode_check_api_access,request.app.state.cache_users_api_access)
-      #active check
-      if config_api.get(api,{}).get("is_active_check")==1 and request.state.user:await function_check_is_active(request,request.app.state.client_postgres_pool,config_mode_check_is_active,request.app.state.cache_users_is_active)
-      #ratelimiter check
-      if config_api.get(api,{}).get("ratelimiter_times_sec"):await function_check_ratelimiter(request,config_api,request.app.state.client_redis_ratelimiter)
-      #background response
-      if request.query_params.get("is_background")=="1":
-         response=await function_api_response_background(request,api_function)
-         response_type=1
-      #cache response
-      elif config_api.get(api,{}).get("cache_sec"):
-         response=await function_api_response_cache("get",config_api,request.app.state.client_redis,request,None)
-         response_type=2
-      #default response
-      if not response:
-         response=await api_function(request)
-         response_type=3
-         if config_api.get(api,{}).get("cache_sec"):
-            response=await function_api_response_cache("set",config_api,request.app.state.client_redis,request,response)
-            response_type=4
+      await function_check_api_access(request,config_api,config_mode_check_api_access)
+      await function_check_is_active(request,config_api,config_mode_check_is_active)
+      await function_check_ratelimiter(request,config_api)
+      #response
+      response,response_type=await function_api_response(request,api_function,config_api,function_api_response_background,function_api_response_cache)
    #error
    except Exception as e:
       error=str(e)

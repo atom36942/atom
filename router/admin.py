@@ -4,8 +4,8 @@ from extend import *
 #api
 @router.post("/admin/object-create")
 async def function_api_admin_object_create(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None]])
-   obj=await function_param_read(request,"body",[])
+   param=await function_param_read("query",request,[["table",None,1,None]])
+   obj=await function_param_read("body",request,[])
    if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):obj["created_by_id"]=request.state.user["id"]
    if len(obj)<=1:raise Exception("obj issue")
    output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
@@ -13,8 +13,8 @@ async def function_api_admin_object_create(request:Request):
 
 @router.put("/admin/object-update")
 async def function_api_admin_object_update(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None],["queue",None,0,None]])
-   obj=await function_param_read(request,"body",[])
+   param=await function_param_read("query",request,[["table",None,1,None],["queue",None,0,None]])
+   obj=await function_param_read("body",request,[])
    if "id" not in obj:raise Exception("id missing")
    if len(obj)<=1:raise Exception("obj length issue")
    if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):obj["updated_by_id"]=request.state.user["id"]
@@ -27,20 +27,20 @@ async def function_api_admin_object_update(request:Request):
 
 @router.get("/admin/object-read")
 async def function_api_admin_object_read(request:Request):
-   param=await function_param_read(request,"query",[["table",None,1,None],["creator_key","list",0,[]]])
+   param=await function_param_read("query",request,[["table",None,1,None],["creator_key","list",0,[]]])
    obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param)
    if param["creator_key"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key"])
    return {"status":1,"message":obj_list}
 
 @router.put("/admin/ids-update")
 async def function_api_admin_ids_update(request:Request):
-   param=await function_param_read(request,"body",[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
+   param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
    await function_update_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],request.state.user["id"],None)
    return {"status":1,"message":"done"}
 
 @router.post("/admin/ids-delete")
 async def function_api_admin_ids_delete(request:Request):
-   param=await function_param_read(request,"body",[["table",None,1,None],["ids",None,1,None]])
+   param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None]])
    if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    await function_delete_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],None)
    return {"status":1,"message":"done"}
