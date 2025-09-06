@@ -400,19 +400,15 @@ async def function_postgres_query_runner(client_postgres_pool,mode,query):
     return None
 
 async def function_postgres_map_two_column(client_postgres_pool,table,column_1,column_2,limit=1000,is_null=True):
-   output={}
-   where_clause="" if is_null else f"WHERE {column_2} IS NOT NULL"
-   async with client_postgres_pool.acquire() as conn:
-      stmt=await conn.prepare(f"SELECT {column_1},{column_2} FROM {table} {where_clause} ORDER BY {column_1} DESC")
-      cursor=stmt.cursor()
-      count=0
-      while count<limit:
-         batch=await cursor.fetch(10000)
-         if not batch:break
-         output.update({row[column_1]:row[column_2] for row in batch})
-         count+=len(batch)
-         if count>=limit:break
-   return output
+    output={}
+    where_clause="" if is_null else f"WHERE {column_2} IS NOT NULL"
+    query=f"SELECT {column_1},{column_2} FROM {table} {where_clause} ORDER BY {column_1} DESC"
+    async with client_postgres_pool.acquire() as conn:
+        async with conn.transaction():
+            async for row in conn.cursor(query,prefetch=10000):
+                output[row[column_1]]=row[column_2]
+                if len(output)>=limit:break
+    return output
 
 import datetime
 async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
@@ -1147,29 +1143,30 @@ async def function_check_api_access(request,config_api,mode="token"):
     return None
 
 from fastapi import Response
-import gzip,base64,time
-inmemory_cache_api={}
-async def function_api_response_cache(mode,config_api,request,response):
-    client_redis=request.app.state.client_redis
-    query_param_sorted="&".join(f"{k}={v}" for k,v in sorted(request.query_params.items()))
-    identifier=request.state.user.get("id") if "my/" in request.url.path else 0
-    cache_key=f"cache:{request.url.path}?{query_param_sorted}:{identifier}"
-    cache_mode,expire_sec=config_api.get(request.url.path,{}).get("cache_sec",(None,None))
-    if mode=="get":
-        response=None
-        data=None
-        if cache_mode=="redis":data=await client_redis.get(cache_key)
-        if cache_mode=="inmemory":
-            cache_item=inmemory_cache_api.get(cache_key)
-            if cache_item and cache_item["expire_at"]>time.time():data=cache_item["data"]
-        if data:response=Response(content=gzip.decompress(base64.b64decode(data)).decode(),status_code=200,media_type="application/json",headers={"x-cache":"hit"})
-    if mode=="set":
-        body=await response.body()
-        compressed=base64.b64encode(gzip.compress(body)).decode()
-        if cache_mode=="redis":await client_redis.setex(cache_key,expire_sec,compressed)
-        if cache_mode=="inmemory":inmemory_cache_api[cache_key]={"data":compressed,"expire_at":time.time()+expire_sec}
-        response=Response(content=body,status_code=response.status_code,media_type=response.media_type,headers=dict(response.headers))
-    return response
+import gzip, base64, time
+inmemory_cache_api = {}
+async def function_api_response_cache(mode, config_api, request, response):
+    client_redis = request.app.state.client_redis
+    qp = "&".join(f"{k}={v}" for k, v in sorted(request.query_params.items()))
+    uid = request.state.user.get("id") if "my/" in request.url.path else 0
+    cache_key = f"cache:{request.url.path}?{qp}:{uid}"
+    cache_mode, expire_sec = config_api.get(request.url.path, {}).get("cache_sec", (None, None))
+    if mode == "get":
+        data = None
+        if cache_mode == "redis": data = await client_redis.get(cache_key)
+        if cache_mode == "inmemory":
+            item = inmemory_cache_api.get(cache_key)
+            if item and item["expire_at"] > time.time(): data = item["data"]
+        if data:
+            return Response(gzip.decompress(base64.b64decode(data)).decode(),status_code=200, media_type="application/json",headers={"x-cache":"hit"})
+        return None
+    if mode == "set":
+        body = getattr(response, "body", None)
+        if body is None: body = b"".join([c async for c in response.body_iterator])
+        comp = base64.b64encode(gzip.compress(body)).decode()
+        if cache_mode == "redis": await client_redis.setex(cache_key, expire_sec, comp)
+        if cache_mode == "inmemory": inmemory_cache_api[cache_key] = {"data": comp, "expire_at": time.time()+expire_sec}
+        return Response(content=body, status_code=response.status_code,media_type=response.media_type, headers=dict(response.headers))
 
 from fastapi import Request,responses
 from starlette.background import BackgroundTask
@@ -1185,7 +1182,7 @@ async def function_api_response_background(request,api_function):
 
 async def function_api_response(request,api_function,config_api,function_api_response_background,function_api_response_cache):
     cache_sec=config_api.get(request.url.path,{}).get("cache_sec")
-    response,response_type=None,0
+    response,response_type=None,None
     if request.query_params.get("is_background")=="1":response=await function_api_response_background(request,api_function);response_type=1
     elif cache_sec:response=await function_api_response_cache("get",config_api,request,None);response_type=2
     if not response:

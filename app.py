@@ -52,17 +52,9 @@ async def function_lifespan(app:FastAPI):
       
 #app
 app=function_fastapi_app_read(True,function_lifespan)
-
-#cors
 function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
-
-#router
 function_add_router(app,"router")
-
-#sentry
 if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
-
-#prometheus
 if config_is_prometheus:function_add_prometheus(app)
 
 #middleware
@@ -73,11 +65,9 @@ async def middleware(request,api_function):
    try:
       #start
       start=time.time()
-      response_type=None
-      response=None
-      error=None
       api=request.url.path
-      request.state.user={}
+      response_type=None
+      error=None
       #check
       request.state.user=await function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode)
       await function_check_api_access(request,config_api,config_mode_check_api_access)
@@ -91,10 +81,9 @@ async def middleware(request,api_function):
       if config_is_traceback:print(traceback.format_exc())
       response=responses.JSONResponse(status_code=400,content={"status":0,"message":error})
       if config_sentry_dsn:sentry_sdk.capture_exception(e)
-      response_type=5
    #log api
-   if config_is_log_api and getattr(request.app.state, "cache_postgres_schema", None) and request.app.state.cache_postgres_schema.get("log_api"):
-      obj_log={"response_type":response_type,"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"description":error}
+   if config_is_log_api:
+      obj_log={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"response_type":response_type,"description":error}
       asyncio.create_task(function_postgres_object_create(request.app.state.client_postgres_pool,"log_api",[obj_log],"buffer"))
    #posthog
    if False:request.app.state.client_posthog.capture(distinct_id=request.state.user.get("id"),event="api",properties=obj_log)
