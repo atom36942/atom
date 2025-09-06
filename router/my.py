@@ -34,7 +34,7 @@ async def function_api_my_ids_update(request:Request):
    param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if param["column"] in config_column_disabled_list:raise Exception("column not allowed")
-   await function_update_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],request.state.user["id"],request.state.user["id"])
+   await function_postgres_update_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],request.state.user["id"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.post("/my/ids-delete")
@@ -42,7 +42,7 @@ async def function_api_my_ids_delete(request:Request):
    param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None]])
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
-   await function_delete_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],request.state.user["id"])
+   await function_postgres_delete_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.get("/my/message-received")
@@ -80,7 +80,7 @@ async def function_api_my_message_delete_bulk(request:Request):
 @router.get("/my/parent-read")
 async def function_api_my_parent_read(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["parent_table",None,1,None],["parent_column",None,1,None],["order",None,0,"id desc"],["limit","int",0,100],["page","int",0,1]])
-   output=await function_parent_object_read(request.app.state.client_postgres_pool,param["table"],param["parent_column"],param["parent_table"],request.state.user["id"],param["order"],param["limit"],param["page"])
+   output=await function_postgres_parent_read(request.app.state.client_postgres_pool,param["table"],param["parent_column"],param["parent_table"],request.state.user["id"],param["order"],param["limit"],param["page"])
    return {"status":1,"message":output}
 
 @router.delete("/my/object-delete-any")

@@ -66,6 +66,7 @@ async def middleware(request,api_function):
       #start
       start=time.time()
       api=request.url.path
+      request.state.user={}
       response_type=None
       error=None
       #check

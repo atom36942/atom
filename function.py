@@ -116,24 +116,6 @@ def function_check_required_env(config,required_key_list):
     return None
 
 #crud
-async def function_delete_ids(client_postgres_pool,table,ids,created_by_id=None):
-   query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,created_by_id)
-   return None
-
-async def function_update_ids(client_postgres_pool,table,ids,column,value,updated_by_id=1,created_by_id=None):
-   query=f"update {table} set {column}=$1,updated_by_id=$2 where id in ({ids}) and (created_by_id=$3 or $3 is null);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,value,updated_by_id,created_by_id)
-   return None
-
-async def function_parent_object_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order="id desc",limit=100,page=1):
-   query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
-   async with client_postgres_pool.acquire() as conn:
-      rows=await conn.fetch(query,created_by_id)
-   return rows
-
 async def function_ownership_check(client_postgres_pool, table, id, user_id):
     if table == "users":
         if id != user_id:raise Exception("obj ownership issue")
@@ -385,6 +367,7 @@ async def function_auth_login_google(client_postgres_pool, type, google_token, c
 
 #postgres
 async def function_postgres_query_runner(client_postgres_pool,mode,query):
+    if mode not in ["read","write"]:raise Exception("mode=read/write")
     block_word = ["drop", "truncate"]
     for item in block_word:
         if item in query.lower():
@@ -398,6 +381,24 @@ async def function_postgres_query_runner(client_postgres_pool,mode,query):
             else:
                 return await conn.execute(query)
     return None
+
+async def function_postgres_delete_ids(client_postgres_pool,table,ids,created_by_id=None):
+   query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
+   async with client_postgres_pool.acquire() as conn:
+      await conn.execute(query,created_by_id)
+   return None
+
+async def function_postgres_update_ids(client_postgres_pool,table,ids,column,value,created_by_id=None,updated_by_id=1):
+   query=f"update {table} set {column}=$1,updated_by_id=$2 where id in ({ids}) and (created_by_id=$3 or $3 is null);"
+   async with client_postgres_pool.acquire() as conn:
+      await conn.execute(query,value,updated_by_id,created_by_id)
+   return None
+
+async def function_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order="id desc",limit=100,page=1):
+   query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
+   async with client_postgres_pool.acquire() as conn:
+      rows=await conn.fetch(query,created_by_id)
+   return rows
 
 async def function_postgres_map_two_column(client_postgres_pool,table,column_1,column_2,limit=1000,is_null=True):
     output={}
@@ -418,106 +419,6 @@ async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
          query=f"DELETE FROM {table_name} WHERE created_at < $1"
          await conn.execute(query,threshold_date)
    return None
-
-async def function_postgres_object_delete(client_postgres_pool, table, obj):
-    """
-    Deletes rows from a PostgreSQL table with flexible filtering.
-
-    Parameters:
-    - client_postgres_pool: asyncpg connection pool
-    - table (str): table name
-    - obj (dict): filter conditions in the format {"column": "operator,value"}
-
-    Examples:
-    # equality + comparison
-    await function_postgres_object_delete(pool, "users", {"id": ">=,1", "status": "=,active"})
-    await function_postgres_object_delete(pool, "products", {"id": "<>,200", "price": "<,1000"})
-
-    # in / not in
-    await function_postgres_object_delete(pool, "orders", {"id": "in,100|101|102", "status": "in,open|pending"})
-    await function_postgres_object_delete(pool, "users", {"role": "not in,admin|superuser"})
-
-    # null checks
-    await function_postgres_object_delete(pool, "products", {"deleted_at": "is not,null"})
-    await function_postgres_object_delete(pool, "sessions", {"ended_at": "is,null"})
-
-    # between (range)
-    await function_postgres_object_delete(pool, "orders", {"created_at": "between,2025-01-01|2025-12-31"})
-
-    # like / ilike (text patterns)
-    await function_postgres_object_delete(pool, "products", {"name": "like,%phone%"})
-    await function_postgres_object_delete(pool, "products", {"description": "ilike,%premium%"})
-
-    # regex
-    await function_postgres_object_delete(pool, "logs", {"message": "~,error.*"})
-    await function_postgres_object_delete(pool, "logs", {"message": "~*,warning.*"})
-    """
-    filters = {k: v for k, v in obj.items() if k not in ["table"]}
-    if not filters:
-        raise Exception("No columns provided to delete")
-    conditions = []
-    values = []
-    idx = 1
-    def op_null(col, op, val, idx, values):
-        if op not in ["is", "is not"]:
-            raise Exception(f"Null can only be used with 'is' or 'is not' for column {col}")
-        return f"{col} {op.upper()} NULL", idx
-    def op_in(col, op, val, idx, values):
-        items = [v.strip() for v in val.split("|")]
-        placeholders = []
-        for item in items:
-            placeholders.append(f"${idx}")
-            values.append(item)
-            idx += 1
-        return f"{col} {op.upper()} ({','.join(placeholders)})", idx
-    def op_between(col, op, val, idx, values):
-        items = [v.strip() for v in val.split("|")]
-        if len(items) != 2:
-            raise Exception(f"Between requires 2 values for column {col}, got: {val}")
-        values.extend(items)
-        return f"{col} BETWEEN ${idx} AND ${idx+1}", idx + 2
-    def op_default(col, op, val, idx, values):
-        values.append(val)
-        return f"{col} {op.upper()} ${idx}", idx + 1
-    operator_map = {
-        "null": op_null,
-        "in": op_in,
-        "not in": op_in,
-        "between": op_between,
-        "like": op_default,
-        "ilike": op_default,
-        "~": op_default,
-        "~*": op_default,
-        "=": op_default,
-        ">": op_default,
-        "<": op_default,
-        ">=": op_default,
-        "<=": op_default,
-        "<>": op_default,
-    }
-    for col, expr in filters.items():
-        try:
-            op, val = expr.split(",", 1)
-        except Exception:
-            raise Exception(f"Invalid format for {col}: {expr}, expected 'operator,value'")
-        op = op.strip().lower()
-        val = val.strip()
-        if val.lower() == "null":
-            handler = operator_map.get("null")
-        else:
-            handler = operator_map.get(op)
-        if not handler:
-            raise Exception(f"Unsupported operator '{op}' for column {col}")
-        cond, idx = handler(col, op, val, idx, values)
-        conditions.append(cond)
-    where_string = " AND ".join(conditions)
-    query = f"DELETE FROM {table} WHERE {where_string};"
-    async with client_postgres_pool.acquire() as conn:
-        try:
-            result = await conn.execute(query, *values)
-            return int(result.split()[1])  # number of rows deleted
-        except Exception as e:
-            raise Exception(f"Failed to delete: {e}")
 
 async def function_postgres_object_read(client_postgres_pool, table, obj):
     """
@@ -643,60 +544,48 @@ async def function_postgres_object_read(client_postgres_pool, table, obj):
             return [dict(r) for r in records]
         except Exception as e:
             raise Exception(f"Failed to read: {e}")
-
-async def function_postgres_object_update(client_postgres_pool, table, obj_list, user_id=None, batch_size=5000):
+        
+async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=5000):
     """
-    1.Update without user_id filter
+    1.Update without created_by_id filter
     await function_postgres_object_update(pool, "users", [{"id": 2, "name": "Bob", "age": 25}])
-    2.Update with user_id filter
-    await function_postgres_object_update(pool, "users", [{"id": 1, "name": "Alice", "age": 30}], user_id=42)
+    2.Update with created_by_id filter
+    await function_postgres_object_update(pool, "users", [{"id": 1, "name": "Alice", "age": 30}], created_by_id=42)
     """
-    if not obj_list:return None
+    if not obj_list: return None
     cols = [c for c in obj_list[0] if c != "id"]
-    col_count = len(cols)
-    max_batch = 65535 // (col_count + 1 + (1 if user_id else 0))
+    max_batch = 65535 // (len(cols) + 1 + (1 if created_by_id else 0))
     batch_size = min(batch_size, max_batch)
+
     async with client_postgres_pool.acquire() as conn:
         if len(obj_list) == 1:
             params = [obj_list[0][c] for c in cols] + [obj_list[0]["id"]]
-            where_clause = f"id=${len(params)}"
-            if user_id:
-                params.append(user_id)
-                where_clause += f" AND created_by_id=${len(params)}"
-            set_clause = ",".join([f"{c}=${i+1}" for i, c in enumerate(cols)])
-            query = f"UPDATE {table} SET {set_clause} WHERE {where_clause} RETURNING id;"
-            row = await conn.fetch(query, *params)
+            where = f"id=${len(params)}" + (f" AND created_by_id=${len(params)+1}" if created_by_id else "")
+            if created_by_id: params.append(created_by_id)
+            set_clause = ",".join(f"{c}=${i+1}" for i, c in enumerate(cols))
+            row = await conn.fetch(f"UPDATE {table} SET {set_clause} WHERE {where} RETURNING id;", *params)
             return row[0]["id"] if row else None
-        else:
-            async with conn.transaction():
-                for i in range(0, len(obj_list), batch_size):
-                    batch = obj_list[i:i + batch_size]
-                    vals = []
-                    id_list = []
-                    set_clauses = []
-
-                    for col_idx, col in enumerate(cols):
-                        case_statements = []
-                        for row_idx, obj in enumerate(batch):
-                            vals.extend([obj[col]])
-                            vals.append(obj["id"])
-                            param_idx = len(vals)
-                            if user_id:
-                                vals.append(user_id)
-                                case_stmt = f"WHEN id=${param_idx-1} AND created_by_id=${param_idx} THEN ${param_idx-2}"
-                            else:
-                                case_stmt = f"WHEN id=${param_idx-1} THEN ${param_idx-2}"
-                            case_statements.append(case_stmt)
-                        set_clauses.append(f"{col} = CASE {' '.join(case_statements)} ELSE {col} END")
-
-                    id_list = [obj["id"] for obj in batch]
-                    where_clause = f"id IN ({','.join(str(id_) for id_ in id_list)})"
-                    if user_id:
-                        where_clause += f" AND created_by_id={user_id}"
-                    query = f"UPDATE {table} SET {', '.join(set_clauses)} WHERE {where_clause};"
-                    await conn.execute(query, *vals)
-            return None
-        
+        async with conn.transaction():
+            for i in range(0, len(obj_list), batch_size):
+                batch = obj_list[i:i+batch_size]
+                vals, set_clauses = [], []
+                for col in cols:
+                    cases = []
+                    for obj in batch:
+                        vals.extend([obj[col], obj["id"]])
+                        idx_val, idx_id = len(vals)-1, len(vals)
+                        if created_by_id:
+                            vals.append(created_by_id)
+                            idx_user = len(vals)
+                            cases.append(f"WHEN id=${idx_id} AND created_by_id=${idx_user} THEN ${idx_val}")
+                        else:
+                            cases.append(f"WHEN id=${idx_id} THEN ${idx_val}")
+                    set_clauses.append(f"{col} = CASE {' '.join(cases)} ELSE {col} END")
+                ids = [obj["id"] for obj in batch]
+                where_clause = f"id IN ({','.join(str(id_) for id_ in ids)})" + (f" AND created_by_id={created_by_id}" if created_by_id else "")
+                await conn.execute(f"UPDATE {table} SET {', '.join(set_clauses)} WHERE {where_clause};", *vals)
+    return None
+   
 import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
@@ -768,44 +657,35 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
             return results
         else:
             raise Exception("mode must be 'now', 'buffer', or 'flush'")
-
-import re, asyncio,contextlib
-async def function_postgres_stream(client_postgres_pool, query, chunk_size_bytes=1_048_576, include_header=True):
-    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
-        raise ValueError("Only read-only queries allowed")
-    async with client_postgres_pool.acquire() as conn:
-        queue = asyncio.Queue(maxsize=4)
-        loop = asyncio.get_running_loop()
-        async def producer():
-            buf = bytearray()
-            def sink(b):
-                nonlocal buf
-                buf += b
-                if len(buf) >= chunk_size_bytes:
-                    try:
-                        queue.put_nowait(bytes(buf))
-                    except asyncio.QueueFull:
-                        loop.call_soon(asyncio.create_task, queue.put(bytes(buf)))
-                    buf.clear()
-            try:
-                await conn.copy_from_query(query, sink, format="csv", header=include_header)
-                if buf:
-                    await queue.put(bytes(buf))
-            finally:
-                await queue.put(None)
-        prod_task = asyncio.create_task(producer())
-        try:
-            while True:
-                chunk = await queue.get()
-                if chunk is None:
-                    break
-                yield chunk.decode("utf-8", errors="strict")
-        finally:
-            if not prod_task.done():
-                prod_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await prod_task
-
+        
+import csv, re
+from io import StringIO
+async def function_postgres_stream(client_postgres_asyncpg_pool, query, batch_size=1000, output_path=None):
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise ValueError("Only read-only queries allowed")
+    async with client_postgres_asyncpg_pool.acquire() as conn:
+        async with conn.transaction():
+            f = open(output_path, "w", newline="") if output_path else None
+            writer_file = csv.writer(f) if f else None
+            stream = StringIO()
+            writer_stream = csv.writer(stream)
+            header_written = False
+            async for row in conn.cursor(query, prefetch=batch_size):
+                if not header_written:
+                    writer_stream.writerow(row.keys())
+                    if writer_file:
+                        writer_file.writerow(row.keys())
+                    yield stream.getvalue()
+                    stream.seek(0)
+                    stream.truncate(0)
+                    header_written = True
+                writer_stream.writerow(row.values())
+                if writer_file:
+                    writer_file.writerow(row.values())
+                yield stream.getvalue()
+                stream.seek(0)
+                stream.truncate(0)
+            if f: f.close()
+            
 async def function_postgres_schema_init(client_postgres_pool, config_postgres_schema, function_postgres_schema_read):
     if not config_postgres_schema:
         raise Exception("config_postgres_schema null")
@@ -814,7 +694,7 @@ async def function_postgres_schema_init(client_postgres_pool, config_postgres_sc
             await conn.execute(f"create extension if not exists {extension};")
         return None
     async def function_init_table(conn, config_postgres_schema, function_postgres_schema_read):
-        postgres_schema, postgres_column_datatype = await function_postgres_schema_read(conn)
+        postgres_schema, postgres_column_datatype = await function_postgres_schema_read(client_postgres_pool)
         for table, column_list in config_postgres_schema["table"].items():
             is_table = postgres_schema.get(table, {})
             if not is_table:
@@ -822,7 +702,7 @@ async def function_postgres_schema_init(client_postgres_pool, config_postgres_sc
                 await conn.execute(query)
         return None
     async def function_init_column(conn, config_postgres_schema, function_postgres_schema_read):
-        postgres_schema, postgres_column_datatype = await function_postgres_schema_read(conn)
+        postgres_schema, postgres_column_datatype = await function_postgres_schema_read(client_postgres_pool)
         for table, column_list in config_postgres_schema["table"].items():
             for column in column_list:
                 column_name, column_datatype, column_is_mandatory, column_index_type = column.split("-")
@@ -832,7 +712,7 @@ async def function_postgres_schema_init(client_postgres_pool, config_postgres_sc
                     await conn.execute(query)
         return None
     async def function_init_nullable(conn, config_postgres_schema, function_postgres_schema_read):
-        postgres_schema, postgres_column_datatype = await function_postgres_schema_read(conn)
+        postgres_schema, postgres_column_datatype = await function_postgres_schema_read(client_postgres_pool)
         for table, column_list in config_postgres_schema["table"].items():
             for column in column_list:
                 column_name, column_datatype, column_is_mandatory, column_index_type = column.split("-")
@@ -889,6 +769,26 @@ async def function_postgres_index_drop_all(client_postgres_pool):
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(query)
     return None
+ 
+import hashlib, json
+from dateutil import parser
+async def function_postgres_object_serialize(postgres_column_datatype, obj_list):
+    for obj in obj_list:
+        for k, v in obj.items():
+            if v in [None, "", "null"]:
+                obj[k] = None
+                continue
+            datatype = postgres_column_datatype.get(k)
+            if not datatype:continue
+            if k == "password":obj[k] = hashlib.sha256(str(v).encode()).hexdigest()
+            elif datatype == "text":obj[k] = v.strip()
+            elif "int" in datatype:obj[k] = int(v)
+            elif datatype == "numeric":obj[k] = round(float(v), 3)
+            elif datatype == "date":obj[k] = parser.isoparse(v).date() if isinstance(v, str) else v
+            elif "time" in datatype or "timestamp" in datatype or "timestamptz" in datatype.lower():obj[k] = parser.isoparse(v) if isinstance(v, str) else v
+            elif datatype == "ARRAY":obj[k] = v if isinstance(v, list) else str(v).split(",")
+            elif datatype == "jsonb":obj[k] = json.dumps(v) if not isinstance(v, str) else v
+    return obj_list
 
 async def function_postgres_schema_read(client_postgres_pool):
     query = """

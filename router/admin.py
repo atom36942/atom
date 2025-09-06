@@ -35,14 +35,14 @@ async def function_api_admin_object_read(request:Request):
 @router.put("/admin/ids-update")
 async def function_api_admin_ids_update(request:Request):
    param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
-   await function_update_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],request.state.user["id"],None)
+   await function_postgres_update_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],None,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.post("/admin/ids-delete")
 async def function_api_admin_ids_delete(request:Request):
    param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None]])
    if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
-   await function_delete_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],None)
+   await function_postgres_delete_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],None)
    return {"status":1,"message":"done"}
 
 
