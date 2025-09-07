@@ -141,9 +141,9 @@ async def function_api_usage(client_postgres_pool,days=7,created_by_id=None):
       rows=await conn.fetch(query,created_by_id)
    return {r["api"]:r["count"] for r in rows}
 
-async def function_add_creator_data(client_postgres_pool, obj_list, creator_key_list=["username"]):
-    if not obj_list:
-        return obj_list
+async def function_add_creator_data(client_postgres_pool, obj_list, creator_key):
+    if not obj_list or not creator_key:return obj_list
+    creator_key_list=creator_key.split(",")
     obj_list = [dict(obj) for obj in obj_list]
     created_by_ids = {str(obj["created_by_id"]) for obj in obj_list if obj.get("created_by_id")}
     users = {}
@@ -410,12 +410,13 @@ async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
          await conn.execute(query,threshold_date)
    return None
 
-async def function_postgres_object_read(client_postgres_pool, table, obj={}, function_postgres_object_serialize=None, postgres_column_datatype=None):
+async def function_postgres_object_read(client_postgres_pool, table, obj={}, function_postgres_object_serialize=None, postgres_column_datatype=None, function_add_creator_data= None):
     """
     obj:{"column":"operator,value"}
     Supported operator:
     =, >, <, >=, <=
-    is,null | is not,null
+    is,null
+    is not,null
     in,val1|val2|val3
     not in,val1|val2|val3
     between,val1|val2
@@ -429,11 +430,13 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
     await function_postgres_object_read(pool, "orders", {"limit": 10})
     await function_postgres_object_read(pool, "orders", {"page" :2})
     await function_postgres_object_read(pool, "orders", {"column": "id,name,category"})
+    await function_postgres_object_read(pool, "orders", {"creator_key": "username,email"})
     await function_postgres_object_read(pool, "orders", {"created_by_id": "=,1"})
     await function_postgres_object_read(pool, "stores", {"location": "point,17.78|83.03|500|1000"})
     await function_postgres_object_read(pool, "users",  {"created_at": ">=,2025-01-01"})
     await function_postgres_object_read(pool, "users",  {"id": "in,1|2|3|4"})
     await function_postgres_object_read(pool, "users",  {"role": "not in,admin|superuser"})
+    await function_postgres_object_read(pool, "users",  {"role": "is not,null"})
     await function_postgres_object_read(pool, "orders", {"created_at": "between,2025-01-01|2025-12-31"})
     await function_postgres_object_read(pool, "orders", {"name": "like,%phone%"})
     await function_postgres_object_read(pool, "orders", {"description": "ilike,%premium%"})
@@ -444,7 +447,8 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
     limit = int(obj.get("limit", 100))
     page = int(obj.get("page", 1))
     columns = obj.get("column", "*")
-    filters = {k: v for k,v in obj.items() if k not in ["table","order","limit","page","column"]}
+    creator_key = obj.get("creator_key")
+    filters = {k: v for k,v in obj.items() if k not in ["table","order","limit","page","column","creator_key"]}
     conditions, values, idx = [], [], 1
     serialized_values = {}
     for k, expr in filters.items():
@@ -529,7 +533,9 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
     async with client_postgres_pool.acquire() as conn:
         try:
             records = await conn.fetch(query, *values)
-            return [dict(r) for r in records]
+            obj_list=[dict(r) for r in records]
+            if function_add_creator_data and creator_key:obj_list=await function_add_creator_data(client_postgres_pool,obj_list,creator_key)
+            return obj_list
         except Exception as e:
             raise Exception(f"Failed to read: {e}")
 
