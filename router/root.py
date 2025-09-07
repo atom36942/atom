@@ -38,9 +38,7 @@ async def function_api_root_postgres_import(request:Request):
    obj_list=await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,obj_list)
    if param["mode"]=="create":output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],obj_list)
    elif param["mode"]=="update":output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],obj_list)
-   elif param["mode"]=="delete":
-      obj={"id": "in," + "|".join(str(obj["id"]) for obj in obj_list)}
-      output=await function_postgres_object_delete(request.app.state.client_postgres_pool,param["table"],obj)
+   elif param["mode"]=="delete":output=await function_postgres_ids_delete(request.app.state.client_postgres_pool,param["table"],",".join(str(obj["id"]) for obj in obj_list))
    return {"status":1,"message":output}
 
 @router.post("/root/redis-import-create")
@@ -67,8 +65,8 @@ async def function_api_root_mongodb_import_create(request:Request):
 
 @router.post("/root/s3-url-delete")
 async def function_api_root_s3_url_delete(request:Request):
-    param=await function_param_read("body",request,[["url",None,1,None]])
-    for item in param["url"].split("---"):output=await function_s3_url_delete(request.app.state.client_s3_resource,item)
+    param=await function_param_read("body",request,[["url_list","list",1,[]]])
+    for url in param["url_list"]:output=await function_s3_url_delete(request.app.state.client_s3_resource,url)
     return {"status":1,"message":output}
  
 @router.get("/root/s3-bucket-ops")

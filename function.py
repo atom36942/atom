@@ -126,6 +126,15 @@ async def function_ownership_check(client_postgres_pool, table, id, user_id):
         if row["created_by_id"] != user_id:raise Exception("obj ownership issue")
     return None
 
+async def function_user_count_query_read(client_postgres_pool,config_user_count_query,user_id):
+   output={}
+   async with client_postgres_pool.acquire() as conn:
+      for key,query in config_user_count_query.items():
+         rows=await conn.fetch(query,user_id)
+         row=rows[0] if rows else None
+         output[key]=row[0] if row else 0
+   return output
+
 async def function_api_usage(client_postgres_pool,days=7,created_by_id=None):
    query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=$1 or $1 is null) group by api limit 1000;"
    async with client_postgres_pool.acquire() as conn:
@@ -153,25 +162,6 @@ async def function_add_creator_data(client_postgres_pool, obj_list, creator_key_
     return obj_list
 
 #user
-async def function_user_query_count_read(client_postgres_pool,user_id,config_user_count_query):
-   output={}
-   async with client_postgres_pool.acquire() as conn:
-      for key,query in config_user_count_query.items():
-         rows=await conn.fetch(query,user_id)
-         row=rows[0] if rows else None
-         output[key]=row[0] if row else 0
-   return output
-
-import datetime
-async def function_user_update_last_active_at(client_postgres_pool,user_id):
-    try:
-        query = "UPDATE users SET last_active_at=$1 WHERE id=$2;"
-        async with client_postgres_pool.acquire() as conn:
-            await conn.execute(query, datetime.datetime.now(), user_id)
-    except Exception as e:
-        print(str(e))
-    return None
-
 async def function_user_delete_single(mode, client_postgres_pool,user_id):
     if mode == "soft":
         query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
@@ -382,13 +372,13 @@ async def function_postgres_query_runner(client_postgres_pool,mode,query):
                 return await conn.execute(query)
     return None
 
-async def function_postgres_delete_ids(client_postgres_pool,table,ids,created_by_id=None):
+async def function_postgres_ids_delete(client_postgres_pool,table,ids,created_by_id=None):
    query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
    async with client_postgres_pool.acquire() as conn:
       await conn.execute(query,created_by_id)
    return None
 
-async def function_postgres_update_ids(client_postgres_pool,table,ids,column,value,created_by_id=None,updated_by_id=1):
+async def function_postgres_ids_update(client_postgres_pool,table,ids,column,value,created_by_id=None,updated_by_id=1):
    query=f"update {table} set {column}=$1,updated_by_id=$2 where id in ({ids}) and (created_by_id=$3 or $3 is null);"
    async with client_postgres_pool.acquire() as conn:
       await conn.execute(query,value,updated_by_id,created_by_id)
@@ -547,10 +537,19 @@ async def function_postgres_object_read(client_postgres_pool, table, obj):
         
 async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=5000):
     """
-    1.Update without created_by_id filter
-    await function_postgres_object_update(pool, "users", [{"id": 2, "name": "Bob", "age": 25}])
-    2.Update with created_by_id filter
-    await function_postgres_object_update(pool, "users", [{"id": 1, "name": "Alice", "age": 30}], created_by_id=42)
+    1. Update without created_by_id filter
+       await function_postgres_object_update(pool, "users", [{"id": 2, "name": "Bob", "age": 25}])
+    2. Update with created_by_id filter
+       await function_postgres_object_update(pool, "users", [{"id": 1, "name": "Alice", "age": 30}], created_by_id=42)
+    3. Update with boolean and float
+       await function_postgres_object_update(pool, "products", [{"id": 5, "price": 19.99, "active": True}])
+    4. Update with date and timestamp
+       from datetime import date, datetime
+       await function_postgres_object_update(pool, "events", [{"id": 10, "event_date": date.today(), "updated_at": datetime.utcnow()}])
+    5. Update with JSONB
+       await function_postgres_object_update(pool, "orders", [{"id": 100, "metadata": {"coupon": "NEWUSER", "discount": 10}}])
+    6. Update with list / Postgres ARRAY
+       await function_postgres_object_update(pool, "tags", [{"id": 7, "labels": ["urgent", "review", "internal"]}])
     """
     if not obj_list: return None
     cols = [c for c in obj_list[0] if c != "id"]
@@ -602,8 +601,25 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
     await function_postgres_object_create(pool,None,None,"flush")
     5.Returning inserted IDs
     await function_postgres_object_create(pool, table="users",obj_list=[{"name":"Alice","age":30}], returning_ids=True)
+    ---- Postgres datatype examples ----
+    bigint:   {"id": 1001}
+    integer:  {"count": 42}
+    numeric:  {"price": 19.95}
+    text:     {"description": "Hello world"}
+    varchar:  {"username": "alice"}
+    boolean:  {"active": True}
+    date:     {"birthdate": "1990-01-01"}
+    time:     {"meeting_time": "14:30:00"}
+    timestamp: {"created_at": "2023-09-07T12:34:56"}
+    timestamptz: {"updated_at": "2023-09-07T12:34:56+05:30"}
+    jsonb:    {"metadata": {"ip": "127.0.0.1", "device": "mobile"}}
+    uuid:     {"uuid_col": "550e8400-e29b-41d4-a716-446655440000"}
+    geography: {"location": "POINT(17.794387 -83.032150)"}
+    array:    {"tags": ["python", "asyncio", "postgres"]}
+    bytea:    {"file_data": b"\\x89504e470d0a1a0a..."}  # binary data (e.g., image)
     """
     global inmemory_cache_object_create, table_object_key
+    if obj_list and len(obj_list)==1:returning_ids=True
     async def _execute_insert(tbl, objs):
         if not objs: return None
         cols = list(objs[0].keys())
@@ -1098,7 +1114,7 @@ async def function_token_decode(token,config_key_jwt):
 
 import jwt,json,time
 async def function_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,key_list=None):
-   obj=dict(obj)
+   if not isinstance(obj,dict):obj=dict(obj)
    payload={k:obj.get(k) for k in key_list} if key_list else obj
    payload=json.dumps(payload,default=str)
    token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":payload},config_key_jwt)

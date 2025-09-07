@@ -17,6 +17,7 @@ async def function_api_admin_object_update(request:Request):
    obj=await function_param_read("body",request,[])
    if "id" not in obj:raise Exception("id missing")
    if len(obj)<=1:raise Exception("obj length issue")
+   if "password" in obj:obj["password"]=hashlib.sha256(str(obj["password"]).encode()).hexdigest()
    if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):obj["updated_by_id"]=request.state.user["id"]
    if not param["queue"]:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj])
    elif param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,"function_postgres_object_update",[param["table"],[obj],1])
@@ -35,14 +36,14 @@ async def function_api_admin_object_read(request:Request):
 @router.put("/admin/ids-update")
 async def function_api_admin_ids_update(request:Request):
    param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
-   await function_postgres_update_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],None,request.state.user["id"])
+   await function_postgres_ids_update(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],None,request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.post("/admin/ids-delete")
 async def function_api_admin_ids_delete(request:Request):
    param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None]])
    if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
-   await function_postgres_delete_ids(request.app.state.client_postgres_pool,param["table"],param["ids"],None)
+   await function_postgres_ids_delete(request.app.state.client_postgres_pool,param["table"],param["ids"],None)
    return {"status":1,"message":"done"}
 
 

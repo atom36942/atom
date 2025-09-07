@@ -56,6 +56,11 @@ venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 
+#cli
+postgres=psql postgresql://atom@127.0.0.1/postgres
+mongodb=mongosh
+redis=redis-cli -u redis://localhost:6379
+
 #stop python
 lsof -ti :8000 | xargs kill -9
 
