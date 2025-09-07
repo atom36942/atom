@@ -410,131 +410,129 @@ async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
          await conn.execute(query,threshold_date)
    return None
 
-async def function_postgres_object_read(client_postgres_pool, table, obj):
+async def function_postgres_object_read(client_postgres_pool, table, obj={}, function_postgres_object_serialize=None, postgres_column_datatype=None):
     """
-    Reads rows from a PostgreSQL table with flexible filtering.
-
-    Parameters:
-    - client_postgres_pool: asyncpg connection pool
-    - table (str): name of the table to query
-    - obj (dict): filter and query options in the format {"column": "operator,value"}
-
-    Supported operators:
-      =, >, <, >=, <=
-      is,null | is not,null
-      in,val1|val2|val3
-      not in,val1|val2|val3
-      between,val1|val2
-      like,%pattern%
-      ilike,%pattern%
-      ~,regex
-      ~*,regex
-
-    Special keys in obj:
-      - order: sort order (default "id desc")
-      - limit: max rows (default 100)
-      - page: page number (default 1)
-      - column: comma-separated column names (default "*")
-      - location_filter: "long,lat,min_meter,max_meter"
-
+    obj:{"column":"operator,value"}
+    Supported operator:
+    =, >, <, >=, <=
+    is,null | is not,null
+    in,val1|val2|val3
+    not in,val1|val2|val3
+    between,val1|val2
+    like,%pattern%
+    ilike,%pattern%
+    ~,regex
+    ~*,regex
     Examples:
-    await function_postgres_object_read(pool, "users", {"status": "=,active"})
-    await function_postgres_object_read(pool, "orders", {"created_by_id": "=,10", "order": "created_at desc", "limit": 100, "page": 2})
-    await function_postgres_object_read(pool, "products", {"category": "=,electronics", "column": "id,name,category,created_at", "limit": 50})
-    await function_postgres_object_read(pool, "users", {"created_at": ">=,2025-01-01", "order": "created_at desc", "limit": 10})
-    await function_postgres_object_read(pool, "stores", {"location_filter": "17.78,83.03,500,1000"})
-    await function_postgres_object_read(pool, "users", {"id": "in,1|2|3|4"})
-    await function_postgres_object_read(pool, "users", {"role": "not in,admin|superuser"})
+    await function_postgres_object_read(pool, "orders")
+    await function_postgres_object_read(pool, "orders", {"order": "id asc"})
+    await function_postgres_object_read(pool, "orders", {"limit": 10})
+    await function_postgres_object_read(pool, "orders", {"page" :2})
+    await function_postgres_object_read(pool, "orders", {"column": "id,name,category"})
+    await function_postgres_object_read(pool, "orders", {"created_by_id": "=,1"})
+    await function_postgres_object_read(pool, "stores", {"location": "point,17.78|83.03|500|1000"})
+    await function_postgres_object_read(pool, "users",  {"created_at": ">=,2025-01-01"})
+    await function_postgres_object_read(pool, "users",  {"id": "in,1|2|3|4"})
+    await function_postgres_object_read(pool, "users",  {"role": "not in,admin|superuser"})
     await function_postgres_object_read(pool, "orders", {"created_at": "between,2025-01-01|2025-12-31"})
-    await function_postgres_object_read(pool, "products", {"name": "like,%phone%"})
-    await function_postgres_object_read(pool, "products", {"description": "ilike,%premium%"})
-    await function_postgres_object_read(pool, "logs", {"message": "~,error.*"})
-    await function_postgres_object_read(pool, "logs", {"message": "~*,warning.*"})
+    await function_postgres_object_read(pool, "orders", {"name": "like,%phone%"})
+    await function_postgres_object_read(pool, "orders", {"description": "ilike,%premium%"})
+    await function_postgres_object_read(pool, "orders", {"message": "~,error.*"})
+    await function_postgres_object_read(pool, "orders", {"message": "~*,warning.*"})
     """
     order = obj.get("order", "id desc")
     limit = int(obj.get("limit", 100))
     page = int(obj.get("page", 1))
     columns = obj.get("column", "*")
-    location_filter = obj.get("location_filter")
-    filters = {k: v for k, v in obj.items() if k not in ["table","order", "limit", "page", "column", "location_filter"]}
-    conditions = []
-    values = []
-    idx = 1
-    def op_null(col, op, val, idx, values):
-        if op not in ["is", "is not"]:
-            raise Exception(f"Null can only be used with 'is' or 'is not' for column {col}")
-        return f"{col} {op.upper()} NULL", idx
-    def op_in(col, op, val, idx, values):
-        items = [v.strip() for v in val.split("|")]
-        placeholders = []
-        for item in items:
-            placeholders.append(f"${idx}")
-            values.append(item)
-            idx += 1
-        return f"{col} {op.upper()} ({','.join(placeholders)})", idx
-    def op_between(col, op, val, idx, values):
-        items = [v.strip() for v in val.split("|")]
-        if len(items) != 2:
-            raise Exception(f"Between requires 2 values for column {col}, got: {val}")
-        values.extend(items)
-        return f"{col} BETWEEN ${idx} AND ${idx+1}", idx + 2
-    def op_default(col, op, val, idx, values):
-        values.append(val)
-        return f"{col} {op.upper()} ${idx}", idx + 1
-    operator_map = {
-        "null": op_null,
-        "in": op_in,
-        "not in": op_in,
-        "between": op_between,
-        "like": op_default,
-        "ilike": op_default,
-        "~": op_default,
-        "~*": op_default,
-        "=": op_default,
-        ">": op_default,
-        "<": op_default,
-        ">=": op_default,
-        "<=": op_default,
-    }
-    for col, expr in filters.items():
+    filters = {k: v for k,v in obj.items() if k not in ["table","order","limit","page","column"]}
+    conditions, values, idx = [], [], 1
+    serialized_values = {}
+    for k, expr in filters.items():
+        if expr.lower().startswith("point,"):
+            serialized_values[k] = expr
+            continue
         try:
             op, val = expr.split(",", 1)
         except Exception:
-            raise Exception(f"Invalid format for {col}: {expr}, expected 'operator,value'")
+            raise Exception(f"Invalid filter format for column {k}: {expr}")
         op = op.strip().lower()
         val = val.strip()
-        if val.lower() == "null":
-            handler = operator_map.get("null")
+        datatype = postgres_column_datatype.get(k) if postgres_column_datatype else None
+        if op in ["in", "not in"]:
+            items = []
+            for x in val.split("|"):
+                if function_postgres_object_serialize:
+                    serialized = await function_postgres_object_serialize({k: datatype}, [{k: x.strip()}])
+                    items.append(serialized[0][k])
+                else:
+                    items.append(x.strip())
+            serialized_values[k] = items
+        elif op == "between":
+            parts = val.split("|")
+            if len(parts) != 2: raise Exception(f"Between requires 2 values for column {k}")
+            items = []
+            for x in parts:
+                if function_postgres_object_serialize:
+                    serialized = await function_postgres_object_serialize({k: datatype}, [{k: x.strip()}])
+                    items.append(serialized[0][k])
+                else:
+                    items.append(x.strip())
+            serialized_values[k] = items
+        elif val.lower() == "null":
+            serialized_values[k] = None
         else:
-            handler = operator_map.get(op)
-        if not handler:
-            raise Exception(f"Unsupported operator '{op}' for column {col}")
+            if function_postgres_object_serialize:
+                serialized = await function_postgres_object_serialize({k: datatype}, [{k: val}])
+                serialized_values[k] = serialized[0][k]
+            else:
+                serialized_values[k] = val
+    def op_null(col, op, val, idx, values):
+        if op not in ["is","is not"]: raise Exception(f"Null only allowed with 'is'/'is not' for {col}")
+        return f"{col} {op.upper()} NULL", idx
+    def op_in(col, op, val, idx, values):
+        placeholders = []
+        for v in val:
+            values.append(v)
+            placeholders.append(f"${idx}")
+            idx += 1
+        return f"{col} {op.upper()} ({','.join(placeholders)})", idx
+    def op_between(col, op, val, idx, values):
+        values.extend(val)
+        return f"{col} BETWEEN ${idx} AND ${idx+1}", idx+2
+    def op_default(col, op, val, idx, values):
+        values.append(val)
+        return f"{col} {op.upper()} ${idx}", idx+1
+    operator_map = {
+        "null": op_null, "in": op_in, "not in": op_in, "between": op_between,
+        "=": op_default, ">": op_default, "<": op_default, ">=": op_default, "<=": op_default,
+        "like": op_default, "ilike": op_default, "~": op_default, "~*": op_default
+    }
+    point_queries = []
+    for col, expr in filters.items():
+        if expr.lower().startswith("point,"):
+            try:
+                _, rest = expr.split(",",1)
+                long, lat, min_meter, max_meter = [float(x) for x in rest.split("|")]
+            except Exception:
+                raise Exception(f"Invalid point filter for column {col}: {expr}")
+            point_queries.append(f"ST_Distance({col}, ST_Point({long}, {lat})::geography) BETWEEN {min_meter} AND {max_meter}")
+            continue
+        op = expr.split(",",1)[0].strip().lower()
+        val = serialized_values[col]
+        handler = operator_map.get(op if val is not None else "null")
+        if not handler: raise Exception(f"Unsupported operator '{op}' for column {col}")
         cond, idx = handler(col, op, val, idx, values)
         conditions.append(cond)
-    where_string = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    if location_filter:
-        try:
-            parts = location_filter.split(",")
-            long, lat = float(parts[0]), float(parts[1])
-            min_meter, max_meter = int(parts[2]), int(parts[3])
-        except Exception:
-            raise Exception("Invalid location_filter format. Expected 'long,lat,min_meter,max_meter'")
-        query = f"""
-            WITH x AS (SELECT {columns} FROM {table} {where_string}),
-                 y AS (SELECT *, ST_Distance(location, ST_Point({long}, {lat})::geography) AS distance_meter FROM x)
-            SELECT * FROM y
-            WHERE distance_meter BETWEEN {min_meter} AND {max_meter}
-            ORDER BY {order} LIMIT {limit} OFFSET {(page - 1) * limit};
-        """
-    else:
-        query = f"SELECT {columns} FROM {table} {where_string} ORDER BY {order} LIMIT {limit} OFFSET {(page - 1) * limit};"
+    where_conditions = conditions + point_queries
+    where_string = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
+    query = f"SELECT {columns} FROM {table} {where_string} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         try:
             records = await conn.fetch(query, *values)
             return [dict(r) for r in records]
         except Exception as e:
             raise Exception(f"Failed to read: {e}")
-        
+
 async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=5000):
     """
     1. Update without created_by_id filter
@@ -778,7 +776,7 @@ async def function_postgres_index_drop_all(client_postgres_pool):
  
 import hashlib, json
 from dateutil import parser
-async def function_postgres_object_serialize(postgres_column_datatype, obj_list):
+async def function_postgres_object_serialize(postgres_column_datatype,obj_list):
     for obj in obj_list:
         for k, v in obj.items():
             if v in [None, "", "null"]:

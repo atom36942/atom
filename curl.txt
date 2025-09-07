@@ -60,13 +60,6 @@ curl -X PUT "$baseurl/my/object-update?table=test&is_serialize=1" -H "Authorizat
 curl -X PUT "$baseurl/my/object-update?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1763,"title":"jsonb","metadata":{"ip":"127.0.0.1","device":"app"}}'
 curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":"123"}'
 0 curl -X PUT "$baseurl/my/object-update?table=users&otp=123" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"email":"test"}'
-
-
-
-
-
-
-
-
-
-
+curl -X PUT "$baseurl/my/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1919,1920,1921","column":"is_deleted","value":1}'
+curl -X POST "$baseurl/my/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1919,1920,1921"}'
+curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $token"

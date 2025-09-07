@@ -23,7 +23,7 @@ async def function_api_public_object_create(request:Request):
 async def function_api_public_object_read(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["creator_key_list","list",0,[]]])
    if param["table"] not in config_public_table_read_list:raise Exception("table not allowed")
-   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param)
+   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
    if param["creator_key_list"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key_list"])
    return {"status":1,"message":obj_list}
 

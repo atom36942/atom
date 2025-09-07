@@ -114,17 +114,6 @@ async def function_api_my_object_update(request:Request):
    output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj],None if param["table"]=="users" else request.state.user["id"])
    return {"status":1,"message":output}
 
-
-
-
-
-
-
-
-
-
-
-
 @router.put("/my/ids-update")
 async def function_api_my_ids_update(request:Request):
    param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
@@ -143,10 +132,7 @@ async def function_api_my_ids_delete(request:Request):
 
 @router.get("/my/object-read")
 async def function_api_my_object_read(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None],["creator_key_list","list",0,[]]])
+   param=await function_param_read("query",request,[["table",None,1,None]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
-   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param)
-   if param["creator_key_list"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key_list"])
+   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
    return {"status":1,"message":obj_list}
-
-
