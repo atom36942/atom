@@ -4,34 +4,32 @@ from extend import *
 #api
 @router.post("/admin/object-create")
 async def function_api_admin_object_create(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None]])
+   param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0]])
    obj=await function_param_read("body",request,[])
    if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):obj["created_by_id"]=request.state.user["id"]
    if len(obj)<=1:raise Exception("obj issue")
+   if param["is_serialize"]:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
    output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
    return {"status":1,"message":output}
 
 @router.put("/admin/object-update")
 async def function_api_admin_object_update(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None],["queue",None,0,None]])
+   param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
    obj=await function_param_read("body",request,[])
+   if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):obj["updated_by_id"]=request.state.user["id"]
    if "id" not in obj:raise Exception("id missing")
    if len(obj)<=1:raise Exception("obj length issue")
-   if "password" in obj:obj["password"]=hashlib.sha256(str(obj["password"]).encode()).hexdigest()
-   if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):obj["updated_by_id"]=request.state.user["id"]
+   if param["is_serialize"] or "password" in obj:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
    if not param["queue"]:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj])
-   elif param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,"function_postgres_object_update",[param["table"],[obj],1])
-   elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,"channel_1",{"function":"function_postgres_object_update","table":param["table"],"obj_list":[obj],"is_serialize":1})
-   elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,"channel_1",{"function":"function_postgres_object_update","table":param["table"],"obj_list":[obj],"is_serialize":1})
-   elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,"channel_1",{"function":"function_postgres_object_update","table":param["table"],"obj_list":[obj],"is_serialize":1})
+   else:
+      function_name="function_postgres_object_update"
+      param_list=[param["table"],[obj]]
+      payload={"function":function_name,"table":param["table"],"obj_list":[obj]}
+      if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,function_name,param_list)
+      elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,"channel_1",payload)
+      elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,"channel_1",payload)
+      elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,"channel_1",payload)
    return {"status":1,"message":output}
-
-@router.get("/admin/object-read")
-async def function_api_admin_object_read(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None],["creator_key_list","list",0,[]]])
-   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype)
-   if param["creator_key_list"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key_list"])
-   return {"status":1,"message":obj_list}
 
 @router.put("/admin/ids-update")
 async def function_api_admin_ids_update(request:Request):
@@ -46,7 +44,8 @@ async def function_api_admin_ids_delete(request:Request):
    await function_postgres_ids_delete(request.app.state.client_postgres_pool,param["table"],param["ids"],None)
    return {"status":1,"message":"done"}
 
-
-
-
-
+@router.get("/admin/object-read")
+async def function_api_admin_object_read(request:Request):
+   param=await function_param_read("query",request,[["table",None,1,None]])
+   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data)
+   return {"status":1,"message":obj_list}

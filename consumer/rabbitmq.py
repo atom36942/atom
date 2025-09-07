@@ -21,8 +21,11 @@ async def logic():
       async def aqmp_callback(message:aio_pika.IncomingMessage):
          async with message.process():
             payload=json.loads(message.body)
-            if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
-            elif payload["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
+            function_name=payload["function"]
+            if function_name=="function_postgres_object_create":
+               asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
+            elif function_name=="function_postgres_object_update":
+               asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
             print(f"{payload.get('function')} task created")
       client_postgres_pool=await function_postgres_client_read(config_postgres_url)
       client_rabbitmq,client_rabbitmq_consumer=await function_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)

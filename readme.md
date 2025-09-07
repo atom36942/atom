@@ -37,7 +37,7 @@ config_redis_pubsub_url=redis://localhost:6379
 
 ## Misc
 ```bash
-#test curls
+#test curl
 ./curl.sh
 
 #docker
@@ -102,5 +102,3 @@ INSERT INTO test (type, title, location) VALUES
 #page
 http://127.0.0.1:8000/page/test
 ```
-
-

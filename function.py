@@ -1116,6 +1116,11 @@ async def function_token_check(request,config_api,config_key_root,config_key_jwt
       elif config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
    return user
 
+async def function_token_must(request):
+    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
+    if not token:raise Exception("token missing")
+    return None
+
 #app
 from fastapi import FastAPI
 def function_fastapi_app_read(is_debug,lifespan):

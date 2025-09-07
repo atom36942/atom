@@ -24,8 +24,11 @@ async def logic():
       async for message in client_redis_consumer.listen():
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():
             payload=json.loads(message['data'])
-            if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
-            elif payload["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
+            function_name=payload["function"]
+            if function_name=="function_postgres_object_create":
+               asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
+            elif function_name=="function_postgres_object_update":
+               asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
             print(f"{payload.get('function')} task created")
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))

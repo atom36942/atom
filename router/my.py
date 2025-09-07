@@ -80,7 +80,7 @@ async def function_api_my_object_create_mongodb(request:Request):
 
 @router.post("/my/object-create")
 async def function_api_my_object_create(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None],["queue",None,0,None],["is_serialize","int",0,0]])
+   param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
    obj=await function_param_read("body",request,[])
    obj["created_by_id"]=request.state.user["id"]
    if param["table"] in ["users"]:raise Exception("table not allowed")
@@ -90,8 +90,10 @@ async def function_api_my_object_create(request:Request):
    if not param["queue"]:output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
    elif param["queue"]=="buffer":output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj],"buffer")
    else:
-      payload={"function":"function_postgres_object_create","table":param["table"],"obj_list":[obj]}
-      if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,"function_postgres_object_create",[param["table"],[obj]])
+      function_name="function_postgres_object_create"
+      param_list=[param["table"],[obj]]
+      payload={"function":function_name,"table":param["table"],"obj_list":[obj]}
+      if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,function_name,param_list)
       elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,"channel_1",payload)
       elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,"channel_1",payload)
       elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,"channel_1",payload)
@@ -99,7 +101,7 @@ async def function_api_my_object_create(request:Request):
 
 @router.put("/my/object-update")
 async def function_api_my_object_update(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None],["otp","int",0,0],["is_serialize","int",0,0]])
+   param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0],["otp","int",0,0]])
    obj=await function_param_read("body",request,[])
    obj["updated_by_id"]=request.state.user["id"]
    if "id" not in obj:raise Exception("id missing")

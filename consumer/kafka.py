@@ -27,8 +27,11 @@ async def logic():
       async for message in client_kafka_consumer:
          if message.topic=="channel_1":
             payload=json.loads(message.value.decode('utf-8'))
-            if payload["function"]=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
-            elif payload["function"]=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
+            function_name=payload["function"]
+            if function_name=="function_postgres_object_create":
+               asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
+            elif function_name=="function_postgres_object_update":
+               asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
             if not config_enable_auto_commit:await client_kafka_consumer.commit()
             print(f"{payload.get('function')} task created")
    except asyncio.CancelledError:print("consumer cancelled")
