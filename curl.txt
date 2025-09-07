@@ -81,7 +81,16 @@ curl -X GET "$baseurl/public/object-read?table=test&page=2"
 curl -X GET "$baseurl/public/object-read?table=test&column=id,title"
 curl -X GET "$baseurl/public/object-read?table=test&creator_key=username,email"
 curl -X GET "$baseurl/public/object-read?table=test&id=>,1"
+curl -X GET "$baseurl/public/object-read?table=test&created_at=>,2000-01-01"
+curl -X GET "$baseurl/public/object-read?table=test&id=in,1|2|3"
+curl -X GET "$baseurl/public/object-read?table=test&title=not%20in,buffer|celery"
 curl -X GET "$baseurl/public/object-read?table=test&title=is,null"
+curl -X GET "$baseurl/public/object-read?table=test&title=is%20not,null"
+curl -X GET "$baseurl/public/object-read?table=test&created_at=between,2000-01-01|3000-01-01"
+curl -X GET "$baseurl/public/object-read?table=test&title=ilike,%buf%"
+curl -X GET "$baseurl/public/object-read?table=test&title=~*,%buf*"
+curl -X GET "$baseurl/public/object-read?table=test&location=point,80.00|15.00|100|1000"
+curl -X GET "$baseurl/public/object-read?table=test&order=id%20asc&limit=3&page=2&column=id%2Ccreated_by_id%2Ctitle&creator_key=username%2Cemail&id=%3E%2C1&id=in%2C1%7C2%7C3&created_at=%3E%2C2000-01-01&created_at=between%2C2000-01-01%7C3000-01-01&title=not%20in%2Cbuffer%7Ccelery&title=is%2Cnull&title=is%20not%2Cnull&title=ilike%2C%25buf%25&title=~*%2Cbuf*&location=point%2C80.00%7C15.00%7C100%7C1000"
 
 
 

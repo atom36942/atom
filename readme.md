@@ -86,6 +86,19 @@ x="postgresql://atom@127.0.0.1/postgres"
 y="select * from users limit 10"
 asyncio.run(function_postgres_export(x,y))
 
+#location
+INSERT INTO test (type, title, location) VALUES
+(1, 'Near 100m',  'POINT(80.0009 15.0009)'),
+(2, 'Near 200m',  'POINT(80.0018 15.0018)'),
+(3, 'Near 300m',  'POINT(80.0027 15.0027)'),
+(4, 'Near 400m',  'POINT(80.0036 15.0036)'),
+(5, 'Near 500m',  'POINT(80.0045 15.0045)'),
+(6, 'Near 600m',  'POINT(80.0054 15.0054)'),
+(7, 'Near 700m',  'POINT(80.0063 15.0063)'),
+(8, 'Near 800m',  'POINT(80.0072 15.0072)'),
+(9, 'Near 900m',  'POINT(80.0081 15.0081)'),
+(10,'Near 1000m', 'POINT(80.0090 15.0090)');
+
 #page
 http://127.0.0.1:8000/page/test
 ```

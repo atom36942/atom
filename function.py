@@ -413,35 +413,23 @@ async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
 async def function_postgres_object_read(client_postgres_pool, table, obj={}, function_postgres_object_serialize=None, postgres_column_datatype=None, function_add_creator_data= None):
     """
     obj:{"column":"operator,value"}
-    Supported operator:
-    =, >, <, >=, <=
-    is,null
-    is not,null
-    in,val1|val2|val3
-    not in,val1|val2|val3
-    between,val1|val2
-    like,%pattern%
-    ilike,%pattern%
-    ~,regex
-    ~*,regex
     Examples:
-    await function_postgres_object_read(pool, "orders")
-    await function_postgres_object_read(pool, "orders", {"order": "id asc"})
-    await function_postgres_object_read(pool, "orders", {"limit": 10})
-    await function_postgres_object_read(pool, "orders", {"page" :2})
-    await function_postgres_object_read(pool, "orders", {"column": "id,name,category"})
-    await function_postgres_object_read(pool, "orders", {"creator_key": "username,email"})
-    await function_postgres_object_read(pool, "orders", {"created_by_id": "=,1"})
-    await function_postgres_object_read(pool, "stores", {"location": "point,17.78|83.03|500|1000"})
-    await function_postgres_object_read(pool, "users",  {"created_at": ">=,2025-01-01"})
-    await function_postgres_object_read(pool, "users",  {"id": "in,1|2|3|4"})
-    await function_postgres_object_read(pool, "users",  {"role": "not in,admin|superuser"})
-    await function_postgres_object_read(pool, "users",  {"role": "is not,null"})
-    await function_postgres_object_read(pool, "orders", {"created_at": "between,2025-01-01|2025-12-31"})
-    await function_postgres_object_read(pool, "orders", {"name": "like,%phone%"})
-    await function_postgres_object_read(pool, "orders", {"description": "ilike,%premium%"})
-    await function_postgres_object_read(pool, "orders", {"message": "~,error.*"})
-    await function_postgres_object_read(pool, "orders", {"message": "~*,warning.*"})
+    await function_postgres_object_read(pool, "test")
+    await function_postgres_object_read(pool, "test", {"order":"id asc"})
+    await function_postgres_object_read(pool, "test", {"limit":10})
+    await function_postgres_object_read(pool, "test", {"page":2})
+    await function_postgres_object_read(pool, "test", {"column":"id,created_by_id,title"})
+    await function_postgres_object_read(pool, "test", {"creator_key":"username,email"})
+    await function_postgres_object_read(pool, "test", {"id":">,1"})
+    await function_postgres_object_read(pool, "test", {"created_at":">=,2000-01-01"})
+    await function_postgres_object_read(pool, "test", {"id":"in,1|2|3|4"})
+    await function_postgres_object_read(pool, "test", {"title":"not in,buffer|celery"})
+    await function_postgres_object_read(pool, "test", {"title":"is,null"})
+    await function_postgres_object_read(pool, "test", {"title":"is not,null"})
+    await function_postgres_object_read(pool, "test", {"created_at":"between,2000-01-01|3000-01-01"})
+    await function_postgres_object_read(pool, "test", {"title":"ilike,%buf%"})
+    await function_postgres_object_read(pool, "test", {"title":"~*,buf*"})
+    await function_postgres_object_read(pool, "test", {"location":"point,80.00|15.00|100|1000"})
     """
     order = obj.get("order", "id desc")
     limit = int(obj.get("limit", 100))

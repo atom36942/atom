@@ -78,8 +78,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
             : > "$output_fail"
         fi
         {
-            echo "🚀 $url"
-            echo "❌ $body"
+            echo "$command_line"
+            echo "$body"
             echo
         } >> "$output_fail"
         ((count_fail++))
