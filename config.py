@@ -115,6 +115,7 @@ config_api={
 "/admin/ids-update":{"id":4},
 "/admin/ids-delete":{"id":5},
 "/public/object-read":{"id":8,"cache_sec":["inmemory",60]},
+"/my/profile":{"id":9,"is_active_check":1,"cache_sec":["inmemory",10]},
 "/test":{"id":100,"is_token":0,"is_active_check":0,"cache_sec":["redis",60],"ratelimiter_times_sec":[1,3]},
 }
 config_postgres_schema={
@@ -138,6 +139,8 @@ config_postgres_schema={
 "remark-text-0-btree,gin",
 "location-geography(POINT)-0-gist",
 "dob-date-0-0",
+"is_public-boolean-0-btree",
+"tags-text[]-0-gin",
 "metadata-jsonb-0-gin"
 ],
 "log_api":[

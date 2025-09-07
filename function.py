@@ -538,24 +538,14 @@ async def function_postgres_object_read(client_postgres_pool, table, obj):
 async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=5000):
     """
     1. Update without created_by_id filter
-       await function_postgres_object_update(pool, "users", [{"id": 2, "name": "Bob", "age": 25}])
+       await function_postgres_object_update(pool, "users", [{"id":2,"name":"Bob","age":25},{"id":3,"name":"Ryan","age":30}])
     2. Update with created_by_id filter
        await function_postgres_object_update(pool, "users", [{"id": 1, "name": "Alice", "age": 30}], created_by_id=42)
-    3. Update with boolean and float
-       await function_postgres_object_update(pool, "products", [{"id": 5, "price": 19.99, "active": True}])
-    4. Update with date and timestamp
-       from datetime import date, datetime
-       await function_postgres_object_update(pool, "events", [{"id": 10, "event_date": date.today(), "updated_at": datetime.utcnow()}])
-    5. Update with JSONB
-       await function_postgres_object_update(pool, "orders", [{"id": 100, "metadata": {"coupon": "NEWUSER", "discount": 10}}])
-    6. Update with list / Postgres ARRAY
-       await function_postgres_object_update(pool, "tags", [{"id": 7, "labels": ["urgent", "review", "internal"]}])
     """
     if not obj_list: return None
     cols = [c for c in obj_list[0] if c != "id"]
     max_batch = 65535 // (len(cols) + 1 + (1 if created_by_id else 0))
     batch_size = min(batch_size, max_batch)
-
     async with client_postgres_pool.acquire() as conn:
         if len(obj_list) == 1:
             params = [obj_list[0][c] for c in cols] + [obj_list[0]["id"]]

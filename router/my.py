@@ -97,6 +97,23 @@ async def function_api_my_object_create(request:Request):
       elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,"channel_1",payload)
    return {"status":1,"message":output}
 
+@router.put("/my/object-update")
+async def function_api_my_object_update(request:Request):
+   param=await function_param_read("query",request,[["table",None,1,None],["otp","int",0,0],["is_serialize","int",0,0]])
+   obj=await function_param_read("body",request,[])
+   obj["updated_by_id"]=request.state.user["id"]
+   if "id" not in obj:raise Exception("id missing")
+   if len(obj)<=2:raise Exception("obj length issue")
+   if param["is_serialize"] or "password" in obj:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
+   if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
+   if param["table"]=="users":
+      if obj["id"]!=request.state.user["id"]:raise Exception("ownership issue")
+      if any(key in obj and len(obj)!=3 for key in ["password","email","mobile"]):raise Exception("obj length should be 2")
+      if config_is_otp_verify_profile_update and any(key in obj and not param["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
+      if param["otp"]:await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],obj.get("email"),obj.get("mobile"))
+   output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj],None if param["table"]=="users" else request.state.user["id"])
+   return {"status":1,"message":output}
+
 
 
 
@@ -132,24 +149,4 @@ async def function_api_my_object_read(request:Request):
    if param["creator_key_list"]:obj_list=await function_add_creator_data(request.app.state.client_postgres_pool,obj_list,param["creator_key_list"])
    return {"status":1,"message":obj_list}
 
-@router.put("/my/object-update")
-async def function_api_my_object_update(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None],["otp","int",0,0]])
-   obj=await function_param_read("body",request,[])
-   obj["updated_by_id"]=request.state.user["id"]
-   if "id" not in obj:raise Exception("id missing")
-   if len(obj)<=2:raise Exception("obj length issue")
-   if "password" in obj:obj["password"]=hashlib.sha256(str(obj["password"]).encode()).hexdigest()
-   if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
-   if param["table"]=="users":
-      if obj["id"]!=request.state.user["id"]:raise Exception("ownership issue")
-      if any(key in obj and len(obj)!=3 for key in ["password"]):raise Exception("obj length should be 2")
-      if config_is_otp_verify_profile_update and any(key in obj and not param["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
-   if param["otp"]:
-      email,mobile=obj.get("email"),obj.get("mobile")
-      if email:await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],email,None)
-      elif mobile:await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],None,mobile)
-   if param["table"]=="users":output=await function_postgres_object_update(request.app.state.client_postgres_pool,"users",[obj])
-   else:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj],request.state.user["id"])
-   return {"status":1,"message":output}
 
