@@ -86,7 +86,7 @@ x="postgresql://atom@127.0.0.1/postgres"
 y="select * from users limit 10"
 asyncio.run(function_postgres_export(x,y))
 
-#location
+#postgres sample insert
 INSERT INTO test (type, title, location) VALUES
 (1, 'Near 100m',  'POINT(80.0009 15.0009)'),
 (2, 'Near 200m',  'POINT(80.0018 15.0018)'),
@@ -99,6 +99,7 @@ INSERT INTO test (type, title, location) VALUES
 (9, 'Near 900m',  'POINT(80.0081 15.0081)'),
 (10,'Near 1000m', 'POINT(80.0090 15.0090)');
 
-#page
+#endpoint
 http://127.0.0.1:8000/page/test
+websocat ws://127.0.0.1:8000/ws
 ```
