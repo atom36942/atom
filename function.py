@@ -945,14 +945,16 @@ async def function_stream_file(path,chunk_size=1024*1024):
          yield chunk
 
 import os
-def function_render_html(filename, folder="html"):
-    if ".." in filename:raise Exception("invalid name")
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, folder, f"{filename}.html")
-    if not os.path.exists(file_path):
-        raise Exception("file not found")
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read()
+import aiofiles
+async def function_render_html(filename):
+    if ".." in filename: raise Exception("invalid name")
+    skip_dirs = {"venv","__pycache__",".git",".idea",".vscode","node_modules"}
+    for root, dirs, files in os.walk("."):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in skip_dirs]
+        if filename in files:
+            async with aiofiles.open(os.path.join(root, filename), "r", encoding="utf-8") as f:
+                return await f.read()
+    raise Exception("file not found")
 
 async def function_param_read(mode, request, config):
     if mode == "query":

@@ -55,7 +55,7 @@ venv/bin/python -m consumer.redis
 
 
 
-## zzz
+## Misc
 ```bash
 #package
 ./venv/bin/pip install fastapi
