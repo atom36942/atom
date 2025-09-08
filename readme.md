@@ -10,6 +10,7 @@
 
 
 
+
 ## Installation
 ```bash
 #setup
@@ -35,7 +36,7 @@ config_redis_pubsub_url=redis://localhost:6379
 
 
 
-## Misc
+## Commands
 ```bash
 #test curl
 ./curl.sh
@@ -44,17 +45,23 @@ config_redis_pubsub_url=redis://localhost:6379
 docker build -t atom .
 docker run -p 8000:8000 atom
 
-#package
-./venv/bin/pip install fastapi
-./venv/bin/pip install --upgrade fastapi
-./venv/bin/pip uninstall fastapi
-./venv/bin/pip freeze > requirements.txt
-
 #consumer
 venv/bin/celery -A consumer.celery worker --loglevel=info
 venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
+```
+
+
+
+
+## zzz
+```bash
+#package
+./venv/bin/pip install fastapi
+./venv/bin/pip install --upgrade fastapi
+./venv/bin/pip uninstall fastapi
+./venv/bin/pip freeze > requirements.txt
 
 #cli
 postgres=psql postgresql://atom@127.0.0.1/postgres

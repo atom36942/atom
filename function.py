@@ -601,10 +601,12 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
     bytea:    {"file_data": b"\\x89504e470d0a1a0a..."}  # binary data (e.g., image)
     """
     global inmemory_cache_object_create, table_object_key
-    if obj_list and len(obj_list)==1:returning_ids=True
+    if obj_list and len(obj_list) == 1:
+        returning_ids = True
     async def _execute_insert(tbl, objs):
         if not objs: return None
-        cols = list(objs[0].keys())
+        # ensure all rows have same columns as first row
+        cols = list(table_object_key.get(tbl, objs[0].keys()))
         col_count = len(cols)
         max_batch = 65535 // col_count
         batch_size_eff = min(batch_size, max_batch)
@@ -613,12 +615,14 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
         async with client_postgres_pool.acquire() as conn:
             async with conn.transaction():
                 for i in range(0, len(objs), batch_size_eff):
-                    batch = objs[i:i+batch_size_eff]
+                    batch = objs[i:i + batch_size_eff]
                     vals, rows_sql = [], []
                     for j, o in enumerate(batch):
-                        start = j*col_count+1
-                        rows_sql.append(f"({', '.join([f'${k}' for k in range(start,start+col_count)])})")
-                        vals.extend(o.values())
+                        start = j * col_count + 1
+                        # fill missing keys with None
+                        row_vals = [o.get(k) for k in cols]
+                        rows_sql.append(f"({', '.join([f'${k}' for k in range(start, start + col_count)])})")
+                        vals.extend(row_vals)
                     q = f"insert into {tbl} ({','.join(cols)}) values {','.join(rows_sql)} {conflict_clause}"
                     if returning_ids:
                         q += " returning id;"
@@ -631,11 +635,16 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
         if mode == "now":
             return await _execute_insert(table, obj_list)
         elif mode == "buffer":
-            if table not in inmemory_cache_object_create: inmemory_cache_object_create[table] = []
-            if table not in table_object_key or not table_object_key[table]: table_object_key[table] = list(obj_list[0].keys())
+            if table not in inmemory_cache_object_create:
+                inmemory_cache_object_create[table] = []
+            # set table columns if first insert
+            if table not in table_object_key or not table_object_key[table]:
+                table_object_key[table] = list(obj_list[0].keys())
+            # adjust rows to match table keys
             for o in obj_list:
-                if set(o.keys()) != set(table_object_key[table]): 
-                    raise Exception(f"keys should be {table_object_key[table]}")
+                for k in table_object_key[table]:
+                    if k not in o:
+                        o[k] = None
             inmemory_cache_object_create[table].extend(obj_list)
             if len(inmemory_cache_object_create[table]) >= buffer:
                 objs_to_insert = inmemory_cache_object_create[table]
@@ -655,7 +664,7 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
             return results
         else:
             raise Exception("mode must be 'now', 'buffer', or 'flush'")
-        
+
 import csv, re
 from io import StringIO
 async def function_postgres_stream(client_postgres_asyncpg_pool, query, batch_size=1000, output_path=None):
@@ -936,20 +945,15 @@ async def function_stream_file(path,chunk_size=1024*1024):
          yield chunk
 
 import os
-def function_render_html(filename):
-    if ".." in filename: 
-        raise Exception("invalid name")
-    match = None
-    for root, dirs, files in os.walk("."):
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "venv"]
-        if f"{filename}.html" in files:
-            match = os.path.join(root, f"{filename}.html")
-            break
-    if not match: 
+def function_render_html(filename, folder="html"):
+    if ".." in filename:raise Exception("invalid name")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, folder, f"{filename}.html")
+    if not os.path.exists(file_path):
         raise Exception("file not found")
-    with open(match, "r", encoding="utf-8") as file:
-        return file.read()
-    
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
+
 async def function_param_read(mode, request, config):
     if mode == "query":
         param = dict(request.query_params)

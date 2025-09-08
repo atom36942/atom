@@ -31,6 +31,12 @@ async def function_api_admin_object_update(request:Request):
       elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,"channel_1",payload)
    return {"status":1,"message":output}
 
+@router.get("/admin/object-read")
+async def function_api_admin_object_read(request:Request):
+   param=await function_param_read("query",request,[["table",None,1,None]])
+   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data)
+   return {"status":1,"message":obj_list}
+
 @router.put("/admin/ids-update")
 async def function_api_admin_ids_update(request:Request):
    param=await function_param_read("body",request,[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
@@ -43,9 +49,3 @@ async def function_api_admin_ids_delete(request:Request):
    if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    await function_postgres_ids_delete(request.app.state.client_postgres_pool,param["table"],param["ids"],None)
    return {"status":1,"message":"done"}
-
-@router.get("/admin/object-read")
-async def function_api_admin_object_read(request:Request):
-   param=await function_param_read("query",request,[["table",None,1,None]])
-   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data)
-   return {"status":1,"message":obj_list}
