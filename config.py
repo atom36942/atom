@@ -94,7 +94,7 @@ config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_
 config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test").split(",")
 config_public_table_read_list=(os.getenv("config_public_table_read_list") or "test").split(",")
 
-#misc
+#zzz
 config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))
 config_column_disabled_list=(os.getenv("config_column_disabled_list") or "is_active,is_verified,api_access").split(",")
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 100)

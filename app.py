@@ -35,6 +35,7 @@ async def function_lifespan(app:FastAPI):
       #app shutdown
       yield
       await function_postgres_object_create(client_postgres_pool,None,None,"flush")
+      function_delete_files(["export_"],[".csv"],".")
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
       if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()
@@ -45,7 +46,6 @@ async def function_lifespan(app:FastAPI):
       if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed:await client_rabbitmq_producer.close()
       if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
       if client_redis_producer:await client_redis_producer.aclose()
-      function_delete_files(["export_"],[".csv"],".")
    except Exception as e:
       print(str(e))
       print(traceback.format_exc())

@@ -145,5 +145,5 @@ env.py
 *.pdf
 *.docx
 *.sql
-zzz.py
 export*
+zzzz.py
