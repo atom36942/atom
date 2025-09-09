@@ -9,8 +9,7 @@ async def function_api_auth_signup_username_password(request:Request):
     if param["type"] not in config_auth_type_list:raise Exception("type not allowed")
     user=await function_auth_signup_username_password(request.app.state.client_postgres_pool,param["type"],param["username"],param["password"])
     token=await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    output={"user":user,"token":token}
-    return {"status":1,"message":output}
+    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/signup-username-password-bigint")
 async def function_api_auth_signup_username_password_bigint(request:Request):
@@ -19,8 +18,7 @@ async def function_api_auth_signup_username_password_bigint(request:Request):
     if param["type"] not in config_auth_type_list:raise Exception("type not allowed")
     user=await function_auth_signup_username_password_bigint(request.app.state.client_postgres_pool,param["type"],param["username_bigint"],param["password_bigint"])
     token=await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    output={"user":user,"token":token}
-    return {"status":1,"message":output}
+    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-password-username")
 async def function_api_auth_login_password_username(request:Request):

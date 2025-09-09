@@ -86,19 +86,20 @@ async def function_api_my_object_create(request:Request):
    if param["table"] in ["users"]:raise Exception("table not allowed")
    if len(obj)<=1:raise Exception("obj issue")
    if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
-   if param["is_serialize"]:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
+   if param["is_serialize"] or "password" in obj:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
    if not param["queue"]:output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
    elif param["queue"]=="buffer":output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj],"buffer")
    else:
       function_name="function_postgres_object_create"
       param_list=[param["table"],[obj]]
+      channel_name="channel_1"
       payload={"function":function_name,"table":param["table"],"obj_list":[obj]}
       if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,function_name,param_list)
-      elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,"channel_1",payload)
-      elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,"channel_1",payload)
-      elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,"channel_1",payload)
+      elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,channel_name,payload)
+      elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,channel_name,payload)
+      elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,channel_name,payload)
    return {"status":1,"message":output}
-
+ 
 @router.put("/my/object-update")
 async def function_api_my_object_update(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0],["otp","int",0,0]])
