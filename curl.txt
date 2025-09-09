@@ -37,7 +37,7 @@ curl -X DELETE "$baseurl/my/message-delete-single?id=1" -H "Authorization: Beare
 curl -X DELETE "$baseurl/my/message-delete-bulk?mode=all" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/parent-read?table=report_user&parent_column=user_id&parent_table=users" -H "Authorization: Bearer $token"
 0 curl -X POST "$baseurl/my/object-create-mongodb?database=test&table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
-curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"int","is_protected":1}'
+curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"int","is_protected":1}'
 curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1802,"title":"int","is_protected":0}'
 curl -X PUT "$baseurl/my/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1919,1920,1921","column":"is_deleted","value":1}'
 curl -X POST "$baseurl/my/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1919,1920,1921"}'
@@ -69,11 +69,12 @@ curl -X POST "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "C
 #zzz
 curl -X GET "$baseurl/test"
 curl -X GET "$baseurl/page/test"
+0 websocat ws://127.0.0.1:8000/ws
 
-#zzz
+#derived
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"numeric","rating":19.95}'
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"geography","location":"POINT(17.794387 -83.032150)"}'
-curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"boolean","is_public":true}'
+curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"boolean","is_public":false}'
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"array","tags":["java","python","sql"]}'
 curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"date","dob":"1990-01-01"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"timestapmz","created_at":"1990-01-01T12:34:56+05:30"}'
@@ -81,13 +82,6 @@ curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authoriza
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"background"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=buffer" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"buffer"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"queue"}'
-curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1521,"title":"numeric","rating":1111.9523123123123132}'
-curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1553,"title":"geography","location":"POINT(1721312.794387 -834234.032150)"}'
-curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1605,"title":"boolean","is_public":false}'
-curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1615,"title":"array","tags":["test1","test2","test3"]}'
-curl -X PUT "$baseurl/my/object-update?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1523,"title":"date","dob":"2000-01-01"}'
-curl -X PUT "$baseurl/my/object-update?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1735,"title":"timestapmz","created_at":"2000-01-01T12:34:56+05:30"}'
-curl -X PUT "$baseurl/my/object-update?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1763,"title":"jsonb","metadata":{"ip":"127.0.0.1","device":"app"}}'
 curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":"123"}'
 0 curl -X PUT "$baseurl/my/object-update?table=users&otp=123" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"email":"test"}'
 curl -X GET "$baseurl/public/object-read?table=test&order=id%20asc"

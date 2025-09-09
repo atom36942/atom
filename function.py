@@ -20,7 +20,7 @@ def function_delete_files(file_prefix_list=None,extension_list=None,folder_path=
     return None
 
 import os
-def function_export_directory_filename(dir_path=".",output_path="export_filename.txt"):
+def function_export_filename(dir_path=".",output_path="export_filename.txt"):
     skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
     dir_path = os.path.abspath(dir_path)
     with open(output_path, "w") as out_file:

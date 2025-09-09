@@ -106,8 +106,4 @@ INSERT INTO test (type, title, location) VALUES
 (8, 'Near 800m',  'POINT(80.0072 15.0072)'),
 (9, 'Near 900m',  'POINT(80.0081 15.0081)'),
 (10,'Near 1000m', 'POINT(80.0090 15.0090)');
-
-#endpoint
-http://127.0.0.1:8000/page/test
-websocat ws://127.0.0.1:8000/ws
 ```
