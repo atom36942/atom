@@ -66,12 +66,12 @@ curl -X GET "$baseurl/admin/object-read?table=test" -H "Authorization: Bearer $t
 curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,3","column":"title","value":"admin"}'
 curl -X POST "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,3"}'
 
-#zzz
+#misc
 curl -X GET "$baseurl/test"
 curl -X GET "$baseurl/page/test"
 0 websocat ws://127.0.0.1:8000/ws
 
-#derived
+#zzz
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"numeric","rating":19.95}'
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"geography","location":"POINT(17.794387 -83.032150)"}'
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"boolean","is_public":false}'
