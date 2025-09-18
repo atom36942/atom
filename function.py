@@ -161,6 +161,26 @@ async def function_add_creator_data(client_postgres_pool, obj_list, creator_key)
                 obj[f"creator_{key}"] = None
     return obj_list
 
+async def function_add_action_count(client_postgres_pool, obj_list, action_key):
+    if not obj_list or not action_key: return obj_list
+    obj_list = [dict(obj) for obj in obj_list]
+    table, column, operator, operator_column = action_key.split(",")
+    ids = {obj.get("id") for obj in obj_list if obj.get("id")}
+    action_values = {}
+    if ids:
+        query = f"""
+            SELECT {column} AS id, {operator}({operator_column}) AS value
+            FROM {table}
+            WHERE {column} = ANY($1)
+            GROUP BY {column};
+        """
+        rows = await client_postgres_pool.fetch(query, list(ids))
+        action_values = {str(row["id"]): row["value"] for row in rows}
+    for obj in obj_list:
+        obj_id = str(obj.get("id"))
+        obj[f"{table}_{operator}"] = action_values.get(obj_id, 0 if operator == "count" else None)
+    return obj_list
+
 #user
 async def function_user_delete_single(mode, client_postgres_pool,user_id):
     if mode == "soft":
@@ -410,7 +430,7 @@ async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
          await conn.execute(query,threshold_date)
    return None
 
-async def function_postgres_object_read(client_postgres_pool, table, obj={}, function_postgres_object_serialize=None, postgres_column_datatype=None, function_add_creator_data= None):
+async def function_postgres_object_read(client_postgres_pool, table, obj={}, function_postgres_object_serialize=None, postgres_column_datatype=None, function_add_creator_data= None, function_add_action_count=None):
     """
     obj:{"column":"operator,value"}
     Examples:
@@ -436,7 +456,8 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
     page = int(obj.get("page", 1))
     columns = obj.get("column", "*")
     creator_key = obj.get("creator_key")
-    filters = {k: v for k,v in obj.items() if k not in ["table","order","limit","page","column","creator_key"]}
+    action_key = obj.get("action_key")
+    filters = {k: v for k,v in obj.items() if k not in ["table","order","limit","page","column","creator_key","action_key"]}
     conditions, values, idx = [], [], 1
     serialized_values = {}
     for k, expr in filters.items():
@@ -523,6 +544,7 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
             records = await conn.fetch(query, *values)
             obj_list=[dict(r) for r in records]
             if function_add_creator_data and creator_key:obj_list=await function_add_creator_data(client_postgres_pool,obj_list,creator_key)
+            if function_add_action_count and action_key:obj_list=await function_add_action_count(client_postgres_pool,obj_list,action_key)
             return obj_list
         except Exception as e:
             raise Exception(f"Failed to read: {e}")

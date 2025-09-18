@@ -203,6 +203,17 @@ config_postgres_schema={
 "created_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
 "user_id-bigint-1-btree"
+],
+"report_test":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-1-btree",
+"test_id-bigint-1-btree"
+],
+"rating_test":[
+"created_at-timestamptz-0-0",
+"created_by_id-bigint-1-btree",
+"test_id-bigint-1-btree",
+"rating-numeric(10,3)-1-0"
 ]
 },
 "query":{
