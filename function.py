@@ -1,5 +1,9 @@
-#custom
+#extend
 async def function_extend_client():
+   output={}
+   return output
+
+async def function_extend_cache():
    output={}
    return output
 

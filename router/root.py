@@ -1,5 +1,5 @@
 #import
-from extend import *
+from route import *
 
 #api
 @router.get("/root/postgres-init")

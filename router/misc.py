@@ -1,5 +1,5 @@
 #import
-from extend import *
+from route import *
 
 #test
 @router.get("/test")
