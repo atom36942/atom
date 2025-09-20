@@ -113,7 +113,7 @@ async def function_api_my_object_update(request:Request):
       if obj["id"]!=request.state.user["id"]:raise Exception("ownership issue")
       if any(key in obj and len(obj)!=3 for key in ["password","email","mobile"]):raise Exception("obj length should be 2")
       if config_is_otp_verify_profile_update and any(key in obj and not param["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
-      if param["otp"]:await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],obj.get("email"),obj.get("mobile"))
+      if param["otp"]:await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],obj.get("email"),obj.get("mobile"),config_otp_expire_sec)
    output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj],None if param["table"]=="users" else request.state.user["id"])
    return {"status":1,"message":output}
 

@@ -14,7 +14,7 @@ async def function_api_public_info(request:Request):
 @router.get("/public/otp-verify")
 async def function_api_public_otp_verify(request:Request):
    param=await function_param_read("query",request,[["otp","int",1,None],["email",None,0,None],["mobile",None,0,None]])
-   await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],param["email"],param["mobile"])
+   await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],param["email"],param["mobile"],config_otp_expire_sec)
    return {"status":1,"message":"done"}
 
 @router.get("/public/otp-send-email-ses")

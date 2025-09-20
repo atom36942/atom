@@ -222,19 +222,19 @@ async def function_otp_generate(client_postgres_pool,email,mobile):
         await conn.execute(query,*values)
     return otp
 
-async def function_otp_verify(client_postgres_pool,otp,email,mobile):
-    if not email and not mobile:raise Exception("email/mobile any one is must")
-    if email and mobile:raise Exception("only one of email or mobile is allowed")
+async def function_otp_verify(client_postgres_pool, otp, email=None, mobile=None, config_otp_expire_sec=600):
+    if not email and not mobile: raise Exception("email/mobile any one is must")
+    if email and mobile: raise Exception("only one of email or mobile is allowed")
     if email:
-        query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and email=$1 order by id desc limit 1;"
-        value=email.strip().lower()
+        query = f"select otp from otp where created_at>current_timestamp-interval '{config_otp_expire_sec} seconds' and email=$1 order by id desc limit 1;"
+        value = email.strip().lower()
     else:
-        query="select otp from otp where created_at>current_timestamp-interval '10 minutes' and mobile=$1 order by id desc limit 1;"
-        value=mobile.strip()
+        query = f"select otp from otp where created_at>current_timestamp-interval '{config_otp_expire_sec} seconds' and mobile=$1 order by id desc limit 1;"
+        value = mobile.strip()
     async with client_postgres_pool.acquire() as conn:
-        output=await conn.fetch(query,value)
-    if not output:raise Exception("otp not found")
-    if int(output[0]["otp"])!=int(otp):raise Exception("otp mismatch")
+        output = await conn.fetch(query, value)
+    if not output: raise Exception("otp not found")
+    if int(output[0]["otp"]) != int(otp): raise Exception("otp mismatch")
     return None
 
 #message
@@ -341,8 +341,8 @@ async def function_auth_login_password_mobile(client_postgres_pool,type,password
     token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
-async def function_auth_login_otp_email(client_postgres_pool,type,email,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
-    await function_otp_verify(client_postgres_pool,otp,email,None)
+async def function_auth_login_otp_email(client_postgres_pool,type,email,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list,config_otp_expire_sec):
+    await function_otp_verify(client_postgres_pool,otp,email,None,config_otp_expire_sec)
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch("select * from users where type=$1 and email=$2 order by id desc limit 1;",type,email)
         user = output[0] if output else None
@@ -352,8 +352,8 @@ async def function_auth_login_otp_email(client_postgres_pool,type,email,otp,func
     token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return token
 
-async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
-    await function_otp_verify(client_postgres_pool,otp,None,mobile)
+async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,otp,function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list,config_otp_expire_sec):
+    await function_otp_verify(client_postgres_pool,otp,None,mobile,config_otp_expire_sec)
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch("select * from users where type=$1 and mobile=$2 order by id desc limit 1;",type,mobile)
         user = output[0] if output else None

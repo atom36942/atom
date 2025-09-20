@@ -48,14 +48,14 @@ async def function_api_auth_login_password_mobile(request:Request):
 async def function_api_auth_login_otp_email(request:Request):
     param=await function_param_read("body",request,[["type","int",1,None],["otp","int",1,None],["email",None,1,None]])
     if param["type"] not in config_auth_type_list:raise Exception("type not allowed")
-    token=await function_auth_login_otp_email(request.app.state.client_postgres_pool,param["type"],param["email"],param["otp"],function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    token=await function_auth_login_otp_email(request.app.state.client_postgres_pool,param["type"],param["email"],param["otp"],function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list,config_otp_expire_sec)
     return {"status":1,"message":token}
 
 @router.post("/auth/login-otp-mobile")
 async def function_api_auth_login_otp_mobile(request:Request):
     param=await function_param_read("body",request,[["type","int",1,None],["otp","int",1,None],["mobile",None,1,None]])
     if param["type"] not in config_auth_type_list:raise Exception("type not allowed")
-    token=await function_auth_login_otp_mobile(request.app.state.client_postgres_pool,param["type"],param["mobile"],param["otp"],function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    token=await function_auth_login_otp_mobile(request.app.state.client_postgres_pool,param["type"],param["mobile"],param["otp"],function_otp_verify,function_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list,config_otp_expire_sec)
     return {"status":1,"message":token}
 
 @router.post("/auth/login-google")

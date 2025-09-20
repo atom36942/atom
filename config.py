@@ -98,6 +98,7 @@ config_public_table_read_list=(os.getenv("config_public_table_read_list") or "te
 config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))
 config_column_disabled_list=(os.getenv("config_column_disabled_list") or "is_active,is_verified,api_access").split(",")
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 100)
+config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
 
 #dict
 config_user_count_query={
