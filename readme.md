@@ -53,8 +53,6 @@ venv/bin/python -m consumer.redis
 
 
 
-
-
 ## zzz
 ```bash
 #package

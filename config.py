@@ -170,14 +170,14 @@ config_postgres_schema={
 "type-bigint-1-btree",
 "username-text-0-btree",
 "password-text-0-btree",
+"username_bigint-bigint-0-btree",
+"password_bigint-bigint-0-btree",
 "google_id-text-0-btree",
 "google_data-jsonb-0-0",
 "email-text-0-btree",
 "mobile-text-0-btree",
 "api_access-text-0-0",
-"last_active_at-timestamptz-0-0",
-"username_bigint-bigint-0-btree",
-"password_bigint-bigint-0-btree"
+"last_active_at-timestamptz-0-0"
 ],
 "otp":[
 "created_at-timestamptz-0-btree,brin",
