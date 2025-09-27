@@ -10,6 +10,31 @@
 
 
 
+
+
+## Modules
+- one click postgres database setup
+- postgres csv uploader
+- postgres query runner
+- auth apis
+- logged in user apis
+- admin apis
+- api cache using redis
+- celery/kafka/rabbitmq/redis pub-sub queue setup
+- sentry/mongodb/posthog integration
+- otp client integration - fast2sms/resend
+- aws s3,sns,ses integration
+- ratelimiter setup
+- html pages serve
+- postgres crud apis as per rbac
+
+
+
+
+
+
+
+
 ## Installation
 ```bash
 #setup
@@ -35,6 +60,10 @@ config_redis_pubsub_url=redis://localhost:6379
 
 
 
+
+
+
+
 ## Commands
 ```bash
 #test curl
@@ -50,6 +79,10 @@ venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 ```
+
+
+
+
 
 
 
