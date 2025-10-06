@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Jira Worklog Export</title>
+<style>
+  :root{
+    --bg:#0b0d10; --card:#0f1114; --muted:#9aa0a6;
+    --primary:#38a169; --primary-text:#031013;
+    --secondary:#1f2933; --secondary-text:#e6eef3;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#070708);color:#e6eef3;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;}
+  .container{max-width:640px;margin:32px auto;padding:20px;}
+  .card{background:var(--card);border-radius:10px;padding:28px;box-shadow:0 6px 24px rgba(0,0,0,.6);margin-bottom:20px;}
+  h1{margin:0;font-size:18px;font-weight:600;color:#fff}
+  form{display:flex;flex-direction:column;gap:14px}
+  label{font-size:12px;color:var(--muted);margin-bottom:6px}
+  input[type="text"], input[type="email"], input[type="password"], input[type="date"]{
+    width:100%;padding:18px 14px;font-size:16px;border-radius:8px;border:1px solid rgba(255,255,255,.04);
+    background:#0b0d10;color:#e6eef3;outline:none;box-sizing:border-box;
+  }
+  .input-group{position:relative;display:flex;align-items:center;}
+  .toggle-visibility{
+    position:absolute;right:12px;cursor:pointer;color:var(--muted);
+    background:none;border:none;padding:0;
+  }
+  .toggle-visibility:hover{color:#fff;}
+  .row{display:flex;gap:12px}
+  .row > *{flex:1}
+  .btn{margin-top:6px;padding:14px;font-size:15px;border-radius:10px;border:none;cursor:pointer}
+  .btn-primary{background:var(--primary);color:var(--primary-text);}
+  .btn-secondary{background:var(--secondary);color:var(--secondary-text);}
+  .btn:disabled{opacity:.6;cursor:not-allowed;}
+  .small{font-size:13px;color:var(--muted);text-align:left;margin-top:12px;white-space:pre-wrap;}
+  pre{background:#1a1c1f;padding:12px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.5;white-space:pre;}
+  .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .icon-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;}
+  .icon-btn:hover{color:#fff;}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="card">
+    <div class="card-header">
+      <h1>Jira Worklog Export</h1>
+      <button id="copyCurlBtn" type="button" class="icon-btn" title="Copy curl">📋 Copy</button>
+    </div>
+    <pre id="curlBlock">curl -X POST "$baseurl/public/jira-worklog-export" -H "Content-Type: application/json" -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test","start_date":"test","end_date":"test"}' -o export_jira_worklog.csv</pre>
+    <form id="exportForm">
+      <div>
+        <label for="jira_base_url">Jira Base URL</label>
+        <input id="jira_base_url" name="jira_base_url" type="text" placeholder="https://yourcompany.atlassian.net" required />
+      </div>
+      <div>
+        <label for="jira_email">Jira Email</label>
+        <input id="jira_email" name="jira_email" type="email" placeholder="user@example.com" required />
+      </div>
+      <div>
+        <label for="jira_token">Jira API Token</label>
+        <div class="input-group">
+          <input id="jira_token" name="jira_token" type="password" placeholder="token" required />
+          <button type="button" id="toggleToken" class="toggle-visibility" aria-label="Show/Hide token">👁️</button>
+        </div>
+      </div>
+      <div>
+        <label for="start_date">Start Date</label>
+        <input id="start_date" name="start_date" type="text" placeholder="YYYY-MM-DD" required />
+      </div>
+      <div>
+        <label for="end_date">End Date</label>
+        <input id="end_date" name="end_date" type="text" placeholder="YYYY-MM-DD" required />
+      </div>
+      <div class="row">
+        <button id="clearBtn" type="button" class="btn btn-secondary">Clear</button>
+        <button id="submitBtn" type="submit" class="btn btn-primary">Export CSV</button>
+      </div>
+    </form>
+    <div class="small" id="status"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const form = document.getElementById('exportForm');
+  const status = document.getElementById('status');
+  const clearBtn = document.getElementById('clearBtn');
+  const submitBtn = document.getElementById('submitBtn');
+  const toggleBtn = document.getElementById('toggleToken');
+  const tokenInput = document.getElementById('jira_token');
+  const startDateInput = document.getElementById('start_date');
+  const endDateInput = document.getElementById('end_date');
+  const copyCurlBtn = document.getElementById('copyCurlBtn');
+  const curlBlock = document.getElementById('curlBlock');
+
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  startDateInput.value = firstDay.toISOString().split('T')[0];
+  endDateInput.value = lastDay.toISOString().split('T')[0];
+
+  clearBtn.addEventListener('click', ()=>{ form.reset(); status.textContent=''; });
+
+  toggleBtn.addEventListener('click', ()=>{
+    if(tokenInput.type === 'password'){
+      tokenInput.type = 'text'; toggleBtn.textContent = '🙈';
+    } else {
+      tokenInput.type = 'password'; toggleBtn.textContent = '👁️';
+    }
+  });
+
+  copyCurlBtn.addEventListener('click', async ()=>{
+    const text = curlBlock.textContent.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      status.textContent = 'Curl copied to clipboard';
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Failed to copy';
+    }
+  });
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    status.textContent = 'Working...';
+    submitBtn.disabled = true;
+
+    const data = {
+      jira_base_url: form.jira_base_url.value.trim(),
+      jira_email: form.jira_email.value.trim(),
+      jira_token: form.jira_token.value.trim(),
+      start_date: form.start_date.value,
+      end_date: form.end_date.value
+    };
+
+    try{
+      const baseurl = window.location.origin;
+      const resp = await fetch(baseurl + '/public/jira-worklog-export', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      });
+
+      // always read body
+      const text = await resp.text();
+      if(!resp.ok){
+        status.textContent = 'Error: ' + text;
+      } else {
+        // download CSV
+        const blob = new Blob([text], { type: 'text/csv' });
+        const filename = 'export_jira_worklog.csv';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+        a.remove(); URL.revokeObjectURL(url);
+        status.textContent = 'Downloaded: ' + filename;
+      }
+    }catch(err){
+      console.error(err);
+      status.textContent = 'Error: ' + (err.message || err);
+    }finally{
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

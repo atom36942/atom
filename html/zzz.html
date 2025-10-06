@@ -13,7 +13,8 @@
   html,body{
     height:100%; margin:0; background:linear-gradient(180deg,var(--bg),#070708);
     color:#e6eef3; font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
-    display:flex; justify-content:center; align-items:center;
+    display:flex; justify-content:center; align-items:flex-start;
+    padding-top:20px;
   }
   .container{max-width:800px; width:95%; padding:20px;}
   .card{
@@ -26,8 +27,8 @@
   }
   .buttons-container{
     display:grid;
-    grid-template-columns:repeat(3, 1fr); /* default 3 per row */
-    gap:12px;
+    grid-template-columns:repeat(2, 1fr);
+    gap:16px;
     justify-items:center;
     align-items:center;
   }
@@ -38,17 +39,9 @@
   }
   .btn:hover{ background:#2c7a4b; }
 
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    .buttons-container{
-      grid-template-columns:repeat(2, 1fr); /* 2 per row on tablets */
-    }
-  }
   @media (max-width: 480px) {
-    .buttons-container{
-      grid-template-columns:1fr; /* 1 per row on phones */
-    }
-    .btn{ font-size:18px; padding:18px; } /* slightly bigger buttons for touch */
+    .buttons-container{ grid-template-columns:1fr; }
+    .btn{ font-size:18px; padding:18px; }
   }
 </style>
 </head>
@@ -63,12 +56,13 @@
 
 <script>
 const names = [
-  "postgres_init",
-  "postgres_clean",
-  "postgres_runner",
-  "postgres_export",
-  "postgres_import",
-  "reset_global"
+  "root_postgres_init",
+  "root_postgres_clean",
+  "root_postgres_runner",
+  "root_postgres_export",
+  "root_postgres_import",
+  "root_reset_global",
+  "public_jira_worklog_export"
 ];
 
 const buttonsDiv = document.getElementById('buttons');
