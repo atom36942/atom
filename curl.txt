@@ -11,7 +11,7 @@ curl -X POST "$baseurl/root/postgres-query-runner" -H "Authorization: Bearer $to
 0 curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token_root" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/redis-import-delete" -H "Authorization: Bearer $token_root" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/mongodb-import-create" -H "Authorization: Bearer $token_root" -F "database=test" -F "table=test" -F "file=@/Users/atom/Downloads/file.csv"
-0 curl -X POST "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url_list":"url1,url2,url3"}'
+0 curl -X POST "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":"url1,url2,url3"}'
 0 curl -X GET "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
 
 #auth

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Postgres Query Runner</title>
+<style>
+  :root{
+    --bg:#0b0d10; --card:#0f1114; --muted:#9aa0a6;
+    --primary:#38a169; --primary-text:#031013;
+    --secondary:#1f2933; --secondary-text:#e6eef3;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#070708);color:#e6eef3;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;}
+  .container{max-width:640px;margin:32px auto;padding:20px;}
+  .card{background:var(--card);border-radius:10px;padding:28px;box-shadow:0 6px 24px rgba(0,0,0,.6);margin-bottom:20px;}
+  h1{margin:0;font-size:18px;font-weight:600;color:#fff}
+  form{max-width:640px;margin:auto;display:flex;flex-direction:column;gap:14px}
+  label{font-size:12px;color:var(--muted);margin-bottom:6px}
+  input[type="password"], input[type="text"], textarea, select{
+    width:100%;padding:14px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.04);
+    background:#0b0d10;color:#e6eef3;outline:none;box-sizing:border-box;
+  }
+  textarea{min-height:120px;resize:vertical;}
+  .input-group{position:relative;display:flex;align-items:center;}
+  .toggle-visibility{
+    position:absolute;right:12px;cursor:pointer;color:var(--muted);
+    background:none;border:none;padding:0;
+  }
+  .toggle-visibility:hover{color:#fff;}
+  .row{display:flex;gap:12px}
+  .row > *{flex:1}
+  .btn{margin-top:6px;padding:14px;font-size:15px;border-radius:10px;border:none;cursor:pointer}
+  .btn-primary{background:var(--primary);color:var(--primary-text);}
+  .btn-secondary{background:var(--secondary);color:var(--secondary-text);}
+  .btn:disabled{opacity:.6;cursor:not-allowed;}
+  .small{font-size:13px;color:var(--muted);text-align:left;margin-top:12px;white-space:pre-wrap;}
+  pre{background:#1a1c1f;padding:12px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.5;white-space:pre;}
+  .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .icon-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;}
+  .icon-btn:hover{color:#fff;}
+  .scrollable { overflow:auto; white-space:pre; max-height:400px; max-width:100%; margin-top:10px; }
+
+  #downloadBtn{display:none;margin-top:10px;}
+  table {
+  width: auto;
+  border-collapse: collapse;
+  table-layout: auto; /* column width based on header, not cell content */
+  margin-top: 14px;
+  font-size: 13px;
+  min-width: 100%;
+  }
+  th, td {
+    border: 1px solid #222;
+    padding: 6px 8px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  th {
+    background: #1a1c1f;
+    color: #9aa0a6;
+    font-weight: 600;
+  }
+  td {
+    background: #111315;
+    color: #e6eef3;
+    max-width: 200px; /* optional cap for long content */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="card">
+    <div class="card-header">
+      <h1>Postgres Query Runner</h1>
+      <button id="copyCurlBtn" type="button" class="icon-btn" title="Copy curl">📋 Copy</button>
+    </div>
+    <pre id="curlBlock">curl -X POST "$baseurl/root/postgres-query-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"read","query":"select 1;"}'</pre>
+    <form id="queryForm">
+      <div>
+        <label for="token_root">Root Token</label>
+        <div class="input-group">
+          <input id="token_root" name="token_root" type="password" placeholder="Bearer token" required />
+          <button type="button" id="toggleToken" class="toggle-visibility" aria-label="Show/Hide token">👁️</button>
+        </div>
+      </div>
+
+      <div>
+        <label for="mode">Mode</label>
+        <select id="mode" name="mode" required>
+          <option value="read">read</option>
+          <option value="write">write</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="query">SQL Query</label>
+        <textarea id="query" name="query" placeholder="select 1;" required></textarea>
+      </div>
+
+      <div class="row">
+        <button id="clearBtn" type="button" class="btn btn-secondary">Clear</button>
+        <button id="submitBtn" type="submit" class="btn btn-primary">Run Query</button>
+      </div>
+    </form>
+    <div class="small" id="status"></div>
+    <button id="downloadBtn" class="btn btn-secondary">Download CSV</button>
+    <div id="output" class="scrollable"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const form = document.getElementById('queryForm');
+  const status = document.getElementById('status');
+  const output = document.getElementById('output');
+  const clearBtn = document.getElementById('clearBtn');
+  const submitBtn = document.getElementById('submitBtn');
+  const toggleBtn = document.getElementById('toggleToken');
+  const tokenInput = document.getElementById('token_root');
+  const copyCurlBtn = document.getElementById('copyCurlBtn');
+  const curlBlock = document.getElementById('curlBlock');
+  const downloadBtn = document.getElementById('downloadBtn');
+  let currentData = null;
+
+  tokenInput.type = 'password';
+  toggleBtn.textContent = '👁️';
+
+  clearBtn.addEventListener('click', ()=>{
+    form.reset(); status.textContent=''; output.innerHTML=''; downloadBtn.style.display='none';
+  });
+
+  toggleBtn.addEventListener('click', ()=>{
+    if(tokenInput.type === 'password'){
+      tokenInput.type = 'text'; toggleBtn.textContent = '🙈';
+    } else {
+      tokenInput.type = 'password'; toggleBtn.textContent = '👁️';
+    }
+  });
+
+  copyCurlBtn.addEventListener('click', async ()=>{
+    const text = curlBlock.textContent.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      status.textContent = 'Curl copied to clipboard';
+    } catch {
+      status.textContent = 'Failed to copy';
+    }
+  });
+
+  function renderTable(data){
+    if(!Array.isArray(data) || data.length === 0) return '<div>No data returned</div>';
+    const keys = Object.keys(data[0]);
+    let html = '<table><thead><tr>' + keys.map(k=>`<th>${k}</th>`).join('') + '</tr></thead><tbody>';
+    html += data.map(row=>{
+      return '<tr>' + keys.map(k=>{
+        const val = row[k]!==null?row[k]:"";
+        return `<td title="${val}">${val}</td>`;
+      }).join('') + '</tr>';
+    }).join('');
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function toCSV(data){
+    if(!data || !data.length) return '';
+    const keys = Object.keys(data[0]);
+    const escape = v => `"${String(v??'').replace(/"/g,'""')}"`;
+    const rows = [keys.join(','), ...data.map(row=>keys.map(k=>escape(row[k])).join(','))];
+    return rows.join('\n');
+  }
+
+  downloadBtn.addEventListener('click', ()=>{
+    if(!currentData) return;
+    const csv = toCSV(currentData);
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'postgres_query_result.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    status.textContent = 'Running query...';
+    output.innerHTML = '';
+    downloadBtn.style.display = 'none';
+    currentData = null;
+    submitBtn.disabled = true;
+    try{
+      const baseurl = window.location.origin;
+      const body = { mode: form.mode.value, query: form.query.value.trim() };
+      const resp = await fetch(baseurl + '/root/postgres-query-runner', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + form.token_root.value.trim(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      const text = await resp.text();
+      if(!resp.ok){
+        status.textContent = 'Error: ' + text;
+        return;
+      }
+
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { parsed = null; }
+
+      if(parsed && parsed.message && Array.isArray(parsed.message)){
+        status.textContent = 'Success';
+        currentData = parsed.message;
+        output.innerHTML = renderTable(parsed.message);
+        downloadBtn.style.display = 'inline-block';
+      } else {
+        status.textContent = 'Raw Response:';
+        output.innerHTML = '<pre>'+text+'</pre>';
+      }
+
+    }catch(err){
+      status.textContent = 'Error: ' + (err.message || err);
+    }finally{
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

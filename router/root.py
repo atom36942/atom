@@ -66,8 +66,8 @@ async def function_api_root_mongodb_import_create(request:Request):
 
 @router.post("/root/s3-url-delete")
 async def function_api_root_s3_url_delete(request:Request):
-    param=await function_param_read("body",request,[["url_list","list",1,[]]])
-    for url in param["url_list"]:output=await function_s3_url_delete(request.app.state.client_s3_resource,url)
+    param=await function_param_read("body",request,[["url","list",1,[]]])
+    for url in param["url"]:output=await function_s3_url_delete(request.app.state.client_s3_resource,url)
     return {"status":1,"message":output}
  
 @router.get("/root/s3-bucket-ops")

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pages Launcher</title>
+<style>
+  :root{
+    --bg:#0b0d10; --card:#0f1114; --muted:#9aa0a6;
+    --primary:#38a169; --primary-text:#031013;
+    --secondary:#1f2933; --secondary-text:#e6eef3;
+  }
+  html,body{
+    height:100%; margin:0; background:linear-gradient(180deg,var(--bg),#070708);
+    color:#e6eef3; font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+    display:flex; justify-content:center; align-items:center;
+  }
+  .container{max-width:800px; width:95%; padding:20px;}
+  .card{
+    background:var(--card); border-radius:16px; padding:30px; box-shadow:0 10px 30px rgba(0,0,0,.6);
+  }
+  h1{margin:0 0 20px; font-size:22px; font-weight:600; color:#fff; text-align:center;}
+  pre{
+    background:#1a1c1f; padding:12px; border-radius:10px; overflow:auto;
+    font-size:14px; line-height:1.4; white-space:pre; text-align:center; margin-bottom:20px;
+  }
+  .buttons-container{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr); /* default 3 per row */
+    gap:12px;
+    justify-items:center;
+    align-items:center;
+  }
+  .btn{
+    width:100%; padding:16px; font-size:16px; font-weight:500;
+    border-radius:8px; border:none; background:var(--primary); color:var(--primary-text);
+    cursor:pointer; text-align:center;
+  }
+  .btn:hover{ background:#2c7a4b; }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .buttons-container{
+      grid-template-columns:repeat(2, 1fr); /* 2 per row on tablets */
+    }
+  }
+  @media (max-width: 480px) {
+    .buttons-container{
+      grid-template-columns:1fr; /* 1 per row on phones */
+    }
+    .btn{ font-size:18px; padding:18px; } /* slightly bigger buttons for touch */
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <h1>Html Pages Launcher</h1>
+    <pre id="curlBlock">curl -X GET "$baseurl/page/{name}"</pre>
+    <div class="buttons-container" id="buttons"></div>
+  </div>
+</div>
+
+<script>
+const names = [
+  "root_postgres_init",
+  "root_reset_global",
+  "root_postgres_clean",
+  "root_postgres_query_runner",
+  "root_postgres_export",
+  "root_postgres_import",
+  "root_redis_import_create",
+  "root_redis_import_delete",
+  "root_mongodb_import_create",
+  "root_s3_url_delete",
+  "root_s3_bucket_ops",
+  "auth_signup_username_password",
+  "auth_signup_username_password_bigint",
+  "auth_login_password_username"
+];
+
+const buttonsDiv = document.getElementById('buttons');
+
+names.forEach(name => {
+  const btn = document.createElement('button');
+  btn.textContent = name;
+  btn.className = 'btn';
+  btn.addEventListener('click', () => {
+    window.open(`${window.location.origin}/page/${name}`, '_blank');
+  });
+  buttonsDiv.appendChild(btn);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>S3 Bucket Operations</title>
+<style>
+  :root{
+    --bg:#0b0d10; --card:#0f1114; --muted:#9aa0a6;
+    --primary:#38a169; --primary-text:#031013;
+    --secondary:#1f2933; --secondary-text:#e6eef3;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#070708);color:#e6eef3;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;}
+  .container{max-width:640px;margin:32px auto;padding:20px;}
+  .card{background:var(--card);border-radius:10px;padding:28px;box-shadow:0 6px 24px rgba(0,0,0,.6);margin-bottom:20px;}
+  h1{margin:0;font-size:18px;font-weight:600;color:#fff}
+  form{max-width:640px;margin:auto;display:flex;flex-direction:column;gap:14px}
+  label{font-size:12px;color:var(--muted);margin-bottom:6px}
+  input[type="password"], input[type="text"]{
+    width:100%;padding:14px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.04);
+    background:#0b0d10;color:#e6eef3;outline:none;box-sizing:border-box;
+  }
+  .row{display:flex;gap:12px}
+  .row > *{flex:1}
+  .btn{margin-top:6px;padding:14px;font-size:15px;border-radius:10px;border:none;cursor:pointer}
+  .btn-primary{background:var(--primary);color:var(--primary-text);}
+  .btn-secondary{background:var(--secondary);color:var(--secondary-text);}
+  .btn:disabled{opacity:.6;cursor:not-allowed;}
+  .small{font-size:13px;color:var(--muted);text-align:left;margin-top:12px;white-space:pre-wrap;}
+  .scrollable { overflow:auto; white-space:pre; max-height:400px; max-width:100%; margin-top:10px; }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="card">
+    <div class="card-header" style="margin-bottom:16px;">
+      <h1>S3 Bucket Operations</h1>
+    </div>
+
+    <form id="s3BucketForm">
+      <div>
+        <label for="token_root">Root Token</label>
+        <input id="token_root" name="token_root" type="password" placeholder="Bearer token" required />
+      </div>
+
+      <div>
+        <label for="mode">Mode</label>
+        <input id="mode" name="mode" type="text" placeholder="create" required />
+      </div>
+
+      <div>
+        <label for="bucket">Bucket Name</label>
+        <input id="bucket" name="bucket" type="text" placeholder="master" required />
+      </div>
+
+      <div class="row">
+        <button id="clearBtn" type="button" class="btn btn-secondary">Clear</button>
+        <button id="submitBtn" type="submit" class="btn btn-primary">Run Operation</button>
+      </div>
+    </form>
+
+    <div class="small" id="status"></div>
+    <div id="output" class="scrollable"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const form = document.getElementById('s3BucketForm');
+  const status = document.getElementById('status');
+  const output = document.getElementById('output');
+  const clearBtn = document.getElementById('clearBtn');
+  const submitBtn = document.getElementById('submitBtn');
+
+  clearBtn.addEventListener('click', ()=>{
+    form.reset(); status.textContent=''; output.innerHTML='';
+  });
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    status.textContent = 'Running operation...';
+    output.innerHTML = '';
+    submitBtn.disabled = true;
+
+    try{
+      const baseurl = window.location.origin;
+      const params = new URLSearchParams({
+        mode: form.mode.value.trim(),
+        bucket: form.bucket.value.trim()
+      });
+      const url = baseurl + '/root/s3-bucket-ops?' + params.toString();
+
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + form.token_root.value.trim()
+        }
+      });
+
+      const text = await resp.text();
+      if(!resp.ok){
+        status.textContent = 'Error: ' + text;
+        return;
+      }
+
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { parsed = null; }
+
+      if(parsed && parsed.message){
+        status.textContent = 'Success: ' + JSON.stringify(parsed.message);
+      } else {
+        status.textContent = 'Raw Response:';
+        output.innerHTML = '<pre>'+text+'</pre>';
+      }
+
+    }catch(err){
+      status.textContent = 'Error: ' + (err.message || err);
+    }finally{
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
