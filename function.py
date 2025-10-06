@@ -380,7 +380,7 @@ async def function_auth_login_google(client_postgres_pool, type, google_token, c
     return token
 
 #postgres
-async def function_postgres_query_runner(client_postgres_pool,mode,query):
+async def function_postgres_runner(client_postgres_pool,mode,query):
     if mode not in ["read","write"]:raise Exception("mode=read/write")
     block_word = ["drop", "truncate"]
     for item in block_word:

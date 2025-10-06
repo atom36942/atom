@@ -7,23 +7,15 @@ async def function_api_root_postgres_init(request:Request):
    await function_postgres_schema_init(request.app.state.client_postgres_pool,config_postgres_schema,function_postgres_schema_read)
    return {"status":1,"message":"done"}
 
-@router.get("/root/reset-global")
-async def function_api_root_reset_global(request:Request):
-    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres_pool)
-    request.app.state.cache_users_api_access=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,False)
-    request.app.state.cache_users_is_active=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,True)
-    await function_postgres_object_create(request.app.state.client_postgres_pool,None,None,"flush")
-    return {"status":1,"message":"done"}
- 
 @router.get("/root/postgres-clean")
 async def function_api_root_postgres_clean(request:Request):
    await function_postgres_clean(request.app.state.client_postgres_pool,config_postgres_clean)
    return {"status":1,"message":"done"}
 
-@router.post("/root/postgres-query-runner")
-async def function_api_root_postgres_query_runner(request:Request):
+@router.post("/root/postgres-runner")
+async def function_api_root_postgres_runner(request:Request):
     param=await function_param_read("body",request,[["mode",None,1,None],["query",None,1,None]])
-    output=await function_postgres_query_runner(request.app.state.client_postgres_pool,param["mode"],param["query"])
+    output=await function_postgres_runner(request.app.state.client_postgres_pool,param["mode"],param["query"])
     return {"status":1,"message":output}
 
 @router.post("/root/postgres-export")
@@ -78,4 +70,12 @@ async def function_api_root_s3_bucket_ops(request:Request):
    elif param["mode"]=="empty":output=await function_s3_bucket_empty(request.app.state.client_s3_resource,param["bucket"])
    elif param["mode"]=="delete":output=await function_s3_bucket_delete(request.app.state.client_s3,param["bucket"])
    return {"status":1,"message":output}
+
+@router.get("/root/reset-global")
+async def function_api_root_reset_global(request:Request):
+    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres_pool)
+    request.app.state.cache_users_api_access=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,False)
+    request.app.state.cache_users_is_active=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,True)
+    await function_postgres_object_create(request.app.state.client_postgres_pool,None,None,"flush")
+    return {"status":1,"message":"done"}
 

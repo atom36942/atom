@@ -3,9 +3,8 @@ curl -X GET "$baseurl"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
-curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 curl -X GET "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token_root"
-curl -X POST "$baseurl/root/postgres-query-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"read","query":"select 1;"}'
+curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"read","query":"select 1;"}'
 0 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export_postgres.csv
 0 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token_root" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/file.csv"
@@ -13,6 +12,7 @@ curl -X POST "$baseurl/root/postgres-query-runner" -H "Authorization: Bearer $to
 0 curl -X POST "$baseurl/root/mongodb-import-create" -H "Authorization: Bearer $token_root" -F "database=test" -F "table=test" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":"url1,url2,url3"}'
 0 curl -X GET "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
+curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token_root"
 
 #auth
 0 curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":1,"username":"atom2","password":"123"}'
@@ -68,7 +68,7 @@ curl -X POST "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "C
 
 #misc
 curl -X GET "$baseurl/test"
-curl -X GET "$baseurl/page/test"
+curl -X GET "$baseurl/page/zzz"
 0 websocat ws://127.0.0.1:8000/ws
 
 #zzz

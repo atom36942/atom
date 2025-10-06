@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Postgres Query Runner</title>
+<title>Postgres Runner</title>
 <style>
   :root{
     --bg:#0b0d10; --card:#0f1114; --muted:#9aa0a6;
@@ -78,7 +78,7 @@
       <h1>Postgres Query Runner</h1>
       <button id="copyCurlBtn" type="button" class="icon-btn" title="Copy curl">📋 Copy</button>
     </div>
-    <pre id="curlBlock">curl -X POST "$baseurl/root/postgres-query-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"read","query":"select 1;"}'</pre>
+    <pre id="curlBlock">curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"mode":"read","query":"select 1;"}'</pre>
     <form id="queryForm">
       <div>
         <label for="token_root">Root Token</label>
@@ -196,7 +196,7 @@
     try{
       const baseurl = window.location.origin;
       const body = { mode: form.mode.value, query: form.query.value.trim() };
-      const resp = await fetch(baseurl + '/root/postgres-query-runner', {
+      const resp = await fetch(baseurl + '/root/postgres-runner', {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + form.token_root.value.trim(),
