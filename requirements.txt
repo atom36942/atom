@@ -55,7 +55,7 @@ duckdb==1.3.2
 et_xmlfile==2.0.0
 exceptiongroup==1.3.0
 executing==2.2.0
-fastapi==0.118.0
+fastapi==0.119.1
 fastapi-cache==0.1.0
 fastapi-cache2==0.2.2
 fastapi-limiter==0.1.6

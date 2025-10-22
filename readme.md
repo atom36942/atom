@@ -8,10 +8,6 @@
 - Non-opinionated: full flexibility in defining business schema, API structure, and external libraries
 - Tech Stack:Python,FastAPI,PostgreSQL,Redis,S3,Celery,RabbitMQ,Kafka,Sentry
 
-
-
-
-
 ## Modules
 - one click postgres database setup
 - postgres csv uploader
@@ -27,13 +23,6 @@
 - ratelimiter setup
 - html pages serve
 - postgres crud apis as per rbac
-
-
-
-
-
-
-
 
 ## Installation
 ```bash
@@ -58,12 +47,6 @@ config_redis_pubsub_url=redis://localhost:6379
 ./venv/bin/uvicorn main:app --reload
 ```
 
-
-
-
-
-
-
 ## Commands
 ```bash
 #test curl
@@ -79,12 +62,6 @@ venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 ```
-
-
-
-
-
-
 
 ## zzz
 ```bash
