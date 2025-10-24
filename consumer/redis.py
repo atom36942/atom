@@ -1,6 +1,6 @@
 #function
-from function import function_redis_client_read,function_redis_client_read_consumer,function_postgres_client_read
-from function import function_postgres_object_create,function_postgres_object_update
+from file.function import function_redis_client_read,function_redis_client_read_consumer,function_postgres_client_read
+from file.function import function_postgres_object_create,function_postgres_object_update
 
 #env
 import os

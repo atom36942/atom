@@ -1,8 +1,8 @@
 #function
-from function import *
+from file.function import *
 
 #config
-from config import *
+from file.config import *
 
 #lifespan
 from fastapi import FastAPI
@@ -54,9 +54,13 @@ async def function_lifespan(app:FastAPI):
 #app
 app=function_fastapi_app_read(True,function_lifespan)
 function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
-function_add_router(app,"router")
 if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
 if config_is_prometheus:function_add_prometheus(app)
+
+#router
+from pathlib import Path
+router_path = Path(__file__).parent.parent / "router"
+function_add_router(app, router_path)
 
 #middleware
 from fastapi import Request,responses

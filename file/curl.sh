@@ -1,18 +1,24 @@
 #!/bin/bash
 set -euo pipefail
 
-# load .env variables
-[ -f .env ] && export $(grep -v '^#' .env | xargs)
+# get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$SCRIPT_DIR/.."
+
+# load .env from root
+[ -f "$ROOT_DIR/.env" ] && export $(grep -v '^#' "$ROOT_DIR/.env" | xargs)
 
 # config
-input_file="curl.txt"
-output_curl="export_curl.txt"
-output_fail="export_curl_fail.log"
 ENABLE_REPORT=0
-output_report="export_curl_report.csv"
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
 token="${token:-}"
+
+#file
+input_file="$SCRIPT_DIR/curl.txt"     
+output_curl="$ROOT_DIR/export_curl.txt" 
+output_report="$ROOT_DIR/export_curl_report.csv"
+output_fail="$ROOT_DIR/export_curl_fail.log"
 
 # initialize report and curl output files
 [ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_report"

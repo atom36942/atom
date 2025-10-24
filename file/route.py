@@ -1,8 +1,8 @@
 #function
-from function import *
+from file.function import *
 
 #config
-from config import *
+from file.config import *
 
 #package
 from fastapi import Request,responses
