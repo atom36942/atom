@@ -54,6 +54,7 @@ curl -X GET "$baseurl/public/info"
 0 curl -X POST "$baseurl/public/jira-worklog-export" -H "Content-Type: application/json" -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test","start_date":"test","end_date":"test"}' -o export_jira_worklog.csv
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":1,"title":"public"}'
 curl -X GET "$baseurl/public/object-read?table=test"
+0 curl -X GET "$baseurl/public/object-read-gsheet?url=test"
 
 #private
 0 curl -X POST "$baseurl/private/s3-upload-file" -H "Authorization: Bearer $token" -F "bucket=test" -F "file=@file1" -F "file=@file2" -F "key=test1.png,test2.csv"

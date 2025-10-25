@@ -1288,12 +1288,25 @@ async def function_gsheet_object_read(client_gsheet,spreadsheet_id,sheet_name,ce
    else:output=worksheet.get_all_records()
    return output
 
-import pandas
-async def function_gsheet_object_read_pandas(spreadsheet_id,gid):
-   url=f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
-   df=pandas.read_csv(url)
-   output=df.to_dict(orient="records")
-   return output
+import pandas as pd
+from urllib.parse import urlparse, parse_qs
+import aiohttp
+import io
+async def function_gsheet_object_read_pandas(url):
+    parsed = urlparse(url)
+    if '/d/' not in parsed.path:
+        raise ValueError("Invalid Google Sheet URL")
+    spreadsheet_id = parsed.path.split('/d/')[1].split('/')[0]
+    gid = parse_qs(parsed.query).get('gid', ['0'])[0]
+    csv_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(csv_url) as resp:
+            if resp.status != 200:
+                raise Exception(f"Failed to fetch CSV: {resp.status}")
+            data = await resp.text()
+    df = pd.read_csv(io.StringIO(data))
+    df = df.where(pd.notnull(df), None)
+    return df.to_dict(orient="records")
 
 #posthog
 from posthog import Posthog

@@ -79,3 +79,8 @@ async def function_api_public_object_read(request:Request):
    obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data,function_add_action_count)
    return {"status":1,"message":obj_list}
 
+@router.get("/public/object-read-gsheet")
+async def function_api_public_object_read_gsheet(request:Request):
+   param=await function_param_read("query",request,[["url",None,1,None]])
+   obj_list=await function_gsheet_object_read_pandas(param["url"])
+   return {"status":1,"message":obj_list}
