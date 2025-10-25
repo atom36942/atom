@@ -1,13 +1,7 @@
-#function
-from file.function import function_kafka_client_read_consumer,function_postgres_client_read
-from file.function import function_postgres_object_create,function_postgres_object_update
-
-#env
+#config
 import os
 from dotenv import load_dotenv
 load_dotenv()
-
-#config
 config_kafka_url=os.getenv("config_kafka_url")
 config_kafka_username=os.getenv("config_kafka_username")
 config_kafka_password=os.getenv("config_kafka_password")
@@ -15,6 +9,10 @@ config_postgres_url=os.getenv("config_postgres_url")
 config_channel_name=os.getenv("config_channel_name") or "channel_1"
 config_group_id=os.getenv("config_group_id") or "group_1"
 config_enable_auto_commit = (os.getenv("config_enable_auto_commit") or "True").lower() == "true"
+
+#function
+from file.function import function_kafka_client_read_consumer,function_postgres_client_read
+from file.function import function_postgres_object_create,function_postgres_object_update
 
 #package
 import asyncio,json

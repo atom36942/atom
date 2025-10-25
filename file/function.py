@@ -130,14 +130,19 @@ async def function_ownership_check(client_postgres_pool, table, id, user_id):
         if row["created_by_id"] != user_id:raise Exception("obj ownership issue")
     return None
 
-async def function_user_count_query_read(client_postgres_pool,config_user_count_query,user_id):
-   output={}
-   async with client_postgres_pool.acquire() as conn:
-      for key,query in config_user_count_query.items():
-         rows=await conn.fetch(query,user_id)
-         row=rows[0] if rows else None
-         output[key]=row[0] if row else 0
-   return output
+async def function_user_query_read(pool, queries, user_id):
+    output = {}
+    async with pool.acquire() as conn:
+        for key, query in queries.items():
+            rows = await conn.fetch(query, user_id)
+            if not rows:
+                output[key] = 0
+            elif len(rows[0]) == 1:
+                values = [list(row.values())[0] for row in rows]
+                output[key] = values[0] if len(values) == 1 else values
+            else:
+                output[key] = [dict(row) for row in rows]
+    return output
 
 async def function_api_usage(client_postgres_pool,days=7,created_by_id=None):
    query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=$1 or $1 is null) group by api limit 1000;"
@@ -1205,7 +1210,6 @@ def function_add_router(app, path):
         except Exception:
             print(f"[WARN] Failed to load router module: {module_path}")
             traceback.print_exc()
-
     def load_all_router_files():
         for root, _, files in os.walk(base_path):
             for file in files:

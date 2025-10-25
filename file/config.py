@@ -11,6 +11,8 @@ config_postgres_max_connection=int(os.getenv("config_postgres_max_connection") o
 
 #redis
 config_redis_url=os.getenv("config_redis_url")
+
+#ratelimiter
 config_redis_url_ratelimiter=os.getenv("config_redis_url_ratelimiter") or config_redis_url
 
 #celery
@@ -101,9 +103,10 @@ config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 100)
 config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
 
 #dict
-config_user_count_query={
+config_user_query={
 "log_api_count":"select count(*) from log_api where created_by_id=$1",
-"test_count":"select count(*) from test where created_by_id=$1"
+"test_count":"select count(*) from test where created_by_id=$1",
+"test_object":"select * from test where created_by_id=$1 limit 1"
 }
 config_postgres_clean={
 "log_api":365,
@@ -116,7 +119,7 @@ config_api={
 "/admin/ids-update":{"id":4},
 "/admin/ids-delete":{"id":5},
 "/test":{"id":100,"is_token":0,"is_active_check":0,"cache_sec":["redis",60],"ratelimiter_times_sec":[1,3]},
-# "/public/object-read":{"id":101,"cache_sec":["inmemory",60]},
+"/public/object-read":{"id":101,"cache_sec":["inmemory",60]},
 "/my/profile":{"id":102,"is_active_check":1,"cache_sec":["inmemory",10]},
 "/my/object-read":{"id":103,"cache_sec":["redis",60]},
 }
@@ -241,5 +244,3 @@ config_postgres_schema={
 "unique_users_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
 }
 }
-
-

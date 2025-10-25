@@ -1,8 +1,8 @@
-#function
-from file.function import *
-
 #config
 from file.config import *
+
+#function
+from file.function import *
 
 #lifespan
 from fastapi import FastAPI

@@ -70,7 +70,7 @@ docker run -it --rm -p 8000:8000 atom
 ## Commands
 ```bash
 #test curl
-./file/curl.sh
+./file/test.sh
 
 #consumer
 venv/bin/celery -A consumer.celery worker --loglevel=info

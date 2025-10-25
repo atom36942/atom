@@ -1,16 +1,14 @@
-#function
-from file.function import function_rabbitmq_client_read_consumer,function_postgres_client_read
-from file.function import function_postgres_object_create,function_postgres_object_update
-
-#env
+#config
 import os
 from dotenv import load_dotenv
 load_dotenv()
-
-#config
 config_rabbitmq_url=os.getenv("config_rabbitmq_url")
 config_postgres_url=os.getenv("config_postgres_url")
 config_channel_name=os.getenv("config_channel_name") or "channel_1"
+
+#function
+from file.function import function_rabbitmq_client_read_consumer,function_postgres_client_read
+from file.function import function_postgres_object_create,function_postgres_object_update
 
 #package
 import asyncio,json,aio_pika
