@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hiring Platform</title>
+<style>
+:root{
+  --bg:#0b0d10; --card:#0f1114; --muted:#9aa0a6;
+  --primary:#38a169; --primary-text:#031013;
+  --secondary:#1f2933; --secondary-text:#e6eef3;
+}
+html,body{margin:0;height:100%;background:linear-gradient(180deg,var(--bg),#070708);color:#e6eef3;font-family:Inter,Arial,sans-serif;}
+header{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,.04);}
+h3{margin:0;font-size:18px;font-weight:600;color:#fff}
+#main{max-width:460px;margin:60px auto;padding:24px;border-radius:10px;background:var(--card);box-shadow:0 6px 24px rgba(0,0,0,.6);}
+input,textarea{width:100%;padding:12px;margin-top:12px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.05);background:#0b0d10;color:#e6eef3;}
+textarea{height:100px;resize:none;}
+button{width:100%;padding:12px;margin-top:18px;cursor:pointer;border:none;border-radius:8px;font-size:15px;background:var(--primary);color:var(--primary-text);}
+#toast{display:none;margin-bottom:12px;padding:10px;background:#d33;color:#fff;border-radius:6px;font-size:14px;text-align:center;}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+<header>
+  <h3>Hiring</h3>
+  <div id="auth"></div>
+</header>
+
+<div id="main">
+  <div id="toast"></div>
+  <div id="content"></div>
+</div>
+
+<script>
+const baseurl = window.location.origin;
+const client_id = "670321565295-595eb9d8oipdro744qbg7c9tn1s2h6nr.apps.googleusercontent.com";
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.style.display = "block";
+  setTimeout(()=>t.style.display="none",2500);
+}
+
+function logout(){
+  localStorage.removeItem('token');
+  render();
+}
+
+async function handleCredentialResponse(response){
+  const res = await fetch(`${baseurl}/auth/login-google`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:1, google_token:response.credential})
+  });
+  const data = await res.json();
+  if(res.status===200 && data.status===1){
+    localStorage.setItem('token', data.message);
+    render();
+  } else showToast(data.message);
+}
+
+function showLogin(){
+  document.getElementById('auth').innerHTML = "";
+  document.getElementById('content').innerHTML = `
+    <div style="text-align:center; padding:25px 20px;">
+      <h1 style="margin:0;font-size:26px;font-weight:600;">Find your next job fast</h1>
+      <p style="color:var(--muted);font-size:15px;margin-top:10px;">
+        One profile. Instantly share with recruiters.
+      </p>
+      <div style="margin-top:34px;">
+        <div id="g_id_onload"
+          data-client_id="${client_id}"
+          data-callback="handleCredentialResponse"
+          data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin"
+          data-type="standard"
+          data-size="large"
+          style="display:inline-flex;">
+        </div>
+      </div>
+      <p style="color:#666;font-size:12px;margin-top:50px;">
+        Free. No resumes. No friction.
+      </p>
+    </div>`;
+}
+
+function showLogoutButton(){
+  document.getElementById('auth').innerHTML =
+    `<button style="width:auto;padding:6px 14px;font-size:14px;background:#eee;color:#000;" onclick="logout()">Logout</button>`;
+}
+
+function showForm(){
+  document.getElementById('content').innerHTML = `
+    <input id="name" placeholder="Full Name">
+    <input id="title" placeholder="Job Title">
+    <input id="country" placeholder="Country / City">
+    <textarea id="about" placeholder="Skills, experience etc"></textarea>
+    <button onclick="saveProfile()">Save Profile</button>`;
+}
+
+async function saveProfile(){
+  showToast("Submit handler pending");
+}
+
+async function fetchProfile(){
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${baseurl}/my/object-read?table=workseeker`, {
+    headers:{Authorization:'Bearer '+token}
+  });
+  const data = await res.json();
+  if(data.status===1){
+    if(data.message.length===0) showForm();
+    else showForm();
+  } else showToast("Fetch error");
+}
+
+async function render(){
+  const token = localStorage.getItem('token');
+  if(!token){
+    showLogin();
+    return;
+  }
+  showLogoutButton();
+  await fetchProfile();
+}
+
+render();
+</script>
+</body>
+</html>

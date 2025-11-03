@@ -108,9 +108,9 @@ config_user_query={
 "test_count":"select count(*) from test where created_by_id=$1",
 "test_object":"select * from test where created_by_id=$1 limit 1"
 }
-config_postgres_clean={
-"log_api":365,
-"otp":365,
+config_table={
+"log_api":{"delete_day":365,"buffer":3},
+"otp":{"delete_day":365},
 }
 config_api={
 "/admin/object-create":{"id":1},
@@ -175,7 +175,8 @@ config_postgres_schema={
 "password-text-0-btree",
 "username_bigint-bigint-0-btree",
 "password_bigint-bigint-0-btree",
-"google_id-text-0-btree",
+"google_login_id-text-0-btree",
+"google_login_metadata-jsonb-0-0",
 "google_data-jsonb-0-0",
 "email-text-0-btree",
 "mobile-text-0-btree",
@@ -218,7 +219,30 @@ config_postgres_schema={
 "created_by_id-bigint-1-btree",
 "test_id-bigint-1-btree",
 "rating-numeric(10,3)-1-0"
-]
+],
+"workseeker":[
+"created_at-timestamptz-0-btree,brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_verified-smallint-0-btree",
+"is_deleted-smallint-0-btree",
+"is_protected-smallint-0-btree",
+"type-bigint-0-btree",
+"title-text-0-btree,gin",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0",
+"rating-numeric(10,3)-0-0",
+"remark-text-0-btree,gin",
+"location-geography(POINT)-0-gist",
+"name-text-0-0",
+"dob-date-0-0",
+"country-text-0-0",
+"metadata-jsonb-0-gin"
+],
 },
 "query":{
 "created_at_default":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
@@ -239,8 +263,9 @@ config_postgres_schema={
 "unique_users_1":"alter table users add constraint constraint_unique_users_type_username unique (type,username);",
 "unique_users_2":"alter table users add constraint constraint_unique_users_type_email unique (type,email);",
 "unique_users_3":"alter table users add constraint constraint_unique_users_type_mobile unique (type,mobile);",
-"unique_users_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_id);",
+"unique_users_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_login_id);",
 "unique_users_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
 "unique_users_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
+"unique_workseeker":"alter table workseeker add constraint constraint_unique_workseeker_created_by_id unique (created_by_id);",
 }
 }

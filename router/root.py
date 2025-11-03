@@ -9,7 +9,7 @@ async def function_api_root_postgres_init(request:Request):
 
 @router.get("/root/postgres-clean")
 async def function_api_root_postgres_clean(request:Request):
-   await function_postgres_clean(request.app.state.client_postgres_pool,config_postgres_clean)
+   await function_postgres_clean(request.app.state.client_postgres_pool,config_table)
    return {"status":1,"message":"done"}
 
 @router.post("/root/postgres-runner")

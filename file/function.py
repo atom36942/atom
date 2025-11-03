@@ -374,14 +374,21 @@ from google.auth.transport import requests as google_request
 async def function_auth_login_google(client_postgres_pool, type, google_token, config_google_login_client_id, function_token_encode, config_key_jwt, config_token_expire_sec, config_token_user_key_list):
     request = google_request.Request()
     id_info = id_token.verify_oauth2_token(google_token, request, config_google_login_client_id)
-    google_user = {"sub": id_info.get("sub"), "email": id_info.get("email"), "name": id_info.get("name"), "picture": id_info.get("picture"), "email_verified": id_info.get("email_verified")}
+    google_user = {
+        "sub": id_info.get("sub"),
+        "email": id_info.get("email"),
+        "name": id_info.get("name"),
+        "picture": id_info.get("picture"),
+        "email_verified": id_info.get("email_verified")
+    }
     async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch("SELECT * FROM users WHERE type=$1 AND google_id=$2 ORDER BY id DESC LIMIT 1", type, google_user["sub"])
+        output = await conn.fetch("SELECT * FROM users WHERE type=$1 AND google_login_id=$2 ORDER BY id DESC LIMIT 1", type, google_user["sub"])
         user = output[0] if output else None
         if not user:
-            output = await conn.fetch("INSERT INTO users (type, google_id, google_data) VALUES ($1, $2, $3) RETURNING *", type, google_user["sub"], json.dumps(google_user))
+            metadata = json.dumps(google_user)
+            output = await conn.fetch("INSERT INTO users (type, google_login_id, google_login_metadata) VALUES ($1, $2, $3::jsonb) RETURNING *", type, google_user["sub"], metadata)
             user = output[0] if output else None
-    token = await function_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
+    token = await function_token_encode(dict(user), config_key_jwt, config_token_expire_sec, config_token_user_key_list)
     return token
 
 #postgres
@@ -431,13 +438,16 @@ async def function_postgres_map_two_column(client_postgres_pool,table,column_1,c
     return output
 
 import datetime
-async def function_postgres_clean(client_postgres_pool,config_postgres_clean):
-   async with client_postgres_pool.acquire() as conn:
-      for table_name,days in config_postgres_clean.items():
-         threshold_date=datetime.datetime.utcnow()-datetime.timedelta(days=days)
-         query=f"DELETE FROM {table_name} WHERE created_at < $1"
-         await conn.execute(query,threshold_date)
-   return None
+async def function_postgres_clean(client_postgres_pool, config_table):
+    async with client_postgres_pool.acquire() as conn:
+        for table_name, cfg in config_table.items():
+            days = cfg.get("delete_day")
+            if days is None:
+                continue
+            threshold_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+            query = f"DELETE FROM {table_name} WHERE created_at < $1"
+            await conn.execute(query, threshold_date)
+    return None
 
 async def function_postgres_object_read(client_postgres_pool, table, obj={}, function_postgres_object_serialize=None, postgres_column_datatype=None, function_add_creator_data= None, function_add_action_count=None):
     """
@@ -632,6 +642,7 @@ async def function_postgres_object_create(client_postgres_pool, table=None, obj_
     bytea:    {"file_data": b"\\x89504e470d0a1a0a..."}  # binary data (e.g., image)
     """
     global inmemory_cache_object_create, table_object_key
+    if not buffer:buffer=10
     if obj_list and len(obj_list) == 1:
         returning_ids = True
     async def _execute_insert(tbl, objs):
