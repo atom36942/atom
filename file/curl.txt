@@ -55,6 +55,7 @@ curl -X GET "$baseurl/public/info"
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":1,"title":"public"}'
 curl -X GET "$baseurl/public/object-read?table=test"
 0 curl -X GET "$baseurl/public/object-read-gsheet?url=test"
+0 curl -X POST "$baseurl/public/object-create-gsheet?url=test" -H "Content-Type: application/json" -d '{"type":1,"title":"public"}'
 
 #private
 0 curl -X POST "$baseurl/private/s3-upload-file" -H "Authorization: Bearer $token" -F "bucket=test" -F "file=@file1" -F "file=@file2" -F "key=test1.png,test2.csv"

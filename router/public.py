@@ -82,5 +82,13 @@ async def function_api_public_object_read(request:Request):
 @router.get("/public/object-read-gsheet")
 async def function_api_public_object_read_gsheet(request:Request):
    param=await function_param_read("query",request,[["url",None,1,None]])
-   obj_list=await function_gsheet_object_read_pandas(param["url"])
+   obj_list=await function_gsheet_object_read(param["url"])
    return {"status":1,"message":obj_list}
+
+@router.post("/public/object-create-gsheet")
+async def function_api_public_object_create_gsheet(request:Request):
+   param=await function_param_read("query",request,[["url",None,1,None]])
+   obj=await function_param_read("body",request,[])
+   if not request.app.state.client_gsheet:raise Exception("gsheet client not initialized")
+   output=function_gsheet_object_create(request.app.state.client_gsheet,param["url"],[obj])
+   return {"status":1,"message":output}

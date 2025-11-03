@@ -77,8 +77,8 @@ config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
 config_is_otp_verify_profile_update=int(os.getenv("config_is_otp_verify_profile_update") or 1)
 
 #key
-config_key_jwt=os.getenv("config_key_jwt")
-config_key_root=os.getenv("config_key_root")
+config_key_jwt=os.getenv("config_key_jwt") or "123"
+config_key_root=os.getenv("config_key_root") or "123"
 
 #token
 config_token_expire_sec=int(os.getenv("config_token_expire_sec") or 365*24*60*60)
@@ -95,6 +95,10 @@ config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_
 #public
 config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test").split(",")
 config_public_table_read_list=(os.getenv("config_public_table_read_list") or "test").split(",")
+
+#gsheet
+config_gsheet_service_account_json_path=os.getenv("config_gsheet_service_account_json_path")
+config_gsheet_scope_list=(os.getenv("config_gsheet_scope_list") or "https://www.googleapis.com/auth/spreadsheets").split(",")
 
 #zzz
 config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))

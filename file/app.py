@@ -25,6 +25,7 @@ async def function_lifespan(app:FastAPI):
       client_kafka_producer=await function_kafka_client_read_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
       client_rabbitmq,client_rabbitmq_producer=await function_rabbitmq_client_read_producer(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
       client_redis_producer=await function_redis_client_read(config_redis_pubsub_url) if config_redis_pubsub_url else None
+      client_gsheet=function_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope_list) if config_gsheet_service_account_json_path else None
       client_extend=await function_extend_client()
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)

@@ -1283,27 +1283,45 @@ def function_converter_bigint(mode,x):
 #gsheet
 import gspread
 from google.oauth2.service_account import Credentials
-async def function_gsheet_client_read(config_gsheet_service_account_json_path,config_gsheet_scope_list):
-   client_gsheet=gspread.authorize(Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list))
-   return client_gsheet
+def function_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope_list):
+    creds = Credentials.from_service_account_file(
+        config_gsheet_service_account_json_path,
+        scopes=config_gsheet_scope_list
+    )
+    client_gsheet = gspread.authorize(creds)
+    return client_gsheet
 
-async def function_gsheet_object_create(client_gsheet,spreadsheet_id,sheet_name,obj_list):
-   for obj in obj_list:
-      row=[obj[key] for key in sorted(obj.keys())]
-      output=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name).append_row(row)
-   return output
-
-async def function_gsheet_object_read(client_gsheet,spreadsheet_id,sheet_name,cell_boundary):
-   worksheet=client_gsheet.open_by_key(spreadsheet_id).worksheet(sheet_name)
-   if cell_boundary:output=worksheet.get(cell_boundary)
-   else:output=worksheet.get_all_records()
-   return output
+from urllib.parse import urlparse, parse_qs
+def function_gsheet_object_create(client_gsheet, sheet_url, obj_list):
+    if not obj_list:
+        return None
+    url_path = urlparse(sheet_url).path.split('/')
+    try:
+        spreadsheet_id = url_path[3]
+    except:
+        raise Exception("invalid sheet URL: spreadsheet_id not found")
+    qs = parse_qs(urlparse(sheet_url).query)
+    if "gid" not in qs:
+        raise Exception("invalid sheet URL: gid not found")
+    sheet_gid = int(qs["gid"][0])
+    ss = client_gsheet.open_by_key(spreadsheet_id)
+    sheet = next((s for s in ss.worksheets() if s.id == sheet_gid), None)
+    if not sheet:
+        raise Exception("sheet gid invalid")
+    columns = list(obj_list[0].keys())
+    rows = [[obj.get(col, "") for col in columns] for obj in obj_list]
+    output = sheet.append_rows(
+        rows,
+        value_input_option="USER_ENTERED",
+        insert_data_option="INSERT_ROWS"
+    )
+    return output
 
 import pandas as pd
 from urllib.parse import urlparse, parse_qs
 import aiohttp
 import io
-async def function_gsheet_object_read_pandas(url):
+async def function_gsheet_object_read(url):
     parsed = urlparse(url)
     if '/d/' not in parsed.path:
         raise ValueError("Invalid Google Sheet URL")

@@ -83,9 +83,9 @@ venv/bin/python -m consumer.redis
 ```bash
 #package
 ./venv/bin/pip install fastapi
-./venv/bin/pip uninstall fastapi
-./venv/bin/pip install --upgrade fastapi
 ./venv/bin/pip freeze > requirements.txt
+./venv/bin/pip install --upgrade fastapi
+./venv/bin/pip uninstall fastapi
 
 #stop python
 lsof -ti :8000 | xargs kill -9
