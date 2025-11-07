@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Atom Backend – Open-source Production Backend</title>
+
+<style>
+:root {
+  --bg:#060708;
+  --fg:#e8f0f3;
+  --muted:#a3a9ad;
+  --primary:#3df28a;
+  --card:#0d0f11;
+  --glass:rgba(255,255,255,0.06);
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+html,body {
+  height:100%;
+  width:100%;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+
+/* HERO */
+.hero {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  max-width:520px;
+  padding:20px;
+  position:relative;
+}
+.hero:before {
+  content:"";
+  position:absolute;
+  width:600px;height:600px;
+  background:radial-gradient(circle,var(--primary) 0%,transparent 70%);
+  filter:blur(120px);
+  opacity:.25;
+  top:-200px;left:50%;
+  transform:translateX(-50%);
+  z-index:-1;
+}
+.hero h1 {
+  font-size:44px;
+  font-weight:800;
+  letter-spacing:-0.02em;
+  margin-bottom:10px;
+  background:linear-gradient(90deg,var(--primary),#7fffaf);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.hero p {
+  font-size:17px;
+  font-weight:500;
+  color:var(--fg);
+  margin-bottom:18px;
+  line-height:1.4;
+}
+.repo-btn {
+  display:inline-block;
+  background:var(--primary);
+  color:#000;
+  font-weight:600;
+  text-decoration:none;
+  padding:10px 22px;
+  border-radius:8px;
+  font-size:15px;
+  margin-bottom:24px;
+  transition:all 0.2s ease-in-out;
+}
+.repo-btn:hover { opacity:.9; transform:translateY(-1px); }
+
+/* FORM */
+.form-card {
+  width:100%;
+  background:var(--card);
+  padding:28px;
+  border-radius:16px;
+  backdrop-filter:blur(10px);
+  border:1px solid var(--glass);
+  box-shadow:0 0 30px rgba(0,0,0,.5);
+  text-align:left;
+}
+label {
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
+}
+input,textarea {
+  width:100%;
+  padding:13px 14px;
+  margin-bottom:16px;
+  background:#0b0d10;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.12);
+  color:var(--fg);
+  font-size:15px;
+}
+textarea { min-height:100px; resize:vertical; }
+button {
+  width:100%;
+  padding:14px;
+  background:var(--primary);
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  font-weight:600;
+  color:#000;
+  cursor:pointer;
+  transition:background 0.2s ease-in-out;
+}
+button:hover { opacity:.9; }
+.status {
+  margin-top:10px;
+  font-size:13px;
+  color:var(--muted);
+  min-height:18px;
+}
+
+/* RESPONSIVE */
+@media(max-width:600px) {
+  html,body {
+    overflow:auto;
+    align-items:flex-start;
+    padding-top:40px;
+  }
+  .hero {
+    padding:20px 16px;
+  }
+  .hero h1 {
+    font-size:34px;
+    white-space:normal;
+  }
+  .hero p {
+    font-size:15px;
+    white-space:normal;
+  }
+  .repo-btn {
+    font-size:14px;
+    padding:10px 18px;
+    margin-bottom:20px;
+  }
+  .form-card {
+    padding:22px;
+    box-shadow:0 0 18px rgba(0,0,0,.4);
+  }
+  input,textarea,button {
+    font-size:15px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<section class="hero">
+  <h1>Atom Backend</h1>
+  <p>Open-source, production-ready backend for any frontend.</p>
+  <a href="https://github.com/atom36942/atom" target="_blank" class="repo-btn">Open-source Repo on GitHub</a>
+
+  <div class="form-card">
+    <form id="leadForm">
+      <label>What do you want to build?</label>
+      <textarea name="description" placeholder="Example: a hiring platform" required></textarea>
+
+      <label>Email</label>
+      <input name="email" type="email" placeholder="you@example.com"/>
+
+      <label>Mobile</label>
+      <input name="mobile" type="text" placeholder="+91 98765 43210"/>
+
+      <button type="submit">Submit</button>
+      <div class="status" id="status"></div>
+    </form>
+  </div>
+</section>
+
+<script>
+(function(){
+  const form=document.getElementById('leadForm');
+  const status=document.getElementById('status');
+  const baseurl=window.location.origin;
+
+  form.addEventListener('submit',async(e)=>{
+    e.preventDefault();
+    status.textContent='Submitting...';
+
+    const email=form.email.value.trim();
+    const mobile=form.mobile.value.trim();
+    if(!email && !mobile){
+      status.textContent='Please enter at least email or mobile.';
+      return;
+    }
+
+    const data={
+      description:form.description.value.trim(),
+      email:email,
+      mobile:mobile
+    };
+
+    try{
+      const resp=await fetch(baseurl+'/public/object-create?table=lead',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(data)
+      });
+      if(!resp.ok){
+        const t=await resp.text();
+        status.textContent='Error: '+t;
+      }else{
+        status.textContent='Submitted. We will contact you soon.';
+        form.reset();
+      }
+    }catch(err){
+      status.textContent='Network error.';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

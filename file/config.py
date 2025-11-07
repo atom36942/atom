@@ -93,7 +93,7 @@ config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token
 config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_access") or 10)
 
 #public
-config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test").split(",")
+config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test,support,lead").split(",")
 config_public_table_read_list=(os.getenv("config_public_table_read_list") or "test").split(",")
 
 #gsheet
@@ -246,6 +246,40 @@ config_postgres_schema={
 "dob-date-0-0",
 "country-text-0-0",
 "metadata-jsonb-0-gin"
+],
+"support":[
+"created_at-timestamptz-0-btree,brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_verified-smallint-0-btree",
+"is_deleted-smallint-0-btree",
+"is_protected-smallint-0-btree",
+"type-bigint-0-btree",
+"title-text-0-btree,gin",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0"
+],
+"lead":[
+"created_at-timestamptz-0-btree,brin",
+"updated_at-timestamptz-0-0",
+"created_by_id-bigint-0-0",
+"updated_by_id-bigint-0-0",
+"is_active-smallint-0-btree",
+"is_verified-smallint-0-btree",
+"is_deleted-smallint-0-btree",
+"is_protected-smallint-0-btree",
+"type-bigint-0-btree",
+"title-text-0-btree,gin",
+"description-text-0-0",
+"file_url-text-0-0",
+"link_url-text-0-0",
+"tag-text-0-0",
+"email-text-0-btree",
+"mobile-text-0-btree"
 ],
 },
 "query":{
