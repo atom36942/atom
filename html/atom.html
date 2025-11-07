@@ -37,6 +37,7 @@ html,body {
   max-width:520px;
   padding:20px;
   position:relative;
+  margin-top: -80px;
 }
 .hero:before {
   content:"";
@@ -62,22 +63,22 @@ html,body {
   font-size:17px;
   font-weight:500;
   color:var(--fg);
-  margin-bottom:18px;
+  margin-bottom:10px;
   line-height:1.4;
 }
-.repo-btn {
-  display:inline-block;
-  background:var(--primary);
-  color:#000;
-  font-weight:600;
-  text-decoration:none;
-  padding:10px 22px;
-  border-radius:8px;
-  font-size:15px;
-  margin-bottom:24px;
-  transition:all 0.2s ease-in-out;
+.repo-link {
+  margin-bottom:30px; /* Added extra spacing before the form */
 }
-.repo-btn:hover { opacity:.9; transform:translateY(-1px); }
+.repo-link a {
+  color:var(--primary);
+  text-decoration:none;
+  font-weight:600;
+  font-size:14px;
+}
+.repo-link a:hover {
+  opacity:.85;
+  text-decoration:underline;
+}
 
 /* FORM */
 .form-card {
@@ -139,16 +140,12 @@ button:hover { opacity:.9; }
   }
   .hero h1 {
     font-size:34px;
-    white-space:normal;
   }
   .hero p {
     font-size:15px;
-    white-space:normal;
   }
-  .repo-btn {
-    font-size:14px;
-    padding:10px 18px;
-    margin-bottom:20px;
+  .repo-link {
+    margin-bottom:26px;
   }
   .form-card {
     padding:22px;
@@ -166,7 +163,9 @@ button:hover { opacity:.9; }
 <section class="hero">
   <h1>Atom Backend</h1>
   <p>Open-source, production-ready backend for any frontend.</p>
-  <a href="https://github.com/atom36942/atom" target="_blank" class="repo-btn">Open-source Repo on GitHub</a>
+  <div class="repo-link">
+    <a href="https://github.com/atom36942/atom" target="_blank">Open-source Repo on GitHub</a>
+  </div>
 
   <div class="form-card">
     <form id="leadForm">
