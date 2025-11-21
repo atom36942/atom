@@ -113,6 +113,7 @@ config_user_query={
 "test_object":"select * from test where created_by_id=$1 limit 1"
 }
 config_table={
+"test":{"buffer":3},
 "log_api":{"delete_day":365,"buffer":3},
 "otp":{"delete_day":365},
 }

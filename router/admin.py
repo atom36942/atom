@@ -6,26 +6,29 @@ from file.route import *
 async def function_api_admin_object_create(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0]])
    obj=await function_param_read("body",request,[])
-   if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):obj["created_by_id"]=request.state.user["id"]
-   if len(obj)<=1:raise Exception("obj issue")
-   if param["is_serialize"] or "password" in obj:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
-   output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
+   obj_list=obj["item"] if "item" in obj else [obj]
+   for i,x in enumerate(obj_list):
+      if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):x["created_by_id"]=request.state.user["id"]
+      if len(x)<=1:raise Exception("obj key length issue")
+      if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
+   output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],obj_list)
    return {"status":1,"message":output}
 
 @router.put("/admin/object-update")
 async def function_api_admin_object_update(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
    obj=await function_param_read("body",request,[])
-   if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):obj["updated_by_id"]=request.state.user["id"]
-   if "id" not in obj:raise Exception("id missing")
-   if len(obj)<=1:raise Exception("obj length issue")
-   if param["is_serialize"] or "password" in obj:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
-   if not param["queue"]:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],[obj])
+   obj_list=obj["item"] if "item" in obj else [obj]
+   for i,x in enumerate(obj_list):
+      if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):x["updated_by_id"]=request.state.user["id"]
+      if "id" not in x:raise Exception("id missing")
+      if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
+   if not param["queue"]:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],obj_list)
    else:
       function_name="function_postgres_object_update"
-      param_list=[param["table"],[obj]]
       channel_name="channel_1"
-      payload={"function":function_name,"table":param["table"],"obj_list":[obj]}
+      param_list=[param["table"],obj_list]
+      payload={"function":function_name,"table":param["table"],"obj_list":obj_list}
       if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,function_name,param_list)
       elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,channel_name,payload)
       elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,channel_name,payload)
