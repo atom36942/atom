@@ -16,13 +16,16 @@
 - logged in user apis
 - admin apis
 - api cache using redis
+- api ratelimiter setup
 - celery/kafka/rabbitmq/redis pub-sub queue setup
 - sentry/mongodb/posthog integration
 - otp client integration - fast2sms/resend
 - aws s3,sns,ses integration
-- ratelimiter setup
 - html pages serve
-- postgres crud apis as per rbac
+- user crud apis as per rbac
+- bulk insert/update with buffer
+- gsheet integration
+- 
 
 ## Installation
 ```bash

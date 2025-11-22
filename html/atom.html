@@ -9,95 +9,137 @@
 :root {
   --bg:#060708;
   --fg:#e8f0f3;
-  --muted:#a3a9ad;
+  --muted:#9aa1a6;
   --primary:#3df28a;
   --card:#0d0f11;
   --glass:rgba(255,255,255,0.06);
 }
-* { box-sizing:border-box; margin:0; padding:0; }
-html,body {
-  height:100%;
-  width:100%;
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
   background:var(--bg);
   color:var(--fg);
   font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
   display:flex;
-  align-items:center;
   justify-content:center;
-  text-align:center;
+  padding:40px 0;
+}
+.container{
+  width:100%;
+  max-width:1200px;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  gap:60px;
+}
+
+/* HERO + FORM LAYOUT */
+.hero-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:50px;
+  flex-wrap:wrap;
 }
 
 /* HERO */
-.hero {
+.hero{
+  flex:1 1 480px;
+  text-align:left;
+  position:relative;
+  padding-top:10px;
   display:flex;
   flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  width:100%;
-  max-width:520px;
-  padding:20px;
-  position:relative;
-  margin-top: -80px;
 }
-.hero:before {
+.hero:before{
   content:"";
   position:absolute;
-  width:600px;height:600px;
+  width:580px;height:580px;
   background:radial-gradient(circle,var(--primary) 0%,transparent 70%);
   filter:blur(120px);
-  opacity:.25;
-  top:-200px;left:50%;
-  transform:translateX(-50%);
+  opacity:.14;
+  top:-160px;left:-60px;
   z-index:-1;
 }
-.hero h1 {
-  font-size:44px;
+.hero h1{
+  font-size:42px;
   font-weight:800;
-  letter-spacing:-0.02em;
-  margin-bottom:10px;
   background:linear-gradient(90deg,var(--primary),#7fffaf);
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
-}
-.hero p {
-  font-size:17px;
-  font-weight:500;
-  color:var(--fg);
+  line-height:1.15;
   margin-bottom:10px;
-  line-height:1.4;
 }
-.repo-link {
-  margin-bottom:30px; /* Added extra spacing before the form */
+.hero-sub {
+  font-size:18px;
+  font-weight:500;
+  max-width:560px;
+  line-height:1.42;
+  margin-bottom:18px;
 }
-.repo-link a {
-  color:var(--primary);
-  text-decoration:none;
+
+/* BENEFITS ROW */
+.benefits {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:16px;
+}
+.benefits span {
+  background:var(--card);
+  padding:6px 10px;
+  border-radius:8px;
+  border:1px solid var(--glass);
+  font-size:13px;
   font-weight:600;
-  font-size:14px;
+  white-space:nowrap;
 }
-.repo-link a:hover {
-  opacity:.85;
-  text-decoration:underline;
+
+/* TECH STRIP */
+.tech-strip {
+  margin-top:4px;
+  margin-bottom:18px;
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.4;
+  max-width:560px;
+}
+
+/* GITHUB BUTTON */
+.repo-link {
+  margin-top:auto;
+}
+.repo-btn {
+  display:inline-block;
+  background:var(--primary);
+  padding:10px 18px;
+  border-radius:8px;
+  color:#000;
+  font-weight:600;
+  font-size:15px;
+  text-decoration:none;
+  transition:opacity .2s ease;
+}
+.repo-btn:hover {
+  opacity:0.85;
 }
 
 /* FORM */
-.form-card {
-  width:100%;
+.form-card{
+  flex:0 0 380px;
   background:var(--card);
-  padding:28px;
-  border-radius:16px;
-  backdrop-filter:blur(10px);
+  padding:26px;
+  border-radius:14px;
   border:1px solid var(--glass);
-  box-shadow:0 0 30px rgba(0,0,0,.5);
-  text-align:left;
+  box-shadow:0 0 26px rgba(0,0,0,.45);
+  margin-top:6px;
 }
-label {
+label{
   display:block;
   font-size:12px;
   color:var(--muted);
   margin-bottom:6px;
 }
-input,textarea {
+input,textarea{
   width:100%;
   padding:13px 14px;
   margin-bottom:16px;
@@ -107,8 +149,8 @@ input,textarea {
   color:var(--fg);
   font-size:15px;
 }
-textarea { min-height:100px; resize:vertical; }
-button {
+textarea{min-height:100px;}
+button{
   width:100%;
   padding:14px;
   background:var(--primary);
@@ -118,71 +160,128 @@ button {
   font-weight:600;
   color:#000;
   cursor:pointer;
-  transition:background 0.2s ease-in-out;
 }
-button:hover { opacity:.9; }
-.status {
+button:hover{opacity:0.9;}
+.status{
   margin-top:10px;
   font-size:13px;
   color:var(--muted);
   min-height:18px;
 }
 
-/* RESPONSIVE */
-@media(max-width:600px) {
-  html,body {
-    overflow:auto;
-    align-items:flex-start;
-    padding-top:40px;
-  }
-  .hero {
-    padding:20px 16px;
-  }
-  .hero h1 {
-    font-size:34px;
-  }
-  .hero p {
-    font-size:15px;
-  }
-  .repo-link {
-    margin-bottom:26px;
-  }
-  .form-card {
-    padding:22px;
-    box-shadow:0 0 18px rgba(0,0,0,.4);
-  }
-  input,textarea,button {
-    font-size:15px;
-  }
+/* FEATURES GRID */
+.features{
+  display:grid;
+  gap:18px;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+}
+.feature-card{
+  background:var(--card);
+  padding:18px 20px;
+  border-radius:12px;
+  border:1px solid var(--glass);
+  font-size:15px;
+  font-weight:500;
+  line-height:1.45;
+  height:120px;                /* fixed tile height */
+  display:flex;
+  align-items:center;          /* vertical center */
+  justify-content:center;      /* horizontal center */
+  text-align:center;           /* center multiline text */
+  word-break:break-word;
+}
+
+
+/* MOBILE */
+@media(max-width:700px){
+  .hero h1{font-size:34px;}
+  .hero-sub{font-size:16px;}
+  .benefits span{font-size:12px;padding:5px 8px;}
+  .tech-strip{font-size:12px;}
+  .hero-row{flex-direction:column;}
+  .form-card{width:100%;max-width:100%;}
+  .feature-card{font-size:14px; height:auto; min-height:110px;}
 }
 </style>
 </head>
 
 <body>
 
-<section class="hero">
-  <h1>Atom Backend</h1>
-  <p>Open-source, production-ready backend for any frontend.</p>
-  <div class="repo-link">
-    <a href="https://github.com/atom36942/atom" target="_blank">Open-source Repo on GitHub</a>
-  </div>
+<div class="container">
 
-  <div class="form-card">
-    <form id="leadForm">
-      <label>What do you want to build?</label>
-      <textarea name="description" placeholder="Example: a hiring platform" required></textarea>
+  <!-- HERO + FORM -->
+  <section class="hero-row">
 
-      <label>Email</label>
-      <input name="email" type="email" placeholder="you@example.com"/>
+    <div class="hero">
+      <h1>Atom Backend</h1>
 
-      <label>Mobile</label>
-      <input name="mobile" type="text" placeholder="+91 98765 43210"/>
+      <p class="hero-sub">
+        Open-source backend framework to build scalable APIs, background jobs,
+        integrations, and internal systems — without boilerplate.
+      </p>
 
-      <button type="submit">Submit</button>
-      <div class="status" id="status"></div>
-    </form>
-  </div>
-</section>
+      <div class="benefits">
+        <span>Fast runtime</span>
+        <span>Easy deployments</span>
+        <span>Modules built-in</span>
+        <span>Minimal boilerplate</span>
+      </div>
+
+      <div class="tech-strip">
+        Python • FastAPI • PostgreSQL • Redis • S3 • Kafka • Celery • RabbitMQ • Sentry
+      </div>
+
+      <div class="repo-link">
+        <a class="repo-btn" href="https://github.com/atom36942/atom" target="_blank">View GitHub Repository</a>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <form id="leadForm">
+        <label>What do you want to build?</label>
+        <textarea name="description" placeholder="Example: a hiring platform" required></textarea>
+
+        <label>Email</label>
+        <input name="email" type="email" placeholder="you@example.com"/>
+
+        <label>Mobile</label>
+        <input name="mobile" type="text" placeholder="+91 98765 43210"/>
+
+        <button type="submit">Submit</button>
+        <div class="status" id="status"></div>
+      </form>
+    </div>
+
+  </section>
+
+  <!-- FEATURES GRID -->
+  <section>
+    <div class="features">
+      <div class="feature-card">One-click Postgres setup</div>
+      <div class="feature-card">CSV → Postgres bulk uploader</div>
+      <div class="feature-card">Query runner (safe + fast)</div>
+      <div class="feature-card">Logged-in user APIs ready</div>
+      <div class="feature-card">Auth API</div>
+      <div class="feature-card">RBAC CRUD</div>
+      <div class="feature-card">Celery queue setup</div>
+      <div class="feature-card">Kafka queue setup</div>
+      <div class="feature-card">RabbitMQ queue setup</div>
+      <div class="feature-card">Admin control panel APIs</div>
+      <div class="feature-card">Redis caching built-in</div>
+      <div class="feature-card">Sentry integration</div>
+      <div class="feature-card">MongoDB integration</div>
+      <div class="feature-card">Posthog integration</div>
+      <div class="feature-card">OTP clients (Fast2SMS, Resend)</div>
+      <div class="feature-card">AWS S3, SNS, SES ready</div>
+      <div class="feature-card">Rate limiter + middleware stack</div>
+      <div class="feature-card">Serve HTML pages</div>
+      <div class="feature-card">Production-ready API project structure</div>
+      <div class="feature-card">Pure-function style modules</div>
+      <div class="feature-card">Minimal config, no lock-in</div>
+    </div>
+  </section>
+
+</div>
 
 <script>
 (function(){
@@ -203,8 +302,8 @@ button:hover { opacity:.9; }
 
     const data={
       description:form.description.value.trim(),
-      email:email,
-      mobile:mobile
+      email,
+      mobile
     };
 
     try{
@@ -214,8 +313,7 @@ button:hover { opacity:.9; }
         body:JSON.stringify(data)
       });
       if(!resp.ok){
-        const t=await resp.text();
-        status.textContent='Error: '+t;
+        status.textContent='Error: '+await resp.text();
       }else{
         status.textContent='Submitted. We will contact you soon.';
         form.reset();
