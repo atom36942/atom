@@ -25,7 +25,7 @@
 - user crud apis as per rbac
 - bulk insert/update with buffer
 - gsheet integration
-- 
+- easy extension
 
 ## Installation
 ```bash
