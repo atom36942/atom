@@ -36,7 +36,7 @@ body{
 .hero-row {
   display:flex;
   justify-content:space-between;
-  align-items:flex-start;
+  align-items:center;   /* <-- FIX */
   gap:50px;
   flex-wrap:wrap;
 }
@@ -77,37 +77,59 @@ body{
   margin-bottom:18px;
 }
 
-/* BENEFITS ROW */
-.benefits {
+/* Micro line */
+.micro-line {
+  font-size:14px;
+  font-weight:600;
+  color:var(--muted);
+  margin-bottom:18px;
+}
+
+/* Benefit grid */
+.benefit-grid {
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:10px 12px;
+  max-width:420px;
+  margin-bottom:22px;
+}
+.b-item {
+  background:var(--card);
+  padding:8px 12px;
+  border-radius:8px;
+  border:1px solid var(--glass);
+  font-size:14px;
+  font-weight:600;
+}
+
+/* Tech pills */
+.tech-pills {
   display:flex;
   flex-wrap:wrap;
   gap:8px;
-  margin-bottom:16px;
+  margin-bottom:22px;
+  max-width:520px;
 }
-.benefits span {
-  background:var(--card);
+.tech-pills span {
+  background:#0a0b0d;
   padding:6px 10px;
-  border-radius:8px;
-  border:1px solid var(--glass);
-  font-size:13px;
+  border-radius:6px;
+  border:1px solid rgba(255,255,255,0.08);
+  font-size:12px;
   font-weight:600;
-  white-space:nowrap;
-}
-
-/* TECH STRIP */
-.tech-strip {
-  margin-top:4px;
-  margin-bottom:18px;
-  font-size:13px;
   color:var(--muted);
-  line-height:1.4;
-  max-width:560px;
 }
 
-/* GITHUB BUTTON */
-.repo-link {
-  margin-top:auto;
+.hero-mini {
+  margin:0 0 26px 0;
+  font-size:14px;
+  line-height:1.45;
+  color:var(--muted);
+  max-width:520px;
 }
+
+/* BUTTON */
+.repo-link { margin-top:auto; }
 .repo-btn {
   display:inline-block;
   background:var(--primary);
@@ -119,57 +141,51 @@ body{
   text-decoration:none;
   transition:opacity .2s ease;
 }
-.repo-btn:hover {
-  opacity:0.85;
-}
+.repo-btn:hover { opacity:0.85; }
 
 /* FORM */
 .form-card{
-  flex:0 0 380px;
+  flex:0 0 430px;
   background:var(--card);
-  padding:26px;
+  padding:32px 32px 20px;
   border-radius:14px;
   border:1px solid var(--glass);
   box-shadow:0 0 26px rgba(0,0,0,.45);
   margin-top:6px;
 }
-label{
-  display:block;
-  font-size:12px;
-  color:var(--muted);
-  margin-bottom:6px;
-}
+label{ display:none; }
+
 input,textarea{
   width:100%;
-  padding:13px 14px;
-  margin-bottom:16px;
+  padding:15px 16px;
+  margin-bottom:18px;
   background:#0b0d10;
   border-radius:8px;
   border:1px solid rgba(255,255,255,.12);
   color:var(--fg);
-  font-size:15px;
+  font-size:16px;
 }
-textarea{min-height:100px;}
+textarea{min-height:120px;}
 button{
   width:100%;
-  padding:14px;
+  padding:16px;
   background:var(--primary);
   border:none;
   border-radius:8px;
-  font-size:16px;
-  font-weight:600;
+  font-size:17px;
+  font-weight:700;
   color:#000;
   cursor:pointer;
 }
 button:hover{opacity:0.9;}
 .status{
-  margin-top:10px;
+  margin-top:6px;
   font-size:13px;
   color:var(--muted);
-  min-height:18px;
+  min-height:10px;
 }
 
-/* FEATURES GRID */
+/* FEATURES GRID WITH ICONS */
 .features{
   display:grid;
   gap:18px;
@@ -183,24 +199,33 @@ button:hover{opacity:0.9;}
   font-size:15px;
   font-weight:500;
   line-height:1.45;
-  height:120px;                /* fixed tile height */
+  height:110px;
   display:flex;
-  align-items:center;          /* vertical center */
-  justify-content:center;      /* horizontal center */
-  text-align:center;           /* center multiline text */
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
   word-break:break-word;
 }
-
+.feature-card span.icon {
+  font-size:20px;
+  margin-bottom:6px;
+  opacity:0.85;
+}
 
 /* MOBILE */
 @media(max-width:700px){
   .hero h1{font-size:34px;}
   .hero-sub{font-size:16px;}
-  .benefits span{font-size:12px;padding:5px 8px;}
-  .tech-strip{font-size:12px;}
+  .micro-line{font-size:13px;}
+  .benefit-grid{grid-template-columns:1fr;}
+  .b-item{font-size:13px;}
+  .tech-pills span{font-size:11px;padding:5px 8px;}
+  .hero-mini{font-size:13px;}
   .hero-row{flex-direction:column;}
   .form-card{width:100%;max-width:100%;}
-  .feature-card{font-size:14px; height:auto; min-height:110px;}
+  .feature-card{height:auto;min-height:110px;}
+   .hero-row {align-items:flex-start;}
 }
 </style>
 </head>
@@ -209,10 +234,10 @@ button:hover{opacity:0.9;}
 
 <div class="container">
 
-  <!-- HERO + FORM -->
   <section class="hero-row">
 
     <div class="hero">
+
       <h1>Atom Backend</h1>
 
       <p class="hero-sub">
@@ -220,64 +245,103 @@ button:hover{opacity:0.9;}
         integrations, and internal systems — without boilerplate.
       </p>
 
-      <div class="benefits">
-        <span>Fast runtime</span>
-        <span>Easy deployments</span>
-        <span>Modules built-in</span>
-        <span>Minimal boilerplate</span>
+      <div class="micro-line">
+        Fast • Modular • Postgres-first • Async-friendly • Production-ready
       </div>
 
-      <div class="tech-strip">
-        Python • FastAPI • PostgreSQL • Redis • S3 • Kafka • Celery • RabbitMQ • Sentry
+      <div class="benefit-grid">
+        <div class="b-item">Fast runtime</div>
+        <div class="b-item">Easy deployments</div>
+        <div class="b-item">Modules built-in</div>
+        <div class="b-item">Minimal boilerplate</div>
       </div>
+
+      <div class="tech-pills">
+        <span>Python</span>
+        <span>FastAPI</span>
+        <span>PostgreSQL</span>
+        <span>Redis</span>
+        <span>S3</span>
+        <span>Kafka</span>
+        <span>Celery</span>
+        <span>RabbitMQ</span>
+        <span>Sentry</span>
+      </div>
+
+      <p class="hero-mini">
+        Built for teams shipping APIs, integrations, internal tools, and event-driven systems fast — without repeating boilerplate.
+      </p>
 
       <div class="repo-link">
         <a class="repo-btn" href="https://github.com/atom36942/atom" target="_blank">View GitHub Repository</a>
       </div>
+
     </div>
 
+    <!-- UPDATED FORM (TITLE MOVED INTO PLACEHOLDERS) -->
     <div class="form-card">
       <form id="leadForm">
-        <label>What do you want to build?</label>
-        <textarea name="description" placeholder="Example: a hiring platform" required></textarea>
 
-        <label>Email</label>
-        <input name="email" type="email" placeholder="you@example.com"/>
+        <textarea 
+          name="description" 
+          placeholder="What do you want to build?"
+          required></textarea>
 
-        <label>Mobile</label>
-        <input name="mobile" type="text" placeholder="+91 98765 43210"/>
+        <input 
+          name="email" 
+          type="email" 
+          placeholder="Email"/>
+
+        <input 
+          name="mobile" 
+          type="text" 
+          placeholder="Mobile"/>
 
         <button type="submit">Submit</button>
         <div class="status" id="status"></div>
+
       </form>
     </div>
 
   </section>
 
-  <!-- FEATURES GRID -->
+  <!-- FEATURES GRID WITH ICONS -->
   <section>
     <div class="features">
-      <div class="feature-card">One-click Postgres setup</div>
-      <div class="feature-card">CSV → Postgres bulk uploader</div>
-      <div class="feature-card">Query runner (safe + fast)</div>
-      <div class="feature-card">Logged-in user APIs ready</div>
-      <div class="feature-card">Auth API</div>
-      <div class="feature-card">RBAC CRUD</div>
-      <div class="feature-card">Celery queue setup</div>
-      <div class="feature-card">Kafka queue setup</div>
-      <div class="feature-card">RabbitMQ queue setup</div>
-      <div class="feature-card">Admin control panel APIs</div>
-      <div class="feature-card">Redis caching built-in</div>
-      <div class="feature-card">Sentry integration</div>
-      <div class="feature-card">MongoDB integration</div>
-      <div class="feature-card">Posthog integration</div>
-      <div class="feature-card">OTP clients (Fast2SMS, Resend)</div>
-      <div class="feature-card">AWS S3, SNS, SES ready</div>
-      <div class="feature-card">Rate limiter + middleware stack</div>
-      <div class="feature-card">Serve HTML pages</div>
-      <div class="feature-card">Production-ready API project structure</div>
-      <div class="feature-card">Pure-function style modules</div>
-      <div class="feature-card">Minimal config, no lock-in</div>
+
+      <div class="feature-card"><span class="icon">🗄️</span>One-click Postgres setup</div>
+      <div class="feature-card"><span class="icon">📤</span>CSV → Postgres bulk uploader</div>
+      <div class="feature-card"><span class="icon">⚡</span>Query runner (safe + fast)</div>
+      <div class="feature-card"><span class="icon">👤</span>Logged-in user APIs ready</div>
+
+      <div class="feature-card"><span class="icon">🔐</span>Auth API</div>
+      <div class="feature-card"><span class="icon">🛂</span>RBAC CRUD</div>
+
+      <div class="feature-card"><span class="icon">📦</span>Celery queue setup</div>
+      <div class="feature-card"><span class="icon">🔄</span>Kafka queue setup</div>
+      <div class="feature-card"><span class="icon">📨</span>RabbitMQ queue setup</div>
+
+      <div class="feature-card"><span class="icon">🛠️</span>Admin control panel APIs</div>
+      <div class="feature-card"><span class="icon">🧰</span>Redis caching built-in</div>
+
+      <div class="feature-card"><span class="icon">🛡️</span>Sentry integration</div>
+      <div class="feature-card"><span class="icon">🍃</span>MongoDB integration</div>
+      <div class="feature-card"><span class="icon">📊</span>Posthog integration</div>
+
+      <div class="feature-card"><span class="icon">🔢</span>OTP clients (Fast2SMS, Resend)</div>
+
+      <div class="feature-card"><span class="icon">🌩️</span>AWS S3 ready</div>
+      <div class="feature-card"><span class="icon">📣</span>AWS SNS ready</div>
+      <div class="feature-card"><span class="icon">✉️</span>AWS SES ready</div>
+
+      <div class="feature-card"><span class="icon">🚦</span>Rate limiter + middleware stack</div>
+      <div class="feature-card"><span class="icon">📝</span>Serve HTML pages</div>
+      <div class="feature-card"><span class="icon">📑</span>Gsheet integration</div>
+
+      <div class="feature-card"><span class="icon">🏗️</span>Production-ready API structure</div>
+      <div class="feature-card"><span class="icon">🔧</span>Pure-function style modules</div>
+      <div class="feature-card"><span class="icon">⚙️</span>Minimal config, no lock-in</div>
+
     </div>
   </section>
 
