@@ -26,6 +26,7 @@
 - bulk insert/update with buffer
 - gsheet integration
 - easy extension
+- supports multi-tenant design
 
 ## Installation
 ```bash
