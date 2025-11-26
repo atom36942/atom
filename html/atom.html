@@ -3,386 +3,200 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Atom Backend – Open-source Production Backend</title>
+<title>Build software faster with Atom</title>
 
 <style>
-:root {
-  --bg:#060708;
-  --fg:#e8f0f3;
-  --muted:#9aa1a6;
-  --primary:#3df28a;
-  --card:#0d0f11;
-  --glass:rgba(255,255,255,0.06);
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{
-  background:var(--bg);
-  color:var(--fg);
-  font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
-  display:flex;
-  justify-content:center;
-  padding:40px 0;
-}
-.container{
-  width:100%;
-  max-width:1200px;
-  padding:20px;
-  display:flex;
-  flex-direction:column;
-  gap:60px;
-}
+  body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    padding: 32px 20px;
+    background: #0a0a0b;
+    color: #e9ecef;
+    line-height: 1.5;
+    max-width: 820px;
+    margin-inline: auto;
+  }
 
-/* HERO + FORM LAYOUT */
-.hero-row {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;   /* <-- FIX */
-  gap:50px;
-  flex-wrap:wrap;
-}
+  h1,h2 { margin: 0 0 16px 0; font-weight: 700; }
+  .section { margin: 38px 0; }
 
-/* HERO */
-.hero{
-  flex:1 1 480px;
-  text-align:left;
-  position:relative;
-  padding-top:10px;
-  display:flex;
-  flex-direction:column;
-}
-.hero:before{
-  content:"";
-  position:absolute;
-  width:580px;height:580px;
-  background:radial-gradient(circle,var(--primary) 0%,transparent 70%);
-  filter:blur(120px);
-  opacity:.14;
-  top:-160px;left:-60px;
-  z-index:-1;
-}
-.hero h1{
-  font-size:42px;
-  font-weight:800;
-  background:linear-gradient(90deg,var(--primary),#7fffaf);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  line-height:1.15;
-  margin-bottom:10px;
-}
-.hero-sub {
-  font-size:18px;
-  font-weight:500;
-  max-width:560px;
-  line-height:1.42;
-  margin-bottom:18px;
-}
+  a.btn {
+    display: inline-block;
+    padding: 12px 16px;
+    background: #21f08a;
+    color: #000;
+    font-size: 15px;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+  }
 
-/* Micro line */
-.micro-line {
-  font-size:14px;
-  font-weight:600;
-  color:var(--muted);
-  margin-bottom:18px;
-}
+  .btn-dark {
+    background: #161617;
+    color: #fff;
+  }
 
-/* Benefit grid */
-.benefit-grid {
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:10px 12px;
-  max-width:420px;
-  margin-bottom:22px;
-}
-.b-item {
-  background:var(--card);
-  padding:8px 12px;
-  border-radius:8px;
-  border:1px solid var(--glass);
-  font-size:14px;
-  font-weight:600;
-}
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
 
-/* Tech pills */
-.tech-pills {
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-bottom:22px;
-  max-width:520px;
-}
-.tech-pills span {
-  background:#0a0b0d;
-  padding:6px 10px;
-  border-radius:6px;
-  border:1px solid rgba(255,255,255,0.08);
-  font-size:12px;
-  font-weight:600;
-  color:var(--muted);
-}
+  input, textarea {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    background: #0f0f10;
+    color: #fff;
+  }
 
-.hero-mini {
-  margin:0 0 26px 0;
-  font-size:14px;
-  line-height:1.45;
-  color:var(--muted);
-  max-width:520px;
-}
+  textarea {
+    min-height: 100px;
+  }
 
-/* BUTTON */
-.repo-link { margin-top:auto; }
-.repo-btn {
-  display:inline-block;
-  background:var(--primary);
-  padding:10px 18px;
-  border-radius:8px;
-  color:#000;
-  font-weight:600;
-  font-size:15px;
-  text-decoration:none;
-  transition:opacity .2s ease;
-}
-.repo-btn:hover { opacity:0.85; }
+  button {
+    padding: 16px 20px;
+    border: none;
+    background: #21f08a;
+    color: #000;
+    font-size: 15px;
+    cursor: pointer;
+    border-radius: 6px;
+    margin-top: 14px;
+  }
 
-/* FORM */
-.form-card{
-  flex:0 0 430px;
-  background:var(--card);
-  padding:32px 32px 20px;
-  border-radius:14px;
-  border:1px solid var(--glass);
-  box-shadow:0 0 26px rgba(0,0,0,.45);
-  margin-top:6px;
-}
-label{ display:none; }
+  button:hover {
+    opacity: 0.85;
+  }
 
-input,textarea{
-  width:100%;
-  padding:15px 16px;
-  margin-bottom:18px;
-  background:#0b0d10;
-  border-radius:8px;
-  border:1px solid rgba(255,255,255,.12);
-  color:var(--fg);
-  font-size:16px;
-}
-textarea{min-height:120px;}
-button{
-  width:100%;
-  padding:16px;
-  background:var(--primary);
-  border:none;
-  border-radius:8px;
-  font-size:17px;
-  font-weight:700;
-  color:#000;
-  cursor:pointer;
-}
-button:hover{opacity:0.9;}
-.status{
-  margin-top:6px;
-  font-size:13px;
-  color:var(--muted);
-  min-height:10px;
-}
+  ul { margin: 0 0 12px 18px; padding: 0; }
+  ol { margin: 0 0 12px 22px; padding: 0; }
 
-/* FEATURES GRID WITH ICONS */
-.features{
-  display:grid;
-  gap:18px;
-  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-}
-.feature-card{
-  background:var(--card);
-  padding:18px 20px;
-  border-radius:12px;
-  border:1px solid var(--glass);
-  font-size:15px;
-  font-weight:500;
-  line-height:1.45;
-  height:110px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  word-break:break-word;
-}
-.feature-card span.icon {
-  font-size:20px;
-  margin-bottom:6px;
-  opacity:0.85;
-}
-
-/* MOBILE */
-@media(max-width:700px){
-  .hero h1{font-size:34px;}
-  .hero-sub{font-size:16px;}
-  .micro-line{font-size:13px;}
-  .benefit-grid{grid-template-columns:1fr;}
-  .b-item{font-size:13px;}
-  .tech-pills span{font-size:11px;padding:5px 8px;}
-  .hero-mini{font-size:13px;}
-  .hero-row{flex-direction:column;}
-  .form-card{width:100%;max-width:100%;}
-  .feature-card{height:auto;min-height:110px;}
-   .hero-row {align-items:flex-start;}
-}
+  @media(max-width:600px) {
+    body { padding: 26px 16px; }
+    .btn-row { flex-direction: column; }
+  }
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<!-- HEADER -->
+<div class="section">
+  <h1>Build software faster with Atom</h1>
+  <p>
+    Atom is an open-source backend that reduces development time and cost.
+    Build APIs, queues, auth, storage, RBAC, and background workers in days, not months.
+  </p>
 
-  <section class="hero-row">
+  <div class="btn-row">
+    <a class="btn" href="https://github.com/atom36942/atom" target="_blank">GitHub Repo</a>
 
-    <div class="hero">
+    <a class="btn btn-dark"
+       href="mailto:atom36942@gmail.com?subject=Build%20with%20Atom&body=Hi%2C%20I%20want%20to%20build%20something."
+       target="_blank">
+       Email Us
+    </a>
 
-      <h1>Atom Backend</h1>
+    <a class="btn btn-dark" href="#leadForm">Build Something</a>
+  </div>
+</div>
 
-      <p class="hero-sub">
-        Open-source backend framework to build scalable APIs, background jobs,
-        integrations, and internal systems — without boilerplate.
-      </p>
+<!-- WHY -->
+<div class="section">
+  <h2>Why Atom</h2>
+  <ul>
+    <li>Fast runtime</li>
+    <li>Minimal boilerplate</li>
+    <li>Easy deployments</li>
+    <li>Built-in modules</li>
+    <li>Postgres-first</li>
+    <li>Async-friendly</li>
+    <li>Production-ready</li>
+  </ul>
+  <p>
+    Use existing modules, skip infrastructure setup.
+    Teams using Atom deliver MVPs, internal tools, and integrations up to 10x faster.
+  </p>
+</div>
 
-      <div class="micro-line">
-        Fast • Modular • Postgres-first • Async-friendly • Production-ready
-      </div>
+<!-- TECH -->
+<div class="section">
+  <h2>Core Tech Stack</h2>
+  <p>Python, FastAPI, PostgreSQL, Redis, Kafka, Celery, RabbitMQ, S3, Sentry.</p>
+</div>
 
-      <div class="benefit-grid">
-        <div class="b-item">Fast runtime</div>
-        <div class="b-item">Easy deployments</div>
-        <div class="b-item">Modules built-in</div>
-        <div class="b-item">Minimal boilerplate</div>
-      </div>
+<!-- MODULES -->
+<div class="section">
+  <h2>Prebuilt Modules</h2>
+  <ol>
+    <li>Authentication API (Login, Signup)</li>
+    <li>RBAC CRUD (Roles, Permissions)</li>
+    <li>Logged-in user APIs</li>
+    <li>Rate limiter + middleware stack</li>
+    <li>Production folder structure</li>
+    <li>Postgres bootstrap</li>
+    <li>CSV → Postgres bulk import</li>
+    <li>Query runner (safe + optimized)</li>
+    <li>Celery job queue</li>
+    <li>Kafka event queue</li>
+    <li>RabbitMQ message queue</li>
+    <li>S3 object storage</li>
+    <li>AWS SNS notifications</li>
+    <li>AWS SES emails</li>
+    <li>Sentry error tracking</li>
+    <li>Posthog analytics</li>
+    <li>Redis cache</li>
+    <li>Admin control panel APIs</li>
+    <li>Google Sheets integration</li>
+    <li>OTP clients (Fast2SMS, Resend)</li>
+  </ol>
+</div>
 
-      <div class="tech-pills">
-        <span>Python</span>
-        <span>FastAPI</span>
-        <span>PostgreSQL</span>
-        <span>Redis</span>
-        <span>S3</span>
-        <span>Kafka</span>
-        <span>Celery</span>
-        <span>RabbitMQ</span>
-        <span>Sentry</span>
-      </div>
-
-      <p class="hero-mini">
-        Built for teams shipping APIs, integrations, internal tools, and event-driven systems fast — without repeating boilerplate.
-      </p>
-
-      <div class="repo-link">
-        <a class="repo-btn" href="https://github.com/atom36942/atom" target="_blank">View GitHub Repository</a>
-      </div>
-
-    </div>
-
-    <!-- UPDATED FORM (TITLE MOVED INTO PLACEHOLDERS) -->
-    <div class="form-card">
-      <form id="leadForm">
-
-        <textarea 
-          name="description" 
-          placeholder="What do you want to build?"
-          required></textarea>
-
-        <input 
-          name="email" 
-          type="email" 
-          placeholder="Email"/>
-
-        <input 
-          name="mobile" 
-          type="text" 
-          placeholder="Mobile"/>
-
-        <button type="submit">Submit</button>
-        <div class="status" id="status"></div>
-
-      </form>
-    </div>
-
-  </section>
-
-  <!-- FEATURES GRID WITH ICONS -->
-  <section>
-    <div class="features">
-
-      <div class="feature-card"><span class="icon">🗄️</span>One-click Postgres setup</div>
-      <div class="feature-card"><span class="icon">📤</span>CSV → Postgres bulk uploader</div>
-      <div class="feature-card"><span class="icon">⚡</span>Query runner (safe + fast)</div>
-      <div class="feature-card"><span class="icon">👤</span>Logged-in user APIs ready</div>
-
-      <div class="feature-card"><span class="icon">🔐</span>Auth API</div>
-      <div class="feature-card"><span class="icon">🛂</span>RBAC CRUD</div>
-
-      <div class="feature-card"><span class="icon">📦</span>Celery queue setup</div>
-      <div class="feature-card"><span class="icon">🔄</span>Kafka queue setup</div>
-      <div class="feature-card"><span class="icon">📨</span>RabbitMQ queue setup</div>
-
-      <div class="feature-card"><span class="icon">🛠️</span>Admin control panel APIs</div>
-      <div class="feature-card"><span class="icon">🧰</span>Redis caching built-in</div>
-
-      <div class="feature-card"><span class="icon">🛡️</span>Sentry integration</div>
-      <div class="feature-card"><span class="icon">🍃</span>MongoDB integration</div>
-      <div class="feature-card"><span class="icon">📊</span>Posthog integration</div>
-
-      <div class="feature-card"><span class="icon">🔢</span>OTP clients (Fast2SMS, Resend)</div>
-
-      <div class="feature-card"><span class="icon">🌩️</span>AWS S3 ready</div>
-      <div class="feature-card"><span class="icon">📣</span>AWS SNS ready</div>
-      <div class="feature-card"><span class="icon">✉️</span>AWS SES ready</div>
-
-      <div class="feature-card"><span class="icon">🚦</span>Rate limiter + middleware stack</div>
-      <div class="feature-card"><span class="icon">📝</span>Serve HTML pages</div>
-      <div class="feature-card"><span class="icon">📑</span>Gsheet integration</div>
-
-      <div class="feature-card"><span class="icon">🏗️</span>Production-ready API structure</div>
-      <div class="feature-card"><span class="icon">🔧</span>Pure-function style modules</div>
-      <div class="feature-card"><span class="icon">⚙️</span>Minimal config, no lock-in</div>
-
-    </div>
-  </section>
-
+<!-- FORM -->
+<div class="section">
+  <h2>Tell us what you want to build</h2>
+  <form id="leadForm">
+    <textarea name="description" placeholder="Describe your idea…" required></textarea>
+    <input name="email" type="email" placeholder="Email"/>
+    <input name="mobile" type="text" placeholder="Mobile"/>
+    <button type="submit">Submit</button>
+    <div id="status" style="margin-top:6px;font-size:14px;color:#ccc;"></div>
+  </form>
 </div>
 
 <script>
 (function(){
   const form=document.getElementById('leadForm');
   const status=document.getElementById('status');
-  const baseurl=window.location.origin;
+  const base=window.location.origin;
 
   form.addEventListener('submit',async(e)=>{
     e.preventDefault();
     status.textContent='Submitting...';
-
     const email=form.email.value.trim();
     const mobile=form.mobile.value.trim();
+
     if(!email && !mobile){
-      status.textContent='Please enter at least email or mobile.';
+      status.textContent='Enter email or mobile.';
       return;
     }
 
-    const data={
-      description:form.description.value.trim(),
-      email,
-      mobile
-    };
+    const data={description:form.description.value.trim(), email, mobile};
 
     try{
-      const resp=await fetch(baseurl+'/public/object-create?table=lead',{
+      const r=await fetch(base+'/public/object-create?table=lead',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(data)
       });
-      if(!resp.ok){
-        status.textContent='Error: '+await resp.text();
-      }else{
-        status.textContent='Submitted. We will contact you soon.';
-        form.reset();
-      }
-    }catch(err){
+      status.textContent=r.ok?'Submitted. We will contact you soon.':'Error: '+await r.text();
+      if(r.ok) form.reset();
+    }catch(e){
       status.textContent='Network error.';
     }
   });
