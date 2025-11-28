@@ -371,9 +371,12 @@ async def function_auth_login_otp_mobile(client_postgres_pool,type,mobile,otp,fu
 import json
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_request
-async def function_auth_login_google(client_postgres_pool, type, google_token, config_google_login_client_id, function_token_encode, config_key_jwt, config_token_expire_sec, config_token_user_key_list):
+async def function_auth_login_google(client_postgres_pool, type, google_token, config_google_login_client_id,function_token_encode, config_key_jwt, config_token_expire_sec, config_token_user_key_list):
     request = google_request.Request()
     id_info = id_token.verify_oauth2_token(google_token, request, config_google_login_client_id)
+    if id_info.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]: raise Exception("invalid issuer")
+    if not id_info.get("email_verified", False): raise Exception("email not verified")
+    if id_info.get("exp", 0) < time.time(): raise Exception("token expired")
     google_user = {
         "sub": id_info.get("sub"),
         "email": id_info.get("email"),
