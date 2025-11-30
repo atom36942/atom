@@ -24,14 +24,12 @@ async def function_lifespan(app:FastAPI):
       client_celery_producer=await function_celery_client_read_producer(config_celery_broker_url,config_celery_backend_url) if config_celery_broker_url else None
       client_kafka_producer=await function_kafka_client_read_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
       client_rabbitmq,client_rabbitmq_producer=await function_rabbitmq_client_read_producer(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
-      client_redis_producer=await function_redis_client_read(config_redis_pubsub_url) if config_redis_pubsub_url else None
+      client_redis_producer=await function_redis_client_read(config_redis_url_pubsub) if config_redis_url_pubsub else None
       client_gsheet=function_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope_list) if config_gsheet_service_account_json_path else None
-      client_extend=await function_extend_client()
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)
       cache_users_api_access=await function_postgres_map_two_column(client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,False) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
       cache_users_is_active=await function_postgres_map_two_column(client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,True) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
-      cache_extend=await function_extend_cache()
       #app state set
       function_add_state({**globals(),**locals()},app,("client_","cache_"))
       #app shutdown

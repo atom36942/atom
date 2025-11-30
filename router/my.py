@@ -4,10 +4,12 @@ from file.route import *
 #api
 @router.get("/my/profile")
 async def function_api_my_profile(request:Request):
+   param=await function_param_read("query",request,[["is_metadata","int",0,None]])
    user=await function_user_read_single(request.app.state.client_postgres_pool,request.state.user["id"])
-   output=await function_user_query_read(request.app.state.client_postgres_pool,config_user_query,request.state.user["id"])
+   metadata={}
+   if param["is_metadata"]==1:metadata=await function_user_query_read(request.app.state.client_postgres_pool,config_user_query,request.state.user["id"])
    asyncio.create_task(function_postgres_object_update(request.app.state.client_postgres_pool,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}]))
-   return {"status":1,"message":user|output}
+   return {"status":1,"message":user|metadata}
 
 @router.get("/my/token-refresh")
 async def function_api_my_token_refresh(request:Request):

@@ -1,12 +1,3 @@
-#extend
-async def function_extend_client():
-   output={}
-   return output
-
-async def function_extend_cache():
-   output={}
-   return output
-
 #zzz
 import os
 def function_delete_files(file_prefix_list=None,extension_list=None,folder_path="."):

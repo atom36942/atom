@@ -8,6 +8,8 @@
 - Non-opinionated: full flexibility in defining business schema, API structure, and external libraries
 - Tech Stack:Python,FastAPI,PostgreSQL,Redis,S3,Celery,RabbitMQ,Kafka,Sentry
 
+
+
 ## Modules
 - one click postgres database setup
 - postgres csv uploader
@@ -28,6 +30,8 @@
 - easy extension
 - supports multi-tenant design
 
+
+
 ## Installation
 ```bash
 #download
@@ -45,13 +49,14 @@ config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
 config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt
 config_mongodb_url=mongodb://localhost:27017
 config_celery_broker_url=redis://localhost:6379
-config_celery_backend_url=redis://localhost:6379
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
-config_redis_pubsub_url=redis://localhost:6379
+config_redis_url_pubsub=redis://localhost:6379
 
 #start
 ./venv/bin/uvicorn main:app --reload
 ```
+
+
 
 ## Docker
 ```bash
@@ -60,9 +65,8 @@ config_postgres_url=postgresql://postgres@host.docker.internal:5432/postgres
 config_redis_url=redis://host.docker.internal:6379
 config_mongodb_url=mongodb://host.docker.internal:27017
 config_celery_broker_url=redis://host.docker.internal:6379
-config_celery_backend_url=redis://host.docker.internal:6379
 config_rabbitmq_url=amqp://guest:guest@host.docker.internal:5672
-config_redis_pubsub_url=redis://host.docker.internal:6379
+config_redis_url_pubsub=redis://host.docker.internal:6379
 config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
 config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt
 
@@ -70,6 +74,8 @@ config_key_root=UZit5LLGZmqqvScH8E8PAZSsYKSt
 docker build -t atom .
 docker run -it --rm -p 8000:8000 atom
 ```
+
+
 
 ## Commands
 ```bash
@@ -82,6 +88,8 @@ venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 ```
+
+
 
 ## zzz
 ```bash

@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
-config_redis_pubsub_url=os.getenv("config_redis_pubsub_url")
+config_redis_url_pubsub=os.getenv("config_redis_url_pubsub")
 config_postgres_url=os.getenv("config_postgres_url")
 config_channel_name=os.getenv("config_channel_name") or "channel_1"
 
@@ -16,7 +16,7 @@ import asyncio,json
 #logic
 async def logic():
    try:
-      client_redis=await function_redis_client_read(config_redis_pubsub_url)
+      client_redis=await function_redis_client_read(config_redis_url_pubsub)
       client_redis_consumer=await function_redis_client_read_consumer(client_redis,config_channel_name)
       client_postgres_pool=await function_postgres_client_read(config_postgres_url)
       async for message in client_redis_consumer.listen():
