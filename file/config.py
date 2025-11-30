@@ -59,8 +59,9 @@ config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_ac
 config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_access") or 10)
 
 #key
-config_key_jwt=os.getenv("config_key_jwt") or "123"
 config_key_root=os.getenv("config_key_root") or "123"
+config_key_protected=os.getenv("config_key_protected") or "123"
+config_key_jwt=os.getenv("config_key_jwt") or "123"
 
 #switch
 config_is_signup=int(os.getenv("config_is_signup") or 1)
@@ -254,6 +255,13 @@ config_postgres_schema={
 "email-text-0-btree",
 "mobile-text-0-btree"
 ],
+"jira":[
+"created_at-timestamptz-0-btree,brin",
+"type-bigint-1-btree",
+"key-text-1-btree",
+"assignee-text-1-btree",
+"status-text-0-0"
+]
 },
 "query":{
 "created_at_default":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",

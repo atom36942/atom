@@ -966,7 +966,15 @@ async def function_postgres_create_fake_data(postgres_url,TOTAL_ROWS=1000,BATCH_
 
 #api
 import csv,io
-async def function_file_to_object_list(file):
+async def function_csv_path_to_object_list(path):
+    with open(path, "r", encoding="utf-8") as f:
+        content = f.read()
+    reader = csv.DictReader(io.StringIO(content))
+    obj_list = [row for row in reader]
+    return obj_list
+
+import csv,io
+async def function_csv_api_to_object_list(file):
    content=await file.read()
    content=content.decode("utf-8")
    reader=csv.DictReader(io.StringIO(content))
@@ -1128,6 +1136,22 @@ async def function_api_response(request,api_function,config_api,function_api_res
         if cache_sec:response=await function_api_response_cache("set",config_api,request,response);response_type=4
     return response,response_type
 
+async def function_token_check(request,config_api,config_key_root,config_key_protected,config_key_jwt,function_token_decode):
+    user={}
+    api=request.url.path
+    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
+    if api.startswith("/root"):
+        if token!=config_key_root:raise Exception("token mismatch")
+    elif api.startswith("/protected"):
+        if token!=config_key_protected:raise Exception("token mismatch")
+    else:
+        if token:user=await function_token_decode(token,config_key_jwt)
+        if api.startswith("/my") and not token:raise Exception("token missing")
+        elif api.startswith("/private") and not token:raise Exception("token missing")
+        elif api.startswith("/admin") and not token:raise Exception("token missing")
+        elif config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
+    return user
+
 #token
 import jwt,json
 async def function_token_decode(token,config_key_jwt):
@@ -1141,25 +1165,6 @@ async def function_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,
    payload=json.dumps(payload,default=str)
    token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":payload},config_key_jwt)
    return token
-
-async def function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode):
-   user={}
-   api=request.url.path
-   token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
-   if api.startswith("/root"):
-      if token!=config_key_root:raise Exception("token root mismatch")
-   else:
-      if token:user=await function_token_decode(token,config_key_jwt)
-      if api.startswith("/my") and not token:raise Exception("token missing")
-      elif api.startswith("/private") and not token:raise Exception("token missing")
-      elif api.startswith("/admin") and not token:raise Exception("token missing")
-      elif config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
-   return user
-
-async def function_token_must(request):
-    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
-    if not token:raise Exception("token missing")
-    return None
 
 #app
 from fastapi import FastAPI
@@ -1661,21 +1666,36 @@ import requests, csv
 from requests.auth import HTTPBasicAuth
 def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path="export_jira_filter_count.csv"):
     auth = HTTPBasicAuth(jira_email, jira_token)
-    headers = {"Accept": "application/json"}
-    resp = requests.get(f"{jira_base_url}/rest/api/3/filter/my", headers=headers, auth=auth, params={"maxResults": 1000})
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    resp = requests.get(
+        f"{jira_base_url}/rest/api/3/filter/search",
+        headers=headers,
+        auth=auth,
+        params={"maxResults": 1000},
+    )
     if resp.status_code != 200:
         return f"error {resp.status_code}: {resp.text}"
-    data = resp.json()
+    data = resp.json().get("values", [])
     filters = sorted(data, key=lambda x: x.get("name", "").lower())
     with open(output_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["filter_name", "issue_count"])
         for flt in filters:
-            jql_url = f"{jira_base_url}/rest/api/3/search"
-            jql_params = {"jql": flt.get("jql", ""), "maxResults": 0}
-            jql_resp = requests.get(jql_url, headers=headers, auth=auth, params=jql_params)
-            count = jql_resp.json().get("total", 0) if jql_resp.status_code == 200 else f"error {jql_resp.status_code}"
-            writer.writerow([flt.get("name", ""), count])
+            name = flt.get("name", "")
+            jql = flt.get("jql") or f"filter={flt.get('id')}"
+            body = {"jql": jql}
+            count_resp = requests.post(
+                f"{jira_base_url}/rest/api/3/search/approximate-count",
+                headers=headers,
+                auth=auth,
+                json=body,
+            )
+            count = (
+                count_resp.json().get("count", 0)
+                if count_resp.status_code == 200
+                else f"error {count_resp.status_code}"
+            )
+            writer.writerow([name, count])
     return f"saved to {output_path}"
 
 import requests, datetime, re
@@ -1825,3 +1845,91 @@ def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_projec
     top_active, on_time = calculate_activity_and_performance(issues_done)
     save_summary_to_file(blockers, improvements, top_active, on_time)
     return f"saved to {output_path}"
+
+import requests, csv, json
+from requests.auth import HTTPBasicAuth
+from requests.exceptions import RequestException
+import time
+def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, column_names=None, limit=None, output_path=None):
+    if not column_names:column_names="key,assignee,status"
+    if not limit:limit=10000
+    if not output_path:output_path="export_jira_jql_output.csv"
+    auth = HTTPBasicAuth(jira_email, jira_token)
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    if 'order by' not in jql.lower():
+        jql = f"{jql} ORDER BY key ASC"
+        print("ℹ️ Added 'ORDER BY key ASC' for stable pagination.")
+    field_list = [c.strip() for c in column_names.split(',')]
+    issues = []
+    nextPageToken = None
+    maxResults = 100
+    page_count = 0
+    print(f"Fetching JQL: '{jql}' (Limit: {limit})")
+    while True:
+        page_count += 1
+        if limit and len(issues) >= limit:
+            break
+        current_max = min(maxResults, limit - len(issues)) if limit else maxResults
+        payload = {"jql": jql, "fields": field_list, "maxResults": current_max}
+        if nextPageToken:
+            payload["nextPageToken"] = nextPageToken
+        try:
+            resp = requests.post(f"{jira_base_url}/rest/api/3/search/jql", headers=headers, auth=auth, data=json.dumps(payload))
+        except RequestException as e:
+            return f"Connection error: {e}"
+        except Exception as e:
+            return f"Unexpected error: {e}"
+        if resp.status_code != 200:
+            error_msg = f"API Error {resp.status_code}: {resp.text}"
+            print(f"🚨 {error_msg}")
+            return f"Fatal error: {error_msg}" if page_count == 1 else f"Partial fetch: {len(issues)} issues saved."
+        try:
+            data = resp.json()
+        except Exception as e:
+            print(f"🚨 JSON parse error: {e}")
+            break
+        current_issues = data.get("issues", [])
+        if not current_issues:
+            break
+        issues.extend(current_issues)
+        print(f"Page {page_count}: +{len(current_issues)} issues (Total: {len(issues)})")
+        if data.get("isLast", True) or not data.get("nextPageToken"):
+            break
+        nextPageToken = data.get("nextPageToken")
+        time.sleep(0.1)
+        if page_count >= 1000:
+            print("⚠️ Reached 1000 pages limit.")
+            break
+    csv_headers = [c.strip().title().replace('_', ' ') for c in field_list]
+    try:
+        with open(output_path, "w", newline="", encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(csv_headers)
+            for issue in issues:
+                row = []
+                for field_name in field_list:
+                    if field_name.lower() == 'key':
+                        field_value = issue.get("key", "N/A")
+                    else:
+                        field_data = issue.get("fields", {}).get(field_name)
+                        if isinstance(field_data, dict):
+                            if field_name == 'assignee' and field_data:
+                                field_value = field_data.get("displayName")
+                            elif field_name == 'status' and field_data:
+                                field_value = field_data.get("name")
+                            elif 'name' in field_data:
+                                field_value = field_data.get("name")
+                            else:
+                                field_value = str(field_data)
+                        elif isinstance(field_data, list):
+                            names = [item.get('name') for item in field_data if isinstance(item, dict) and item.get('name')]
+                            field_value = ", ".join(names) if names else ", ".join(map(str, field_data))
+                        elif field_data is not None:
+                            field_value = field_data
+                        else:
+                            field_value = None
+                    row.append(field_value if field_value is not None else "")
+                writer.writerow(row)
+    except Exception as e:
+        return f"CSV write error: {e}"
+    return f"✅ Exported {len(issues)} issues to {output_path}"

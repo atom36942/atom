@@ -12,6 +12,7 @@ ROOT_DIR="$SCRIPT_DIR/.."
 ENABLE_REPORT=0
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
+token_protected="${config_key_protected:-}"
 token="${token:-}"
 
 #file
@@ -39,6 +40,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     # substitute variables BEFORE execution
     command_line=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
                                   -e "s|\$token_root|$token_root|g" \
+                                  -e "s|\$token_protected|$token_protected|g" \
                                   -e "s|\$token|$token|g")
 
     # extract URL (first quoted string after curl)
