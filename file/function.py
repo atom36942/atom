@@ -991,15 +991,13 @@ async def function_stream_file(path,chunk_size=1024*1024):
 
 import os
 import aiofiles
-async def function_render_html(filename):
-    if ".." in filename: raise Exception("invalid name")
-    skip_dirs = {"venv","__pycache__",".git",".idea",".vscode","node_modules"}
-    for root, dirs, files in os.walk("."):
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in skip_dirs]
-        if filename in files:
-            async with aiofiles.open(os.path.join(root, filename), "r", encoding="utf-8") as f:
-                return await f.read()
-    raise Exception("file not found")
+async def function_render_html(path):
+    if ".." in path: raise Exception("invalid name")
+    full_path = os.path.abspath(path)
+    if not full_path.endswith(".html"): raise Exception("invalid file type")
+    if not os.path.isfile(full_path): raise Exception("file not found")
+    async with aiofiles.open(full_path, "r", encoding="utf-8") as f:
+        return await f.read()
 
 async def function_param_read(mode, request, config):
     if mode == "query":

@@ -20,7 +20,8 @@
   .card{
     background:var(--card); border-radius:16px; padding:30px; box-shadow:0 10px 30px rgba(0,0,0,.6);
   }
-  h1{margin:0 0 20px; font-size:22px; font-weight:600; color:#fff; text-align:center;}
+  h1{margin:0 0 20px; font-size:22px; font-weight:600; text-align:center;}
+  h2{margin:10px 0; font-size:18px; font-weight:600;}
   pre{
     background:#1a1c1f; padding:12px; border-radius:10px; overflow:auto;
     font-size:14px; line-height:1.4; white-space:pre; text-align:center; margin-bottom:20px;
@@ -29,8 +30,7 @@
     display:grid;
     grid-template-columns:repeat(3, 1fr);
     gap:16px;
-    justify-items:center;
-    align-items:center;
+    margin-bottom:25px;
   }
   .btn{
     width:100%; padding:16px; font-size:16px; font-weight:500;
@@ -38,7 +38,6 @@
     cursor:pointer; text-align:center;
   }
   .btn:hover{ background:#2c7a4b; }
-
   @media (max-width: 480px) {
     .buttons-container{ grid-template-columns:1fr; }
     .btn{ font-size:18px; padding:18px; }
@@ -49,33 +48,46 @@
 <div class="container">
   <div class="card">
     <h1>Html Pages Launcher</h1>
-    <pre id="curlBlock">curl -X GET "$baseurl/page/{name}"</pre>
-    <div class="buttons-container" id="buttons"></div>
+    <pre>curl -X GET "$baseurl/page/{name}"</pre>
+
+    <h2>core</h2>
+    <div class="buttons-container" id="core"></div>
+
+    <h2>zzz</h2>
+    <div class="buttons-container" id="zzz"></div>
+
   </div>
 </div>
 
 <script>
-const names = [
-  "root_postgres_init",
-  "root_postgres_clean",
-  "root_postgres_runner",
-  "root_postgres_export",
-  "root_postgres_import",
-  "root_reset_global",
-  "public_jira_worklog_export",
-  "job", "atom", "nuclear"
-];
+const sections = {
+  core: [
+    "root_postgres_init",
+    "root_postgres_clean",
+    "root_postgres_runner",
+    "root_postgres_export",
+    "root_postgres_import",
+    "root_reset_global",
+    "auth_login_google",
+    "public_jira_worklog_export",
+  ],
+  zzz: [
+    "atom",
+    "nuclear"
+  ]
+};
 
-const buttonsDiv = document.getElementById('buttons');
-
-names.forEach(name => {
-  const btn = document.createElement('button');
-  btn.textContent = name;
-  btn.className = 'btn';
-  btn.addEventListener('click', () => {
-    window.open(`${window.location.origin}/page/${name}`, '_blank');
+Object.entries(sections).forEach(([section, items]) => {
+  const div = document.getElementById(section);
+  items.forEach(name => {
+    const btn = document.createElement('button');
+    btn.textContent = name;
+    btn.className = 'btn';
+    btn.onclick = () => {
+      window.open(`${window.location.origin}/page/${name}`, '_blank');
+    };
+    div.appendChild(btn);
   });
-  buttonsDiv.appendChild(btn);
 });
 </script>
 </body>
