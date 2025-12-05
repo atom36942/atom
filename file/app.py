@@ -74,7 +74,7 @@ async def middleware(request,api_function):
       response_type=None
       error=None
       #check
-      request.state.user=await function_token_check(request,config_api,config_key_root,config_key_protected,config_key_jwt,function_token_decode)
+      request.state.user=await function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode)
       await function_check_api_access(request,config_api,config_mode_check_api_access)
       await function_check_is_active(request,config_api,config_mode_check_is_active)
       await function_check_ratelimiter(request,config_api)

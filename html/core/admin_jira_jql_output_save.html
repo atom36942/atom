@@ -107,13 +107,13 @@
   <div class="card">
     <div class="card-header">
       <h1>Jira JQL Output Save</h1>
-      <input id="token_protected" placeholder="token_protected"
+      <input id="token" placeholder="token"
         style="padding:6px 8px;font-size:12px;border-radius:6px;
         border:1px solid rgba(255,255,255,.08);background:#0b0d10;
         color:#e6eef3;width:220px;">
     </div>
 
-    <pre id="curlBlock">curl -X POST "$baseurl/protected/jira-jql-output-save" -H "Authorization: Bearer $token_protected" -H "Content-Type: application/json" -d '{"type":1,"jira_base_url":"test","jira_email":"test","jira_token":"test","jql":"test","column":null}'</pre>
+    <pre id="curlBlock">curl -X POST "$baseurl/admin/jira-jql-output-save" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"jira_base_url":"test","jira_email":"test","jira_token":"test","jql":"test","column":null}'</pre>
 
     <form id="exportForm">
       <input id="type" name="type" placeholder="type" required />
@@ -141,7 +141,7 @@
   const status = document.getElementById('status');
   const submitBtn = document.getElementById('submitBtn');
   const clearBtn = document.getElementById('clearBtn');
-  const headerToken = document.getElementById('token_protected');
+  const headerToken = document.getElementById('token');
 
   clearBtn.addEventListener('click', ()=>{
     form.reset();
@@ -171,7 +171,7 @@
 
     try{
       const baseurl = window.location.origin;
-      const resp = await fetch(baseurl + '/protected/jira-jql-output-save', {
+      const resp = await fetch(baseurl + '/admin/jira-jql-output-save', {
         method:'POST',
         headers:{
           'Authorization':'Bearer ' + headerToken.value.trim(),

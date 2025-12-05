@@ -882,8 +882,8 @@ async def function_postgres_schema_read(client_postgres_pool):
     return postgres_schema,postgres_column_datatype
 
 import asyncpg
-async def function_postgres_client_read(config_postgres_url,min_connection=5,max_connection=20):
-   client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=min_connection,max_size=max_connection)
+async def function_postgres_client_read(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
+   client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
    return client_postgres_pool
  
 import asyncpg, csv, re
@@ -1134,14 +1134,12 @@ async def function_api_response(request,api_function,config_api,function_api_res
         if cache_sec:response=await function_api_response_cache("set",config_api,request,response);response_type=4
     return response,response_type
 
-async def function_token_check(request,config_api,config_key_root,config_key_protected,config_key_jwt,function_token_decode):
+async def function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode):
     user={}
     api=request.url.path
     token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
     if api.startswith("/root"):
         if token!=config_key_root:raise Exception("token mismatch")
-    elif api.startswith("/protected"):
-        if token!=config_key_protected:raise Exception("token mismatch")
     else:
         if token:user=await function_token_decode(token,config_key_jwt)
         if api.startswith("/my") and not token:raise Exception("token missing")

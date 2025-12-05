@@ -95,10 +95,11 @@ config_api={
 "/admin/object-read":{"id":3},
 "/admin/ids-update":{"id":4},
 "/admin/ids-delete":{"id":5},
-"/test":{"id":100,"is_token":0,"is_active_check":0,"cache_sec":["redis",60],"ratelimiter_times_sec":[1,3]},
-"/public/object-read":{"id":101,"cache_sec":["inmemory",60]},
-"/my/profile":{"id":102,"is_active_check":1,"cache_sec":["inmemory",10]},
-"/my/object-read":{"id":103,"cache_sec":["redis",60]},
+"/test":{"id":5,"is_token":0,"is_active_check":0,"cache_sec":["redis",60],"ratelimiter_times_sec":[1,3]},
+"/public/object-read":{"id":6,"cache_sec":["inmemory",60]},
+"/my/profile":{"id":7,"is_active_check":1,"cache_sec":["inmemory",10]},
+"/my/object-read":{"id":8,"cache_sec":["redis",60]},
+"/admin/jira-jql-output-save":{"id":9},
 }
 config_postgres_schema={
 "table":{
