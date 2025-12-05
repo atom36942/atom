@@ -11,7 +11,7 @@ async def function_api_admin_object_create(request:Request):
       if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):x["created_by_id"]=request.state.user["id"]
       if len(x)<=1:raise Exception("obj key length issue")
       if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
-   output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],obj_list)
+   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],obj_list)
    return {"status":1,"message":output}
 
 @router.put("/admin/object-update")

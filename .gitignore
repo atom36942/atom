@@ -147,3 +147,5 @@ env.py
 *.sql
 export*
 z.py
+z.json
+z.*

@@ -27,7 +27,7 @@ async def logic():
             payload=json.loads(message.value.decode('utf-8'))
             function_name=payload["function"]
             if function_name=="function_postgres_object_create":
-               asyncio.create_task(function_postgres_object_create(client_postgres_pool,payload["table"],payload["obj_list"]))
+               asyncio.create_task(function_postgres_object_create("now",client_postgres_pool,payload["table"],payload["obj_list"]))
             elif function_name=="function_postgres_object_update":
                asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
             if not config_enable_auto_commit:await client_kafka_consumer.commit()

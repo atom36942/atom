@@ -60,7 +60,6 @@ config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_
 
 #key
 config_key_root=os.getenv("config_key_root") or "123"
-config_key_protected=os.getenv("config_key_protected") or "123"
 config_key_jwt=os.getenv("config_key_jwt") or "123"
 
 #switch

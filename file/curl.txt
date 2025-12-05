@@ -69,7 +69,7 @@ curl -X PUT "$baseurl/admin/ids-update" -H "Authorization: Bearer $token" -H "Co
 curl -X POST "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"table":"test","ids":"1,2,3"}'
 
 #protected
-0 curl -X POST "$baseurl/protected/jira-jql-output-save" -H "Authorization: Bearer $token_protected" -H "Content-Type: application/json" -d '{"type":1,"jira_base_url":"test","jira_email":"test","jira_token":"test","jql":"test","column":null}'
+0 curl -X POST "$baseurl/protected/jira-jql-output-save" -H "Authorization: Bearer 123" -H "Content-Type: application/json" -d '{"type":1,"jira_base_url":"test","jira_email":"test","jira_token":"test","jql":"test","column":null}'
 
 #zzz
 curl -X GET "$baseurl/test"

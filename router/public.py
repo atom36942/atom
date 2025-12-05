@@ -61,7 +61,7 @@ async def function_api_public_object_create(request:Request):
    if len(obj)<=1:raise Exception("obj issue")
    if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
    if param["is_serialize"] or "password" in obj:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
-   output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],[obj])
+   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],[obj])
    return {"status":1,"message":output}
 
 @router.get("/public/object-read")

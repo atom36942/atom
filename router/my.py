@@ -54,7 +54,7 @@ async def function_api_my_message_thread(request:Request):
 @router.delete("/my/message-delete-single")
 async def function_api_my_message_delete_single(request:Request):
    param=await function_param_read("query",request,[["id","int",1,None]])
-   await function_message_delete_single(request.app.state.client_postgres_pool,param["id"],request.state.user["id"])
+   await function_message_delete_single_user(request.app.state.client_postgres_pool,param["id"],request.state.user["id"])
    return {"status":1,"message":"done"}
 
 @router.delete("/my/message-delete-bulk")
@@ -91,8 +91,8 @@ async def function_api_my_object_create(request:Request):
       if len(x)<=1:raise Exception("obj key length issue")
       if any(key in config_column_disabled_list for key in x):raise Exception("obj key not allowed")
       if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
-   if not param["queue"]:output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],obj_list)
-   elif param["queue"]=="buffer":output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],obj_list,"buffer",config_table.get(param['table'],{}).get("buffer",10))
+   if not param["queue"]:output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],obj_list)
+   elif param["queue"]=="buffer":output=await function_postgres_object_create("buffer",request.app.state.client_postgres_pool,param["table"],obj_list,config_table.get(param['table'],{}).get("buffer",10))
    else:
       function_name="function_postgres_object_create"
       channel_name="channel_1"

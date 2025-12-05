@@ -29,7 +29,7 @@ async def function_api_root_postgres_import(request:Request):
    param=await function_param_read("form",request,[["mode",None,1,None],["table",None,1,None],["file","file",1,[]]])
    obj_list=await function_csv_api_to_object_list(param["file"][-1])
    obj_list=await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,obj_list)
-   if param["mode"]=="create":output=await function_postgres_object_create(request.app.state.client_postgres_pool,param["table"],obj_list)
+   if param["mode"]=="create":output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],obj_list)
    elif param["mode"]=="update":output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],obj_list)
    elif param["mode"]=="delete":output=await function_postgres_ids_delete(request.app.state.client_postgres_pool,param["table"],",".join(str(obj["id"]) for obj in obj_list))
    return {"status":1,"message":output}
@@ -76,6 +76,6 @@ async def function_api_root_reset_global(request:Request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres_pool)
     request.app.state.cache_users_api_access=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,False)
     request.app.state.cache_users_is_active=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,True)
-    await function_postgres_object_create(request.app.state.client_postgres_pool,None,None,"flush")
+    await function_postgres_object_create("flush",request.app.state.client_postgres_pool)
     return {"status":1,"message":"done"}
 

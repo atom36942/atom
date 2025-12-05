@@ -46,7 +46,6 @@ python3 -m venv venv
 config_postgres_url=postgresql://postgres@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
 config_key_root=UZit5LLGZmqqvSc
-config_key_protected=H8E8PAZSsYKSt
 config_key_jwt=4clHM8asr6gATOg
 config_mongodb_url=mongodb://localhost:27017
 config_celery_broker_url=redis://localhost:6379
@@ -65,7 +64,6 @@ config_redis_url_pubsub=redis://localhost:6379
 config_postgres_url=postgresql://postgres@host.docker.internal:5432/postgres
 config_redis_url=redis://host.docker.internal:6379
 config_key_root=UZit5LLGZmqqvSc
-config_key_protected=H8E8PAZSsYKSt
 config_key_jwt=4clHM8asr6gATOg
 config_mongodb_url=mongodb://host.docker.internal:27017
 config_celery_broker_url=redis://host.docker.internal:6379

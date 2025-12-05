@@ -10,5 +10,5 @@ async def function_api_protected_jira_jql_output_save(request:Request):
    obj_list=await function_csv_path_to_object_list(output_path)
    obj_list=[item | {"type": param["type"]} for item in obj_list]
    __import__("os").remove(output_path)
-   output=await function_postgres_object_create(request.app.state.client_postgres_pool,"jira",obj_list)
+   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,"jira",obj_list)
    return {"status":1,"message":output}
