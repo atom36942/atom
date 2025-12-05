@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Login (Google OAuth)</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+  :root{
+    --bg:#0b0d10; --card:#0f1114; --muted:#9aa0a6;
+    --primary:#38a169; --primary-text:#031013;
+    --secondary:#1f2933; --secondary-text:#e6eef3;
+  }
+
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:#e6eef3;
+    font-family:Inter,system-ui;
+  }
+
+  .container{
+    max-width:640px;
+    margin:32px auto;
+    padding:16px;
+  }
+
+  .card{
+    background:var(--card);
+    border-radius:10px;
+    padding:22px;
+    box-shadow:0 4px 18px rgba(0,0,0,.5);
+  }
+
+  h1{margin:0;font-size:18px;}
+
+  .card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:16px;
+  }
+
+  form{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  input{
+    width:100%;
+    padding:14px;
+    font-size:15px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,.05);
+    background:#0b0d10;
+    color:#e6eef3;
+    box-sizing:border-box;
+  }
+  
+  .google-login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 50px;
+    margin-top: 10px;
+  }
+
+  .row{
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+    margin-top:4px;
+  }
+
+  .btn{
+    padding:12px;
+    flex:1;
+    text-align:center;
+    font-size:14px;
+    border-radius:8px;
+    border:none;
+    cursor:pointer;
+    box-sizing:border-box;
+    transition: opacity 0.2s;
+  }
+
+  .btn-primary{background:var(--primary);color:var(--primary-text);}
+  .btn-secondary{background:var(--secondary);color:var(--secondary-text);}
+  .btn:disabled{opacity:.6;cursor:not-allowed;}
+
+  .resp-box{
+    background:#1a1c1f;
+    border-radius:8px;
+    margin-top:20px;
+    padding:16px;
+    display:none;
+  }
+
+  .resp-header{
+    font-size:16px;
+    font-weight:600;
+    margin-bottom:12px;
+    color:#e6eef3;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:14px;
+  }
+
+  tr{
+    border-bottom:1px solid #333;
+  }
+
+  tr:last-child{
+    border-bottom:none;
+  }
+
+  td{
+    padding:12px 8px;
+    vertical-align:top;
+  }
+
+  .key{
+    color:#9aa0a6;
+    width:100px;
+    font-weight:500;
+  }
+  
+  .val{
+    word-break:break-word;
+    color:#e6eef3;
+    font-family:monospace;
+    font-size:13px;
+  }
+
+  .copy-btn{
+    background:#2d2f33;
+    color:#ccc;
+    border:none;
+    padding:6px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:12px;
+    transition:background 0.2s;
+    white-space:nowrap;
+  }
+
+  .copy-btn:hover{
+    background:#3d3f43;
+  }
+
+  .copy-btn:active{
+    background:#1d1f23;
+  }
+
+  .copied{
+    background:#38a169 !important;
+    color:#fff;
+  }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <div class="card">
+
+    <div class="card-header">
+      <h1>Login (Google OAuth)</h1>
+    </div>
+
+    <form id="loginForm">
+      <input id="type" type="number" placeholder="type (ex: 1)" required />
+
+      <div id="g_id_onload"
+           data-client_id="670321565295-595eb9d8oipdro744qbg7c9tn1s2h6nr.apps.googleusercontent.com"
+           data-context="signin"
+           data-ux_mode="popup"
+           data-callback="handleCredentialResponse"
+           data-auto_prompt="false">
+      </div>
+      <div class="google-login-container">
+          <div class="g_id_signin"
+               data-type="standard"
+               data-shape="rectangular"
+               data-theme="dark"
+               data-text="signin_with"
+               data-size="large">
+          </div>
+      </div>
+      
+      <div class="row">
+        <button id="clearBtn" type="button" class="btn btn-secondary">Clear</button>
+      </div>
+    </form>
+
+    <div class="resp-box" id="respBox">
+      <div class="resp-header">API Response</div>
+      <table id="respTable"></table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Global function required by Google's library
+function handleCredentialResponse(response) {
+  submitGoogleLogin(response.credential);
+}
+
+// Login logic
+async function submitGoogleLogin(token) {
+    const loadingBtn = document.getElementById("clearBtn"); 
+    const form = document.getElementById("loginForm");
+    
+    loadingBtn.disabled = true;
+    loadingBtn.textContent = "Loading...";
+
+    const payload = {
+      type: parseInt(form.type.value.trim(), 10),
+      google_token: token
+    };
+    
+    try{
+      const baseurl = window.location.origin;
+
+      const resp = await fetch(baseurl + "/auth/login-google", {
+        method:"POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const raw = await resp.text();
+      let responseData = {};
+
+      try { 
+        const json = JSON.parse(raw);
+        responseData = {
+          status: json.status !== undefined ? json.status : resp.status,
+          message: json.message !== undefined ? json.message : JSON.stringify(json)
+        };
+      } catch { 
+        responseData = {
+          status: resp.status,
+          message: raw || "Invalid response"
+        };
+      }
+
+      renderResponse(responseData);
+
+    } catch(err) {
+      renderResponse({
+        status: 0,
+        message: err.message || "Network error"
+      });
+    } finally {
+      loadingBtn.disabled = false;
+      loadingBtn.textContent = "Clear";
+    }
+}
+
+// UI helper functions
+(function(){
+  const clearBtn = document.getElementById("clearBtn");
+  const respBox = document.getElementById("respBox");
+  const respTable = document.getElementById("respTable");
+  const form = document.getElementById("loginForm");
+
+  clearBtn.addEventListener("click", ()=>{
+    form.reset();
+    respBox.style.display = "none";
+    respTable.innerHTML = "";
+  });
+
+  window.renderResponse = function(json){
+    respTable.innerHTML = "";
+
+    Object.entries(json).forEach(([key, value])=>{
+      let displayValue;
+      
+      if(typeof value === 'object' && value !== null){
+        displayValue = JSON.stringify(value, null, 2);
+      } else {
+        displayValue = String(value);
+      }
+
+      const tr = document.createElement("tr");
+      
+      const tdKey = document.createElement("td");
+      tdKey.className = "key";
+      tdKey.textContent = key;
+      
+      const tdVal = document.createElement("td");
+      tdVal.className = "val";
+      tdVal.textContent = displayValue;
+      
+      const tdCopy = document.createElement("td");
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.textContent = "Copy";
+      copyBtn.setAttribute("data-value", displayValue);
+      
+      tdCopy.appendChild(copyBtn);
+      tr.appendChild(tdKey);
+      tr.appendChild(tdVal);
+      tr.appendChild(tdCopy);
+      
+      respTable.appendChild(tr);
+    });
+
+    respBox.style.display = "block";
+  }
+
+  // Copy functionality
+  respTable.addEventListener("click", async (e)=>{
+    if(e.target.classList.contains("copy-btn")){
+      const value = e.target.getAttribute("data-value");
+      
+      try {
+        await navigator.clipboard.writeText(value);
+        
+        const originalText = e.target.textContent;
+        e.target.textContent = "Copied!";
+        e.target.classList.add("copied");
+        
+        setTimeout(()=>{
+          e.target.textContent = originalText;
+          e.target.classList.remove("copied");
+        }, 1500);
+      } catch(err) {
+        console.error("Copy failed:", err);
+        e.target.textContent = "Failed";
+        setTimeout(()=>{
+          e.target.textContent = "Copy";
+        }, 1500);
+      }
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

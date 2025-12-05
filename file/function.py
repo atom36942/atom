@@ -1139,6 +1139,7 @@ async def function_token_check(request,config_api,config_key_root,config_key_jwt
     api=request.url.path
     token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
     if api.startswith("/root"):
+        if not token:raise Exception("token missing")
         if token!=config_key_root:raise Exception("token mismatch")
     else:
         if token:user=await function_token_decode(token,config_key_jwt)
