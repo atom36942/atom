@@ -12,7 +12,7 @@
   }
   *{box-sizing:border-box;}
   html,body{
-    height:100%; margin:0; 
+    height:100%; margin:0;
     background:radial-gradient(circle at top right, #1a1f2e 0%, var(--bg) 50%);
     color:#e4e8f0; font-family:'Inter',-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;
     overflow-x:hidden;
@@ -26,7 +26,7 @@
     text-align:center; margin-bottom:40px;
   }
   .header h1{
-    margin:0 0 12px; font-size:32px; font-weight:700; 
+    margin:0 0 12px; font-size:32px; font-weight:700;
     background:linear-gradient(135deg, #4ade80 0%, #22d3ee 100%);
     -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     background-clip:text;
@@ -39,7 +39,7 @@
   }
   .api-endpoint .method{color:#4ade80; font-weight:600;}
   .api-endpoint .param{color:#fbbf24;}
-  
+
   .section{
     background:var(--card); border-radius:16px; padding:28px;
     margin-bottom:24px; border:1px solid var(--border);
@@ -55,19 +55,19 @@
     padding-bottom:16px; border-bottom:2px solid var(--border);
   }
   .section-icon{
-    width:10px; height:10px; border-radius:50%; 
+    width:10px; height:10px; border-radius:50%;
     background:var(--primary); margin-right:12px;
     box-shadow:0 0 12px var(--primary);
   }
   .section-title{
-    margin:0; font-size:20px; font-weight:600; 
+    margin:0; font-size:20px; font-weight:600;
     text-transform:uppercase; letter-spacing:1px;
   }
   .section-count{
     margin-left:auto; font-size:13px; color:var(--muted);
     background:var(--section-bg); padding:4px 12px; border-radius:20px;
   }
-  
+
   .buttons-grid{
     display:grid;
     grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
@@ -95,7 +95,7 @@
   .btn:hover::before{opacity:0.15;}
   .btn:active{transform:translateY(0); box-shadow:0 2px 8px rgba(74,222,128,0.2);}
   .btn span{position:relative; z-index:1;}
-  
+
   @media (max-width: 768px) {
     .buttons-grid{ grid-template-columns:1fr; }
     .header h1{ font-size:28px; }
@@ -119,19 +119,10 @@
   <div class="section">
     <div class="section-header">
       <div class="section-icon"></div>
-      <h2 class="section-title">Root</h2>
-      <span class="section-count" id="root-count">0</span>
+      <h2 class="section-title">core</h2>
+      <span class="section-count" id="core-count">0</span>
     </div>
-    <div class="buttons-grid" id="root"></div>
-  </div>
-
-  <div class="section">
-    <div class="section-header">
-      <div class="section-icon"></div>
-      <h2 class="section-title">Auth</h2>
-      <span class="section-count" id="auth-count">0</span>
-    </div>
-    <div class="buttons-grid" id="auth"></div>
+    <div class="buttons-grid" id="core"></div>
   </div>
 
   <div class="section">
@@ -142,45 +133,20 @@
     </div>
     <div class="buttons-grid" id="zzz"></div>
   </div>
+
 </div>
 
 <script>
 const sections = {
-  root: [
-    "root_postgres_init",
-    "root_postgres_clean",
-    "root_postgres_runner",
-    "root_postgres_export",
-    "root_postgres_import",
-    "root_redis_import_create",
-    "root_redis_import_delete",
-    "root_mongodb_import_create",
-    "root_s3_url_delete",
-    "root_s3_bucket_ops",
-    "root_reset_global"
-  ],
-  auth: [
-    "auth_signup_username_password",
-    "auth_signup_username_password_bigint",
-    "auth_login_password_username",
-    "auth_login_password_username_bigint",
-    "auth_login_password_email",
-    "auth_login_password_mobile",
-    "auth_login_otp_email",
-    "auth_login_otp_mobile",
-    "auth_login_google"
-  ],
-  zzz: [
-    "atom",
-    "nuclear"
-  ]
+  core: ["api","atom"],
+  zzz: ["nuclear"]
 };
 
 Object.entries(sections).forEach(([section, items]) => {
   const grid = document.getElementById(section);
   const count = document.getElementById(`${section}-count`);
   count.textContent = items.length;
-  
+
   items.forEach(name => {
     const btn = document.createElement('button');
     btn.innerHTML = `<span>${name}</span>`;

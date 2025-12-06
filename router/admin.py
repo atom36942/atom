@@ -6,7 +6,7 @@ from file.route import *
 async def function_api_admin_object_create(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0]])
    obj=await function_param_read("body",request,[])
-   obj_list=obj["item"] if "item" in obj else [obj]
+   obj_list=obj["object_list"] if "object_list" in obj else [obj]
    for i,x in enumerate(obj_list):
       if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):x["created_by_id"]=request.state.user["id"]
       if len(x)<=1:raise Exception("obj key length issue")
@@ -18,7 +18,7 @@ async def function_api_admin_object_create(request:Request):
 async def function_api_admin_object_update(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
    obj=await function_param_read("body",request,[])
-   obj_list=obj["item"] if "item" in obj else [obj]
+   obj_list=obj["object_list"] if "object_list" in obj else [obj]
    for i,x in enumerate(obj_list):
       if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):x["updated_by_id"]=request.state.user["id"]
       if "id" not in x:raise Exception("id missing")

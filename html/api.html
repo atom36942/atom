@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Curl Requester</title>
+<style>
+:root{--bg:#0b0d10;--card:#0f1114;--muted:#9aa0a6;--primary:#38a169;--primary-text:#031013;--secondary:#1f2933;--secondary-text:#e6eef3;--delete:#dc3545;--accent:#4299e1}
+html,body{margin:0;background:var(--bg);color:#e6eef3;font-family:Inter,system-ui;line-height:1.6}
+.container{max-width:720px;margin:40px auto;padding:20px}
+.card{background:var(--card);border-radius:12px;padding:28px;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.05)}
+h1{margin:0 0 24px 0;font-size:22px;font-weight:600;color:#fff}
+.command-selector{margin-bottom:28px}
+#curlSelect{width:100%;padding:14px 16px;padding-right:40px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#1a1d23;color:#e6eef3;cursor:pointer;transition:all .2s;font-weight:500;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e6eef3' d='M6 9L1 4h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
+#curlSelect:hover{border-color:rgba(255,255,255,.2);background:#1f2329}
+#curlSelect:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(66,153,225,.15)}
+#curlSelect option{background:#1a1d23;color:#e6eef3;padding:12px}
+form{display:flex;flex-direction:column;gap:24px}
+.section-label{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.add-btn-small{background:var(--accent);color:#fff;border:none;padding:0;border-radius:5px;cursor:pointer;font-size:16px;font-weight:600;line-height:1;height:22px;width:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 2px 8px rgba(66,153,225,.3)}
+.add-btn-small:hover{background:#3182ce;transform:translateY(-1px);box-shadow:0 4px 12px rgba(66,153,225,.4)}
+.add-btn-small:active{transform:translateY(0)}
+.dynamic-container{display:flex;flex-direction:column;gap:12px}
+.input-row{display:flex;gap:10px;align-items:stretch;animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+input,select,.input-row select{width:100%;padding:12px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:#14171c;color:#e6eef3;box-sizing:border-box;transition:all .2s}
+input:focus,select:focus{outline:none;border-color:var(--accent);background:#1a1d23;box-shadow:0 0 0 3px rgba(66,153,225,.12)}
+input::placeholder{color:#6b7280}
+.input-row .row-key{flex:0 0 140px;width:140px;font-weight:500}
+.input-row .row-val{flex:1;min-width:0}
+input[type="file"]{padding:8px 12px;cursor:pointer}
+input[type="file"]::file-selector-button{background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;margin-right:10px;transition:all .2s}
+input[type="file"]::file-selector-button:hover{background:#3182ce}
+.input-row .json-type-selector{flex:0 0 100px;width:100px;font-size:13px;font-weight:500;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e6eef3' d='M6 9L1 4h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.remove-btn{background:var(--delete);color:#fff;border:none;width:36px;height:36px;flex:0 0 36px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 2px 6px rgba(220,53,69,.3);align-self:stretch}
+.remove-btn:hover{background:#c82333;transform:scale(1.05);box-shadow:0 3px 10px rgba(220,53,69,.4)}
+.remove-btn:active{transform:scale(.95)}
+.footer-row{display:flex;gap:16px;margin-top:12px;align-items:stretch}
+.btn{padding:14px 24px;flex:1;text-align:center;font-size:15px;font-weight:600;border-radius:8px;border:none;cursor:pointer;transition:all .2s;box-shadow:0 4px 12px rgba(0,0,0,.3);height:48px;display:flex;align-items:center;justify-content:center}
+.btn-primary{background:var(--primary);color:var(--primary-text)}
+.btn-primary:hover{background:#2f855a;transform:translateY(-2px);box-shadow:0 6px 16px rgba(56,161,105,.4)}
+.btn-secondary{background:var(--secondary);color:var(--secondary-text)}
+.btn-secondary:hover{background:#28323f;transform:translateY(-2px)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.resp-box{background:#14171c;border-radius:10px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden}
+.resp-header{padding:16px 20px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05)}
+tr:last-child td{border-bottom:none}
+.key{color:var(--muted);width:140px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+.val{word-break:break-all;font-family:'Courier New',monospace;font-size:13px;line-height:1.6}
+.copy-btn{background:#2a3642;color:#ccc;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s}
+.copy-btn:hover{background:#3a4652;color:#fff;transform:translateY(-1px)}
+.copy-btn:active{transform:translateY(0)}
+.section-group{display:none;animation:fadeIn .4s ease}
+.section-group.active{display:block}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="card">
+<h1>Curl Requester <span style="font-size:14px;font-weight:500;color:var(--muted);margin-left:8px">(59 endpoints)</span></h1>
+<div class="command-selector">
+<select id="curlSelect">
+<option value="">Choose an API endpoint...</option>
+</select>
+</div>
+<form id="apiForm">
+<div class="section-group" id="headerSection">
+<div class="section-label">Headers <button type="button" id="addHeaderBtn" class="add-btn-small">+</button></div>
+<div id="headerContainer" class="dynamic-container"></div>
+</div>
+<div class="section-group" id="querySection">
+<div class="section-label">Query Params <button type="button" id="addQueryBtn" class="add-btn-small">+</button></div>
+<div id="queryContainer" class="dynamic-container"></div>
+</div>
+<div class="section-group" id="formSection">
+<div class="section-label">Form Data <button type="button" id="addFormBtn" class="add-btn-small">+</button></div>
+<div id="formContainer" class="dynamic-container"></div>
+</div>
+<div class="section-group" id="jsonSection">
+<div class="section-label">JSON Body <button type="button" id="addJsonBtn" class="add-btn-small">+</button></div>
+<div id="jsonContainer" class="dynamic-container"></div>
+</div>
+<div class="footer-row">
+<button id="clearBtn" type="button" class="btn btn-secondary">Clear</button>
+<button id="submitBtn" type="submit" class="btn btn-primary">Submit</button>
+</div>
+</form>
+<div class="resp-box" id="respBox">
+<div class="resp-header">Response</div>
+<table id="respTable"></table>
+</div>
+</div>
+</div>
+<script>
+const COMMANDS=[
+{name:"/",method:"GET",endpoint:"/",headers:[],query:[],form:[],json:[]},
+{name:"/root/postgres-init",method:"GET",endpoint:"/root/postgres-init",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[],json:[]},
+{name:"/root/postgres-clean",method:"GET",endpoint:"/root/postgres-clean",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[],json:[]},
+{name:"/root/postgres-runner",method:"POST",endpoint:"/root/postgres-runner",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"mode",value:"read",type:"string"},{key:"query",value:"select 1;",type:"string"}]},
+{name:"/root/postgres-export",method:"POST",endpoint:"/root/postgres-export",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"query",value:"select * from users limit 10;",type:"string"}]},
+{name:"/root/postgres-import",method:"POST",endpoint:"/root/postgres-import",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[{key:"mode",value:"create"},{key:"table",value:"test"},{key:"file",value:"@file.csv"}],json:[]},
+{name:"/root/redis-import-create",method:"POST",endpoint:"/root/redis-import-create",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[{key:"table",value:"test"},{key:"expiry_sec",value:"100"},{key:"file",value:"@file.csv"}],json:[]},
+{name:"/root/redis-import-delete",method:"POST",endpoint:"/root/redis-import-delete",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[{key:"file",value:"@file.csv"}],json:[]},
+{name:"/root/mongodb-import-create",method:"POST",endpoint:"/root/mongodb-import-create",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[{key:"database",value:"test"},{key:"table",value:"test"},{key:"file",value:"@file.csv"}],json:[]},
+{name:"/root/s3-url-delete",method:"POST",endpoint:"/root/s3-url-delete",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"url",value:"url1,url2,url3",type:"string"}]},
+{name:"/root/s3-bucket-ops",method:"GET",endpoint:"/root/s3-bucket-ops",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"mode",value:"create"},{key:"bucket",value:"master"}],form:[],json:[]},
+{name:"/root/reset-global",method:"GET",endpoint:"/root/reset-global",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[],json:[]},
+{name:"/auth/signup-username-password",method:"POST",endpoint:"/auth/signup-username-password",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"username",value:"atom2",type:"string"},{key:"password",value:"123",type:"string"}]},
+{name:"/auth/signup-username-password-bigint",method:"POST",endpoint:"/auth/signup-username-password-bigint",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"username_bigint",value:"123",type:"number"},{key:"password_bigint",value:"123",type:"number"}]},
+{name:"/auth/login-password-username",method:"POST",endpoint:"/auth/login-password-username",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"password",value:"123",type:"string"},{key:"username",value:"atom",type:"string"}]},
+{name:"/auth/login-password-username-bigint",method:"POST",endpoint:"/auth/login-password-username-bigint",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"password_bigint",value:"123",type:"number"},{key:"username_bigint",value:"123",type:"number"}]},
+{name:"/auth/login-password-email",method:"POST",endpoint:"/auth/login-password-email",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"password",value:"123",type:"number"},{key:"email",value:"test",type:"string"}]},
+{name:"/auth/login-password-mobile",method:"POST",endpoint:"/auth/login-password-mobile",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"password",value:"123",type:"number"},{key:"mobile",value:"test",type:"string"}]},
+{name:"/auth/login-otp-email",method:"POST",endpoint:"/auth/login-otp-email",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"otp",value:"123",type:"string"},{key:"email",value:"test",type:"string"}]},
+{name:"/auth/login-otp-mobile",method:"POST",endpoint:"/auth/login-otp-mobile",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"otp",value:"123",type:"string"},{key:"mobile",value:"test",type:"string"}]},
+{name:"/auth/login-google",method:"POST",endpoint:"/auth/login-google",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"google_token",value:"test",type:"string"}]},
+{name:"/my/profile",method:"GET",endpoint:"/my/profile",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[],json:[]},
+{name:"/my/token-refresh",method:"GET",endpoint:"/my/token-refresh",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[],json:[]},
+{name:"/my/api-usage",method:"GET",endpoint:"/my/api-usage",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[],json:[]},
+{name:"/my/account-delete",method:"DELETE",endpoint:"/my/account-delete",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"mode",value:"soft"}],form:[],json:[]},
+{name:"/my/message-received",method:"GET",endpoint:"/my/message-received",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[],json:[]},
+{name:"/my/message-inbox",method:"GET",endpoint:"/my/message-inbox",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[],json:[]},
+{name:"/my/message-thread",method:"GET",endpoint:"/my/message-thread",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"user_id",value:"1"}],form:[],json:[]},
+{name:"/my/message-delete-single",method:"DELETE",endpoint:"/my/message-delete-single",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"id",value:"1"}],form:[],json:[]},
+{name:"/my/message-delete-bulk",method:"DELETE",endpoint:"/my/message-delete-bulk",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"mode",value:"all"}],form:[],json:[]},
+{name:"/my/parent-read",method:"GET",endpoint:"/my/parent-read",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"table",value:"report_user"},{key:"parent_column",value:"user_id"},{key:"parent_table",value:"users"}],form:[],json:[]},
+{name:"/my/object-create-mongodb",method:"POST",endpoint:"/my/object-create-mongodb",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[{key:"database",value:"test"},{key:"table",value:"test"}],form:[],json:[{key:"type",value:"1",type:"number"},{key:"title",value:"test",type:"string"}]},
+{name:"/my/object-create",method:"POST",endpoint:"/my/object-create",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[{key:"table",value:"test"}],form:[],json:[{key:"type",value:"1",type:"number"},{key:"title",value:"my",type:"string"}]},
+{name:"/my/object-update",method:"PUT",endpoint:"/my/object-update",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[{key:"table",value:"test"}],form:[],json:[{key:"id",value:"161",type:"number"},{key:"title",value:"updated",type:"string"},{key:"created_by_id",value:"100",type:"number"}]},
+{name:"/my/ids-update",method:"PUT",endpoint:"/my/ids-update",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"table",value:"test",type:"string"},{key:"ids",value:"1919,1920,1921",type:"string"},{key:"column",value:"is_deleted",type:"string"},{key:"value",value:"1",type:"number"}]},
+{name:"/my/ids-delete",method:"POST",endpoint:"/my/ids-delete",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"table",value:"test",type:"string"},{key:"ids",value:"1919,1920,1921",type:"string"}]},
+{name:"/my/object-read",method:"GET",endpoint:"/my/object-read",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"table",value:"test"}],form:[],json:[]},
+{name:"/public/info",method:"GET",endpoint:"/public/info",headers:[],query:[],form:[],json:[]},
+{name:"/public/otp-verify",method:"GET",endpoint:"/public/otp-verify",headers:[],query:[{key:"otp",value:"123"},{key:"email",value:"test"}],form:[],json:[]},
+{name:"/public/otp-send-email-ses",method:"GET",endpoint:"/public/otp-send-email-ses",headers:[],query:[{key:"sender",value:"test"},{key:"email",value:"test"}],form:[],json:[]},
+{name:"/public/otp-send-email-resend",method:"GET",endpoint:"/public/otp-send-email-resend",headers:[],query:[{key:"sender",value:"test"},{key:"email",value:"test"}],form:[],json:[]},
+{name:"/public/otp-send-mobile-sns",method:"GET",endpoint:"/public/otp-send-mobile-sns",headers:[],query:[{key:"mobile",value:"test"}],form:[],json:[]},
+{name:"/public/otp-send-mobile-sns-template",method:"POST",endpoint:"/public/otp-send-mobile-sns-template",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"mobile",value:"test",type:"string"},{key:"message",value:"test",type:"string"},{key:"template_id",value:"test",type:"string"},{key:"entity_id",value:"test",type:"string"},{key:"sender_id",value:"test",type:"string"}]},
+{name:"/public/otp-send-mobile-fast2sms",method:"GET",endpoint:"/public/otp-send-mobile-fast2sms",headers:[],query:[{key:"mobile",value:"test"}],form:[],json:[]},
+{name:"/public/jira-worklog-export",method:"POST",endpoint:"/public/jira-worklog-export",headers:[{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"jira_base_url",value:"test",type:"string"},{key:"jira_email",value:"test",type:"string"},{key:"jira_token",value:"test",type:"string"},{key:"start_date",value:"test",type:"string"},{key:"end_date",value:"test",type:"string"}]},
+{name:"/public/object-create",method:"POST",endpoint:"/public/object-create",headers:[{key:"Content-Type",value:"application/json"}],query:[{key:"table",value:"test"}],form:[],json:[{key:"type",value:"1",type:"number"},{key:"title",value:"public",type:"string"}]},
+{name:"/public/object-read",method:"GET",endpoint:"/public/object-read",headers:[],query:[{key:"table",value:"test"}],form:[],json:[]},
+{name:"/public/object-read-gsheet",method:"GET",endpoint:"/public/object-read-gsheet",headers:[],query:[{key:"url",value:"test"}],form:[],json:[]},
+{name:"/public/object-create-gsheet",method:"POST",endpoint:"/public/object-create-gsheet",headers:[{key:"Content-Type",value:"application/json"}],query:[{key:"url",value:"test"}],form:[],json:[{key:"type",value:"1",type:"number"},{key:"title",value:"public",type:"string"}]},
+{name:"/private/s3-upload-file",method:"POST",endpoint:"/private/s3-upload-file",headers:[{key:"Authorization",value:"Bearer "}],query:[],form:[{key:"bucket",value:"test"},{key:"file",value:"@file1"},{key:"key",value:"test1.png"}],json:[]},
+{name:"/private/s3-upload-presigned",method:"GET",endpoint:"/private/s3-upload-presigned",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"bucket",value:"test"},{key:"key",value:"test"}],form:[],json:[]},
+{name:"/admin/object-create",method:"POST",endpoint:"/admin/object-create",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[{key:"table",value:"test"}],form:[],json:[{key:"type",value:"1",type:"number"},{key:"title",value:"admin",type:"string"}]},
+{name:"/admin/object-update",method:"PUT",endpoint:"/admin/object-update",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[{key:"table",value:"test"}],form:[],json:[{key:"id",value:"197",type:"number"},{key:"title",value:"admin",type:"string"}]},
+{name:"/admin/object-read",method:"GET",endpoint:"/admin/object-read",headers:[{key:"Authorization",value:"Bearer "}],query:[{key:"table",value:"test"}],form:[],json:[]},
+{name:"/admin/ids-update",method:"PUT",endpoint:"/admin/ids-update",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"table",value:"test",type:"string"},{key:"ids",value:"1,2,3",type:"string"},{key:"column",value:"title",type:"string"},{key:"value",value:"admin",type:"string"}]},
+{name:"/admin/ids-delete",method:"POST",endpoint:"/admin/ids-delete",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"table",value:"test",type:"string"},{key:"ids",value:"1,2,3",type:"string"}]},
+{name:"/admin/jira-jql-output-save",method:"POST",endpoint:"/admin/jira-jql-output-save",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"jira_base_url",value:"test",type:"string"},{key:"jira_email",value:"test",type:"string"},{key:"jira_token",value:"test",type:"string"},{key:"jql",value:"test",type:"string"},{key:"column",value:"null",type:"string"}]}
+];
+const form=document.getElementById("apiForm"),submitBtn=document.getElementById("submitBtn"),clearAllBtn=document.getElementById("clearBtn"),respBox=document.getElementById("respBox"),respTable=document.getElementById("respTable"),curlSelect=document.getElementById("curlSelect"),headerContainer=document.getElementById("headerContainer"),queryContainer=document.getElementById("queryContainer"),formContainer=document.getElementById("formContainer"),jsonContainer=document.getElementById("jsonContainer"),headerSection=document.getElementById("headerSection"),querySection=document.getElementById("querySection"),formSection=document.getElementById("formSection"),jsonSection=document.getElementById("jsonSection"),addHeaderBtn=document.getElementById("addHeaderBtn"),addQueryBtn=document.getElementById("addQueryBtn"),addFormBtn=document.getElementById("addFormBtn"),addJsonBtn=document.getElementById("addJsonBtn");
+let currentConfig=null;
+COMMANDS.forEach((cmd,idx)=>{const opt=document.createElement("option");opt.value=idx;opt.textContent=cmd.name;curlSelect.appendChild(opt)});
+function createRow(container,key="",val="",type="string"){const row=document.createElement("div");row.className="input-row";let keyInput=`<input type="text" class="row-key" placeholder="Key" value="${key}">`,valueInput="";if(container===jsonContainer){valueInput=`<input type="text" class="row-val json-val" placeholder="Value" value="${val}"><select class="json-type-selector"><option value="string" ${type==="string"?"selected":""}>String</option><option value="number" ${type==="number"?"selected":""}>Number</option><option value="boolean" ${type==="boolean"?"selected":""}>Boolean</option><option value="null" ${type==="null"?"selected":""}>Null</option></select>`}else if(container===formContainer&&val.startsWith("@")){valueInput=`<input type="file" class="row-val" data-original="${val}">`}else{valueInput=`<input type="text" class="row-val" placeholder="Value" value="${val}">`}row.innerHTML=keyInput+valueInput+`<button type="button" class="remove-btn">×</button>`;row.querySelector(".remove-btn").addEventListener("click",()=>row.remove());container.appendChild(row);return row}
+function loadCommand(idx){if(idx===""){currentConfig=null;[headerSection,querySection,formSection,jsonSection].forEach(s=>s.classList.remove("active"));[headerContainer,queryContainer,formContainer,jsonContainer].forEach(c=>c.innerHTML="");respBox.style.display="none";submitBtn.textContent="Submit";submitBtn.className="btn btn-primary";return}currentConfig=COMMANDS[idx];headerContainer.innerHTML="";queryContainer.innerHTML="";formContainer.innerHTML="";jsonContainer.innerHTML="";[headerSection,querySection,formSection,jsonSection].forEach(s=>s.classList.remove("active"));if(currentConfig.headers.length>0){headerSection.classList.add("active");currentConfig.headers.forEach(h=>createRow(headerContainer,h.key,h.value))}querySection.classList.add("active");if(currentConfig.query.length>0){currentConfig.query.forEach(q=>createRow(queryContainer,q.key,q.value))}if(currentConfig.form.length>0){formSection.classList.add("active");currentConfig.form.forEach(f=>createRow(formContainer,f.key,f.value))}if(currentConfig.json.length>0){jsonSection.classList.add("active");currentConfig.json.forEach(j=>createRow(jsonContainer,j.key,j.value,j.type||"string"))}submitBtn.textContent="Submit";respBox.style.display="none"}
+curlSelect.addEventListener("change",e=>loadCommand(e.target.value));
+addHeaderBtn.addEventListener("click",()=>{headerSection.classList.add("active");createRow(headerContainer)});
+addQueryBtn.addEventListener("click",()=>{querySection.classList.add("active");createRow(queryContainer)});
+addFormBtn.addEventListener("click",()=>{formSection.classList.add("active");createRow(formContainer)});
+addJsonBtn.addEventListener("click",()=>{jsonSection.classList.add("active");createRow(jsonContainer)});
+clearAllBtn.addEventListener("click",()=>{form.reset();respBox.style.display="none";respTable.innerHTML="";curlSelect.value="";loadCommand("")});
+function renderResponse(json){respTable.innerHTML="";Object.entries(json).forEach(([k,v])=>{let vStr=typeof v==="object"&&v!==null?JSON.stringify(v,null,2):String(v);const enc=encodeURIComponent(vStr),tr=document.createElement("tr");tr.innerHTML=`<td class="key">${k}</td><td class="val">${vStr}</td><td><button class="copy-btn" data-val="${enc}">Copy</button></td>`;respTable.appendChild(tr)});respBox.style.display="block"}
+respTable.addEventListener("click",e=>{if(e.target.classList.contains("copy-btn")){const raw=decodeURIComponent(e.target.dataset.val);navigator.clipboard.writeText(raw);e.target.textContent="Copied!";setTimeout(()=>e.target.textContent="Copy",1500)}});
+form.addEventListener("submit",async e=>{e.preventDefault();if(!currentConfig){alert("Please select an API endpoint first");return}submitBtn.disabled=true;submitBtn.textContent="Sending...";const extractData=(container,isJson=false)=>{const data=[];container.querySelectorAll(".input-row").forEach(row=>{const keyInput=row.querySelector(".row-key"),valInput=row.querySelector(".row-val");if(!keyInput)return;const key=keyInput.value.trim();let val=valInput?valInput.value:"",type="string";if(isJson&&valInput){type=row.querySelector(".json-type-selector").value}if(key||val){data.push({key,val,type})}});return data};const headerData=extractData(headerContainer),queryData=extractData(queryContainer),formDataItems=extractData(formContainer),jsonDataItems=extractData(jsonContainer,true);let url=window.location.origin+currentConfig.endpoint;const params=queryData.filter(p=>p.key&&p.val).map(p=>`${encodeURIComponent(p.key)}=${encodeURIComponent(p.val)}`);if(params.length>0)url+="?"+params.join("&");const headers={};headerData.forEach(h=>{if(h.key&&h.val)headers[h.key]=h.val});const options={method:currentConfig.method};if(formDataItems.length>0){const fd=new FormData();formDataItems.forEach(item=>{if(item.key){const row=Array.from(formContainer.querySelectorAll(".input-row")).find(r=>r.querySelector(".row-key").value===item.key);const input=row?.querySelector(".row-val");if(input&&input.type==="file"&&input.files.length>0){fd.append(item.key,input.files[0])}else if(item.val){fd.append(item.key,item.val)}}});if(fd.entries().next().done===false){options.body=fd}}else if(jsonDataItems.length>0){const jsonObj={};try{jsonDataItems.forEach(item=>{if(!item.key)return;let parsedVal=item.val;if(item.type==="number"){parsedVal=Number(item.val);if(isNaN(parsedVal)||item.val.trim()==="")throw new Error(`Value for key '${item.key}' is not a valid number.`)}else if(item.type==="boolean"){if(item.val.toLowerCase()==="true")parsedVal=true;else if(item.val.toLowerCase()==="false")parsedVal=false;else throw new Error(`Value for key '${item.key}' must be 'true' or 'false' for boolean type.`)}else if(item.type==="null"){parsedVal=null}jsonObj[item.key]=parsedVal});if(Object.keys(jsonObj).length>0){options.body=JSON.stringify(jsonObj);headers["Content-Type"]="application/json"}}catch(err){alert("JSON Body Error: "+err.message);submitBtn.disabled=false;submitBtn.textContent="Submit";return}}options.headers=headers;try{const resp=await fetch(url,options);const contentType=resp.headers.get("content-type");const contentDisposition=resp.headers.get("content-disposition");if(contentDisposition&&contentDisposition.includes("attachment")){const blob=await resp.blob();const downloadUrl=window.URL.createObjectURL(blob);const a=document.createElement("a");a.href=downloadUrl;a.download=contentDisposition.split("filename=")[1]?.replace(/"/g,"")||"download.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);window.URL.revokeObjectURL(downloadUrl);renderResponse({status:resp.status,message:"File downloaded successfully"})}else{const raw=await resp.text();let json;try{json=JSON.parse(raw)}catch{json={status:resp.status,message:raw||"Raw Response"}}renderResponse({status:json.status!==undefined?json.status:resp.status,message:json.message!==undefined?json.message:json})}}catch(err){renderResponse({status:0,message:err.message||"Network error"})}finally{submitBtn.disabled=false;submitBtn.textContent="Submit"}});
+</script>
+</body>
+</html>

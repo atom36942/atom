@@ -606,18 +606,6 @@ table_object_key = {}
 buffer_lock = asyncio.Lock()
 async def function_postgres_object_create(mode, client_postgres_pool, table=None, obj_list=None, buffer=10, returning_ids=False, conflict_columns=None, batch_size=5000):
     """
-    1.Single row insert immediately
-    await function_postgres_object_create(pool,"users",[{"name":"Alice","age":30}])
-    2.Bulk insert immediately
-    await function_postgres_object_create(pool,"users",[{"name":"Alice","age":30},{"name":"Bob","age":25},{"name":"Carol","age":28}])
-    3.Add rows to buffer (auto-flush if buffer reaches default 10)
-    await function_postgres_object_create(pool,"users",[{"name":"Dave","age":40},{"name":"Eve","age":35}], "buffer")
-    4.Flush all buffers manually
-    await function_postgres_object_create(pool,None,None,"flush")
-    5.Returning inserted IDs
-    await function_postgres_object_create(pool, table="users",obj_list=[{"name":"Alice","age":30}], returning_ids=True)
-    ---- Postgres datatype examples ----
-    bigint:   {"id": 1001}
     integer:  {"count": 42}
     numeric:  {"price": 19.95}
     text:     {"description": "Hello world"}
@@ -637,10 +625,20 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
     if not buffer:buffer=10
     if obj_list and len(obj_list) == 1:
         returning_ids = True
-    async def _execute_insert(tbl, objs):
+    async def _execute_insert(tbl, objs, use_buffer_schema=False):
         if not objs: return None
         # ensure all rows have same columns as first row
-        cols = list(table_object_key.get(tbl, objs[0].keys()))
+        if use_buffer_schema and tbl in table_object_key and table_object_key[tbl]:
+            # Buffer mode: use merged schema from table_object_key
+            cols = sorted(list(table_object_key[tbl]))
+            # Normalize all objects: add missing columns as None
+            for o in objs:
+                for k in cols:
+                    if k not in o:
+                        o[k] = None
+        else:
+            # Now mode: use columns from the objects themselves
+            cols = list(objs[0].keys())
         col_count = len(cols)
         max_batch = 65535 // col_count
         batch_size_eff = min(batch_size, max_batch)
@@ -667,30 +665,30 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
         return ids if returning_ids else None
     async with buffer_lock:
         if mode == "now":
-            return await _execute_insert(table, obj_list)
+            # Immediate insert - completely isolated from buffer logic
+            return await _execute_insert(table, obj_list, use_buffer_schema=False)
         elif mode == "buffer":
             if table not in inmemory_cache_object_create:
                 inmemory_cache_object_create[table] = []
-            # set table columns if first insert
-            if table not in table_object_key or not table_object_key[table]:
-                table_object_key[table] = list(obj_list[0].keys())
-            # adjust rows to match table keys
+            # Initialize schema tracking as set
+            if table not in table_object_key:
+                table_object_key[table] = set()
+            # Merge all columns from incoming objects into schema
             for o in obj_list:
-                for k in table_object_key[table]:
-                    if k not in o:
-                        o[k] = None
+                table_object_key[table].update(o.keys())
+            # Add objects to buffer (normalization happens at insert time)
             inmemory_cache_object_create[table].extend(obj_list)
             if len(inmemory_cache_object_create[table]) >= buffer:
                 objs_to_insert = inmemory_cache_object_create[table]
                 inmemory_cache_object_create[table] = []
-                return await _execute_insert(table, objs_to_insert)
+                return await _execute_insert(table, objs_to_insert, use_buffer_schema=True)
             return None
         elif mode == "flush":
             results = {}
             for tbl, rows in inmemory_cache_object_create.items():
                 if not rows: continue
                 try:
-                    results[tbl] = await _execute_insert(tbl, rows)
+                    results[tbl] = await _execute_insert(tbl, rows, use_buffer_schema=True)
                 except Exception as e:
                     results[tbl] = e
                 finally:

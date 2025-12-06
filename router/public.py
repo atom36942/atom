@@ -57,11 +57,13 @@ async def function_api_public_otp_send_mobile_fast2sms(request:Request):
 async def function_api_public_object_create(request:Request):
    param=await function_param_read("query",request,[["table",None,1,None],["is_serialize","int",0,0]])
    obj=await function_param_read("body",request,[])
+   obj_list=obj["object_list"] if "object_list" in obj else [obj]
+   for i,x in enumerate(obj_list):
+      if len(x)<=1:raise Exception("obj key length issue")
+      if any(key in config_column_disabled_list for key in x):raise Exception("obj key not allowed")
+      if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
    if param["table"] not in config_public_table_create_list:raise Exception("table not allowed")
-   if len(obj)<=1:raise Exception("obj issue")
-   if any(key in config_column_disabled_list for key in obj):raise Exception("obj key not allowed")
-   if param["is_serialize"] or "password" in obj:obj=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[obj]))[0]
-   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],[obj])
+   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],obj_list)
    return {"status":1,"message":output}
 
 @router.get("/public/object-read")
@@ -81,8 +83,8 @@ async def function_api_public_object_read_gsheet(request:Request):
 async def function_api_public_object_create_gsheet(request:Request):
    param=await function_param_read("query",request,[["url",None,1,None]])
    obj=await function_param_read("body",request,[])
-   if not request.app.state.client_gsheet:raise Exception("gsheet client not initialized")
-   output=function_gsheet_object_create(request.app.state.client_gsheet,param["url"],[obj])
+   obj_list=obj["object_list"] if "object_list" in obj else [obj]
+   output=function_gsheet_object_create(request.app.state.client_gsheet,param["url"],obj_list)
    return {"status":1,"message":output}
 
 @router.post("/public/jira-worklog-export")
