@@ -902,29 +902,27 @@ import os
 import importlib.util
 from pathlib import Path
 import traceback
-def function_add_router(app, path):
-    base_path = Path(path).resolve()
-    def load_module(module_path):
+def function_add_router(app, router_dir):
+    router_root = Path(router_dir).resolve()
+    def load_module(file_path):
         try:
-            rel_path = os.path.relpath(module_path, base_path)
-            module_name = os.path.splitext(rel_path)[0].replace(os.sep, ".")
-            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            rel = os.path.relpath(file_path, router_root)
+            module_name = os.path.splitext(rel)[0].replace(os.sep, ".")
+            spec = importlib.util.spec_from_file_location(module_name, file_path)
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 if hasattr(module, "router"):
                     app.include_router(module.router)
         except Exception:
-            print(f"[WARN] Failed to load router module: {module_path}")
+            print(f"[WARN] Failed to load router module: {file_path}")
             traceback.print_exc()
-    def load_all_router_files():
-        for root, _, files in os.walk(base_path):
-            for file in files:
-                if file.endswith(".py") and not file.startswith("__"):
-                    module_path = Path(root) / file
-                    load_module(module_path)
-
-    load_all_router_files()
+    def load_all():
+        for root, _, files in os.walk(router_root):
+            for f in files:
+                if f.endswith(".py") and not f.startswith("__"):
+                    load_module(Path(root) / f)
+    load_all()
     return None
 
 ### api
@@ -1862,34 +1860,44 @@ async def function_param_read(mode, request, config):
         param[key] = value
     return param
 
-def function_converter_number(mode,x,max_length=11):
-    if max_length not in (11,30):raise Exception("max_length must be 11 or 30")
-    if max_length==11:
-        MAX_LENGTH=11;CHARSET='abcdefghijklmnopqrstuvwxyz0123456789_';BASE=len(CHARSET);LENGTH_BITS=6;VALUE_BITS=64-LENGTH_BITS;CTI={c:i for i,c in enumerate(CHARSET)};ITC={i:c for i,c in enumerate(CHARSET)}
-        if mode=="encode":
-            if len(x)>MAX_LENGTH:raise Exception(f"text length exceeds {MAX_LENGTH} characters.")
-            v=0
-            for ch in x:
-                if ch not in CTI:raise Exception(f"Invalid character: {ch}")
-                v=v*BASE+CTI[ch]
-            return (len(x)<<VALUE_BITS)|v
-        if mode=="decode":
-            ln=x>>VALUE_BITS;v=x&((1<<VALUE_BITS)-1);o=[]
-            for _ in range(ln):
-                v,idx=divmod(v,BASE);o.append(ITC[idx])
-            return ''.join(reversed(o))
-        raise Exception("invalid mode")
-    MAX_LEN=max_length;CHARS="abcdefghijklmnopqrstuvwxyz0123456789-_.@#";BASE=len(CHARS);CTI={c:i for i,c in enumerate(CHARS)};ITC={i:c for i,c in enumerate(CHARS)}
-    if mode=="encode":
-        if len(x)>MAX_LEN:raise Exception(f"String too long (max {MAX_LEN})")
-        n=0
-        for ch in x:
-            if ch not in CTI:raise Exception(f"Unsupported character: {ch}")
-            n=n*BASE+CTI[ch]
-        return len(x)*(BASE**MAX_LEN)+n
-    if mode=="decode":
-        ln=x//(BASE**MAX_LEN);n=x%(BASE**MAX_LEN);o=[]
-        for _ in range(ln):
-            n,r=divmod(n,BASE);o.append(ITC[r])
-        return ''.join(reversed(o))
-    raise Exception("invalid mode")
+async def function_converter_integer(mode,x,max_length=None): 
+    if not max_length:max_length=11 
+    if max_length not in (11,30):raise Exception("max_length must be 11 or 30") 
+    if mode=="encode": 
+        try:x=str(x) 
+        except:raise Exception("encode requires str") 
+    elif mode=="decode": 
+        try:x=int(x) 
+        except:raise Exception("decode requires int") 
+    else:raise Exception("invalid mode") 
+    if max_length==11: 
+        CH='abcdefghijklmnopqrstuvwxyz0123456789_';B=len(CH);CTI={c:i for i,c in enumerate(CH)};ITC={i:c for i,c in enumerate(CH)} 
+        if mode=="encode": 
+            if len(x)>11:raise Exception("len>11") 
+            n=len(x) 
+            for c in x: 
+                if c not in CTI:raise Exception("bad char") 
+                n=n*B+CTI[c] 
+            return n 
+        t=x;d=[] 
+        while t>0:t,r=divmod(t,B);d.append(r) 
+        d=d[::-1] 
+        if not d:return "" 
+        ln=d[0] 
+        if ln>11:raise Exception("invalid length") 
+        return ''.join(ITC[i] for i in d[1:1+ln]) 
+    CH="abcdefghijklmnopqrstuvwxyz0123456789-_.@#";B=len(CH);CTI={c:i for i,c in enumerate(CH)};ITC={i:c for i,c in enumerate(CH)} 
+    if mode=="encode": 
+        if len(x)>max_length:raise Exception("too long") 
+        n=len(x) 
+        for c in x: 
+            if c not in CTI:raise Exception("bad char") 
+            n=n*B+CTI[c] 
+        return n 
+    t=x;d=[] 
+    while t>0:t,r=divmod(t,B);d.append(r) 
+    d=d[::-1] 
+    if not d:return "" 
+    ln=d[0] 
+    if ln>max_length:raise Exception("invalid length") 
+    return ''.join(ITC[i] for i in d[1:1+ln])

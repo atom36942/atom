@@ -1,4 +1,4 @@
-## About
+### About
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
@@ -8,9 +8,7 @@
 - Non-opinionated: full flexibility in defining business schema, API structure, and external libraries
 - Tech Stack:Python,FastAPI,PostgreSQL,Redis,S3,Celery,RabbitMQ,Kafka,Sentry
 
-
-
-## Modules
+### Modules
 - one click postgres database setup
 - postgres csv uploader
 - postgres query runner
@@ -30,19 +28,26 @@
 - easy extension
 - supports multi-tenant design
 
-
-
-## Installation
+### Setup
 ```bash
-#download
 git clone https://github.com/atom36942/atom.git
 cd atom
-
-#venv
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
+./venv/bin/uvicorn main:app --reload
+```
 
-#env
+### Docker
+```bash
+docker build -t atom .
+docker run -it --rm -p 8000:8000 atom
+```
+
+
+
+
+
+## env
 config_postgres_url=postgresql://postgres@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
 config_key_root=UZit5LLGZmqqvSc
@@ -52,15 +57,7 @@ config_celery_broker_url=redis://localhost:6379
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_redis_url_pubsub=redis://localhost:6379
 
-#start
-./venv/bin/uvicorn main:app --reload
-```
-
-
-
-## Docker
-```bash
-#env
+### env
 config_postgres_url=postgresql://postgres@host.docker.internal:5432/postgres
 config_redis_url=redis://host.docker.internal:6379
 config_key_root=UZit5LLGZmqqvSc
@@ -71,10 +68,11 @@ config_rabbitmq_url=amqp://guest:guest@host.docker.internal:5672
 config_redis_url_pubsub=redis://host.docker.internal:6379
 
 
-#start
-docker build -t atom .
-docker run -it --rm -p 8000:8000 atom
-```
+
+
+
+
+
 
 
 

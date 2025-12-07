@@ -1,5 +1,5 @@
 #config
-from file.config import *
+from config import *
 
 #function
 from file.function import *

@@ -98,13 +98,12 @@ async def function_api_my_object_create(request:Request):
    elif param["queue"]=="buffer":output=await function_postgres_object_create("buffer",request.app.state.client_postgres_pool,param["table"],obj_list,config_table.get(param['table'],{}).get("buffer",10))
    else:
       function_name="function_postgres_object_create"
-      channel_name="channel_1"
       param_list=[param["table"],obj_list]
       payload={"function":function_name,"table":param["table"],"obj_list":obj_list}
       if param["queue"]=="celery":output=await function_celery_producer(request.app.state.client_celery_producer,function_name,param_list)
-      elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,channel_name,payload)
-      elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,channel_name,payload)
-      elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,channel_name,payload)
+      elif param["queue"]=="kafka":output=await function_kafka_producer(request.app.state.client_kafka_producer,config_channel_name,payload)
+      elif param["queue"]=="rabbitmq":output=await function_rabbitmq_producer(request.app.state.client_rabbitmq_producer,config_channel_name,payload)
+      elif param["queue"]=="redis":output=await function_redis_producer(request.app.state.client_redis_producer,config_channel_name,payload)
    return {"status":1,"message":output}
  
 @router.put("/my/object-update")

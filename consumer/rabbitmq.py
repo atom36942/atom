@@ -1,10 +1,7 @@
 #config
-import os
-from dotenv import load_dotenv
-load_dotenv()
-config_rabbitmq_url=os.getenv("config_rabbitmq_url")
-config_postgres_url=os.getenv("config_postgres_url")
-config_channel_name=os.getenv("config_channel_name") or "channel_1"
+from config import config_rabbitmq_url
+from config import config_postgres_url
+from config import config_channel_name
 
 #function
 from file.function import function_rabbitmq_client_read_consumer,function_postgres_client_read

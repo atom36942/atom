@@ -20,6 +20,9 @@ config_kafka_username=os.getenv("config_kafka_username")
 config_kafka_password=os.getenv("config_kafka_password")
 config_rabbitmq_url=os.getenv("config_rabbitmq_url")
 config_redis_url_pubsub=os.getenv("config_redis_url_pubsub") or config_redis_url
+config_channel_name=os.getenv("config_channel_name") or "channel_1"
+config_kafka_group_id=os.getenv("config_kafka_group_id") or "group_1"
+config_kafka_enable_auto_commit=(os.getenv("config_kafka_enable_auto_commit") or "True").lower()=="true"
 
 #aws
 config_aws_access_key_id=os.getenv("config_aws_access_key_id")
@@ -39,8 +42,6 @@ config_posthog_project_key=os.getenv("config_posthog_project_key")
 config_google_login_client_id=os.getenv("config_google_login_client_id")
 config_gsheet_service_account_json_path=os.getenv("config_gsheet_service_account_json_path")
 config_gsheet_scope_list=(os.getenv("config_gsheet_scope_list") or "https://www.googleapis.com/auth/spreadsheets").split(",")
-
-#otp
 config_fast2sms_url=os.getenv("config_fast2sms_url")
 config_fast2sms_key=os.getenv("config_fast2sms_key")
 config_resend_url=os.getenv("config_resend_url")
@@ -51,12 +52,6 @@ config_cors_origin_list=(os.getenv("config_cors_origin_list") or "*").split(",")
 config_cors_method_list=(os.getenv("config_cors_method_list") or "*").split(",")
 config_cors_headers_list=(os.getenv("config_cors_headers_list") or "*").split(",")
 config_cors_allow_credentials=(os.getenv("config_cors_allow_credentials") or "False").lower() == "true"
-
-#check admin/is_active
-config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
-config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token"
-config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_active") or 10)
-config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_access") or 10)
 
 #key
 config_key_root=os.getenv("config_key_root") or "123"
@@ -70,6 +65,10 @@ config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
 config_is_otp_verify_profile_update=int(os.getenv("config_is_otp_verify_profile_update") or 1)
 
 #zzz
+config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
+config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token"
+config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_active") or 10)
+config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_access") or 10)
 config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))
 config_token_expire_sec=int(os.getenv("config_token_expire_sec") or 365*24*60*60)
 config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_access").split(",")

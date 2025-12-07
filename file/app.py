@@ -1,5 +1,5 @@
 #config
-from file.config import *
+from config import *
 
 #function
 from file.function import *
@@ -58,8 +58,8 @@ if config_is_prometheus:function_add_prometheus(app)
 
 #router
 from pathlib import Path
-router_path = Path(__file__).parent.parent / "router"
-function_add_router(app, router_path)
+router_dir_path = Path(__file__).parent.parent / "router"
+function_add_router(app, router_dir_path)
 
 #middleware
 from fastapi import Request,responses
