@@ -80,6 +80,7 @@ curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $t
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"boolean","is_public":false}'
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"geography","location":"POINT(17.794387 -83.032150)"}'
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"array","tags":["java","python","sql"]}'
+curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"array","tags":"java,python,sql"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"date","dob":"1990-01-01"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"timestapmz","created_at":"1990-01-01T12:34:56+05:30"}'
 curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"jsonb","metadata":{"ip":"127.0.0.1","device":"mobile"}}'

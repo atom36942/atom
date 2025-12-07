@@ -67,8 +67,8 @@ config_is_otp_verify_profile_update=int(os.getenv("config_is_otp_verify_profile_
 #zzz
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
 config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token"
-config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_active") or 10)
 config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_access") or 10)
+config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_active") or 10)
 config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))
 config_token_expire_sec=int(os.getenv("config_token_expire_sec") or 365*24*60*60)
 config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_access").split(",")
@@ -260,6 +260,10 @@ config_postgres_schema={
 "key-text-1-btree",
 "assignee-text-1-btree",
 "status-text-0-0"
+],
+"config":[
+"created_at-timestamptz-0-0",
+
 ],
 },
 "query":{

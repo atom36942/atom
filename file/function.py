@@ -33,15 +33,18 @@ async def function_postgres_parent_read(client_postgres_pool,table,parent_column
       rows=await conn.fetch(query,created_by_id)
    return rows
 
-async def function_postgres_map_two_column(client_postgres_pool,table,column_1,column_2,limit=1000,is_null=True):
-    output={}
-    where_clause="" if is_null else f"WHERE {column_2} IS NOT NULL"
-    query=f"SELECT {column_1},{column_2} FROM {table} {where_clause} ORDER BY {column_1} DESC"
-    async with client_postgres_pool.acquire() as conn:
+async def function_postgres_map_two_column(pool, table, c1, c2, limit=1000, is_hide_null=0):
+    where = f"WHERE {c2} IS NOT NULL" if is_hide_null == 1 else ""
+    query = f"SELECT {c1}, {c2} FROM {table} {where}"
+    output = {}
+    async with pool.acquire() as conn:
         async with conn.transaction():
-            async for row in conn.cursor(query,prefetch=10000):
-                output[row[column_1]]=row[column_2]
-                if len(output)>=limit:break
+            async for row in conn.cursor(query, prefetch=5000):
+                k = row.get(c1)
+                v = row.get(c2)
+                output[k] = v
+                if len(output) >= limit:
+                    break
     return output
 
 import datetime
@@ -433,24 +436,27 @@ async def function_postgres_index_drop_all(client_postgres_pool):
         await conn.execute(query)
     return None
  
-import hashlib, json
+import hashlib,json
 from dateutil import parser
 async def function_postgres_object_serialize(postgres_column_datatype,obj_list):
     for obj in obj_list:
-        for k, v in obj.items():
-            if v in [None, "", "null"]:
-                obj[k] = None
-                continue
-            datatype = postgres_column_datatype.get(k)
-            if not datatype:continue
-            if k == "password":obj[k] = hashlib.sha256(str(v).encode()).hexdigest()
-            elif datatype == "text":obj[k] = v.strip()
-            elif "int" in datatype:obj[k] = int(v)
-            elif datatype == "numeric":obj[k] = round(float(v), 3)
-            elif datatype == "date":obj[k] = parser.isoparse(v).date() if isinstance(v, str) else v
-            elif "time" in datatype or "timestamp" in datatype or "timestamptz" in datatype.lower():obj[k] = parser.isoparse(v) if isinstance(v, str) else v
-            elif datatype == "ARRAY":obj[k] = v if isinstance(v, list) else str(v).split(",")
-            elif datatype == "jsonb":obj[k] = json.dumps(v) if not isinstance(v, str) else v
+        for k,v in obj.items():
+            if v in [None,"","null"]: obj[k]=None; continue
+            datatype=postgres_column_datatype.get(k)
+            if not datatype: continue
+            if k=="password": obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
+            elif datatype=="text": obj[k]=v.strip()
+            elif "int" in datatype: obj[k]=int(v)
+            elif datatype=="numeric": obj[k]=round(float(v),3)
+            elif datatype=="date": obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
+            elif "time" in datatype or "timestamp" in datatype or "timestamptz" in datatype.lower(): obj[k]=parser.isoparse(v) if isinstance(v,str) else v
+            elif datatype=="ARRAY":
+                if isinstance(v,list): obj[k]=v
+                else:
+                    x=str(v).strip()
+                    if x.startswith("{") and x.endswith("}"): x=x[1:-1]
+                    obj[k]=[i.strip().strip('"').strip("'") for i in x.split(",") if i.strip()]
+            elif datatype=="jsonb": obj[k]=json.dumps(v) if not isinstance(v,str) else v
     return obj_list
 
 async def function_postgres_schema_read(client_postgres_pool):
@@ -1827,46 +1833,44 @@ async def function_render_html(path):
         return await f.read()
 
 async def function_param_read(mode, request, config):
-    if mode == "query":
-        param = dict(request.query_params)
-    elif mode == "form":
-        form_data = await request.form()
-        param = {k: v for k, v in form_data.items() if isinstance(v, str)}
-        param.update({
-            k: [f for f in form_data.getlist(k) if getattr(f, "filename", None)]
-            for k in form_data.keys()
-            if any(getattr(f, "filename", None) for f in form_data.getlist(k))
-        })
-    elif mode == "body":
-        param = await request.json()
+    if mode=="query":
+        param=dict(request.query_params)
+    elif mode=="form":
+        form=await request.form()
+        param={k:v for k,v in form.items() if isinstance(v,str)}
+        for k in form.keys():
+            files=[f for f in form.getlist(k) if getattr(f,"filename",None)]
+            if files:param[k]=files
+    elif mode=="body":
+        try:
+            body=await request.json()
+        except: body=None
+        if isinstance(body,dict):
+            param=body
+        else:
+            param={"body":body}
     else:
-        raise Exception(f"Invalid mode: {mode}")
-    def cast(value, dtype):
-        if dtype == "int":
-            return int(value)
-        if dtype == "float":
-            return float(value)
-        if dtype == "bool":
-            return str(value).lower() in ("1", "true", "yes", "on")
-        if dtype == "list":
-            if isinstance(value, str):
-                return [v.strip() for v in value.split(",")]
-            if isinstance(value, list):
-                return value
-            return [value]
-        if dtype == "file":
-            return value if isinstance(value, list) else [value]
-        return value
-    for key, dtype, mandatory, default in config:
+        raise Exception("Invalid mode")
+    def cast(v,t):
+        if t=="int":return int(v)
+        if t=="float":return float(v)
+        if t=="bool":
+            if isinstance(v,bool):return v
+            return str(v).lower() in ("1","true","yes","on")
+        if t=="list":
+            if isinstance(v,list):return v
+            if isinstance(v,str):return [x.strip() for x in v.split(",")]
+            return [v]
+        if t=="file":return v if isinstance(v,list) else [v]
+        return v
+    for key,dtype,mandatory,default in config:
         if mandatory and key not in param:
             raise Exception(f"{key} missing from {mode} param")
-        value = param.get(key, default)
+        value=param.get(key,default)
         if dtype and value is not None:
-            try:
-                value = cast(value, dtype)
-            except Exception:
-                raise Exception(f"{key} must be of type {dtype}")
-        param[key] = value
+            try:value=cast(value,dtype)
+            except:raise Exception(f"{key} must be of type {dtype}")
+        param[key]=value
     return param
 
 async def function_converter_integer(mode,x,max_length=None): 

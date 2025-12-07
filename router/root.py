@@ -74,8 +74,8 @@ async def function_api_root_s3_bucket_ops(request:Request):
 @router.get("/root/reset-global")
 async def function_api_root_reset_global(request:Request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres_pool)
-    request.app.state.cache_users_api_access=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,False)
-    request.app.state.cache_users_is_active=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","is_active",config_limit_cache_users_api_access,True)
+    request.app.state.cache_users_api_access=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","api_access",config_limit_cache_users_api_access,1)
+    request.app.state.cache_users_is_active=await function_postgres_map_two_column(request.app.state.client_postgres_pool,"users","id","is_active",config_limit_cache_users_is_active,0)
     await function_postgres_object_create("flush",request.app.state.client_postgres_pool)
     return {"status":1,"message":"done"}
 
