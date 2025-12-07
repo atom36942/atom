@@ -43,6 +43,19 @@ docker build -t atom .
 docker run -it --rm -p 8000:8000 atom
 ```
 
+### Consumer
+```bash
+venv/bin/celery -A consumer.celery worker --loglevel=info
+venv/bin/python -m consumer.kafka
+venv/bin/python -m consumer.rabbitmq
+venv/bin/python -m consumer.redis
+```
+
+### Test
+```bash
+./file/test.sh
+```
+
 
 
 
@@ -74,19 +87,6 @@ config_redis_url_pubsub=redis://host.docker.internal:6379
 
 
 
-
-
-## Commands
-```bash
-#test curl
-./file/test.sh
-
-#consumer
-venv/bin/celery -A consumer.celery worker --loglevel=info
-venv/bin/python -m consumer.kafka
-venv/bin/python -m consumer.rabbitmq
-venv/bin/python -m consumer.redis
-```
 
 
 
