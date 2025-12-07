@@ -12,6 +12,10 @@ config_postgres_max_connection=int(os.getenv("config_postgres_max_connection") o
 config_redis_url=os.getenv("config_redis_url")
 config_redis_url_ratelimiter=os.getenv("config_redis_url_ratelimiter") or config_redis_url
 
+#key
+config_key_root=os.getenv("config_key_root") or "123"
+config_key_jwt=os.getenv("config_key_jwt") or "123"
+
 #queue
 config_celery_broker_url=os.getenv("config_celery_broker_url")
 config_celery_backend_url=os.getenv("config_celery_backend_url") or config_celery_broker_url
@@ -52,10 +56,6 @@ config_cors_origin_list=(os.getenv("config_cors_origin_list") or "*").split(",")
 config_cors_method_list=(os.getenv("config_cors_method_list") or "*").split(",")
 config_cors_headers_list=(os.getenv("config_cors_headers_list") or "*").split(",")
 config_cors_allow_credentials=(os.getenv("config_cors_allow_credentials") or "False").lower() == "true"
-
-#key
-config_key_root=os.getenv("config_key_root") or "123"
-config_key_jwt=os.getenv("config_key_jwt") or "123"
 
 #switch
 config_is_signup=int(os.getenv("config_is_signup") or 1)
