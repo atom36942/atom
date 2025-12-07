@@ -3,25 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Curl Requester</title>
+<title>Api Requester</title>
 <style>
 :root{--bg:#0b0d10;--card:#0f1114;--muted:#9aa0a6;--primary:#38a169;--primary-text:#031013;--secondary:#1f2933;--secondary-text:#e6eef3;--delete:#dc3545;--accent:#4299e1}
 html,body{margin:0;background:var(--bg);color:#e6eef3;font-family:Inter,system-ui;line-height:1.6}
 .container{max-width:720px;margin:40px auto;padding:20px}
 .card{background:var(--card);border-radius:12px;padding:28px;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.05)}
-h1{margin:0 0 24px 0;font-size:22px;font-weight:600;color:#fff}
-.command-selector{margin-bottom:28px}
-#curlSelect{width:100%;padding:14px 16px;padding-right:40px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#1a1d23;color:#e6eef3;cursor:pointer;transition:all .2s;font-weight:500;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e6eef3' d='M6 9L1 4h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
+h1{margin:0 0 24px 0;font-size:22px;font-weight:600;color:#fff;display:flex;justify-content:space-between;align-items:center}
+/* Updated Command Selector Layout */
+.command-selector{margin-bottom:28px;display:flex;gap:12px;align-items:center}
+.select-wrapper{flex-grow:1;position:relative}
+#curlSelect{width:100%;padding:12px 16px;padding-right:40px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#1a1d23;color:#e6eef3;cursor:pointer;transition:all .2s;font-weight:500;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e6eef3' d='M6 9L1 4h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
 #curlSelect:hover{border-color:rgba(255,255,255,.2);background:#1f2329}
 #curlSelect:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(66,153,225,.15)}
 #curlSelect option{background:#1a1d23;color:#e6eef3;padding:12px}
+#apiSearch{flex:0 0 180px;padding:12px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#1a1d23;color:#e6eef3;transition:all .2s}
+#apiSearch:focus{outline:none;border-color:var(--accent);background:#1f2329;box-shadow:0 0 0 3px rgba(66,153,225,.15)}
+#apiSearch::placeholder{color:#6b7280;font-size:13px}
 form{display:flex;flex-direction:column;gap:24px}
 .section-label{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
 .add-btn-small{background:var(--accent);color:#fff;border:none;padding:0;border-radius:5px;cursor:pointer;font-size:16px;font-weight:600;line-height:1;height:22px;width:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 2px 8px rgba(66,153,225,.3)}
 .add-btn-small:hover{background:#3182ce;transform:translateY(-1px);box-shadow:0 4px 12px rgba(66,153,225,.4)}
 .add-btn-small:active{transform:translateY(0)}
 .dynamic-container{display:flex;flex-direction:column;gap:12px}
-.input-row{display:flex;gap:10px;align-items:stretch;animation:slideIn .3s ease}
+/* Fixed alignment for remove button */
+.input-row{display:flex;gap:10px;align-items:center;animation:slideIn .3s ease}
 @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 input,select,.input-row select{width:100%;padding:12px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:#14171c;color:#e6eef3;box-sizing:border-box;transition:all .2s}
 input:focus,select:focus{outline:none;border-color:var(--accent);background:#1a1d23;box-shadow:0 0 0 3px rgba(66,153,225,.12)}
@@ -32,7 +38,8 @@ input[type="file"]{padding:8px 12px;cursor:pointer}
 input[type="file"]::file-selector-button{background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;margin-right:10px;transition:all .2s}
 input[type="file"]::file-selector-button:hover{background:#3182ce}
 .input-row .json-type-selector{flex:0 0 100px;width:100px;font-size:13px;font-weight:500;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e6eef3' d='M6 9L1 4h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
-.remove-btn{background:var(--delete);color:#fff;border:none;width:36px;height:36px;flex:0 0 36px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 2px 6px rgba(220,53,69,.3);align-self:stretch}
+/* Remove button styling */
+.remove-btn{background:var(--delete);color:#fff;border:none;width:36px;height:36px;flex:0 0 36px;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 2px 6px rgba(220,53,69,.3)}
 .remove-btn:hover{background:#c82333;transform:scale(1.05);box-shadow:0 3px 10px rgba(220,53,69,.4)}
 .remove-btn:active{transform:scale(.95)}
 .footer-row{display:flex;gap:16px;margin-top:12px;align-items:stretch}
@@ -43,10 +50,13 @@ input[type="file"]::file-selector-button:hover{background:#3182ce}
 .btn-secondary:hover{background:#28323f;transform:translateY(-2px)}
 .btn:active{transform:translateY(0)}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.resp-box{background:#14171c;border-radius:10px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden}
+.resp-box{background:#14171c;border-radius:10px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden;max-height:500px;flex-direction:column}
+.resp-box.show{display:flex}
+.resp-content{overflow-y:auto;max-height:440px}
 .resp-header{padding:16px 20px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
 table{width:100%;border-collapse:collapse;font-size:14px}
-td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05)}
+/* Aligned copy button to top */
+td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
 tr:last-child td{border-bottom:none}
 .key{color:var(--muted);width:140px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.5px}
 .val{word-break:break-all;font-family:'Courier New',monospace;font-size:13px;line-height:1.6}
@@ -61,11 +71,14 @@ tr:last-child td{border-bottom:none}
 <body>
 <div class="container">
 <div class="card">
-<h1>Curl Requester <span style="font-size:14px;font-weight:500;color:var(--muted);margin-left:8px">(59 endpoints)</span></h1>
+<h1>Api Requester <span id="apiCount" style="font-size:14px;font-weight:500;color:var(--muted);margin-left:8px"></span></h1>
 <div class="command-selector">
+<div class="select-wrapper">
 <select id="curlSelect">
 <option value="">Choose an API endpoint...</option>
 </select>
+</div>
+<input type="text" id="apiSearch" placeholder="Search API..." autocomplete="off">
 </div>
 <form id="apiForm">
 <div class="section-group" id="headerSection">
@@ -91,7 +104,9 @@ tr:last-child td{border-bottom:none}
 </form>
 <div class="resp-box" id="respBox">
 <div class="resp-header">Response</div>
+<div class="resp-content">
 <table id="respTable"></table>
+</div>
 </div>
 </div>
 </div>
@@ -155,20 +170,53 @@ const COMMANDS=[
 {name:"/admin/ids-delete",method:"POST",endpoint:"/admin/ids-delete",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"table",value:"test",type:"string"},{key:"ids",value:"1,2,3",type:"string"}]},
 {name:"/admin/jira-jql-output-save",method:"POST",endpoint:"/admin/jira-jql-output-save",headers:[{key:"Authorization",value:"Bearer "},{key:"Content-Type",value:"application/json"}],query:[],form:[],json:[{key:"type",value:"1",type:"number"},{key:"jira_base_url",value:"test",type:"string"},{key:"jira_email",value:"test",type:"string"},{key:"jira_token",value:"test",type:"string"},{key:"jql",value:"test",type:"string"},{key:"column",value:"null",type:"string"}]}
 ];
-const form=document.getElementById("apiForm"),submitBtn=document.getElementById("submitBtn"),clearAllBtn=document.getElementById("clearBtn"),respBox=document.getElementById("respBox"),respTable=document.getElementById("respTable"),curlSelect=document.getElementById("curlSelect"),headerContainer=document.getElementById("headerContainer"),queryContainer=document.getElementById("queryContainer"),formContainer=document.getElementById("formContainer"),jsonContainer=document.getElementById("jsonContainer"),headerSection=document.getElementById("headerSection"),querySection=document.getElementById("querySection"),formSection=document.getElementById("formSection"),jsonSection=document.getElementById("jsonSection"),addHeaderBtn=document.getElementById("addHeaderBtn"),addQueryBtn=document.getElementById("addQueryBtn"),addFormBtn=document.getElementById("addFormBtn"),addJsonBtn=document.getElementById("addJsonBtn");
+const form=document.getElementById("apiForm"),submitBtn=document.getElementById("submitBtn"),clearAllBtn=document.getElementById("clearBtn"),respBox=document.getElementById("respBox"),respTable=document.getElementById("respTable"),curlSelect=document.getElementById("curlSelect"),apiSearch=document.getElementById("apiSearch"),headerContainer=document.getElementById("headerContainer"),queryContainer=document.getElementById("queryContainer"),formContainer=document.getElementById("formContainer"),jsonContainer=document.getElementById("jsonContainer"),headerSection=document.getElementById("headerSection"),querySection=document.getElementById("querySection"),formSection=document.getElementById("formSection"),jsonSection=document.getElementById("jsonSection"),addHeaderBtn=document.getElementById("addHeaderBtn"),addQueryBtn=document.getElementById("addQueryBtn"),addFormBtn=document.getElementById("addFormBtn"),addJsonBtn=document.getElementById("addJsonBtn");
 let currentConfig=null;
+// Update count dynamically
+document.getElementById('apiCount').textContent = `(${COMMANDS.length} endpoints)`;
 COMMANDS.forEach((cmd,idx)=>{const opt=document.createElement("option");opt.value=idx;opt.textContent=cmd.name;curlSelect.appendChild(opt)});
 function createRow(container,key="",val="",type="string"){const row=document.createElement("div");row.className="input-row";let keyInput=`<input type="text" class="row-key" placeholder="Key" value="${key}">`,valueInput="";if(container===jsonContainer){valueInput=`<input type="text" class="row-val json-val" placeholder="Value" value="${val}"><select class="json-type-selector"><option value="string" ${type==="string"?"selected":""}>String</option><option value="number" ${type==="number"?"selected":""}>Number</option><option value="boolean" ${type==="boolean"?"selected":""}>Boolean</option><option value="null" ${type==="null"?"selected":""}>Null</option></select>`}else if(container===formContainer&&val.startsWith("@")){valueInput=`<input type="file" class="row-val" data-original="${val}">`}else{valueInput=`<input type="text" class="row-val" placeholder="Value" value="${val}">`}row.innerHTML=keyInput+valueInput+`<button type="button" class="remove-btn">×</button>`;row.querySelector(".remove-btn").addEventListener("click",()=>row.remove());container.appendChild(row);return row}
-function loadCommand(idx){if(idx===""){currentConfig=null;[headerSection,querySection,formSection,jsonSection].forEach(s=>s.classList.remove("active"));[headerContainer,queryContainer,formContainer,jsonContainer].forEach(c=>c.innerHTML="");respBox.style.display="none";submitBtn.textContent="Submit";submitBtn.className="btn btn-primary";return}currentConfig=COMMANDS[idx];headerContainer.innerHTML="";queryContainer.innerHTML="";formContainer.innerHTML="";jsonContainer.innerHTML="";[headerSection,querySection,formSection,jsonSection].forEach(s=>s.classList.remove("active"));if(currentConfig.headers.length>0){headerSection.classList.add("active");currentConfig.headers.forEach(h=>createRow(headerContainer,h.key,h.value))}querySection.classList.add("active");if(currentConfig.query.length>0){currentConfig.query.forEach(q=>createRow(queryContainer,q.key,q.value))}if(currentConfig.form.length>0){formSection.classList.add("active");currentConfig.form.forEach(f=>createRow(formContainer,f.key,f.value))}if(currentConfig.json.length>0){jsonSection.classList.add("active");currentConfig.json.forEach(j=>createRow(jsonContainer,j.key,j.value,j.type||"string"))}submitBtn.textContent="Submit";respBox.style.display="none"}
-curlSelect.addEventListener("change",e=>loadCommand(e.target.value));
+function loadCommand(idx){
+    if(idx===""){
+        currentConfig=null;
+        [headerSection,querySection,formSection,jsonSection].forEach(s=>s.classList.remove("active"));
+        [headerContainer,queryContainer,formContainer,jsonContainer].forEach(c=>c.innerHTML="");
+        respBox.style.display="none";
+        submitBtn.textContent="Submit";
+        submitBtn.className="btn btn-primary";
+        return
+    }
+    currentConfig=COMMANDS[idx];
+    headerContainer.innerHTML="";queryContainer.innerHTML="";formContainer.innerHTML="";jsonContainer.innerHTML="";
+    [headerSection,querySection,formSection,jsonSection].forEach(s=>s.classList.remove("active"));
+    if(currentConfig.headers.length>0){headerSection.classList.add("active");currentConfig.headers.forEach(h=>createRow(headerContainer,h.key,h.value))}
+    querySection.classList.add("active");
+    if(currentConfig.query.length>0){currentConfig.query.forEach(q=>createRow(queryContainer,q.key,q.value))}
+    if(currentConfig.form.length>0){formSection.classList.add("active");currentConfig.form.forEach(f=>createRow(formContainer,f.key,f.value))}
+    if(currentConfig.json.length>0){jsonSection.classList.add("active");currentConfig.json.forEach(j=>createRow(jsonContainer,j.key,j.value,j.type||"string"))}
+    submitBtn.textContent="Submit";
+    respBox.style.display="none";
+}
+curlSelect.addEventListener("change",e=>{apiSearch.value="";loadCommand(e.target.value)});
+apiSearch.addEventListener("input",e=>{
+    const term=e.target.value.toLowerCase();
+    if(!term) return;
+    const idx=COMMANDS.findIndex(c=>c.name.toLowerCase().includes(term));
+    if(idx!==-1){
+        curlSelect.value=idx;
+        loadCommand(idx);
+    }
+});
 addHeaderBtn.addEventListener("click",()=>{headerSection.classList.add("active");createRow(headerContainer)});
 addQueryBtn.addEventListener("click",()=>{querySection.classList.add("active");createRow(queryContainer)});
 addFormBtn.addEventListener("click",()=>{formSection.classList.add("active");createRow(formContainer)});
 addJsonBtn.addEventListener("click",()=>{jsonSection.classList.add("active");createRow(jsonContainer)});
-clearAllBtn.addEventListener("click",()=>{form.reset();respBox.style.display="none";respTable.innerHTML="";curlSelect.value="";loadCommand("")});
-function renderResponse(json){respTable.innerHTML="";Object.entries(json).forEach(([k,v])=>{let vStr=typeof v==="object"&&v!==null?JSON.stringify(v,null,2):String(v);const enc=encodeURIComponent(vStr),tr=document.createElement("tr");tr.innerHTML=`<td class="key">${k}</td><td class="val">${vStr}</td><td><button class="copy-btn" data-val="${enc}">Copy</button></td>`;respTable.appendChild(tr)});respBox.style.display="block"}
+clearAllBtn.addEventListener("click",()=>{form.reset();apiSearch.value="";respBox.style.display="none";respTable.innerHTML="";curlSelect.value="";loadCommand("")});
+function renderResponse(json){respTable.innerHTML="";Object.entries(json).forEach(([k,v])=>{let vStr=typeof v==="object"&&v!==null?JSON.stringify(v,null,2):String(v);const enc=encodeURIComponent(vStr),tr=document.createElement("tr");tr.innerHTML=`<td class="key">${k}</td><td class="val">${vStr}</td><td><button class="copy-btn" data-val="${enc}">Copy</button></td>`;respTable.appendChild(tr)});respBox.style.display="flex"}
 respTable.addEventListener("click",e=>{if(e.target.classList.contains("copy-btn")){const raw=decodeURIComponent(e.target.dataset.val);navigator.clipboard.writeText(raw);e.target.textContent="Copied!";setTimeout(()=>e.target.textContent="Copy",1500)}});
 form.addEventListener("submit",async e=>{e.preventDefault();if(!currentConfig){alert("Please select an API endpoint first");return}submitBtn.disabled=true;submitBtn.textContent="Sending...";const extractData=(container,isJson=false)=>{const data=[];container.querySelectorAll(".input-row").forEach(row=>{const keyInput=row.querySelector(".row-key"),valInput=row.querySelector(".row-val");if(!keyInput)return;const key=keyInput.value.trim();let val=valInput?valInput.value:"",type="string";if(isJson&&valInput){type=row.querySelector(".json-type-selector").value}if(key||val){data.push({key,val,type})}});return data};const headerData=extractData(headerContainer),queryData=extractData(queryContainer),formDataItems=extractData(formContainer),jsonDataItems=extractData(jsonContainer,true);let url=window.location.origin+currentConfig.endpoint;const params=queryData.filter(p=>p.key&&p.val).map(p=>`${encodeURIComponent(p.key)}=${encodeURIComponent(p.val)}`);if(params.length>0)url+="?"+params.join("&");const headers={};headerData.forEach(h=>{if(h.key&&h.val)headers[h.key]=h.val});const options={method:currentConfig.method};if(formDataItems.length>0){const fd=new FormData();formDataItems.forEach(item=>{if(item.key){const row=Array.from(formContainer.querySelectorAll(".input-row")).find(r=>r.querySelector(".row-key").value===item.key);const input=row?.querySelector(".row-val");if(input&&input.type==="file"&&input.files.length>0){fd.append(item.key,input.files[0])}else if(item.val){fd.append(item.key,item.val)}}});if(fd.entries().next().done===false){options.body=fd}}else if(jsonDataItems.length>0){const jsonObj={};try{jsonDataItems.forEach(item=>{if(!item.key)return;let parsedVal=item.val;if(item.type==="number"){parsedVal=Number(item.val);if(isNaN(parsedVal)||item.val.trim()==="")throw new Error(`Value for key '${item.key}' is not a valid number.`)}else if(item.type==="boolean"){if(item.val.toLowerCase()==="true")parsedVal=true;else if(item.val.toLowerCase()==="false")parsedVal=false;else throw new Error(`Value for key '${item.key}' must be 'true' or 'false' for boolean type.`)}else if(item.type==="null"){parsedVal=null}jsonObj[item.key]=parsedVal});if(Object.keys(jsonObj).length>0){options.body=JSON.stringify(jsonObj);headers["Content-Type"]="application/json"}}catch(err){alert("JSON Body Error: "+err.message);submitBtn.disabled=false;submitBtn.textContent="Submit";return}}options.headers=headers;try{const resp=await fetch(url,options);const contentType=resp.headers.get("content-type");const contentDisposition=resp.headers.get("content-disposition");if(contentDisposition&&contentDisposition.includes("attachment")){const blob=await resp.blob();const downloadUrl=window.URL.createObjectURL(blob);const a=document.createElement("a");a.href=downloadUrl;a.download=contentDisposition.split("filename=")[1]?.replace(/"/g,"")||"download.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);window.URL.revokeObjectURL(downloadUrl);renderResponse({status:resp.status,message:"File downloaded successfully"})}else{const raw=await resp.text();let json;try{json=JSON.parse(raw)}catch{json={status:resp.status,message:raw||"Raw Response"}}renderResponse({status:json.status!==undefined?json.status:resp.status,message:json.message!==undefined?json.message:json})}}catch(err){renderResponse({status:0,message:err.message||"Network error"})}finally{submitBtn.disabled=false;submitBtn.textContent="Submit"}});
+// Init
+loadCommand("");
 </script>
 </body>
 </html>

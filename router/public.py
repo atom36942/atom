@@ -94,3 +94,9 @@ async def function_api_public_jira_worklog_export(request:Request):
    function_jira_worklog_export(param["jira_base_url"],param["jira_email"],param["jira_token"],param["start_date"],param["end_date"],output_path)
    stream=function_stream_file(output_path)
    return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment; name=export_jira_worklog.csv"},background=BackgroundTask(lambda: os.remove(output_path)))
+
+@router.get("/public/converter-bigint")
+async def function_api_public_converter_bigint(request:Request):
+   param=await function_param_read("query",request,[["mode",None,1,None],["mobile",None,0,None]])
+   await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],param["email"],param["mobile"],config_otp_expire_sec)
+   return {"status":1,"message":"done"}
