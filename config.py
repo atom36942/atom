@@ -103,7 +103,7 @@ config_api={
 config_postgres_schema={
 "table":{
 "test":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-btree",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-0-0",
 "updated_by_id-bigint-0-0",
@@ -126,7 +126,7 @@ config_postgres_schema={
 "metadata-jsonb-0-gin"
 ],
 "log_api":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-btree",
 "created_by_id-bigint-0-btree",
 "response_type-smallint-0-btree",
 "ip_address-text-0-0",
@@ -139,7 +139,7 @@ config_postgres_schema={
 "description-text-0-0"
 ],
 "users":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-btree",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-0-0",
 "updated_by_id-bigint-0-0",
@@ -161,7 +161,7 @@ config_postgres_schema={
 "last_active_at-timestamptz-0-0"
 ],
 "otp":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-btree",
 "otp-integer-1-0",
 "email-text-0-btree",
 "mobile-text-0-btree"
@@ -172,7 +172,7 @@ config_postgres_schema={
 "password-text-0-0"
 ],
 "message":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-btree",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
 "updated_by_id-bigint-0-0",
@@ -198,7 +198,7 @@ config_postgres_schema={
 "rating-numeric(10,3)-1-0"
 ],
 "workseeker":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-btree",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-0-0",
 "updated_by_id-bigint-0-0",
@@ -221,7 +221,7 @@ config_postgres_schema={
 "metadata-jsonb-0-gin"
 ],
 "support":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-btree",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-0-0",
 "updated_by_id-bigint-0-0",
@@ -237,7 +237,7 @@ config_postgres_schema={
 "tag-text-0-0"
 ],
 "lead":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-btree",
 "updated_at-timestamptz-0-0",
 "created_by_id-bigint-0-0",
 "updated_by_id-bigint-0-0",
@@ -255,12 +255,12 @@ config_postgres_schema={
 "mobile-text-0-btree"
 ],
 "jira":[
-"created_at-timestamptz-0-btree,brin",
+"created_at-timestamptz-0-0",
 "type-bigint-1-btree",
 "key-text-1-btree",
 "assignee-text-1-btree",
 "status-text-0-0"
-]
+],
 },
 "query":{
 "created_at_default":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",

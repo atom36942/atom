@@ -372,32 +372,41 @@ async def function_postgres_schema_init(client_postgres_pool, config_postgres_sc
                 column_name, column_datatype, column_is_mandatory, column_index_type = column.split("-")
                 is_null = postgres_schema.get(table, {}).get(column_name, {}).get("is_null", None)
                 if column_is_mandatory == "0" and is_null == 0:
-                    query = f"alter table {table} alter column {column_name} drop not null;"
-                    await conn.execute(query)
+                    await conn.execute(f"alter table {table} alter column {column_name} drop not null;")
                 if column_is_mandatory == "1" and is_null == 1:
-                    query = f"alter table {table} alter column {column_name} set not null;"
-                    await conn.execute(query)
+                    await conn.execute(f"alter table {table} alter column {column_name} set not null;")
         return None
     async def function_init_index(conn, config_postgres_schema):
-        rows = await conn.fetch("SELECT indexname FROM pg_indexes WHERE schemaname='public';")
-        index_name_list = [r["indexname"] for r in rows]
+        rows = await conn.fetch("select indexname,indexdef from pg_indexes where schemaname='public';")
+        existing = {}
+        for r in rows:
+            name,defn = r["indexname"],r["indexdef"]
+            if " USING " not in defn:
+                continue
+            idx_type = defn.split(" USING ")[1].split()[0].lower()
+            tbl = defn.split(" ON ")[1].split()[0].split(".")[-1]
+            col = defn[defn.index("(")+1 : defn.index(")")]
+            col = col.split()[0]
+            existing.setdefault((tbl,col),{})[idx_type] = name
         for table, column_list in config_postgres_schema["table"].items():
             for column in column_list:
-                column_name, column_datatype, column_is_mandatory, column_index_type = column.split("-")
-                if column_index_type == "0":
-                    query = f"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname ILIKE 'index_{table}_{column_name}_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
-                    await conn.execute(query)
-                else:
-                    index_type_list = column_index_type.split(",")
-                    for index_type in index_type_list:
-                        index_name = f"index_{table}_{column_name}_{index_type}"
-                        if index_name not in index_name_list:
-                            if index_type == "gin" and column_datatype == "text":
-                                col_def = f"{column_name} gin_trgm_ops"
-                            else:
-                                col_def = column_name
-                            query = f"create index concurrently if not exists {index_name} on {table} using {index_type} ({col_def});"
-                            await conn.execute(query)
+                col, datatype, _, idx = column.split("-")
+                want = set() if idx == "0" else set(idx.split(","))
+                have = existing.get((table,col),{})
+                for t,idxname in have.items():
+                    if t not in want:
+                        if not idxname.startswith("index_"):
+                            continue
+                        await conn.execute(f'drop index if exists "{idxname}"')
+                for t in want:
+                    if t not in have:
+                        if t == "gin" and datatype == "text":
+                            col_def = f"{col} gin_trgm_ops"
+                        else:
+                            col_def = col
+                        idxname = f"index_{table}_{col}_{t}"
+                        query = f"create index concurrently if not exists {idxname} on {table} using {t} ({col_def});"
+                        await conn.execute(query)
         return None
     async def function_init_query(conn, config_postgres_schema):
         rows = await conn.fetch("select constraint_name from information_schema.constraint_column_usage;")
