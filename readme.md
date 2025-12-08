@@ -82,12 +82,4 @@ create schema if not exists public;
 
 #p95
 SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)::numeric, 2) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
-
-#sample csv
-title	type	rating	updated_at	dob	tags	location	metadata
-test 1	1	2.24	2023-01-02 12:00:00	2000-01-01	{1,2,3,4,5}	POINT(67.138848 -16.578165)	1
-test 2	2	3.34234	2023-01-03 12:00:00	2000-01-02	{a,b,c}	POINT(69.138848 -16.578165)	"test"
-test 3	3	1.06	2023-01-04 12:00:00	2000-01-03	{{1,2},{3,4}}	POINT(76.317336 52.088573)	{"type":1,"title":"list"}
-test 4	4	1.7	2023-01-05 12:00:00	2000-01-04	{true,false,true}	POINT(-6.616613 -88.085726)	[{"type":1,"title":"list"},{"type":2,"title":"admin"},{"type":3,"title":"admin"}]
-test 5	5	1.67	2023-01-06 12:00:00	2000-01-05	{python,java,sql}	POINT(-47.936117 3.251615)	{"object_list":[{"type":1,"title":"list"},{"type":2,"title":"admin"},{"type":3,"title":"admin"}]}
 ```
