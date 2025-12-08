@@ -1838,45 +1838,38 @@ async def function_render_html(path):
     async with aiofiles.open(full_path, "r", encoding="utf-8") as f:
         return await f.read()
 
-async def function_param_read(mode, request, config):
+async def function_request_param_read(request, mode, config):
     if mode=="query":
-        param=dict(request.query_params)
+        param = dict(request.query_params)
     elif mode=="form":
-        form=await request.form()
-        param={k:v for k,v in form.items() if isinstance(v,str)}
+        form = await request.form()
+        param = {k:v for k,v in form.items() if isinstance(v,str)}
         for k in form.keys():
-            files=[f for f in form.getlist(k) if getattr(f,"filename",None)]
-            if files:param[k]=files
+            fs = [f for f in form.getlist(k) if getattr(f,"filename",None)]
+            if fs: param[k] = fs
     elif mode=="body":
-        try:
-            body=await request.json()
-        except: body=None
-        if isinstance(body,dict):
-            param=body
-        else:
-            param={"body":body}
-    else:
-        raise Exception("Invalid mode")
+        try: body = await request.json()
+        except: body = None
+        param = body if isinstance(body,dict) else {"body":body}
+    else:raise Exception("mode should be query,form,body")
     def cast(v,t):
-        if t=="int":return int(v)
-        if t=="float":return float(v)
-        if t=="bool":
-            if isinstance(v,bool):return v
-            return str(v).lower() in ("1","true","yes","on")
-        if t=="list":
-            if isinstance(v,list):return v
-            if isinstance(v,str):return [x.strip() for x in v.split(",")]
-            return [v]
-        if t=="file":return v if isinstance(v,list) else [v]
+        if t=="int": return int(v)
+        if t=="float": return float(v)
+        if t=="bool": return v if isinstance(v,bool) else str(v).lower() in ("1","true","yes","on")
+        if t=="list": return v if isinstance(v,list) else ([x.strip() for x in v.split(",")] if isinstance(v,str) else [v])
+        if t=="file": return v if isinstance(v,list) else [v]
+        if t=="str": return str(v)
         return v
+    dtype_allowed = {"int","float","bool","list","file","str"}
     for key,dtype,mandatory,default in config:
+        if dtype not in dtype_allowed:raise Exception(f"Invalid dtype '{dtype}'")
         if mandatory and key not in param:
-            raise Exception(f"{key} missing from {mode} param")
-        value=param.get(key,default)
-        if dtype and value is not None:
-            try:value=cast(value,dtype)
-            except:raise Exception(f"{key} must be of type {dtype}")
-        param[key]=value
+            raise Exception(f"{key} missing in {mode}")
+        val = param.get(key,default)
+        if val is not None:
+            try: val = cast(val,dtype)
+            except: raise Exception(f"{key} must be of type {dtype}")
+        param[key] = val
     return param
 
 async def function_converter_integer(mode,x,max_length=None): 

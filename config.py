@@ -262,7 +262,7 @@ config_postgres_schema={
 "status-text-0-0"
 ],
 "config":[
-"title-text-1-0",
+"key-text-1-0",
 "metadata-jsonb-1-gin"
 ],
 },
@@ -289,6 +289,6 @@ config_postgres_schema={
 "unique_users_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
 "unique_users_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
 "unique_workseeker":"alter table workseeker add constraint constraint_unique_workseeker_created_by_id unique (created_by_id);",
-"unique_config":"alter table config add constraint constraint_unique_config_title unique (title);",
+"unique_config":"alter table config add constraint constraint_unique_config_key unique (key);",
 }
 }
