@@ -4,7 +4,7 @@ from file.route import *
 #api
 @router.post("/admin/object-create")
 async def function_api_admin_object_create(request:Request):
-   param=await function_request_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0]])
+   param=await function_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0]])
    obj=await function_request_param_read(request,"body",[])
    obj_list=obj["object_list"] if "object_list" in obj else [obj]
    for i,x in enumerate(obj_list):
@@ -16,7 +16,7 @@ async def function_api_admin_object_create(request:Request):
 
 @router.put("/admin/object-update")
 async def function_api_admin_object_update(request:Request):
-   param=await function_request_param_read(request,"query",[["table",None,1,None],["is_serialize","int",0,0],["queue",None,0,None]])
+   param=await function_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
    obj=await function_request_param_read(request,"body",[])
    obj_list=obj["object_list"] if "object_list" in obj else [obj]
    for i,x in enumerate(obj_list):
@@ -36,28 +36,28 @@ async def function_api_admin_object_update(request:Request):
 
 @router.get("/admin/object-read")
 async def function_api_admin_object_read(request:Request):
-   param=await function_request_param_read(request,"query",[["table",None,1,None]])
+   param=await function_request_param_read(request,"query",[["table","str",1,None]])
    obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data,function_add_action_count)
    return {"status":1,"message":obj_list}
 
 @router.put("/admin/ids-update")
 async def function_api_admin_ids_update(request:Request):
-   param=await function_request_param_read(request,"body",[["table",None,1,None],["ids",None,1,None],["column",None,1,None],["value",None,1,None]])
-   await function_postgres_ids_update(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],None,request.state.user["id"])
+   param=await function_request_param_read(request,"body",[["table","str",1,None],["ids","str",1,None],["column","str",1,None],["value","any",1,None]])
+   await function_postgres_ids_update(request.app.state.client_postgres_pool,param["table"],param["ids"],param["column"],param["value"],None,request.state.user["id"] if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id") else None)
    return {"status":1,"message":"done"}
 
 @router.post("/admin/ids-delete")
 async def function_api_admin_ids_delete(request:Request):
-   param=await function_request_param_read(request,"body",[["table",None,1,None],["ids",None,1,None]])
+   param=await function_request_param_read(request,"body",[["table","str",1,None],["ids","str",1,None]])
    if len(param["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    await function_postgres_ids_delete(request.app.state.client_postgres_pool,param["table"],param["ids"],None)
    return {"status":1,"message":"done"}
 
 @router.post("/admin/jira-jql-output-save")
 async def function_api_admin_jira_jql_output_save(request:Request):
-   param=await function_request_param_read(request,"body",[["type","int",1,None],["jira_base_url",None,1,None],["jira_email",None,1,None],["jira_token",None,1,None],["jql",None,1,None],["column",None,0,None]])
+   param=await function_request_param_read(request,"body",[["type","int",1,None],["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["jql","str",1,None],["column","str",0,None]])
    output_path=f"export_{__import__('time').time():.0f}.csv"
-   function_jira_jql_output_export(param["jira_base_url"],param["jira_email"],param["jira_token"],param["jql"],param["column"],None,output_path)
+   function_jira_jql_output_export(param["jira_base_url"],param["jira_email"],param["jira_token"],param["jql"],param["column"],"str",output_path)
    obj_list=await function_csv_path_to_object_list(output_path)
    obj_list=[item | {"type": param["type"]} for item in obj_list]
    __import__("os").remove(output_path)

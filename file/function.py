@@ -15,16 +15,16 @@ async def function_postgres_runner(client_postgres_pool,mode,query):
                 return await conn.execute(query)
     return None
 
-async def function_postgres_ids_delete(client_postgres_pool,table,ids,created_by_id=None):
-   query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,created_by_id)
-   return None
-
 async def function_postgres_ids_update(client_postgres_pool,table,ids,column,value,created_by_id=None,updated_by_id=None):
    query=f"update {table} set {column}=$1,updated_by_id=$2 where id in ({ids}) and (created_by_id=$3 or $3 is null);"
    async with client_postgres_pool.acquire() as conn:
       await conn.execute(query,value,updated_by_id,created_by_id)
+   return None
+
+async def function_postgres_ids_delete(client_postgres_pool,table,ids,created_by_id=None):
+   query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
+   async with client_postgres_pool.acquire() as conn:
+      await conn.execute(query,created_by_id)
    return None
 
 async def function_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order="id desc",limit=100,page=1):
@@ -1839,36 +1839,46 @@ async def function_render_html(path):
         return await f.read()
 
 async def function_request_param_read(request, mode, config):
-    if mode=="query":
+    if mode == "query":
         param = dict(request.query_params)
-    elif mode=="form":
+    elif mode == "form":
         form = await request.form()
         param = {k:v for k,v in form.items() if isinstance(v,str)}
         for k in form.keys():
             fs = [f for f in form.getlist(k) if getattr(f,"filename",None)]
             if fs: param[k] = fs
-    elif mode=="body":
+    elif mode == "body":
         try: body = await request.json()
         except: body = None
         param = body if isinstance(body,dict) else {"body":body}
-    else:raise Exception("mode should be query,form,body")
-    def cast(v,t):
-        if t=="int": return int(v)
-        if t=="float": return float(v)
-        if t=="bool": return v if isinstance(v,bool) else str(v).lower() in ("1","true","yes","on")
-        if t=="list": return v if isinstance(v,list) else ([x.strip() for x in v.split(",")] if isinstance(v,str) else [v])
-        if t=="file": return v if isinstance(v,list) else [v]
-        if t=="str": return str(v)
-        return v
-    dtype_allowed = {"int","float","bool","list","file","str"}
+
+    else:
+        raise Exception("mode should be query,form,body")
+    CAST_MAP = {
+        "int":   lambda v: int(v),
+        "float": lambda v: float(v),
+        "bool":  lambda v: v if isinstance(v,bool) else str(v).strip().lower() in ("1","true","yes","on"),
+        "list":  lambda v: [] if v is None else (
+                    v if isinstance(v,list) else (
+                        [] if (isinstance(v,str) and v.strip()=="") else
+                        [x.strip() for x in v.split(",")] if isinstance(v,str) else [v]
+                    )
+                 ),
+        "file":  lambda v: [] if v is None else (v if isinstance(v,list) else [v]),
+        "str":   lambda v: str(v),
+        "any":   lambda v: v,
+    }
     for key,dtype,mandatory,default in config:
-        if dtype not in dtype_allowed:raise Exception(f"Invalid dtype '{dtype}'")
         if mandatory and key not in param:
             raise Exception(f"{key} missing in {mode}")
         val = param.get(key,default)
         if val is not None:
-            try: val = cast(val,dtype)
-            except: raise Exception(f"{key} must be of type {dtype}")
+            try:
+                val = CAST_MAP[dtype](val)
+            except KeyError:
+                raise Exception(f"Invalid dtype '{dtype}'")
+            except:
+                raise Exception(f"{key} invalid value for type {dtype}")
         param[key] = val
     return param
 

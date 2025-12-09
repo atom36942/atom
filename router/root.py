@@ -14,19 +14,19 @@ async def function_api_root_postgres_clean(request:Request):
 
 @router.post("/root/postgres-runner")
 async def function_api_root_postgres_runner(request:Request):
-    param=await function_request_param_read(request,"body",[["mode",None,1,None],["query",None,1,None]])
+    param=await function_request_param_read(request,"body",[["mode","str",1,None],["query","str",1,None]])
     output=await function_postgres_runner(request.app.state.client_postgres_pool,param["mode"],param["query"])
     return {"status":1,"message":output}
 
 @router.post("/root/postgres-export")
 async def function_api_root_postgres_export(request:Request):
-   param=await function_request_param_read(request,"body",[["query",None,1,None]])
+   param=await function_request_param_read(request,"body",[["query","str",1,None]])
    stream=function_postgres_stream(request.app.state.client_postgres_pool,param["query"])
    return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition": "attachment; filename=export_postgres.csv"})
 
 @router.post("/root/postgres-import")
 async def function_api_root_postgres_import(request:Request):
-   param=await function_request_param_read(request,"form",[["mode",None,1,None],["table",None,1,None],["file","file",1,[]]])
+   param=await function_request_param_read(request,"form",[["mode","str",1,None],["table","str",1,None],["file","file",1,[]]])
    obj_list=await function_csv_api_to_object_list(param["file"][-1])
    obj_list=await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,obj_list)
    if param["mode"]=="create":output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],obj_list)
@@ -36,7 +36,7 @@ async def function_api_root_postgres_import(request:Request):
 
 @router.post("/root/redis-import-create")
 async def function_api_root_redis_import_create(request:Request):
-   param=await function_request_param_read(request,"form",[["table",None,1,None],["expiry_sec","int",0,None],["file","file",1,[]]])
+   param=await function_request_param_read(request,"form",[["table","str",1,None],["expiry_sec","int",0,None],["file","file",1,[]]])
    obj_list=await function_csv_api_to_object_list(param["file"][-1])
    key_list=[f"{param['table']}_{item['id']}" for item in obj_list]
    await function_redis_object_create(request.app.state.client_redis,key_list,obj_list,param["expiry_sec"])
@@ -51,7 +51,7 @@ async def function_api_root_redis_import_delete(request:Request):
 
 @router.post("/root/mongodb-import-create")
 async def function_api_root_mongodb_import_create(request:Request):
-   param=await function_request_param_read(request,"form",[["database",None,1,None],["table",None,1,None],["file","file",1,[]]])
+   param=await function_request_param_read(request,"form",[["database","str",1,None],["table","str",1,None],["file","file",1,[]]])
    obj_list=await function_csv_api_to_object_list(param["file"][-1])
    output=await function_mongodb_object_create(request.app.state.client_mongodb,param["database"],param["table"],obj_list)
    return {"status":1,"message":output}
@@ -64,7 +64,7 @@ async def function_api_root_s3_url_delete(request:Request):
  
 @router.get("/root/s3-bucket-ops")
 async def function_api_root_s3_bucket_ops(request:Request):
-   param=await function_request_param_read(request,"query",[["mode",None,1,None],["bucket",None,1,None]])
+   param=await function_request_param_read(request,"query",[["mode","str",1,None],["bucket","str",1,None]])
    if param["mode"]=="create":output=await function_s3_bucket_create(request.app.state.client_s3,config_s3_region_name,param["bucket"])
    elif param["mode"]=="public":output=await function_s3_bucket_public(request.app.state.client_s3,param["bucket"])
    elif param["mode"]=="empty":output=await function_s3_bucket_empty(request.app.state.client_s3_resource,param["bucket"])
