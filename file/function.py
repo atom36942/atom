@@ -33,18 +33,30 @@ async def function_postgres_parent_read(client_postgres_pool,table,parent_column
       rows=await conn.fetch(query,created_by_id)
    return rows
 
-async def function_postgres_map_two_column(pool, table, c1, c2, limit=1000, is_hide_null=0):
-    where = f"WHERE {c2} IS NOT NULL" if is_hide_null == 1 else ""
-    query = f"SELECT {c1}, {c2} FROM {table} {where}"
+import re
+async def function_postgres_map_query(client_postgres_pool, query):
+    if not query:return {}
+    def parse_cols(q):
+        m = re.search(r"select\s+(.*?)\s+from\s", q, flags=re.I|re.S)
+        cols = [c.strip() for c in m.group(1).split(",")]
+        return cols[0], cols[1:]
+    c1, c2_cols = parse_cols(query)
     output = {}
-    async with pool.acquire() as conn:
+    async with client_postgres_pool.acquire() as conn:
         async with conn.transaction():
             async for row in conn.cursor(query, prefetch=5000):
                 k = row.get(c1)
-                v = row.get(c2)
-                output[k] = v
-                if len(output) >= limit:
-                    break
+                if len(c2_cols) == 1:
+                    c2 = c2_cols[0]
+                    v = dict(row) if c2 == "*" else row.get(c2)
+                else:
+                    v = {col: row.get(col) for col in c2_cols}
+                if k not in output:
+                    output[k] = v
+                else:
+                    if not isinstance(output[k], list):
+                        output[k] = [output[k]]
+                    output[k].append(v)
     return output
 
 import datetime
@@ -63,22 +75,22 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
     """
     obj:{"column":"operator,value"}
     Examples:
-    await function_postgres_object_read(pool, "test")
-    await function_postgres_object_read(pool, "test", {"order":"id asc"})
-    await function_postgres_object_read(pool, "test", {"limit":10})
-    await function_postgres_object_read(pool, "test", {"page":2})
-    await function_postgres_object_read(pool, "test", {"column":"id,created_by_id,title"})
-    await function_postgres_object_read(pool, "test", {"creator_key":"username,email"})
-    await function_postgres_object_read(pool, "test", {"id":">,1"})
-    await function_postgres_object_read(pool, "test", {"created_at":">=,2000-01-01"})
-    await function_postgres_object_read(pool, "test", {"id":"in,1|2|3|4"})
-    await function_postgres_object_read(pool, "test", {"title":"not in,buffer|celery"})
-    await function_postgres_object_read(pool, "test", {"title":"is,null"})
-    await function_postgres_object_read(pool, "test", {"title":"is not,null"})
-    await function_postgres_object_read(pool, "test", {"created_at":"between,2000-01-01|3000-01-01"})
-    await function_postgres_object_read(pool, "test", {"title":"ilike,%buf%"})
-    await function_postgres_object_read(pool, "test", {"title":"~*,buf*"})
-    await function_postgres_object_read(pool, "test", {"location":"point,80.00|15.00|100|1000"})
+    await function_postgres_object_read(client_postgres_pool, "test")
+    await function_postgres_object_read(client_postgres_pool, "test", {"order":"id asc"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"limit":10})
+    await function_postgres_object_read(client_postgres_pool, "test", {"page":2})
+    await function_postgres_object_read(client_postgres_pool, "test", {"column":"id,created_by_id,title"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"creator_key":"username,email"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"id":">,1"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"created_at":">=,2000-01-01"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"id":"in,1|2|3|4"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"title":"not in,buffer|celery"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"title":"is,null"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"title":"is not,null"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"created_at":"between,2000-01-01|3000-01-01"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"title":"ilike,%buf%"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"title":"~*,buf*"})
+    await function_postgres_object_read(client_postgres_pool, "test", {"location":"point,80.00|15.00|100|1000"})
     """
     order = obj.get("order", "id desc")
     limit = int(obj.get("limit", 100))
@@ -181,9 +193,9 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
 async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=5000):
     """
     1. Update without created_by_id filter
-       await function_postgres_object_update(pool, "users", [{"id":2,"name":"Bob","age":25},{"id":3,"name":"Ryan","age":30}])
+       await function_postgres_object_update(client_postgres_pool, "users", [{"id":2,"name":"Bob","age":25},{"id":3,"name":"Ryan","age":30}])
     2. Update with created_by_id filter
-       await function_postgres_object_update(pool, "users", [{"id": 1, "name": "Alice", "age": 30}], created_by_id=42)
+       await function_postgres_object_update(client_postgres_pool, "users", [{"id": 1, "name": "Alice", "age": 30}], created_by_id=42)
     """
     if not obj_list: return None
     cols = [c for c in obj_list[0] if c != "id"]
@@ -957,10 +969,10 @@ async def function_ownership_check(client_postgres_pool, table, id, user_id):
         if row["created_by_id"] != user_id:raise Exception("obj ownership issue")
     return None
 
-async def function_user_query_read(pool, queries, user_id):
+async def function_user_sql_read(client_postgres_pool, query_dict, user_id):
     output = {}
-    async with pool.acquire() as conn:
-        for key, query in queries.items():
+    async with client_postgres_pool.acquire() as conn:
+        for key, query in query_dict.items():
             rows = await conn.fetch(query, user_id)
             if not rows:
                 output[key] = 0

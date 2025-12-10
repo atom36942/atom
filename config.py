@@ -67,21 +67,21 @@ config_is_otp_verify_profile_update=int(os.getenv("config_is_otp_verify_profile_
 #zzz
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
 config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token"
-config_limit_cache_users_api_access=int(os.getenv("config_limit_cache_users_api_access") or 10)
-config_limit_cache_users_is_active=int(os.getenv("config_limit_cache_users_is_active") or 10)
 config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))
 config_token_expire_sec=int(os.getenv("config_token_expire_sec") or 365*24*60*60)
 config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_access").split(",")
 config_column_disabled_list=(os.getenv("config_column_disabled_list") or "is_active,is_verified,api_access").split(",")
 config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test,support,lead").split(",")
 config_public_table_read_list=(os.getenv("config_public_table_read_list") or "test").split(",")
-config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 100)
+config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
 
 #dict
-config_user_query={
-"test_count":"select count(*) from test where created_by_id=$1",
-"test_object":"select * from test where created_by_id=$1 limit 1"
+config_query={
+"user":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
+"cache_users_api_access":"select id,api_access from users where api_access is not null limit 1000",
+"cache_users_is_active":"select id,is_active from users limit 1000",
+"cache_config":"select key,* from config limit 1000;",
 }
 config_table={
 "test":{"buffer":3},
