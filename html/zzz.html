@@ -6,156 +6,71 @@
 <title>Pages Launcher</title>
 <style>
   :root{
-    --bg:#0a0e14; --card:#131720; --muted:#8b92a3;
-    --primary:#4ade80; --primary-hover:#22c55e;
-    --section-bg:#1a1f2e; --border:#252b3b;
+    --bg:#0b0d10; --card:#0f1114; --muted:#9aa0a6;
+    --primary:#38a169; --primary-text:#031013;
+    --secondary:#1f2933; --secondary-text:#e6eef3;
   }
-  *{box-sizing:border-box;}
   html,body{
-    height:100%; margin:0;
-    background:radial-gradient(circle at top right, #1a1f2e 0%, var(--bg) 50%);
-    color:#e4e8f0; font-family:'Inter',-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;
-    overflow-x:hidden;
-  }
-  body{
+    height:100%; margin:0; background:linear-gradient(180deg,var(--bg),#070708);
+    color:#e6eef3; font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
     display:flex; justify-content:center; align-items:flex-start;
-    padding:40px 20px;
+    padding-top:20px;
   }
-  .container{max-width:900px; width:100%;}
-  .header{
-    text-align:center; margin-bottom:40px;
+  .container{max-width:800px; width:95%; padding:20px;}
+  .card{
+    background:var(--card); border-radius:16px; padding:30px; box-shadow:0 10px 30px rgba(0,0,0,.6);
   }
-  .header h1{
-    margin:0 0 12px; font-size:32px; font-weight:700;
-    background:linear-gradient(135deg, #4ade80 0%, #22d3ee 100%);
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    background-clip:text;
+  h1{margin:0 0 20px; font-size:22px; font-weight:600; color:#fff; text-align:center;}
+  pre{
+    background:#1a1c1f; padding:12px; border-radius:10px; overflow:auto;
+    font-size:14px; line-height:1.4; white-space:pre; text-align:center; margin-bottom:20px;
   }
-  .api-endpoint{
-    background:var(--section-bg); padding:16px 24px; border-radius:12px;
-    border:1px solid var(--border); font-family:'Courier New',monospace;
-    font-size:14px; color:#22d3ee; display:inline-block;
-    box-shadow:0 4px 12px rgba(0,0,0,.3);
-  }
-  .api-endpoint .method{color:#4ade80; font-weight:600;}
-  .api-endpoint .param{color:#fbbf24;}
-
-  .section{
-    background:var(--card); border-radius:16px; padding:28px;
-    margin-bottom:24px; border:1px solid var(--border);
-    box-shadow:0 8px 24px rgba(0,0,0,.4);
-    transition:transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .section:hover{
-    transform:translateY(-2px);
-    box-shadow:0 12px 32px rgba(0,0,0,.5);
-  }
-  .section-header{
-    display:flex; align-items:center; margin-bottom:20px;
-    padding-bottom:16px; border-bottom:2px solid var(--border);
-  }
-  .section-icon{
-    width:10px; height:10px; border-radius:50%;
-    background:var(--primary); margin-right:12px;
-    box-shadow:0 0 12px var(--primary);
-  }
-  .section-title{
-    margin:0; font-size:20px; font-weight:600;
-    text-transform:uppercase; letter-spacing:1px;
-  }
-  .section-count{
-    margin-left:auto; font-size:13px; color:var(--muted);
-    background:var(--section-bg); padding:4px 12px; border-radius:20px;
-  }
-
-  .buttons-grid{
+  .buttons-container{
     display:grid;
-    grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
-    gap:12px;
+    grid-template-columns:repeat(3, 1fr);
+    gap:16px;
+    justify-items:center;
+    align-items:center;
   }
   .btn{
-    height:56px; padding:12px 16px; font-size:13px; font-weight:500;
-    border-radius:10px; border:1px solid var(--border);
-    background:linear-gradient(135deg, var(--section-bg) 0%, #1c2333 100%);
-    color:#e4e8f0; cursor:pointer; text-align:center;
-    word-break:break-word; overflow-wrap:break-word; line-height:1.3;
-    display:flex; align-items:center; justify-content:center;
-    transition:all 0.2s ease;
-    position:relative; overflow:hidden;
+    width:100%; padding:16px; font-size:16px; font-weight:500;
+    border-radius:8px; border:none; background:var(--primary); color:var(--primary-text);
+    cursor:pointer; text-align:center;
   }
-  .btn::before{
-    content:''; position:absolute; inset:0;
-    background:linear-gradient(135deg, var(--primary) 0%, #22d3ee 100%);
-    opacity:0; transition:opacity 0.2s ease;
-  }
-  .btn:hover{
-    border-color:var(--primary); transform:translateY(-1px);
-    box-shadow:0 4px 16px rgba(74,222,128,0.3);
-  }
-  .btn:hover::before{opacity:0.15;}
-  .btn:active{transform:translateY(0); box-shadow:0 2px 8px rgba(74,222,128,0.2);}
-  .btn span{position:relative; z-index:1;}
+  .btn:hover{ background:#2c7a4b; }
 
-  @media (max-width: 768px) {
-    .buttons-grid{ grid-template-columns:1fr; }
-    .header h1{ font-size:28px; }
-    .section{ padding:20px; }
-  }
   @media (max-width: 480px) {
-    body{ padding:20px 12px; }
-    .api-endpoint{ font-size:12px; padding:12px 16px; }
+    .buttons-container{ grid-template-columns:1fr; }
+    .btn{ font-size:18px; padding:18px; }
   }
 </style>
 </head>
 <body>
 <div class="container">
-  <div class="header">
-    <h1>Pages Launcher</h1>
-    <div class="api-endpoint">
-      <span class="method">GET</span> $baseurl/page/<span class="param">{name}</span>
-    </div>
+  <div class="card">
+    <h1>Html Pages Launcher</h1>
+    <pre id="curlBlock">curl -X GET "$baseurl/page/{name}"</pre>
+    <div class="buttons-container" id="buttons"></div>
   </div>
-
-  <div class="section">
-    <div class="section-header">
-      <div class="section-icon"></div>
-      <h2 class="section-title">core</h2>
-      <span class="section-count" id="core-count">0</span>
-    </div>
-    <div class="buttons-grid" id="core"></div>
-  </div>
-
-  <div class="section">
-    <div class="section-header">
-      <div class="section-icon"></div>
-      <h2 class="section-title">ZZZ</h2>
-      <span class="section-count" id="zzz-count">0</span>
-    </div>
-    <div class="buttons-grid" id="zzz"></div>
-  </div>
-
 </div>
 
 <script>
-const sections = {
-  core: ["api","atom"],
-  zzz: ["nuclear"]
-};
+const names = [
+  "api",
+  "atom",
+  "nuclear"
+];
 
-Object.entries(sections).forEach(([section, items]) => {
-  const grid = document.getElementById(section);
-  const count = document.getElementById(`${section}-count`);
-  count.textContent = items.length;
+const buttonsDiv = document.getElementById('buttons');
 
-  items.forEach(name => {
-    const btn = document.createElement('button');
-    btn.innerHTML = `<span>${name}</span>`;
-    btn.className = 'btn';
-    btn.onclick = () => {
-      window.open(`${window.location.origin}/page/${name}`, '_blank');
-    };
-    grid.appendChild(btn);
+names.forEach(name => {
+  const btn = document.createElement('button');
+  btn.textContent = name;
+  btn.className = 'btn';
+  btn.addEventListener('click', () => {
+    window.open(`${window.location.origin}/page/${name}`, '_blank');
   });
+  buttonsDiv.appendChild(btn);
 });
 </script>
 </body>

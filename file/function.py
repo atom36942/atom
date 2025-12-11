@@ -796,6 +796,7 @@ async def function_check_is_active(request,config_api,mode="token"):
     if not config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user:return None
     if mode=="token":user_is_active=request.state.user.get("is_active","absent")
     elif mode=="cache":user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
+    else:raise Exception("mode=token/cache")
     if user_is_active=="absent":
         async with request.app.state.client_postgres_pool.acquire() as conn:
             rows=await conn.fetch("select id,is_active from users where id=$1",request.state.user["id"])
@@ -809,6 +810,7 @@ async def function_check_api_access(request,config_api,mode="token"):
     if not request.url.path.startswith("/admin"):return None
     if mode=="token":user_api_access=request.state.user.get(request.state.user["id"],[])
     elif mode=="cache":user_api_access=request.app.state.cache_users_api_access.get(request.state.user["id"],[])
+    else:raise Exception("mode=token/cache")
     if user_api_access:user_api_access_list=[int(item.strip()) for item in user_api_access.split(",")]
     else:
         async with request.app.state.client_postgres_pool.acquire() as conn:
@@ -827,6 +829,7 @@ from fastapi import Response
 import gzip, base64, time
 inmemory_cache_api = {}
 async def function_api_response_cache(mode, config_api, request, response):
+    if mode not in ["get","set"]: raise Exception("mode=get/set")
     client_redis = request.app.state.client_redis
     qp = "&".join(f"{k}={v}" for k, v in sorted(request.query_params.items()))
     uid = request.state.user.get("id") if "my/" in request.url.path else 0
@@ -835,18 +838,18 @@ async def function_api_response_cache(mode, config_api, request, response):
     if mode == "get":
         data = None
         if cache_mode == "redis": data = await client_redis.get(cache_key)
-        if cache_mode == "inmemory":
+        elif cache_mode == "inmemory":
             item = inmemory_cache_api.get(cache_key)
             if item and item["expire_at"] > time.time(): data = item["data"]
         if data:
             return Response(gzip.decompress(base64.b64decode(data)).decode(),status_code=200, media_type="application/json",headers={"x-cache":"hit"})
         return None
-    if mode == "set":
+    elif mode == "set":
         body = getattr(response, "body", None)
         if body is None: body = b"".join([c async for c in response.body_iterator])
         comp = base64.b64encode(gzip.compress(body)).decode()
         if cache_mode == "redis": await client_redis.setex(cache_key, expire_sec, comp)
-        if cache_mode == "inmemory": inmemory_cache_api[cache_key] = {"data": comp, "expire_at": time.time()+expire_sec}
+        elif cache_mode == "inmemory": inmemory_cache_api[cache_key] = {"data": comp, "expire_at": time.time()+expire_sec}
         return Response(content=body, status_code=response.status_code,media_type=response.media_type, headers=dict(response.headers))
 
 from fastapi import Request,responses
@@ -1030,12 +1033,9 @@ async def function_add_action_count(client_postgres_pool, obj_list, action_key):
     return obj_list
 
 async def function_user_delete_single(mode, client_postgres_pool,user_id):
-    if mode == "soft":
-        query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
-    elif mode == "hard":
-        query = "DELETE FROM users WHERE id=$1;"
-    else:
-        raise Exception("Invalid mode")
+    if mode == "soft":query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
+    elif mode == "hard":query = "DELETE FROM users WHERE id=$1;"
+    else:raise Exception("mode=soft/hard")
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(query, user_id)
     return None
@@ -1121,12 +1121,10 @@ async def function_message_delete_single_user(client_postgres_pool,message_id,us
    return None
 
 async def function_message_delete_bulk(mode,client_postgres_pool,user_id):
-   if mode=="created":
-      query="delete from message where created_by_id=$1;"
-   elif mode=="received":
-      query="delete from message where user_id=$1;"
-   elif mode=="all":
-      query="delete from message where (created_by_id=$1 or user_id=$1);"
+   if mode=="created":query="delete from message where created_by_id=$1;"
+   elif mode=="received":query="delete from message where user_id=$1;"
+   elif mode=="all":query="delete from message where (created_by_id=$1 or user_id=$1);"
+   else:raise Exception("mode=created/received/all")
    async with client_postgres_pool.acquire() as conn:
       await conn.execute(query,user_id)
    return None
@@ -1851,8 +1849,7 @@ async def function_render_html(path):
         return await f.read()
 
 async def function_request_param_read(request, mode, config):
-    if mode == "query":
-        param = dict(request.query_params)
+    if mode == "query":param = dict(request.query_params)
     elif mode == "form":
         form = await request.form()
         param = {k:v for k,v in form.items() if isinstance(v,str)}
@@ -1863,9 +1860,7 @@ async def function_request_param_read(request, mode, config):
         try: body = await request.json()
         except: body = None
         param = body if isinstance(body,dict) else {"body":body}
-
-    else:
-        raise Exception("mode should be query,form,body")
+    else:raise Exception("mode should be query,form,body")
     CAST_MAP = {
         "int":   lambda v: int(v),
         "float": lambda v: float(v),
@@ -1903,7 +1898,7 @@ async def function_converter_integer(mode,x,max_length=None):
     elif mode=="decode": 
         try:x=int(x) 
         except:raise Exception("decode requires int") 
-    else:raise Exception("invalid mode") 
+    else:raise Exception("mode=encode/decode") 
     if max_length==11: 
         CH='abcdefghijklmnopqrstuvwxyz0123456789_';B=len(CH);CTI={c:i for i,c in enumerate(CH)};ITC={i:c for i,c in enumerate(CH)} 
         if mode=="encode": 
