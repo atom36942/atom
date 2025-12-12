@@ -37,19 +37,33 @@ config_ses_region_name=os.getenv("config_ses_region_name")
 config_limit_s3_kb=int(os.getenv("config_limit_s3_kb") or 100)
 config_s3_presigned_expire_sec=int(os.getenv("config_s3_presigned_expire_sec") or 60)
 
-#integration
-config_sentry_dsn=os.getenv("config_sentry_dsn")
-config_mongodb_url=os.getenv("config_mongodb_url")
-config_openai_key=os.getenv("config_openai_key")
-config_posthog_project_host=os.getenv("config_posthog_project_host")
-config_posthog_project_key=os.getenv("config_posthog_project_key")
-config_google_login_client_id=os.getenv("config_google_login_client_id")
-config_gsheet_service_account_json_path=os.getenv("config_gsheet_service_account_json_path")
-config_gsheet_scope_list=(os.getenv("config_gsheet_scope_list") or "https://www.googleapis.com/auth/spreadsheets").split(",")
+#sftp
+config_sftp_host=os.getenv("config_sftp_host")
+config_sftp_port=os.getenv("config_sftp_port")
+config_sftp_user=os.getenv("config_sftp_user")
+config_sftp_password=os.getenv("config_sftp_password")
+config_sftp_key_path=os.getenv("config_sftp_key_path")
+config_sftp_auth_method=os.getenv("config_sftp_auth_method") or "password"
+
+#communication
 config_fast2sms_url=os.getenv("config_fast2sms_url")
 config_fast2sms_key=os.getenv("config_fast2sms_key")
 config_resend_url=os.getenv("config_resend_url")
 config_resend_key=os.getenv("config_resend_key")
+
+#google
+config_google_login_client_id=os.getenv("config_google_login_client_id")
+config_gsheet_service_account_json_path=os.getenv("config_gsheet_service_account_json_path")
+config_gsheet_scope_list=(os.getenv("config_gsheet_scope_list") or "https://www.googleapis.com/auth/spreadsheets").split(",")
+
+#analytics
+config_sentry_dsn=os.getenv("config_sentry_dsn")
+config_posthog_project_host=os.getenv("config_posthog_project_host")
+config_posthog_project_key=os.getenv("config_posthog_project_key")
+
+#integration
+config_mongodb_url=os.getenv("config_mongodb_url")
+config_openai_key=os.getenv("config_openai_key")
 
 #cors
 config_cors_origin_list=(os.getenv("config_cors_origin_list") or "*").split(",")

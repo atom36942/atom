@@ -26,6 +26,7 @@ async def function_lifespan(app:FastAPI):
       client_rabbitmq,client_rabbitmq_producer=await function_rabbitmq_client_read_producer(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
       client_redis_producer=await function_redis_client_read(config_redis_url_pubsub) if config_redis_url_pubsub else None
       client_gsheet=function_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope_list) if config_gsheet_service_account_json_path else None
+      client_sftp=await function_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_user,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)
       cache_users_api_access=await function_postgres_map_query(client_postgres_pool,config_query.get("cache_users_api_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
@@ -36,7 +37,7 @@ async def function_lifespan(app:FastAPI):
       #app shutdown
       yield
       await function_postgres_object_create("flush",client_postgres_pool)
-      function_delete_file_pattern(".",["export_"],[".csv"])
+      # function_delete_file_pattern(".",["export_"],[".csv"])
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
       if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()

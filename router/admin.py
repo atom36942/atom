@@ -56,7 +56,8 @@ async def function_api_admin_ids_delete(request:Request):
 @router.post("/admin/jira-jql-output-save")
 async def function_api_admin_jira_jql_output_save(request:Request):
    param=await function_request_param_read(request,"body",[["type","int",1,None],["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["jql","str",1,None],["column","str",0,None]])
-   output_path=f"export_{__import__('time').time():.0f}.csv"
+   __import__("os").makedirs("export", exist_ok=True)
+   output_path = f"export/jira_jql_{__import__('time').time():.0f}.csv"
    function_jira_jql_output_export(param["jira_base_url"],param["jira_email"],param["jira_token"],param["jql"],param["column"],"str",output_path)
    obj_list=await function_csv_path_to_object_list(output_path)
    obj_list=[item | {"type": param["type"]} for item in obj_list]

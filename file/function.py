@@ -327,34 +327,44 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
         else:
             raise Exception("mode must be 'now', 'buffer', or 'flush'")
 
-import csv, re
+import csv
 from io import StringIO
-async def function_postgres_stream(client_postgres_asyncpg_pool, query, batch_size=1000, output_save_csv_path=None):
-    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise ValueError("Only read-only queries allowed")
-    async with client_postgres_asyncpg_pool.acquire() as conn:
+import time, re
+async def function_postgres_stream(pool, query, batch_size=1000):
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
+        raise ValueError("Only read-only queries allowed")
+    async with pool.acquire() as conn:
         async with conn.transaction():
-            f = open(output_save_csv_path, "w", newline="") if output_save_csv_path else None
-            writer_file = csv.writer(f) if f else None
+            stmt = await conn.prepare(query)
+            col_names = [a.name for a in stmt.get_attributes()]
             stream = StringIO()
             writer_stream = csv.writer(stream)
-            header_written = False
-            async for row in conn.cursor(query, prefetch=batch_size):
-                if not header_written:
-                    writer_stream.writerow(row.keys())
-                    if writer_file:
-                        writer_file.writerow(row.keys())
-                    yield stream.getvalue()
-                    stream.seek(0)
-                    stream.truncate(0)
-                    header_written = True
-                writer_stream.writerow(row.values())
-                if writer_file:
-                    writer_file.writerow(row.values())
+            writer_stream.writerow(col_names)
+            yield stream.getvalue()
+            stream.seek(0); stream.truncate(0)
+            async for row in stmt.cursor(prefetch=batch_size):
+                writer_stream.writerow(list(row))
                 yield stream.getvalue()
-                stream.seek(0)
-                stream.truncate(0)
+                stream.seek(0); stream.truncate(0)
+
+import asyncpg, csv, re
+async def function_postgres_export(postgres_url, query, batch_size=1000, output_path="export_postgres.csv"):
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise Exception("Only read-only queries allowed")
+    conn = await asyncpg.connect(postgres_url)
+    try:
+        async with conn.transaction():
+            writer = None
+            f = None
+            async for record in conn.cursor(query, prefetch=batch_size):
+                if writer is None:
+                    f = open(output_path, "w", newline="")
+                    writer = csv.writer(f)
+                    writer.writerow(record.keys())
+                writer.writerow(record.values())
             if f: f.close()
-            
+    finally: await conn.close()
+    return f"saved to {output_path}"
+                    
 async def function_postgres_schema_init(client_postgres_pool, config_postgres_schema, function_postgres_schema_read):
     if not config_postgres_schema:
         raise Exception("config_postgres_schema null")
@@ -531,24 +541,6 @@ import asyncpg
 async def function_postgres_client_read(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
    client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
    return client_postgres_pool
- 
-import asyncpg, csv, re
-async def function_postgres_export(postgres_url, query, batch_size=1000, output_path="export_postgres.csv"):
-    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise Exception("Only read-only queries allowed")
-    conn = await asyncpg.connect(postgres_url)
-    try:
-        async with conn.transaction():
-            writer = None
-            f = None
-            async for record in conn.cursor(query, prefetch=batch_size):
-                if writer is None:
-                    f = open(output_path, "w", newline="")
-                    writer = csv.writer(f)
-                    writer.writerow(record.keys())
-                writer.writerow(record.values())
-            if f: f.close()
-    finally: await conn.close()
-    return f"saved to {output_path}"
 
 import asyncpg,random
 from mimesis import Person,Address,Food,Text,Code,Datetime
@@ -1930,3 +1922,17 @@ async def function_converter_integer(mode,x,max_length=None):
     ln=d[0] 
     if ln>max_length:raise Exception("invalid length") 
     return ''.join(ITC[i] for i in d[1:1+ln])
+
+#sftp
+import asyncssh
+async def function_sftp_client_read(host, port, user, password, key_path, auth_method):
+    if auth_method not in ("key", "password"): raise Exception("auth_method must be 'key' or 'password'")
+    if auth_method == "key":
+        if not key_path: raise Exception("key_path required for key auth")
+        conn = await asyncssh.connect(host=host,port=int(port),username=user,client_keys=[key_path],known_hosts=None,)
+    else:
+        if not password: raise Exception("password required for password auth")
+        conn = await asyncssh.connect(host=host,port=int(port),username=user,password=password,known_hosts=None,)
+    return conn
+
+

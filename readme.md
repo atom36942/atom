@@ -60,7 +60,7 @@ venv/bin/python -m consumer.redis
 ### zzz
 ```bash
 #package
-./venv/bin/pip install fastapi
+./venv/bin/pip install paramiko
 ./venv/bin/pip freeze > requirements.txt
 ./venv/bin/pip install --upgrade fastapi
 ./venv/bin/pip uninstall fastapi
