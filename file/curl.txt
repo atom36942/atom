@@ -5,7 +5,7 @@ curl -X GET "$baseurl"
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"mode":"read","query":"select * from users limit 10;"}'
-curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/curl/export.csv
+curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/zzz/root_postgres_export.csv
 0 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/redis-import-delete" -H "Authorization: Bearer $token" -F "file=@/Users/atom/Downloads/file.csv"
@@ -117,7 +117,6 @@ curl -X GET "$baseurl/public/object-read?table=test&created_at=between,2000-01-0
 curl -X GET "$baseurl/public/object-read?table=test&title=ilike,%buf%"
 curl -X GET "$baseurl/public/object-read?table=test&title=~*,%buf*"
 curl -X GET "$baseurl/public/object-read?table=test&location=point,80.00|15.00|100|1000"
-curl -X GET "$baseurl/public/object-read?table=test&order=id%20asc&limit=3&page=2&column=id%2Ccreated_by_id%2Ctitle&creator_key=username%2Cemail&id=%3E%2C1&id=in%2C1%7C2%7C3&created_at=%3E%2C2000-01-01&created_at=between%2C2000-01-01%7C3000-01-01&title=not%20in%2Cbuffer%7Ccelery&title=is%2Cnull&title=is%20not%2Cnull&title=ilike%2C%25buf%25&title=~*%2Cbuf*&location=point%2C80.00%7C15.00%7C100%7C1000"
 
 #extend zzz
 curl -X GET "$baseurl/my/profile?is_metadata=1" -H "Authorization: Bearer $token"

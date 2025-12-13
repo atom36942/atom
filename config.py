@@ -307,3 +307,4 @@ config_postgres_schema={
 "unique_config":"alter table config add constraint constraint_unique_config_key unique (key);",
 }
 }
+

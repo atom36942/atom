@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Api Requester</title>
+<title>Curl Requester</title>
 <style>
 :root{--bg:#0b0d10;--card:#0f1114;--muted:#9aa0a6;--primary:#38a169;--primary-text:#031013;--secondary:#1f2933;--secondary-text:#e6eef3;--delete:#dc3545;--accent:#4299e1}
 html,body{margin:0;background:var(--bg);color:#e6eef3;font-family:Inter,system-ui;line-height:1.6}
@@ -70,10 +70,10 @@ tr:last-child td{border-bottom:none}
 <body>
 <div class="container">
 <div class="card">
-<h1>Api Requester <span id="apiCount" style="font-size:14px;font-weight:500;color:var(--muted);margin-left:8px"></span></h1>
+<h1>Curl Requester <span id="apiCount" style="font-size:14px;font-weight:500;color:var(--muted);margin-left:8px"></span></h1>
 <div class="command-selector">
     <div class="custom-select-wrapper" id="customSelectWrapper">
-        <input type="text" id="apiInput" placeholder="Search or select API endpoint..." autocomplete="off">
+        <input type="text" id="apiInput" placeholder="Search" autocomplete="off">
         <button type="button" id="clearApiSelection" class="clear-api-btn">×</button>
         <ul id="apiDropdown" class="api-dropdown">
         </ul>
@@ -175,7 +175,7 @@ function loadCommand(idx){
         submitBtn.textContent="Submit";
         submitBtn.className="btn btn-primary";
         apiInput.value="";
-        apiInput.placeholder="Search or select API endpoint...";
+        apiInput.placeholder="Search";
         clearApiSelection.style.display="none";
         return
     }

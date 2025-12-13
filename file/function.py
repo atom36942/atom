@@ -27,11 +27,14 @@ async def function_postgres_ids_delete(client_postgres_pool,table,ids,created_by
       await conn.execute(query,created_by_id)
    return None
 
-async def function_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order="id desc",limit=100,page=1):
+async def function_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order=None,limit=None,page=None):
+   if not order:order="id desc"
+   if not limit:limit=100
+   if not page:page=1
    query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
    async with client_postgres_pool.acquire() as conn:
-      rows=await conn.fetch(query,created_by_id)
-   return rows
+      obj_list=await conn.fetch(query,created_by_id)
+   return obj_list
 
 import re
 async def function_postgres_map_query(client_postgres_pool, query):
@@ -64,33 +67,33 @@ async def function_postgres_clean(client_postgres_pool, config_table):
     async with client_postgres_pool.acquire() as conn:
         for table_name, cfg in config_table.items():
             days = cfg.get("delete_day")
-            if days is None:
-                continue
+            if days is None:continue
             threshold_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
             query = f"DELETE FROM {table_name} WHERE created_at < $1"
             await conn.execute(query, threshold_date)
     return None
 
-async def function_postgres_object_read(client_postgres_pool, table, obj={}, function_postgres_object_serialize=None, postgres_column_datatype=None, function_add_creator_data= None, function_add_action_count=None):
+async def function_postgres_object_read(client_postgres_pool,table,obj,function_postgres_object_serialize,postgres_column_datatype,function_add_creator_data,function_add_action_count):
     """
-    obj:{"column":"operator,value"}
-    Examples:
-    await function_postgres_object_read(client_postgres_pool, "test")
-    await function_postgres_object_read(client_postgres_pool, "test", {"order":"id asc"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"limit":10})
-    await function_postgres_object_read(client_postgres_pool, "test", {"page":2})
-    await function_postgres_object_read(client_postgres_pool, "test", {"column":"id,created_by_id,title"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"creator_key":"username,email"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"id":">,1"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"created_at":">=,2000-01-01"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"id":"in,1|2|3|4"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"title":"not in,buffer|celery"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"title":"is,null"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"title":"is not,null"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"created_at":"between,2000-01-01|3000-01-01"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"title":"ilike,%buf%"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"title":"~*,buf*"})
-    await function_postgres_object_read(client_postgres_pool, "test", {"location":"point,80.00|15.00|100|1000"})
+    obj={}
+    obj={"order":"id asc"}
+    obj={"limit":10}
+    obj={"page":2}
+    obj={"column":"id,created_by_id,title"}
+    obj={"creator_key":"username,email"}
+    obj={"id":">,1"}
+    obj={"created_at":">=,2000-01-01"}
+    obj={"id":"in,1|2|3|4"}
+    obj={"title":"not in,buffer|celery"}
+    obj={"title":"is,null"}
+    obj={"title":"is not,null"}
+    obj={"created_at":"between,2000-01-01|3000-01-01"}
+    obj={"title":"ilike,%buf%"}
+    obj={"title":"~*,buf*"}
+    obj={"location":"point,80.00|15.00|100|1000"}
+    obj={"creator_key":"username,email"}
+    obj={"action_key":"report_test,test_id,count,id"}
+    obj={"action_key":"rating_test,test_id,avg,rating"}
     """
     order = obj.get("order", "id desc")
     limit = int(obj.get("limit", 100))
@@ -99,83 +102,71 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
     creator_key = obj.get("creator_key")
     action_key = obj.get("action_key")
     filters = {k: v for k,v in obj.items() if k not in ["table","order","limit","page","column","creator_key","action_key"]}
-    conditions, values, idx = [], [], 1
-    serialized_values = {}
-    for k, expr in filters.items():
-        if expr.lower().startswith("point,"):
-            serialized_values[k] = expr
-            continue
+    def parse_filter(expr):
         try:
             op, val = expr.split(",", 1)
+            return op.strip().lower(), val.strip()
         except Exception:
-            raise Exception(f"Invalid filter format for column {k}: {expr}")
-        op = op.strip().lower()
-        val = val.strip()
-        datatype = postgres_column_datatype.get(k) if postgres_column_datatype else None
+            raise Exception(f"Invalid filter format: {expr}")
+    async def serialize_value(col, val, datatype):
+        if not function_postgres_object_serialize:
+            return val
+        serialized = await function_postgres_object_serialize({col: datatype}, [{col: val}])
+        return serialized[0][col]
+    async def serialize_filter_value(col, op, val, datatype):
         if op in ["in", "not in"]:
             items = []
             for x in val.split("|"):
-                if function_postgres_object_serialize:
-                    serialized = await function_postgres_object_serialize({k: datatype}, [{k: x.strip()}])
-                    items.append(serialized[0][k])
-                else:
-                    items.append(x.strip())
-            serialized_values[k] = items
+                items.append(await serialize_value(col, x.strip(), datatype))
+            return items
         elif op == "between":
             parts = val.split("|")
-            if len(parts) != 2: raise Exception(f"Between requires 2 values for column {k}")
-            items = []
-            for x in parts:
-                if function_postgres_object_serialize:
-                    serialized = await function_postgres_object_serialize({k: datatype}, [{k: x.strip()}])
-                    items.append(serialized[0][k])
-                else:
-                    items.append(x.strip())
-            serialized_values[k] = items
+            if len(parts) != 2: raise Exception(f"Between requires 2 values for column {col}")
+            return [await serialize_value(col, x.strip(), datatype) for x in parts]
         elif val.lower() == "null":
-            serialized_values[k] = None
+            return None
         else:
-            if function_postgres_object_serialize:
-                serialized = await function_postgres_object_serialize({k: datatype}, [{k: val}])
-                serialized_values[k] = serialized[0][k]
-            else:
-                serialized_values[k] = val
-    def op_null(col, op, val, idx, values):
-        if op not in ["is","is not"]: raise Exception(f"Null only allowed with 'is'/'is not' for {col}")
-        return f"{col} {op.upper()} NULL", idx
-    def op_in(col, op, val, idx, values):
-        placeholders = []
-        for v in val:
-            values.append(v)
-            placeholders.append(f"${idx}")
-            idx += 1
-        return f"{col} {op.upper()} ({','.join(placeholders)})", idx
-    def op_between(col, op, val, idx, values):
-        values.extend(val)
-        return f"{col} BETWEEN ${idx} AND ${idx+1}", idx+2
-    def op_default(col, op, val, idx, values):
-        values.append(val)
-        return f"{col} {op.upper()} ${idx}", idx+1
-    operator_map = {
-        "null": op_null, "in": op_in, "not in": op_in, "between": op_between,
-        "=": op_default, ">": op_default, "<": op_default, ">=": op_default, "<=": op_default,
-        "like": op_default, "ilike": op_default, "~": op_default, "~*": op_default
-    }
+            return await serialize_value(col, val, datatype)
+    def build_condition(col, op, val, idx, values):
+        if val is None:
+            if op not in ["is","is not"]: raise Exception(f"Null only allowed with 'is'/'is not' for {col}")
+            return f"{col} {op.upper()} NULL", idx
+        elif op in ["in", "not in"]:
+            placeholders = [f"${idx+i}" for i in range(len(val))]
+            values.extend(val)
+            return f"{col} {op.upper()} ({','.join(placeholders)})", idx+len(val)
+        elif op == "between":
+            values.extend(val)
+            return f"{col} BETWEEN ${idx} AND ${idx+1}", idx+2
+        elif op in ["=",">","<",">=","<=","like","ilike","~","~*"]:
+            values.append(val)
+            return f"{col} {op.upper()} ${idx}", idx+1
+        else:
+            raise Exception(f"Unsupported operator '{op}' for column {col}")
+    def parse_point_filter(col, expr):
+        try:
+            _, rest = expr.split(",",1)
+            long, lat, min_meter, max_meter = [float(x) for x in rest.split("|")]
+            return f"ST_Distance({col}, ST_Point({long}, {lat})::geography) BETWEEN {min_meter} AND {max_meter}"
+        except Exception:
+            raise Exception(f"Invalid point filter for column {col}: {expr}")
+    serialized_values = {}
+    for col, expr in filters.items():
+        if expr.lower().startswith("point,"):
+            serialized_values[col] = expr
+            continue
+        op, val = parse_filter(expr)
+        datatype = postgres_column_datatype.get(col) if postgres_column_datatype else None
+        serialized_values[col] = await serialize_filter_value(col, op, val, datatype)
+    conditions, values, idx = [], [], 1
     point_queries = []
     for col, expr in filters.items():
         if expr.lower().startswith("point,"):
-            try:
-                _, rest = expr.split(",",1)
-                long, lat, min_meter, max_meter = [float(x) for x in rest.split("|")]
-            except Exception:
-                raise Exception(f"Invalid point filter for column {col}: {expr}")
-            point_queries.append(f"ST_Distance({col}, ST_Point({long}, {lat})::geography) BETWEEN {min_meter} AND {max_meter}")
+            point_queries.append(parse_point_filter(col, expr))
             continue
-        op = expr.split(",",1)[0].strip().lower()
+        op = parse_filter(expr)[0]
         val = serialized_values[col]
-        handler = operator_map.get(op if val is not None else "null")
-        if not handler: raise Exception(f"Unsupported operator '{op}' for column {col}")
-        cond, idx = handler(col, op, val, idx, values)
+        cond, idx = build_condition(col, op, val, idx, values)
         conditions.append(cond)
     where_conditions = conditions + point_queries
     where_string = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
@@ -190,23 +181,33 @@ async def function_postgres_object_read(client_postgres_pool, table, obj={}, fun
         except Exception as e:
             raise Exception(f"Failed to read: {e}")
 
-async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=5000):
-    """
-    1. Update without created_by_id filter
-       await function_postgres_object_update(client_postgres_pool, "users", [{"id":2,"name":"Bob","age":25},{"id":3,"name":"Ryan","age":30}])
-    2. Update with created_by_id filter
-       await function_postgres_object_update(client_postgres_pool, "users", [{"id": 1, "name": "Alice", "age": 30}], created_by_id=42)
-    """
+async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=None):
+    if not batch_size:batch_size=5000
     if not obj_list: return None
     cols = [c for c in obj_list[0] if c != "id"]
     max_batch = 65535 // (len(cols) + 1 + (1 if created_by_id else 0))
     batch_size = min(batch_size, max_batch)
+    def build_single_update(obj, cols, created_by_id):
+        params = [obj[c] for c in cols] + [obj["id"]]
+        where = f"id=${len(params)}" + (f" AND created_by_id=${len(params)+1}" if created_by_id else "")
+        if created_by_id: params.append(created_by_id)
+        set_clause = ",".join(f"{c}=${i+1}" for i, c in enumerate(cols))
+        return set_clause, where, params
+    def build_batch_case(col, batch, vals, created_by_id):
+        cases = []
+        for obj in batch:
+            vals.extend([obj[col], obj["id"]])
+            idx_val, idx_id = len(vals)-1, len(vals)
+            if created_by_id:
+                vals.append(created_by_id)
+                idx_user = len(vals)
+                cases.append(f"WHEN id=${idx_id} AND created_by_id=${idx_user} THEN ${idx_val}")
+            else:
+                cases.append(f"WHEN id=${idx_id} THEN ${idx_val}")
+        return f"{col} = CASE {' '.join(cases)} ELSE {col} END"
     async with client_postgres_pool.acquire() as conn:
         if len(obj_list) == 1:
-            params = [obj_list[0][c] for c in cols] + [obj_list[0]["id"]]
-            where = f"id=${len(params)}" + (f" AND created_by_id=${len(params)+1}" if created_by_id else "")
-            if created_by_id: params.append(created_by_id)
-            set_clause = ",".join(f"{c}=${i+1}" for i, c in enumerate(cols))
+            set_clause, where, params = build_single_update(obj_list[0], cols, created_by_id)
             row = await conn.fetch(f"UPDATE {table} SET {set_clause} WHERE {where} RETURNING id;", *params)
             return row[0]["id"] if row else None
         async with conn.transaction():
@@ -214,27 +215,17 @@ async def function_postgres_object_update(client_postgres_pool, table, obj_list,
                 batch = obj_list[i:i+batch_size]
                 vals, set_clauses = [], []
                 for col in cols:
-                    cases = []
-                    for obj in batch:
-                        vals.extend([obj[col], obj["id"]])
-                        idx_val, idx_id = len(vals)-1, len(vals)
-                        if created_by_id:
-                            vals.append(created_by_id)
-                            idx_user = len(vals)
-                            cases.append(f"WHEN id=${idx_id} AND created_by_id=${idx_user} THEN ${idx_val}")
-                        else:
-                            cases.append(f"WHEN id=${idx_id} THEN ${idx_val}")
-                    set_clauses.append(f"{col} = CASE {' '.join(cases)} ELSE {col} END")
+                    set_clauses.append(build_batch_case(col, batch, vals, created_by_id))
                 ids = [obj["id"] for obj in batch]
                 where_clause = f"id IN ({','.join(str(id_) for id_ in ids)})" + (f" AND created_by_id={created_by_id}" if created_by_id else "")
                 await conn.execute(f"UPDATE {table} SET {', '.join(set_clauses)} WHERE {where_clause};", *vals)
     return None
-   
+
 import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def function_postgres_object_create(mode, client_postgres_pool, table=None, obj_list=None, buffer=10, returning_ids=False, conflict_columns=None, batch_size=5000):
+async def function_postgres_object_create(mode,client_postgres_pool,table=None,obj_list=None,buffer=None,returning_ids=False,conflict_columns=None,batch_size=None):
     """
     integer:  {"count": 42}
     numeric:  {"price": 19.95}
@@ -251,35 +242,47 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
     array:    {"tags": ["python", "asyncio", "postgres"]}
     bytea:    {"file_data": b"\\x89504e470d0a1a0a..."}  # binary data (e.g., image)
     """
-    global inmemory_cache_object_create, table_object_key
+    if mode !="flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
+    if not buffer:buffer=10
+    if not batch_size:batch_size=5000
+    global inmemory_cache_object_create,table_object_key
     if not buffer:buffer=10
     if obj_list and len(obj_list) == 1:
         returning_ids = True
-    async def _execute_insert(tbl, objs, use_buffer_schema=False):
-        if not objs: return None
+    def get_columns(tbl, objs, use_buffer_schema):
         if use_buffer_schema and tbl in table_object_key and table_object_key[tbl]:
             cols = sorted(list(table_object_key[tbl]))
             for o in objs:
                 for k in cols:
                     if k not in o:
                         o[k] = None
+            return cols
         else:
-            cols = list(objs[0].keys())
+            return list(objs[0].keys())
+    def build_batch_values(batch, cols):
+        vals, rows_sql = [], []
+        col_count = len(cols)
+        for j, o in enumerate(batch):
+            start = j * col_count + 1
+            row_vals = [o.get(k) for k in cols]
+            rows_sql.append(f"({', '.join([f'${k}' for k in range(start, start + col_count)])})")
+            vals.extend(row_vals)
+        return vals, rows_sql
+    def build_conflict_clause(conflict_columns):
+        return f"on conflict ({','.join(conflict_columns)}) do nothing" if conflict_columns else "on conflict do nothing"
+    async def _execute_insert(tbl, objs, use_buffer_schema=False):
+        if not objs: return None
+        cols = get_columns(tbl, objs, use_buffer_schema)
         col_count = len(cols)
         max_batch = 65535 // col_count
         batch_size_eff = min(batch_size, max_batch)
-        conflict_clause = f"on conflict ({','.join(conflict_columns)}) do nothing" if conflict_columns else "on conflict do nothing"
+        conflict_clause = build_conflict_clause(conflict_columns)
         ids = [] if returning_ids else None
         async with client_postgres_pool.acquire() as conn:
             async with conn.transaction():
                 for i in range(0, len(objs), batch_size_eff):
                     batch = objs[i:i + batch_size_eff]
-                    vals, rows_sql = [], []
-                    for j, o in enumerate(batch):
-                        start = j * col_count + 1
-                        row_vals = [o.get(k) for k in cols]
-                        rows_sql.append(f"({', '.join([f'${k}' for k in range(start, start + col_count)])})")
-                        vals.extend(row_vals)
+                    vals, rows_sql = build_batch_values(batch, cols)
                     q = f"insert into {tbl} ({','.join(cols)}) values {','.join(rows_sql)} {conflict_clause}"
                     if returning_ids:
                         q += " returning id;"
@@ -321,7 +324,8 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
 import csv
 from io import StringIO
 import time, re
-async def function_postgres_stream(client_postgres_pool, query, batch_size=1000):
+async def function_postgres_stream(client_postgres_pool, query, batch_size=None):
+    if not batch_size:batch_size=1000
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise ValueError("Only read-only queries allowed")
     async with client_postgres_pool.acquire() as conn:
@@ -340,8 +344,9 @@ async def function_postgres_stream(client_postgres_pool, query, batch_size=1000)
 
 import csv, re
 from pathlib import Path
-async def function_postgres_export(client_postgres_pool, query, batch_size=1000, output_path=None):
-    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
+async def function_postgres_export(client_postgres_pool,query,batch_size=None,output_path=None):
+    if not batch_size:batch_size=1000
+    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise Exception("Only read-only queries allowed")
@@ -361,7 +366,7 @@ async def function_postgres_export(client_postgres_pool, query, batch_size=1000,
             f.close()
     return f"saved to {output_path}"
 
-async def function_postgres_schema_init(client_postgres_pool, config_postgres_schema, function_postgres_schema_read):
+async def function_postgres_schema_init(client_postgres_pool,config_postgres_schema,function_postgres_schema_read):
     if not config_postgres_schema:
         raise Exception("config_postgres_schema null")
     async def function_init_extension(conn):
@@ -534,67 +539,62 @@ async def function_postgres_schema_read(client_postgres_pool):
     return postgres_schema,postgres_column_datatype
 
 import asyncpg
-async def function_postgres_client_read(config_postgres_url,config_postgres_min_connection=5,config_postgres_max_connection=20):
-   client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
-   return client_postgres_pool
+async def function_postgres_client_read(config_postgres_url,config_postgres_min_connection=None,config_postgres_max_connection=None):
+    if not config_postgres_min_connection:config_postgres_min_connection=5
+    if not config_postgres_max_connection:config_postgres_max_connection=20
+    client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection)
+    return client_postgres_pool
 
-import asyncpg,random
+import random
 from mimesis import Person,Address,Food,Text,Code,Datetime
-async def function_postgres_create_fake_data(postgres_url,TOTAL_ROWS=1000,BATCH_SIZE=1000):
-   conn = await asyncpg.connect(postgres_url)
-   person = Person()
-   address = Address()
-   food = Food()
-   text_gen = Text()
-   code = Code()
-   dt = Datetime()
-   TABLES = {
-   "customers": [("name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("birth_date", "DATE", lambda: dt.date()), ("signup_code", "TEXT", lambda: code.imei()), ("loyalty_points", "INT", lambda: random.randint(0, 10000)), ("favorite_fruit", "TEXT", lambda: food.fruit())],
-   "orders": [("order_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("order_date", "DATE", lambda: dt.date()), ("shipping_city", "TEXT", lambda: address.city()), ("total_amount", "INT", lambda: random.randint(10, 5000)), ("status", "TEXT", lambda: random.choice(["pending", "shipped", "delivered", "cancelled"])), ("item_count", "INT", lambda: random.randint(1, 20)), ("shipping_country", "TEXT", lambda: address.country())],
-   "products": [("product_name", "TEXT", lambda: food.fruit()), ("category", "TEXT", lambda: random.choice(["electronics", "clothing", "food", "books"])), ("price", "INT", lambda: random.randint(5, 1000)), ("supplier_city", "TEXT", lambda: address.city()), ("stock_quantity", "INT", lambda: random.randint(0, 500)), ("manufacture_date", "DATE", lambda: dt.date()), ("expiry_date", "DATE", lambda: dt.date()), ("sku_code", "TEXT", lambda: code.imei())],
-   "employees": [("full_name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("city", "TEXT", lambda: address.city()), ("salary", "INT", lambda: random.randint(30000, 150000)), ("hire_date", "DATE", lambda: dt.date()), ("employee_id", "TEXT", lambda: code.imei())],
-   "suppliers": [("supplier_name", "TEXT", lambda: person.full_name()), ("contact_email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("phone_number", "TEXT", lambda: person.telephone()), ("rating", "INT", lambda: random.randint(1, 5))],
-   "invoices": [("invoice_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("invoice_date", "DATE", lambda: dt.date()), ("amount_due", "INT", lambda: random.randint(100, 10000)), ("due_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["paid", "unpaid", "overdue"]))],
-   "payments": [("payment_id", "TEXT", lambda: code.imei()), ("invoice_number", "TEXT", lambda: code.imei()), ("payment_date", "DATE", lambda: dt.date()), ("amount", "INT", lambda: random.randint(50, 10000)), ("payment_method", "TEXT", lambda: random.choice(["credit_card", "paypal", "bank_transfer"])), ("status", "TEXT", lambda: random.choice(["completed", "pending", "failed"]))],
-   "departments": [("department_name", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("manager", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city()), ("budget", "INT", lambda: random.randint(50000, 1000000))],
-   "projects": [("project_name", "TEXT", lambda: text_gen.word()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("budget", "INT", lambda: random.randint(10000, 500000)), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"]))],
-   "inventory": [("item_name", "TEXT", lambda: food.spices()), ("quantity", "INT", lambda: random.randint(0, 1000)), ("warehouse_location", "TEXT", lambda: address.city()), ("last_restock_date", "DATE", lambda: dt.date())],
-   "shipments": [("shipment_id", "TEXT", lambda: code.imei()), ("order_number", "TEXT", lambda: code.imei()), ("shipment_date", "DATE", lambda: dt.date()), ("delivery_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["in_transit", "delivered", "delayed"]))],
-   "reviews": [("review_id", "TEXT", lambda: code.imei()), ("product_name", "TEXT", lambda: food.fruit()), ("customer_name", "TEXT", lambda: person.full_name()), ("rating", "INT", lambda: random.randint(1, 5)), ("review_date", "DATE", lambda: dt.date()), ("comments", "TEXT", lambda: text_gen.sentence())],
-   "tasks": [("task_name", "TEXT", lambda: text_gen.word()), ("assigned_to", "TEXT", lambda: person.full_name()), ("due_date", "DATE", lambda: dt.date()), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"])), ("status", "TEXT", lambda: random.choice(["pending", "in_progress", "completed"]))],
-   "assets": [("asset_tag", "TEXT", lambda: code.imei()), ("asset_name", "TEXT", lambda: food.fruit()), ("purchase_date", "DATE", lambda: dt.date()), ("warranty_expiry", "DATE", lambda: dt.date()), ("value", "INT", lambda: random.randint(100, 10000))],
-   "locations": [("location_name", "TEXT", lambda: address.city()), ("address", "TEXT", lambda: address.address()), ("country", "TEXT", lambda: address.country()), ("postal_code", "TEXT", lambda: address.postal_code())],
-   "meetings": [("meeting_id", "TEXT", lambda: code.imei()), ("topic", "TEXT", lambda: text_gen.word()), ("meeting_date", "DATE", lambda: dt.date()), ("organizer", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city())],
-   "tickets": [("ticket_id", "TEXT", lambda: code.imei()), ("issue", "TEXT", lambda: text_gen.sentence()), ("reported_by", "TEXT", lambda: person.full_name()), ("status", "TEXT", lambda: random.choice(["open", "closed", "in_progress"])), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"]))],
-   "subscriptions": [("subscription_id", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("plan_type", "TEXT", lambda: random.choice(["basic", "premium", "enterprise"]))],
-   }
-   async def create_tables(conn,TABLES):
-      for table_name, columns in TABLES.items():
-         await conn.execute(f"DROP TABLE IF EXISTS {table_name};")
-         columns_def = ", ".join(f"{name} {dtype}" for name, dtype, _ in columns)
-         query = f"CREATE TABLE IF NOT EXISTS {table_name} (id bigint primary key generated always as identity not null, {columns_def});"
-         await conn.execute(query)
-   async def insert_batch(conn, table_name, columns, batch_values):
-      cols = ", ".join(name for name, _, _ in columns)
-      placeholders = ", ".join(f"${i+1}" for i in range(len(columns)))
-      query = f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})"
-      await conn.executemany(query, batch_values)
-   async def generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE):
-      for table_name, columns in TABLES.items():
-         print(f"Inserting data into {table_name}...")
-         batch_values = []
-         for _ in range(TOTAL_ROWS):
-               row = tuple(gen() for _, _, gen in columns)
-               batch_values.append(row)
-               if len(batch_values) == BATCH_SIZE:
-                  await insert_batch(conn, table_name, columns, batch_values)
-                  batch_values.clear()
-         if batch_values:await insert_batch(conn, table_name, columns, batch_values)
-         print(f"Completed inserting {TOTAL_ROWS} rows into {table_name}")
-   await create_tables(conn,TABLES)
-   await generate_data(conn,insert_batch,TABLES,TOTAL_ROWS,BATCH_SIZE)
-   await conn.close()
-   return None
+async def function_postgres_create_fake_data(client_postgres_pool,total_row=None,batch_size=None):
+    if not total_row:total_row=1000
+    if not batch_size:batch_size=1000
+    person,address,food,text_gen,code,dt = Person(),Address(),Food(),Text(),Code(),Datetime()
+    tables = {
+    "customers": [("name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("birth_date", "DATE", lambda: dt.date()), ("signup_code", "TEXT", lambda: code.imei()), ("loyalty_points", "INT", lambda: random.randint(0, 10000)), ("favorite_fruit", "TEXT", lambda: food.fruit())],
+    "orders": [("order_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("order_date", "DATE", lambda: dt.date()), ("shipping_city", "TEXT", lambda: address.city()), ("total_amount", "INT", lambda: random.randint(10, 5000)), ("status", "TEXT", lambda: random.choice(["pending", "shipped", "delivered", "cancelled"])), ("item_count", "INT", lambda: random.randint(1, 20)), ("shipping_country", "TEXT", lambda: address.country())],
+    "products": [("product_name", "TEXT", lambda: food.fruit()), ("category", "TEXT", lambda: random.choice(["electronics", "clothing", "food", "books"])), ("price", "INT", lambda: random.randint(5, 1000)), ("supplier_city", "TEXT", lambda: address.city()), ("stock_quantity", "INT", lambda: random.randint(0, 500)), ("manufacture_date", "DATE", lambda: dt.date()), ("expiry_date", "DATE", lambda: dt.date()), ("sku_code", "TEXT", lambda: code.imei())],
+    "employees": [("full_name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("city", "TEXT", lambda: address.city()), ("salary", "INT", lambda: random.randint(30000, 150000)), ("hire_date", "DATE", lambda: dt.date()), ("employee_id", "TEXT", lambda: code.imei())],
+    "suppliers": [("supplier_name", "TEXT", lambda: person.full_name()), ("contact_email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("phone_number", "TEXT", lambda: person.telephone()), ("rating", "INT", lambda: random.randint(1, 5))],
+    "invoices": [("invoice_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("invoice_date", "DATE", lambda: dt.date()), ("amount_due", "INT", lambda: random.randint(100, 10000)), ("due_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["paid", "unpaid", "overdue"]))],
+    "payments": [("payment_id", "TEXT", lambda: code.imei()), ("invoice_number", "TEXT", lambda: code.imei()), ("payment_date", "DATE", lambda: dt.date()), ("amount", "INT", lambda: random.randint(50, 10000)), ("payment_method", "TEXT", lambda: random.choice(["credit_card", "paypal", "bank_transfer"])), ("status", "TEXT", lambda: random.choice(["completed", "pending", "failed"]))],
+    "departments": [("department_name", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("manager", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city()), ("budget", "INT", lambda: random.randint(50000, 1000000))],
+    "projects": [("project_name", "TEXT", lambda: text_gen.word()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("budget", "INT", lambda: random.randint(10000, 500000)), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"]))],
+    "inventory": [("item_name", "TEXT", lambda: food.spices()), ("quantity", "INT", lambda: random.randint(0, 1000)), ("warehouse_location", "TEXT", lambda: address.city()), ("last_restock_date", "DATE", lambda: dt.date())],
+    "shipments": [("shipment_id", "TEXT", lambda: code.imei()), ("order_number", "TEXT", lambda: code.imei()), ("shipment_date", "DATE", lambda: dt.date()), ("delivery_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["in_transit", "delivered", "delayed"]))],
+    "reviews": [("review_id", "TEXT", lambda: code.imei()), ("product_name", "TEXT", lambda: food.fruit()), ("customer_name", "TEXT", lambda: person.full_name()), ("rating", "INT", lambda: random.randint(1, 5)), ("review_date", "DATE", lambda: dt.date()), ("comments", "TEXT", lambda: text_gen.sentence())],
+    "tasks": [("task_name", "TEXT", lambda: text_gen.word()), ("assigned_to", "TEXT", lambda: person.full_name()), ("due_date", "DATE", lambda: dt.date()), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"])), ("status", "TEXT", lambda: random.choice(["pending", "in_progress", "completed"]))],
+    "assets": [("asset_tag", "TEXT", lambda: code.imei()), ("asset_name", "TEXT", lambda: food.fruit()), ("purchase_date", "DATE", lambda: dt.date()), ("warranty_expiry", "DATE", lambda: dt.date()), ("value", "INT", lambda: random.randint(100, 10000))],
+    "locations": [("location_name", "TEXT", lambda: address.city()), ("address", "TEXT", lambda: address.address()), ("country", "TEXT", lambda: address.country()), ("postal_code", "TEXT", lambda: address.postal_code())],
+    "meetings": [("meeting_id", "TEXT", lambda: code.imei()), ("topic", "TEXT", lambda: text_gen.word()), ("meeting_date", "DATE", lambda: dt.date()), ("organizer", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city())],
+    "tickets": [("ticket_id", "TEXT", lambda: code.imei()), ("issue", "TEXT", lambda: text_gen.sentence()), ("reported_by", "TEXT", lambda: person.full_name()), ("status", "TEXT", lambda: random.choice(["open", "closed", "in_progress"])), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"]))],
+    "subscriptions": [("subscription_id", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("plan_type", "TEXT", lambda: random.choice(["basic", "premium", "enterprise"]))],
+    }
+    async def create_tables(conn,tables):
+        for table_name, columns in tables.items():
+            await conn.execute(f"DROP TABLE IF EXISTS {table_name};")
+            columns_def = ", ".join(f"{name} {dtype}" for name, dtype, _ in columns)
+            await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id bigint primary key generated always as identity not null, {columns_def});")
+    async def insert_batch(conn, table_name, columns, batch_values):
+        cols = ", ".join(name for name, _, _ in columns)
+        placeholders = ", ".join(f"${i+1}" for i in range(len(columns)))
+        await conn.executemany(f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})", batch_values)
+    async def generate_data(conn,insert_batch,tables,total_row,batch_size):
+        for table_name, columns in tables.items():
+            print(f"Inserting data into {table_name}...")
+            batch_values = []
+            for _ in range(total_row):
+                batch_values.append(tuple(gen() for _, _, gen in columns))
+                if len(batch_values) == batch_size:
+                    await insert_batch(conn, table_name, columns, batch_values)
+                    batch_values.clear()
+            if batch_values:await insert_batch(conn, table_name, columns, batch_values)
+            print(f"Completed inserting {total_row} rows into {table_name}")
+    async with client_postgres_pool.acquire() as conn:
+        await create_tables(conn,tables)
+        await generate_data(conn,insert_batch,tables,total_row,batch_size)
+    return None
 
 ### redis
 import redis.asyncio as redis
@@ -602,14 +602,14 @@ async def function_redis_client_read(config_redis_url):
    client_redis=redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
    return client_redis
 
-async def function_redis_client_read_consumer(client_redis,channel_name):
+async def function_redis_client_read_consumer(client_redis,config_channel_name):
    client_redis_consumer=client_redis.pubsub()
-   await client_redis_consumer.subscribe(channel_name)
+   await client_redis_consumer.subscribe(config_channel_name)
    return client_redis_consumer
 
 import json
-async def function_redis_producer(client_redis,channel_name,payload):
-   output=await client_redis.publish(channel_name,json.dumps(payload))
+async def function_redis_producer(client_redis,config_channel_name,payload):
+   output=await client_redis.publish(config_channel_name,json.dumps(payload))
    return output
 
 import json
@@ -689,7 +689,8 @@ async def function_s3_bucket_delete(client_s3,bucket):
 
 import uuid
 from io import BytesIO
-async def function_s3_upload_file(bucket,file,client_s3,config_s3_region_name,key=None,config_limit_s3_kb=100):
+async def function_s3_upload_file(client_s3,config_s3_region_name,bucket,file,key=None,config_limit_s3_kb=None):
+    if not config_limit_s3_kb:config_limit_s3_kb=100
     if not key:
         if "." not in file.filename:raise Exception("file must have extension")
         key=f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}"
@@ -703,7 +704,9 @@ async def function_s3_upload_file(bucket,file,client_s3,config_s3_region_name,ke
     return output
 
 import uuid
-async def function_s3_upload_presigned(bucket,client_s3,config_s3_region_name,key=None,config_limit_s3_kb=100,config_s3_presigned_expire_sec=60):
+async def function_s3_upload_presigned(client_s3,config_s3_region_name,bucket,key=None,config_limit_s3_kb=None,config_s3_presigned_expire_sec=None):
+   if not config_limit_s3_kb:config_limit_s3_kb=100
+   if not config_s3_presigned_expire_sec:config_s3_presigned_expire_sec=100
    if not key:key=f"{uuid.uuid4().hex}.bin"
    if "." not in key:raise Exception("extension must")
    output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=config_s3_presigned_expire_sec,Conditions=[['content-length-range',1,config_limit_s3_kb*1024]])
@@ -741,10 +744,10 @@ async def function_rabbitmq_client_read_consumer(config_rabbitmq_url,config_chan
    return client_rabbitmq,client_rabbitmq_consumer
 
 import json,aio_pika
-async def function_rabbitmq_producer(client_rabbitmq_producer,channel_name,payload):
+async def function_rabbitmq_producer(client_rabbitmq_producer,config_channel_name,payload):
     payload=json.dumps(payload).encode()
     message=aio_pika.Message(body=payload)
-    output=await client_rabbitmq_producer.default_exchange.publish(message,routing_key=channel_name)
+    output=await client_rabbitmq_producer.default_exchange.publish(message,routing_key=config_channel_name)
     return output
 
 from aiokafka import AIOKafkaProducer
@@ -754,18 +757,18 @@ async def function_kafka_client_read_producer(config_kafka_url,config_kafka_user
     return client_kafka_producer
  
 from aiokafka import AIOKafkaConsumer
-async def function_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,topic_name,group_id,enable_auto_commit):
-    client_kafka_consumer=AIOKafkaConsumer(topic_name,bootstrap_servers=config_kafka_url,group_id=group_id, security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=config_kafka_username,sasl_plain_password=config_kafka_password,auto_offset_reset="earliest",enable_auto_commit=enable_auto_commit)
+async def function_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_kafka_group_id,config_kafka_enable_auto_commit):
+    client_kafka_consumer=AIOKafkaConsumer(config_channel_name,bootstrap_servers=config_kafka_url,group_id=config_kafka_group_id, security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=config_kafka_username,sasl_plain_password=config_kafka_password,auto_offset_reset="earliest",enable_auto_commit=config_kafka_enable_auto_commit)
     await client_kafka_consumer.start()
     return client_kafka_consumer
  
 import json
-async def function_kafka_producer(client_kafka_producer,channel_name,payload):
-   output=await client_kafka_producer.send_and_wait(channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
+async def function_kafka_producer(client_kafka_producer,config_channel_name,payload):
+   output=await client_kafka_producer.send_and_wait(config_channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
 ### app
-async def function_check_ratelimiter(request,config_api):
+async def function_check_ratelimiter(config_api,request):
     if not config_api.get(request.url.path,{}).get("ratelimiter_times_sec"):return None
     client_redis_ratelimiter=request.app.state.client_redis_ratelimiter
     if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
@@ -780,11 +783,11 @@ async def function_check_ratelimiter(request,config_api):
     await pipe.execute()
     return None
 
-async def function_check_is_active(request,config_api,mode="token"):
+async def function_check_is_active(config_mode_check_is_active,config_api,request):
     if not config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user:return None
-    if mode=="token":user_is_active=request.state.user.get("is_active","absent")
-    elif mode=="cache":user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
-    else:raise Exception("mode=token/cache")
+    if config_mode_check_is_active=="token":user_is_active=request.state.user.get("is_active","absent")
+    elif config_mode_check_is_active=="cache":user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
+    else:raise Exception("config_mode_check_is_active=token/cache")
     if user_is_active=="absent":
         async with request.app.state.client_postgres_pool.acquire() as conn:
             rows=await conn.fetch("select id,is_active from users where id=$1",request.state.user["id"])
@@ -794,11 +797,11 @@ async def function_check_is_active(request,config_api,mode="token"):
     if user_is_active==0:raise Exception("user not active")
     return None
 
-async def function_check_api_access(request,config_api,mode="token"):
+async def function_check_api_access(config_mode_check_api_access,config_api,request):
     if not request.url.path.startswith("/admin"):return None
-    if mode=="token":user_api_access=request.state.user.get(request.state.user["id"],[])
-    elif mode=="cache":user_api_access=request.app.state.cache_users_api_access.get(request.state.user["id"],[])
-    else:raise Exception("mode=token/cache")
+    if config_mode_check_api_access=="token":user_api_access=request.state.user.get(request.state.user["id"],[])
+    elif config_mode_check_api_access=="cache":user_api_access=request.app.state.cache_users_api_access.get(request.state.user["id"],[])
+    else:raise Exception("config_mode_check_api_access=token/cache")
     if user_api_access:user_api_access_list=[int(item.strip()) for item in user_api_access.split(",")]
     else:
         async with request.app.state.client_postgres_pool.acquire() as conn:
@@ -838,7 +841,7 @@ async def function_api_response_cache(mode, config_api, request, response):
         comp = base64.b64encode(gzip.compress(body)).decode()
         if cache_mode == "redis": await client_redis.setex(cache_key, expire_sec, comp)
         elif cache_mode == "inmemory": inmemory_cache_api[cache_key] = {"data": comp, "expire_at": time.time()+expire_sec}
-        return Response(content=body, status_code=response.status_code,media_type=response.media_type, headers=dict(response.headers))
+        return Response(content=body,status_code=response.status_code,media_type=response.media_type, headers=dict(response.headers))
 
 from fastapi import Request,responses
 from starlette.background import BackgroundTask
@@ -1241,10 +1244,8 @@ async def function_openai_ocr(client_openai,model,file,prompt):
 import pytesseract
 from PIL import Image
 from pdf2image import convert_from_path
-from pathlib import Path
 async def function_ocr_tesseract_export(file_path, output_path=None):
-    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
     if file_path.lower().endswith('.pdf'):
         images = convert_from_path(file_path)
         text = ''
@@ -1347,10 +1348,8 @@ async def function_mongodb_object_create(client_mongodb,database,table,obj_list)
    return str(output)
 
 import os, json, requests
-from pathlib import Path
 def function_grafana_dashbord_all_export(host, username, password, max_limit, output_path=None):
-    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}"
-    Path(output_path).mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}"
     session = requests.Session()
     session.auth = (username, password)
     def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
@@ -1406,10 +1405,8 @@ from jira import JIRA
 import pandas as pd
 from datetime import date
 import calendar
-from pathlib import Path
 def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
-    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
     today = date.today()
     if not start_date:
         start_date = today.replace(day=1).strftime("%Y-%m-%d")
@@ -1434,10 +1431,8 @@ def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_da
 
 import requests, csv
 from requests.auth import HTTPBasicAuth
-from pathlib import Path
 def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path=None):
-    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
     auth = HTTPBasicAuth(jira_email, jira_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     resp = requests.get(
@@ -1474,10 +1469,8 @@ def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, out
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
-from pathlib import Path
 def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
-    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)
@@ -1626,10 +1619,8 @@ import requests, csv, json
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 import time
-from pathlib import Path
 def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, column_names=None, limit=None, output_path=None):
-    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
     if not column_names:column_names="key,assignee,status"
     if not limit:limit=10000
     auth = HTTPBasicAuth(jira_email, jira_token)
@@ -1724,10 +1715,8 @@ def function_reset_folder(folder_path):
     return "folder cleaned"
 
 import os
-from pathlib import Path
 async def function_export_filename(dir_path=".",output_path=None):
-    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
     skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
     dir_path = os.path.abspath(dir_path)
     with open(output_path, "w") as out_file:

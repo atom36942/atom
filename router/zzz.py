@@ -4,9 +4,10 @@ from file.route import *
 #test
 @router.get("/test")
 async def function_api_test(request:Request):
-   await function_postgres_export(request.app.state.client_postgres_pool,"select * from users")
-   await function_ocr_tesseract_export("/Users/atom/Downloads/images.jpeg")
+   await function_postgres_export(request.app.state.client_postgres_pool,"select * from test limit 1000")
+   if False:await function_ocr_tesseract_export("/Users/atom/Downloads/images.jpeg")
    await function_export_filename()
+   if False:await function_postgres_create_fake_data(request.app.state.client_postgres_pool)
    return {"status":1,"message":f"welcome to test"}
 
 #page

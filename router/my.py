@@ -65,7 +65,7 @@ async def function_api_my_message_delete_bulk(request:Request):
 
 @router.get("/my/parent-read")
 async def function_api_my_parent_read(request:Request):
-   param=await function_request_param_read(request,"query",[["table","str",1,None],["parent_table","str",1,None],["parent_column","str",1,None],["order","str",0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   param=await function_request_param_read(request,"query",[["table","str",1,None],["parent_table","str",1,None],["parent_column","str",1,None],["order","str",0,None],["limit","int",0,None],["page","int",0,None]])
    output=await function_postgres_parent_read(request.app.state.client_postgres_pool,param["table"],param["parent_column"],param["parent_table"],request.state.user["id"],param["order"],param["limit"],param["page"])
    return {"status":1,"message":output}
 

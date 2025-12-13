@@ -7,10 +7,15 @@ from file.function import *
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import traceback
+import traceback,os
 @asynccontextmanager
 async def function_lifespan(app:FastAPI):
    try:
+      #checks
+      os.makedirs("export", exist_ok=True)
+      os.makedirs("export/curl", exist_ok=True)
+      os.makedirs("export/function", exist_ok=True)
+      os.makedirs("export/zzz", exist_ok=True)
       #client init
       client_postgres_pool=await function_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_redis=await function_redis_client_read(config_redis_url) if config_redis_url else None
@@ -77,9 +82,9 @@ async def middleware(request,api_function):
       error=None
       #check
       request.state.user=await function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode)
-      await function_check_api_access(request,config_api,config_mode_check_api_access)
-      await function_check_is_active(request,config_api,config_mode_check_is_active)
-      await function_check_ratelimiter(request,config_api)
+      await function_check_api_access(config_mode_check_api_access,config_api,request)
+      await function_check_is_active(config_mode_check_is_active,config_api,request)
+      await function_check_ratelimiter(config_api,request)
       #response
       response,response_type=await function_api_response(request,api_function,config_api,function_api_response_background,function_api_response_cache)
    #error

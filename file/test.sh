@@ -12,15 +12,14 @@ ROOT_DIR="$SCRIPT_DIR/.."
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
 input_file="$SCRIPT_DIR/curl.txt"
-ENABLE_REPORT=1
 
 #output
-output_curl="$ROOT_DIR/export/curl/run.txt" 
-output_report="$ROOT_DIR/export/curl/run.csv"
+output_curl="$ROOT_DIR/export/curl/report.txt" 
+output_report="$ROOT_DIR/export/curl/report.csv"
 output_fail="$ROOT_DIR/export/curl/fail.log"
 
 # initialize report and curl output files
-[ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_report"
+echo "API,Status Code,Response Time (ms)" > "$output_report"
 : > "$output_curl"
 
 # counters
@@ -69,7 +68,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     # update counters and report
     total_response_time=$((total_response_time + execution_time))
     ((count++))
-    [ "$ENABLE_REPORT" -eq 1 ] && echo "$url,$status_code,$execution_time" >> "$output_report"
+    echo "$url,$status_code,$execution_time" >> "$output_report"
 
     # handle success or failure
     if [[ "$status_code" -eq 200 ]]; then
@@ -100,7 +99,7 @@ echo "🚀 Total: $count"
 echo "✅ Success: $count_success"
 echo "❌ Fail: $count_fail"
 echo "⏳ Avg Response Time: ${avg_response_time}ms"
-[ "$ENABLE_REPORT" -eq 1 ] && echo "📄 Results saved in: $output_report"
+echo "📄 Results saved in: $output_report"
 echo "📄 Full curl commands saved in: $output_curl"
 [[ $count_fail -gt 0 ]] && echo "📄 Failed responses saved in: $output_fail"
 echo "--------------------------------------"
