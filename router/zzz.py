@@ -5,6 +5,8 @@ from file.route import *
 @router.get("/test")
 async def function_api_test(request:Request):
    await function_postgres_export(request.app.state.client_postgres_pool,"select * from users")
+   await function_ocr_tesseract_export("/Users/atom/Downloads/images.jpeg")
+   await function_export_filename()
    return {"status":1,"message":f"welcome to test"}
 
 #page

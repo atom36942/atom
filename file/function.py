@@ -340,7 +340,8 @@ async def function_postgres_stream(client_postgres_pool, query, batch_size=1000)
 
 import csv, re
 from pathlib import Path
-async def function_postgres_export(client_postgres_pool, query, batch_size=1000, output_path="export/function_postgres_export.csv"):
+async def function_postgres_export(client_postgres_pool, query, batch_size=1000, output_path=None):
+    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise Exception("Only read-only queries allowed")
@@ -1240,7 +1241,10 @@ async def function_openai_ocr(client_openai,model,file,prompt):
 import pytesseract
 from PIL import Image
 from pdf2image import convert_from_path
-def function_ocr_tesseract_export(file_path, output_path="export_ocr.txt"):
+from pathlib import Path
+async def function_ocr_tesseract_export(file_path, output_path=None):
+    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if file_path.lower().endswith('.pdf'):
         images = convert_from_path(file_path)
         text = ''
@@ -1343,7 +1347,10 @@ async def function_mongodb_object_create(client_mongodb,database,table,obj_list)
    return str(output)
 
 import os, json, requests
-def function_grafana_dashboard_export(host, username, password, max_limit, output_path="export_grafana"):
+from pathlib import Path
+def function_grafana_dashbord_all_export(host, username, password, max_limit, output_path=None):
+    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}"
+    Path(output_path).mkdir(parents=True, exist_ok=True)
     session = requests.Session()
     session.auth = (username, password)
     def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
@@ -1399,7 +1406,10 @@ from jira import JIRA
 import pandas as pd
 from datetime import date
 import calendar
-def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path="export_jira_worklog.csv"):
+from pathlib import Path
+def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
+    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     today = date.today()
     if not start_date:
         start_date = today.replace(day=1).strftime("%Y-%m-%d")
@@ -1424,7 +1434,10 @@ def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_da
 
 import requests, csv
 from requests.auth import HTTPBasicAuth
-def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path="export_jira_filter_count.csv"):
+from pathlib import Path
+def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path=None):
+    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     auth = HTTPBasicAuth(jira_email, jira_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     resp = requests.get(
@@ -1461,7 +1474,10 @@ def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, out
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
-def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path="export_jira_summary.txt"):
+from pathlib import Path
+def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
+    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)
@@ -1610,10 +1626,12 @@ import requests, csv, json
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 import time
+from pathlib import Path
 def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, column_names=None, limit=None, output_path=None):
+    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if not column_names:column_names="key,assignee,status"
     if not limit:limit=10000
-    if not output_path:output_path="export_jira_jql_output.csv"
     auth = HTTPBasicAuth(jira_email, jira_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     if 'order by' not in jql.lower():
@@ -1700,14 +1718,16 @@ def function_reset_folder(folder_path):
     folder_path = folder_path if os.path.isabs(folder_path) else os.path.join(os.getcwd(), folder_path)
     if not os.path.isdir(folder_path):
         return "folder not found"
-    for name in os.listdir(folder_path):
-        path = os.path.join(folder_path, name)
-        if os.path.isfile(path):
-            os.remove(path)
+    for root, dirs, files in os.walk(folder_path):
+        for name in files:
+            os.remove(os.path.join(root, name))
     return "folder cleaned"
 
 import os
-def function_export_filename(dir_path=".",output_path="export_filename.txt"):
+from pathlib import Path
+async def function_export_filename(dir_path=".",output_path=None):
+    if output_path is None:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
     dir_path = os.path.abspath(dir_path)
     with open(output_path, "w") as out_file:

@@ -5,7 +5,7 @@ curl -X GET "$baseurl"
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"mode":"read","query":"select * from users limit 10;"}'
-curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/api_postgres_export.csv
+curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/curl/export.csv
 0 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/redis-import-delete" -H "Authorization: Bearer $token" -F "file=@/Users/atom/Downloads/file.csv"
@@ -51,7 +51,7 @@ curl -X GET "$baseurl/public/info"
 0 curl -X GET "$baseurl/public/otp-send-mobile-sns?mobile=test"
 0 curl -X POST "$baseurl/public/otp-send-mobile-sns-template" -H "Content-Type: application/json" -d '{"mobile":"test","message":"test","template_id":"test","entity_id":"test","sender_id":"test"}'
 0 curl -X GET "$baseurl/public/otp-send-mobile-fast2sms?mobile=test"
-0 curl -X POST "$baseurl/public/jira-worklog-export" -H "Content-Type: application/json" -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test","start_date":"test","end_date":"test"}' -o export/api_jira_worklog.csv
+0 curl -X POST "$baseurl/public/jira-worklog-export" -H "Content-Type: application/json" -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test","start_date":"test","end_date":"test"}'
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":1,"title":"public"}'
 curl -X GET "$baseurl/public/object-read?table=test"
 0 curl -X GET "$baseurl/public/object-read-gsheet?url=test"

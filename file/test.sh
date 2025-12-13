@@ -9,15 +9,15 @@ ROOT_DIR="$SCRIPT_DIR/.."
 [ -f "$ROOT_DIR/.env" ] && export $(grep -v '^#' "$ROOT_DIR/.env" | xargs)
 
 # config
-ENABLE_REPORT=0
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
+input_file="$SCRIPT_DIR/curl.txt"
+ENABLE_REPORT=1
 
-#file
-input_file="$SCRIPT_DIR/curl.txt"     
-output_curl="$ROOT_DIR/export/curl_run.txt" 
-output_report="$ROOT_DIR/export/curl_run_meta.csv"
-output_fail="$ROOT_DIR/export/curl_run_fail.log"
+#output
+output_curl="$ROOT_DIR/export/curl/run.txt" 
+output_report="$ROOT_DIR/export/curl/run.csv"
+output_fail="$ROOT_DIR/export/curl/fail.log"
 
 # initialize report and curl output files
 [ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_report"
