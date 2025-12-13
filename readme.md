@@ -52,15 +52,26 @@ venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 ```
 
-### Test
+### Commands
 ```bash
+#test curls
 ./file/test.sh
+
+#update packages
+./venv/bin/python ./file/package.py
 ```
+
+
+
+
+
+
+
 
 ### zzz
 ```bash
 #package
-./venv/bin/pip install paramiko
+./venv/bin/pip install fastapi
 ./venv/bin/pip freeze > requirements.txt
 ./venv/bin/pip install --upgrade fastapi
 ./venv/bin/pip uninstall fastapi
