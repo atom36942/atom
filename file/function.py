@@ -257,17 +257,13 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
         returning_ids = True
     async def _execute_insert(tbl, objs, use_buffer_schema=False):
         if not objs: return None
-        # ensure all rows have same columns as first row
         if use_buffer_schema and tbl in table_object_key and table_object_key[tbl]:
-            # Buffer mode: use merged schema from table_object_key
             cols = sorted(list(table_object_key[tbl]))
-            # Normalize all objects: add missing columns as None
             for o in objs:
                 for k in cols:
                     if k not in o:
                         o[k] = None
         else:
-            # Now mode: use columns from the objects themselves
             cols = list(objs[0].keys())
         col_count = len(cols)
         max_batch = 65535 // col_count
@@ -281,7 +277,6 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
                     vals, rows_sql = [], []
                     for j, o in enumerate(batch):
                         start = j * col_count + 1
-                        # fill missing keys with None
                         row_vals = [o.get(k) for k in cols]
                         rows_sql.append(f"({', '.join([f'${k}' for k in range(start, start + col_count)])})")
                         vals.extend(row_vals)
@@ -295,18 +290,14 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
         return ids if returning_ids else None
     async with buffer_lock:
         if mode == "now":
-            # Immediate insert - completely isolated from buffer logic
             return await _execute_insert(table, obj_list, use_buffer_schema=False)
         elif mode == "buffer":
             if table not in inmemory_cache_object_create:
                 inmemory_cache_object_create[table] = []
-            # Initialize schema tracking as set
             if table not in table_object_key:
                 table_object_key[table] = set()
-            # Merge all columns from incoming objects into schema
             for o in obj_list:
                 table_object_key[table].update(o.keys())
-            # Add objects to buffer (normalization happens at insert time)
             inmemory_cache_object_create[table].extend(obj_list)
             if len(inmemory_cache_object_create[table]) >= buffer:
                 objs_to_insert = inmemory_cache_object_create[table]
@@ -330,10 +321,10 @@ async def function_postgres_object_create(mode, client_postgres_pool, table=None
 import csv
 from io import StringIO
 import time, re
-async def function_postgres_stream(pool, query, batch_size=1000):
+async def function_postgres_stream(client_postgres_pool, query, batch_size=1000):
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise ValueError("Only read-only queries allowed")
-    async with pool.acquire() as conn:
+    async with client_postgres_pool.acquire() as conn:
         async with conn.transaction():
             stmt = await conn.prepare(query)
             col_names = [a.name for a in stmt.get_attributes()]
@@ -347,24 +338,28 @@ async def function_postgres_stream(pool, query, batch_size=1000):
                 yield stream.getvalue()
                 stream.seek(0); stream.truncate(0)
 
-import asyncpg, csv, re
-async def function_postgres_export(postgres_url, query, batch_size=1000, output_path="export_postgres.csv"):
-    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise Exception("Only read-only queries allowed")
-    conn = await asyncpg.connect(postgres_url)
+import csv, re
+from pathlib import Path
+async def function_postgres_export(client_postgres_pool, query, batch_size=1000, output_path="export/function_postgres_export.csv"):
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
+        raise Exception("Only read-only queries allowed")
+    f = None
     try:
-        async with conn.transaction():
-            writer = None
-            f = None
-            async for record in conn.cursor(query, prefetch=batch_size):
-                if writer is None:
-                    f = open(output_path, "w", newline="")
-                    writer = csv.writer(f)
-                    writer.writerow(record.keys())
-                writer.writerow(record.values())
-            if f: f.close()
-    finally: await conn.close()
+        async with client_postgres_pool.acquire() as conn:
+            async with conn.transaction():
+                writer = None
+                async for record in conn.cursor(query, prefetch=batch_size):
+                    if writer is None:
+                        f = open(output_path, "w", newline="", encoding="utf-8")
+                        writer = csv.writer(f)
+                        writer.writerow(record.keys())
+                    writer.writerow(record.values())
+    finally:
+        if f:
+            f.close()
     return f"saved to {output_path}"
-                    
+
 async def function_postgres_schema_init(client_postgres_pool, config_postgres_schema, function_postgres_schema_read):
     if not config_postgres_schema:
         raise Exception("config_postgres_schema null")
@@ -1701,15 +1696,15 @@ def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, 
 
 ### utility
 import os
-def function_delete_file_pattern(folder_path,file_prefix_list,extension_list=[]):
-    skip_dirs = ('venv', 'env', '__pycache__', 'node_modules')
-    for root, dirs, files in os.walk(folder_path):
-        dirs[:] = [d for d in dirs if not (d.startswith('.') or d.lower() in skip_dirs)]
-        for filename in files:
-            if any(filename.endswith(ext) for ext in extension_list) or any(filename.startswith(prefix) for prefix in file_prefix_list):
-                file_path = os.path.join(root, filename)
-                os.remove(file_path)
-    return None
+def function_reset_folder(folder_path):
+    folder_path = folder_path if os.path.isabs(folder_path) else os.path.join(os.getcwd(), folder_path)
+    if not os.path.isdir(folder_path):
+        return "folder not found"
+    for name in os.listdir(folder_path):
+        path = os.path.join(folder_path, name)
+        if os.path.isfile(path):
+            os.remove(path)
+    return "folder cleaned"
 
 import os
 def function_export_filename(dir_path=".",output_path="export_filename.txt"):

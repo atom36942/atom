@@ -3,7 +3,8 @@ from file.route import *
 
 #test
 @router.get("/test")
-async def function_api_test():
+async def function_api_test(request:Request):
+   await function_postgres_export(request.app.state.client_postgres_pool,"select * from users")
    return {"status":1,"message":f"welcome to test"}
 
 #page

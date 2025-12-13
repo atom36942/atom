@@ -22,7 +22,7 @@ async def function_api_root_postgres_runner(request:Request):
 async def function_api_root_postgres_export(request:Request):
    param=await function_request_param_read(request,"body",[["query","str",1,None]])
    stream=function_postgres_stream(request.app.state.client_postgres_pool,param["query"])
-   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition": "attachment; filename=export_postgres.csv"})
+   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition": "attachment; filename=atom_download.csv"})
 
 @router.post("/root/postgres-import")
 async def function_api_root_postgres_import(request:Request):

@@ -37,7 +37,7 @@ async def function_lifespan(app:FastAPI):
       #app shutdown
       yield
       await function_postgres_object_create("flush",client_postgres_pool)
-      # function_delete_file_pattern(".",["export_"],[".csv"])
+      if config_is_reset_export_folder:function_reset_folder("export")
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
       if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()

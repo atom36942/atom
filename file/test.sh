@@ -15,9 +15,9 @@ token_root="${config_key_root:-}"
 
 #file
 input_file="$SCRIPT_DIR/curl.txt"     
-output_curl="$ROOT_DIR/export_curl.txt" 
-output_report="$ROOT_DIR/export_curl_report.csv"
-output_fail="$ROOT_DIR/export_curl_fail.log"
+output_curl="$ROOT_DIR/export/curl_run.txt" 
+output_report="$ROOT_DIR/export/curl_run_meta.csv"
+output_fail="$ROOT_DIR/export/curl_run_fail.log"
 
 # initialize report and curl output files
 [ "$ENABLE_REPORT" -eq 1 ] && echo "API,Status Code,Response Time (ms)" > "$output_report"
