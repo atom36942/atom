@@ -36,3 +36,4 @@ for pkg in packages:
 print("\nSummary")
 print("Upgraded:", upgraded)
 print("Skipped :", failed)
+print("Next step:update requirements.txt")

@@ -7,7 +7,7 @@ async def function_api_my_profile(request:Request):
    param=await function_request_param_read(request,"query",[["is_metadata","int",0,None]])
    user=await function_user_read_single(request.app.state.client_postgres_pool,request.state.user["id"])
    metadata={}
-   if param["is_metadata"]==1:metadata=await function_user_sql_read(request.app.state.client_postgres_pool,config_query.get("user",{}),request.state.user["id"])
+   if param["is_metadata"]==1:metadata=await function_user_query_read(request.app.state.client_postgres_pool,config_query,request.state.user["id"])
    asyncio.create_task(function_postgres_object_update(request.app.state.client_postgres_pool,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}]))
    return {"status":1,"message":user|metadata}
 
@@ -33,20 +33,20 @@ async def function_api_my_account_delete(request:Request):
 
 @router.get("/my/message-received")
 async def function_api_my_message_received(request:Request):
-   param=await function_request_param_read(request,"query",[["is_unread","int",0,None],["order","str",0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   param=await function_request_param_read(request,"query",[["is_unread","int",0,None],["order","str",0,None],["limit","int",0,None],["page","int",0,None]])
    obj_list=await function_message_received(request.app.state.client_postgres_pool,request.state.user["id"],param["is_unread"],param["order"],param["limit"],param["page"])
-   if obj_list:asyncio.create_task(function_message_object_mark_read(request.app.state.client_postgres_pool,obj_list))
+   if obj_list:asyncio.create_task(function_postgres_ids_update(request.app.state.client_postgres_pool,"message",','.join(str(item['id']) for item in obj_list),"is_read",1,None,request.state.user["id"]))
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-inbox")
 async def function_api_my_message_inbox(request:Request):
-   param=await function_request_param_read(request,"query",[["is_unread","int",0,None],["order","str",0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   param=await function_request_param_read(request,"query",[["is_unread","int",0,None],["order","str",0,None],["limit","int",0,None],["page","int",0,None]])
    obj_list=await function_message_inbox(request.app.state.client_postgres_pool,request.state.user["id"],param["is_unread"],param["order"],param["limit"],param["page"])
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-thread")
 async def function_api_my_message_thread(request:Request):
-   param=await function_request_param_read(request,"query",[["user_id","int",1,None],["order","str",0,"id desc"],["limit","int",0,100],["page","int",0,1]])
+   param=await function_request_param_read(request,"query",[["user_id","int",1,None],["order","str",0,None],["limit","int",0,None],["page","int",0,None]])
    obj_list=await function_message_thread(request.app.state.client_postgres_pool,request.state.user["id"],param["user_id"],param["order"],param["limit"],param["page"])
    asyncio.create_task(function_message_thread_mark_read(request.app.state.client_postgres_pool,request.state.user["id"],param["user_id"]))
    return {"status":1,"message":obj_list}

@@ -13,6 +13,7 @@ async def function_lifespan(app:FastAPI):
    try:
       #checks
       os.makedirs("export", exist_ok=True)
+      if config_is_reset_export_folder:function_reset_folder("export")
       os.makedirs("export/curl", exist_ok=True)
       os.makedirs("export/function", exist_ok=True)
       os.makedirs("export/zzz", exist_ok=True)
@@ -38,7 +39,7 @@ async def function_lifespan(app:FastAPI):
       cache_users_is_active=await function_postgres_map_query(client_postgres_pool,config_query.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       cache_config=await function_postgres_map_query(client_postgres_pool,config_query.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
       #app state set
-      function_add_state({**globals(),**locals()},app,("client_","cache_"))
+      function_add_state(app,{**globals(),**locals()},("client_","cache_"))
       #app shutdown
       yield
       await function_postgres_object_create("flush",client_postgres_pool)
@@ -58,7 +59,7 @@ async def function_lifespan(app:FastAPI):
       print(traceback.format_exc())
       
 #app
-app=function_fastapi_app_read(True,function_lifespan)
+app=function_fastapi_app_read(function_lifespan,config_is_debug_fastapi)
 function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
 if config_sentry_dsn:function_add_sentry(config_sentry_dsn)
 if config_is_prometheus:function_add_prometheus(app)

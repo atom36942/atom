@@ -78,6 +78,7 @@ config_is_traceback=int(os.getenv("config_is_traceback") or 1)
 config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
 config_is_otp_verify_profile_update=int(os.getenv("config_is_otp_verify_profile_update") or 1)
 config_is_reset_export_folder=int(os.getenv("config_is_reset_export_folder") or 1)
+config_is_debug_fastapi=int(os.getenv("config_is_debug_fastapi") or 1)
 
 #zzz
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"

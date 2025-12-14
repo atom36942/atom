@@ -27,14 +27,12 @@ async def function_postgres_ids_delete(client_postgres_pool,table,ids,created_by
       await conn.execute(query,created_by_id)
    return None
 
-async def function_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None, order=None,limit=None,page=None):
-   if not order:order="id desc"
-   if not limit:limit=100
-   if not page:page=1
-   query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
-   async with client_postgres_pool.acquire() as conn:
-      obj_list=await conn.fetch(query,created_by_id)
-   return obj_list
+async def function_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None,order=None,limit=None,page=None):
+    order,limit,page=order or "id desc",limit or 100,page or 1
+    query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
+    async with client_postgres_pool.acquire() as conn:
+       obj_list=await conn.fetch(query,created_by_id)
+    return obj_list
 
 import re
 async def function_postgres_map_query(client_postgres_pool, query):
@@ -72,8 +70,8 @@ async def function_postgres_clean(client_postgres_pool, config_table):
             query = f"DELETE FROM {table_name} WHERE created_at < $1"
             await conn.execute(query, threshold_date)
     return None
-
-async def function_postgres_object_read(client_postgres_pool,table,obj,function_postgres_object_serialize,postgres_column_datatype,function_add_creator_data,function_add_action_count):
+        
+async def function_postgres_object_read(client_postgres_pool,table,obj,function_postgres_object_serialize,cache_postgres_column_datatype,function_add_creator_data,function_add_action_count):
     """
     obj={}
     obj={"order":"id asc"}
@@ -95,91 +93,89 @@ async def function_postgres_object_read(client_postgres_pool,table,obj,function_
     obj={"action_key":"report_test,test_id,count,id"}
     obj={"action_key":"rating_test,test_id,avg,rating"}
     """
-    order = obj.get("order", "id desc")
-    limit = int(obj.get("limit", 100))
-    page = int(obj.get("page", 1))
-    columns = obj.get("column", "*")
-    creator_key = obj.get("creator_key")
-    action_key = obj.get("action_key")
-    filters = {k: v for k,v in obj.items() if k not in ["table","order","limit","page","column","creator_key","action_key"]}
+    order=obj.get("order","id desc")
+    limit=int(obj.get("limit",100))
+    page=int(obj.get("page",1))
+    columns=obj.get("column","*")
+    creator_key=obj.get("creator_key")
+    action_key=obj.get("action_key")
+    filters={k:v for k,v in obj.items() if k not in ["table","order","limit","page","column","creator_key","action_key"]}
     def parse_filter(expr):
         try:
-            op, val = expr.split(",", 1)
-            return op.strip().lower(), val.strip()
-        except Exception:
-            raise Exception(f"Invalid filter format: {expr}")
-    async def serialize_value(col, val, datatype):
-        if not function_postgres_object_serialize:
-            return val
-        serialized = await function_postgres_object_serialize({col: datatype}, [{col: val}])
+            op,val=expr.split(",",1)
+            return op.strip().lower(),val.strip()
+        except:
+            raise Exception(f"invalid filter format: {expr}")
+    async def serialize_value(col,val,datatype):
+        serialized=await function_postgres_object_serialize({col:datatype},[{col:val}])
         return serialized[0][col]
-    async def serialize_filter_value(col, op, val, datatype):
-        if op in ["in", "not in"]:
-            items = []
+    async def serialize_filter_value(col,op,val,datatype):
+        if op in ["in","not in"]:
+            items=[]
             for x in val.split("|"):
-                items.append(await serialize_value(col, x.strip(), datatype))
+                items.append(await serialize_value(col,x.strip(),datatype))
             return items
-        elif op == "between":
-            parts = val.split("|")
-            if len(parts) != 2: raise Exception(f"Between requires 2 values for column {col}")
-            return [await serialize_value(col, x.strip(), datatype) for x in parts]
-        elif val.lower() == "null":
+        elif op=="between":
+            parts=val.split("|")
+            if len(parts)!=2:raise Exception(f"between requires 2 values for {col}")
+            return [await serialize_value(col,x.strip(),datatype) for x in parts]
+        elif val.lower()=="null":
             return None
         else:
-            return await serialize_value(col, val, datatype)
-    def build_condition(col, op, val, idx, values):
+            return await serialize_value(col,val,datatype)
+    def build_condition(col,op,val,idx,values):
         if val is None:
-            if op not in ["is","is not"]: raise Exception(f"Null only allowed with 'is'/'is not' for {col}")
-            return f"{col} {op.upper()} NULL", idx
-        elif op in ["in", "not in"]:
-            placeholders = [f"${idx+i}" for i in range(len(val))]
+            if op not in ["is","is not"]:raise Exception(f"null only allowed with is/is not for {col}")
+            return f"{col} {op.upper()} NULL",idx
+        elif op in ["in","not in"]:
+            placeholders=[f"${idx+i}" for i in range(len(val))]
             values.extend(val)
-            return f"{col} {op.upper()} ({','.join(placeholders)})", idx+len(val)
-        elif op == "between":
+            return f"{col} {op.upper()} ({','.join(placeholders)})",idx+len(val)
+        elif op=="between":
             values.extend(val)
-            return f"{col} BETWEEN ${idx} AND ${idx+1}", idx+2
+            return f"{col} BETWEEN ${idx} AND ${idx+1}",idx+2
         elif op in ["=",">","<",">=","<=","like","ilike","~","~*"]:
             values.append(val)
-            return f"{col} {op.upper()} ${idx}", idx+1
+            return f"{col} {op.upper()} ${idx}",idx+1
         else:
-            raise Exception(f"Unsupported operator '{op}' for column {col}")
-    def parse_point_filter(col, expr):
+            raise Exception(f"unsupported operator {op} for {col}")
+    def parse_point_filter(col,expr):
         try:
-            _, rest = expr.split(",",1)
-            long, lat, min_meter, max_meter = [float(x) for x in rest.split("|")]
-            return f"ST_Distance({col}, ST_Point({long}, {lat})::geography) BETWEEN {min_meter} AND {max_meter}"
-        except Exception:
-            raise Exception(f"Invalid point filter for column {col}: {expr}")
-    serialized_values = {}
-    for col, expr in filters.items():
+            _,rest=expr.split(",",1)
+            long,lat,min_meter,max_meter=[float(x) for x in rest.split("|")]
+            return f"ST_Distance({col},ST_Point({long},{lat})::geography) BETWEEN {min_meter} AND {max_meter}"
+        except:
+            raise Exception(f"invalid point filter for {col}: {expr}")
+    serialized_values={}
+    for col,expr in filters.items():
         if expr.lower().startswith("point,"):
-            serialized_values[col] = expr
+            serialized_values[col]=expr
             continue
-        op, val = parse_filter(expr)
-        datatype = postgres_column_datatype.get(col) if postgres_column_datatype else None
-        serialized_values[col] = await serialize_filter_value(col, op, val, datatype)
-    conditions, values, idx = [], [], 1
-    point_queries = []
-    for col, expr in filters.items():
+        op,val=parse_filter(expr)
+        datatype=cache_postgres_column_datatype.get(col)
+        serialized_values[col]=await serialize_filter_value(col,op,val,datatype)
+    conditions,values,idx=[],[],1
+    point_queries=[]
+    for col,expr in filters.items():
         if expr.lower().startswith("point,"):
-            point_queries.append(parse_point_filter(col, expr))
+            point_queries.append(parse_point_filter(col,expr))
             continue
-        op = parse_filter(expr)[0]
-        val = serialized_values[col]
-        cond, idx = build_condition(col, op, val, idx, values)
+        op=parse_filter(expr)[0]
+        val=serialized_values[col]
+        cond,idx=build_condition(col,op,val,idx,values)
         conditions.append(cond)
-    where_conditions = conditions + point_queries
-    where_string = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
-    query = f"SELECT {columns} FROM {table} {where_string} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
+    where_conditions=conditions+point_queries
+    where_string=f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
+    query=f"SELECT {columns} FROM {table} {where_string} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         try:
-            records = await conn.fetch(query, *values)
+            records=await conn.fetch(query,*values)
             obj_list=[dict(r) for r in records]
-            if function_add_creator_data and creator_key:obj_list=await function_add_creator_data(client_postgres_pool,obj_list,creator_key)
-            if function_add_action_count and action_key:obj_list=await function_add_action_count(client_postgres_pool,obj_list,action_key)
+            if creator_key:obj_list=await function_add_creator_data(client_postgres_pool,obj_list,creator_key)
+            if action_key:obj_list=await function_add_action_count(client_postgres_pool,obj_list,action_key)
             return obj_list
         except Exception as e:
-            raise Exception(f"Failed to read: {e}")
+            raise Exception(f"failed to read: {e}")
 
 async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=None):
     if not batch_size:batch_size=5000
@@ -343,10 +339,11 @@ async def function_postgres_stream(client_postgres_pool, query, batch_size=None)
                 stream.seek(0); stream.truncate(0)
 
 import csv, re
+import inspect,uuid
 from pathlib import Path
 async def function_postgres_export(client_postgres_pool,query,batch_size=None,output_path=None):
     if not batch_size:batch_size=1000
-    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise Exception("Only read-only queries allowed")
@@ -467,11 +464,11 @@ async def function_postgres_index_drop_all(client_postgres_pool):
  
 import hashlib,json
 from dateutil import parser
-async def function_postgres_object_serialize(postgres_column_datatype,obj_list):
+async def function_postgres_object_serialize(cache_postgres_column_datatype,obj_list):
     for obj in obj_list:
         for k,v in obj.items():
             if v in [None,"","null"]: obj[k]=None; continue
-            datatype=postgres_column_datatype.get(k)
+            datatype=cache_postgres_column_datatype.get(k)
             if not datatype: continue
             if k=="password": obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
             elif datatype=="text": obj[k]=v.strip()
@@ -894,8 +891,8 @@ async def function_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,
    return token
 
 from fastapi import FastAPI
-def function_fastapi_app_read(is_debug,lifespan):
-   app=FastAPI(debug=is_debug,lifespan=lifespan)
+def function_fastapi_app_read(lifespan,config_is_debug_fastapi):
+   app=FastAPI(debug=True if config_is_debug_fastapi else False,lifespan=lifespan)
    return app
 
 import uvicorn
@@ -905,8 +902,8 @@ async def function_server_start(app):
    await server.serve()
    
 from fastapi.middleware.cors import CORSMiddleware
-def function_add_cors(app,cors_origin,cors_method,cors_headers,cors_allow_credentials):
-   app.add_middleware(CORSMiddleware,allow_origins=cors_origin,allow_methods=cors_method,allow_headers=cors_headers,allow_credentials=cors_allow_credentials)
+def function_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials):
+   app.add_middleware(CORSMiddleware,allow_origins=config_cors_origin_list,allow_methods=config_cors_method_list,allow_headers=config_cors_headers_list,allow_credentials=config_cors_allow_credentials)
    return None
 
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -914,9 +911,9 @@ def function_add_prometheus(app):
    Instrumentator().instrument(app).expose(app)
    return None
 
-def function_add_state(var_dict,app,prefix_tuple):
-    for k, v in var_dict.items():
-        if k.startswith(prefix_tuple):
+def function_add_state(app,obj,pattern_tuple):
+    for k, v in obj.items():
+        if k.startswith(pattern_tuple):
             setattr(app.state, k, v)
 
 import sentry_sdk
@@ -925,31 +922,32 @@ def function_add_sentry(config_sentry_dsn):
    sentry_sdk.init(dsn=config_sentry_dsn,integrations=[FastApiIntegration()],traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
-import os
+import sys
 import importlib.util
 from pathlib import Path
 import traceback
-def function_add_router(app, router_dir):
-    router_root = Path(router_dir).resolve()
+def function_add_router(app, router_folder_path):
+    router_root = Path(router_folder_path).resolve()
+    if not router_root.is_dir():
+        raise ValueError(f"router folder not found: {router_root}")
     def load_module(file_path):
         try:
-            rel = os.path.relpath(file_path, router_root)
-            module_name = os.path.splitext(rel)[0].replace(os.sep, ".")
+            rel = file_path.relative_to(router_root)
+            module_name = "routers." + ".".join(rel.with_suffix("").parts)
             spec = importlib.util.spec_from_file_location(module_name, file_path)
-            if spec and spec.loader:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                if hasattr(module, "router"):
-                    app.include_router(module.router)
+            if not spec or not spec.loader:
+                return
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+            if hasattr(module, "router"):
+                app.include_router(module.router)
         except Exception:
-            print(f"[WARN] Failed to load router module: {file_path}")
+            print(f"[WARN] failed to load router: {file_path}")
             traceback.print_exc()
-    def load_all():
-        for root, _, files in os.walk(router_root):
-            for f in files:
-                if f.endswith(".py") and not f.startswith("__"):
-                    load_module(Path(root) / f)
-    load_all()
+    for file_path in router_root.rglob("*.py"):
+        if not file_path.name.startswith("__"):
+            load_module(file_path)
     return None
 
 ### api
@@ -963,18 +961,13 @@ async def function_ownership_check(client_postgres_pool, table, id, user_id):
         if row["created_by_id"] != user_id:raise Exception("obj ownership issue")
     return None
 
-async def function_user_sql_read(client_postgres_pool, query_dict, user_id):
+async def function_user_query_read(client_postgres_pool, config_query, user_id):
+    obj = config_query.get("user", {})
     output = {}
     async with client_postgres_pool.acquire() as conn:
-        for key, query in query_dict.items():
+        for key, query in obj.items():
             rows = await conn.fetch(query, user_id)
-            if not rows:
-                output[key] = 0
-            elif len(rows[0]) == 1:
-                values = [list(row.values())[0] for row in rows]
-                output[key] = values[0] if len(values) == 1 else values
-            else:
-                output[key] = [dict(row) for row in rows]
+            output[key] = [dict(r) for r in rows]
     return output
 
 async def function_api_usage(client_postgres_pool,days,created_by_id=None):
@@ -1055,7 +1048,8 @@ async def function_otp_generate(client_postgres_pool,email,mobile):
         await conn.execute(query,*values)
     return otp
 
-async def function_otp_verify(client_postgres_pool, otp, email=None, mobile=None, config_otp_expire_sec=600):
+async def function_otp_verify(client_postgres_pool,otp,email,mobile,config_otp_expire_sec=None):
+    if not config_otp_expire_sec:config_otp_expire_sec=600
     if not email and not mobile: raise Exception("email/mobile any one is must")
     if email and mobile: raise Exception("only one of email or mobile is allowed")
     if email:
@@ -1070,21 +1064,24 @@ async def function_otp_verify(client_postgres_pool, otp, email=None, mobile=None
     if int(output[0]["otp"]) != int(otp): raise Exception("otp mismatch")
     return None
 
-async def function_message_inbox(client_postgres_pool,user_id,is_unread=None,order="id desc",limit=100,page=1):
+async def function_message_inbox(client_postgres_pool,user_id,is_unread=None,order=None,limit=None,page=None):
+    order,limit,page=order or "id desc",limit or 100,page or 1
     if is_unread==1:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and is_read is distinct from 1) select * from a order by {order} limit {limit} offset {(page-1)*limit};"
     elif is_unread==0:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and is_read=1) select * from a order by {order} limit {limit} offset {(page-1)*limit};"
     else:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         return await conn.fetch(query, user_id)
 
-async def function_message_received(client_postgres_pool,user_id,is_unread=None, order="id desc",limit=100,page=1):
+async def function_message_received(client_postgres_pool,user_id,is_unread=None,order=None,limit=None,page=None):
+    order,limit,page=order or "id desc",limit or 100,page or 1
     if is_unread==1:query=f"select * from message where user_id=$1 and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
     elif is_unread==0:query=f"select * from message where user_id=$1 and is_read=1 order by {order} limit {limit} offset {(page-1)*limit};"
     else:query=f"select * from message where user_id=$1 order by {order} limit {limit} offset {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         return await conn.fetch(query,user_id)
 
-async def function_message_thread(client_postgres_pool, user_id_1, user_id_2, order="id desc",limit=100,page=1):
+async def function_message_thread(client_postgres_pool,user_id_1,user_id_2,order=None,limit=None,page=None):
+    order,limit,page=order or "id desc",limit or 100,page or 1
     query = f"select * from message where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) order by {order} limit {limit} offset {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         return await conn.fetch(query, user_id_1, user_id_2)
@@ -1093,16 +1090,6 @@ async def function_message_thread_mark_read(client_postgres_pool,user_id_1,user_
    query="update message set is_read=1 where created_by_id=$1 and user_id=$2;"
    async with client_postgres_pool.acquire() as conn:
       await conn.execute(query,user_id_2,user_id_1)
-   return None
-
-async def function_message_object_mark_read(client_postgres_pool,obj_list):
-   try:
-      ids=','.join(str(item['id']) for item in obj_list)
-      query=f"update message set is_read=1 where id in ({ids});"
-      async with client_postgres_pool.acquire() as conn:
-         await conn.execute(query)
-   except Exception as e:
-      print(str(e))
    return None
 
 async def function_message_delete_single_user(client_postgres_pool,message_id,user_id):
@@ -1243,9 +1230,10 @@ async def function_openai_ocr(client_openai,model,file,prompt):
 
 import pytesseract
 from PIL import Image
+import inspect,uuid
 from pdf2image import convert_from_path
 async def function_ocr_tesseract_export(file_path, output_path=None):
-    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.txt"
     if file_path.lower().endswith('.pdf'):
         images = convert_from_path(file_path)
         text = ''
@@ -1348,8 +1336,11 @@ async def function_mongodb_object_create(client_mongodb,database,table,obj_list)
    return str(output)
 
 import os, json, requests
+import inspect,uuid
+from pathlib import Path
 def function_grafana_dashbord_all_export(host, username, password, max_limit, output_path=None):
-    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}"
+    Path(output_path).mkdir(parents=True, exist_ok=True)
     session = requests.Session()
     session.auth = (username, password)
     def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
@@ -1405,8 +1396,9 @@ from jira import JIRA
 import pandas as pd
 from datetime import date
 import calendar
+import inspect,uuid
 def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
-    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
     today = date.today()
     if not start_date:
         start_date = today.replace(day=1).strftime("%Y-%m-%d")
@@ -1431,8 +1423,9 @@ def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_da
 
 import requests, csv
 from requests.auth import HTTPBasicAuth
+import inspect,uuid
 def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path=None):
-    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
     auth = HTTPBasicAuth(jira_email, jira_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     resp = requests.get(
@@ -1469,8 +1462,9 @@ def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, out
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
+import inspect,uuid
 def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
-    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.txt"
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)
@@ -1619,8 +1613,9 @@ import requests, csv, json
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 import time
+import inspect,uuid
 def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, column_names=None, limit=None, output_path=None):
-    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.csv"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
     if not column_names:column_names="key,assignee,status"
     if not limit:limit=10000
     auth = HTTPBasicAuth(jira_email, jira_token)
@@ -1704,19 +1699,29 @@ def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, 
     return f"✅ Exported {len(issues)} issues to {output_path}"
 
 ### utility
-import os
+import os, shutil
 def function_reset_folder(folder_path):
     folder_path = folder_path if os.path.isabs(folder_path) else os.path.join(os.getcwd(), folder_path)
     if not os.path.isdir(folder_path):
         return "folder not found"
-    for root, dirs, files in os.walk(folder_path):
-        for name in files:
-            os.remove(os.path.join(root, name))
-    return "folder cleaned"
+    for name in os.listdir(folder_path):
+        path = os.path.join(folder_path, name)
+        if os.path.isfile(path):
+            os.remove(path)
+            continue
+        if os.path.isdir(path):
+            for item in os.listdir(path):
+                item_path = os.path.join(path, item)
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                else:
+                    os.remove(item_path)
+    return "root folders kept, everything else deleted"
 
 import os
+import inspect,uuid
 async def function_export_filename(dir_path=".",output_path=None):
-    if not output_path:output_path=f"export/function/{__import__('inspect').currentframe().f_code.co_name}_{__import__('time').time():.0f}.txt"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.txt"
     skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
     dir_path = os.path.abspath(dir_path)
     with open(output_path, "w") as out_file:

@@ -127,27 +127,13 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-#custom
+#zzz
 vectorstore/
-env.py
 .DS_Store
 .DS_Store
 .vscode/
 *.db
 *.sqlite3
-*.png
-*.jpg
-*.jpeg
-*.csv
-*.json
-*.mp3
-*.ipynb
-*.pdf
-*.docx
-*.sql
-export*
-z.py
-z.json
-z.txt
-z.*
+zzz.txt
 export/
+
