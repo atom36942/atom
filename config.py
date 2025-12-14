@@ -38,12 +38,12 @@ config_limit_s3_kb=int(os.getenv("config_limit_s3_kb") or 100)
 config_s3_presigned_expire_sec=int(os.getenv("config_s3_presigned_expire_sec") or 60)
 
 #sftp
+config_sftp_auth_method=os.getenv("config_sftp_auth_method") or "password"
 config_sftp_host=os.getenv("config_sftp_host")
 config_sftp_port=os.getenv("config_sftp_port")
 config_sftp_user=os.getenv("config_sftp_user")
 config_sftp_password=os.getenv("config_sftp_password")
 config_sftp_key_path=os.getenv("config_sftp_key_path")
-config_sftp_auth_method=os.getenv("config_sftp_auth_method") or "password"
 
 #communication
 config_fast2sms_url=os.getenv("config_fast2sms_url")

@@ -361,7 +361,7 @@ async def function_postgres_export(client_postgres_pool,query,batch_size=None,ou
     finally:
         if f:
             f.close()
-    return f"saved to {output_path}"
+    return output_path
 
 async def function_postgres_schema_init(client_postgres_pool,config_postgres_schema,function_postgres_schema_read):
     if not config_postgres_schema:
@@ -471,7 +471,7 @@ async def function_postgres_object_serialize(cache_postgres_column_datatype,obj_
             datatype=cache_postgres_column_datatype.get(k)
             if not datatype: continue
             if k=="password": obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
-            elif datatype=="text": obj[k]=v.strip()
+            elif datatype=="text": obj[k]=str(v).strip()
             elif "int" in datatype: obj[k]=int(v)
             elif datatype=="numeric": obj[k]=round(float(v),3)
             elif datatype=="date": obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
@@ -482,7 +482,19 @@ async def function_postgres_object_serialize(cache_postgres_column_datatype,obj_
                     x=str(v).strip()
                     if x.startswith("{") and x.endswith("}"): x=x[1:-1]
                     obj[k]=[i.strip().strip('"').strip("'") for i in x.split(",") if i.strip()]
-            elif datatype=="jsonb": obj[k]=json.dumps(v) if not isinstance(v,str) else v
+            elif datatype=="jsonb":
+                if isinstance(v,str):
+                    x=v.strip()
+                    if not x:
+                        obj[k]=None
+                    else:
+                        try:
+                            json.loads(x)
+                            obj[k]=x
+                        except Exception:
+                            obj[k]=json.dumps(x)
+                else:
+                    obj[k]=json.dumps(v,separators=(",",":"))
     return obj_list
 
 async def function_postgres_schema_read(client_postgres_pool):
@@ -1245,7 +1257,7 @@ async def function_ocr_tesseract_export(file_path, output_path=None):
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(text)
     print(f"Saved to: {output_path}")
-    return None
+    return output_path
 
 ### integration
 import httpx
@@ -1934,14 +1946,49 @@ async def function_converter_integer(mode,x,max_length=None):
 
 #sftp
 import asyncssh
-async def function_sftp_client_read(host, port, user, password, key_path, auth_method):
-    if auth_method not in ("key", "password"): raise Exception("auth_method must be 'key' or 'password'")
-    if auth_method == "key":
-        if not key_path: raise Exception("key_path required for key auth")
-        conn = await asyncssh.connect(host=host,port=int(port),username=user,client_keys=[key_path],known_hosts=None,)
+async def function_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_user,config_sftp_password,config_sftp_key_path,config_sftp_auth_method):
+    if config_sftp_auth_method not in ("key","password"):raise Exception("auth_method must be 'key' or 'password'")
+    if config_sftp_auth_method=="key":
+        if not config_sftp_key_path:raise Exception("key_path required for key auth")
+        conn=await asyncssh.connect(host=config_sftp_host,port=int(config_sftp_port),username=config_sftp_user,client_keys=[config_sftp_key_path],known_hosts=None)
     else:
-        if not password: raise Exception("password required for password auth")
-        conn = await asyncssh.connect(host=host,port=int(port),username=user,password=password,known_hosts=None,)
+        if not config_sftp_password:raise Exception("password required for password auth")
+        conn=await asyncssh.connect(host=config_sftp_host,port=int(config_sftp_port),username=config_sftp_user,password=config_sftp_password,known_hosts=None)
     return conn
 
+async def function_sftp_file_upload(client_sftp, remote_path, file_path):
+    async with client_sftp.start_sftp_client() as sftp:
+        async with sftp.open(remote_path, "wb") as rf:
+            with open(file_path, "rb") as lf:
+                await rf.write(lf.read())
+    return None
 
+async def function_sftp_file_export(client_sftp, remote_path, output_path=None):
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
+    async with client_sftp.start_sftp_client() as sftp:
+        async with sftp.open(remote_path, "rb") as rf:
+            with open(output_path, "wb") as lf:
+                lf.write(await rf.read())
+    return None
+
+async def function_sftp_file_delete(client_sftp, remote_path):
+    async with client_sftp.start_sftp_client() as sftp:
+        await sftp.remove(remote_path)
+    return None
+
+async def function_sftp_read_filename(client_sftp, remote_dir):
+    async with client_sftp.start_sftp_client() as sftp:
+        return await sftp.listdir(remote_dir)
+    
+import os
+async def function_sftp_folder_folder(client_sftp, remote_dir, local_dir):
+    os.makedirs(local_dir, exist_ok=True)
+    async with client_sftp.start_sftp_client() as sftp:
+        for name in await sftp.listdir(remote_dir):
+            if name in (".", ".."): 
+                continue
+            r = f"{remote_dir}/{name}"
+            l = os.path.join(local_dir, name)
+            async with sftp.open(r, "rb") as rf:
+                with open(l, "wb") as lf:
+                    lf.write(await rf.read())

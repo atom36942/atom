@@ -83,13 +83,10 @@ lsof -ti :8000 | xargs kill -9
 drop schema if exists public cascade;
 create schema if not exists public;
 
-#export postgres
-\copy table to 'path'  delimiter ',' csv header;
-\copy (query) to 'path'  delimiter ',' csv header;
-
-#import postgres       
-\copy table from 'path' delimiter ',' csv header;
-\copy table(column) from 'path' delimiter ',' csv header;
+#exim postgres
+\copy test to 'export/zzz/psql_export_all.csv' csv header;
+\copy (select * from test limit 1000) to 'export/zzz/psql_export_limit.csv' csv header;
+\copy test(title,type,rating,updated_at,dob,tags,location,metadata) from 'sample/postgres.csv' delimiter ',' csv header;
 
 #p95
 SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)::numeric, 2) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;

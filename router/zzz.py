@@ -8,6 +8,11 @@ async def function_api_test(request:Request):
    await function_ocr_tesseract_export("sample/ocr.png")
    await function_export_filename()
    if False:await function_postgres_create_fake_data(request.app.state.client_postgres_pool)
+   if True:await function_sftp_file_upload(request.app.state.client_sftp, "file.csv", "sample/postgres.csv")
+   if True:await function_sftp_file_export(request.app.state.client_sftp, "file.csv")
+   if False:await function_sftp_file_delete(request.app.state.client_sftp, "file.csv")
+   if True:x=await function_sftp_read_filename(request.app.state.client_sftp, ".")
+   print(x)
    return {"status":1,"message":f"welcome to test"}
 
 #page

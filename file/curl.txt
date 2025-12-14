@@ -5,8 +5,8 @@ curl -X GET "$baseurl"
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"mode":"read","query":"select * from users limit 10;"}'
-curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/zzz/root_postgres_export.csv
-0 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@/Users/atom/Downloads/file.csv"
+curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/zzz/curl_root_postgres_export.csv
+curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@sample/postgres.csv"
 0 curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/redis-import-delete" -H "Authorization: Bearer $token" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/mongodb-import-create" -H "Authorization: Bearer $token" -F "database=test" -F "table=test" -F "file=@/Users/atom/Downloads/file.csv"
