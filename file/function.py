@@ -1258,7 +1258,6 @@ async def function_ocr_tesseract_export(file_path, output_path=None):
         text = pytesseract.image_to_string(image, lang='eng')
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(text)
-    print(f"Saved to: {output_path}")
     return output_path
 
 ### integration
@@ -1926,49 +1925,81 @@ async def function_converter_integer(mode,x,max_length=None):
 
 #sftp
 import asyncssh
-async def function_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_user,config_sftp_password,config_sftp_key_path,config_sftp_auth_method):
+async def function_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method):
     if config_sftp_auth_method not in ("key","password"):raise Exception("auth_method must be 'key' or 'password'")
     if config_sftp_auth_method=="key":
         if not config_sftp_key_path:raise Exception("key_path required for key auth")
-        conn=await asyncssh.connect(host=config_sftp_host,port=int(config_sftp_port),username=config_sftp_user,client_keys=[config_sftp_key_path],known_hosts=None)
+        conn=await asyncssh.connect(host=config_sftp_host,port=int(config_sftp_port),username=config_sftp_username,client_keys=[config_sftp_key_path],known_hosts=None)
     else:
         if not config_sftp_password:raise Exception("password required for password auth")
-        conn=await asyncssh.connect(host=config_sftp_host,port=int(config_sftp_port),username=config_sftp_user,password=config_sftp_password,known_hosts=None)
+        conn=await asyncssh.connect(host=config_sftp_host,port=int(config_sftp_port),username=config_sftp_username,password=config_sftp_password,known_hosts=None)
     return conn
 
-async def function_sftp_file_upload(client_sftp, remote_path, file_path):
+async def function_sftp_folder_filename_read(client_sftp,folder_path):
     async with client_sftp.start_sftp_client() as sftp:
-        async with sftp.open(remote_path, "wb") as rf:
-            with open(file_path, "rb") as lf:
-                await rf.write(lf.read())
-    return None
-
-async def function_sftp_file_export(client_sftp, remote_path, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
-    async with client_sftp.start_sftp_client() as sftp:
-        async with sftp.open(remote_path, "rb") as rf:
-            with open(output_path, "wb") as lf:
-                lf.write(await rf.read())
-    return None
-
-async def function_sftp_file_delete(client_sftp, remote_path):
-    async with client_sftp.start_sftp_client() as sftp:
-        await sftp.remove(remote_path)
-    return None
-
-async def function_sftp_read_filename(client_sftp, remote_dir):
-    async with client_sftp.start_sftp_client() as sftp:
-        return await sftp.listdir(remote_dir)
+        output=await sftp.listdir(folder_path)
+        return output
     
-import os
-async def function_sftp_folder_folder(client_sftp, remote_dir, local_dir):
-    os.makedirs(local_dir, exist_ok=True)
+async def function_sftp_file_upload(client_sftp, file_path_input, file_path_output, chunk_size=65536):
     async with client_sftp.start_sftp_client() as sftp:
-        for name in await sftp.listdir(remote_dir):
-            if name in (".", ".."): 
-                continue
-            r = f"{remote_dir}/{name}"
-            l = os.path.join(local_dir, name)
-            async with sftp.open(r, "rb") as rf:
-                with open(l, "wb") as lf:
-                    lf.write(await rf.read())
+        async with sftp.open(file_path_output, "wb") as rf:
+            with open(file_path_input, "rb") as lf:
+                while True:
+                    chunk = lf.read(chunk_size)
+                    if not chunk:
+                        break
+                    await rf.write(chunk)
+import os
+import inspect,uuid
+from pathlib import Path
+async def function_sftp_file_download(client_sftp,file_path_remote,chunk_size=None,output_path=None):
+    if not chunk_size:chunk_size=65536
+    ext=os.path.splitext(file_path_remote)[1]
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}{ext}"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    async with client_sftp.start_sftp_client() as sftp:
+        async with sftp.open(file_path_remote,"rb") as rf:
+            with open(output_path,"wb") as lf:
+                while True:
+                    chunk=await rf.read(chunk_size)
+                    if not chunk:break
+                    lf.write(chunk)
+    return output_path
+
+async def function_sftp_file_delete(client_sftp, file_path):
+    async with client_sftp.start_sftp_client() as sftp:
+        await sftp.remove(file_path)
+    return None
+
+import csv,io,os
+async def function_sftp_csv_read_to_obj_list_stream(client_sftp,file_path_remote,batch_size=1000,encoding="utf-8"):
+    if os.path.splitext(file_path_remote)[1].lower()!=".csv":
+        raise Exception("only csv files allowed")
+    async with client_sftp.start_sftp_client() as sftp:
+        async with sftp.open(file_path_remote,"rb") as rf:
+            buffer=""
+            reader=None
+            batch=[]
+            while True:
+                chunk=await rf.read(65536)
+                if not chunk:break
+                buffer+=chunk.decode(encoding)
+                while "\n" in buffer:
+                    line,buffer=buffer.split("\n",1)
+                    if reader is None:
+                        reader=csv.DictReader(io.StringIO(line+"\n"))
+                    else:
+                        row=next(csv.DictReader(io.StringIO(reader.fieldnames and ",".join(reader.fieldnames)+"\n"+line)))
+                        batch.append(row)
+                        if len(batch)==batch_size:
+                            yield batch
+                            batch=[]
+            if batch:
+                yield batch
+                
+import csv
+def function_csv_file_to_obj_list(file_path):
+    with open(file_path,"r",encoding="utf-8") as f:
+        reader=csv.DictReader(f)
+        return [row for row in reader]
+

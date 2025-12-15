@@ -8,15 +8,25 @@ async def function_api_test(request:Request):
 
 @router.get("/test2")
 async def function_api_test2(request:Request):
-   output={}
-   if True:output=await function_postgres_export(request.app.state.client_postgres_pool,"select * from test limit 1000")
-   if True:await function_ocr_tesseract_export("sample/ocr.png")
-   if True:await function_dir_filename_export()
+   output=None
    if False:await function_postgres_create_fake_data(request.app.state.client_postgres_pool)
-   if False:await function_sftp_file_upload(request.app.state.client_sftp, "file.csv", "sample/postgres.csv")
-   if False:await function_sftp_file_export(request.app.state.client_sftp, "file.csv")
-   if False:await function_sftp_file_delete(request.app.state.client_sftp, "file.csv")
-   if False:x=await function_sftp_read_filename(request.app.state.client_sftp, ".")
+   if False:output=await function_postgres_export(request.app.state.client_postgres_pool,"select * from test limit 1000")
+   if False:await function_ocr_tesseract_export("sample/ocr.png")
+   if False:await function_dir_filename_export()
+   if True:output=await function_sftp_folder_filename_read(request.app.state.client_sftp, "mgh/amazon")
+   if False:await function_sftp_file_upload(request.app.state.client_sftp,"sample/postgres.csv","file.csv")
+   if False:await function_sftp_file_upload(request.app.state.client_sftp,"sample/postgres.csv","file2.csv")
+   if False:await function_sftp_file_upload(request.app.state.client_sftp,"sample/postgres.csv","file3.csv")
+   if False:await function_sftp_file_download(request.app.state.client_sftp,"mgh/amazon/AMZON_INVOICE__20251214_080720_177.csv",None,"file.csv")
+   if False:await function_sftp_file_delete(request.app.state.client_sftp,"mgh/amazon/AMZON_INVOICE__20251214_080720_177.csv")
+   if False:
+      obj_list_master=[]
+      async for obj_list in function_sftp_csv_read_to_obj_list_stream(request.app.state.client_sftp,"file.csv"):
+         obj_list_master.extend(obj_list)
+         print(obj_list_master)
+         obj_list=await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,obj_list)
+         await function_postgres_object_create("now",request.app.state.client_postgres_pool,"test",obj_list)
+   if False:output=function_csv_file_to_obj_list("file.csv")
    return {"status":1,"message":output}
 
 #page
