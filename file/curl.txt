@@ -72,6 +72,7 @@ curl -X POST "$baseurl/admin/ids-delete" -H "Authorization: Bearer $token" -H "C
 
 #zzz
 curl -X GET "$baseurl/test"
+curl -X GET "$baseurl/test2"
 curl -X GET "$baseurl/page/zzz"
 0 websocat ws://127.0.0.1:8000/ws
 

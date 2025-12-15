@@ -343,7 +343,7 @@ import inspect,uuid
 from pathlib import Path
 async def function_postgres_export(client_postgres_pool,query,batch_size=None,output_path=None):
     if not batch_size:batch_size=1000
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.csv"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise Exception("Only read-only queries allowed")
@@ -1242,10 +1242,12 @@ async def function_openai_ocr(client_openai,model,file,prompt):
 
 import pytesseract
 from PIL import Image
-import inspect,uuid
 from pdf2image import convert_from_path
+import inspect,uuid
+from pathlib import Path
 async def function_ocr_tesseract_export(file_path, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.txt"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if file_path.lower().endswith('.pdf'):
         images = convert_from_path(file_path)
         text = ''
@@ -1348,69 +1350,41 @@ async def function_mongodb_object_create(client_mongodb,database,table,obj_list)
    return str(output)
 
 import os, json, requests
-import inspect,uuid
+import inspect, uuid
 from pathlib import Path
-def function_grafana_dashbord_all_export(host, username, password, max_limit, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}"
-    Path(output_path).mkdir(parents=True, exist_ok=True)
-    session = requests.Session()
-    session.auth = (username, password)
-    def sanitize(name):return "".join(c if c.isalnum() or c in " _-()" else "_" for c in name)
-    def ensure_dir(path):os.makedirs(path, exist_ok=True)
-    def get_organizations():
-        r = session.get(f"{host}/api/orgs")
-        r.raise_for_status()
-        return r.json()
-    def switch_org(org_id):return session.post(f"{host}/api/user/using/{org_id}").status_code == 200
-    def get_dashboards(org_id):
-        headers = {"X-Grafana-Org-Id": str(org_id)}
-        r = session.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers=headers)
-        if r.status_code == 422:
-            return []
-        r.raise_for_status()
-        return r.json()
-    def get_dashboard_json(uid):
-        r = session.get(f"{host}/api/dashboards/uid/{uid}")
-        r.raise_for_status()
-        return r.json()
-    def export_dashboard(org_name, folder_name, dashboard_meta):
-        uid = dashboard_meta["uid"]
-        data = get_dashboard_json(uid)
-        dashboard_only = data["dashboard"]
-        path = os.path.join(output_path, sanitize(org_name), sanitize(folder_name or "General"))
-        ensure_dir(path)
-        file_path = os.path.join(path, f"{sanitize(dashboard_meta['title'])}.json")
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(dashboard_only, f, indent=2)
-        print(f"✅ {org_name}/{folder_name}/{dashboard_meta['title']}")
+def function_grafana_dashbord_all_export(host, username, password, max_limit, output_path_folder=None):
+    if not output_path_folder: output_path_folder = f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}"
+    Path(output_path_folder).mkdir(parents=True, exist_ok=True)
+    session = requests.Session(); session.auth = (username, password)
+    sanitize = lambda s: "".join(c if c.isalnum() or c in " _-()" else "_" for c in s)
     try:
-        orgs = get_organizations()
+        orgs = session.get(f"{host}/api/orgs").json()
     except Exception as e:
-        print("❌ Failed to get organizations:", e)
-        return
+        print("❌ Failed to get organizations:", e); return None
     for org in orgs:
-        if not switch_org(org["id"]):
-            continue
-        try:
-            dashboards = get_dashboards(org["id"])
-        except Exception as e:
-            print("❌ Failed to get dashboards:", e)
-            continue
-        for dash in dashboards:
+        if session.post(f"{host}/api/user/using/{org['id']}").status_code != 200: continue
+        r = session.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers={"X-Grafana-Org-Id": str(org["id"])})
+        if r.status_code == 422: continue
+        for d in r.json():
             try:
-                export_dashboard(org["name"], dash.get("folderTitle", "General"), dash)
+                data = session.get(f"{host}/api/dashboards/uid/{d['uid']}").json()["dashboard"]
+                p = Path(output_path_folder, sanitize(org["name"]), sanitize(d.get("folderTitle") or "General"))
+                p.mkdir(parents=True, exist_ok=True)
+                with open(p / f"{sanitize(d['title'])}.json", "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
             except Exception as e:
-                print("❌ Failed to export", dash.get("title"), ":", e)
-    print(f"Saved to: {output_path}")
-    return None
+                print("❌ Failed to export", d.get("title"), ":", e)
+    return output_path_folder
 
 from jira import JIRA
 import pandas as pd
 from datetime import date
 import calendar
 import inspect,uuid
+from pathlib import Path
 def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     today = date.today()
     if not start_date:
         start_date = today.replace(day=1).strftime("%Y-%m-%d")
@@ -1431,13 +1405,15 @@ def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_da
     df_pivot = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0)
     df_pivot = df_pivot.reindex(assignees, fill_value=0).round(0).astype(int)
     df_pivot.to_csv(output_path)
-    return f"saved to {output_path}"
+    return output_path
 
 import requests, csv
 from requests.auth import HTTPBasicAuth
 import inspect,uuid
+from pathlib import Path
 def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     auth = HTTPBasicAuth(jira_email, jira_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     resp = requests.get(
@@ -1469,14 +1445,16 @@ def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, out
                 else f"error {count_resp.status_code}"
             )
             writer.writerow([name, count])
-    return f"saved to {output_path}"
+    return output_path
 
 import requests, datetime, re
 from collections import defaultdict, Counter
 from openai import OpenAI
 import inspect,uuid
+from pathlib import Path
 def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.txt"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)
@@ -1619,15 +1597,17 @@ def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_projec
     improvements = summarize_with_ai(prompt_improvement + "\n" + all_prompt_text)
     top_active, on_time = calculate_activity_and_performance(issues_done)
     save_summary_to_file(blockers, improvements, top_active, on_time)
-    return f"saved to {output_path}"
+    return output_path
 
 import requests, csv, json
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 import time
 import inspect,uuid
+from pathlib import Path
 def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, column_names=None, limit=None, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if not column_names:column_names="key,assignee,status"
     if not limit:limit=10000
     auth = HTTPBasicAuth(jira_email, jira_token)
@@ -1708,7 +1688,7 @@ def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, 
                 writer.writerow(row)
     except Exception as e:
         return f"CSV write error: {e}"
-    return f"✅ Exported {len(issues)} issues to {output_path}"
+    return output_path
 
 ### utility
 import os, shutil
@@ -1732,8 +1712,10 @@ def function_reset_folder(folder_path):
 
 import os
 import inspect,uuid
-async def function_export_filename(dir_path=".",output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.txt"
+from pathlib import Path
+async def function_dir_filename_export(dir_path=".",output_path=None):
+    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
     dir_path = os.path.abspath(dir_path)
     with open(output_path, "w") as out_file:
@@ -1743,8 +1725,7 @@ async def function_export_filename(dir_path=".",output_path=None):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, dir_path)
                 out_file.write(rel_path + "\n")
-    print(f"Saved to: {output_path}")
-    return None
+    return output_path
 
 import os
 from dotenv import load_dotenv, dotenv_values
@@ -1836,14 +1817,13 @@ async def function_csv_path_to_object_list(path):
     obj_list = [row for row in reader]
     return obj_list
 
-import csv,io
+import csv, io
 async def function_csv_api_to_object_list(file):
-   content=await file.read()
-   content=content.decode("utf-8")
-   reader=csv.DictReader(io.StringIO(content))
-   obj_list=[row for row in reader]
-   await file.close()
-   return obj_list
+    text = io.TextIOWrapper(file.file, encoding="utf-8")
+    reader = csv.DictReader(text)
+    obj_list = [row for row in reader]
+    await file.close()
+    return obj_list
 
 import os
 async def function_stream_file(path,chunk_size=1024*1024):

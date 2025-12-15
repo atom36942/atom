@@ -13,10 +13,10 @@ async def function_lifespan(app:FastAPI):
    try:
       #checks
       os.makedirs("export", exist_ok=True)
-      if config_is_reset_export_folder:function_reset_folder("export")
       os.makedirs("export/curl", exist_ok=True)
       os.makedirs("export/function", exist_ok=True)
       os.makedirs("export/zzz", exist_ok=True)
+      if config_is_reset_export_folder:function_reset_folder("export")
       #client init
       client_postgres_pool=await function_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_redis=await function_redis_client_read(config_redis_url) if config_redis_url else None
