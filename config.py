@@ -13,8 +13,8 @@ config_redis_url=os.getenv("config_redis_url")
 config_redis_url_ratelimiter=os.getenv("config_redis_url_ratelimiter") or config_redis_url
 
 #key
-config_key_root=os.getenv("config_key_root") or "123"
 config_key_jwt=os.getenv("config_key_jwt") or "123"
+config_key_root=os.getenv("config_key_root") or "123"
 
 #queue
 config_celery_broker_url=os.getenv("config_celery_broker_url")
