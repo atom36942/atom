@@ -61,12 +61,17 @@ venv/bin/python -m consumer.redis
 ./venv/bin/python ./file/package.py
 ```
 
-
-
-
-
-
-
+### Env Sample
+```bash
+config_postgres_url=postgresql://postgres@127.0.0.1/postgres
+config_redis_url=redis://localhost:6379
+config_key_root=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
+config_celery_broker_url=redis://localhost:6379
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_redis_url_pubsub=redis://localhost:6379
+config_mongodb_url=mongodb://localhost:27017
+```
 
 ### zzz
 ```bash
