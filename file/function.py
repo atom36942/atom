@@ -1952,7 +1952,7 @@ async def function_sftp_file_upload(client_sftp, file_path_input, file_path_outp
 import os
 import inspect,uuid
 from pathlib import Path
-async def function_sftp_file_download(client_sftp,file_path_remote,chunk_size=None,output_path=None):
+async def function_sftp_file_download(client_sftp,file_path_remote,output_path=None,chunk_size=None):
     if not chunk_size:chunk_size=65536
     ext=os.path.splitext(file_path_remote)[1]
     if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}{ext}"
