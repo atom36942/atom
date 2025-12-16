@@ -7,15 +7,12 @@ from file.function import *
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import traceback,os
+import traceback
 @asynccontextmanager
 async def function_lifespan(app:FastAPI):
    try:
       #checks
-      os.makedirs("export", exist_ok=True)
-      os.makedirs("export/curl", exist_ok=True)
-      os.makedirs("export/function", exist_ok=True)
-      os.makedirs("export/zzz", exist_ok=True)
+      function_create_folder("export")
       if config_is_reset_export_folder:function_reset_folder("export")
       #client init
       client_postgres_pool=await function_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None

@@ -1690,6 +1690,11 @@ def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, 
     return output_path
 
 ### utility
+import os
+def function_create_folder(folder_name):
+    os.makedirs(folder_name, exist_ok=True)
+    return None
+
 import os, shutil
 def function_reset_folder(folder_path):
     folder_path = folder_path if os.path.isabs(folder_path) else os.path.join(os.getcwd(), folder_path)
