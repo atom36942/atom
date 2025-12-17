@@ -1,5 +1,5 @@
 #import
-from file.route import *
+from core.route import *
 
 #test
 @router.get("/test")
@@ -26,8 +26,8 @@ async def function_api_websocket(websocket:WebSocket):
    try:
       while True:
          message=await websocket.receive_text()
-         await function_postgres_object_create("buffer",websocket.app.state.client_postgres_pool,"test",[{"title":message}])
-         await websocket.send_text(f"message stored")
+         output=await function_postgres_object_create(websocket.app.state.client_postgres_pool,function_postgres_object_serialize,websocket.app.state.cache_postgres_column_datatype,"buffer","test",[{"title":message}],0)
+         await websocket.send_text(str(output))
    except WebSocketDisconnect:
       print("client disconnected")
 
@@ -36,7 +36,7 @@ async def function_api_websocket(websocket:WebSocket):
 async def function_api_test2(request:Request):
    output=None
    if False:await function_postgres_create_fake_data(request.app.state.client_postgres_pool)
-   if False:output=await function_postgres_export(request.app.state.client_postgres_pool,"select * from test limit 1000")
+   if True:output=await function_postgres_export(request.app.state.client_postgres_pool,"select * from test limit 1000")
    if False:await function_ocr_tesseract_export("sample/ocr.png")
    if False:await function_dir_filename_export()
    if False:output=await function_sftp_folder_filename_read(request.app.state.client_sftp,"mgh/amazon")
@@ -46,8 +46,7 @@ async def function_api_test2(request:Request):
    if False:output=function_csv_file_to_obj_list("file.csv")
    if False:
       obj_list=[]
-      async for obj_list_chunk in function_sftp_csv_read_to_obj_list_stream(request.app.state.client_sftp,"file.csv"):
-         obj_list.extend(obj_list_chunk)
-         obj_list=await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,obj_list)
-         await function_postgres_object_create("now",request.app.state.client_postgres_pool,"test",obj_list)
+      async for chunk in function_sftp_csv_read_to_obj_list_stream(request.app.state.client_sftp,"file.csv"):
+         obj_list.extend(chunk)
+         await function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"now","test",obj_list,1)
    return {"status":1,"message":output}

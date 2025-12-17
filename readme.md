@@ -55,10 +55,10 @@ venv/bin/python -m consumer.redis
 ### Commands
 ```bash
 #test curls
-./file/test.sh
+./core/test.sh
 
 #update packages
-./venv/bin/python ./file/package.py
+./venv/bin/python ./core/package.py
 ```
 
 ### Env Sample

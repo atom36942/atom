@@ -1,5 +1,5 @@
 #import
-from file.route import *
+from core.route import *
 
 #api
 @router.post("/private/s3-upload-file")

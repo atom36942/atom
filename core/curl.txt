@@ -5,7 +5,7 @@ curl -X GET "$baseurl"
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"mode":"read","query":"select * from users limit 10;"}'
-curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/zzz/curl_root_postgres_export.csv
+curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/curl_root_postgres_export.csv
 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@sample/postgres.csv"
 0 curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token" -F "table=test" -F "expiry_sec=100" -F "file=@/Users/atom/Downloads/file.csv"
 0 curl -X POST "$baseurl/root/redis-import-delete" -H "Authorization: Bearer $token" -F "file=@/Users/atom/Downloads/file.csv"
@@ -87,18 +87,25 @@ curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authoriza
 curl -X POST "$baseurl/my/object-create?table=test&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"title":"jsonb","metadata":{"ip":"127.0.0.1","device":"mobile"}}'
 curl -X POST "$baseurl/my/object-create?table=test&is_background=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"background"}'
 curl -X POST "$baseurl/my/object-create?table=test&queue=buffer" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"buffer"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"queue"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=kafka" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"queue"}'
+0 curl -X POST "$baseurl/my/object-create?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"queue"}'
 0 curl -X POST "$baseurl/my/object-create?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"queue"}'
 curl -X POST "$baseurl/my/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"type":1,"title":"list"},{"type":1,"title":"list"},{"type":1,"title":"list"}]}'
 curl -X POST "$baseurl/admin/object-create?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"type":1,"title":"list"},{"type":2,"title":"admin"},{"type":3,"title":"admin"}]}'
 curl -X POST "$baseurl/my/object-create-mongodb?database=test&table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"type":1,"title":"list"},{"type":2,"title":"admin"},{"type":3,"title":"admin"}]}'
 
 #extend object-update
-curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":"123"}'
+curl -X PUT "$baseurl/my/object-update?table=users" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test1000"}'
 0 curl -X PUT "$baseurl/my/object-update?table=users&otp=123" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"email":"test"}'
 curl -X PUT "$baseurl/my/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"id":160,"type":100,"title":"list1"},{"id":269,"type":200,"title":"list2"},{"id":268,"type":300,"title":"list3"}]}'
+curl -X PUT "$baseurl/my/object-update?table=users&is_serialize=1" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"password":"123"}'
 0 curl -X PUT "$baseurl/admin/object-update?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":368,"title":"queue"}'
 curl -X PUT "$baseurl/admin/object-update?table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"id":350,"type":100,"title":"list1"},{"id":349,"type":200,"title":"list2"},{"id":348,"type":300,"title":"list3"}]}'
+0 curl -X PUT "$baseurl/admin/object-update?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"id":399,"type":1,"title":"list1"},{"id":398,"type":2,"title":"list2"},{"id":397,"type":3,"title":"list3"}]}'
+0 curl -X PUT "$baseurl/admin/object-update?table=test&queue=kafka" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"id":399,"type":1,"title":"list1"},{"id":398,"type":2,"title":"list2"},{"id":397,"type":3,"title":"list3"}]}'
 0 curl -X PUT "$baseurl/admin/object-update?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"id":399,"type":1,"title":"list1"},{"id":398,"type":2,"title":"list2"},{"id":397,"type":3,"title":"list3"}]}'
+0 curl -X PUT "$baseurl/admin/object-update?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"object_list":[{"id":399,"type":1,"title":"list1"},{"id":398,"type":2,"title":"list2"},{"id":397,"type":3,"title":"list3"}]}'
 
 #extend object-read
 curl -X GET "$baseurl/public/object-read?table=test&order=id%20asc"

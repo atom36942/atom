@@ -1,5 +1,5 @@
 #import
-from file.route import *
+from core.route import *
 
 #api
 @router.get("/my/profile")
@@ -78,7 +78,6 @@ async def function_api_my_object_create_mongodb(request:Request):
       if len(x)<=1:raise Exception("obj key length issue")
       if any(key in config_column_disabled_list for key in x):raise Exception("obj key not allowed")
       x["created_by_id"]=request.state.user["id"]
-      if "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
    if param["table"] in ["users"]:raise Exception("table not allowed")
    output=await function_mongodb_object_create(request.app.state.client_mongodb,param["database"],param["table"],obj_list)
    return {"status":1,"message":output}
@@ -93,9 +92,8 @@ async def function_api_my_object_create(request:Request):
       if len(x)<=1:raise Exception("obj key length issue")
       if any(key in config_column_disabled_list for key in x):raise Exception("obj key not allowed")
       x["created_by_id"]=request.state.user["id"]
-      if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
-   if not param["queue"]:output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],obj_list)
-   elif param["queue"]=="buffer":output=await function_postgres_object_create("buffer",request.app.state.client_postgres_pool,param["table"],obj_list,config_table.get(param['table'],{}).get("buffer",10))
+   if not param["queue"]:output=await function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"now",param["table"],obj_list,param["is_serialize"])
+   elif param["queue"]=="buffer":await function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"buffer",param["table"],obj_list,param["is_serialize"],config_table.get(param['table'],{}).get("buffer",10))
    else:
       function_name="function_postgres_object_create"
       param_list=[param["table"],obj_list]
@@ -116,7 +114,6 @@ async def function_api_my_object_update(request:Request):
       x["updated_by_id"]=request.state.user["id"]
       if len(x)<=2:raise Exception("obj key length issue")
       if any(key in config_column_disabled_list for key in x):raise Exception("obj key not allowed")
-      if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
    if param["table"]=="users":
       if len(obj_list)!=1:raise Exception("obj length issue")
       if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
@@ -146,5 +143,5 @@ async def function_api_my_ids_delete(request:Request):
 async def function_api_my_object_read(request:Request):
    param=await function_request_param_read(request,"query",[["table","str",1,None]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
-   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data,function_add_action_count)
+   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data,function_add_action_count,param["table"],param)
    return {"status":1,"message":obj_list}

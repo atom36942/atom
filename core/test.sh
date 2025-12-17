@@ -8,15 +8,15 @@ ROOT_DIR="$SCRIPT_DIR/.."
 # load .env from root
 [ -f "$ROOT_DIR/.env" ] && export $(grep -v '^#' "$ROOT_DIR/.env" | xargs)
 
-# config
+#input
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
 input_file="$SCRIPT_DIR/curl.txt"
 
 #output
-output_curl="$ROOT_DIR/export/curl/report.txt" 
-output_report="$ROOT_DIR/export/curl/report.csv"
-output_fail="$ROOT_DIR/export/curl/fail.log"
+output_curl="$ROOT_DIR/export/curl_report.txt" 
+output_report="$ROOT_DIR/export/curl_report.csv"
+output_fail="$ROOT_DIR/export/curl_fail.log"
 
 # initialize report and curl output files
 echo "API,Status Code,Response Time (ms)" > "$output_report"

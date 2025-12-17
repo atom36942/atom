@@ -1,8 +1,8 @@
 #config
-from config import *
+from core.config import *
 
 #function
-from file.function import *
+from core.function import *
 
 #lifespan
 from fastapi import FastAPI
@@ -39,7 +39,7 @@ async def function_lifespan(app:FastAPI):
       function_add_state(app,{**globals(),**locals()},("client_","cache_"))
       #app shutdown
       yield
-      await function_postgres_object_create("flush",client_postgres_pool)
+      await function_postgres_object_create(client_postgres_pool,function_postgres_object_serialize,cache_postgres_column_datatype,"flush")
       if config_is_reset_export_folder:function_reset_folder("export")
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
@@ -97,7 +97,7 @@ async def middleware(request,api_function):
    #log api
    if config_is_log_api:
       obj_log={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"response_type":response_type,"description":error}
-      asyncio.create_task(function_postgres_object_create("buffer",request.app.state.client_postgres_pool,"log_api",[obj_log],config_table.get("log_api",{}).get("buffer",10)))
+      asyncio.create_task(function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"buffer","log_api",[obj_log],0,config_table.get("log_api",{}).get("buffer",10)))
    #posthog
    if False:request.app.state.client_posthog.capture(distinct_id=request.state.user.get("id"),event="api",properties=obj_log)
    #final

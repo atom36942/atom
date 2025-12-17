@@ -1,5 +1,5 @@
 #import
-from file.route import *
+from core.route import *
 
 #api
 @router.post("/admin/object-create")
@@ -10,8 +10,7 @@ async def function_api_admin_object_create(request:Request):
    for i,x in enumerate(obj_list):
       if request.app.state.cache_postgres_schema.get(param["table"]).get("created_by_id"):x["created_by_id"]=request.state.user["id"]
       if len(x)<=1:raise Exception("obj key length issue")
-      if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
-   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],obj_list)
+   output=await function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"now",param["table"],obj_list,param["is_serialize"])
    return {"status":1,"message":output}
 
 @router.put("/admin/object-update")
@@ -22,7 +21,6 @@ async def function_api_admin_object_update(request:Request):
    for i,x in enumerate(obj_list):
       if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):x["updated_by_id"]=request.state.user["id"]
       if "id" not in x:raise Exception("id missing")
-      if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
    if not param["queue"]:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],obj_list)
    else:
       function_name="function_postgres_object_update"
@@ -37,7 +35,7 @@ async def function_api_admin_object_update(request:Request):
 @router.get("/admin/object-read")
 async def function_api_admin_object_read(request:Request):
    param=await function_request_param_read(request,"query",[["table","str",1,None]])
-   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data,function_add_action_count)
+   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data,function_add_action_count,param["table"],param)
    return {"status":1,"message":obj_list}
 
 @router.put("/admin/ids-update")
@@ -62,5 +60,5 @@ async def function_api_admin_jira_jql_output_save(request:Request):
    obj_list=await function_csv_path_to_object_list(output_path)
    obj_list=[item | {"type": param["type"]} for item in obj_list]
    __import__("os").remove(output_path)
-   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,"jira",obj_list)
+   output=await function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"now","jira",obj_list,0)
    return {"status":1,"message":output}

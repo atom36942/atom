@@ -1,4 +1,4 @@
-### postgres
+###postgres
 async def function_postgres_runner(client_postgres_pool,mode,query):
     if mode not in ["read","write"]:raise Exception("mode=read/write")
     block_word = ["drop", "truncate"]
@@ -71,7 +71,7 @@ async def function_postgres_clean(client_postgres_pool, config_table):
             await conn.execute(query, threshold_date)
     return None
         
-async def function_postgres_object_read(client_postgres_pool,table,obj,function_postgres_object_serialize,cache_postgres_column_datatype,function_add_creator_data,function_add_action_count):
+async def function_postgres_object_read(client_postgres_pool,function_postgres_object_serialize,cache_postgres_column_datatype,function_add_creator_data,function_add_action_count,table,obj):
     """
     obj={}
     obj={"order":"id asc"}
@@ -177,138 +177,127 @@ async def function_postgres_object_read(client_postgres_pool,table,obj,function_
         except Exception as e:
             raise Exception(f"failed to read: {e}")
 
-async def function_postgres_object_update(client_postgres_pool, table, obj_list, created_by_id=None, batch_size=None):
-    if not batch_size:batch_size=5000
-    if not obj_list: return None
-    cols = [c for c in obj_list[0] if c != "id"]
-    max_batch = 65535 // (len(cols) + 1 + (1 if created_by_id else 0))
-    batch_size = min(batch_size, max_batch)
-    def build_single_update(obj, cols, created_by_id):
-        params = [obj[c] for c in cols] + [obj["id"]]
-        where = f"id=${len(params)}" + (f" AND created_by_id=${len(params)+1}" if created_by_id else "")
-        if created_by_id: params.append(created_by_id)
-        set_clause = ",".join(f"{c}=${i+1}" for i, c in enumerate(cols))
-        return set_clause, where, params
-    def build_batch_case(col, batch, vals, created_by_id):
-        cases = []
-        for obj in batch:
-            vals.extend([obj[col], obj["id"]])
-            idx_val, idx_id = len(vals)-1, len(vals)
-            if created_by_id:
-                vals.append(created_by_id)
-                idx_user = len(vals)
-                cases.append(f"WHEN id=${idx_id} AND created_by_id=${idx_user} THEN ${idx_val}")
-            else:
-                cases.append(f"WHEN id=${idx_id} THEN ${idx_val}")
-        return f"{col} = CASE {' '.join(cases)} ELSE {col} END"
-    async with client_postgres_pool.acquire() as conn:
-        if len(obj_list) == 1:
-            set_clause, where, params = build_single_update(obj_list[0], cols, created_by_id)
-            row = await conn.fetch(f"UPDATE {table} SET {set_clause} WHERE {where} RETURNING id;", *params)
-            return row[0]["id"] if row else None
-        async with conn.transaction():
-            for i in range(0, len(obj_list), batch_size):
-                batch = obj_list[i:i+batch_size]
-                vals, set_clauses = [], []
-                for col in cols:
-                    set_clauses.append(build_batch_case(col, batch, vals, created_by_id))
-                ids = [obj["id"] for obj in batch]
-                where_clause = f"id IN ({','.join(str(id_) for id_ in ids)})" + (f" AND created_by_id={created_by_id}" if created_by_id else "")
-                await conn.execute(f"UPDATE {table} SET {', '.join(set_clauses)} WHERE {where_clause};", *vals)
-    return None
+async def function_postgres_object_update(client_postgres_pool, function_postgres_object_serialize, cache_postgres_column_datatype, table, obj_list, is_serialize=None, created_by_id=None, batch_size=None, return_ids=False):
+    if not obj_list:return None
+    if not is_serialize:is_serialize=0
+    if not all("id" in obj for obj in obj_list):raise Exception("all objects must have 'id' field")
+    batch_size = batch_size or 5000
+    if is_serialize:obj_list = await function_postgres_object_serialize(cache_postgres_column_datatype, obj_list)
+    async def postgres_update_objects(client_pool, tbl, objs, user_id=None, batch_sz=5000, ret_ids=False):
+        cols = [c for c in objs[0] if c != "id"]
+        if not cols:return [] if ret_ids else None
+        max_batch = 65535 // (len(cols) + 1 + (1 if user_id else 0))
+        batch_sz = min(batch_sz, max_batch)
+        ids = [] if ret_ids else None
+        async with client_pool.acquire() as conn:
+            if len(objs) == 1:
+                obj = objs[0]
+                params = [obj[c] for c in cols] + [obj["id"]]
+                where = f"id=${len(params)}" + (f" AND created_by_id=${len(params)+1}" if user_id else "")
+                if user_id:params.append(user_id)
+                set_clause = ",".join(f"{c}=${i+1}" for i, c in enumerate(cols))
+                if ret_ids:
+                    row = await conn.fetch(f"UPDATE {tbl} SET {set_clause} WHERE {where} RETURNING id;", *params)
+                    return [row[0]["id"]] if row else []
+                else:
+                    await conn.execute(f"UPDATE {tbl} SET {set_clause} WHERE {where};", *params)
+                    return None
+            async with conn.transaction():
+                for i in range(0, len(objs), batch_sz):
+                    batch = objs[i:i+batch_sz]
+                    vals, set_clauses = [], []
+                    for col in cols:
+                        cases = []
+                        for obj in batch:
+                            vals.extend([obj[col], obj["id"]])
+                            idx_val, idx_id = len(vals)-1, len(vals)
+                            if user_id:
+                                vals.append(user_id)
+                                idx_user = len(vals)
+                                cases.append(f"WHEN id=${idx_id} AND created_by_id=${idx_user} THEN ${idx_val}")
+                            else:
+                                cases.append(f"WHEN id=${idx_id} THEN ${idx_val}")
+                        set_clauses.append(f"{col} = CASE {' '.join(cases)} ELSE {col} END")
+                    ids_list = [obj["id"] for obj in batch]
+                    vals_offset = len(vals)
+                    where_parts = [f"id IN ({','.join(f'${vals_offset+j+1}' for j in range(len(ids_list)))})"]
+                    vals.extend(ids_list)
+                    if user_id:
+                        where_parts.append(f"created_by_id=${len(vals)+1}")
+                        vals.append(user_id)
+                    where_clause = " AND ".join(where_parts)
+                    if ret_ids:
+                        rows = await conn.fetch(f"UPDATE {tbl} SET {', '.join(set_clauses)} WHERE {where_clause} RETURNING id;", *vals)
+                        ids.extend([r["id"] for r in rows])
+                    else:
+                        await conn.execute(f"UPDATE {tbl} SET {', '.join(set_clauses)} WHERE {where_clause};", *vals)
+        return ids if ret_ids else None
+    return await postgres_update_objects(client_postgres_pool, table, obj_list, created_by_id, batch_size, return_ids)
 
 import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def function_postgres_object_create(mode,client_postgres_pool,table=None,obj_list=None,buffer=None,returning_ids=False,conflict_columns=None,batch_size=None):
-    """
-    integer:  {"count": 42}
-    numeric:  {"price": 19.95}
-    text:     {"description": "Hello world"}
-    varchar:  {"username": "alice"}
-    boolean:  {"active": True}
-    date:     {"birthdate": "1990-01-01"}
-    time:     {"meeting_time": "14:30:00"}
-    timestamp: {"created_at": "2023-09-07T12:34:56"}
-    timestamptz: {"updated_at": "2023-09-07T12:34:56+05:30"}
-    jsonb:    {"metadata": {"ip": "127.0.0.1", "device": "mobile"}}
-    uuid:     {"uuid_col": "550e8400-e29b-41d4-a716-446655440000"}
-    geography: {"location": "POINT(17.794387 -83.032150)"}
-    array:    {"tags": ["python", "asyncio", "postgres"]}
-    bytea:    {"file_data": b"\\x89504e470d0a1a0a..."}  # binary data (e.g., image)
-    """
-    if mode !="flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
-    if not buffer:buffer=10
-    if not batch_size:batch_size=5000
-    global inmemory_cache_object_create,table_object_key
-    if not buffer:buffer=10
-    if obj_list and len(obj_list) == 1:
-        returning_ids = True
-    def get_columns(tbl, objs, use_buffer_schema):
-        if use_buffer_schema and tbl in table_object_key and table_object_key[tbl]:
-            cols = sorted(list(table_object_key[tbl]))
+async def function_postgres_object_create(client_postgres_pool, function_postgres_object_serialize, cache_postgres_column_datatype, mode, table=None, obj_list=None, is_serialize=None, buffer=None, returning_ids=False, conflict_columns=None, batch_size=None):
+    if mode != "flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
+    if not is_serialize:is_serialize=0
+    buffer = buffer or 10
+    batch_size = batch_size or 5000
+    if is_serialize and obj_list:obj_list = await function_postgres_object_serialize(cache_postgres_column_datatype, obj_list)
+    if obj_list and len(obj_list) == 1:returning_ids = True
+    async def postgres_insert_objects(client_pool, tbl, objs, ret_ids=False, conflict_cols=None, batch_sz=5000, use_schema=None):
+        if not objs:return None
+        if use_schema:
+            cols = sorted(list(use_schema))
             for o in objs:
                 for k in cols:
-                    if k not in o:
-                        o[k] = None
-            return cols
+                    if k not in o:o[k] = None
         else:
-            return list(objs[0].keys())
-    def build_batch_values(batch, cols):
-        vals, rows_sql = [], []
-        col_count = len(cols)
-        for j, o in enumerate(batch):
-            start = j * col_count + 1
-            row_vals = [o.get(k) for k in cols]
-            rows_sql.append(f"({', '.join([f'${k}' for k in range(start, start + col_count)])})")
-            vals.extend(row_vals)
-        return vals, rows_sql
-    def build_conflict_clause(conflict_columns):
-        return f"on conflict ({','.join(conflict_columns)}) do nothing" if conflict_columns else "on conflict do nothing"
-    async def _execute_insert(tbl, objs, use_buffer_schema=False):
-        if not objs: return None
-        cols = get_columns(tbl, objs, use_buffer_schema)
+            cols = list(objs[0].keys())
         col_count = len(cols)
         max_batch = 65535 // col_count
-        batch_size_eff = min(batch_size, max_batch)
-        conflict_clause = build_conflict_clause(conflict_columns)
-        ids = [] if returning_ids else None
-        async with client_postgres_pool.acquire() as conn:
+        batch_sz = min(batch_sz, max_batch)
+        conflict = f"on conflict ({','.join(conflict_cols)}) do nothing" if conflict_cols else "on conflict do nothing"
+        ids = [] if ret_ids else None
+        async with client_pool.acquire() as conn:
             async with conn.transaction():
-                for i in range(0, len(objs), batch_size_eff):
-                    batch = objs[i:i + batch_size_eff]
-                    vals, rows_sql = build_batch_values(batch, cols)
-                    q = f"insert into {tbl} ({','.join(cols)}) values {','.join(rows_sql)} {conflict_clause}"
-                    if returning_ids:
+                for i in range(0, len(objs), batch_sz):
+                    batch = objs[i:i + batch_sz]
+                    vals, rows_sql = [], []
+                    for j, o in enumerate(batch):
+                        start = j * col_count + 1
+                        rows_sql.append(f"({', '.join([f'${k}' for k in range(start, start + col_count)])})")
+                        vals.extend([o.get(k) for k in cols])
+                    q = f"insert into {tbl} ({','.join(cols)}) values {','.join(rows_sql)} {conflict}"
+                    if ret_ids:
                         q += " returning id;"
                         fetched = await conn.fetch(q, *vals)
                         ids.extend([r["id"] for r in fetched])
                     else:
                         await conn.execute(q, *vals)
-        return ids if returning_ids else None
+        return ids if ret_ids else None
+    global inmemory_cache_object_create, table_object_key
     async with buffer_lock:
         if mode == "now":
-            return await _execute_insert(table, obj_list, use_buffer_schema=False)
+            return await postgres_insert_objects(client_postgres_pool, table, obj_list, returning_ids, conflict_columns, batch_size)
         elif mode == "buffer":
-            if table not in inmemory_cache_object_create:
-                inmemory_cache_object_create[table] = []
-            if table not in table_object_key:
-                table_object_key[table] = set()
-            for o in obj_list:
-                table_object_key[table].update(o.keys())
+            if table not in inmemory_cache_object_create:inmemory_cache_object_create[table] = []
+            if table not in table_object_key:table_object_key[table] = set()
+            for o in obj_list:table_object_key[table].update(o.keys())
             inmemory_cache_object_create[table].extend(obj_list)
             if len(inmemory_cache_object_create[table]) >= buffer:
                 objs_to_insert = inmemory_cache_object_create[table]
                 inmemory_cache_object_create[table] = []
-                return await _execute_insert(table, objs_to_insert, use_buffer_schema=True)
+                await postgres_insert_objects(client_postgres_pool, table, objs_to_insert, returning_ids, conflict_columns, batch_size, table_object_key[table])
+                return "buffer released"
             return None
         elif mode == "flush":
             results = {}
             for tbl, rows in inmemory_cache_object_create.items():
-                if not rows: continue
+                if not rows:continue
                 try:
-                    results[tbl] = await _execute_insert(tbl, rows, use_buffer_schema=True)
+                    schema = table_object_key.get(tbl)
+                    results[tbl] = await postgres_insert_objects(client_postgres_pool, tbl, rows, returning_ids, conflict_columns, batch_size, schema)
                 except Exception as e:
                     results[tbl] = e
                 finally:
@@ -316,6 +305,41 @@ async def function_postgres_object_create(mode,client_postgres_pool,table=None,o
             return results
         else:
             raise Exception("mode must be 'now', 'buffer', or 'flush'")
+        
+import hashlib,json
+from dateutil import parser
+async def function_postgres_object_serialize(cache_postgres_column_datatype,obj_list):
+    for obj in obj_list:
+        for k,v in obj.items():
+            if v in [None,"","null"]: obj[k]=None; continue
+            datatype=cache_postgres_column_datatype.get(k)
+            if not datatype: continue
+            if k=="password": obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
+            elif datatype=="text": obj[k]=str(v).strip()
+            elif "int" in datatype: obj[k]=int(v)
+            elif datatype=="numeric": obj[k]=round(float(v),3)
+            elif datatype=="date": obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
+            elif "time" in datatype or "timestamp" in datatype or "timestamptz" in datatype.lower(): obj[k]=parser.isoparse(v) if isinstance(v,str) else v
+            elif datatype=="ARRAY":
+                if isinstance(v,list): obj[k]=v
+                else:
+                    x=str(v).strip()
+                    if x.startswith("{") and x.endswith("}"): x=x[1:-1]
+                    obj[k]=[i.strip().strip('"').strip("'") for i in x.split(",") if i.strip()]
+            elif datatype=="jsonb":
+                if isinstance(v,str):
+                    x=v.strip()
+                    if not x:
+                        obj[k]=None
+                    else:
+                        try:
+                            json.loads(x)
+                            obj[k]=x
+                        except Exception:
+                            obj[k]=json.dumps(x)
+                else:
+                    obj[k]=json.dumps(v,separators=(",",":"))
+    return obj_list
 
 import csv
 from io import StringIO
@@ -343,7 +367,7 @@ import inspect,uuid
 from pathlib import Path
 async def function_postgres_export(client_postgres_pool,query,batch_size=None,output_path=None):
     if not batch_size:batch_size=1000
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.csv"
+    if not output_path:output_path=f"export/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise Exception("Only read-only queries allowed")
@@ -461,41 +485,6 @@ async def function_postgres_index_drop_all(client_postgres_pool):
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(query)
     return None
- 
-import hashlib,json
-from dateutil import parser
-async def function_postgres_object_serialize(cache_postgres_column_datatype,obj_list):
-    for obj in obj_list:
-        for k,v in obj.items():
-            if v in [None,"","null"]: obj[k]=None; continue
-            datatype=cache_postgres_column_datatype.get(k)
-            if not datatype: continue
-            if k=="password": obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
-            elif datatype=="text": obj[k]=str(v).strip()
-            elif "int" in datatype: obj[k]=int(v)
-            elif datatype=="numeric": obj[k]=round(float(v),3)
-            elif datatype=="date": obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
-            elif "time" in datatype or "timestamp" in datatype or "timestamptz" in datatype.lower(): obj[k]=parser.isoparse(v) if isinstance(v,str) else v
-            elif datatype=="ARRAY":
-                if isinstance(v,list): obj[k]=v
-                else:
-                    x=str(v).strip()
-                    if x.startswith("{") and x.endswith("}"): x=x[1:-1]
-                    obj[k]=[i.strip().strip('"').strip("'") for i in x.split(",") if i.strip()]
-            elif datatype=="jsonb":
-                if isinstance(v,str):
-                    x=v.strip()
-                    if not x:
-                        obj[k]=None
-                    else:
-                        try:
-                            json.loads(x)
-                            obj[k]=x
-                        except Exception:
-                            obj[k]=json.dumps(x)
-                else:
-                    obj[k]=json.dumps(v,separators=(",",":"))
-    return obj_list
 
 async def function_postgres_schema_read(client_postgres_pool):
     query = """
@@ -605,7 +594,7 @@ async def function_postgres_create_fake_data(client_postgres_pool,total_row=None
         await generate_data(conn,insert_batch,tables,total_row,batch_size)
     return None
 
-### redis
+###redis
 import redis.asyncio as redis
 async def function_redis_client_read(config_redis_url):
    client_redis=redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
@@ -643,7 +632,7 @@ async def function_redis_object_delete(client_redis,obj_list):
       await pipe.execute()
    return None
 
-### aws
+###aws
 import boto3
 async def function_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name):
    client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
@@ -724,7 +713,7 @@ async def function_s3_upload_presigned(client_s3,config_s3_region_name,bucket,ke
    output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
    return output
 
-### queue
+###queue
 from celery import Celery
 async def function_celery_client_read_producer(config_celery_broker_url,config_celery_backend_url):
    client_celery_producer=Celery("producer",broker=config_celery_broker_url,backend=config_celery_backend_url)
@@ -776,7 +765,7 @@ async def function_kafka_producer(client_kafka_producer,config_channel_name,payl
    output=await client_kafka_producer.send_and_wait(config_channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
-### app
+###app
 async def function_check_ratelimiter(config_api,request):
     if not config_api.get(request.url.path,{}).get("ratelimiter_times_sec"):return None
     client_redis_ratelimiter=request.app.state.client_redis_ratelimiter
@@ -962,7 +951,7 @@ def function_add_router(app, router_folder_path):
             load_module(file_path)
     return None
 
-### api
+###api
 async def function_ownership_check(client_postgres_pool, table, id, user_id):
     if table == "users":
         if id != user_id:raise Exception("obj ownership issue")
@@ -1219,7 +1208,7 @@ async def function_auth_login_google(client_postgres_pool, type, google_token, c
     token = await function_token_encode(dict(user), config_key_jwt, config_token_expire_sec, config_token_user_key_list)
     return token
 
-### ai
+###ai
 from openai import OpenAI
 def function_openai_client_read(config_openai_key):
    client_openai=OpenAI(api_key=config_openai_key)
@@ -1260,7 +1249,7 @@ async def function_ocr_tesseract_export(file_path, output_path=None):
         f.write(text)
     return output_path
 
-### integration
+###integration
 import httpx
 async def function_resend_send_email(config_resend_url,config_resend_key,email_from,email_to_list,title,body):
    payload={"from":email_from,"to":email_to_list,"subject":title,"html":body}
@@ -1689,7 +1678,7 @@ def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, 
         return f"CSV write error: {e}"
     return output_path
 
-### utility
+###utility
 import os
 def function_create_folder(folder_name):
     os.makedirs(folder_name, exist_ok=True)
@@ -1702,17 +1691,11 @@ def function_reset_folder(folder_path):
         return "folder not found"
     for name in os.listdir(folder_path):
         path = os.path.join(folder_path, name)
-        if os.path.isfile(path):
-            os.remove(path)
-            continue
         if os.path.isdir(path):
-            for item in os.listdir(path):
-                item_path = os.path.join(path, item)
-                if os.path.isdir(item_path):
-                    shutil.rmtree(item_path)
-                else:
-                    os.remove(item_path)
-    return "root folders kept, everything else deleted"
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+    return None
 
 import os
 import inspect,uuid

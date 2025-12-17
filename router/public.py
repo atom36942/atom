@@ -1,5 +1,5 @@
 #import
-from file.route import *
+from core.route import *
 
 #api
 @router.get("/public/info")
@@ -61,16 +61,15 @@ async def function_api_public_object_create(request:Request):
    for i,x in enumerate(obj_list):
       if len(x)<=1:raise Exception("obj key length issue")
       if any(key in config_column_disabled_list for key in x):raise Exception("obj key not allowed")
-      if param["is_serialize"]==1 or "password" in x:obj_list[i]=(await function_postgres_object_serialize(request.app.state.cache_postgres_column_datatype,[x]))[0]
    if param["table"] not in config_public_table_create_list:raise Exception("table not allowed")
-   output=await function_postgres_object_create("now",request.app.state.client_postgres_pool,param["table"],obj_list)
+   output=await function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"now",param["table"],obj_list,param["is_serialize"])
    return {"status":1,"message":output}
 
 @router.get("/public/object-read")
 async def function_api_public_object_read(request:Request):
    param=await function_request_param_read(request,"query",[["table","str",1,None]])
    if param["table"] not in config_public_table_read_list:raise Exception("table not allowed")
-   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,param["table"],param,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data,function_add_action_count)
+   obj_list=await function_postgres_object_read(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,function_add_creator_data,function_add_action_count,param["table"],param)
    return {"status":1,"message":obj_list}
 
 @router.get("/public/object-read-gsheet")

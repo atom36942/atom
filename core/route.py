@@ -1,8 +1,8 @@
 #config
-from config import *
+from core.config import *
 
 #function
-from file.function import *
+from core.function import *
 
 #package
 from fastapi import Request,responses
