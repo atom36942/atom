@@ -89,9 +89,7 @@ async def function_api_public_object_create_gsheet(request:Request):
 @router.post("/public/jira-worklog-export")
 async def function_api_public_jira_worklog_export(request:Request):
    param=await function_request_param_read(request,"body",[["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["start_date","str",0,None],["end_date","str",0,None]])
-   __import__("os").makedirs("export", exist_ok=True)
-   output_path=f"export/jira_worklog_{__import__('time').time():.0f}.csv"
-   function_jira_worklog_export(param["jira_base_url"],param["jira_email"],param["jira_token"],param["start_date"],param["end_date"],output_path)
+   output_path=function_jira_worklog_export(function_outpath_path_create,param["jira_base_url"],param["jira_email"],param["jira_token"],param["start_date"],param["end_date"],output_path)
    stream=function_stream_file(output_path)
    return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment; filename=atom_download.csv"},background=BackgroundTask(lambda: os.remove(output_path)))
 

@@ -21,7 +21,7 @@ async def function_api_admin_object_update(request:Request):
    for i,x in enumerate(obj_list):
       if request.app.state.cache_postgres_schema.get(param["table"]).get("updated_by_id"):x["updated_by_id"]=request.state.user["id"]
       if "id" not in x:raise Exception("id missing")
-   if not param["queue"]:output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],obj_list)
+   if not param["queue"]:output=await function_postgres_object_update(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,param["table"],obj_list,param["is_serialize"],None)
    else:
       function_name="function_postgres_object_update"
       param_list=[param["table"],obj_list]
@@ -54,9 +54,7 @@ async def function_api_admin_ids_delete(request:Request):
 @router.post("/admin/jira-jql-output-save")
 async def function_api_admin_jira_jql_output_save(request:Request):
    param=await function_request_param_read(request,"body",[["type","int",1,None],["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["jql","str",1,None],["column","str",0,None]])
-   __import__("os").makedirs("export", exist_ok=True)
-   output_path = f"export/jira_jql_{__import__('time').time():.0f}.csv"
-   function_jira_jql_output_export(param["jira_base_url"],param["jira_email"],param["jira_token"],param["jql"],param["column"],"str",output_path)
+   output_path=function_jira_jql_output_export(function_outpath_path_create,param["jira_base_url"],param["jira_email"],param["jira_token"],param["jql"],param["column"],"str",output_path)
    obj_list=await function_csv_path_to_object_list(output_path)
    obj_list=[item | {"type": param["type"]} for item in obj_list]
    __import__("os").remove(output_path)

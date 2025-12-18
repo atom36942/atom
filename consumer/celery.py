@@ -48,11 +48,11 @@ def celery_task_1(table,obj_list,is_serialize):
 
 #task 2
 @client_celery_consumer.task(name="function_postgres_object_update")
-def celery_task_2(table,obj_list):
+def celery_task_2(table,obj_list,is_serialize):
     try:
         global client_postgres_pool
         def run_wrapper():
-            async def wrapper():await function_postgres_object_update(client_postgres_pool,table,obj_list)
+            async def wrapper():await function_postgres_object_update(client_postgres_pool,function_postgres_object_serialize,cache_postgres_column_datatype,table,obj_list,is_serialize,None)
             loop=asyncio.get_event_loop()
             return loop.run_until_complete(wrapper())
         run_wrapper()
@@ -61,3 +61,5 @@ def celery_task_2(table,obj_list):
         print("Exception occurred:",str(e))
         traceback.print_exc()
         return None
+    
+    

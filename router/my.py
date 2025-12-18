@@ -8,7 +8,7 @@ async def function_api_my_profile(request:Request):
    user=await function_user_read_single(request.app.state.client_postgres_pool,request.state.user["id"])
    metadata={}
    if param["is_metadata"]==1:metadata=await function_user_query_read(request.app.state.client_postgres_pool,config_query,request.state.user["id"])
-   asyncio.create_task(function_postgres_object_update(request.app.state.client_postgres_pool,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}]))
+   asyncio.create_task(function_postgres_object_update(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}]),None,None)
    return {"status":1,"message":user|metadata}
 
 @router.get("/my/token-refresh")
@@ -120,7 +120,7 @@ async def function_api_my_object_update(request:Request):
       if any(key in obj_list[0] and len(obj_list[0])!=3 for key in ["password","email","mobile"]):raise Exception("obj length should be 2")
       if config_is_otp_verify_profile_update and any(key in obj_list[0] and not param["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
       if param["otp"]:await function_otp_verify(request.app.state.client_postgres_pool,param["otp"],obj_list[0].get("email"),obj_list[0].get("mobile"),config_otp_expire_sec)
-   output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],obj_list,None if param["table"]=="users" else request.state.user["id"])
+   output=await function_postgres_object_update(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,param["table"],obj_list,param["is_serialize"],None if param["table"]=="users" else request.state.user["id"])
    return {"status":1,"message":output}
 
 @router.put("/my/ids-update")

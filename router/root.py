@@ -29,7 +29,7 @@ async def function_api_root_postgres_import(request:Request):
    param=await function_request_param_read(request,"form",[["mode","str",1,None],["table","str",1,None],["file","file",1,[]]])
    obj_list=await function_csv_api_to_object_list(param["file"][-1])
    if param["mode"]=="create":output=await function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"now",param["table"],obj_list,1)
-   elif param["mode"]=="update":output=await function_postgres_object_update(request.app.state.client_postgres_pool,param["table"],obj_list)
+   elif param["mode"]=="update":output=await function_postgres_object_update(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,param["table"],obj_list,1,None)
    elif param["mode"]=="delete":output=await function_postgres_ids_delete(request.app.state.client_postgres_pool,param["table"],",".join(str(obj["id"]) for obj in obj_list))
    return {"status":1,"message":output}
 

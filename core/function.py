@@ -362,13 +362,22 @@ async def function_postgres_stream(client_postgres_pool, query, batch_size=None)
                 yield stream.getvalue()
                 stream.seek(0); stream.truncate(0)
 
-import csv, re
-import inspect,uuid
+import uuid
 from pathlib import Path
-async def function_postgres_export(client_postgres_pool,query,batch_size=None,output_path=None):
+def function_outpath_path_create(folder,extension=None):
+    uid = uuid.uuid4().hex
+    if extension:
+        path = Path(folder) / f"{uid}.{extension.lstrip('.')}"
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        path = Path(folder) / uid
+        path.mkdir(parents=True, exist_ok=True)
+    return str(path)
+         
+import csv,re
+async def function_postgres_export(function_outpath_path_create,client_postgres_pool,query,output_path=None,batch_size=None):
     if not batch_size:batch_size=1000
-    if not output_path:output_path=f"export/{inspect.currentframe().f_code.co_name}_{uuid.uuid4().hex}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=function_outpath_path_create("export","csv")
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise Exception("Only read-only queries allowed")
     f = None
@@ -1232,18 +1241,15 @@ async def function_openai_ocr(client_openai,model,file,prompt):
 import pytesseract
 from PIL import Image
 from pdf2image import convert_from_path
-import inspect,uuid
-from pathlib import Path
-async def function_ocr_tesseract_export(file_path, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    if file_path.lower().endswith('.pdf'):
-        images = convert_from_path(file_path)
+async def function_ocr_tesseract_export(function_outpath_path_create,input_path,output_path=None):
+    if not output_path:output_path=function_outpath_path_create("export","txt")
+    if input_path.lower().endswith('.pdf'):
+        images = convert_from_path(input_path)
         text = ''
         for img in images:
             text += pytesseract.image_to_string(img, lang='eng') + '\n'
     else:
-        image = Image.open(file_path)
+        image = Image.open(input_path)
         text = pytesseract.image_to_string(image, lang='eng')
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(text)
@@ -1337,12 +1343,9 @@ async def function_mongodb_object_create(client_mongodb,database,table,obj_list)
    output=await mongodb_client_database[table].insert_many(obj_list)
    return str(output)
 
-import os, json, requests
-import inspect, uuid
-from pathlib import Path
-def function_grafana_dashbord_all_export(host, username, password, max_limit, output_path_folder=None):
-    if not output_path_folder: output_path_folder = f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}"
-    Path(output_path_folder).mkdir(parents=True, exist_ok=True)
+import os,json,requests
+def function_grafana_dashbord_all_export(function_outpath_path_create,host,username,password,max_limit,output_path=None):
+    if not output_path:output_path=function_outpath_path_create("export",None)
     session = requests.Session(); session.auth = (username, password)
     sanitize = lambda s: "".join(c if c.isalnum() or c in " _-()" else "_" for c in s)
     try:
@@ -1356,23 +1359,20 @@ def function_grafana_dashbord_all_export(host, username, password, max_limit, ou
         for d in r.json():
             try:
                 data = session.get(f"{host}/api/dashboards/uid/{d['uid']}").json()["dashboard"]
-                p = Path(output_path_folder, sanitize(org["name"]), sanitize(d.get("folderTitle") or "General"))
+                p = Path(output_path, sanitize(org["name"]), sanitize(d.get("folderTitle") or "General"))
                 p.mkdir(parents=True, exist_ok=True)
                 with open(p / f"{sanitize(d['title'])}.json", "w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)
             except Exception as e:
                 print("❌ Failed to export", d.get("title"), ":", e)
-    return output_path_folder
+    return output_path
 
 from jira import JIRA
 import pandas as pd
 from datetime import date
 import calendar
-import inspect,uuid
-from pathlib import Path
-def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+def function_jira_worklog_export(function_outpath_path_create,jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
+    if not output_path:output_path=function_outpath_path_create("export","csv")
     today = date.today()
     if not start_date:
         start_date = today.replace(day=1).strftime("%Y-%m-%d")
@@ -1395,13 +1395,10 @@ def function_jira_worklog_export(jira_base_url, jira_email, jira_token, start_da
     df_pivot.to_csv(output_path)
     return output_path
 
-import requests, csv
+import requests,csv
 from requests.auth import HTTPBasicAuth
-import inspect,uuid
-from pathlib import Path
-def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+def function_jira_filter_count_export(function_outpath_path_create,jira_base_url,jira_email,jira_token,output_path=None):
+    if not output_path:output_path=function_outpath_path_create("export","csv")
     auth = HTTPBasicAuth(jira_email, jira_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     resp = requests.get(
@@ -1435,14 +1432,11 @@ def function_jira_filter_count_export(jira_base_url, jira_email, jira_token, out
             writer.writerow([name, count])
     return output_path
 
-import requests, datetime, re
+import requests,datetime,re
 from collections import defaultdict, Counter
 from openai import OpenAI
-import inspect,uuid
-from pathlib import Path
-def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+def function_jira_summary_export(function_outpath_path_create,jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
+    if not output_path:output_path=function_outpath_path_create("export","txt")
     client = OpenAI(api_key=openai_key)
     headers = {"Accept": "application/json"}
     auth = (jira_email, jira_token)
@@ -1587,15 +1581,11 @@ def function_jira_summary_export(jira_base_url,jira_email,jira_token,jira_projec
     save_summary_to_file(blockers, improvements, top_active, on_time)
     return output_path
 
-import requests, csv, json
+import requests,time,csv,json
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
-import time
-import inspect,uuid
-from pathlib import Path
-def function_jira_jql_output_export(jira_base_url, jira_email, jira_token, jql, column_names=None, limit=None, output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+def function_jira_jql_output_export(function_outpath_path_create,jira_base_url, jira_email, jira_token, jql, column_names=None, limit=None, output_path=None):
+    if not output_path:output_path=function_outpath_path_create("export","csv")
     if not column_names:column_names="key,assignee,status"
     if not limit:limit=10000
     auth = HTTPBasicAuth(jira_email, jira_token)
@@ -1698,13 +1688,10 @@ def function_reset_folder(folder_path):
     return None
 
 import os
-import inspect,uuid
-from pathlib import Path
-async def function_dir_filename_export(dir_path=".",output_path=None):
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+async def function_folder_filename_export(function_outpath_path_create,input_path,output_path=None):
+    if not output_path:output_path=function_outpath_path_create("export","txt")
     skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
-    dir_path = os.path.abspath(dir_path)
+    dir_path = os.path.abspath(input_path)
     with open(output_path, "w") as out_file:
         for root, dirs, files in os.walk(dir_path):
             dirs[:] = [d for d in dirs if d not in skip_dirs]
@@ -1938,15 +1925,12 @@ async def function_sftp_file_upload(client_sftp, file_path_input, file_path_outp
                         break
                     await rf.write(chunk)
 import os
-import inspect,uuid
 from pathlib import Path
-async def function_sftp_file_download(client_sftp,file_path_remote,output_path=None,chunk_size=None):
+async def function_sftp_file_download(function_outpath_path_create,client_sftp,input_path,output_path=None,chunk_size=None):
     if not chunk_size:chunk_size=65536
-    ext=os.path.splitext(file_path_remote)[1]
-    if not output_path:output_path=f"export/function/{inspect.currentframe().f_code.co_name}/{uuid.uuid4().hex}{ext}"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not output_path:output_path=function_outpath_path_create("export",os.path.splitext(input_path)[1])
     async with client_sftp.start_sftp_client() as sftp:
-        async with sftp.open(file_path_remote,"rb") as rf:
+        async with sftp.open(input_path,"rb") as rf:
             with open(output_path,"wb") as lf:
                 while True:
                     chunk=await rf.read(chunk_size)

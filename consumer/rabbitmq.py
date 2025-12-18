@@ -19,8 +19,7 @@ async def logic():
             payload=json.loads(message.body)
             function_name=payload["function"]
             if function_name=="function_postgres_object_create":asyncio.create_task(function_postgres_object_create(client_postgres_pool,function_postgres_object_serialize,cache_postgres_column_datatype,"now",payload["table"],payload["obj_list"],payload["is_serialize"]))
-            elif function_name=="function_postgres_object_update":
-               asyncio.create_task(function_postgres_object_update(client_postgres_pool,payload["table"],payload["obj_list"]))
+            elif function_name=="function_postgres_object_update":asyncio.create_task(function_postgres_object_update(client_postgres_pool,function_postgres_object_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],None))
             print(f"{payload.get('function')} task created")
       client_rabbitmq,client_rabbitmq_consumer=await function_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
       client_postgres_pool=await function_postgres_client_read(config_postgres_url)
