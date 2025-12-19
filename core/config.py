@@ -7,6 +7,7 @@ load_dotenv()
 config_postgres_url=os.getenv("config_postgres_url")
 config_postgres_min_connection=int(os.getenv("config_postgres_min_connection") or 5)
 config_postgres_max_connection=int(os.getenv("config_postgres_max_connection") or 20)
+config_postgres_schema_name=os.getenv("config_postgres_schema_name") or "public"
 
 #redis
 config_redis_url=os.getenv("config_redis_url")
@@ -93,11 +94,11 @@ config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
 
 #dict
-config_query={
+config_sql={
 "user":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
 "cache_users_api_access":"select id,api_access from users where api_access is not null limit 1000",
 "cache_users_is_active":"select id,is_active from users limit 1000",
-"cache_config":"select key,* from config limit 1000;",
+"cache_config":"select key,metadata from config limit 1000;",
 }
 config_table={
 "test":{"buffer":3},
@@ -116,7 +117,7 @@ config_api={
 "/my/object-read":{"id":8,"cache_sec":["redis",60]},
 "/admin/jira-jql-output-save":{"id":9},
 }
-config_postgres_schema={
+config_postgres={
 "table":{
 "test":[
 "created_at-timestamptz-0-btree",

@@ -15,7 +15,7 @@ async def function_lifespan(app:FastAPI):
       function_create_folder("export")
       if config_is_reset_export_folder:function_reset_folder("export")
       #client init
-      client_postgres_pool=await function_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
+      client_postgres_pool=await function_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection,config_postgres_schema_name) if config_postgres_url else None
       client_redis=await function_redis_client_read(config_redis_url) if config_redis_url else None
       client_redis_ratelimiter=await function_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
       client_mongodb=await function_mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
@@ -32,9 +32,9 @@ async def function_lifespan(app:FastAPI):
       client_sftp=await function_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await function_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)
-      cache_users_api_access=await function_postgres_map_query(client_postgres_pool,config_query.get("cache_users_api_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
-      cache_users_is_active=await function_postgres_map_query(client_postgres_pool,config_query.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
-      cache_config=await function_postgres_map_query(client_postgres_pool,config_query.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
+      cache_users_api_access=await function_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_api_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
+      cache_users_is_active=await function_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
+      cache_config=await function_postgres_map_column(client_postgres_pool,config_sql.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
       #app state set
       function_add_state(app,{**globals(),**locals()},("client_","cache_"))
       #app shutdown
@@ -83,7 +83,7 @@ async def middleware(request,api_function):
       error=None
       #check
       request.state.user=await function_token_check(request,config_api,config_key_root,config_key_jwt,function_token_decode)
-      await function_check_api_access(config_mode_check_api_access,config_api,request)
+      await function_check_admin(config_mode_check_api_access,config_api,request)
       await function_check_is_active(config_mode_check_is_active,config_api,request)
       await function_check_ratelimiter(config_api,request)
       #response

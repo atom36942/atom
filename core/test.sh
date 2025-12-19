@@ -9,9 +9,9 @@ ROOT_DIR="$SCRIPT_DIR/.."
 [ -f "$ROOT_DIR/.env" ] && export $(grep -v '^#' "$ROOT_DIR/.env" | xargs)
 
 #input
+input_file="$SCRIPT_DIR/curl.txt"
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
-input_file="$SCRIPT_DIR/curl.txt"
 
 #output
 output_curl="$ROOT_DIR/export/curl_report.txt" 

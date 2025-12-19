@@ -4,7 +4,7 @@ from core.route import *
 #api
 @router.get("/root/postgres-init")
 async def function_api_root_postgres_init(request:Request):
-   await function_postgres_schema_init(request.app.state.client_postgres_pool,config_postgres_schema,function_postgres_schema_read)
+   await function_postgres_schema_init(request.app.state.client_postgres_pool,config_postgres,function_postgres_schema_read)
    return {"status":1,"message":"done"}
 
 @router.get("/root/postgres-clean")
@@ -73,9 +73,9 @@ async def function_api_root_s3_bucket_ops(request:Request):
 @router.get("/root/reset-global")
 async def function_api_root_reset_global(request:Request):
    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await function_postgres_schema_read(request.app.state.client_postgres_pool)
-   request.app.state.cache_users_api_access=await function_postgres_map_query(request.app.state.client_postgres_pool,config_query.get("cache_users_api_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_access") else {}
-   request.app.state.cache_users_is_active=await function_postgres_map_query(request.app.state.client_postgres_pool,config_query.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
-   request.app.state.cache_config=await function_postgres_map_query(request.app.state.client_postgres_pool,config_query.get("cache_config")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("config",{}) else {}
+   request.app.state.cache_users_api_access=await function_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_api_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_access") else {}
+   request.app.state.cache_users_is_active=await function_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
+   request.app.state.cache_config=await function_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_config")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("config",{}) else {}
    await function_postgres_object_create(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"flush")
    return {"status":1,"message":"done"}
 

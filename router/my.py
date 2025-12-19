@@ -7,7 +7,7 @@ async def function_api_my_profile(request:Request):
    param=await function_request_param_read(request,"query",[["is_metadata","int",0,None]])
    user=await function_user_read_single(request.app.state.client_postgres_pool,request.state.user["id"])
    metadata={}
-   if param["is_metadata"]==1:metadata=await function_user_query_read(request.app.state.client_postgres_pool,config_query,request.state.user["id"])
+   if param["is_metadata"]==1:metadata=await function_user_query_read(request.app.state.client_postgres_pool,config_sql,request.state.user["id"])
    asyncio.create_task(function_postgres_object_update(request.app.state.client_postgres_pool,function_postgres_object_serialize,request.app.state.cache_postgres_column_datatype,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}]),None,None)
    return {"status":1,"message":user|metadata}
 

@@ -6,7 +6,11 @@ from core.route import *
 async def function_api_test(request:Request):
    return {"status":1,"message":"welcome to test"}
 
-@router.get("/test2")
+@router.get("/protected/test")
+async def function_api_test(request:Request):
+   return {"status":1,"message":"welcome to test protected"}
+
+@router.get("/zzz")
 async def function_api_test2(request:Request):
    output=None
    if False:await function_postgres_create_fake_data(request.app.state.client_postgres_pool)
