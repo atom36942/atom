@@ -1,4 +1,3 @@
-###postgres
 async def function_postgres_runner(client_postgres_pool,mode,query):
     if mode not in ["read","write"]:raise Exception("mode=read/write")
     block_word = ["drop", "truncate"]
@@ -16,22 +15,24 @@ async def function_postgres_runner(client_postgres_pool,mode,query):
     return None
 
 async def function_postgres_ids_update(client_postgres_pool,table,ids,column,value,created_by_id=None,updated_by_id=None):
-   query=f"update {table} set {column}=$1,updated_by_id=$2 where id in ({ids}) and (created_by_id=$3 or $3 is null);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,value,updated_by_id,created_by_id)
-   return None
-
+    set_clause=f"{column}=$1" if updated_by_id is None else f"{column}=$1,updated_by_id=$2"
+    query=f"update {table} set {set_clause} where id in ({ids}) and ($3 is null or created_by_id=$3);"
+    async with client_postgres_pool.acquire() as conn:
+        params=[value]
+        if updated_by_id is not None:params.append(updated_by_id)
+        params.append(created_by_id)
+        await conn.execute(query,*params)
+        
 async def function_postgres_ids_delete(client_postgres_pool,table,ids,created_by_id=None):
-   query=f"delete from {table} where id in ({ids}) and (created_by_id=$1 or $1 is null);"
-   async with client_postgres_pool.acquire() as conn:
-      await conn.execute(query,created_by_id)
-   return None
+    query=f"delete from {table} where id in ({ids}) and ($1 is null or created_by_id=$1);"
+    async with client_postgres_pool.acquire() as conn:
+        await conn.execute(query,created_by_id)
 
 async def function_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None,order=None,limit=None,page=None):
     order,limit,page=order or "id desc",limit or 100,page or 1
-    query=f"with x as (select {parent_column} from {table} where (created_by_id=$1 or $1 is null) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} as ct on x.{parent_column}=ct.id;"
+    query=f"with x as (select {parent_column} from {table} where ($1 is null or created_by_id=$1) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} ct on x.{parent_column}=ct.id;"
     async with client_postgres_pool.acquire() as conn:
-       obj_list=await conn.fetch(query,created_by_id)
+        obj_list=await conn.fetch(query,created_by_id)
     return obj_list
 
 import re, json
@@ -603,7 +604,6 @@ async def function_postgres_create_fake_data(client_postgres_pool,total_row=None
         await generate_data(conn,insert_batch,tables,total_row,batch_size)
     return None
 
-###redis
 import redis.asyncio as redis
 async def function_redis_client_read(config_redis_url):
    client_redis=redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
@@ -641,7 +641,6 @@ async def function_redis_object_delete(client_redis,obj_list):
       await pipe.execute()
    return None
 
-###aws
 import boto3
 async def function_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name):
    client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
@@ -696,18 +695,18 @@ async def function_s3_bucket_delete(client_s3,bucket):
 
 import uuid
 from io import BytesIO
-async def function_s3_upload_file(client_s3,config_s3_region_name,bucket,file,key=None,config_limit_s3_kb=None):
+async def function_s3_upload(client_s3,config_s3_region_name,bucket,file_api,key=None,config_limit_s3_kb=None):
     if not config_limit_s3_kb:config_limit_s3_kb=100
     if not key:
-        if "." not in file.filename:raise Exception("file must have extension")
-        key=f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}"
+        if "." not in file_api.filename:raise Exception("file must have extension")
+        key=f"{uuid.uuid4().hex}.{file_api.filename.rsplit('.',1)[1]}"
     if "." not in key:raise Exception("extension must")
-    file_content=await file.read()
-    file.file.close()
+    file_content=await file_api.read()
+    file_api.file.close()
     file_size_kb=round(len(file_content)/1024)
     if file_size_kb>config_limit_s3_kb:raise Exception("file size issue")
     client_s3.upload_fileobj(BytesIO(file_content),bucket,key)
-    output={file.filename:f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"}
+    output={file_api.filename:f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"}
     return output
 
 import uuid
@@ -722,7 +721,6 @@ async def function_s3_upload_presigned(client_s3,config_s3_region_name,bucket,ke
    output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
    return output
 
-###queue
 from celery import Celery
 async def function_celery_client_read_producer(config_celery_broker_url,config_celery_backend_url):
    client_celery_producer=Celery("producer",broker=config_celery_broker_url,backend=config_celery_backend_url)
@@ -774,7 +772,6 @@ async def function_kafka_producer(client_kafka_producer,config_channel_name,payl
    output=await client_kafka_producer.send_and_wait(config_channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
-###app
 async def function_check_ratelimiter(config_api,request):
     if not config_api.get(request.url.path,{}).get("ratelimiter_times_sec"):return None
     client_redis_ratelimiter=request.app.state.client_redis_ratelimiter
@@ -965,7 +962,6 @@ def function_add_router(app, router_folder_path):
             load_module(file_path)
     return None
 
-###api
 async def function_ownership_check(client_postgres_pool, table, id, user_id):
     if table == "users":
         if id != user_id:raise Exception("obj ownership issue")
@@ -986,10 +982,11 @@ async def function_user_query_read(client_postgres_pool, config_sql, user_id):
     return output
 
 async def function_api_usage(client_postgres_pool,days,created_by_id=None):
-    query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and (created_by_id=$1 or $1 is null) group by api limit 1000;"
+    if not days:return []
+    query=f"select api,count(*) from log_api where created_at >= now() - interval '{days} days' and ($1 is null or created_by_id=$1) group by api limit 1000;"
     async with client_postgres_pool.acquire() as conn:
-        rows=await conn.fetch(query,created_by_id)
-    return {r["api"]:r["count"] for r in rows}
+        obj_list=await conn.fetch(query,created_by_id)
+    return obj_list
 
 async def function_add_creator_data(client_postgres_pool, obj_list, creator_key):
     if not obj_list or not creator_key:return obj_list
@@ -1222,7 +1219,6 @@ async def function_auth_login_google(client_postgres_pool, type, google_token, c
     token = await function_token_encode(dict(user), config_key_jwt, config_token_expire_sec, config_token_user_key_list)
     return token
 
-###ai
 from openai import OpenAI
 def function_openai_client_read(config_openai_key):
    client_openai=OpenAI(api_key=config_openai_key)
@@ -1260,7 +1256,6 @@ async def function_ocr_tesseract_export(function_outpath_path_create,input_path,
         f.write(text)
     return output_path
 
-###integration
 import httpx
 async def function_resend_send_email(config_resend_url,config_resend_key,email_from,email_to_list,title,body):
    payload={"from":email_from,"to":email_to_list,"subject":title,"html":body}
@@ -1673,7 +1668,6 @@ def function_jira_jql_output_export(function_outpath_path_create,jira_base_url, 
         return f"CSV write error: {e}"
     return output_path
 
-###utility
 import os
 def function_create_folder(folder_name):
     os.makedirs(folder_name, exist_ok=True)
@@ -1796,14 +1790,6 @@ async def function_csv_path_to_object_list(path):
     obj_list = [row for row in reader]
     return obj_list
 
-import csv, io
-async def function_csv_api_to_object_list(file):
-    text = io.TextIOWrapper(file.file, encoding="utf-8")
-    reader = csv.DictReader(text)
-    obj_list = [row for row in reader]
-    await file.close()
-    return obj_list
-
 import os
 async def function_stream_file(path,chunk_size=1024*1024):
    with open(path, "rb") as f:
@@ -1903,7 +1889,6 @@ async def function_converter_integer(mode,x,max_length=None):
     if ln>max_length:raise Exception("invalid length") 
     return ''.join(ITC[i] for i in d[1:1+ln])
 
-#sftp
 import asyncssh
 async def function_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method):
     if config_sftp_auth_method not in ("key","password"):raise Exception("auth_method must be 'key' or 'password'")
@@ -1975,8 +1960,22 @@ async def function_sftp_csv_read_to_obj_list_stream(client_sftp,file_path_remote
                 yield batch
                 
 import csv
-def function_csv_file_to_obj_list(file_path):
-    with open(file_path,"r",encoding="utf-8") as f:
+def function_converter_csv_obj_list(input_path):
+    with open(input_path,"r",encoding="utf-8") as f:
         reader=csv.DictReader(f)
         return [row for row in reader]
+    
+import csv, io
+async def function_converter_file_api_obj_list(file_api):
+    text = io.TextIOWrapper(file_api.file, encoding="utf-8")
+    reader = csv.DictReader(text)
+    obj_list = [row for row in reader]
+    await file_api.close()
+    return obj_list
 
+import os
+import shutil
+async def function_save_file_api(function_outpath_path_create, file_api, output_path=None):
+    if not output_path:output_path = function_outpath_path_create("export", os.path.splitext(file_api.filename)[1].lstrip("."))
+    with open(output_path, "wb") as out_file:shutil.copyfileobj(file_api.file, out_file)
+    return output_path
