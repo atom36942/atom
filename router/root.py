@@ -35,7 +35,7 @@ async def function_api_root_postgres_import(request:Request):
 
 @router.post("/root/redis-import-create")
 async def function_api_root_redis_import_create(request:Request):
-   param=await function_request_param_read(request,"form",[["table","str",1,None],["expiry_sec","int",0,None],["file","file",1,[]]])
+   param=await function_request_param_read(request,"form",[["table","str",1,None],["file","file",1,[]],["expiry_sec","int",0,None]])
    obj_list=await function_converter_file_api_obj_list(param["file"][-1])
    key_list=[f"{param['table']}_{item['id']}" for item in obj_list]
    await function_redis_object_create(request.app.state.client_redis,key_list,obj_list,param["expiry_sec"])

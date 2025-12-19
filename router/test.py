@@ -2,7 +2,6 @@
 from core.route import *
 
 #api
-
 @router.get("/test2")
 async def function_api_test2(request:Request):
    output=None
