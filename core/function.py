@@ -1979,3 +1979,8 @@ async def function_save_file_api(function_outpath_path_create, file_api, output_
     if not output_path:output_path = function_outpath_path_create("export", os.path.splitext(file_api.filename)[1].lstrip("."))
     with open(output_path, "wb") as out_file:shutil.copyfileobj(file_api.file, out_file)
     return output_path
+
+def function_converter_namespace_datatype(ns):
+    for k, v in ns.items():
+        if isinstance(v, list):
+            ns[k] = tuple(v)

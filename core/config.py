@@ -310,3 +310,7 @@ config_postgres={
 }
 }
 
+#namesapce datatype convert
+from core.function import function_converter_namespace_datatype
+function_converter_namespace_datatype(globals())
+del function_converter_namespace_datatype
