@@ -38,11 +38,10 @@ def run_async(coro):
     except Exception as e:
         logger.error("task failed",exc_info=True)
         raise
-
 #task 1
 @client_celery_consumer.task(name="func_postgres_obj_list_create")
-def celery_task_1(table,obj_list,is_serialize):
-    return run_async(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,"now",table,obj_list,is_serialize))
+def celery_task_1(mode,table,obj_list,is_serialize,buffer):
+    return run_async(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,mode,table,obj_list,is_serialize,buffer))
 
 #task 2
 @client_celery_consumer.task(name="func_postgres_obj_list_update")

@@ -15,11 +15,9 @@ token_root="${config_key_root:-}"
 
 #output
 output_curl="$ROOT_DIR/export/curl_report.txt" 
-output_report="$ROOT_DIR/export/curl_report.csv"
 output_fail="$ROOT_DIR/export/curl_fail.log"
 
-# initialize report and curl output files
-echo "API,Status Code,Response Time (ms)" > "$output_report"
+# initialize curl output file
 : > "$output_curl"
 
 # counters
@@ -65,10 +63,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     body=$(printf '%s\n' "$out_and_write" | sed '$d' 2>/dev/null || true)
     [ -z "$body" ] && body="(empty response)"
 
-    # update counters and report
+    # update counters
     total_response_time=$((total_response_time + execution_time))
     ((count++))
-    echo "$url,$status_code,$execution_time" >> "$output_report"
 
     # handle success or failure
     if [[ "$status_code" -eq 200 ]]; then
@@ -94,12 +91,11 @@ done < <(sed -e ':a' -e '/\\$/N; s/\\\n[[:space:]]*/ /; ta' "$input_file")
 # summary
 avg_response_time=$(( count>0 ? total_response_time/count : 0 ))
 echo "--------------------------------------"
-echo "📊 API Execution Summary"
+echo "📊 Curl Execution Summary"
 echo "🚀 Total: $count"
 echo "✅ Success: $count_success"
 echo "❌ Fail: $count_fail"
 echo "⏳ Avg Response Time: ${avg_response_time}ms"
-echo "📄 Results saved in: $output_report"
-echo "📄 Full curl commands saved in: $output_curl"
+echo "📄 Report : $output_curl"
 [[ $count_fail -gt 0 ]] && echo "📄 Failed responses saved in: $output_fail"
 echo "--------------------------------------"

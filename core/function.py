@@ -1,15 +1,17 @@
-async def func_set_obj_list_column(request,table,obj_list,column):
-    for i,x in enumerate(obj_list):
-        if request.app.state.cache_postgres_schema.get(table).get(column):x[column]=request.state.user.get("id")
-    return obj_list
-
-async def func_convert_obj_body_to_obj_list(obj_body):
+async def func_wrapper_param_obj_create(request,func_request_param_read):
+    obj_query=await func_request_param_read(request,"query",[["mode","str",0,"now"],["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
+    obj_body=await func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
-    return obj_list
+    if request.state.user.get("id") and "created_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):
+        for item in obj_list:item["created_by_id"]=request.state.user.get("id")
+    return obj_query,obj_list
 
-import uuid
-def func_create_uuid():
-    return uuid.uuid4().hex
+async def func_wrapper_queue(request,queue,payload,config_channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer):
+   if queue=="celery":output=await func_celery_producer(request.app.state.client_celery_producer,payload["func"],[v for k,v in payload.items() if k!="func"])
+   elif queue=="kafka":output=await func_kafka_producer(request.app.state.client_kafka_producer,config_channel_name,payload)
+   elif queue=="rabbitmq":output=await func_rabbitmq_producer(request.app.state.client_rabbitmq_producer,config_channel_name,payload)
+   elif queue=="redis":output=await func_redis_producer(request.app.state.client_redis_producer,config_channel_name,payload)
+   return output
 
 import csv
 def func_converter_csv_obj_list(input_path):
@@ -277,7 +279,7 @@ import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype, mode,table=None,obj_list=None,is_serialize=None, buffer=None, returning_ids=False, conflict_columns=None, batch_size=None):
+async def func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype, mode,table=None,obj_list=None,is_serialize=None,buffer=None, returning_ids=False,conflict_columns=None,batch_size=None):
     if mode != "flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
     if not is_serialize:is_serialize=0
     buffer = buffer or 10
@@ -934,7 +936,7 @@ async def func_token_decode(token,config_key_jwt):
    return user
 
 import jwt,json,time
-async def func_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,key_list=None):
+async def func_jwt_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,key_list=None):
    if not isinstance(obj,dict):obj=dict(obj)
    payload={k:obj.get(k) for k in key_list} if key_list else obj
    payload=json.dumps(payload,default=str)
@@ -1171,70 +1173,62 @@ async def func_auth_signup_username_password_bigint(client_postgres_pool,type,us
     return output[0]
 
 import hashlib
-async def func_auth_login_password_username(client_postgres_pool,type,password,username,func_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+async def func_auth_login_password_username(client_postgres_pool,type,password,username):
     query="select * from users where type=$1 and username=$2 and password=$3 order by id desc limit 1;"
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
     user = output[0] if output else None
     if not user: raise Exception("user not found")
-    token = await func_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
+    return user
 
-async def func_auth_login_password_username_bigint(client_postgres_pool,type,password_bigint,username_bigint,func_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+async def func_auth_login_password_username_bigint(client_postgres_pool,type,password_bigint,username_bigint):
     query="select * from users where type=$1 and username_bigint=$2 and password_bigint=$3 order by id desc limit 1;"
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username_bigint,password_bigint)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
-    token = await func_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
+    return user
 
 import hashlib
-async def func_auth_login_password_email(client_postgres_pool,type,password,email,func_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+async def func_auth_login_password_email(client_postgres_pool,type,password,email):
     query="select * from users where type=$1 and email=$2 and password=$3 order by id desc limit 1;"
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,email,hashlib.sha256(str(password).encode()).hexdigest())
     user = output[0] if output else None
     if not user: raise Exception("user not found")
-    token = await func_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
+    return user
 
 import hashlib
-async def func_auth_login_password_mobile(client_postgres_pool,type,password,mobile,func_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list):
+async def func_auth_login_password_mobile(client_postgres_pool,type,password,mobile):
     query="select * from users where type=$1 and mobile=$2 and password=$3 order by id desc limit 1;"
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,mobile,hashlib.sha256(str(password).encode()).hexdigest())
     user = output[0] if output else None
     if not user: raise Exception("user not found")
-    token = await func_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
+    return user
 
-async def func_auth_login_otp_email(client_postgres_pool,type,email,otp,func_otp_verify,func_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list,config_otp_expire_sec):
-    await func_otp_verify(client_postgres_pool,otp,email,None,config_otp_expire_sec)
+async def func_auth_login_otp_email(client_postgres_pool,type,email):
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch("select * from users where type=$1 and email=$2 order by id desc limit 1;",type,email)
         user = output[0] if output else None
         if not user:
             output = await conn.fetch("insert into users (type,email) values ($1,$2) returning *;",type,email)
             user = output[0] if output else None
-    token = await func_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
+    return user
 
-async def func_auth_login_otp_mobile(client_postgres_pool,type,mobile,otp,func_otp_verify,func_token_encode,config_key_jwt,config_token_expire_sec,config_token_user_key_list,config_otp_expire_sec):
-    await func_otp_verify(client_postgres_pool,otp,None,mobile,config_otp_expire_sec)
+async def func_auth_login_otp_mobile(client_postgres_pool,type,mobile):
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch("select * from users where type=$1 and mobile=$2 order by id desc limit 1;",type,mobile)
         user = output[0] if output else None
         if not user:
             output = await conn.fetch("insert into users (type,mobile) values ($1,$2) returning *;",type,mobile)
             user = output[0] if output else None
-    token = await func_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
-    return token
+    return user
 
 import json
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_request
-async def func_auth_login_google(client_postgres_pool, type, google_token, config_google_login_client_id,func_token_encode, config_key_jwt, config_token_expire_sec, config_token_user_key_list):
+async def func_auth_login_google(client_postgres_pool,config_google_login_client_id,type,google_token):
     request = google_request.Request()
     id_info = id_token.verify_oauth2_token(google_token, request, config_google_login_client_id)
     if id_info.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]: raise Exception("invalid issuer")
@@ -1254,8 +1248,7 @@ async def func_auth_login_google(client_postgres_pool, type, google_token, confi
             metadata = json.dumps(google_user)
             output = await conn.fetch("INSERT INTO users (type, google_login_id, google_login_metadata) VALUES ($1, $2, $3::jsonb) RETURNING *", type, google_user["sub"], metadata)
             user = output[0] if output else None
-    token = await func_token_encode(dict(user), config_key_jwt, config_token_expire_sec, config_token_user_key_list)
-    return token
+    return user
 
 from openai import OpenAI
 def func_openai_client_read(config_openai_key):
@@ -1844,7 +1837,7 @@ async def func_render_html(path):
     async with aiofiles.open(full_path, "r", encoding="utf-8") as f:
         return await f.read()
 
-async def func_request_obj_read(request, mode, config):
+async def func_request_param_read(request, mode, config):
     if mode == "query":param = dict(request.query_params)
     elif mode == "form":
         form = await request.form()

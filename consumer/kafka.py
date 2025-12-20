@@ -12,10 +12,10 @@ async def logic():
       async for message in client_kafka_consumer:
          if message.topic==config_channel_name:
             payload=json.loads(message.value.decode('utf-8'))
-            if payload["func"]=="func_postgres_obj_list_create":asyncio.create_task(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,"now",payload["table"],payload["obj_list"],payload["is_serialize"]))
+            if payload["func"]=="func_postgres_obj_list_create":asyncio.create_task(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
             elif payload["func"]=="func_postgres_obj_list_update":asyncio.create_task(func_postgres_obj_list_update(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
             if not config_kafka_enable_auto_commit:await client_kafka_consumer.commit()
-            print(f"{payload.get('function')} task created")
+            print(f"{payload.get('func')} task created")
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))
    finally:

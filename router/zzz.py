@@ -55,7 +55,7 @@ async def func_api_test2(request:Request):
 
 @router.post("/test3")
 async def func_api_test3(request:Request):
-   param=await func_request_obj_read(request,"form",[["file","file",1,[]]])
+   param=await func_request_param_read(request,"form",[["file","file",1,[]]])
    for file_api in param["file"]:output=await func_save_file_api(func_outpath_path_create,file_api)
    return {"status":1,"message":output}
 
