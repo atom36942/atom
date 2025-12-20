@@ -135,5 +135,5 @@ vectorstore/
 *.db
 *.sqlite3
 export/
-zzz.txt
+z.py
 

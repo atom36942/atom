@@ -1,13 +1,10 @@
-#function
-from core.function import function_server_start
-
-#app
+#import
+from core.function import func_server_start
 from core.app import app
-
-#package
 import asyncio
 
 #logic
 if __name__=="__main__":
-   try:asyncio.run(function_server_start(app))
+   try:asyncio.run(func_server_start(app))
    except KeyboardInterrupt:print("exit")
+   
