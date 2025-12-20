@@ -97,7 +97,7 @@ async def func_api_my_object_create(request:Request):
    else:
       func_name="func_postgres_obj_list_create"
       param_list=[param["table"],obj_list]
-      payload={"function":func_name,"table":param["table"],"obj_list":obj_list}
+      payload={"func":func_name,"table":param["table"],"obj_list":obj_list}
       if param["queue"]=="celery":output=await func_celery_producer(request.app.state.client_celery_producer,func_name,param_list)
       elif param["queue"]=="kafka":output=await func_kafka_producer(request.app.state.client_kafka_producer,config_channel_name,payload)
       elif param["queue"]=="rabbitmq":output=await func_rabbitmq_producer(request.app.state.client_rabbitmq_producer,config_channel_name,payload)
@@ -143,5 +143,5 @@ async def func_api_my_ids_delete(request:Request):
 async def func_api_my_object_read(request:Request):
    param=await func_request_obj_read(request,"query",[["table","str",1,None]])
    param["created_by_id"]=f"=,{request.state.user['id']}"
-   obj_list=await func_postgres_object_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,param["table"],param)
+   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,param["table"],param)
    return {"status":1,"message":obj_list}

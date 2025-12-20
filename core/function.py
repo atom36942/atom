@@ -110,7 +110,7 @@ async def func_postgres_clean(client_postgres_pool, config_table):
             await conn.execute(query, threshold_date)
     return None
         
-async def func_postgres_object_read(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,table,obj):
+async def func_postgres_obj_list_read(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,table,obj):
     """
     obj={}
     obj={"order":"id asc"}
@@ -277,7 +277,7 @@ import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def func_postgres_obj_list_create(client_postgres_pool, func_postgres_obj_list_serialize, cache_postgres_column_datatype, mode, table=None, obj_list=None, is_serialize=None, buffer=None, returning_ids=False, conflict_columns=None, batch_size=None):
+async def func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype, mode,table=None,obj_list=None,is_serialize=None, buffer=None, returning_ids=False, conflict_columns=None, batch_size=None):
     if mode != "flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
     if not is_serialize:is_serialize=0
     buffer = buffer or 10
@@ -770,8 +770,8 @@ def func_celery_client_read_consumer(config_celery_broker_url,config_celery_back
    client_celery_consumer=Celery("worker",broker=config_celery_broker_url,backend=config_celery_backend_url)
    return client_celery_consumer
 
-async def func_celery_producer(client_celery_producer,function,param_list):
-   output=client_celery_producer.send_task(function,args=param_list)
+async def func_celery_producer(client_celery_producer,func,param_list):
+   output=client_celery_producer.send_task(func,args=param_list)
    return output.id
 
 import aio_pika
@@ -1622,16 +1622,16 @@ def func_jira_summary_export(func_outpath_path_create,jira_base_url,jira_email,j
 import requests,time,csv,json
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
-def func_jira_jql_output_export(func_outpath_path_create,jira_base_url, jira_email, jira_token, jql, column_names=None, limit=None, output_path=None):
+def func_jira_jql_output_export(func_outpath_path_create,jira_base_url, jira_email, jira_token, jql, column=None, limit=None, output_path=None):
     if not output_path:output_path=func_outpath_path_create("export","csv")
-    if not column_names:column_names="key,assignee,status"
+    if not column:column="key,assignee,status"
     if not limit:limit=10000
     auth = HTTPBasicAuth(jira_email, jira_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     if 'order by' not in jql.lower():
         jql = f"{jql} ORDER BY key ASC"
         print("ℹ️ Added 'ORDER BY key ASC' for stable pagination.")
-    field_list = [c.strip() for c in column_names.split(',')]
+    field_list = [c.strip() for c in column.split(',')]
     issues = []
     nextPageToken = None
     maxResults = 100
@@ -1821,7 +1821,7 @@ def func_check_required_env(config,required_key_list):
     return None
 
 import csv,io
-async def func_csv_path_to_obj_list(path):
+async def func_convert_file_path_obj_list(path):
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
     reader = csv.DictReader(io.StringIO(content))

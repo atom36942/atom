@@ -69,7 +69,7 @@ async def func_api_public_object_create(request:Request):
 async def func_api_public_object_read(request:Request):
    param=await func_request_obj_read(request,"query",[["table","str",1,None]])
    if param["table"] not in config_public_table_read_list:raise Exception("table not allowed")
-   obj_list=await func_postgres_object_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,param["table"],param)
+   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,param["table"],param)
    return {"status":1,"message":obj_list}
 
 @router.get("/public/object-read-gsheet")
