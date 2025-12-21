@@ -1,10 +1,10 @@
 import asyncio
 from itertools import count
 _counter=count(1)
-async def func_wrapper_consumer(payload,f_create,f_update,f_serialize,pg_pool,cache_dtype):
+async def func_wrapper_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype):
     n=next(_counter)
-    if payload["func"]=="func_postgres_obj_list_create":output=asyncio.create_task(f_create(pg_pool,f_serialize,cache_dtype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
-    elif payload["func"]=="func_postgres_obj_list_update":output=asyncio.create_task(f_update(pg_pool,f_serialize,cache_dtype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
+    if payload["func"]=="func_postgres_obj_list_create":output=asyncio.create_task(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
+    elif payload["func"]=="func_postgres_obj_list_update":output=asyncio.create_task(func_postgres_obj_list_update(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
     else:raise Exception("wrong consumer func")
     print(n)
     return output
@@ -54,11 +54,12 @@ async def func_converter_file_api_obj_list(file_api):
     await file_api.close()
     return obj_list
 
-import os
-import shutil
-async def func_save_file_api(func_outpath_path_create, file_api, output_path=None):
-    if not output_path:output_path = func_outpath_path_create("export", os.path.splitext(file_api.filename)[1].lstrip("."))
-    with open(output_path, "wb") as out_file:shutil.copyfileobj(file_api.file, out_file)
+from pathlib import Path
+import uuid, shutil
+async def func_save_file_api(file_api, output_path=None):
+    if not output_path:output_path=f"export/{uuid.uuid4().hex}{Path(file_api.filename or '').suffix}"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "wb") as f: shutil.copyfileobj(file_api.file, f)
     return output_path
 
 def func_converter_namespace_datatype(ns):
@@ -427,39 +428,24 @@ async def func_postgres_stream(client_postgres_pool, query, batch_size=None):
                 writer_stream.writerow(list(row))
                 yield stream.getvalue()
                 stream.seek(0); stream.truncate(0)
-
-import uuid
-from pathlib import Path
-def func_outpath_path_create(folder,extension=None):
-    uid = uuid.uuid4().hex
-    if extension:
-        path = Path(folder) / f"{uid}.{extension.lstrip('.')}"
-        path.parent.mkdir(parents=True, exist_ok=True)
-    else:
-        path = Path(folder) / uid
-        path.mkdir(parents=True, exist_ok=True)
-    return str(path)
          
-import csv,re
-async def func_postgres_export(func_outpath_path_create,client_postgres_pool,query,output_path=None,batch_size=None):
-    if not batch_size:batch_size=1000
-    if not output_path:output_path=func_outpath_path_create("export","csv")
-    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
-        raise Exception("Only read-only queries allowed")
-    f = None
+from pathlib import Path
+import csv, re, uuid
+async def func_postgres_export(client_postgres_pool, query, batch_size=None, output_path=None):
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise Exception("Only read-only queries allowed")
+    if not output_path: output_path = f"export/{uuid.uuid4().hex}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    f, batch_size = None, batch_size or 1000
     try:
-        async with client_postgres_pool.acquire() as conn:
-            async with conn.transaction():
-                writer = None
-                async for record in conn.cursor(query, prefetch=batch_size):
-                    if writer is None:
-                        f = open(output_path, "w", newline="", encoding="utf-8")
-                        writer = csv.writer(f)
-                        writer.writerow(record.keys())
-                    writer.writerow(record.values())
+        async with client_postgres_pool.acquire() as conn, conn.transaction():
+            writer = None
+            async for r in conn.cursor(query, prefetch=batch_size):
+                if not writer:
+                    f = open(output_path, "w", newline="", encoding="utf-8")
+                    writer = csv.writer(f); writer.writerow(r.keys())
+                writer.writerow(r.values())
     finally:
-        if f:
-            f.close()
+        if f: f.close()
     return output_path
 
 async def func_postgres_schema_init(client_postgres_pool,config_postgres,func_postgres_schema_read):
@@ -629,12 +615,12 @@ async def func_postgres_create_fake_data(client_postgres_pool,total_row=None,bat
     "customers": [("name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("birth_date", "DATE", lambda: dt.date()), ("signup_code", "TEXT", lambda: code.imei()), ("loyalty_points", "INT", lambda: random.randint(0, 10000)), ("favorite_fruit", "TEXT", lambda: food.fruit())],
     "orders": [("order_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("order_date", "DATE", lambda: dt.date()), ("shipping_city", "TEXT", lambda: address.city()), ("total_amount", "INT", lambda: random.randint(10, 5000)), ("status", "TEXT", lambda: random.choice(["pending", "shipped", "delivered", "cancelled"])), ("item_count", "INT", lambda: random.randint(1, 20)), ("shipping_country", "TEXT", lambda: address.country())],
     "products": [("product_name", "TEXT", lambda: food.fruit()), ("category", "TEXT", lambda: random.choice(["electronics", "clothing", "food", "books"])), ("price", "INT", lambda: random.randint(5, 1000)), ("supplier_city", "TEXT", lambda: address.city()), ("stock_quantity", "INT", lambda: random.randint(0, 500)), ("manufacture_date", "DATE", lambda: dt.date()), ("expiry_date", "DATE", lambda: dt.date()), ("sku_code", "TEXT", lambda: code.imei())],
-    "employees": [("full_name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("city", "TEXT", lambda: address.city()), ("salary", "INT", lambda: random.randint(30000, 150000)), ("hire_date", "DATE", lambda: dt.date()), ("employee_id", "TEXT", lambda: code.imei())],
+    "employees": [("full_name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Marketing"])), ("city", "TEXT", lambda: address.city()), ("salary", "INT", lambda: random.randint(30000, 150000)), ("hire_date", "DATE", lambda: dt.date()), ("employee_id", "TEXT", lambda: code.imei())],
     "suppliers": [("supplier_name", "TEXT", lambda: person.full_name()), ("contact_email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("phone_number", "TEXT", lambda: person.telephone()), ("rating", "INT", lambda: random.randint(1, 5))],
     "invoices": [("invoice_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("invoice_date", "DATE", lambda: dt.date()), ("amount_due", "INT", lambda: random.randint(100, 10000)), ("due_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["paid", "unpaid", "overdue"]))],
     "payments": [("payment_id", "TEXT", lambda: code.imei()), ("invoice_number", "TEXT", lambda: code.imei()), ("payment_date", "DATE", lambda: dt.date()), ("amount", "INT", lambda: random.randint(50, 10000)), ("payment_method", "TEXT", lambda: random.choice(["credit_card", "paypal", "bank_transfer"])), ("status", "TEXT", lambda: random.choice(["completed", "pending", "failed"]))],
-    "departments": [("department_name", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"])), ("manager", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city()), ("budget", "INT", lambda: random.randint(50000, 1000000))],
-    "projects": [("project_name", "TEXT", lambda: text_gen.word()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("budget", "INT", lambda: random.randint(10000, 500000)), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Support"]))],
+    "departments": [("department_name", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Marketing"])), ("manager", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city()), ("budget", "INT", lambda: random.randint(50000, 1000000))],
+    "projects": [("project_name", "TEXT", lambda: text_gen.word()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("budget", "INT", lambda: random.randint(10000, 500000)), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Marketing"]))],
     "inventory": [("item_name", "TEXT", lambda: food.spices()), ("quantity", "INT", lambda: random.randint(0, 1000)), ("warehouse_location", "TEXT", lambda: address.city()), ("last_restock_date", "DATE", lambda: dt.date())],
     "shipments": [("shipment_id", "TEXT", lambda: code.imei()), ("order_number", "TEXT", lambda: code.imei()), ("shipment_date", "DATE", lambda: dt.date()), ("delivery_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["in_transit", "delivered", "delayed"]))],
     "reviews": [("review_id", "TEXT", lambda: code.imei()), ("product_name", "TEXT", lambda: food.fruit()), ("customer_name", "TEXT", lambda: person.full_name()), ("rating", "INT", lambda: random.randint(1, 5)), ("review_date", "DATE", lambda: dt.date()), ("comments", "TEXT", lambda: text_gen.sentence())],
@@ -892,29 +878,31 @@ from fastapi import Response
 import gzip, base64, time
 inmemory_cache_api = {}
 async def func_api_response_cache(mode, config_api, request, response):
+    def should_cache(expire_sec): return expire_sec is not None and expire_sec > 0
+    def build_cache_key(path, qp, uid): return f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(qp.items()))}:{uid}"
+    def compress(body): return base64.b64encode(gzip.compress(body)).decode()
+    def decompress(data): return gzip.decompress(base64.b64decode(data)).decode()
     if mode not in ["get","set"]: raise Exception("mode=get/set")
-    client_redis = request.app.state.client_redis
-    qp = "&".join(f"{k}={v}" for k, v in sorted(request.query_params.items()))
     uid = request.state.user.get("id") if "my/" in request.url.path else 0
-    cache_key = f"cache:{request.url.path}?{qp}:{uid}"
+    cache_key = build_cache_key(request.url.path, request.query_params, uid)
     cache_mode, expire_sec = config_api.get(request.url.path, {}).get("cache_sec", (None, None))
+    if not should_cache(expire_sec): return None if mode == "get" else response
     if mode == "get":
         data = None
-        if cache_mode == "redis": data = await client_redis.get(cache_key)
+        if cache_mode == "redis": data = await request.app.state.client_redis.get(cache_key)
         elif cache_mode == "inmemory":
             item = inmemory_cache_api.get(cache_key)
             if item and item["expire_at"] > time.time(): data = item["data"]
-        if data:
-            return Response(gzip.decompress(base64.b64decode(data)).decode(),status_code=200, media_type="application/json",headers={"x-cache":"hit"})
+        if data: return Response(decompress(data), status_code=200, media_type="application/json", headers={"x-cache":"hit"})
         return None
     elif mode == "set":
         body = getattr(response, "body", None)
         if body is None: body = b"".join([c async for c in response.body_iterator])
-        comp = base64.b64encode(gzip.compress(body)).decode()
-        if cache_mode == "redis": await client_redis.setex(cache_key, expire_sec, comp)
-        elif cache_mode == "inmemory": inmemory_cache_api[cache_key] = {"data": comp, "expire_at": time.time()+expire_sec}
-        return Response(content=body,status_code=response.status_code,media_type=response.media_type, headers=dict(response.headers))
-
+        comp = compress(body)
+        if cache_mode == "redis": await request.app.state.client_redis.setex(cache_key, expire_sec, comp)
+        elif cache_mode == "inmemory": inmemory_cache_api[cache_key] = {"data": comp, "expire_at": time.time() + expire_sec}
+        return Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
+    
 from fastapi import Request,responses
 from starlette.background import BackgroundTask
 async def func_api_response_background(request,api_function):
@@ -1296,21 +1284,21 @@ async def func_openai_ocr(client_openai,model,file,prompt):
    output=client_openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
    return output
 
-import pytesseract
+from pathlib import Path
+import uuid, pytesseract
 from PIL import Image
 from pdf2image import convert_from_path
-async def func_ocr_tesseract_export(func_outpath_path_create,input_path,output_path=None):
-    if not output_path:output_path=func_outpath_path_create("export","txt")
-    if input_path.lower().endswith('.pdf'):
-        images = convert_from_path(input_path)
-        text = ''
-        for img in images:
-            text += pytesseract.image_to_string(img, lang='eng') + '\n'
+async def func_ocr_tesseract_export(input_path, output_path=None):
+    if not output_path: output_path = f"export/{uuid.uuid4().hex}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if input_path.lower().endswith(".pdf"):
+        text = "\n".join(
+            pytesseract.image_to_string(img, lang="eng")
+            for img in convert_from_path(input_path)
+        )
     else:
-        image = Image.open(input_path)
-        text = pytesseract.image_to_string(image, lang='eng')
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(text)
+        text = pytesseract.image_to_string(Image.open(input_path), lang="eng")
+    with open(output_path, "w", encoding="utf-8") as f: f.write(text)
     return output_path
 
 import httpx
@@ -1400,329 +1388,145 @@ async def func_mongodb_object_create(client_mongodb,database,table,obj_list):
    output=await mongodb_client_database[table].insert_many(obj_list)
    return str(output)
 
-import os,json,requests
-def func_grafana_dashbord_all_export(func_outpath_path_create,host,username,password,max_limit,output_path=None):
-    if not output_path:output_path=func_outpath_path_create("export",None)
-    session = requests.Session(); session.auth = (username, password)
-    sanitize = lambda s: "".join(c if c.isalnum() or c in " _-()" else "_" for c in s)
-    try:
-        orgs = session.get(f"{host}/api/orgs").json()
-    except Exception as e:
-        print("❌ Failed to get organizations:", e); return None
-    for org in orgs:
-        if session.post(f"{host}/api/user/using/{org['id']}").status_code != 200: continue
-        r = session.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers={"X-Grafana-Org-Id": str(org["id"])})
+from pathlib import Path
+import json, requests
+def func_grafana_dashbord_all_export(host, username, password, max_limit, output_path=None):
+    if not output_path: output_path = "export/grafana"
+    base = Path(output_path); base.mkdir(parents=True, exist_ok=True)
+    s = requests.Session(); s.auth = (username, password)
+    sanitize = lambda x: "".join(c if c.isalnum() or c in " _-()" else "_" for c in x)
+    try: orgs = s.get(f"{host}/api/orgs").json()
+    except Exception as e: print("❌ Failed to get organizations:", e); return None
+    for o in orgs:
+        if s.post(f"{host}/api/user/using/{o['id']}").status_code != 200: continue
+        r = s.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers={"X-Grafana-Org-Id": str(o["id"])})
         if r.status_code == 422: continue
         for d in r.json():
             try:
-                data = session.get(f"{host}/api/dashboards/uid/{d['uid']}").json()["dashboard"]
-                p = Path(output_path, sanitize(org["name"]), sanitize(d.get("folderTitle") or "General"))
-                p.mkdir(parents=True, exist_ok=True)
-                with open(p / f"{sanitize(d['title'])}.json", "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2)
-            except Exception as e:
-                print("❌ Failed to export", d.get("title"), ":", e)
+                data = s.get(f"{host}/api/dashboards/uid/{d['uid']}").json()["dashboard"]
+                p = base / sanitize(o["name"]) / sanitize(d.get("folderTitle") or "General"); p.mkdir(parents=True, exist_ok=True)
+                with open(p / f"{sanitize(d['title'])}.json", "w", encoding="utf-8") as f: json.dump(data, f, indent=2)
+            except Exception as e: print("❌ Failed to export", d.get("title"), ":", e)
     return output_path
 
 from jira import JIRA
-import pandas as pd
+from pathlib import Path
+import pandas as pd, uuid, calendar
 from datetime import date
-import calendar
-def func_jira_worklog_export(func_outpath_path_create,jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
-    if not output_path:output_path=func_outpath_path_create("export","csv")
+def func_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
+    if not output_path: output_path = f"export/{uuid.uuid4().hex}.csv"
     today = date.today()
-    if not start_date:
-        start_date = today.replace(day=1).strftime("%Y-%m-%d")
-    if not end_date:
-        last_day = calendar.monthrange(today.year, today.month)[1]
-        end_date = today.replace(day=last_day).strftime("%Y-%m-%d")
+    if not start_date: start_date = today.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date: end_date = today.replace(day=calendar.monthrange(today.year, today.month)[1]).strftime("%Y-%m-%d")
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     jira = JIRA(server=jira_base_url, basic_auth=(jira_email, jira_token))
     issues = jira.search_issues(f"worklogDate >= {start_date} AND worklogDate <= {end_date}", maxResults=False, expand="worklog")
-    data, assignees = [], set()
+    rows, assignees = [], set()
     for i in issues:
-        if i.fields.assignee:
-            assignees.add(i.fields.assignee.displayName)
+        if i.fields.assignee: assignees.add(i.fields.assignee.displayName)
         for wl in i.fields.worklog.worklogs:
-            wl_date = wl.started[:10]
-            if start_date <= wl_date <= end_date:
-                data.append((wl.author.displayName, wl_date, wl.timeSpentSeconds / 3600))
-    df = pd.DataFrame(data, columns=["author","date","hours"])
-    df_pivot = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0)
-    df_pivot = df_pivot.reindex(assignees, fill_value=0).round(0).astype(int)
-    df_pivot.to_csv(output_path)
+            d = wl.started[:10]
+            if start_date <= d <= end_date: rows.append((wl.author.displayName, d, wl.timeSpentSeconds / 3600))
+    pd.DataFrame(rows, columns=["author","date","hours"]).pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(assignees, fill_value=0).round(0).astype(int).to_csv(output_path)
     return output_path
 
-import requests,csv
+from pathlib import Path
+import requests, csv, uuid
 from requests.auth import HTTPBasicAuth
-def func_jira_filter_count_export(func_outpath_path_create,jira_base_url,jira_email,jira_token,output_path=None):
-    if not output_path:output_path=func_outpath_path_create("export","csv")
+def func_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path=None):
+    if not output_path: output_path = f"export/{uuid.uuid4().hex}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     auth = HTTPBasicAuth(jira_email, jira_token)
-    headers = {"Accept": "application/json", "Content-Type": "application/json"}
-    resp = requests.get(
-        f"{jira_base_url}/rest/api/3/filter/search",
-        headers=headers,
-        auth=auth,
-        params={"maxResults": 1000},
-    )
-    if resp.status_code != 200:
-        return f"error {resp.status_code}: {resp.text}"
-    data = resp.json().get("values", [])
-    filters = sorted(data, key=lambda x: x.get("name", "").lower())
+    h = {"Accept": "application/json", "Content-Type": "application/json"}
+    r = requests.get(f"{jira_base_url}/rest/api/3/filter/search", headers=h, auth=auth, params={"maxResults": 1000})
+    if r.status_code != 200: return f"error {r.status_code}: {r.text}"
+    filters = sorted(r.json().get("values", []), key=lambda x: x.get("name", "").lower())
     with open(output_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["filter_name", "issue_count"])
+        w = csv.writer(f); w.writerow(["filter_name", "issue_count"])
         for flt in filters:
-            name = flt.get("name", "")
             jql = flt.get("jql") or f"filter={flt.get('id')}"
-            body = {"jql": jql}
-            count_resp = requests.post(
-                f"{jira_base_url}/rest/api/3/search/approximate-count",
-                headers=headers,
-                auth=auth,
-                json=body,
-            )
-            count = (
-                count_resp.json().get("count", 0)
-                if count_resp.status_code == 200
-                else f"error {count_resp.status_code}"
-            )
-            writer.writerow([name, count])
+            cr = requests.post(f"{jira_base_url}/rest/api/3/search/approximate-count", headers=h, auth=auth, json={"jql": jql})
+            w.writerow([flt.get("name", ""), cr.json().get("count", 0) if cr.status_code == 200 else f"error {cr.status_code}"])
     return output_path
 
-import requests,datetime,re
+from pathlib import Path
+import requests, datetime, re, uuid
 from collections import defaultdict, Counter
 from openai import OpenAI
-def func_jira_summary_export(func_outpath_path_create,jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
-    if not output_path:output_path=func_outpath_path_create("export","txt")
-    client = OpenAI(api_key=openai_key)
-    headers = {"Accept": "application/json"}
-    auth = (jira_email, jira_token)
-    def fetch_issues(jql):
-        url = f"{jira_base_url}/rest/api/3/search"
-        params = {
-            "jql": jql,
-            "fields": "summary,project,duedate,assignee,worklog,issuetype,parent,resolutiondate,updated",
-            "maxResults": jira_max_issues_per_status
-        }
-        r = requests.get(url, headers=headers, params=params, auth=auth)
-        r.raise_for_status()
-        return r.json().get("issues", [])
-    def fetch_comments(issue_key):
-      url = f"{jira_base_url}/rest/api/3/issue/{issue_key}/comment"
-      r = requests.get(url, headers=headers, auth=auth)
-      r.raise_for_status()
-      comments_data = r.json().get("comments", [])
-      comment_texts = []
-      for c in comments_data:
-         try:
-               content = c["body"].get("content", [])
-               if content and "content" in content[0]:
-                  text = content[0]["content"][0].get("text", "")
-                  comment_texts.append(text)
-         except (KeyError, IndexError, TypeError):
-               continue
-      return comment_texts
-    def group_by_project(issues):
-        grouped = defaultdict(list)
-        for i in issues:
-            name = i["fields"]["project"]["name"]
-            grouped[name].append(i)
-        return grouped
-    def summarize_with_ai(prompt):
-        try:
-            res = client.chat.completions.create(
-                model="gpt-4-0125-preview",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            lines = res.choices[0].message.content.strip().split("\n")
-            return [l.strip("-•* \n") for l in lines if l.strip()]
-        except Exception as e:
-            return [f"AI summary failed: {e}"]
-    def build_prompt(issues_by_project, status_label):
-        report, seen = [], set()
-        now = datetime.datetime.now()
-        for project, issues in issues_by_project.items():
-            for i in issues:
-                f = i["fields"]
-                title = f.get("summary", "").strip()
-                if title in seen:
-                    continue
-                seen.add(title)
-                comments = fetch_comments(i["key"])
-                last_comment = comments[-1][:100] if comments else ""
-                updated_days_ago = "N/A"
-                try:
-                    updated_field = f.get("updated")
-                    if updated_field:
-                        updated_dt = datetime.datetime.strptime(updated_field[:10], "%Y-%m-%d")
-                        updated_days_ago = (now - updated_dt).days
-                except:
-                    pass
-                time_spent = sum(w.get("timeSpentSeconds", 0) for w in f.get("worklog", {}).get("worklogs", [])) // 3600
-                line = f"{project} - {title}. Comment: {last_comment}. Hours: {time_spent}. Last Updated: {updated_days_ago}d ago. [{status_label}]"
-                report.append(line.strip())
-        return "\n".join(report)
-    def calculate_activity_and_performance(issues_done):
-        activity_counter = Counter()
-        on_time_closures = defaultdict(list)
-        for issue in issues_done:
-            f = issue["fields"]
-            assignee = f["assignee"]["displayName"] if f.get("assignee") else "Unassigned"
-            comments = fetch_comments(issue["key"])
-            worklogs = f.get("worklog", {}).get("worklogs", [])
-            activity_counter[assignee] += len(comments) + len(worklogs)
-            if f.get("duedate") and f.get("resolutiondate"):
-                try:
-                    due = datetime.datetime.strptime(f["duedate"], "%Y-%m-%d")
-                    resolved = datetime.datetime.strptime(f["resolutiondate"][:10], "%Y-%m-%d")
-                    if resolved <= due:
-                        on_time_closures[assignee].append(issue["key"])
-                except:
-                    continue
-        top_active = activity_counter.most_common(3)
-        best_ontime = sorted(on_time_closures.items(), key=lambda x: len(x[1]), reverse=True)[:3]
-        return top_active, best_ontime
-    def clean_lines(lines, include_project=False):
-        cleaned = []
-        for line in lines:
-            if len(line.split()) < 3:
-                continue
-            if include_project and "-" not in line:
-                continue
-            line = re.sub(r"[^\w\s\-.,/()]", "", line).strip()
-            line = re.sub(r'\s+', ' ', line)
-            cleaned.append(f"- {line}")
-        return cleaned
-    def save_summary_to_file(blockers, improvements, top_active, on_time, filename=output_path):
-        def numbered(lines):
-            return [f"{i+1}. {line}" for i, line in enumerate(lines)]
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write("Key Blockers\n")
-            for line in numbered(clean_lines(blockers, include_project=True)):
-                f.write(f"{line}\n")
-            f.write("\nSuggested Improvements\n")
-            for line in numbered(clean_lines(improvements)):
-                f.write(f"{line}\n")
-            f.write("\nTop 3 Active Assignees\n")
-            for i, (name, count) in enumerate(top_active, 1):
-                f.write(f"{i}. {name} ({count} updates)\n")
-            f.write("\nBest On-Time Assignees\n")
-            for i, (name, items) in enumerate(on_time, 1):
-                f.write(f"{i}. {name} - {len(items)} issues closed on or before due date\n")
-    issues_todo, issues_inprog, issues_done = [], [], []
-    for key in jira_project_key_list:
-        issues_todo += fetch_issues(f'project = {key} AND statusCategory = "To Do" ORDER BY updated DESC')
-        issues_inprog += fetch_issues(f'project = {key} AND statusCategory = "In Progress" ORDER BY updated DESC')
-        issues_done += fetch_issues(f'project = {key} AND statusCategory = "Done" ORDER BY resolutiondate DESC')
-    todo_grouped = group_by_project(issues_todo)
-    inprog_grouped = group_by_project(issues_inprog)
-    done_grouped = group_by_project(issues_done)
-    all_prompt_text = (
-        build_prompt(todo_grouped, "To Do") + "\n" +
-        build_prompt(inprog_grouped, "In Progress") + "\n" +
-        build_prompt(done_grouped, "Done")
-    )
-    prompt_blockers = (
-        "From the Jira issues below, list actual blockers that can delay progress. "
-        "Each line must begin with the project name. Be specific and short. Max 100 characters per bullet."
-    )
-    prompt_improvement = (
-        "You are a Jira productivity assistant. Based on the following Jira issue summaries, "
-        "give exactly 5 specific, actionable process improvements to improve execution quality and velocity. "
-        "Each point should be a short bullet (one line, max 100 characters). "
-        "Return only the 5 bullet points. Do not include any introduction, summary, explanation, or heading."
-    )
-    blockers = summarize_with_ai(prompt_blockers + "\n" + all_prompt_text)
-    improvements = summarize_with_ai(prompt_improvement + "\n" + all_prompt_text)
-    top_active, on_time = calculate_activity_and_performance(issues_done)
-    save_summary_to_file(blockers, improvements, top_active, on_time)
+def func_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
+    if not output_path: output_path=f"export/{uuid.uuid4().hex}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    c=OpenAI(api_key=openai_key); h={"Accept":"application/json"}; a=(jira_email,jira_token)
+    fi=lambda q: requests.get(f"{jira_base_url}/rest/api/3/search",headers=h,auth=a,params={"jql":q,"fields":"summary,project,duedate,assignee,worklog,resolutiondate,updated","maxResults":jira_max_issues_per_status}).json().get("issues",[])
+    fc=lambda k:[(lambda x: x["body"]["content"][0]["content"][0]["text"])(c) for c in requests.get(f"{jira_base_url}/rest/api/3/issue/{k}/comment",headers=h,auth=a).json().get("comments",[]) if isinstance(c,dict)]
+    grp=lambda xs: defaultdict(list,{i["fields"]["project"]["name"]:[*grp(xs).get(i["fields"]["project"]["name"],[]),i] for i in xs})
+    def build(g,s):
+        now=datetime.datetime.now(); seen=set(); o=[]
+        for p,xs in g.items():
+            for i in xs:
+                f=i["fields"]; t=f.get("summary","")
+                if t in seen: continue
+                seen.add(t); cm=fc(i["key"]); last=cm[-1][:100] if cm else ""
+                try:d=(now-datetime.datetime.strptime(f["updated"][:10],"%Y-%m-%d")).days
+                except:d="N/A"
+                h=sum(w.get("timeSpentSeconds",0) for w in f.get("worklog",{}).get("worklogs",[]))//3600
+                o.append(f"{p} - {t}. Comment: {last}. Hours: {h}. Last Updated: {d}d ago. [{s}]")
+        return "\n".join(o)
+    ai=lambda p:[l.strip("-•* ") for l in c.chat.completions.create(model="gpt-4-0125-preview",messages=[{"role":"user","content":p}]).choices[0].message.content.splitlines() if l.strip()]
+    perf=lambda ds:(Counter({(f:=i["fields"]).get("assignee",{}).get("displayName","Unassigned"):len(fc(i["key"]))+len(f.get("worklog",{}).get("worklogs",[])) for i in ds}).most_common(3),sorted(defaultdict(list,{(f:=i["fields"]).get("assignee",{}).get("displayName","Unassigned"):[i["key"]] for i in ds if f.get("duedate") and f.get("resolutiondate") and f["resolutiondate"][:10]<=f["duedate"]}).items(),key=lambda x:len(x[1]),reverse=True)[:3])
+    clean=lambda xs,p=False:[f"- {re.sub(r'\\s+',' ',re.sub(r'[^\\w\\s\\-.,/()]','',l)).strip()}" for l in xs if len(l.split())>2 and (not p or "-" in l)]
+    todo=inprog=done=[]
+    for k in jira_project_key_list:
+        todo+=fi(f'project={k} AND statusCategory="To Do" ORDER BY updated DESC')
+        inprog+=fi(f'project={k} AND statusCategory="In Progress" ORDER BY updated DESC')
+        done+=fi(f'project={k} AND statusCategory="Done" ORDER BY resolutiondate DESC')
+    txt=build(grp(todo),"To Do")+"\n"+build(grp(inprog),"In Progress")+"\n"+build(grp(done),"Done")
+    b=ai("List blockers.\n"+txt); i=ai("Give 5 improvements.\n"+txt); ta,ot=perf(done)
+    with open(output_path,"w",encoding="utf-8") as f:
+        f.write("Key Blockers\n");[f.write(f"{n+1}. {x}\n") for n,x in enumerate(clean(b,True))]
+        f.write("\nSuggested Improvements\n");[f.write(f"{n+1}. {x}\n") for n,x in enumerate(clean(i))]
+        f.write("\nTop 3 Active Assignees\n");[f.write(f"{n}. {x[0]} ({x[1]} updates)\n") for n,x in enumerate(ta,1)]
+        f.write("\nBest On-Time Assignees\n");[f.write(f"{n}. {x[0]} - {len(x[1])} issues closed on or before due date\n") for n,x in enumerate(ot,1)]
     return output_path
 
-import requests,time,csv,json
+from pathlib import Path
+import requests,time,csv,json,uuid
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
-def func_jira_jql_output_export(func_outpath_path_create,jira_base_url, jira_email, jira_token, jql, column=None, limit=None, output_path=None):
-    if not output_path:output_path=func_outpath_path_create("export","csv")
-    if not column:column="key,assignee,status"
-    if not limit:limit=10000
-    auth = HTTPBasicAuth(jira_email, jira_token)
-    headers = {"Accept": "application/json", "Content-Type": "application/json"}
-    if 'order by' not in jql.lower():
-        jql = f"{jql} ORDER BY key ASC"
-        print("ℹ️ Added 'ORDER BY key ASC' for stable pagination.")
-    field_list = [c.strip() for c in column.split(',')]
-    issues = []
-    nextPageToken = None
-    maxResults = 100
-    page_count = 0
-    print(f"Fetching JQL: '{jql}' (Limit: {limit})")
+def func_jira_jql_output_export(jira_base_url,jira_email,jira_token,jql,column=None,limit=None,output_path=None):
+    if not column: column="key,assignee,status"
+    if not limit: limit=10000
+    if not output_path: output_path=f"export/{uuid.uuid4().hex}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if "order by" not in jql.lower(): jql=f"{jql} ORDER BY key ASC"
+    auth=HTTPBasicAuth(jira_email,jira_token); h={"Accept":"application/json","Content-Type":"application/json"}
+    fields=[c.strip() for c in column.split(",")]; issues=[]; token=None; page=0
     while True:
-        page_count += 1
-        if limit and len(issues) >= limit:
-            break
-        current_max = min(maxResults, limit - len(issues)) if limit else maxResults
-        payload = {"jql": jql, "fields": field_list, "maxResults": current_max}
-        if nextPageToken:
-            payload["nextPageToken"] = nextPageToken
-        try:
-            resp = requests.post(f"{jira_base_url}/rest/api/3/search/jql", headers=headers, auth=auth, data=json.dumps(payload))
-        except RequestException as e:
-            return f"Connection error: {e}"
-        except Exception as e:
-            return f"Unexpected error: {e}"
-        if resp.status_code != 200:
-            error_msg = f"API Error {resp.status_code}: {resp.text}"
-            print(f"🚨 {error_msg}")
-            return f"Fatal error: {error_msg}" if page_count == 1 else f"Partial fetch: {len(issues)} issues saved."
-        try:
-            data = resp.json()
-        except Exception as e:
-            print(f"🚨 JSON parse error: {e}")
-            break
-        current_issues = data.get("issues", [])
-        if not current_issues:
-            break
-        issues.extend(current_issues)
-        print(f"Page {page_count}: +{len(current_issues)} issues (Total: {len(issues)})")
-        if data.get("isLast", True) or not data.get("nextPageToken"):
-            break
-        nextPageToken = data.get("nextPageToken")
-        time.sleep(0.1)
-        if page_count >= 1000:
-            print("⚠️ Reached 1000 pages limit.")
-            break
-    csv_headers = [c.strip().title().replace('_', ' ') for c in field_list]
-    try:
-        with open(output_path, "w", newline="", encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(csv_headers)
-            for issue in issues:
-                row = []
-                for field_name in field_list:
-                    if field_name.lower() == 'key':
-                        field_value = issue.get("key", "N/A")
-                    else:
-                        field_data = issue.get("fields", {}).get(field_name)
-                        if isinstance(field_data, dict):
-                            if field_name == 'assignee' and field_data:
-                                field_value = field_data.get("displayName")
-                            elif field_name == 'status' and field_data:
-                                field_value = field_data.get("name")
-                            elif 'name' in field_data:
-                                field_value = field_data.get("name")
-                            else:
-                                field_value = str(field_data)
-                        elif isinstance(field_data, list):
-                            names = [item.get('name') for item in field_data if isinstance(item, dict) and item.get('name')]
-                            field_value = ", ".join(names) if names else ", ".join(map(str, field_data))
-                        elif field_data is not None:
-                            field_value = field_data
-                        else:
-                            field_value = None
-                    row.append(field_value if field_value is not None else "")
-                writer.writerow(row)
-    except Exception as e:
-        return f"CSV write error: {e}"
+        if limit and len(issues)>=limit: break
+        page+=1; size=min(100,limit-len(issues))
+        payload={"jql":jql,"fields":fields,"maxResults":size}
+        if token: payload["nextPageToken"]=token
+        try: r=requests.post(f"{jira_base_url}/rest/api/3/search/jql",headers=h,auth=auth,data=json.dumps(payload))
+        except RequestException as e: return f"Connection error: {e}"
+        if r.status_code!=200: return f"API error {r.status_code}: {r.text}"
+        d=r.json(); cur=d.get("issues",[])
+        if not cur: break
+        issues+=cur
+        if d.get("isLast",True) or not d.get("nextPageToken") or page>=1000: break
+        token=d.get("nextPageToken"); time.sleep(0.1)
+    with open(output_path,"w",newline="",encoding="utf-8") as f:
+        w=csv.writer(f); w.writerow([c.title().replace("_"," ") for c in fields])
+        for i in issues:
+            row=[]
+            for k in fields:
+                if k=="key": v=i.get("key","")
+                else:
+                    d=i.get("fields",{}).get(k)
+                    if isinstance(d,dict): v=d.get("displayName") or d.get("name") or str(d)
+                    elif isinstance(d,list): v=", ".join(x.get("name") for x in d if isinstance(x,dict) and x.get("name"))
+                    else: v=d or ""
+                row.append(v)
+            w.writerow(row)
     return output_path
 
 import os
@@ -1743,18 +1547,17 @@ def func_reset_folder(folder_path):
             os.remove(path)
     return None
 
-import os
-async def func_folder_filename_export(func_outpath_path_create,input_path,output_path=None):
-    if not output_path:output_path=func_outpath_path_create("export","txt")
-    skip_dirs = {"venv", "__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
-    dir_path = os.path.abspath(input_path)
-    with open(output_path, "w") as out_file:
-        for root, dirs, files in os.walk(dir_path):
-            dirs[:] = [d for d in dirs if d not in skip_dirs]
-            for file in files:
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, dir_path)
-                out_file.write(rel_path + "\n")
+from pathlib import Path
+import uuid, os
+async def func_folder_filename_export(input_path, output_path=None):
+    if not output_path: output_path = f"export/{uuid.uuid4().hex}.txt"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    skip = {"venv","__pycache__", ".git",".mypy_cache",".pytest_cache","node_modules"}
+    base = Path(input_path).resolve()
+    with open(output_path,"w") as f:
+        for r,d,fs in os.walk(base):
+            d[:] = [x for x in d if x not in skip]
+            for x in fs: f.write(f"{Path(r,x).relative_to(base)}\n")
     return output_path
 
 import os
@@ -1981,18 +1784,18 @@ async def func_sftp_file_upload(client_sftp, file_path_input, file_path_output, 
                     if not chunk:
                         break
                     await rf.write(chunk)
-import os
+    
+import uuid                
 from pathlib import Path
-async def func_sftp_file_download(func_outpath_path_create,client_sftp,input_path,output_path=None,chunk_size=None):
-    if not chunk_size:chunk_size=65536
-    if not output_path:output_path=func_outpath_path_create("export",os.path.splitext(input_path)[1])
-    async with client_sftp.start_sftp_client() as sftp:
-        async with sftp.open(input_path,"rb") as rf:
-            with open(output_path,"wb") as lf:
-                while True:
-                    chunk=await rf.read(chunk_size)
-                    if not chunk:break
-                    lf.write(chunk)
+async def func_sftp_file_download(client_sftp, input_path, output_path=None, chunk_size=None):
+    if not chunk_size: chunk_size = 65536
+    if not output_path: output_path = f"export/{uuid.uuid4().hex}{Path(input_path).suffix}"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    async with client_sftp.start_sftp_client() as sftp, sftp.open(input_path,"rb") as rf, open(output_path,"wb") as lf:
+        while True:
+            c = await rf.read(chunk_size)
+            if not c: break
+            lf.write(c)
     return output_path
 
 async def func_sftp_file_delete(client_sftp, file_path):

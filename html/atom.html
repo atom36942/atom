@@ -190,7 +190,7 @@
     const data={description:form.description.value.trim(), email, mobile};
 
     try{
-      const r=await fetch(base+'/public/object-create?table=lead',{
+      const r=await fetch(base+'/public/object-create?table=test',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(data)

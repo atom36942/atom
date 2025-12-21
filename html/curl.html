@@ -125,7 +125,6 @@ const COMMANDS=[
 {p:"/admin/object-read",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"table",v:"test"}],f:[],j:[]},
 {p:"/admin/ids-update",m:"PUT",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"title",t:"string"},{k:"value",v:"admin",t:"string"}]},
 {p:"/admin/ids-delete",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"is_deleted",v:"1",t:"string"}]},
-{p:"/admin/jira-jql-output-save",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"jira_base_url",v:"test",t:"string"},{k:"jira_email",v:"test",t:"string"},{k:"jira_token",v:"test",t:"string"},{k:"jql",v:"test",t:"string"},{k:"column",v:"null",t:"string"}]},
 ];
 const d=document, $=i=>d.getElementById(i), orig=COMMANDS.map((c,i)=>({...c,oi:i}));
 let curr=null;

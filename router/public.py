@@ -7,7 +7,8 @@ async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
    output={
    "api_list":[route.path for route in request.app.routes],
    "postgres_schema":request.app.state.cache_postgres_schema,
-   "postgres_column_datatype":request.app.state.cache_postgres_column_datatype
+   "postgres_column_datatype":request.app.state.cache_postgres_column_datatype,
+   "request_state_app":{k:type(v).__name__ for k, v in request.app.state._state.items()}
    }
    return {"status":1,"message":output}
 
@@ -94,7 +95,7 @@ async def func_api_1c353211ef09455687a617b909eeaa7f(request:Request):
 @router.post("/public/jira-worklog-export")
 async def func_api_4a7af87fdb264c41ac62514a908fd0ef(request:Request):
    obj_body=await func_request_param_read(request,"body",[["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["start_date","str",0,None],["end_date","str",0,None]])
-   output_path=func_jira_worklog_export(func_outpath_path_create,obj_body["jira_base_url"],obj_body["jira_email"],obj_body["jira_token"],obj_body["start_date"],obj_body["end_date"],None)
+   output_path=func_jira_worklog_export(obj_body["jira_base_url"],obj_body["jira_email"],obj_body["jira_token"],obj_body["start_date"],obj_body["end_date"],None)
    return await func_download_file(output_path)
 
 

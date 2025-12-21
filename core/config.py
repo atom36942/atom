@@ -88,8 +88,8 @@ config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3
 config_token_expire_sec=int(os.getenv("config_token_expire_sec") or 365*24*60*60)
 config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_access").split(",")
 config_column_disabled_list=(os.getenv("config_column_disabled_list") or "is_active,is_verified,api_access").split(",")
-config_my_table_create_list=(os.getenv("config_my_table_create_list") or "test,workseeker,rating_test").split(",")
-config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test,workseeker").split(",")
+config_my_table_create_list=(os.getenv("config_my_table_create_list") or "test,rating_test").split(",")
+config_public_table_create_list=(os.getenv("config_public_table_create_list") or "test").split(",")
 config_public_table_read_list=(os.getenv("config_public_table_read_list") or "test").split(",")
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
@@ -99,7 +99,7 @@ config_sql={
 "user":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
 "cache_users_api_access":"select id,api_access from users where api_access is not null limit 1000",
 "cache_users_is_active":"select id,is_active from users limit 1000",
-"cache_config":"select key,metadata from config limit 1000;",
+"cache_config":"select title,metadata from config limit 1000;",
 }
 config_table={
 "test":{"buffer":3},
@@ -112,11 +112,11 @@ config_api={
 "/admin/object-read":{"id":3},
 "/admin/ids-update":{"id":4},
 "/admin/ids-delete":{"id":5},
-"/test":{"id":5,"is_token":0,"is_active_check":0,"cache_sec":["redis",60],"ratelimiter_times_sec":[1,3]},
-"/public/object-read":{"id":6,"cache_sec":["inmemory",60]},
-"/my/profile":{"id":7,"is_active_check":1,"cache_sec":["inmemory",10]},
-"/my/object-read":{"id":8,"cache_sec":["redis",60]},
-"/admin/jira-jql-output-save":{"id":9},
+"/test":{"id":6,"is_token":0,"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":[10,3]},
+"/public/object-read":{"id":7,"cache_sec":["inmemory",60]},
+"/my/profile":{"id":8,"is_active_check":1,"cache_sec":["inmemory",10]},
+"/my/object-read":{"id":9,"cache_sec":["inmemory",60]},
+"/public/info":{"id":11,"cache_sec":["inmemory",10]},
 }
 config_postgres={
 "table":{
@@ -141,6 +141,8 @@ config_postgres={
 "dob-date-0-0",
 "is_public-boolean-0-btree",
 "tags-text[]-0-gin",
+"email-text-0-btree",
+"mobile-text-0-btree",
 "metadata-jsonb-0-gin"
 ],
 "log_api":[
@@ -199,11 +201,6 @@ config_postgres={
 "description-text-1-0",
 "is_read-smallint-0-btree"
 ],
-"report_user":[
-"created_at-timestamptz-0-0",
-"created_by_id-bigint-1-btree",
-"user_id-bigint-1-btree"
-],
 "report_test":[
 "created_at-timestamptz-0-0",
 "created_by_id-bigint-1-btree",
@@ -215,72 +212,13 @@ config_postgres={
 "test_id-bigint-1-btree",
 "rating-numeric(10,3)-1-0"
 ],
-"workseeker":[
-"created_at-timestamptz-0-btree",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-0-btree",
-"title-text-0-btree,gin",
-"description-text-0-0",
-"file_url-text-0-0",
-"link_url-text-0-0",
-"tag-text-0-0",
-"rating-numeric(10,3)-0-0",
-"remark-text-0-btree,gin",
-"location-geography(POINT)-0-gist",
-"name-text-0-0",
-"dob-date-0-0",
-"country-text-0-0",
-"metadata-jsonb-0-gin"
-],
-"support":[
-"created_at-timestamptz-0-btree",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-0-btree",
-"title-text-0-btree,gin",
-"description-text-0-0",
-"file_url-text-0-0",
-"link_url-text-0-0",
-"tag-text-0-0"
-],
-"lead":[
-"created_at-timestamptz-0-btree",
-"updated_at-timestamptz-0-0",
-"created_by_id-bigint-0-0",
-"updated_by_id-bigint-0-0",
-"is_active-smallint-0-btree",
-"is_verified-smallint-0-btree",
-"is_deleted-smallint-0-btree",
-"is_protected-smallint-0-btree",
-"type-bigint-0-btree",
-"title-text-0-btree,gin",
-"description-text-0-0",
-"file_url-text-0-0",
-"link_url-text-0-0",
-"tag-text-0-0",
-"email-text-0-btree",
-"mobile-text-0-btree"
-],
-"jira":[
+"report_user":[
 "created_at-timestamptz-0-0",
-"type-bigint-1-btree",
-"key-text-1-btree",
-"assignee-text-1-btree",
-"status-text-0-0"
+"created_by_id-bigint-1-btree",
+"user_id-bigint-1-btree"
 ],
 "config":[
-"key-text-1-0",
+"title-text-1-0",
 "metadata-jsonb-1-gin"
 ],
 },
@@ -306,8 +244,7 @@ config_postgres={
 "unique_users_4":"alter table users add constraint constraint_unique_users_type_google_id unique (type,google_login_id);",
 "unique_users_5":"alter table report_user add constraint constraint_unique_report_user unique (created_by_id,user_id);",
 "unique_users_6":"alter table users add constraint constraint_unique_users_type_username_bigint unique (type,username_bigint);",
-"unique_workseeker":"alter table workseeker add constraint constraint_unique_workseeker_created_by_id unique (created_by_id);",
-"unique_config":"alter table config add constraint constraint_unique_config_key unique (key);",
+"unique_config":"alter table config add constraint constraint_unique_config_key unique (title);",
 }
 }
 

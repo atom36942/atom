@@ -1,7 +1,5 @@
-#config
+#import
 from core.config import *
-
-#function
 from core.function import *
 
 #lifespan
@@ -105,6 +103,4 @@ async def middleware(request,api_function):
 #root
 @app.get("/")
 async def func_api_index(request:Request):
-   output="welcome to atom"
-   if False:output={k: type(v).__name__ for k, v in request.app.state._state.items()}
-   return {"status":1,"message":output}
+   return {"status":1,"message":"welcome to atom"}

@@ -7,7 +7,7 @@ async def func_api_2653353cdf3145558dae1c3ce24318e2(request:Request):
    return {"status":1,"message":"welcome to test"}
 
 @router.get("/protected/test")
-async def func_api_test(request:Request):
+async def func_api_1bd8a31e5baa4b67b6f05785f3dd52fb(request:Request):
    return {"status":1,"message":"welcome to test protected"}
 
 @router.get("/page/{name}")
