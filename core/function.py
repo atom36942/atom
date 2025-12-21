@@ -67,19 +67,17 @@ def func_converter_namespace_datatype(ns):
             ns[k] = tuple(v)
 
 async def func_postgres_runner(client_postgres_pool,mode,query):
+    query_lower=query.lower()
     if mode not in ["read","write"]:raise Exception("mode=read/write")
     block_word = ["drop", "truncate"]
     for item in block_word:
-        if item in query.lower():
+        if item in query_lower:
             raise Exception(f"{item} keyword not allowed in query")
     async with client_postgres_pool.acquire() as conn:
-        if mode == "read":
-            return await conn.fetch(query)
+        if mode == "read":return await conn.fetch(query)
         if mode == "write":
-            if "returning" in query.lower():
-                return await conn.fetch(query)
-            else:
-                return await conn.execute(query)
+            if "returning" in query_lower:return await conn.fetch(query)
+            else:return await conn.execute(query)
     return None
 
 async def func_postgres_ids_update(client_postgres_pool,table,ids,column,value,created_by_id=None,updated_by_id=None):
@@ -1852,7 +1850,7 @@ async def func_convert_file_path_obj_list(input_path):
 import os, mimetypes, aiofiles
 from fastapi import responses
 from starlette.background import BackgroundTask
-async def func_stream_file(path, chunk_size=1024*1024):
+async def func_download_file(path,is_cleanup=1,chunk_size=1024*1024):
     filename = os.path.basename(path)
     media_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     async def iterator():
@@ -1862,7 +1860,8 @@ async def func_stream_file(path, chunk_size=1024*1024):
                 if not chunk:
                     break
                 yield chunk
-    return responses.StreamingResponse(iterator(), media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'}, background=BackgroundTask(os.remove, path))
+    background = BackgroundTask(os.remove, path) if is_cleanup else None
+    return responses.StreamingResponse(iterator(), media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'}, background=background)
 
 import os
 import aiofiles

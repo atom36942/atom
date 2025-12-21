@@ -13,7 +13,6 @@ async def func_lifespan(app:FastAPI):
    try:
       #checks
       func_create_folder("export")
-      if config_is_reset_export_folder:func_reset_folder("export")
       #client init
       client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection,config_postgres_schema_name) if config_postgres_url else None
       client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None

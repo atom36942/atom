@@ -46,5 +46,5 @@ async def func_api_a86a0dc9cf244d1099d8da4bd8c2fec2(request:Request):
    output_path=func_jira_jql_output_export(func_outpath_path_create,obj_body["jira_base_url"],obj_body["jira_email"],obj_body["jira_token"],obj_body["jql"],obj_body["column"],obj_body["limit"])
    obj_list=await func_convert_file_path_obj_list(output_path)
    obj_list=[item|{"type":obj_body["type"]} for item in obj_list]
-   output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"now","jira",obj_list,0,config_table.get("jira",{}).get("buffer"))
+   output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"now","jira",obj_list,0,None)
    return {"status":1,"message":output}

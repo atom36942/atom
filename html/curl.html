@@ -23,7 +23,21 @@ form{display:flex;flex-direction:column;gap:24px}
 @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 input,select{width:100%;padding:12px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:#14171c;color:#e6eef3;box-sizing:border-box}
 input:focus,select:focus{outline:none;border-color:var(--accent)}
-.row-key{flex:0 0 140px}.row-val{flex:1}.json-type-selector{flex:0 0 100px}
+.row-key{flex:0 0 140px}.row-val{flex:1}
+
+/* FIXED UI: Added custom arrow and padding to prevent touching the boundary */
+.json-type-selector{
+    flex:0 0 120px;
+    padding:12px 32px 12px 14px;
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    width:auto;
+    cursor:pointer
+}
+
 .remove-btn{background:var(--delete);color:#fff;border:none;width:36px;height:36px;flex:0 0 36px;border-radius:8px;cursor:pointer}
 .footer-row{display:flex;gap:16px;margin-top:12px}.btn{padding:14px 24px;flex:1;font-size:15px;font-weight:600;border-radius:8px;border:none;cursor:pointer;height:48px}
 .btn-primary{background:var(--primary);color:var(--primary-text)}.btn-secondary{background:var(--secondary);color:var(--secondary-text)}

@@ -95,7 +95,7 @@ async def func_api_1c353211ef09455687a617b909eeaa7f(request:Request):
 async def func_api_4a7af87fdb264c41ac62514a908fd0ef(request:Request):
    obj_body=await func_request_param_read(request,"body",[["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["start_date","str",0,None],["end_date","str",0,None]])
    output_path=func_jira_worklog_export(func_outpath_path_create,obj_body["jira_base_url"],obj_body["jira_email"],obj_body["jira_token"],obj_body["start_date"],obj_body["end_date"],None)
-   return await func_stream_file(output_path)
+   return await func_download_file(output_path)
 
 
 
