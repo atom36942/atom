@@ -36,7 +36,7 @@ async def func_lifespan(app:FastAPI):
       cache_users_is_active=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       cache_config=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
       #app state set
-      func_add_state(app,{**globals(),**locals()},("client_","cache_"))
+      func_add_state(app,{**globals(),**locals()},("client_","cache_","func_","config_"))
       #app shutdown
       yield
       await func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,"flush")
@@ -106,4 +106,6 @@ async def middleware(request,api_function):
 #root
 @app.get("/")
 async def func_api_index(request:Request):
-   return {"status":1,"message":"welcome to atom"}
+   output="welcome to atom"
+   if False:output={k: type(v).__name__ for k, v in request.app.state._state.items()}
+   return {"status":1,"message":output}

@@ -87,7 +87,7 @@ async def func_api_9486563f3c1240c5840a251562e5a5c3(request:Request):
 
 @router.post("/my/object-create")
 async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
-   obj_query,obj_list=await func_wrapper_param_obj_create(request,func_request_param_read)
+   obj_query,obj_list=await func_wrapper_obj_create(request,func_request_param_read)
    if obj_query["table"] in ["users"]:raise Exception("table not allowed")
    if any(any(k in config_column_disabled_list for k in x) for x in obj_list):raise Exception("obj key not allowed")
    if not obj_query["queue"]:output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],config_table.get(obj_query["table"],{}).get("buffer"))
@@ -98,18 +98,9 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
 
 @router.put("/my/object-update")
 async def func_api_a10070c5091d40ce90484ec9ec6e6587(request:Request):
-   obj_query=await func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None],["otp","int",0,None]])
-   obj_body=await func_request_param_read(request,"body",[])
+   obj_query,obj_list=await func_wrapper_obj_update(request,func_request_param_read)
    if any(any(k in config_column_disabled_list for k in x) for x in obj_list):raise Exception("obj key not allowed")
-
-
-
-   if obj_query["table"]=="users":
-      if len(obj_list)!=1:raise Exception("obj length issue")
-      if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
-      if any(key in obj_list[0] and len(obj_list[0])!=3 for key in ["password","email","mobile"]):raise Exception("obj length should be 2")
-      if config_is_otp_verify_profile_update and any(key in obj_list[0] and not obj_query["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
-      if obj_query["otp"]:await func_otp_verify(request.app.state.client_postgres_pool,obj_query["otp"],obj_list[0].get("email"),obj_list[0].get("mobile"),config_otp_expire_sec)
+   if obj_query["table"]=="users":await func_wrapper_obj_update_users(request,obj_query,obj_list)
    output=await func_postgres_obj_list_update(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],None if obj_query["table"]=="users" else request.state.user["id"])
    return {"status":1,"message":output}
 

@@ -4,15 +4,21 @@ from core.route import *
 #api
 @router.post("/admin/object-create")
 async def func_api_6dba580b31ff43e6824ea4292eb9c749(request:Request):
-   obj_query,obj_list=await func_wrapper_param_obj_create(request,func_request_param_read)
+   obj_query,obj_list=await func_wrapper_obj_create(request,func_request_param_read)
    if not obj_query["queue"]:output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],config_table.get(obj_query["table"],{}).get("buffer"))
+   elif obj_query["queue"]:
+      payload={"func":"func_postgres_obj_list_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":config_table.get(obj_query["table"],{}).get("buffer")}
+      output=await func_wrapper_queue(request,obj_query["queue"],payload,config_channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer)
    return {"status":1,"message":output}
 
 @router.put("/admin/object-update")
 async def func_api_febf6094467b456f8cabfb8191f1000e(request:Request):
-   obj_query=await func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None],["otp","int",0,None]])
-   obj_body=await func_request_param_read(request,"body",[])
-   if not obj_query["queue"]:output=await func_postgres_obj_list_update(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],None)
+   obj_query,obj_list=await func_wrapper_obj_update(request,func_request_param_read)
+   created_by_id=None
+   if not obj_query["queue"]:output=await func_postgres_obj_list_update(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
+   elif obj_query["queue"]:
+      payload={"func":"func_postgres_obj_list_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
+      output=await func_wrapper_queue(request,obj_query["queue"],payload,config_channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer)
    return {"status":1,"message":output}
 
 @router.get("/admin/object-read")
