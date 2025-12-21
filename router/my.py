@@ -88,8 +88,8 @@ async def func_api_9486563f3c1240c5840a251562e5a5c3(request:Request):
 @router.post("/my/object-create")
 async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
    obj_query,obj_list=await func_wrapper_obj_create(request,func_request_param_read)
-   if obj_query["table"] in ["users"]:raise Exception("table not allowed")
-   if any(any(k in config_column_disabled_list for k in x) for x in obj_list):raise Exception("obj key not allowed")
+   if obj_query["table"] not in config_my_table_create_list:raise Exception("table not allowed")
+   if any(any(k in config_column_disabled_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
    if not obj_query["queue"]:output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],config_table.get(obj_query["table"],{}).get("buffer"))
    elif obj_query["queue"]:
       payload={"func":"func_postgres_obj_list_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":config_table.get(obj_query["table"],{}).get("buffer")}
@@ -99,38 +99,13 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
 @router.put("/my/object-update")
 async def func_api_a10070c5091d40ce90484ec9ec6e6587(request:Request):
    obj_query,obj_list=await func_wrapper_obj_update(request,func_request_param_read)
-   if any(any(k in config_column_disabled_list for k in x) for x in obj_list):raise Exception("obj key not allowed")
+   if any(any(k in config_column_disabled_list for k in x) for x in obj_list):raise Exception("key not allowed")
    if obj_query["table"]=="users":await func_wrapper_obj_update_users(request,obj_query,obj_list)
-   output=await func_postgres_obj_list_update(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],None if obj_query["table"]=="users" else request.state.user["id"])
-   return {"status":1,"message":output}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@router.post("/my/object-create-mongodb")
-async def func_api_ad13e1541fdf4aeda4702eba872afc41(request:Request):
-   obj_query=await func_request_param_read(request,"query",[["database","str",1,None],["table","str",1,None]])
-   obj=await func_request_param_read(request,"body",[])
-   obj_list=obj["obj_list"] if "obj_list" in obj else [obj]
-   for i,x in enumerate(obj_list):
-      if len(x)<=1:raise Exception("obj key length issue")
-      if any(key in config_column_disabled_list for key in x):raise Exception("obj key not allowed")
-      x["created_by_id"]=request.state.user["id"]
-   if obj_query["table"] in ["users"]:raise Exception("table not allowed")
-   output=await func_mongodb_object_create(request.app.state.client_mongodb,obj_query["database"],obj_query["table"],obj_list)
+   created_by_id=None if obj_query["table"]=="users" else request.state.user["id"]
+   if not obj_query["queue"]:output=await func_postgres_obj_list_update(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
+   elif obj_query["queue"]:
+      payload={"func":"func_postgres_obj_list_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
+      output=await func_wrapper_queue(request,obj_query["queue"],payload,config_channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer)
    return {"status":1,"message":output}
 
 @router.get("/my/object-read")
@@ -139,3 +114,12 @@ async def func_api_4e9de78a107845b5a1ebcca0c61f7d0e(request:Request):
    obj_query["created_by_id"]=f"=,{request.state.user['id']}"
    obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
+
+@router.post("/my/object-create-mongodb")
+async def func_api_ad13e1541fdf4aeda4702eba872afc41(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["database","str",1,None],["table","str",1,None]])
+   obj_body=await func_request_param_read(request,"body",[])
+   obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
+   output=await func_mongodb_object_create(request.app.state.client_mongodb,obj_query["database"],obj_query["table"],obj_list)
+   return {"status":1,"message":output}
+

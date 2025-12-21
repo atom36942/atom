@@ -9,8 +9,7 @@ async def logic():
       async def aqmp_callback(message:aio_pika.IncomingMessage):
          async with message.process():
             payload=json.loads(message.body)
-            output=await func_wrapper_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype)
-            print(output)
+            await func_wrapper_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype)
       client_rabbitmq,client_rabbitmq_consumer=await func_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
       client_postgres_pool=await func_postgres_client_read(config_postgres_url)
       cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)

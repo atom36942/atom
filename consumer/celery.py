@@ -30,14 +30,19 @@ def shutdown_worker(**kwargs):
         worker_loop.close()
 
 #helper
+from itertools import count
+_run_counter=count(1)
 def run_async(coro):
-    if not client_postgres_pool or not worker_loop:
-        raise RuntimeError("postgres pool not initialized")
+    n=next(_run_counter)
+    if not client_postgres_pool or not worker_loop:raise RuntimeError("postgres pool not initialized")
     try:
-        return worker_loop.run_until_complete(coro)
-    except Exception as e:
-        logger.error("task failed",exc_info=True)
+        output=worker_loop.run_until_complete(coro)
+        print(n)
+        return None
+    except Exception:
+        logger.error(f"task failed #{n}",exc_info=True)
         raise
+    
 #task 1
 @client_celery_consumer.task(name="func_postgres_obj_list_create")
 def celery_task_1(mode,table,obj_list,is_serialize,buffer):

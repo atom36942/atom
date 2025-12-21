@@ -3,7 +3,7 @@ from core.route import *
 
 #api
 @router.get("/public/info")
-async def func_api_public_info(request:Request):
+async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
    output={
    "api_list":[route.path for route in request.app.routes],
    "postgres_schema":request.app.state.cache_postgres_schema,
@@ -11,90 +11,91 @@ async def func_api_public_info(request:Request):
    }
    return {"status":1,"message":output}
 
-@router.get("/public/otp-verify")
-async def func_api_public_otp_verify(request:Request):
-   param=await func_request_param_read(request,"query",[["otp","int",1,None],["email","str",0,None],["mobile","str",0,None]])
-   await func_otp_verify(request.app.state.client_postgres_pool,param["otp"],param["email"],param["mobile"],config_otp_expire_sec)
-   return {"status":1,"message":"done"}
-
-@router.get("/public/otp-send-email-ses")
-async def func_api_public_otp_send_email_ses(request:Request):
-   param=await func_request_param_read(request,"query",[["sender","str",1,None],["email","str",1,None]])
-   otp=await func_otp_generate(request.app.state.client_postgres_pool,param["email"],None)
-   await func_ses_send_email(request.app.state.client_ses,param["sender"],[param["email"]],"your otp code",str(otp))
-   return {"status":1,"message":"done"}
-
-@router.post("/public/otp-send-email-resend")
-async def func_api_public_otp_send_email_resend(request:Request):
-   param=await func_request_param_read(request,"query",[["sender","str",1,None],["email","str",1,None]])
-   otp=await func_otp_generate(request.app.state.client_postgres_pool,param["email"],None)
-   await func_resend_send_email(config_resend_url,config_resend_key,param["sender"],[param["email"]],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
-   return {"status":1,"message":"done"}
-
-@router.get("/public/otp-send-mobile-sns")
-async def func_api_public_otp_send_mobile_sns(request:Request):
-   param=await func_request_param_read(request,"query",[["mobile","str",1,None]])
-   otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",param["mobile"])
-   await func_sns_send_mobile_message(request.app.state.client_sns,param["mobile"],str(otp))
-   return {"status":1,"message":"done"}
-
-@router.post("/public/otp-send-mobile-sns-template")
-async def func_api_public_otp_send_mobile_sns_template(request:Request):
-   param=await func_request_param_read(request,"body",[["mobile","str",1,None],["message","str",1,None],["template_id","str",1,None],["entity_id","str",1,None],["sender_id","str",1,None]])
-   otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",param["mobile"])
-   message=param["message"].format(otp=otp)
-   await func_sns_send_mobile_message_template(request.app.state.client_sns,param["mobile"],message,param["template_id"],param["entity_id"],param["sender_id"])
-   return {"status":1,"message":"done"}
-
-@router.get("/public/otp-send-mobile-fast2sms")
-async def func_api_public_otp_send_mobile_fast2sms(request:Request):
-   param=await func_request_param_read(request,"query",[["mobile","str",1,None]])
-   otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",param["mobile"])
-   output=await func_fast2sms_send_otp_mobile(config_fast2sms_url,config_fast2sms_key,param["mobile"],otp)
+@router.get("/public/converter-integer")
+async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["mode","str",1,None],["x","str",1,None],["max_length","int",0,None]])
+   output=await func_converter_integer(obj_query["mode"],obj_query["x"],obj_query["max_length"])
    return {"status":1,"message":output}
 
 @router.post("/public/object-create")
-async def func_api_public_object_create(request:Request):
-   param=await func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0]])
-   obj=await func_request_param_read(request,"body",[])
-   obj_list=obj["obj_list"] if "obj_list" in obj else [obj]
-   for i,x in enumerate(obj_list):
-      if len(x)<=1:raise Exception("obj key length issue")
-      if any(key in config_column_disabled_list for key in x):raise Exception("obj key not allowed")
-   if param["table"] not in config_public_table_create_list:raise Exception("table not allowed")
-   output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"now",param["table"],obj_list,param["is_serialize"])
+async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
+   obj_query,obj_list=await func_wrapper_obj_create(request,func_request_param_read)
+   if obj_query["table"] not in config_public_table_create_list:raise Exception("table not allowed")
+   if any(any(k in config_column_disabled_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+   if not obj_query["queue"]:output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],config_table.get(obj_query["table"],{}).get("buffer"))
+   elif obj_query["queue"]:
+      payload={"func":"func_postgres_obj_list_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":config_table.get(obj_query["table"],{}).get("buffer")}
+      output=await func_wrapper_queue(request,obj_query["queue"],payload,config_channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer)
    return {"status":1,"message":output}
 
 @router.get("/public/object-read")
-async def func_api_public_object_read(request:Request):
-   param=await func_request_param_read(request,"query",[["table","str",1,None]])
-   if param["table"] not in config_public_table_read_list:raise Exception("table not allowed")
-   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,param["table"],param)
+async def func_api_88fdc8850b714b9db5fcac36cabf446d(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["table","str",1,None]])
+   if obj_query["table"] not in config_public_table_read_list:raise Exception("table not allowed")
+   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
-@router.get("/public/object-read-gsheet")
-async def func_api_public_object_read_gsheet(request:Request):
-   param=await func_request_param_read(request,"query",[["url","str",1,None]])
-   obj_list=await func_gsheet_object_read(param["url"])
-   return {"status":1,"message":obj_list}
+@router.get("/public/otp-verify")
+async def func_api_c5119024bc5346d9a8ada54ee6dfdaed(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["otp","int",1,None],["email","str",0,None],["mobile","str",0,None]])
+   output=await func_otp_verify(request.app.state.client_postgres_pool,obj_query["otp"],obj_query["email"],obj_query["mobile"],config_otp_expire_sec)
+   return {"status":1,"message":output}
+
+@router.get("/public/otp-send-email-ses")
+async def func_api_244d67aedf2743d0a507560d2f1bae14(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["sender","str",1,None],["email","str",1,None]])
+   otp=await func_otp_generate(request.app.state.client_postgres_pool,obj_query["email"],None)
+   output=await func_ses_send_email(request.app.state.client_ses,obj_query["sender"],[obj_query["email"]],"your otp code",str(otp))
+   return {"status":1,"message":output}
+
+@router.post("/public/otp-send-email-resend")
+async def func_api_ab8787cbe2e84442b805b2d4fc755643(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["sender","str",1,None],["email","str",1,None]])
+   otp=await func_otp_generate(request.app.state.client_postgres_pool,obj_query["email"],None)
+   output=await func_resend_send_email(config_resend_url,config_resend_key,obj_query["sender"],[obj_query["email"]],"your otp code",f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
+   return {"status":1,"message":output}
+
+@router.get("/public/otp-send-mobile-sns")
+async def func_api_99803968df144a38b8d5293c8e3fa33e(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["mobile","str",1,None]])
+   otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",obj_query["mobile"])
+   output=await func_sns_send_mobile_message(request.app.state.client_sns,obj_query["mobile"],str(otp))
+   return {"status":1,"message":output}
+
+@router.post("/public/otp-send-mobile-sns-template")
+async def func_api_8ba3a3e8f4d94450bdcd444bf7336c76(request:Request):
+   obj_body=await func_request_param_read(request,"body",[["mobile","str",1,None],["message","str",1,None],["template_id","str",1,None],["entity_id","str",1,None],["sender_id","str",1,None]])
+   otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",obj_body["mobile"])
+   message=obj_body["message"].format(otp=otp)
+   output=await func_sns_send_mobile_message_template(request.app.state.client_sns,obj_body["mobile"],message,obj_body["template_id"],obj_body["entity_id"],obj_body["sender_id"])
+   return {"status":1,"message":output}
+
+@router.get("/public/otp-send-mobile-fast2sms")
+async def func_api_42ce5231ca4e40cc9474938029bd40c5(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["mobile","str",1,None]])
+   otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",obj_query["mobile"])
+   output=await func_fast2sms_send_otp_mobile(config_fast2sms_url,config_fast2sms_key,obj_query["mobile"],otp)
+   return {"status":1,"message":output}
 
 @router.post("/public/object-create-gsheet")
-async def func_api_public_object_create_gsheet(request:Request):
-   param=await func_request_param_read(request,"query",[["url","str",1,None]])
-   obj=await func_request_param_read(request,"body",[])
-   obj_list=obj["obj_list"] if "obj_list" in obj else [obj]
-   output=func_gsheet_object_create(request.app.state.client_gsheet,param["url"],obj_list)
+async def func_api_ea356533d48f44bb9d7e79479fc43649(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["url","str",1,None]])
+   obj_body=await func_request_param_read(request,"body",[])
+   obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
+   output=func_gsheet_object_create(request.app.state.client_gsheet,obj_query["url"],obj_list)
    return {"status":1,"message":output}
+
+@router.get("/public/object-read-gsheet")
+async def func_api_1c353211ef09455687a617b909eeaa7f(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["url","str",1,None]])
+   obj_list=await func_gsheet_object_read(obj_query["url"])
+   return {"status":1,"message":obj_list}
 
 @router.post("/public/jira-worklog-export")
-async def func_api_public_jira_worklog_export(request:Request):
-   param=await func_request_param_read(request,"body",[["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["start_date","str",0,None],["end_date","str",0,None]])
-   output_path=func_jira_worklog_export(func_outpath_path_create,param["jira_base_url"],param["jira_email"],param["jira_token"],param["start_date"],param["end_date"],output_path)
-   stream=func_stream_file(output_path)
-   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment; filename=atom_download.csv"},background=BackgroundTask(lambda: os.remove(output_path)))
+async def func_api_4a7af87fdb264c41ac62514a908fd0ef(request:Request):
+   obj_body=await func_request_param_read(request,"body",[["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["start_date","str",0,None],["end_date","str",0,None]])
+   output_path=func_jira_worklog_export(func_outpath_path_create,obj_body["jira_base_url"],obj_body["jira_email"],obj_body["jira_token"],obj_body["start_date"],obj_body["end_date"],None)
+   return await func_stream_file(output_path)
 
-@router.get("/public/converter-integer")
-async def func_api_public_converter_integer(request:Request):
-   param=await func_request_param_read(request,"query",[["mode","str",1,None],["x","str",1,None],["max_length","int",0,None]])
-   output=await func_converter_integer(param["mode"],param["x"],param["max_length"])
-   return {"status":1,"message":output}
+
+

@@ -1,8 +1,13 @@
 import asyncio
-async def func_wrapper_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype):
-   if payload["func"]=="func_postgres_obj_list_create":output=asyncio.create_task(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
-   elif payload["func"]=="func_postgres_obj_list_update":output=asyncio.create_task(func_postgres_obj_list_update(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
-   return output
+from itertools import count
+_counter=count(1)
+async def func_wrapper_consumer(payload,f_create,f_update,f_serialize,pg_pool,cache_dtype):
+    n=next(_counter)
+    if payload["func"]=="func_postgres_obj_list_create":output=asyncio.create_task(f_create(pg_pool,f_serialize,cache_dtype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
+    elif payload["func"]=="func_postgres_obj_list_update":output=asyncio.create_task(f_update(pg_pool,f_serialize,cache_dtype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
+    else:raise Exception("wrong consumer func")
+    print(n)
+    return output
 
 async def func_wrapper_obj_update_users(request,obj_query,obj_list):
     if len(obj_list)!=1:raise Exception("multi object issue")
@@ -1837,18 +1842,27 @@ def func_check_required_env(config,required_key_list):
     return None
 
 import csv,io
-async def func_convert_file_path_obj_list(path):
-    with open(path, "r", encoding="utf-8") as f:
+async def func_convert_file_path_obj_list(input_path):
+    with open(input_path, "r", encoding="utf-8") as f:
         content = f.read()
     reader = csv.DictReader(io.StringIO(content))
     obj_list = [row for row in reader]
     return obj_list
 
-import os
-async def func_stream_file(path,chunk_size=1024*1024):
-   with open(path, "rb") as f:
-      while chunk := f.read(chunk_size):
-         yield chunk
+import os, mimetypes, aiofiles
+from fastapi import responses
+from starlette.background import BackgroundTask
+async def func_stream_file(path, chunk_size=1024*1024):
+    filename = os.path.basename(path)
+    media_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    async def iterator():
+        async with aiofiles.open(path, "rb") as f:
+            while True:
+                chunk = await f.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+    return responses.StreamingResponse(iterator(), media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'}, background=BackgroundTask(os.remove, path))
 
 import os
 import aiofiles
