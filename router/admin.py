@@ -15,7 +15,7 @@ async def func_api_febf6094467b456f8cabfb8191f1000e(request:Request):
 @router.get("/admin/object-read")
 async def func_api_bb6506520ad349f688f925055cd8b965(request:Request):
    obj_query=await func_request_param_read(request,"query",[["table","str",1,None]])
-   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,obj_query["table"],obj_query)
+   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
 @router.put("/admin/ids-update")

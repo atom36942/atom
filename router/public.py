@@ -27,7 +27,7 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
 async def func_api_88fdc8850b714b9db5fcac36cabf446d(request:Request):
    obj_query=await func_request_param_read(request,"query",[["table","str",1,None]])
    if obj_query["table"] not in config_public_table_read_list:raise Exception("table not allowed")
-   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,obj_query["table"],obj_query)
+   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
 @router.get("/public/otp-verify")
@@ -90,7 +90,7 @@ async def func_api_1c353211ef09455687a617b909eeaa7f(request:Request):
 async def func_api_4a7af87fdb264c41ac62514a908fd0ef(request:Request):
    obj_body=await func_request_param_read(request,"body",[["jira_base_url","str",1,None],["jira_email","str",1,None],["jira_token","str",1,None],["start_date","str",0,None],["end_date","str",0,None]])
    output_path=func_jira_worklog_export(obj_body["jira_base_url"],obj_body["jira_email"],obj_body["jira_token"],obj_body["start_date"],obj_body["end_date"],None)
-   return await func_download_file(output_path)
+   return await func_client_download_file(output_path)
 
 
 

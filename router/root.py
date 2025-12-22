@@ -14,7 +14,7 @@ async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
    request.app.state.cache_users_is_active=await func_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
    request.app.state.cache_config=await func_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_config")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("config",{}) else {}
    await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"flush")
-   if config_is_reset_export_folder:func_reset_folder("export")
+   if config_is_reset_export_folder:func_folder_reset("export")
    return {"status":1,"message":"done"}
 
 @router.get("/root/postgres-clean")
@@ -37,7 +37,7 @@ async def func_api_4eb43535bb05413c967fc18bfe93ac10(request:Request):
 @router.post("/root/postgres-import")
 async def func_api_5f4c0fdf16244ca084cd6a07687b245f(request:Request):
    obj_form=await func_request_param_read(request,"form",[["mode","str",1,None],["table","str",1,None],["file","file",1,[]]])
-   obj_list=await func_converter_file_api_obj_list(obj_form["file"][-1])
+   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
    if obj_form["mode"]=="create":output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"now",obj_form["table"],obj_list,1,None)
    elif obj_form["mode"]=="update":output=await func_postgres_obj_list_update(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_form["table"],obj_list,1,None)
    elif obj_form["mode"]=="delete":output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_form["table"],",".join(str(obj["id"]) for obj in obj_list),None)
@@ -46,7 +46,7 @@ async def func_api_5f4c0fdf16244ca084cd6a07687b245f(request:Request):
 @router.post("/root/redis-import-create")
 async def func_api_08d1ca28b2d54be29d9e9064a8a148a4(request:Request):
    obj_form=await func_request_param_read(request,"form",[["table","str",1,None],["file","file",1,[]],["expiry_sec","int",0,None]])
-   obj_list=await func_converter_file_api_obj_list(obj_form["file"][-1])
+   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
    key_list=[f"{obj_form['table']}_{item['id']}" for item in obj_list]
    output=await func_redis_object_create(request.app.state.client_redis,key_list,obj_list,obj_form["expiry_sec"])
    return {"status":1,"message":output}
@@ -54,14 +54,14 @@ async def func_api_08d1ca28b2d54be29d9e9064a8a148a4(request:Request):
 @router.post("/root/redis-import-delete")
 async def func_api_c3768e7ff7f441d7a5bcccfbc8dfaf15(request:Request):
    obj_form=await func_request_param_read(request,"form",[["file","file",1,[]]])
-   obj_list=await func_converter_file_api_obj_list(obj_form["file"][-1])
+   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
    output=await func_redis_object_delete(request.app.state.client_redis,obj_list)
    return {"status":1,"message":output}
 
 @router.post("/root/mongodb-import-create")
 async def func_api_4519b1151a0e428aa1b781ec61ed8fb0(request:Request):
    obj_form=await func_request_param_read(request,"form",[["database","str",1,None],["table","str",1,None],["file","file",1,[]]])
-   obj_list=await func_converter_file_api_obj_list(obj_form["file"][-1])
+   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
    output=await func_mongodb_object_create(request.app.state.client_mongodb,obj_form["database"],obj_form["table"],obj_list)
    return {"status":1,"message":output}
 

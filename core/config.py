@@ -249,6 +249,6 @@ config_postgres={
 }
 
 #namesapce datatype convert
-from core.function import func_converter_namespace_datatype
-func_converter_namespace_datatype(globals())
-del func_converter_namespace_datatype
+from core.function import func_list_to_tuple
+func_list_to_tuple(globals())
+del func_list_to_tuple

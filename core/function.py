@@ -58,28 +58,28 @@ async def func_handler_consumer(payload,func_postgres_obj_list_create,func_postg
     return output
 
 import csv
-def func_converter_csv_obj_list(input_path):
-    with open(input_path,"r",encoding="utf-8") as f:
+def func_csv_to_obj_list(path):
+    with open(path,"r",encoding="utf-8") as f:
         reader=csv.DictReader(f)
         return [row for row in reader]
     
 import csv, io
-async def func_converter_file_api_obj_list(file_api):
-    text = io.TextIOWrapper(file_api.file, encoding="utf-8")
+async def func_api_file_to_obj_list(file):
+    text = io.TextIOWrapper(file.file, encoding="utf-8")
     reader = csv.DictReader(text)
     obj_list = [row for row in reader]
-    await file_api.close()
+    await file.close()
     return obj_list
 
 from pathlib import Path
 import uuid, shutil
-async def func_save_file_api(file_api, output_path=None):
-    if not output_path:output_path=f"export/{uuid.uuid4().hex}{Path(file_api.filename or '').suffix}"
+async def func_api_file_save(file,output_path=None):
+    if not output_path:output_path=f"export/{uuid.uuid4().hex}{Path(file.filename or '').suffix}"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "wb") as f: shutil.copyfileobj(file_api.file, f)
+    with open(output_path, "wb") as f: shutil.copyfileobj(file.file, f)
     return output_path
 
-def func_converter_namespace_datatype(ns):
+def func_list_to_tuple(ns):
     for k, v in ns.items():
         if isinstance(v, list):
             ns[k] = tuple(v)
@@ -155,7 +155,7 @@ async def func_postgres_clean(client_postgres_pool, config_table):
             await conn.execute(query, threshold_date)
     return None
         
-async def func_postgres_obj_list_read(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,func_add_creator_data,func_add_action_count,table,obj):
+async def func_postgres_obj_list_read(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,table,obj):
     """
     obj={}
     obj={"order":"id asc"}
@@ -255,8 +255,8 @@ async def func_postgres_obj_list_read(client_postgres_pool,func_postgres_obj_lis
         try:
             records=await conn.fetch(query,*values)
             obj_list=[dict(r) for r in records]
-            if creator_key:obj_list=await func_add_creator_data(client_postgres_pool,obj_list,creator_key)
-            if action_key:obj_list=await func_add_action_count(client_postgres_pool,obj_list,action_key)
+            if creator_key:obj_list=await func_creator_data_add(client_postgres_pool,obj_list,creator_key)
+            if action_key:obj_list=await func_action_count_add(client_postgres_pool,obj_list,action_key)
             return obj_list
         except Exception as e:
             raise Exception(f"failed to read: {e}")
@@ -449,9 +449,9 @@ async def func_postgres_stream(client_postgres_pool, query, batch_size=None):
 from pathlib import Path
 import csv, re, uuid
 async def func_postgres_export(client_postgres_pool, query, batch_size=None, output_path=None):
-    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise Exception("Only read-only queries allowed")
     if not output_path: output_path = f"export/{uuid.uuid4().hex}.csv"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise Exception("Only read-only queries allowed")
     f, batch_size = None, batch_size or 1000
     try:
         async with client_postgres_pool.acquire() as conn, conn.transaction():
@@ -764,18 +764,18 @@ async def func_s3_bucket_delete(client_s3,bucket):
 
 import uuid
 from io import BytesIO
-async def func_s3_upload(client_s3,config_s3_region_name,bucket,file_api,key=None,config_limit_s3_kb=None):
+async def func_s3_upload(client_s3,config_s3_region_name,bucket,file,key=None,config_limit_s3_kb=None):
     if not config_limit_s3_kb:config_limit_s3_kb=100
     if not key:
-        if "." not in file_api.filename:raise Exception("file must have extension")
-        key=f"{uuid.uuid4().hex}.{file_api.filename.rsplit('.',1)[1]}"
+        if "." not in file.filename:raise Exception("file must have extension")
+        key=f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}"
     if "." not in key:raise Exception("extension must")
-    file_content=await file_api.read()
-    file_api.file.close()
+    file_content=await file.read()
+    file.file.close()
     file_size_kb=round(len(file_content)/1024)
     if file_size_kb>config_limit_s3_kb:raise Exception("file size issue")
     client_s3.upload_fileobj(BytesIO(file_content),bucket,key)
-    output={file_api.filename:f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"}
+    output={file.filename:f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"}
     return output
 
 import uuid
@@ -841,11 +841,11 @@ async def func_kafka_producer(client_kafka_producer,config_channel_name,payload)
    output=await client_kafka_producer.send_and_wait(config_channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
-async def func_check_ratelimiter(config_api,request):
-    if not config_api.get(request.url.path,{}).get("ratelimiter_times_sec"):return None
+async def func_handler_ratelimiter(request):
+    if not request.app.state.config_api.get(request.url.path,{}).get("ratelimiter_times_sec"):return None
     client_redis_ratelimiter=request.app.state.client_redis_ratelimiter
     if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
-    limit,window=config_api.get(request.url.path).get("ratelimiter_times_sec")
+    limit,window=request.app.state.config_api.get(request.url.path).get("ratelimiter_times_sec")
     identifier=request.state.user.get("id") if request.state.user else request.client.host
     ratelimiter_key=f"ratelimiter:{request.url.path}:{identifier}"
     current_count=await client_redis_ratelimiter.get(ratelimiter_key)
@@ -856,10 +856,10 @@ async def func_check_ratelimiter(config_api,request):
     await pipe.execute()
     return None
 
-async def func_check_is_active(config_mode_check_is_active,config_api,request):
-    if not config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user:return None
-    if config_mode_check_is_active=="token":user_is_active=request.state.user.get("is_active","absent")
-    elif config_mode_check_is_active=="cache":user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
+async def func_handler_is_active(request):
+    if not request.app.state.config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user:return None
+    if request.app.state.config_mode_check_is_active=="token":user_is_active=request.state.user.get("is_active","absent")
+    elif request.app.state.config_mode_check_is_active=="cache":user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
     else:raise Exception("config_mode_check_is_active=token/cache")
     if user_is_active=="absent":
         async with request.app.state.client_postgres_pool.acquire() as conn:
@@ -870,7 +870,7 @@ async def func_check_is_active(config_mode_check_is_active,config_api,request):
     if user_is_active==0:raise Exception("user not active")
     return None
 
-async def func_check_admin(config_mode_check_api_access, config_api, request):
+async def func_handler_admin(request):
     if not request.url.path.startswith("/admin"):return None
     def parse_access_list(access_str):return [int(item.strip()) for item in access_str.split(",")] if access_str else []
     async def fetch_user_access(user_id):
@@ -878,15 +878,15 @@ async def func_check_admin(config_mode_check_api_access, config_api, request):
         if not rows:raise Exception("user not found")
         return rows[0]["api_access"]
     def get_cached_access():
-        if config_mode_check_api_access == "token":return request.state.user.get("api_access", [])
-        elif config_mode_check_api_access == "cache":return request.app.state.cache_users_api_access.get(request.state.user["id"], [])
+        if request.app.state.config_mode_check_api_access == "token":return request.state.user.get("api_access", [])
+        elif request.app.state.config_mode_check_api_access == "cache":return request.app.state.cache_users_api_access.get(request.state.user["id"], [])
         raise Exception("config_mode_check_api_access=token/cache")
     user_api_access = get_cached_access()
     if not user_api_access:
         user_api_access = await fetch_user_access(request.state.user["id"])
         if not user_api_access:raise Exception("api access denied")
     user_api_access_list = parse_access_list(user_api_access)
-    api_id = config_api.get(request.url.path, {}).get("id")
+    api_id = request.app.state.config_api.get(request.url.path, {}).get("id")
     if not api_id:raise Exception("api id not mapped")
     if api_id not in user_api_access_list:raise Exception("api access denied")
     return None
@@ -894,7 +894,7 @@ async def func_check_admin(config_mode_check_api_access, config_api, request):
 from fastapi import Response
 import gzip, base64, time
 inmemory_cache_api = {}
-async def func_api_response_cache(mode, config_api, request, response):
+async def func_handler_cache(mode,request,response):
     def should_cache(expire_sec): return expire_sec is not None and expire_sec > 0
     def build_cache_key(path, qp, uid): return f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(qp.items()))}:{uid}"
     def compress(body): return base64.b64encode(gzip.compress(body)).decode()
@@ -902,7 +902,7 @@ async def func_api_response_cache(mode, config_api, request, response):
     if mode not in ["get","set"]: raise Exception("mode=get/set")
     uid = request.state.user.get("id") if "my/" in request.url.path else 0
     cache_key = build_cache_key(request.url.path, request.query_params, uid)
-    cache_mode, expire_sec = config_api.get(request.url.path, {}).get("cache_sec", (None, None))
+    cache_mode, expire_sec = request.app.state.config_api.get(request.url.path, {}).get("cache_sec", (None, None))
     if not should_cache(expire_sec): return None if mode == "get" else response
     if mode == "get":
         data = None
@@ -922,7 +922,7 @@ async def func_api_response_cache(mode, config_api, request, response):
     
 from fastapi import Request,responses
 from starlette.background import BackgroundTask
-async def func_api_response_background(request,api_function):
+async def func_handler_api_response_background(request,api_function):
    body=await request.body()
    async def receive():return {"type":"http.request","body":body}
    async def api_func_new():
@@ -932,36 +932,36 @@ async def func_api_response_background(request,api_function):
    response.background=BackgroundTask(api_func_new)
    return response
 
-async def func_api_response(request,api_function,config_api,func_api_response_background,func_api_response_cache):
-    cache_sec=config_api.get(request.url.path,{}).get("cache_sec")
+async def func_handler_api_response(request,api_function):
+    cache_sec=request.app.state.config_api.get(request.url.path,{}).get("cache_sec")
     response,response_type=None,None
-    if request.query_params.get("is_background")=="1":response=await func_api_response_background(request,api_function);response_type=1
-    elif cache_sec:response=await func_api_response_cache("get",config_api,request,None);response_type=2
+    if request.query_params.get("is_background")=="1":response=await request.app.state.func_handler_api_response_background(request,api_function);response_type=1
+    elif cache_sec:response=await request.app.state.func_handler_cache("get",request,None);response_type=2
     if not response:
         response=await api_function(request);response_type=3
-        if cache_sec:response=await func_api_response_cache("set",config_api,request,response);response_type=4
+        if cache_sec:response=await request.app.state.func_handler_cache("set",request,response);response_type=4
     return response,response_type
 
-async def func_token_check(request,config_api,config_key_root,config_key_jwt,func_token_decode):
+async def func_handler_token(request):
     user={}
     api=request.url.path
     token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
     if api.startswith("/root"):
         if not token:raise Exception("token missing")
-        if token!=config_key_root:raise Exception("token mismatch")
+        if token!=request.app.state.config_key_root:raise Exception("token mismatch")
     elif api.startswith("/protected"):
         if not token:raise Exception("token missing")
         if token!=request.app.state.cache_config["config_api"][api]["password"]:raise Exception("token mismatch")
     else:
-        if token:user=await func_token_decode(token,config_key_jwt)
+        if token:user=await request.app.state.func_jwt_token_decode(token,request.app.state.config_key_jwt)
         if api.startswith("/my") and not token:raise Exception("token missing")
         elif api.startswith("/private") and not token:raise Exception("token missing")
         elif api.startswith("/admin") and not token:raise Exception("token missing")
-        elif config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
+        elif request.app.state.config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
     return user
 
 import jwt,json
-async def func_token_decode(token,config_key_jwt):
+async def func_jwt_token_decode(token,config_key_jwt):
    user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
    return user
 
@@ -974,7 +974,7 @@ async def func_jwt_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,
    return token
 
 from fastapi import FastAPI
-def func_fastapi_app_read(lifespan,config_is_debug_fastapi):
+def func_app_create(lifespan,config_is_debug_fastapi):
    app=FastAPI(debug=True if config_is_debug_fastapi else False,lifespan=lifespan)
    return app
 
@@ -985,23 +985,23 @@ async def func_server_start(app):
    await server.serve()
    
 from fastapi.middleware.cors import CORSMiddleware
-def func_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials):
+def func_app_cors_add(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials):
    app.add_middleware(CORSMiddleware,allow_origins=config_cors_origin_list,allow_methods=config_cors_method_list,allow_headers=config_cors_headers_list,allow_credentials=config_cors_allow_credentials)
    return None
 
 from prometheus_fastapi_instrumentator import Instrumentator
-def func_add_prometheus(app):
+def func_app_prometheus_add(app):
    Instrumentator().instrument(app).expose(app)
    return None
 
-def func_add_state(app,obj,pattern_tuple):
+def func_app_state_add(app,obj,pattern_tuple):
     for k, v in obj.items():
         if k.startswith(pattern_tuple):
             setattr(app.state, k, v)
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-def func_add_sentry(config_sentry_dsn):
+def func_app_sentry_add(config_sentry_dsn):
    sentry_sdk.init(dsn=config_sentry_dsn,integrations=[FastApiIntegration()],traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
@@ -1009,8 +1009,8 @@ import sys
 import importlib.util
 from pathlib import Path
 import traceback
-def func_add_router(app, router_folder_path):
-    router_root = Path(router_folder_path).resolve()
+def func_app_router_add(app, folder_path):
+    router_root = Path(folder_path).resolve()
     if not router_root.is_dir():
         raise ValueError(f"router folder not found: {router_root}")
     def load_module(file_path):
@@ -1033,7 +1033,7 @@ def func_add_router(app, router_folder_path):
             load_module(file_path)
     return None
 
-async def func_ownership_check(client_postgres_pool, table, id, user_id):
+async def func_ownership_check(client_postgres_pool,table,id,user_id):
     if table == "users":
         if id != user_id:raise Exception("obj ownership issue")
     else:
@@ -1043,7 +1043,7 @@ async def func_ownership_check(client_postgres_pool, table, id, user_id):
         if row["created_by_id"] != user_id:raise Exception("obj ownership issue")
     return None
 
-async def func_user_sql_read(client_postgres_pool, config_sql, user_id):
+async def func_user_sql_read(client_postgres_pool,config_sql,user_id):
     obj = config_sql.get("user", {})
     output = {}
     async with client_postgres_pool.acquire() as conn:
@@ -1052,13 +1052,13 @@ async def func_user_sql_read(client_postgres_pool, config_sql, user_id):
             output[key] = [dict(r) for r in rows]
     return output
 
-async def func_api_usage(client_postgres_pool, days, created_by_id=None):
+async def func_api_usage_read(client_postgres_pool, days, created_by_id=None):
     query="select api,count(*) from log_api where created_at >= now() - ($1 * interval '1 day') and ($2::bigint is null or created_by_id=$2) group by api limit 1000;"
     async with client_postgres_pool.acquire() as conn:
         obj_list=await conn.fetch(query,days,created_by_id)
     return obj_list
 
-async def func_add_creator_data(client_postgres_pool, obj_list, creator_key):
+async def func_creator_data_add(client_postgres_pool, obj_list, creator_key):
     if not obj_list or not creator_key:return obj_list
     creator_key_list=creator_key.split(",")
     obj_list = [dict(obj) for obj in obj_list]
@@ -1078,7 +1078,7 @@ async def func_add_creator_data(client_postgres_pool, obj_list, creator_key):
                 obj[f"creator_{key}"] = None
     return obj_list
 
-async def func_add_action_count(client_postgres_pool, obj_list, action_key):
+async def func_action_count_add(client_postgres_pool, obj_list, action_key):
     if not obj_list or not action_key: return obj_list
     obj_list = [dict(obj) for obj in obj_list]
     table, column, operator, operator_column = action_key.split(",")
@@ -1098,7 +1098,7 @@ async def func_add_action_count(client_postgres_pool, obj_list, action_key):
         obj[f"{table}_{operator}"] = action_values.get(obj_id, 0 if operator == "count" else None)
     return obj_list
 
-async def func_user_delete_single(mode, client_postgres_pool,user_id):
+async def func_user_single_delete(mode,client_postgres_pool,user_id):
     if mode == "soft":query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
     elif mode == "hard":query = "DELETE FROM users WHERE id=$1;"
     else:raise Exception("mode=soft/hard")
@@ -1106,7 +1106,7 @@ async def func_user_delete_single(mode, client_postgres_pool,user_id):
         await conn.execute(query, user_id)
     return None
 
-async def func_user_read_single(client_postgres_pool,user_id):
+async def func_user_single_read(client_postgres_pool,user_id):
     query = "SELECT * FROM users WHERE id=$1;"
     async with client_postgres_pool.acquire() as conn:
         row = await conn.fetchrow(query, user_id)
@@ -1342,10 +1342,7 @@ async def func_posthog_client_read(config_posthog_project_host,config_posthog_pr
 import gspread
 from google.oauth2.service_account import Credentials
 def func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope_list):
-    creds = Credentials.from_service_account_file(
-        config_gsheet_service_account_json_path,
-        scopes=config_gsheet_scope_list
-    )
+    creds = Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list)
     client_gsheet = gspread.authorize(creds)
     return client_gsheet
 
@@ -1409,7 +1406,8 @@ from pathlib import Path
 import json, requests
 def func_grafana_dashbord_all_export(host, username, password, max_limit, output_path=None):
     if not output_path: output_path = "export/grafana"
-    base = Path(output_path); base.mkdir(parents=True, exist_ok=True)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    base = Path(output_path)
     s = requests.Session(); s.auth = (username, password)
     sanitize = lambda x: "".join(c if c.isalnum() or c in " _-()" else "_" for c in x)
     try: orgs = s.get(f"{host}/api/orgs").json()
@@ -1432,10 +1430,10 @@ import pandas as pd, uuid, calendar
 from datetime import date
 def func_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=None, end_date=None, output_path=None):
     if not output_path: output_path = f"export/{uuid.uuid4().hex}.csv"
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     today = date.today()
     if not start_date: start_date = today.replace(day=1).strftime("%Y-%m-%d")
     if not end_date: end_date = today.replace(day=calendar.monthrange(today.year, today.month)[1]).strftime("%Y-%m-%d")
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     jira = JIRA(server=jira_base_url, basic_auth=(jira_email, jira_token))
     issues = jira.search_issues(f"worklogDate >= {start_date} AND worklogDate <= {end_date}", maxResults=False, expand="worklog")
     rows, assignees = [], set()
@@ -1511,10 +1509,10 @@ import requests,time,csv,json,uuid
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 def func_jira_jql_output_export(jira_base_url,jira_email,jira_token,jql,column=None,limit=None,output_path=None):
-    if not column: column="key,assignee,status"
-    if not limit: limit=10000
     if not output_path: output_path=f"export/{uuid.uuid4().hex}.csv"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not column: column="key,assignee,status"
+    if not limit: limit=10000
     if "order by" not in jql.lower(): jql=f"{jql} ORDER BY key ASC"
     auth=HTTPBasicAuth(jira_email,jira_token); h={"Accept":"application/json","Content-Type":"application/json"}
     fields=[c.strip() for c in column.split(",")]; issues=[]; token=None; page=0
@@ -1546,13 +1544,8 @@ def func_jira_jql_output_export(jira_base_url,jira_email,jira_token,jql,column=N
             w.writerow(row)
     return output_path
 
-import os
-def func_create_folder(folder_name):
-    os.makedirs(folder_name, exist_ok=True)
-    return None
-
 import os, shutil
-def func_reset_folder(folder_path):
+def func_folder_reset(folder_path):
     folder_path = folder_path if os.path.isabs(folder_path) else os.path.join(os.getcwd(), folder_path)
     if not os.path.isdir(folder_path):
         return "folder not found"
@@ -1577,71 +1570,8 @@ async def func_folder_filename_export(input_path, output_path=None):
             for x in fs: f.write(f"{Path(r,x).relative_to(base)}\n")
     return output_path
 
-import os
-from dotenv import load_dotenv, dotenv_values
-import importlib.util
-from pathlib import Path
-import traceback
-def func_config_read():
-    base_dir = Path(__file__).resolve().parent
-    def read_env_file():
-        env_path = base_dir / ".env"
-        if env_path.exists():
-            load_dotenv(env_path)
-            return {k.lower(): v for k, v in dotenv_values(env_path).items()}
-        return {}
-    def read_root_config_py_files():
-        output = {}
-        for file in os.listdir(base_dir):
-            if file.startswith("config") and file.endswith(".py"):
-                module_path = base_dir / file
-                try:
-                    module_name = os.path.splitext(file)[0]
-                    spec = importlib.util.spec_from_file_location(module_name, module_path)
-                    if spec and spec.loader:
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        output.update({
-                            k.lower(): getattr(module, k)
-                            for k in dir(module) if not k.startswith("__")
-                        })
-                except Exception:
-                    print(f"[WARN] Failed to load root config file: {module_path}")
-                    traceback.print_exc()
-        return output
-    def read_config_folder_files():
-        output = {}
-        config_dir = base_dir / "config"
-        if not config_dir.exists() or not config_dir.is_dir():
-            return output
-        for file in os.listdir(config_dir):
-            if file.endswith(".py"):
-                module_path = config_dir / file
-                try:
-                    rel_path = os.path.relpath(module_path, base_dir)
-                    module_name = os.path.splitext(rel_path)[0].replace(os.sep, ".")
-                    if not module_name.strip():
-                        continue
-                    spec = importlib.util.spec_from_file_location(module_name, module_path)
-                    if spec and spec.loader:
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        output.update({
-                            k.lower(): getattr(module, k)
-                            for k in dir(module) if not k.startswith("__")
-                        })
-                except Exception:
-                    print(f"[WARN] Failed to load config folder file: {module_path}")
-                    traceback.print_exc()
-        return output
-    output = {}
-    output.update(read_env_file())
-    output.update(read_root_config_py_files())
-    output.update(read_config_folder_files())
-    return output
-
 import sys
-def func_variable_size_kb_read(namespace=globals()):
+def func_variable_size_read_kb(namespace=globals()):
    result = {}
    for name, var in namespace.items():
       if not name.startswith("__"):
@@ -1651,26 +1581,10 @@ def func_variable_size_kb_read(namespace=globals()):
    sorted_result = dict(sorted(result.items(), key=lambda item: item[1], reverse=True))
    return sorted_result
 
-import sys
-def func_check_required_env(config,required_key_list):
-    missing = [key for key in required_key_list if not config.get(key)]
-    if missing:
-        print(f"Error: Missing required environment variables: {', '.join(missing)}", file=sys.stderr)
-        sys.exit(1)
-    return None
-
-import csv,io
-async def func_convert_file_path_obj_list(input_path):
-    with open(input_path, "r", encoding="utf-8") as f:
-        content = f.read()
-    reader = csv.DictReader(io.StringIO(content))
-    obj_list = [row for row in reader]
-    return obj_list
-
 import os, mimetypes, aiofiles
 from fastapi import responses
 from starlette.background import BackgroundTask
-async def func_download_file(path,is_cleanup=1,chunk_size=1024*1024):
+async def func_client_download_file(path,is_cleanup=1,chunk_size=1024*1024):
     filename = os.path.basename(path)
     media_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     async def iterator():
@@ -1693,7 +1607,7 @@ async def func_render_html(path):
     async with aiofiles.open(full_path, "r", encoding="utf-8") as f:
         return await f.read()
 
-async def func_request_param_read(request, mode, config):
+async def func_request_param_read(request,mode,config):
     if mode == "query":param = dict(request.query_params)
     elif mode == "form":
         form = await request.form()
@@ -1792,10 +1706,10 @@ async def func_sftp_folder_filename_read(client_sftp,folder_path):
         output=await sftp.listdir(folder_path)
         return output
     
-async def func_sftp_file_upload(client_sftp, file_path_input, file_path_output, chunk_size=65536):
+async def func_sftp_file_upload(client_sftp, input_path, output_path, chunk_size=65536):
     async with client_sftp.start_sftp_client() as sftp:
-        async with sftp.open(file_path_output, "wb") as rf:
-            with open(file_path_input, "rb") as lf:
+        async with sftp.open(output_path, "wb") as rf:
+            with open(input_path, "rb") as lf:
                 while True:
                     chunk = lf.read(chunk_size)
                     if not chunk:
@@ -1805,9 +1719,9 @@ async def func_sftp_file_upload(client_sftp, file_path_input, file_path_output, 
 import uuid                
 from pathlib import Path
 async def func_sftp_file_download(client_sftp, input_path, output_path=None, chunk_size=None):
-    if not chunk_size: chunk_size = 65536
     if not output_path: output_path = f"export/{uuid.uuid4().hex}{Path(input_path).suffix}"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    if not chunk_size: chunk_size = 65536
     async with client_sftp.start_sftp_client() as sftp, sftp.open(input_path,"rb") as rf, open(output_path,"wb") as lf:
         while True:
             c = await rf.read(chunk_size)
@@ -1815,17 +1729,16 @@ async def func_sftp_file_download(client_sftp, input_path, output_path=None, chu
             lf.write(c)
     return output_path
 
-async def func_sftp_file_delete(client_sftp, file_path):
+async def func_sftp_file_delete(client_sftp, path):
     async with client_sftp.start_sftp_client() as sftp:
-        await sftp.remove(file_path)
+        await sftp.remove(path)
     return None
 
 import csv,io,os
-async def func_sftp_csv_read_to_obj_list_stream(client_sftp,file_path_remote,batch_size=1000,encoding="utf-8"):
-    if os.path.splitext(file_path_remote)[1].lower()!=".csv":
-        raise Exception("only csv files allowed")
+async def func_sftp_csv_stream(client_sftp,path,batch_size=1000,encoding="utf-8"):
+    if os.path.splitext(path)[1].lower()!=".csv":raise Exception("only csv files allowed")
     async with client_sftp.start_sftp_client() as sftp:
-        async with sftp.open(file_path_remote,"rb") as rf:
+        async with sftp.open(path,"rb") as rf:
             buffer=""
             reader=None
             batch=[]

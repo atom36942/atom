@@ -5,12 +5,12 @@ from core.function import *
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import traceback
+import traceback,os
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    try:
       #checks
-      func_create_folder("export")
+      os.makedirs("export",exist_ok=True)
       #client init
       client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection,config_postgres_schema_name) if config_postgres_url else None
       client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
@@ -33,11 +33,11 @@ async def func_lifespan(app:FastAPI):
       cache_users_is_active=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       cache_config=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
       #app state set
-      func_add_state(app,{**globals(),**locals()},("client_","cache_","func_","config_"))
+      func_app_state_add(app,{**globals(),**locals()},("client_","cache_","func_","config_"))
       #app shutdown
       yield
       await func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,"flush")
-      if config_is_reset_export_folder:func_reset_folder("export")
+      if config_is_reset_export_folder:func_folder_reset("export")
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
       if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()
@@ -56,15 +56,15 @@ async def func_lifespan(app:FastAPI):
       print(traceback.format_exc())
       
 #app
-app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
-func_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
-if config_sentry_dsn:func_add_sentry(config_sentry_dsn)
-if config_is_prometheus:func_add_prometheus(app)
+app=func_app_create(func_lifespan,config_is_debug_fastapi)
+func_app_cors_add(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
+if config_sentry_dsn:func_app_sentry_add(config_sentry_dsn)
+if config_is_prometheus:func_app_prometheus_add(app)
 
 #router
 from pathlib import Path
-router_dir_path = Path(__file__).parent.parent / "router"
-func_add_router(app, router_dir_path)
+router_folder_path = Path(__file__).parent.parent / "router"
+func_app_router_add(app,router_folder_path)
 
 #middleware
 from fastapi import Request,responses
@@ -79,12 +79,12 @@ async def middleware(request,api_function):
       response_type=None
       error=None
       #check
-      request.state.user=await func_token_check(request,config_api,config_key_root,config_key_jwt,func_token_decode)
-      await func_check_admin(config_mode_check_api_access,config_api,request)
-      await func_check_is_active(config_mode_check_is_active,config_api,request)
-      await func_check_ratelimiter(config_api,request)
+      request.state.user=await func_handler_token(request)
+      await func_handler_admin(request)
+      await func_handler_is_active(request)
+      await func_handler_ratelimiter(request)
       #response
-      response,response_type=await func_api_response(request,api_function,config_api,func_api_response_background,func_api_response_cache)
+      response,response_type=await func_handler_api_response(request,api_function)
    #error
    except Exception as e:
       error=str(e)
