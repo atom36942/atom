@@ -27,6 +27,7 @@
 - gsheet integration
 - easy extension
 - supports multi-tenant design
+- sftp integration
 
 ### Installation
 ```bash
@@ -75,12 +76,15 @@ config_mongodb_url=mongodb://localhost:27017
 
 
 
+
+
+
 ### zzz
 ```bash
 #package
 ./venv/bin/pip install fastapi
-./venv/bin/pip install --upgrade fastapi
 ./venv/bin/pip uninstall fastapi
+./venv/bin/pip install --upgrade fastapi
 ./venv/bin/pip freeze > requirements.txt
 
 #stop python

@@ -1,3 +1,14 @@
+import json, subprocess, sys
+def func_upgrade_packages():
+    subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], capture_output=True)
+    out = subprocess.check_output([sys.executable, "-m", "pip", "list", "--outdated", "--format=json"])
+    packages = [p["name"] for p in json.loads(out)]
+    status = {"upgraded": [], "failed": []}
+    for pkg in packages:
+        res = subprocess.run([sys.executable, "-m", "pip", "install", "-U", "--upgrade-strategy", "only-if-needed", pkg], capture_output=True)
+        status["upgraded" if res.returncode == 0 else "failed"].append(pkg)
+    return status
+    
 async def func_handler_obj_create(role,request):
     obj_query=await request.app.state.func_request_param_read(request,"query",[["mode","str",0,"now"],["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
