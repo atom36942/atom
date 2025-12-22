@@ -1502,7 +1502,7 @@ def func_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_ke
         return "\n".join(o)
     ai=lambda p:[l.strip("-•* ") for l in c.chat.completions.create(model="gpt-4-0125-preview",messages=[{"role":"user","content":p}]).choices[0].message.content.splitlines() if l.strip()]
     perf=lambda ds:(Counter({(f:=i["fields"]).get("assignee",{}).get("displayName","Unassigned"):len(fc(i["key"]))+len(f.get("worklog",{}).get("worklogs",[])) for i in ds}).most_common(3),sorted(defaultdict(list,{(f:=i["fields"]).get("assignee",{}).get("displayName","Unassigned"):[i["key"]] for i in ds if f.get("duedate") and f.get("resolutiondate") and f["resolutiondate"][:10]<=f["duedate"]}).items(),key=lambda x:len(x[1]),reverse=True)[:3])
-    clean=lambda xs,p=False:[f"- {re.sub(r'\\s+',' ',re.sub(r'[^\\w\\s\\-.,/()]','',l)).strip()}" for l in xs if len(l.split())>2 and (not p or "-" in l)]
+    clean=lambda xs,p=False:["- "+re.sub(r"\s+"," ",re.sub(r"[^\w\s\-.,/()]","",l)).strip() for l in xs if len(l.split())>2 and (not p or "-" in l)]
     todo=inprog=done=[]
     for k in jira_project_key_list:
         todo+=fi(f'project={k} AND statusCategory="To Do" ORDER BY updated DESC')
