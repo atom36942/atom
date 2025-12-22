@@ -25,7 +25,6 @@ input,select{width:100%;padding:12px 14px;font-size:14px;border-radius:8px;borde
 input:focus,select:focus{outline:none;border-color:var(--accent)}
 .row-key{flex:0 0 140px}.row-val{flex:1}
 
-/* FIXED UI: Added custom arrow and padding to prevent touching the boundary */
 .json-type-selector{
     flex:0 0 120px;
     padding:12px 32px 12px 14px;
@@ -43,8 +42,16 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 .btn-primary{background:var(--primary);color:var(--primary-text)}.btn-secondary{background:var(--secondary);color:var(--secondary-text)}
 .resp-box{background:#14171c;border-radius:10px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden;max-height:500px;flex-direction:column}
 .resp-box.show{display:flex}.resp-header{padding:16px 20px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;font-size:13px;color:var(--accent);text-transform:uppercase}
-.resp-content{overflow-y:auto}table{width:100%;border-collapse:collapse}td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px}
-.key{color:var(--muted);width:140px;font-weight:600;}.val{word-break:break-all;font-family:monospace}
+.resp-content{overflow-y:auto}table{width:100%;border-collapse:collapse}
+
+/* FIXED: vertical-align top keeps the Copy button at the top even for long messages */
+td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;vertical-align:top}
+
+.key{color:var(--muted);width:140px;font-weight:600;}
+
+/* FIXED: Changed font-family to Inter to match main UI */
+.val{word-break:break-all;font-family:Inter,system-ui}
+
 .copy-btn{background:#2a3642;color:#ccc;border:none;padding:8px 14px;border-radius:6px;cursor:pointer}
 .section-group{display:none}.section-group.active{display:block}
 </style>
@@ -71,7 +78,7 @@ const COMMANDS=[
 {p:"/",m:"GET",h:[],q:[],f:[],j:[]},
 {p:"/root/postgres-init",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
 {p:"/root/postgres-clean",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
-{p:"/root/postgres-runner",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"mode",v:"read",t:"string"},{k:"query",v:"select 1;",t:"string"}]},
+{p:"/root/postgres-runner",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"mode",v:"read",t:"string"},{k:"query",v:"select * from users limit 10;",t:"string"}]},
 {p:"/root/postgres-export",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"query",v:"select * from users limit 10;",t:"string"}]},
 {p:"/root/postgres-import",m:"POST",h:[{k:"Authorization",v:""}],q:[],f:[{k:"mode",v:"create"},{k:"table",v:"test"},{k:"file",v:"@file.csv"}],j:[]},
 {p:"/root/redis-import-create",m:"POST",h:[{k:"Authorization",v:""}],q:[],f:[{k:"table",v:"test"},{k:"expiry_sec",v:"100"},{k:"file",v:"@file.csv"}],j:[]},
@@ -80,9 +87,9 @@ const COMMANDS=[
 {p:"/root/s3-url-delete",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"url",v:"url1,url2,url3",t:"string"}]},
 {p:"/root/s3-bucket-ops",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"mode",v:"create"},{k:"bucket",v:"master"}],f:[],j:[]},
 {p:"/root/reset-global",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
-{p:"/auth/signup-username-password",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"username",v:"atom2",t:"string"},{k:"password",v:"123",t:"string"}]},
+{p:"/auth/signup-username-password",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"username",v:"test",t:"string"},{k:"password",v:"123",t:"string"}]},
 {p:"/auth/signup-username-password-bigint",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"username_bigint",v:"123",t:"number"},{k:"password_bigint",v:"123",t:"number"}]},
-{p:"/auth/login-password-username",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password",v:"123",t:"string"},{k:"username",v:"atom",t:"string"}]},
+{p:"/auth/login-password-username",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password",v:"test",t:"string"},{k:"username",v:"test",t:"string"}]},
 {p:"/auth/login-password-username-bigint",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password_bigint",v:"123",t:"number"},{k:"username_bigint",v:"123",t:"number"}]},
 {p:"/auth/login-password-email",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password",v:"123",t:"number"},{k:"email",v:"test",t:"string"}]},
 {p:"/auth/login-password-mobile",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password",v:"123",t:"number"},{k:"mobile",v:"test",t:"string"}]},
@@ -130,7 +137,7 @@ const d=document, $=i=>d.getElementById(i), orig=COMMANDS.map((c,i)=>({...c,oi:i
 let curr=null;
 const db=(f,t)=>{let o;return(...a)=>{clearTimeout(o);o=setTimeout(()=>f(...a),t)}};
 const pop=cs=>{if(!cs.length)return $("apiDrop").classList.remove("show");$("apiDrop").innerHTML=cs.map(c=>`<li data-i="${c.oi}">${c.p}</li>`).join('');$("apiDrop").classList.add("show")};
-$("apiCount").textContent=`(${orig.length} endpoints)`;
+$("apiCount").textContent = `${COMMANDS.length} curls`;
 const row=(ct,k="",v="",t="string")=>{
     const r=d.createElement("div");r.className="input-row";
     let vi=ct===$("jCont")?`<input type="text" class="row-val" value="${v}"><select class="json-type-selector">${['string','number','boolean','null','array','object'].map(x=>`<option value="${x}" ${t===x?"selected":""}>${x}</option>`).join('')}</select>`:(ct===$("fCont")&&v.startsWith("@")?`<input type="file" class="row-val">`:`<input type="text" class="row-val" value="${v}">`);
