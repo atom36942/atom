@@ -630,7 +630,7 @@ async def func_postgres_client_read(config_postgres_url,config_postgres_min_conn
     if not config_postgres_schema_name:config_postgres_schema_name="public"
     if not config_postgres_min_connection:config_postgres_min_connection=5
     if not config_postgres_max_connection:config_postgres_max_connection=20
-    client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection,server_settings={"search_path":config_postgres_schema_name})
+    client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection,server_settings={"search_path":config_postgres_schema_name},timeout=60,command_timeout=60)
     return client_postgres_pool
 
 import random
