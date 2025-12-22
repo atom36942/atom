@@ -53,15 +53,6 @@ venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 ```
 
-### Commands
-```bash
-#test curls
-./core/test.sh
-
-#update packages
-./venv/bin/python ./core/package.py
-```
-
 ### Env Sample
 ```bash
 config_postgres_url=postgresql://postgres@127.0.0.1/postgres
@@ -73,6 +64,13 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_redis_url_pubsub=redis://localhost:6379
 config_mongodb_url=mongodb://localhost:27017
 ```
+
+### Commands
+```bash
+#test curls
+./core/test.sh
+```
+
 
 
 
