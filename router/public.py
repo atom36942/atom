@@ -20,13 +20,7 @@ async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):
 
 @router.post("/public/object-create")
 async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
-   obj_query,obj_list=await func_wrapper_obj_create(request,func_request_param_read)
-   if obj_query["table"] not in config_public_table_create_list:raise Exception("table not allowed")
-   if any(any(k in config_column_disabled_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
-   if not obj_query["queue"]:output=await func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],config_table.get(obj_query["table"],{}).get("buffer"))
-   elif obj_query["queue"]:
-      payload={"func":"func_postgres_obj_list_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":config_table.get(obj_query["table"],{}).get("buffer")}
-      output=await func_wrapper_queue(request,obj_query["queue"],payload,config_channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer)
+   output=await func_handler_obj_create("public",request)
    return {"status":1,"message":output}
 
 @router.get("/public/object-read")

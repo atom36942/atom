@@ -46,7 +46,7 @@ docker run -it --rm -p 8000:8000 atom
 
 ### Consumer
 ```bash
-venv/bin/celery -A consumer.celery worker --loglevel=info
+venv/bin/celery -A consumer.celery worker
 venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis

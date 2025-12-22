@@ -1,44 +1,61 @@
+async def func_handler_obj_create(role,request):
+    obj_query=await request.app.state.func_request_param_read(request,"query",[["mode","str",0,"now"],["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
+    obj_body=await request.app.state.func_request_param_read(request,"body",[])
+    obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
+    if request.state.user.get("id") and "created_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):
+        for item in obj_list:item["created_by_id"]=request.state.user.get("id")
+    if role=="my":
+        if obj_query["table"] not in request.app.state.config_my_table_create_list:raise Exception("table not allowed")
+        if any(any(k in request.app.state.config_column_disabled_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+    elif role=="public":
+        if obj_query["table"] not in request.app.state.config_public_table_create_list:raise Exception("table not allowed")
+        if any(any(k in request.app.state.config_column_disabled_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+    if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_list_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],request.app.state.config_table.get(obj_query["table"],{}).get("buffer"))
+    elif obj_query["queue"]:
+        payload={"func":"func_postgres_obj_list_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":request.app.state.config_table.get(obj_query["table"],{}).get("buffer")}
+        output=await request.app.state.func_handler_producer(request,obj_query["queue"],payload)
+    return output
+
+async def func_handler_obj_update(role,request):
+    obj_query=await request.app.state.func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None],["otp","int",0,None]])
+    obj_body=await request.app.state.func_request_param_read(request,"body",[])
+    obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
+    if request.state.user.get("id") and "updated_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):
+        for item in obj_list:item["updated_by_id"]=request.state.user.get("id")
+    if role=="my":
+        created_by_id=None if obj_query["table"]=="users" else request.state.user["id"]
+        if any(any(k in request.app.state.config_column_disabled_list for k in x) for x in obj_list):raise Exception("key not allowed")
+        if obj_query["table"]=="users":
+            if len(obj_list)!=1:raise Exception("multi object issue")
+            if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
+            if any(key in obj_list[0] and len(obj_list[0])!=3 for key in ["password","email","mobile"]):raise Exception("obj length should be 2")
+            if request.app.state.config_is_otp_verify_profile_update and any(key in obj_list[0] and not obj_query["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
+            if obj_query["otp"]:await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query["otp"],obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_otp_expire_sec)
+    elif role=="admin":
+        created_by_id=None
+    if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_list_update(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
+    elif obj_query["queue"]:
+        payload={"func":"func_postgres_obj_list_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
+        output=await request.app.state.func_handler_producer(request,obj_query["queue"],payload)
+    return obj_query,obj_list
+
+async def func_handler_producer(request,queue,payload):
+   if queue=="celery":output=await request.app.state.func_celery_producer(request.app.state.client_celery_producer,payload["func"],[v for k,v in payload.items() if k!="func"])
+   elif queue=="kafka":output=await request.app.state.func_kafka_producer(request.app.state.client_kafka_producer,request.app.state.config_channel_name,payload)
+   elif queue=="rabbitmq":output=await request.app.state.func_rabbitmq_producer(request.app.state.client_rabbitmq_producer,request.app.state.config_channel_name,payload)
+   elif queue=="redis":output=await request.app.state.func_redis_producer(request.app.state.client_redis_producer,request.app.state.config_channel_name,payload)
+   return output
+
 import asyncio
 from itertools import count
 _counter=count(1)
-async def func_wrapper_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype):
+async def func_handler_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype):
     n=next(_counter)
     if payload["func"]=="func_postgres_obj_list_create":output=asyncio.create_task(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
     elif payload["func"]=="func_postgres_obj_list_update":output=asyncio.create_task(func_postgres_obj_list_update(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
     else:raise Exception("wrong consumer func")
     print(n)
     return output
-
-async def func_wrapper_obj_update_users(request,obj_query,obj_list):
-    if len(obj_list)!=1:raise Exception("multi object issue")
-    if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
-    if any(key in obj_list[0] and len(obj_list[0])!=3 for key in ["password","email","mobile"]):raise Exception("obj length should be 2")
-    if request.app.state.config_is_otp_verify_profile_update and any(key in obj_list[0] and not obj_query["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
-    if obj_query["otp"]:await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query["otp"],obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_otp_expire_sec)
-    return None
-    
-async def func_wrapper_obj_update(request,func_request_param_read):
-    obj_query=await func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None],["otp","int",0,None]])
-    obj_body=await func_request_param_read(request,"body",[])
-    obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
-    if request.state.user.get("id") and "updated_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):
-        for item in obj_list:item["updated_by_id"]=request.state.user.get("id")
-    return obj_query,obj_list
-
-async def func_wrapper_obj_create(request,func_request_param_read):
-    obj_query=await func_request_param_read(request,"query",[["mode","str",0,"now"],["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
-    obj_body=await func_request_param_read(request,"body",[])
-    obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
-    if request.state.user.get("id") and "created_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):
-        for item in obj_list:item["created_by_id"]=request.state.user.get("id")
-    return obj_query,obj_list
-
-async def func_wrapper_queue(request,queue,payload,config_channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer):
-   if queue=="celery":output=await func_celery_producer(request.app.state.client_celery_producer,payload["func"],[v for k,v in payload.items() if k!="func"])
-   elif queue=="kafka":output=await func_kafka_producer(request.app.state.client_kafka_producer,config_channel_name,payload)
-   elif queue=="rabbitmq":output=await func_rabbitmq_producer(request.app.state.client_rabbitmq_producer,config_channel_name,payload)
-   elif queue=="redis":output=await func_redis_producer(request.app.state.client_redis_producer,config_channel_name,payload)
-   return output
 
 import csv
 def func_converter_csv_obj_list(input_path):

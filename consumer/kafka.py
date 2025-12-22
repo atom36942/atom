@@ -12,7 +12,7 @@ async def logic():
       async for message in client_kafka_consumer:
          if message.topic==config_channel_name:
             payload=json.loads(message.value.decode('utf-8'))
-            await func_wrapper_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype)
+            await func_handler_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype)
             if not config_kafka_enable_auto_commit:await client_kafka_consumer.commit()
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))

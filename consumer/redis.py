@@ -12,7 +12,7 @@ async def logic():
       async for message in client_redis_consumer.listen():
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():
             payload=json.loads(message['data'])
-            await func_wrapper_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype)
+            await func_handler_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype)
    except asyncio.CancelledError:print("consumer cancelled")
    except Exception as e:print(str(e))
    finally:
