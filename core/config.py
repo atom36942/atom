@@ -148,7 +148,7 @@ config_postgres={
 "log_api":[
 "created_at-timestamptz-0-btree",
 "created_by_id-bigint-0-btree",
-"response_type-smallint-0-btree",
+"type-bigint-0-0",
 "ip_address-text-0-0",
 "api-text-0-btree,gin",
 "api_id-smallint-0-btree",

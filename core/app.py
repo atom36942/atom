@@ -9,7 +9,7 @@ import traceback,os
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    try:
-      #checks
+      #start
       os.makedirs("export",exist_ok=True)
       #client init
       client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_schema_name,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
@@ -57,47 +57,26 @@ async def func_lifespan(app:FastAPI):
       
 #app
 app=func_app_create(func_lifespan,config_is_debug_fastapi)
-func_app_cors_add(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
-if config_sentry_dsn:func_app_sentry_add(config_sentry_dsn)
-if config_is_prometheus:func_app_prometheus_add(app)
 
-#router
-from pathlib import Path
-router_folder_path = Path(__file__).parent.parent / "router"
-func_app_router_add(app,router_folder_path)
+#app add
+func_app_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
+func_app_add_router(app, __import__("pathlib").Path(__file__).parent.parent / "router")
+if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
+if config_is_prometheus:func_app_add_prometheus(app)
 
 #middleware
-from fastapi import Request,responses
-import time,traceback,asyncio
+import time
 @app.middleware("http")
 async def middleware(request,api_function):
    try:
-      #start
-      start=time.time()
-      api=request.url.path
-      request.state.user={}
-      response_type=None
-      error=None
-      #check
+      start,type,error,request.state.user=time.time(),None,None,{}
       request.state.user=await func_handler_token(request)
       await func_handler_admin(request)
       await func_handler_is_active(request)
       await func_handler_ratelimiter(request)
-      #response
-      response,response_type=await func_handler_api_response(request,api_function)
-   #error
-   except Exception as e:
-      error=str(e)
-      if config_is_traceback:print(traceback.format_exc())
-      response=responses.JSONResponse(status_code=400,content={"status":0,"message":error})
-      if config_sentry_dsn:sentry_sdk.capture_exception(e)
-   #log api
-   if config_is_log_api:
-      obj_log={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"response_type":response_type,"description":error}
-      asyncio.create_task(func_postgres_obj_list_create(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"buffer","log_api",[obj_log],0,config_table.get("log_api",{}).get("buffer")))
-   #posthog
-   if False:request.app.state.client_posthog.capture(distinct_id=request.state.user.get("id"),event="api",properties=obj_log)
-   #final
+      response,type=await func_handler_api_response(request,api_function)
+   except Exception as e:error,response=await func_handler_api_error(request,e)
+   await func_handler_log_api(start,request,response,type,error)
    return response
 
 #root

@@ -1,3 +1,20 @@
+import traceback
+from fastapi import responses
+async def func_handler_api_error(request,e):
+   error=str(e)
+   if request.app.state.config_is_traceback:print(traceback.format_exc())
+   response=responses.JSONResponse(status_code=400,content={"status":0,"message":error})
+   if request.app.state.config_sentry_dsn:sentry_sdk.capture_exception(e)
+   return error,response
+
+import asyncio
+async def func_handler_log_api(start,request,response,type,error):
+   if request.app.state.config_is_log_api and request.app.state.cache_postgres_schema.get("log_api"):
+      api=request.url.path
+      obj={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":request.app.state.config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"type":type,"description":error}
+      asyncio.create_task(request.app.state.func_postgres_obj_list_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"buffer","log_api",[obj],0,request.app.state.config_table.get("log_api",{}).get("buffer")))
+      return None
+
 import json, subprocess, sys
 def func_upgrade_packages():
     subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], capture_output=True)
@@ -947,13 +964,13 @@ async def func_handler_api_response_background(request,api_function):
 
 async def func_handler_api_response(request,api_function):
     cache_sec=request.app.state.config_api.get(request.url.path,{}).get("cache_sec")
-    response,response_type=None,None
-    if request.query_params.get("is_background")=="1":response=await request.app.state.func_handler_api_response_background(request,api_function);response_type=1
-    elif cache_sec:response=await request.app.state.func_handler_cache("get",request,None);response_type=2
+    response,type=None,None
+    if request.query_params.get("is_background")=="1":response=await request.app.state.func_handler_api_response_background(request,api_function);type=1
+    elif cache_sec:response=await request.app.state.func_handler_cache("get",request,None);type=2
     if not response:
-        response=await api_function(request);response_type=3
-        if cache_sec:response=await request.app.state.func_handler_cache("set",request,response);response_type=4
-    return response,response_type
+        response=await api_function(request);type=3
+        if cache_sec:response=await request.app.state.func_handler_cache("set",request,response);type=4
+    return response,type
 
 async def func_handler_token(request):
     user={}
@@ -998,12 +1015,12 @@ async def func_server_start(app):
    await server.serve()
    
 from fastapi.middleware.cors import CORSMiddleware
-def func_app_cors_add(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials):
+def func_app_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials):
    app.add_middleware(CORSMiddleware,allow_origins=config_cors_origin_list,allow_methods=config_cors_method_list,allow_headers=config_cors_headers_list,allow_credentials=config_cors_allow_credentials)
    return None
 
 from prometheus_fastapi_instrumentator import Instrumentator
-def func_app_prometheus_add(app):
+def func_app_add_prometheus(app):
    Instrumentator().instrument(app).expose(app)
    return None
 
@@ -1014,7 +1031,7 @@ def func_app_state_add(app,obj,pattern_tuple):
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-def func_app_sentry_add(config_sentry_dsn):
+def func_app_add_sentry(config_sentry_dsn):
    sentry_sdk.init(dsn=config_sentry_dsn,integrations=[FastApiIntegration()],traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
@@ -1022,7 +1039,7 @@ import sys
 import importlib.util
 from pathlib import Path
 import traceback
-def func_app_router_add(app, folder_path):
+def func_app_add_router(app, folder_path):
     router_root = Path(folder_path).resolve()
     if not router_root.is_dir():
         raise ValueError(f"router folder not found: {router_root}")
