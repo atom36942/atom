@@ -11,7 +11,7 @@ async def logic():
             payload=json.loads(message.body)
             await func_handler_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype)
       client_rabbitmq,client_rabbitmq_consumer=await func_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
-      client_postgres_pool=await func_postgres_client_read(config_postgres_url)
+      client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_schema_name,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)
       await client_rabbitmq_consumer.consume(aqmp_callback)
       await asyncio.Future()

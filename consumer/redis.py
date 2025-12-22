@@ -7,7 +7,7 @@ async def logic():
    try:
       client_redis=await func_redis_client_read(config_redis_url_pubsub)
       client_redis_consumer=await func_redis_client_read_consumer(client_redis,config_channel_name)
-      client_postgres_pool=await func_postgres_client_read(config_postgres_url)
+      client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_schema_name,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)
       async for message in client_redis_consumer.listen():
          if message["type"]=="message" and message["channel"]==config_channel_name.encode():

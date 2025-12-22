@@ -19,7 +19,7 @@ def init_worker(**kwargs):
     global client_postgres_pool,cache_postgres_schema,cache_postgres_column_datatype,worker_loop
     worker_loop=asyncio.new_event_loop()
     asyncio.set_event_loop(worker_loop)
-    client_postgres_pool=worker_loop.run_until_complete(func_postgres_client_read(config_postgres_url))
+    client_postgres_pool=worker_loop.run_until_complete(func_postgres_client_read(config_postgres_url,config_postgres_schema_name,config_postgres_min_connection,config_postgres_max_connection)) if config_postgres_url else None
     cache_postgres_schema,cache_postgres_column_datatype=worker_loop.run_until_complete(func_postgres_schema_read(client_postgres_pool))
 
 #shutdown
