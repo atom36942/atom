@@ -1,209 +1,71 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Build software faster with Atom</title>
-
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Atom — Build software fast</title>
 <style>
-  body {
-    font-family: system-ui, sans-serif;
-    margin: 0;
-    padding: 32px 20px;
-    background: #0a0a0b;
-    color: #e9ecef;
-    line-height: 1.5;
-    max-width: 820px;
-    margin-inline: auto;
-  }
-
-  h1,h2 { margin: 0 0 16px 0; font-weight: 700; }
-  .section { margin: 38px 0; }
-
-  a.btn {
-    display: inline-block;
-    padding: 12px 16px;
-    background: #21f08a;
-    color: #000;
-    font-size: 15px;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: 600;
-  }
-
-  .btn-dark {
-    background: #161617;
-    color: #fff;
-  }
-
-  .btn-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 14px;
-  }
-
-  input, textarea {
-    width: 100%;
-    padding: 12px;
-    font-size: 15px;
-    border: 1px solid #333;
-    border-radius: 6px;
-    margin-bottom: 12px;
-    background: #0f0f10;
-    color: #fff;
-  }
-
-  textarea {
-    min-height: 100px;
-  }
-
-  button {
-    padding: 16px 20px;
-    border: none;
-    background: #21f08a;
-    color: #000;
-    font-size: 15px;
-    cursor: pointer;
-    border-radius: 6px;
-    margin-top: 14px;
-  }
-
-  button:hover {
-    opacity: 0.85;
-  }
-
-  ul { margin: 0 0 12px 18px; padding: 0; }
-  ol { margin: 0 0 12px 22px; padding: 0; }
-
-  @media(max-width:600px) {
-    body { padding: 26px 16px; }
-    .btn-row { flex-direction: column; }
-  }
+body{font-family:system-ui,sans-serif;margin:0;padding:32px 20px;background:#0a0a0b;color:#e9ecef;line-height:1.5;max-width:820px;margin-inline:auto}
+h1,h2{margin:0 0 16px 0;font-weight:700}
+.section{margin:38px 0}
+a.btn{display:inline-block;padding:12px 16px;background:#21f08a;color:#000;font-size:15px;text-decoration:none;border-radius:6px;font-weight:600}
+.btn-dark{background:#161617;color:#fff}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+ul{margin:0 0 12px 18px;padding:0}
+a.link{color:#4da3ff;text-decoration:none}
+a.link:hover{text-decoration:underline}
+@media(max-width:600px){body{padding:26px 16px}.btn-row{flex-direction:column}}
 </style>
 </head>
 
 <body>
 
-<!-- HEADER -->
 <div class="section">
-  <h1>Build software faster with Atom</h1>
-  <p>
-    Atom is free and open-source, designed to launch products faster. 
-    Many core features—APIs, auth, storage, RBAC, queues, and background workers—are already built-in, 
-    so you skip boilerplate and focus on your product. Teams ship in days instead of months and cut development cost/time by up to 90%.
-  </p>
+<h1>Atom — Build production software fast</h1>
+<p>
+<b>Atom</b> is an open-source backend framework that helps ship
+clean, scalable software in weeks instead of months.
+It removes backend boilerplate and infrastructure drag,
+built for founders who want speed without long-term tech debt.
+</p>
 
-  <div class="btn-row">
-    <a class="btn" href="https://github.com/atom36942/atom" target="_blank">GitHub Repo</a>
-
-    <a class="btn btn-dark"
-       href="mailto:atom36942@gmail.com?subject=Build%20with%20Atom&body=Hi%2C%20I%20want%20to%20build%20something."
-       target="_blank">
-       Email Us
-    </a>
-
-    <a class="btn btn-dark" href="#leadForm">Build Something</a>
-  </div>
+<div class="btn-row">
+<a class="btn btn-dark" href="https://github.com/atom36942123/atom" target="_blank">GitHub Repo</a>
+<a class="btn" href="mailto:atom36942@gmail.com?subject=Build%20Something" target="_blank">Build Something</a>
+</div>
 </div>
 
-<!-- WHY -->
 <div class="section">
-  <h2>Why Atom</h2>
-  <ul>
-    <li>Fast runtime</li>
-    <li>Minimal boilerplate</li>
-    <li>Easy deployments</li>
-    <li>Built-in modules</li>
-    <li>Postgres-first</li>
-    <li>Async-friendly</li>
-    <li>Production-ready</li>
-  </ul>
-  <p>
-    Use existing modules, skip infrastructure setup.
-    Teams using Atom deliver MVPs, internal tools, and integrations up to 10x faster.
-  </p>
+<h2>Atom Framework</h2>
+<ul>
+<li>Prebuilt auth, RBAC, APIs, queues</li>
+<li>Production-ready structure</li>
+<li>Minimal setup and infra decisions</li>
+<li><b>Deploy in days, not months</b></li>
+</ul>
 </div>
 
-<!-- TECH -->
 <div class="section">
-  <h2>Core Tech Stack</h2>
-  <p>Python, FastAPI, PostgreSQL, Redis, Kafka, Celery, RabbitMQ, S3, Sentry.</p>
+<h2>Focus Areas</h2>
+<ul>
+<li>Idea → production execution</li>
+<li>Scalable backend system design</li>
+<li>MVPs, internal tools, and APIs</li>
+<li>Lower cost, faster delivery, less risk</li>
+</ul>
 </div>
 
-<!-- MODULES -->
 <div class="section">
-  <h2>Prebuilt Modules</h2>
-  <ol>
-    <li>Authentication API (Login, Signup)</li>
-    <li>RBAC CRUD (Roles, Permissions)</li>
-    <li>Logged-in user APIs</li>
-    <li>Rate limiter + middleware stack</li>
-    <li>Production folder structure</li>
-    <li>Postgres bootstrap</li>
-    <li>CSV → Postgres bulk import</li>
-    <li>Query runner (safe + optimized)</li>
-    <li>Celery job queue</li>
-    <li>Kafka event queue</li>
-    <li>RabbitMQ message queue</li>
-    <li>S3 object storage</li>
-    <li>AWS SNS notifications</li>
-    <li>AWS SES emails</li>
-    <li>Sentry error tracking</li>
-    <li>Posthog analytics</li>
-    <li>Redis cache</li>
-    <li>Admin control panel APIs</li>
-    <li>Google Sheets integration</li>
-    <li>SFTP integration</li>
-    <li>OTP clients (Fast2SMS, Resend)</li>
-  </ol>
+<h2>Core Stack</h2>
+<p>
+System Design, Python, FastAPI, SQL, PostgreSQL,
+Redis, Kafka, REST APIs, Async systems, AI-driven workflows.
+</p>
 </div>
 
-<!-- FORM -->
 <div class="section">
-  <h2>Tell us what you want to build</h2>
-  <form id="leadForm">
-    <textarea name="description" placeholder="Describe your idea…" required></textarea>
-    <input name="email" type="email" placeholder="Email"/>
-    <input name="mobile" type="text" placeholder="Mobile"/>
-    <button type="submit">Submit</button>
-    <div id="status" style="margin-top:6px;font-size:14px;color:#ccc;"></div>
-  </form>
+<h2>Products Built Using Atom</h2>
+<ul>
+<li><a class="link" href="https://thryl.io/" target="_blank">thryl.io</a></li>
+<li><a class="link" href="https://www.askira.app/" target="_blank">askira.app</a></li>
+</ul>
 </div>
 
-<script>
-(function(){
-  const form=document.getElementById('leadForm');
-  const status=document.getElementById('status');
-  const base=window.location.origin;
-
-  form.addEventListener('submit',async(e)=>{
-    e.preventDefault();
-    status.textContent='Submitting...';
-    const email=form.email.value.trim();
-    const mobile=form.mobile.value.trim();
-
-    if(!email && !mobile){
-      status.textContent='Enter email or mobile.';
-      return;
-    }
-
-    const data={description:form.description.value.trim(), email, mobile};
-
-    try{
-      const r=await fetch(base+'/public/object-create?table=test',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(data)
-      });
-      status.textContent=r.ok?'Submitted. We will contact you soon.':'Error: '+await r.text();
-      if(r.ok) form.reset();
-    }catch(e){
-      status.textContent='Network error.';
-    }
-  });
-})();
-</script>
-
-</body>
-</html>
+</body></html>
