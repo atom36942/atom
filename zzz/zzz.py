@@ -1,1 +1,1 @@
-# pls put extra extender logic in this folder.
+# pls put extra files in /zzz folder like client related func,scripts,config,schema etc
