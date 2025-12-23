@@ -103,8 +103,9 @@ config_sql={
 }
 config_table={
 "test":{"buffer":3},
-"log_api":{"delete_day":365,"buffer":3},
-"otp":{"delete_day":365},
+"log_api":{"retention_day":30,"buffer":3},
+"log_password":{"retention_day":90},
+"otp":{"retention_day":365},
 }
 config_api={
 "/admin/object-create":{"id":1},

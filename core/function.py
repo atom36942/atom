@@ -176,7 +176,7 @@ import datetime
 async def func_postgres_clean(client_postgres_pool, config_table):
     async with client_postgres_pool.acquire() as conn:
         for table_name, cfg in config_table.items():
-            days = cfg.get("delete_day")
+            days = cfg.get("retention_day")
             if days is None:continue
             threshold_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
             query = f"DELETE FROM {table_name} WHERE created_at < $1"
