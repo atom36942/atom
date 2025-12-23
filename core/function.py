@@ -1746,17 +1746,19 @@ async def func_sftp_file_upload(client_sftp, input_path, output_path, chunk_size
                         break
                     await rf.write(chunk)
     
-import uuid                
+import uuid
 from pathlib import Path
-async def func_sftp_file_download(client_sftp, input_path, output_path=None, chunk_size=None):
-    if not output_path: output_path = f"export/{uuid.uuid4().hex}{Path(input_path).suffix}"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    if not chunk_size: chunk_size = 65536
-    async with client_sftp.start_sftp_client() as sftp, sftp.open(input_path,"rb") as rf, open(output_path,"wb") as lf:
-        while True:
-            c = await rf.read(chunk_size)
-            if not c: break
-            lf.write(c)
+async def func_sftp_file_download(client_sftp,input_path,output_path=None,chunk_size=None):
+    if not output_path:output_path=f"export/{uuid.uuid4().hex}{Path(input_path).suffix}"
+    Path(output_path).parent.mkdir(parents=True,exist_ok=True)
+    if not chunk_size:chunk_size=65536
+    async with client_sftp.start_sftp_client() as sftp:
+        async with sftp.open(input_path,"rb") as rf:
+            with open(output_path,"wb") as lf:
+                while True:
+                    c=await rf.read(chunk_size)
+                    if not c:break
+                    lf.write(c)
     return output_path
 
 async def func_sftp_file_delete(client_sftp, path):
