@@ -1,1 +1,1 @@
-# pls put extra files in /zzz folder like client related func,scripts,config,schema etc
+# use /zzz folder to add extra files like functions,scripts,config,schema etc
