@@ -13,24 +13,21 @@ async def func_api_1bd8a31e5baa4b67b6f05785f3dd52fb(request:Request):
    return {"status":1,"message":"welcome to test protected"}
 
 @router.get("/page/{name}")
-async def func_api_10f177735aac4564a0946f9088f17d9a(name:str):
-    html_path=None
-    for path in Path("html").rglob("*.html"):
-        if path.stem == name:
-            html_path = path
-            break
-    if not html_path:raise Exception("html not found")
-    return responses.HTMLResponse(content=await func_render_html(str(html_path)))
- 
-from fastapi import WebSocket,WebSocketDisconnect
+async def func_api_10f177735aac4564a0946f9088f17d9a(name):
+    path=func_find_html(name,"html")
+    return responses.HTMLResponse(content=await func_render_html(path))
+
 @router.websocket("/websocket")
 async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):
    await websocket.accept()
    try:
       while True:
          message=await websocket.receive_text()
-         output=await func_postgres_obj_list_create(websocket.app.state.client_postgres_pool,func_postgres_obj_list_serialize,websocket.app.state.cache_postgres_column_datatype,"buffer","test",[{"title":message}],0,5)
+         output=await func_postgres_obj_list_create(websocket.app.state.client_postgres_pool,func_postgres_obj_list_serialize,websocket.app.state.cache_postgres_column_datatype,"buffer","test",[{"title":message}],0,3)
          await websocket.send_text(str(output))
    except WebSocketDisconnect:
       print("client disconnected")
+      
+
+
 

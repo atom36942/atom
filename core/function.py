@@ -1,3 +1,10 @@
+from pathlib import Path
+def func_find_html(name,folder):
+    for item in Path(folder).rglob("*.html"):
+        if item.stem == name:
+            return str(item)
+    raise Exception("path not found")
+
 import traceback
 from fastapi import responses
 async def func_handler_api_error(request,e):

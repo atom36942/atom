@@ -82,4 +82,4 @@ async def middleware(request,api_function):
 #root
 @app.get("/")
 async def func_api_index(request:Request):
-   return {"status":1,"message":"welcome to atom"}
+   return responses.HTMLResponse(content=await func_render_html("html/atom.html"))
