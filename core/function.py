@@ -430,7 +430,7 @@ from dateutil import parser
 async def func_postgres_obj_list_serialize(cache_postgres_column_datatype,obj_list):
     for obj in obj_list:
         for k,v in obj.items():
-            if v in [None,"","null"]: obj[k]=None; continue
+            if v in (None,"","null"): obj[k]=None; continue
             datatype=cache_postgres_column_datatype.get(k)
             if not datatype: continue
             if k=="password": obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
@@ -442,7 +442,7 @@ async def func_postgres_obj_list_serialize(cache_postgres_column_datatype,obj_li
             elif "int" in datatype: obj[k]=int(v)
             elif datatype=="numeric": obj[k]=round(float(v),3)
             elif datatype=="date": obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
-            elif "time" in datatype or "timestamp" in datatype or "timestamptz" in datatype.lower(): obj[k]=parser.isoparse(v) if isinstance(v,str) else v
+            elif "time" in datatype or "timestamp" in datatype.lower(): obj[k]=parser.isoparse(v) if isinstance(v,str) else v
             elif datatype=="ARRAY":
                 if isinstance(v,list): obj[k]=v
                 else:
@@ -456,8 +456,7 @@ async def func_postgres_obj_list_serialize(cache_postgres_column_datatype,obj_li
                     else:
                         try: json.loads(x); obj[k]=x
                         except Exception: obj[k]=json.dumps(x)
-                else:
-                    obj[k]=json.dumps(v,separators=(",",":"))
+                else: obj[k]=json.dumps(v,separators=(",",":"))
     return obj_list
 
 import csv
