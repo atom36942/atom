@@ -190,112 +190,113 @@ async def func_postgres_clean(client_postgres_pool, config_table):
             await conn.execute(query, threshold_date)
     return None
         
-async def func_postgres_obj_list_read(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,table,obj):
+from datetime import datetime
+import json
+import re
+async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_list_serialize, cache_postgres_column_datatype, func_creator_data_add, func_action_count_add, table, obj):
     """
-    obj={}
-    obj={"order":"id asc"}
-    obj={"limit":10}
-    obj={"page":2}
-    obj={"column":"id,created_by_id,title"}
-    obj={"creator_key":"username,email"}
-    obj={"id":">,1"}
-    obj={"created_at":">=,2000-01-01"}
-    obj={"id":"in,1|2|3|4"}
-    obj={"title":"not in,buffer|celery"}
-    obj={"title":"is,null"}
-    obj={"title":"is not,null"}
-    obj={"created_at":"between,2000-01-01|3000-01-01"}
-    obj={"title":"ilike,%buf%"}
-    obj={"title":"~*,buf*"}
-    obj={"location":"point,80.00|15.00|100|1000"}
+    obj={"order":"created_at desc"}
+    obj={"limit":20}
+    obj={"page":1}
+    obj={"column":"id,title,tag"}
     obj={"creator_key":"username,email"}
     obj={"action_key":"report_test,test_id,count,id"}
-    obj={"action_key":"rating_test,test_id,avg,rating"}
+    obj={"id":"=,1"}
+    obj={"id":"!=,5"}
+    obj={"id":"in,1|2|3|4"}
+    obj={"title":"ilike,%search%"}
+    obj={"status":"is,null"}
+    obj={"age":"between,18|35"}
+    obj={"tag":"contains,python"}
+    obj={"tag":"contains,python|sql"}
+    obj={"tag":"overlap,python|go|js"}
+    obj={"tag":"any,python"}
+    obj={"metadata":"contains,role|admin"}
+    obj={"metadata":"contains,id|123|int"}
+    obj={"metadata":"contains,active|true|bool"}
+    obj={"metadata":"contains,{\"type\":\"admin\"}"}
+    obj={"metadata":"exists,is_verified"}
+    obj={"location":"point,80.0|15.0|0|1000"}
     """
-    order=obj.get("order","id desc")
-    limit=int(obj.get("limit",100))
-    page=int(obj.get("page",1))
-    columns=obj.get("column","*")
-    creator_key=obj.get("creator_key")
-    action_key=obj.get("action_key")
-    filters={k:v for k,v in obj.items() if k not in ["table","order","limit","page","column","creator_key","action_key"]}
-    def parse_filter(expr):
-        try:
-            op,val=expr.split(",",1)
-            return op.strip().lower(),val.strip()
-        except:
-            raise Exception(f"invalid filter format: {expr}")
-    async def serialize_value(col,val,datatype):
-        serialized=await func_postgres_obj_list_serialize({col:datatype},[{col:val}])
-        return serialized[0][col]
-    async def serialize_filter_value(col,op,val,datatype):
-        if op in ["in","not in"]:
-            items=[]
-            for x in val.split("|"):
-                items.append(await serialize_value(col,x.strip(),datatype))
-            return items
-        elif op=="between":
-            parts=val.split("|")
-            if len(parts)!=2:raise Exception(f"between requires 2 values for {col}")
-            return [await serialize_value(col,x.strip(),datatype) for x in parts]
-        elif val.lower()=="null":
-            return None
-        else:
-            return await serialize_value(col,val,datatype)
-    def build_condition(col,op,val,idx,values):
-        if val is None:
-            if op not in ["is","is not"]:raise Exception(f"null only allowed with is/is not for {col}")
-            return f"{col} {op.upper()} NULL",idx
-        elif op in ["in","not in"]:
-            placeholders=[f"${idx+i}" for i in range(len(val))]
-            values.extend(val)
-            return f"{col} {op.upper()} ({','.join(placeholders)})",idx+len(val)
-        elif op=="between":
-            values.extend(val)
-            return f"{col} BETWEEN ${idx} AND ${idx+1}",idx+2
-        elif op in ["=",">","<",">=","<=","like","ilike","~","~*"]:
-            values.append(val)
-            return f"{col} {op.upper()} ${idx}",idx+1
-        else:
-            raise Exception(f"unsupported operator {op} for {col}")
-    def parse_point_filter(col,expr):
-        try:
-            _,rest=expr.split(",",1)
-            long,lat,min_meter,max_meter=[float(x) for x in rest.split("|")]
-            return f"ST_Distance({col},ST_Point({long},{lat})::geography) BETWEEN {min_meter} AND {max_meter}"
-        except:
-            raise Exception(f"invalid point filter for {col}: {expr}")
-    serialized_values={}
-    for col,expr in filters.items():
+    def validate_sql_key(name):
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', str(name)): raise Exception(f"security error: invalid identifier {name}")
+        return name
+    safe_table = validate_sql_key(table)
+    order, limit, page = obj.get("order", "id desc"), int(obj.get("limit", 100)), int(obj.get("page", 1))
+    columns_raw = obj.get("column", "*")
+    columns = "*" if columns_raw == "*" else ",".join([validate_sql_key(c.strip()) for c in columns_raw.split(",")])
+    creator_key, action_key = obj.get("creator_key"), obj.get("action_key")
+    filters = {k: v for k, v in obj.items() if k not in ["table", "order", "limit", "page", "column", "creator_key", "action_key"]}
+    async def _serialize_single(col, val, datatype):
+        res = await func_postgres_obj_list_serialize({col: datatype}, [{col: val}])
+        final_val, dt, v_str = res[0][col], datatype.upper(), str(res[0][col]).strip()
+        if v_str.lower() == "null": return None
+        if any(x in dt for x in ["INT", "SERIAL", "SMALLINT", "BIGINT"]):
+            try: return int(final_val)
+            except: return final_val
+        if any(x in dt for x in ["NUMERIC", "DECIMAL", "REAL", "DOUBLE", "FLOAT"]):
+            try: return float(final_val)
+            except: return final_val
+        if "BOOL" in dt: return v_str.lower() in ["true", "1", "t", "y", "yes"]
+        if "TIMESTAMP" in dt or "DATE" in dt:
+            try:
+                if " " in v_str: return datetime.fromisoformat(v_str.replace("Z", "+00:00"))
+                return datetime.fromisoformat(v_str)
+            except: return final_val
+        return final_val
+    conditions, values, idx = [], [], 1
+    for col_key, expr in filters.items():
+        validate_sql_key(col_key)
         if expr.lower().startswith("point,"):
-            serialized_values[col]=expr
-            continue
-        op,val=parse_filter(expr)
-        datatype=cache_postgres_column_datatype.get(col)
-        serialized_values[col]=await serialize_filter_value(col,op,val,datatype)
-    conditions,values,idx=[],[],1
-    point_queries=[]
-    for col,expr in filters.items():
-        if expr.lower().startswith("point,"):
-            point_queries.append(parse_point_filter(col,expr))
-            continue
-        op=parse_filter(expr)[0]
-        val=serialized_values[col]
-        cond,idx=build_condition(col,op,val,idx,values)
-        conditions.append(cond)
-    where_conditions=conditions+point_queries
-    where_string=f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
-    query=f"SELECT {columns} FROM {table} {where_string} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
+            try:
+                _, rest = expr.split(",", 1); lon, lat, mn, mx = [float(x) for x in rest.split("|")]
+                conditions.append(f"ST_Distance({col_key}, ST_Point({lon}, {lat})::geography) BETWEEN {mn} AND {mx}"); continue
+            except: raise Exception(f"invalid point filter for {col_key}")
+        dtype = cache_postgres_column_datatype.get(col_key, "text").upper()
+        is_json, is_arr = "JSONB" in dtype, (dtype.endswith("[]") or dtype.startswith("_") or "ARRAY" in dtype)
+        base_type = dtype.replace("[]", "").replace("ARRAY", "").replace("array", "").strip() if is_arr else dtype
+        if "," not in expr: raise Exception(f"invalid format for {col_key}: {expr}")
+        op, raw_val = expr.split(",", 1); op = op.strip().lower()
+        s_val = None
+        if op == "contains":
+            if is_json:
+                if "|" in raw_val and not (raw_val.startswith("{") or raw_val.startswith("[")):
+                    parts = raw_val.split("|"); k, v_raw, t = parts[0], parts[1], (parts[2].lower() if len(parts) > 2 else "str")
+                    v = int(v_raw) if t == "int" else (v_raw.lower() == "true" if t == "bool" else float(v_raw) if t == "float" else v_raw)
+                    s_val = json.dumps({k: v})
+                else:
+                    try: s_val = json.dumps(json.loads(raw_val))
+                    except: s_val = raw_val
+            elif is_arr: s_val = [await _serialize_single(col_key, x.strip(), base_type) for x in raw_val.split("|")]
+            else: s_val = await _serialize_single(col_key, raw_val, dtype)
+        elif op in ["overlap", "in", "not in", "between"]: s_val = [await _serialize_single(col_key, x.strip(), base_type if op != "between" else dtype) for x in raw_val.split("|")]
+        elif op == "any": s_val = await _serialize_single(col_key, raw_val, base_type)
+        elif raw_val.lower() == "null": s_val = None
+        else: s_val = await _serialize_single(col_key, raw_val, dtype)
+        if s_val is None:
+            if op not in ["is", "is not"]: raise Exception(f"null requires is/is not for {col_key}")
+            conditions.append(f"{col_key} {op.upper()} NULL")
+        elif op == "contains": values.append(s_val); conditions.append(f"{col_key} @> ${idx}{'::jsonb' if is_json else ''}"); idx += 1
+        elif op == "exists": values.append(s_val); conditions.append(f"{col_key} ? ${idx}"); idx += 1
+        elif op == "overlap": values.append(s_val); conditions.append(f"{col_key} && ${idx}"); idx += 1
+        elif op == "any": values.append(s_val); conditions.append(f"${idx} = ANY({col_key})"); idx += 1
+        elif op in ["in", "not in"]:
+            ph = [f"${idx + i}" for i in range(len(s_val))]; values.extend(s_val); conditions.append(f"{col_key} {op.upper()} ({','.join(ph)})"); idx += len(s_val)
+        elif op == "between": values.extend(s_val); conditions.append(f"{col_key} BETWEEN ${idx} AND ${idx+1}"); idx += 2
+        else:
+            v_ops = {"=": "=", "==": "=", "!=": "!=", "<>": "<>", ">": ">", "<": "<", ">=": ">=", "<=": "<=", "like": "LIKE", "ilike": "ILIKE", "~": "~", "~*": "~*"}
+            if op in v_ops: values.append(s_val); conditions.append(f"{col_key} {v_ops[op]} ${idx}"); idx += 1
+            else: raise Exception(f"unsupported operator {op} for {col_key}")
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = f"SELECT {columns} FROM {safe_table} {where} ORDER BY {order} LIMIT {limit} OFFSET {(page - 1) * limit}"
     async with client_postgres_pool.acquire() as conn:
         try:
-            records=await conn.fetch(query,*values)
-            obj_list=[dict(r) for r in records]
-            if creator_key:obj_list=await func_creator_data_add(client_postgres_pool,obj_list,creator_key)
-            if action_key:obj_list=await func_action_count_add(client_postgres_pool,obj_list,action_key)
-            return obj_list
-        except Exception as e:
-            raise Exception(f"failed to read: {e}")
-
+            records = await conn.fetch(query, *values); res_list = [dict(r) for r in records]
+            if creator_key and res_list: res_list = await func_creator_data_add(client_postgres_pool, res_list, creator_key)
+            if action_key and res_list: res_list = await func_action_count_add(client_postgres_pool, res_list, action_key)
+            return res_list
+        except Exception as e: raise Exception(f"Read Error: {e}")
+        
 async def func_postgres_obj_list_update(client_postgres_pool, func_postgres_obj_list_serialize, cache_postgres_column_datatype, table, obj_list, is_serialize=None, created_by_id=None, batch_size=None, return_ids=False):
     if not obj_list:return None
     if not is_serialize:is_serialize=0
