@@ -105,7 +105,7 @@ const COMMANDS=[
 {p:"/my/message-thread",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"user_id",v:"1"}],f:[],j:[]},
 {p:"/my/message-delete-single",m:"DELETE",h:[{k:"Authorization",v:""}],q:[{k:"id",v:"1"}],f:[],j:[]},
 {p:"/my/message-delete-bulk",m:"DELETE",h:[{k:"Authorization",v:""}],q:[{k:"mode",v:"all"}],f:[],j:[]},
-{p:"/my/parent-read",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"table",v:"report_user"},{k:"parent_column",v:"user_id"},{k:"parent_table",v:"users"}],f:[],j:[]},
+{p:"/my/parent-read",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"table",v:"report_test"},{k:"parent_column",v:"test_id"},{k:"parent_table",v:"test"}],f:[],j:[]},
 {p:"/my/object-create-mongodb",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[{k:"database",v:"test"},{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"test",t:"string"}]},
 {p:"/my/object-create",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"my",t:"string"}]},
 {p:"/my/object-update",m:"PUT",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"161",t:"number"},{k:"title",v:"updated",t:"string"},{k:"created_by_id",v:"100",t:"number"}]},
