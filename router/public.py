@@ -4,13 +4,14 @@ from core.route import *
 #api
 @router.get("/public/info")
 async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
+   obj_query=await func_request_param_read(request,"query",[["key","str",0,None]])
    output={
    "api_list":[route.path for route in request.app.routes],
    "postgres_schema":request.app.state.cache_postgres_schema,
    "postgres_column_datatype":request.app.state.cache_postgres_column_datatype,
    "request_state_app":{k:type(v).__name__ for k, v in request.app.state._state.items()}
    }
-   return {"status":1,"message":output}
+   return {"status":1,"message":output if not obj_query["key"] else output[obj_query["key"]]}
 
 @router.get("/public/converter-integer")
 async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):

@@ -1,3 +1,25 @@
+async def func_postgres_init_sql_default(client_postgres_pool):
+    queries = {
+    "created_at_default": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
+    "updated_at_default_1": "CREATE OR REPLACE FUNCTION func_set_updated_at_now() RETURNS trigger AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;",
+    "updated_at_default_2": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION func_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+    "is_protected": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+    "delete_disable_bulk_func": "CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows', n; END IF; RETURN OLD; END; $$;",
+    "check_is_active": "DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name=p.relname JOIN pg_namespace n ON p.relnamespace=n.oid WHERE c.column_name='is_active' AND c.table_schema='public' AND p.relkind='r') LOOP constraint_name := format('constraint_check_%I_is_active', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_active IN (0,1) OR is_active IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
+    "check_is_verified": "DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name=p.relname JOIN pg_namespace n ON p.relnamespace=n.oid WHERE c.column_name='is_verified' AND c.table_schema='public' AND p.relkind='r') LOOP constraint_name := format('constraint_check_%I_is_verified', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_verified IN (0,1) OR is_verified IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
+    "check_is_deleted": "DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name=p.relname JOIN pg_namespace n ON p.relnamespace=n.oid WHERE c.column_name='is_deleted' AND c.table_schema='public' AND p.relkind='r') LOOP constraint_name := format('constraint_check_%I_is_deleted', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_deleted IN (0,1) OR is_deleted IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
+    "check_is_protected": "DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name=p.relname JOIN pg_namespace n ON p.relnamespace=n.oid WHERE c.column_name='is_protected' AND c.table_schema='public' AND p.relkind='r') LOOP constraint_name := format('constraint_check_%I_is_protected', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_protected IN (0,1) OR is_protected IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
+    "log_password_1": "CREATE OR REPLACE FUNCTION func_log_password_change() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
+    "log_password_2": "CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION func_log_password_change();",
+    "root_user_1": "INSERT INTO users (type,username,password,api_access) VALUES (1,'atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100') ON CONFLICT DO NOTHING;",
+    "root_user_2": "CREATE OR REPLACE RULE rule_delete_disable_root_user AS ON DELETE TO users WHERE OLD.id=1 DO INSTEAD NOTHING;"
+    }
+    async with client_postgres_pool.acquire() as conn:
+        async with conn.transaction():
+            for q in queries.values():
+                await conn.execute(q)
+    return f"executed{len(queries)}"
+
 from pathlib import Path
 def func_find_html(name,folder):
     for item in Path(folder).rglob("*.html"):
@@ -202,19 +224,18 @@ async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_li
     obj={"creator_key":"username,email"}
     obj={"action_key":"report_test,test_id,count,id"}
     obj={"id":"=,1"}
-    obj={"id":"!=,5"}
     obj={"id":"in,1|2|3|4"}
     obj={"title":"ilike,%search%"}
     obj={"status":"is,null"}
     obj={"age":"between,18|35"}
     obj={"tag":"contains,python"}
-    obj={"tag":"contains,python|sql"}
-    obj={"tag":"overlap,python|go|js"}
+    obj={"tag":"overlap,python|sql"}
     obj={"tag":"any,python"}
+    obj={"tag_int":"contains,1|2|3"}
+    obj={"tag_int":"overlap,10|20"}
+    obj={"tag_int":"any,5"}
     obj={"metadata":"contains,role|admin"}
     obj={"metadata":"contains,id|123|int"}
-    obj={"metadata":"contains,active|true|bool"}
-    obj={"metadata":"contains,{\"type\":\"admin\"}"}
     obj={"metadata":"exists,is_verified"}
     obj={"location":"point,80.0|15.0|0|1000"}
     """
@@ -228,23 +249,12 @@ async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_li
     creator_key, action_key = obj.get("creator_key"), obj.get("action_key")
     filters = {k: v for k, v in obj.items() if k not in ["table", "order", "limit", "page", "column", "creator_key", "action_key"]}
     async def _serialize_single(col, val, datatype):
+        if str(val).lower() == "null": return None
         res = await func_postgres_obj_list_serialize({col: datatype}, [{col: val}])
-        final_val, dt, v_str = res[0][col], datatype.upper(), str(res[0][col]).strip()
-        if v_str.lower() == "null": return None
-        if any(x in dt for x in ["INT", "SERIAL", "SMALLINT", "BIGINT"]):
-            try: return int(final_val)
-            except: return final_val
-        if any(x in dt for x in ["NUMERIC", "DECIMAL", "REAL", "DOUBLE", "FLOAT"]):
-            try: return float(final_val)
-            except: return final_val
-        if "BOOL" in dt: return v_str.lower() in ["true", "1", "t", "y", "yes"]
-        if "TIMESTAMP" in dt or "DATE" in dt:
-            try:
-                if " " in v_str: return datetime.fromisoformat(v_str.replace("Z", "+00:00"))
-                return datetime.fromisoformat(v_str)
-            except: return final_val
-        return final_val
+        return res[0][col]
     conditions, values, idx = [], [], 1
+    v_ops = {"=": "=", "==": "=", "!=": "!=", "<>": "<>", ">": ">", "<": "<", ">=": ">=", "<=": "<=", "is": "IS", "is not": "IS NOT", "in": "IN", "not in": "NOT IN", "between": "BETWEEN"}
+    str_ops = {"like": "LIKE", "ilike": "ILIKE", "~": "~", "~*": "~*"}
     for col_key, expr in filters.items():
         validate_sql_key(col_key)
         if expr.lower().startswith("point,"):
@@ -252,11 +262,16 @@ async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_li
                 _, rest = expr.split(",", 1); lon, lat, mn, mx = [float(x) for x in rest.split("|")]
                 conditions.append(f"ST_Distance({col_key}, ST_Point({lon}, {lat})::geography) BETWEEN {mn} AND {mx}"); continue
             except: raise Exception(f"invalid point filter for {col_key}")
-        dtype = cache_postgres_column_datatype.get(col_key, "text").upper()
-        is_json, is_arr = "JSONB" in dtype, (dtype.endswith("[]") or dtype.startswith("_") or "ARRAY" in dtype)
-        base_type = dtype.replace("[]", "").replace("ARRAY", "").replace("array", "").strip() if is_arr else dtype
+        dtype = cache_postgres_column_datatype.get(col_key, "text")
+        dt_low = dtype.lower(); is_json, is_arr = "json" in dt_low, "array" in dt_low
+        base_type = dtype.replace("ARRAY[", "").replace("]", "").strip() if is_arr else dtype
         if "," not in expr: raise Exception(f"invalid format for {col_key}: {expr}")
         op, raw_val = expr.split(",", 1); op = op.strip().lower()
+        avail = list(v_ops.keys())
+        if any(x in dt_low for x in ["text", "char", "varchar"]): avail += list(str_ops.keys())
+        if is_arr: avail += ["contains", "overlap", "any"]
+        if is_json: avail += ["contains", "exists"]
+        if op not in avail: raise Exception(f"invalid operator '{op}' for column '{col_key}' ({dtype}). available: {', '.join(avail)}")
         s_val = None
         if op == "contains":
             if is_json:
@@ -271,22 +286,20 @@ async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_li
             else: s_val = await _serialize_single(col_key, raw_val, dtype)
         elif op in ["overlap", "in", "not in", "between"]: s_val = [await _serialize_single(col_key, x.strip(), base_type if op != "between" else dtype) for x in raw_val.split("|")]
         elif op == "any": s_val = await _serialize_single(col_key, raw_val, base_type)
-        elif raw_val.lower() == "null": s_val = None
         else: s_val = await _serialize_single(col_key, raw_val, dtype)
         if s_val is None:
             if op not in ["is", "is not"]: raise Exception(f"null requires is/is not for {col_key}")
-            conditions.append(f"{col_key} {op.upper()} NULL")
+            conditions.append(f"{col_key} {v_ops[op]} NULL")
         elif op == "contains": values.append(s_val); conditions.append(f"{col_key} @> ${idx}{'::jsonb' if is_json else ''}"); idx += 1
         elif op == "exists": values.append(s_val); conditions.append(f"{col_key} ? ${idx}"); idx += 1
         elif op == "overlap": values.append(s_val); conditions.append(f"{col_key} && ${idx}"); idx += 1
         elif op == "any": values.append(s_val); conditions.append(f"${idx} = ANY({col_key})"); idx += 1
         elif op in ["in", "not in"]:
-            ph = [f"${idx + i}" for i in range(len(s_val))]; values.extend(s_val); conditions.append(f"{col_key} {op.upper()} ({','.join(ph)})"); idx += len(s_val)
+            ph = [f"${idx + i}" for i in range(len(s_val))]; values.extend(s_val); conditions.append(f"{col_key} {v_ops[op]} ({','.join(ph)})"); idx += len(s_val)
         elif op == "between": values.extend(s_val); conditions.append(f"{col_key} BETWEEN ${idx} AND ${idx+1}"); idx += 2
         else:
-            v_ops = {"=": "=", "==": "=", "!=": "!=", "<>": "<>", ">": ">", "<": "<", ">=": ">=", "<=": "<=", "like": "LIKE", "ilike": "ILIKE", "~": "~", "~*": "~*"}
-            if op in v_ops: values.append(s_val); conditions.append(f"{col_key} {v_ops[op]} ${idx}"); idx += 1
-            else: raise Exception(f"unsupported operator {op} for {col_key}")
+            final_op = v_ops.get(op) or str_ops.get(op)
+            conditions.append(f"{col_key} {final_op} ${idx}"); values.append(s_val); idx += 1
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     query = f"SELECT {columns} FROM {safe_table} {where} ORDER BY {order} LIMIT {limit} OFFSET {(page - 1) * limit}"
     async with client_postgres_pool.acquire() as conn:
@@ -425,40 +438,6 @@ async def func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_l
             return results
         else:
             raise Exception("mode must be 'now', 'buffer', or 'flush'")
-        
-import hashlib,json
-from dateutil import parser
-async def func_postgres_obj_list_serialize(cache_postgres_column_datatype,obj_list):
-    for obj in obj_list:
-        for k,v in obj.items():
-            if v in (None,"","null"): obj[k]=None; continue
-            datatype=cache_postgres_column_datatype.get(k)
-            if not datatype: continue
-            if k=="password": obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
-            elif datatype in ("bool","boolean"):
-                if isinstance(v,bool): obj[k]=v
-                elif isinstance(v,str): obj[k]=v.strip().lower() in ("true","t","1","yes")
-                else: obj[k]=bool(v)
-            elif datatype=="text": obj[k]=str(v).strip()
-            elif "int" in datatype: obj[k]=int(v)
-            elif datatype=="numeric": obj[k]=round(float(v),3)
-            elif datatype=="date": obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
-            elif "time" in datatype or "timestamp" in datatype.lower(): obj[k]=parser.isoparse(v) if isinstance(v,str) else v
-            elif datatype=="ARRAY":
-                if isinstance(v,list): obj[k]=v
-                else:
-                    x=str(v).strip()
-                    if x.startswith("{") and x.endswith("}"): x=x[1:-1]
-                    obj[k]=[i.strip().strip('"').strip("'") for i in x.split(",") if i.strip()]
-            elif datatype=="jsonb":
-                if isinstance(v,str):
-                    x=v.strip()
-                    if not x: obj[k]=None
-                    else:
-                        try: json.loads(x); obj[k]=x
-                        except Exception: obj[k]=json.dumps(x)
-                else: obj[k]=json.dumps(v,separators=(",",":"))
-    return obj_list
 
 import csv
 from io import StringIO
@@ -500,7 +479,7 @@ async def func_postgres_export(client_postgres_pool, query, batch_size=None, out
         if f: f.close()
     return output_path
 
-async def func_postgres_schema_init(client_postgres_pool,config_postgres,func_postgres_schema_read):
+async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_postgres_schema_read,func_postgres_init_sql_default):
     if not config_postgres:
         raise Exception("config_postgres null")
     async def func_init_extension(conn):
@@ -574,10 +553,10 @@ async def func_postgres_schema_init(client_postgres_pool,config_postgres,func_po
                     query = f"create index concurrently if not exists {idxname} on {table} using {t} ({col_def});"
                     await conn.execute(query)
         return None
-    async def func_init_query(conn, config_postgres):
+    async def func_postgres_init_sql_client(conn, config_postgres):
         rows = await conn.fetch("select constraint_name from information_schema.constraint_column_usage;")
         constraint_name_list = {r["constraint_name"].lower() for r in rows}
-        for query in config_postgres["query"].values():
+        for query in config_postgres["sql"].values():
             if query.split()[0]=="0": continue
             if "add constraint" in query.lower() and query.split()[5].lower() in constraint_name_list:
                 continue
@@ -590,14 +569,37 @@ async def func_postgres_schema_init(client_postgres_pool,config_postgres,func_po
         await func_init_column(conn,config_postgres,func_postgres_schema_read)
         await func_init_nullable(conn,config_postgres,func_postgres_schema_read)
         await func_init_index(conn,config_postgres)
-        await func_init_query(conn,config_postgres)
+        await func_postgres_init_sql_default(client_postgres_pool)
+        await func_postgres_init_sql_client(conn,config_postgres)
     return None
 
-async def func_postgres_index_drop_all(client_postgres_pool):
-    query = "DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'index_%') LOOP EXECUTE 'DROP INDEX IF EXISTS public.' || quote_ident(r.indexname); END LOOP; END $$;"
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(query)
-    return None
+import hashlib,json
+from dateutil import parser
+async def func_postgres_obj_list_serialize(cache_postgres_column_datatype,obj_list):
+    for obj in obj_list:
+        for k,v in obj.items():
+            if v in (None,"","null"):obj[k]=None;continue
+            d=cache_postgres_column_datatype.get(k)
+            if not d:continue
+            if k=="password":obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
+            elif "bool" in d:obj[k]=v if isinstance(v,bool) else (str(v).lower() in ("true","t","1","yes"))
+            elif d=="text" or "char" in d:obj[k]=str(v).strip()
+            elif "int" in d and "ARRAY" not in d:obj[k]=int(v)
+            elif "numeric" in d or "double" in d:obj[k]=round(float(v),3)
+            elif "date" == d:obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
+            elif "time" in d or "timestamp" in d:obj[k]=parser.isoparse(v) if isinstance(v,str) else v
+            elif "ARRAY" in d:
+                if isinstance(v,list):ls=v
+                else:
+                    x=str(v).strip();x=x[1:-1] if x.startswith("{") and x.endswith("}") else x
+                    ls=[i.strip().strip('"').strip("'") for i in x.split(",") if i.strip()]
+                obj[k]=[int(i) for i in ls] if any(y in d for y in ("int","smallint","bigint")) else ls
+            elif "json" in d:
+                if isinstance(v,(dict,list)):obj[k]=json.dumps(v,separators=(",",":"))
+                else:
+                    try:json.loads(v);obj[k]=v
+                    except:obj[k]=json.dumps(v)
+    return obj_list
 
 async def func_postgres_schema_read(client_postgres_pool):
     query = """
@@ -606,7 +608,22 @@ async def func_postgres_schema_read(client_postgres_pool):
         WHERE table_schema='public' AND table_type='BASE TABLE'
     ),
     c AS (
-        SELECT table_name, column_name, data_type,
+        SELECT table_name, column_name,
+               CASE
+                 WHEN data_type='ARRAY' THEN
+                   'ARRAY[' ||
+                   CASE udt_name
+                     WHEN '_int2' THEN 'smallint'
+                     WHEN '_int4' THEN 'int'
+                     WHEN '_int8' THEN 'bigint'
+                     WHEN '_text' THEN 'text'
+                     WHEN '_bool' THEN 'bool'
+                     WHEN '_varchar' THEN 'varchar'
+                     ELSE replace(udt_name,'_','')
+                   END
+                   || ']'
+                 ELSE data_type
+               END AS data_type,
                CASE WHEN is_nullable='YES' THEN 1 ELSE 0 END AS is_nullable,
                column_default
         FROM information_schema.columns
@@ -633,20 +650,13 @@ async def func_postgres_schema_read(client_postgres_pool):
     """
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch(query)
-    postgres_schema = {}
-    postgres_column_datatype = {}
+    postgres_schema,postgres_column_datatype={},{}
     for obj in output:
-        table, column = obj["table"], obj["column"]
-        column_data = {
-            "datatype": obj["datatype"],
-            "default": obj["default"],
-            "is_null": obj["is_null"],
-            "is_index": obj["is_index"]
-        }
-        if table not in postgres_schema:
-            postgres_schema[table] = {}
-        postgres_schema[table][column] = column_data
-    postgres_column_datatype = {col: data["datatype"] for table, cols in postgres_schema.items() for col, data in cols.items()}
+        table,column=obj["table"],obj["column"]
+        column_data={"datatype":obj["datatype"],"default":obj["default"],"is_null":obj["is_null"],"is_index":obj["is_index"]}
+        if table not in postgres_schema: postgres_schema[table]={}
+        postgres_schema[table][column]=column_data
+    postgres_column_datatype={col:data["datatype"] for table,cols in postgres_schema.items() for col,data in cols.items()}
     return postgres_schema,postgres_column_datatype
 
 import asyncpg

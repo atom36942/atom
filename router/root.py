@@ -4,7 +4,7 @@ from core.route import *
 #api
 @router.get("/root/postgres-init")
 async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
-   output=await func_postgres_schema_init(request.app.state.client_postgres_pool,config_postgres,func_postgres_schema_read)
+   output=await func_postgres_init_schema(request.app.state.client_postgres_pool,config_postgres,func_postgres_schema_read,func_postgres_init_sql_default)
    return {"status":1,"message":output}
 
 @router.get("/root/reset-global")
