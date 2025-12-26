@@ -13,10 +13,10 @@ async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
    }
    return {"status":1,"message":output if not obj_query["key"] else output[obj_query["key"]]}
 
-@router.get("/public/converter-integer")
+@router.get("/public/converter-bigint")
 async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):
-   obj_query=await func_request_param_read(request,"query",[["mode","str",1,None],["x","str",1,None],["max_length","int",0,None]])
-   output=await func_converter_integer(obj_query["mode"],obj_query["x"],obj_query["max_length"])
+   obj_query=await func_request_param_read(request,"query",[["mode","str",1,None],["x","str",1,None]])
+   output=await func_converter_bigint(obj_query["mode"],obj_query["x"])
    return {"status":1,"message":output}
 
 @router.post("/public/object-create")

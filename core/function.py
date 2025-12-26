@@ -1718,47 +1718,25 @@ async def func_request_param_read(request,mode,config):
         param[key] = val
     return param
 
-async def func_converter_integer(mode,x,max_length=None): 
-    if not max_length:max_length=11 
-    if max_length not in (11,30):raise Exception("max_length must be 11 or 30") 
-    if mode=="encode": 
-        try:x=str(x) 
-        except:raise Exception("encode requires str") 
-    elif mode=="decode": 
-        try:x=int(x) 
-        except:raise Exception("decode requires int") 
-    else:raise Exception("mode=encode/decode") 
-    if max_length==11: 
-        CH='abcdefghijklmnopqrstuvwxyz0123456789_';B=len(CH);CTI={c:i for i,c in enumerate(CH)};ITC={i:c for i,c in enumerate(CH)} 
-        if mode=="encode": 
-            if len(x)>11:raise Exception("len>11") 
-            n=len(x) 
-            for c in x: 
-                if c not in CTI:raise Exception("bad char") 
-                n=n*B+CTI[c] 
-            return n 
-        t=x;d=[] 
-        while t>0:t,r=divmod(t,B);d.append(r) 
-        d=d[::-1] 
-        if not d:return "" 
-        ln=d[0] 
-        if ln>11:raise Exception("invalid length") 
-        return ''.join(ITC[i] for i in d[1:1+ln]) 
-    CH="abcdefghijklmnopqrstuvwxyz0123456789-_.@#";B=len(CH);CTI={c:i for i,c in enumerate(CH)};ITC={i:c for i,c in enumerate(CH)} 
-    if mode=="encode": 
-        if len(x)>max_length:raise Exception("too long") 
-        n=len(x) 
-        for c in x: 
-            if c not in CTI:raise Exception("bad char") 
-            n=n*B+CTI[c] 
-        return n 
-    t=x;d=[] 
-    while t>0:t,r=divmod(t,B);d.append(r) 
-    d=d[::-1] 
-    if not d:return "" 
-    ln=d[0] 
-    if ln>max_length:raise Exception("invalid length") 
-    return ''.join(ITC[i] for i in d[1:1+ln])
+async def func_converter_bigint(mode, x):
+    max_len = 11
+    CH = 'abcdefghijklmnopqrstuvwxyz0123456789_-.@#'
+    B = len(CH)
+    if mode == "encode":
+        s = str(x); nl = len(s)
+        if nl > max_len: raise ValueError(f"Length {nl} > {max_len}")
+        n = nl
+        for c in s:
+            idx = CH.find(c)
+            if idx == -1: raise ValueError(f"Invalid char: {c}")
+            n = n * B + idx
+        return n
+    if mode == "decode":
+        try: n, res = int(x), []
+        except: raise ValueError(f"Invalid int: {x}")
+        while n > 0: n, r = divmod(n, B); res.append(CH[r])
+        return "".join(res[::-1][1:]) if res else ""
+    raise ValueError(f"Invalid mode: {mode}")
 
 import asyncssh
 async def func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method):
