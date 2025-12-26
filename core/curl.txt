@@ -45,7 +45,7 @@ curl -X POST "$baseurl/my/object-create-mongodb?database=test&table=test" -H "Au
 
 #public
 curl -X GET "$baseurl/public/info"
-curl -X GET "$baseurl/public/converter-bigint?mode=encode&x=test"
+curl -X GET "$baseurl/public/converter-number?datatype=int&mode=encode&x=test"
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X GET "$baseurl/public/object-read?table=test"
 0 curl -X GET "$baseurl/public/otp-verify?otp=123&email=test"

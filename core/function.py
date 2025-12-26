@@ -1718,25 +1718,26 @@ async def func_request_param_read(request,mode,config):
         param[key] = val
     return param
 
-async def func_converter_bigint(mode, x):
-    max_len = 11
-    CH = 'abcdefghijklmnopqrstuvwxyz0123456789_-.@#'
+async def func_converter_number(datatype, mode, x):
+    limits = {"smallint": 2, "int": 5, "bigint": 11}
+    if datatype not in limits: raise ValueError(f"Invalid datatype '{datatype}'. Supported limits: {limits}")
+    max_len, CH = limits[datatype], 'abcdefghijklmnopqrstuvwxyz0123456789_-.@#'
     B = len(CH)
     if mode == "encode":
         s = str(x); nl = len(s)
-        if nl > max_len: raise ValueError(f"Length {nl} > {max_len}")
+        if nl > max_len: raise ValueError(f"Input '{s}' length {nl} exceeds {datatype} limit {max_len}. Limits: {limits}")
         n = nl
         for c in s:
-            idx = CH.find(c)
-            if idx == -1: raise ValueError(f"Invalid char: {c}")
+            idx = CH.find(c); 
+            if idx == -1: raise ValueError(f"Char '{c}' not in charset: {CH}")
             n = n * B + idx
         return n
     if mode == "decode":
         try: n, res = int(x), []
-        except: raise ValueError(f"Invalid int: {x}")
+        except: raise ValueError(f"Invalid integer: {x}")
         while n > 0: n, r = divmod(n, B); res.append(CH[r])
         return "".join(res[::-1][1:]) if res else ""
-    raise ValueError(f"Invalid mode: {mode}")
+    raise ValueError(f"Invalid mode '{mode}': Use encode|decode")
 
 import asyncssh
 async def func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method):
