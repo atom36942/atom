@@ -40,7 +40,7 @@ import asyncio
 async def func_handler_log_api(start,request,response,type,error):
    if request.app.state.config_is_log_api and request.app.state.cache_postgres_schema.get("log_api"):
       api=request.url.path
-      obj={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":request.app.state.config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":(time.time()-start)*1000,"type":type,"description":error}
+      obj={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":request.app.state.config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":int((time.perf_counter()-start) * 1000),"type":type,"description":error}
       asyncio.create_task(request.app.state.func_postgres_obj_list_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"buffer","log_api",[obj],0,request.app.state.config_table.get("log_api",{}).get("buffer")))
       return None
 

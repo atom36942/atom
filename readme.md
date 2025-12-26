@@ -95,7 +95,7 @@ create schema if not exists public;
 \copy test(title,type,rating,updated_at,dob,tag,location,metadata) from 'sample/postgres_create.csv' delimiter ',' csv header;
 
 #p95
-SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)::numeric, 2) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
+SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
 
 #sample config table sql
 INSERT INTO config (title, metadata) VALUES ('config_api', '{"\/protected\/test":{"password":"123"}}'::jsonb);

@@ -69,7 +69,7 @@ import time
 @app.middleware("http")
 async def middleware(request,api_function):
    try:
-      start,type,error,request.state.user=time.time(),None,None,{}
+      start,type,error,request.state.user=time.perf_counter(),None,None,{}
       request.state.user=await func_handler_token(request)
       await func_handler_admin(request)
       await func_handler_is_active(request)
