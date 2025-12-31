@@ -80,6 +80,9 @@ async def middleware(request,api_function):
    return response
 
 #root
+from pathlib import Path
+from fastapi import Request,responses
 @app.get("/")
-async def func_api_index(request:Request):
-   return responses.HTMLResponse(content=await func_render_html("html/atom.html"))
+async def func_api_index(request: Request):
+    p = Path("html/atom.html")
+    return responses.HTMLResponse(p.read_text()) if p.exists() else {"status": 1, "message": "welcome to atom"}
