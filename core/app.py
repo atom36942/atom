@@ -12,7 +12,7 @@ async def func_lifespan(app:FastAPI):
       #start
       os.makedirs("export",exist_ok=True)
       #client init
-      client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_schema_name,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
+      client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
       client_redis_ratelimiter=await func_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
       client_mongodb=await func_mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
@@ -33,10 +33,10 @@ async def func_lifespan(app:FastAPI):
       cache_users_is_active=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       cache_config=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
       #app state set
-      func_app_state_add(app,{**globals(),**locals()},("client_","cache_","func_","config_"))
+      func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
       #app shutdown
       yield
-      await func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,"flush")
+      await func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,"flush")
       if config_is_reset_export_folder:func_folder_reset("export")
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
@@ -84,5 +84,5 @@ from pathlib import Path
 from fastapi import Request,responses
 @app.get("/")
 async def func_api_index(request: Request):
-    p = Path("html/atom.html")
+    p = Path("html/index.html")
     return responses.HTMLResponse(p.read_text()) if p.exists() else {"status": 1, "message": "welcome to atom"}

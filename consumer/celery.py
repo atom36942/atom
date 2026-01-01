@@ -19,7 +19,7 @@ def init_worker(**kwargs):
     global client_postgres_pool,cache_postgres_schema,cache_postgres_column_datatype,worker_loop
     worker_loop=asyncio.new_event_loop()
     asyncio.set_event_loop(worker_loop)
-    client_postgres_pool=worker_loop.run_until_complete(func_postgres_client_read(config_postgres_url,config_postgres_schema_name,config_postgres_min_connection,config_postgres_max_connection)) if config_postgres_url else None
+    client_postgres_pool=worker_loop.run_until_complete(func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection)) if config_postgres_url else None
     cache_postgres_schema,cache_postgres_column_datatype=worker_loop.run_until_complete(func_postgres_schema_read(client_postgres_pool))
 
 #shutdown
@@ -44,11 +44,11 @@ def run_async(coro):
         raise
     
 #task 1
-@client_celery_consumer.task(name="func_postgres_obj_list_create")
+@client_celery_consumer.task(name="func_postgres_obj_create")
 def celery_task_1(mode,table,obj_list,is_serialize,buffer):
-    return run_async(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,mode,table,obj_list,is_serialize,buffer))
+    return run_async(func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,mode,table,obj_list,is_serialize,buffer))
 
 #task 2
-@client_celery_consumer.task(name="func_postgres_obj_list_update")
+@client_celery_consumer.task(name="func_postgres_obj_update")
 def celery_task_2(table,obj_list,is_serialize,created_by_id):
-    return run_async(func_postgres_obj_list_update(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,table,obj_list,is_serialize,created_by_id))
+    return run_async(func_postgres_obj_update(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,table,obj_list,is_serialize,created_by_id))

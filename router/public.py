@@ -6,10 +6,13 @@ from core.route import *
 async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
    obj_query=await func_request_param_read(request,"query",[["key","str",0,None]])
    output={
+   "request_state_app":{k:type(v).__name__ for k, v in request.app.state._state.items()},
    "api_list":[route.path for route in request.app.routes],
-   "postgres_schema":request.app.state.cache_postgres_schema,
-   "postgres_column_datatype":request.app.state.cache_postgres_column_datatype,
-   "request_state_app":{k:type(v).__name__ for k, v in request.app.state._state.items()}
+   "cache_postgres_schema":request.app.state.cache_postgres_schema,
+   "cache_postgres_column_datatype":request.app.state.cache_postgres_column_datatype,
+   "postgres_datatype_used_app":set(sorted({k["datatype"] for cols in config_postgres["table"].values() for k in cols})),
+   "postgres_datatype_used_db":set(request.app.state.cache_postgres_column_datatype.values()),
+   "config_postgres_column_setting":set([k for cols in config_postgres["table"].values() for col in cols for k in col]),
    }
    return {"status":1,"message":output if not obj_query["key"] else output[obj_query["key"]]}
 
@@ -28,7 +31,7 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
 async def func_api_88fdc8850b714b9db5fcac36cabf446d(request:Request):
    obj_query=await func_request_param_read(request,"query",[["table","str",1,None]])
    if obj_query["table"] not in config_public_table_read_list:raise Exception("table not allowed")
-   obj_list=await func_postgres_obj_list_read(request.app.state.client_postgres_pool,func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
+   obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
 @router.get("/public/otp-verify")

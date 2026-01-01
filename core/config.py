@@ -7,7 +7,6 @@ load_dotenv()
 config_postgres_url=os.getenv("config_postgres_url")
 config_postgres_min_connection=int(os.getenv("config_postgres_min_connection") or 5)
 config_postgres_max_connection=int(os.getenv("config_postgres_max_connection") or 20)
-config_postgres_schema_name=os.getenv("config_postgres_schema_name") or "public"
 
 #redis
 config_redis_url=os.getenv("config_redis_url")
@@ -125,110 +124,118 @@ config_api={
 config_postgres={
 "table":{
 "test":[
-{"column":"created_at","datatype":"timestamptz","mandatory":0,"index":"btree"},
-{"column":"updated_at","datatype":"timestamptz","mandatory":0,"index":0},
-{"column":"created_by_id","datatype":"bigint","mandatory":0,"index":"btree"},
-{"column":"updated_by_id","datatype":"bigint","mandatory":0,"index":0},
-{"column":"is_active","datatype":"smallint","mandatory":0,"index":"btree"},
-{"column":"is_verified","datatype":"smallint","mandatory":0,"index":0},
-{"column":"is_deleted","datatype":"smallint","mandatory":0,"index":0},
-{"column":"is_protected","datatype":"smallint","mandatory":0,"index":0},
-{"column":"type","datatype":"int","mandatory":0,"index":"btree"},
-{"column":"title","datatype":"text","mandatory":0,"index":"btree"},
-{"column":"description","datatype":"text","mandatory":0,"index":0},
-{"column":"file_url","datatype":"text","mandatory":0,"index":0},
-{"column":"link_url","datatype":"text","mandatory":0,"index":0},
-{"column":"tag","datatype":"text[]","mandatory":0,"index":"gin"},
-{"column":"tag_int","datatype":"int[]","mandatory":0,"index":"gin"},
-{"column":"tag_bigint","datatype":"bigint[]","mandatory":0,"index":"gin"},
-{"column":"rating","datatype":"numeric(3,1)","mandatory":0,"index":0},
-{"column":"remark","datatype":"text","mandatory":0,"index":0},
-{"column":"location","datatype":"geography(POINT)","mandatory":0,"index":"gist"},
-{"column":"dob","datatype":"date","mandatory":0,"index":0},
-{"column":"is_public","datatype":"boolean","mandatory":0,"index":0},
-{"column":"email","datatype":"text","mandatory":0,"index":0},
-{"column":"mobile","datatype":"text","mandatory":0,"index":0},
-{"column":"status","datatype":"int","mandatory":0,"index":"btree"},
-{"column":"metadata","datatype":"jsonb","mandatory":0,"index":"gin"}
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"created_by_id","datatype":"bigint","index":"btree"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"is_active","datatype":"smallint","index":"btree","in":(0,1)},
+{"name":"is_verified","datatype":"smallint"},
+{"name":"is_deleted","datatype":"smallint"},
+{"name":"is_protected","datatype":"smallint"},
+{"name":"type","datatype":"integer","index":"btree"},
+{"name":"title","datatype":"text","index":"btree,gin","is_mandatory":1,"is_trim":1,"is_lowercase":1},
+{"name":"description","datatype":"text"},
+{"name":"file_url","datatype":"text"},
+{"name":"link_url","datatype":"text"},
+{"name":"tag","datatype":"text[]","index":"gin","is_trim":1,"is_lowercase":1},
+{"name":"tag_int","datatype":"integer[]","index":"gin"},
+{"name":"tag_bigint","datatype":"bigint[]","index":"gin"},
+{"name":"rating","datatype":"numeric(3,1)"},
+{"name":"remark","datatype":"text"},
+{"name":"location","datatype":"geography(point)","index":"gist"},
+{"name":"dob","datatype":"date"},
+{"name":"is_public","datatype":"boolean"},
+{"name":"email","datatype":"text"},
+{"name":"mobile","datatype":"text"},
+{"name":"status","datatype":"integer","index":"btree","old":"status2"},
+{"name":"metadata","datatype":"jsonb","index":"gin"}
 ],
 "log_api":[
-{"column":"created_at","datatype":"timestamptz","mandatory":0,"index":"btree"},
-{"column":"created_by_id","datatype":"bigint","mandatory":0,"index":"btree"},
-{"column":"type","datatype":"int","mandatory":0,"index":0},
-{"column":"ip_address","datatype":"text","mandatory":0,"index":0},
-{"column":"api","datatype":"text","mandatory":0,"index":"btree"},
-{"column":"api_id","datatype":"smallint","mandatory":0,"index":0},
-{"column":"method","datatype":"text","mandatory":0,"index":0},
-{"column":"query_param","datatype":"text","mandatory":0,"index":0},
-{"column":"status_code","datatype":"smallint","mandatory":0,"index":"btree"},
-{"column":"response_time_ms","datatype":"int","mandatory":0,"index":0},
-{"column":"description","datatype":"text","mandatory":0,"index":0}
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
+{"name":"created_by_id","datatype":"bigint","index":"btree"},
+{"name":"type","datatype":"integer"},
+{"name":"ip_address","datatype":"text"},
+{"name":"api","datatype":"text","index":"btree"},
+{"name":"api_id","datatype":"smallint"},
+{"name":"method","datatype":"text"},
+{"name":"query_param","datatype":"text"},
+{"name":"status_code","datatype":"smallint","index":"btree"},
+{"name":"response_time_ms","datatype":"integer"},
+{"name":"description","datatype":"text"}
 ],
 "users":[
-{"column":"created_at","datatype":"timestamptz","mandatory":0,"index":"btree"},
-{"column":"updated_at","datatype":"timestamptz","mandatory":0,"index":0},
-{"column":"created_by_id","datatype":"bigint","mandatory":0,"index":0},
-{"column":"updated_by_id","datatype":"bigint","mandatory":0,"index":0},
-{"column":"is_active","datatype":"smallint","mandatory":0,"index":"btree"},
-{"column":"is_verified","datatype":"smallint","mandatory":0,"index":"btree"},
-{"column":"is_deleted","datatype":"smallint","mandatory":0,"index":"btree"},
-{"column":"is_protected","datatype":"smallint","mandatory":0,"index":"btree"},
-{"column":"type","datatype":"int","mandatory":1,"index":"btree"},
-{"column":"username","datatype":"text","mandatory":0,"index":"btree","is_trim":1,"is_lowercase":1,"unique":"username,type"},
-{"column":"email","datatype":"text","mandatory":0,"index":"btree","unique":"email,type"},
-{"column":"mobile","datatype":"text","mandatory":0,"index":"btree","unique":"mobile,type"},
-{"column":"google_login_id","datatype":"text","mandatory":0,"index":"btree","unique":"google_login_id,type"},
-{"column":"username_bigint","datatype":"bigint","mandatory":0,"index":"btree","unique":"username_bigint,type"},
-{"column":"password","datatype":"text","mandatory":0,"index":"btree"},
-{"column":"password_bigint","datatype":"bigint","mandatory":0,"index":"btree"},
-{"column":"google_login_metadata","datatype":"jsonb","mandatory":0,"index":0},
-{"column":"google_data","datatype":"jsonb","mandatory":0,"index":0},
-{"column":"api_access","datatype":"text","mandatory":0,"index":0},
-{"column":"last_active_at","datatype":"timestamptz","mandatory":0,"index":0}
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"created_by_id","datatype":"bigint"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"is_active","datatype":"smallint","index":"btree"},
+{"name":"is_verified","datatype":"smallint","index":"btree"},
+{"name":"is_deleted","datatype":"smallint","index":"btree"},
+{"name":"is_protected","datatype":"smallint","index":"btree"},
+{"name":"type","datatype":"integer","is_mandatory":1,"index":"btree"},
+{"name":"username","datatype":"text","index":"btree","is_trim":1,"is_lowercase":1,"unique":"username,type"},
+{"name":"email","datatype":"text","index":"btree","unique":"email,type"},
+{"name":"mobile","datatype":"text","index":"btree","unique":"mobile,type"},
+{"name":"google_login_id","datatype":"text","index":"btree","unique":"google_login_id,type"},
+{"name":"username_bigint","datatype":"bigint","index":"btree","unique":"username_bigint,type"},
+{"name":"password","datatype":"text","index":"btree"},
+{"name":"password_bigint","datatype":"bigint","index":"btree"},
+{"name":"google_login_metadata","datatype":"jsonb"},
+{"name":"google_data","datatype":"jsonb"},
+{"name":"api_access","datatype":"text"},
+{"name":"last_active_at","datatype":"timestamptz"}
 ],
 "otp":[
-{"column":"created_at","datatype":"timestamptz","mandatory":0,"index":"btree"},
-{"column":"otp","datatype":"integer","mandatory":1,"index":0},
-{"column":"email","datatype":"text","mandatory":0,"index":"btree"},
-{"column":"mobile","datatype":"text","mandatory":0,"index":"btree"}
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
+{"name":"otp","datatype":"integer","is_mandatory":1},
+{"name":"email","datatype":"text","index":"btree"},
+{"name":"mobile","datatype":"text","index":"btree"}
 ],
 "log_password":[
-{"column":"created_at","datatype":"timestamptz","mandatory":0,"index":0},
-{"column":"user_id","datatype":"bigint","mandatory":0,"index":0},
-{"column":"password","datatype":"text","mandatory":0,"index":0}
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"user_id","datatype":"bigint"},
+{"name":"password","datatype":"text"}
 ],
 "message":[
-{"column":"created_at","datatype":"timestamptz","mandatory":0,"index":"btree"},
-{"column":"updated_at","datatype":"timestamptz","mandatory":0,"index":0},
-{"column":"created_by_id","datatype":"bigint","mandatory":1,"index":"btree"},
-{"column":"updated_by_id","datatype":"bigint","mandatory":0,"index":0},
-{"column":"is_deleted","datatype":"smallint","mandatory":0,"index":"btree"},
-{"column":"user_id","datatype":"bigint","mandatory":1,"index":"btree"},
-{"column":"description","datatype":"text","mandatory":1,"index":0},
-{"column":"is_read","datatype":"smallint","mandatory":0,"index":"btree"}
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"is_deleted","datatype":"smallint","index":"btree"},
+{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
+{"name":"description","datatype":"text","is_mandatory":1},
+{"name":"is_read","datatype":"smallint","index":"btree"}
 ],
 "report_test":[
-{"column":"created_at","datatype":"timestamptz","mandatory":0,"index":0},
-{"column":"created_by_id","datatype":"bigint","mandatory":1,"index":"btree","unique":"created_by_id,test_id"},
-{"column":"test_id","datatype":"bigint","mandatory":1,"index":"btree"}
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree","unique":"created_by_id,test_id"},
+{"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree"}
 ],
 "rating_test":[
-{"column":"created_at","datatype":"timestamptz","mandatory":0,"index":0},
-{"column":"created_by_id","datatype":"bigint","mandatory":1,"index":"btree"},
-{"column":"test_id","datatype":"bigint","mandatory":1,"index":"btree"},
-{"column":"rating","datatype":"numeric(3,1)","mandatory":1,"index":0}
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
+{"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
+{"name":"rating","datatype":"numeric(3,1)","is_mandatory":1}
 ],
 "config":[
-{"column":"title","datatype":"text","mandatory":1,"index":0,"unique":"title"},
-{"column":"metadata","datatype":"jsonb","mandatory":1,"index":"gin"}
+{"name":"title","datatype":"text","is_mandatory":1,"unique":"title"},
+{"name":"metadata","datatype":"jsonb","is_mandatory":1,"index":"gin"}
 ]
 },
 "sql":{
-"delete_disable_bulk_users":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure func_delete_disable_bulk(1);"
+"is_protected_rule": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"updated_at_default_1": "CREATE OR REPLACE FUNCTION func_set_updated_at_now() RETURNS trigger AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;",
+"updated_at_default_2": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION func_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
+"delete_disable_bulk_1": "CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows', n; END IF; RETURN OLD; END; $$;",
+"delete_disable_bulk_2":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure func_delete_disable_bulk(1);",
+"log_password_1": "CREATE OR REPLACE FUNCTION func_log_password_change() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
+"log_password_2": "CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION func_log_password_change();",
+"root_user_1": "INSERT INTO users (type,username,password,api_access) VALUES (1,'atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100') ON CONFLICT DO NOTHING;",
+"root_user_2": "CREATE OR REPLACE RULE rule_delete_disable_root_user AS ON DELETE TO users WHERE OLD.id=1 DO INSTEAD NOTHING;",
 }
 }
 
-#namesapce datatype convert
+#list to tuple
 from core.function import func_list_to_tuple
 func_list_to_tuple(globals())
 del func_list_to_tuple

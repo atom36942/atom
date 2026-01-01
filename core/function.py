@@ -1,25 +1,3 @@
-async def func_postgres_init_sql_default(client_postgres_pool):
-    queries = {
-    "created_at_default": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='created_at' AND table_schema='public') LOOP EXECUTE FORMAT('ALTER TABLE ONLY %I ALTER COLUMN created_at SET DEFAULT NOW();', tbl.table_name); END LOOP; END $$;",
-    "updated_at_default_1": "CREATE OR REPLACE FUNCTION func_set_updated_at_now() RETURNS trigger AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;",
-    "updated_at_default_2": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION func_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-    "is_protected": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-    "delete_disable_bulk_func": "CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows', n; END IF; RETURN OLD; END; $$;",
-    "check_is_active": "DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name=p.relname JOIN pg_namespace n ON p.relnamespace=n.oid WHERE c.column_name='is_active' AND c.table_schema='public' AND p.relkind='r') LOOP constraint_name := format('constraint_check_%I_is_active', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_active IN (0,1) OR is_active IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
-    "check_is_verified": "DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name=p.relname JOIN pg_namespace n ON p.relnamespace=n.oid WHERE c.column_name='is_verified' AND c.table_schema='public' AND p.relkind='r') LOOP constraint_name := format('constraint_check_%I_is_verified', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_verified IN (0,1) OR is_verified IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
-    "check_is_deleted": "DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name=p.relname JOIN pg_namespace n ON p.relnamespace=n.oid WHERE c.column_name='is_deleted' AND c.table_schema='public' AND p.relkind='r') LOOP constraint_name := format('constraint_check_%I_is_deleted', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_deleted IN (0,1) OR is_deleted IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
-    "check_is_protected": "DO $$ DECLARE r RECORD; constraint_name TEXT; BEGIN FOR r IN (SELECT c.table_name FROM information_schema.columns c JOIN pg_class p ON c.table_name=p.relname JOIN pg_namespace n ON p.relnamespace=n.oid WHERE c.column_name='is_protected' AND c.table_schema='public' AND p.relkind='r') LOOP constraint_name := format('constraint_check_%I_is_protected', r.table_name); IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=constraint_name) THEN EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I CHECK (is_protected IN (0,1) OR is_protected IS NULL);', r.table_name, constraint_name); END IF; END LOOP; END $$;",
-    "log_password_1": "CREATE OR REPLACE FUNCTION func_log_password_change() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
-    "log_password_2": "CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION func_log_password_change();",
-    "root_user_1": "INSERT INTO users (type,username,password,api_access) VALUES (1,'atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100') ON CONFLICT DO NOTHING;",
-    "root_user_2": "CREATE OR REPLACE RULE rule_delete_disable_root_user AS ON DELETE TO users WHERE OLD.id=1 DO INSTEAD NOTHING;",
-    }
-    async with client_postgres_pool.acquire() as conn:
-        async with conn.transaction():
-            for q in queries.values():
-                await conn.execute(q)
-    return f"executed{len(queries)}"
-
 from pathlib import Path
 def func_find_html(name,folder):
     for item in Path(folder).rglob("*.html"):
@@ -41,7 +19,7 @@ async def func_handler_log_api(start,request,response,type,error):
    if request.app.state.config_is_log_api and request.app.state.cache_postgres_schema.get("log_api"):
       api=request.url.path
       obj={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":request.app.state.config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":int((time.perf_counter()-start) * 1000),"type":type,"description":error}
-      asyncio.create_task(request.app.state.func_postgres_obj_list_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,"buffer","log_api",[obj],0,request.app.state.config_table.get("log_api",{}).get("buffer")))
+      asyncio.create_task(request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"buffer","log_api",[obj],0,request.app.state.config_table.get("log_api",{}).get("buffer")))
       return None
 
 import json, subprocess, sys
@@ -67,9 +45,9 @@ async def func_handler_obj_create(role,request):
     elif role=="public":
         if obj_query["table"] not in request.app.state.config_public_table_create_list:raise Exception("table not allowed")
         if any(any(k in request.app.state.config_column_disabled_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
-    if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_list_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],request.app.state.config_table.get(obj_query["table"],{}).get("buffer"))
+    if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],request.app.state.config_table.get(obj_query["table"],{}).get("buffer"))
     elif obj_query["queue"]:
-        payload={"func":"func_postgres_obj_list_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":request.app.state.config_table.get(obj_query["table"],{}).get("buffer")}
+        payload={"func":"func_postgres_obj_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":request.app.state.config_table.get(obj_query["table"],{}).get("buffer")}
         output=await request.app.state.func_handler_producer(request,obj_query["queue"],payload)
     return output
 
@@ -90,9 +68,9 @@ async def func_handler_obj_update(role,request):
             if obj_query["otp"]:await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query["otp"],obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_otp_expire_sec)
     elif role=="admin":
         created_by_id=None
-    if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_list_update(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_list_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
+    if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_update(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
     elif obj_query["queue"]:
-        payload={"func":"func_postgres_obj_list_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
+        payload={"func":"func_postgres_obj_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
         output=await request.app.state.func_handler_producer(request,obj_query["queue"],payload)
     return obj_query,obj_list
 
@@ -106,10 +84,10 @@ async def func_handler_producer(request,queue,payload):
 import asyncio
 from itertools import count
 _counter=count(1)
-async def func_handler_consumer(payload,func_postgres_obj_list_create,func_postgres_obj_list_update,func_postgres_obj_list_serialize,client_postgres_pool,cache_postgres_column_datatype):
+async def func_handler_consumer(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool,cache_postgres_column_datatype):
     n=next(_counter)
-    if payload["func"]=="func_postgres_obj_list_create":output=asyncio.create_task(func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
-    elif payload["func"]=="func_postgres_obj_list_update":output=asyncio.create_task(func_postgres_obj_list_update(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
+    if payload["func"]=="func_postgres_obj_create":output=asyncio.create_task(func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
+    elif payload["func"]=="func_postgres_obj_update":output=asyncio.create_task(func_postgres_obj_update(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
     else:raise Exception("wrong consumer func")
     print(n)
     return output
@@ -215,7 +193,7 @@ async def func_postgres_clean(client_postgres_pool, config_table):
 from datetime import datetime
 import json
 import re
-async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_list_serialize, cache_postgres_column_datatype, func_creator_data_add, func_action_count_add, table, obj):
+async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, func_creator_data_add, func_action_count_add, table, obj):
     """
     obj={"order":"created_at desc"}
     obj={"limit":20}
@@ -250,7 +228,7 @@ async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_li
     filters = {k: v for k, v in obj.items() if k not in ["table", "order", "limit", "page", "column", "creator_key", "action_key"]}
     async def _serialize_single(col, val, datatype):
         if str(val).lower() == "null": return None
-        res = await func_postgres_obj_list_serialize({col: datatype}, [{col: val}])
+        res = await func_postgres_obj_serialize({col: datatype}, [{col: val}])
         return res[0][col]
     conditions, values, idx = [], [], 1
     v_ops = {"=": "=", "==": "=", "!=": "!=", "<>": "<>", ">": ">", "<": "<", ">=": ">=", "<=": "<=", "is": "IS", "is not": "IS NOT", "in": "IN", "not in": "NOT IN", "between": "BETWEEN"}
@@ -263,8 +241,8 @@ async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_li
                 conditions.append(f"ST_Distance({col_key}, ST_Point({lon}, {lat})::geography) BETWEEN {mn} AND {mx}"); continue
             except: raise Exception(f"invalid point filter for {col_key}")
         dtype = cache_postgres_column_datatype.get(col_key, "text")
-        dt_low = dtype.lower(); is_json, is_arr = "json" in dt_low, "array" in dt_low
-        base_type = dtype.replace("ARRAY[", "").replace("]", "").strip() if is_arr else dtype
+        dt_low = dtype.lower(); is_json, is_arr = "json" in dt_low, ("[]" in dt_low or "array" in dt_low)
+        base_type = dt_low.replace("[]", "").replace("array", "").strip() if is_arr else dtype
         if "," not in expr: raise Exception(f"invalid format for {col_key}: {expr}")
         op, raw_val = expr.split(",", 1); op = op.strip().lower()
         avail = list(v_ops.keys())
@@ -284,7 +262,8 @@ async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_li
                     except: s_val = raw_val
             elif is_arr: s_val = [await _serialize_single(col_key, x.strip(), base_type) for x in raw_val.split("|")]
             else: s_val = await _serialize_single(col_key, raw_val, dtype)
-        elif op in ["overlap", "in", "not in", "between"]: s_val = [await _serialize_single(col_key, x.strip(), base_type if op != "between" else dtype) for x in raw_val.split("|")]
+        elif op == "overlap": s_val = [await _serialize_single(col_key, x.strip(), base_type) for x in raw_val.split("|")]
+        elif op in ["in", "not in", "between"]: s_val = [await _serialize_single(col_key, x.strip(), dtype if op == "between" else base_type) for x in raw_val.split("|")]
         elif op == "any": s_val = await _serialize_single(col_key, raw_val, base_type)
         else: s_val = await _serialize_single(col_key, raw_val, dtype)
         if s_val is None:
@@ -310,12 +289,12 @@ async def func_postgres_obj_list_read(client_postgres_pool, func_postgres_obj_li
             return res_list
         except Exception as e: raise Exception(f"Read Error: {e}")
         
-async def func_postgres_obj_list_update(client_postgres_pool, func_postgres_obj_list_serialize, cache_postgres_column_datatype, table, obj_list, is_serialize=None, created_by_id=None, batch_size=None, return_ids=False):
+async def func_postgres_obj_update(client_postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, table, obj_list, is_serialize=None, created_by_id=None, batch_size=None, return_ids=False):
     if not obj_list:return None
     if not is_serialize:is_serialize=0
     if not all("id" in obj for obj in obj_list):raise Exception("all objects must have 'id' field")
     batch_size = batch_size or 5000
-    if is_serialize:obj_list = await func_postgres_obj_list_serialize(cache_postgres_column_datatype, obj_list)
+    if is_serialize:obj_list = await func_postgres_obj_serialize(cache_postgres_column_datatype, obj_list)
     async def postgres_update_objects(client_pool, tbl, objs, user_id=None, batch_sz=5000, ret_ids=False):
         cols = [c for c in objs[0] if c != "id"]
         if not cols:return [] if ret_ids else None
@@ -371,12 +350,12 @@ import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def func_postgres_obj_list_create(client_postgres_pool,func_postgres_obj_list_serialize,cache_postgres_column_datatype, mode,table=None,obj_list=None,is_serialize=None,buffer=None, returning_ids=False,conflict_columns=None,batch_size=None):
+async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype, mode,table=None,obj_list=None,is_serialize=None,buffer=None, returning_ids=False,conflict_columns=None,batch_size=None):
     if mode != "flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
     if not is_serialize:is_serialize=0
     buffer = buffer or 10
     batch_size = batch_size or 5000
-    if is_serialize and obj_list:obj_list = await func_postgres_obj_list_serialize(cache_postgres_column_datatype, obj_list)
+    if is_serialize and obj_list:obj_list = await func_postgres_obj_serialize(cache_postgres_column_datatype, obj_list)
     if obj_list and len(obj_list) == 1:returning_ids = True
     async def postgres_insert_objects(client_pool, tbl, objs, ret_ids=False, conflict_cols=None, batch_sz=5000, use_schema=None):
         if not objs:return None
@@ -479,217 +458,192 @@ async def func_postgres_export(client_postgres_pool, query, batch_size=None, out
         if f: f.close()
     return output_path
 
-async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_postgres_schema_read,func_postgres_init_sql_default):
-    if not config_postgres: raise Exception("config_postgres null")
+async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_postgres_schema_read):
+    if not config_postgres or "table" not in config_postgres: raise Exception("config_postgres.table missing")
     async def _validate():
         seen=set()
         for t,cols in config_postgres["table"].items():
-            colset={c["column"] for c in cols}
+            if not isinstance(cols,(list,tuple)): raise Exception(f"table config must be list {t}")
+            names={c.get("name") for c in cols}
             for c in cols:
-                if not {"column","datatype","mandatory","index"}<=c.keys(): raise Exception(f"invalid column config {t}.{c}")
+                allowed={"name","datatype","old","default","is_mandatory","index","unique","in","is_trim","is_lowercase"}
+                if not isinstance(c,dict): raise Exception(f"column config must be dict {t}")
+                if not {"name","datatype"}<=c.keys(): raise Exception(f"missing required keys {t}.{c}")
+                if set(c)-allowed: raise Exception(f"unknown keys {t}.{c.get('name')}:{set(c)-allowed}")
+                if c.get("index"):
+                    for it in c["index"].split(","):
+                        if it=="gin" and not any(x in c["datatype"].lower() for x in ("text","[]","jsonb")): raise Exception(f"gin not supported {t}.{c['name']}:{c['datatype']}")
                 u=c.get("unique")
                 if not u: continue
-                groups=[g.strip() for g in u.split("|") if g.strip()]
-                for g in groups:
+                for g in (x.strip() for x in u.split("|") if x.strip()):
                     ucols=[x.strip() for x in g.split(",") if x.strip()]
-                    if c["column"] not in ucols: raise Exception(f'unique must include self {t}.{c["column"]}')
                     for x in ucols:
-                        if x not in colset: raise Exception(f'unique column not found {t}.{x}')
+                        if x not in names: raise Exception(f"unique column not found {t}.{x}")
                     key=(t,tuple(sorted(ucols)))
-                    if key in seen: raise Exception(f'duplicate unique definition {t}.{",".join(ucols)}')
+                    if key in seen: raise Exception(f"duplicate unique {t}.{','.join(ucols)}")
                     seen.add(key)
     async def func_init_extension(conn):
         for e in ("postgis","pg_trgm"): await conn.execute(f"create extension if not exists {e};")
-    async def func_init_table(conn):
-        schema,_=await func_postgres_schema_read(client_postgres_pool)
-        for t in sorted(config_postgres["table"]):
-            if not schema.get(t): await conn.execute(f"create table {t} (id bigint primary key generated by default as identity not null);")
-    async def func_init_column_rename(conn):
-        schema,_=await func_postgres_schema_read(client_postgres_pool)
+        await conn.execute("create or replace function array_all_lowercase(text[]) returns boolean immutable as $$ select coalesce(bool_and(v=lower(v)),true) from unnest($1) v $$ language sql;")
+        await conn.execute("create or replace function array_all_trimmed(text[]) returns boolean immutable as $$ select coalesce(bool_and(v=trim(v)),true) from unnest($1) v $$ language sql;")
+    async def func_init_table(conn,db):
+        for t in config_postgres["table"]:
+            if t not in db: await conn.execute(f"create table {t} (id bigint primary key generated by default as identity not null);")
+    async def func_init_column_rename(conn,db):
         for t,cols in config_postgres["table"].items():
-            have=schema.get(t,{})
+            have=db.get(t,{})
             for c in cols:
-                old=c.get("column_old")
-                if old and c["column"] not in have and old in have: await conn.execute(f'alter table {t} rename column {old} to {c["column"]};')
-    async def func_init_column(conn):
-        schema,_=await func_postgres_schema_read(client_postgres_pool)
+                if c.get("old") and c["name"] not in have and c["old"] in have: await conn.execute(f"alter table {t} rename column {c['old']} to {c['name']};")
+    async def func_init_column(conn,db):
         for t,cols in config_postgres["table"].items():
+            have=db.get(t,{})
             for c in cols:
-                if not schema.get(t,{}).get(c["column"]): await conn.execute(f'alter table {t} add column {c["column"]} {c["datatype"]};')
-    async def func_init_nullable(conn):
-        schema,_=await func_postgres_schema_read(client_postgres_pool)
+                if c["name"] not in have: await conn.execute(f"alter table {t} add column {c['name']} {c['datatype']};")
+    async def func_init_drop_column(conn,db):
         for t,cols in config_postgres["table"].items():
-            for c in cols:
-                is_null=schema.get(t,{}).get(c["column"],{}).get("is_null")
-                if c["mandatory"] in (0,False) and is_null==0: await conn.execute(f'alter table {t} alter column {c["column"]} drop not null;')
-                if c["mandatory"] in (1,True) and is_null==1: await conn.execute(f'alter table {t} alter column {c["column"]} set not null;')
-    async def func_init_drop_column(conn):
-        schema,_=await func_postgres_schema_read(client_postgres_pool)
-        for t,cols in config_postgres["table"].items():
-            want={c["column"] for c in cols}; have=set(schema.get(t,{}))
+            want={c["name"] for c in cols}; have=set(db.get(t,{}))
             for col in have-want:
                 if col!="id": await conn.execute(f"alter table {t} drop column {col} cascade;")
-    async def func_init_index(conn):
-        rows=await conn.fetch("select indexname,indexdef from pg_indexes where schemaname='public';"); existing={}
+    async def func_init_default(conn,db):
+        for t,cols in config_postgres["table"].items():
+            have=db.get(t,{})
+            for col,data in have.items():
+                if col=="id": continue
+                conf=next((c for c in cols if c["name"]==col), None)
+                if data["default"] is not None and (not conf or "default" not in conf): await conn.execute(f"alter table {t} alter column {col} drop default;")
+            for c in cols:
+                if "default" in c:
+                    d,col=c["default"],c["name"]; sql=d if isinstance(d,str) and d.endswith("()") else repr(d) if isinstance(d,str) else str(d)
+                    await conn.execute(f"alter table {t} alter column {col} set default {sql};")
+    async def func_init_nullable(conn,db):
+        for t,cols in config_postgres["table"].items():
+            for c in cols:
+                cur=db.get(t,{}).get(c["name"])
+                if not cur: continue
+                m=c.get("is_mandatory",0)
+                if m in (0,False) and cur["is_null"]==0: await conn.execute(f"alter table {t} alter column {c['name']} drop not null;")
+                if m in (1,True) and cur["is_null"]==1: await conn.execute(f"alter table {t} alter column {c['name']} set not null;")
+    async def func_init_index(conn,dtypes):
+        rows=await conn.fetch("select indexname,indexdef from pg_indexes where schemaname='public';"); have={}
         for r in rows:
-            d=r["indexdef"]
-            if " USING " not in d or " WHERE " in d: continue
-            tbl=d.split(" ON ")[1].split()[0].split(".")[-1]; it=d.split(" USING ")[1].split()[0].lower()
-            col=d.split("(",1)[1].split(")",1)[0].split()[0]
-            existing.setdefault((tbl,col),{})[it]=r["indexname"]
+            if " USING " not in r["indexdef"]: continue
+            tbl=r["indexdef"].split(" ON ")[1].split()[0].split(".")[-1]; col=r["indexdef"].split("(",1)[1].split(")",1)[0].split()[0]; it=r["indexdef"].split(" USING ")[1].split()[0].lower()
+            have.setdefault((tbl,col),{})[it]=r["indexname"]
         for t,cols in config_postgres["table"].items():
             for c in cols:
-                idx=c.get("index"); want=set() if not idx else set(idx.split(",")); have=existing.get((t,c["column"]),{})
-                for it,n in have.items():
-                    if n.startswith("index_") and it not in want: await conn.execute(f'drop index if exists "{n}"')
+                want=set() if not c.get("index") else set(c["index"].split(",")); cur=have.get((t,c["name"]),{}); dt=dtypes.get(c["name"],"").lower()
+                if any(x in dt for x in ("geography","geometry")): want.add("gist")
+                if c.get("old"):
+                    for it,idx in have.get((t,c["old"]),{}).items():
+                        if it not in cur: cur[it]=idx
+                for it,n in cur.items():
+                    is_managed=n.startswith(f"index_{t}_{c['name']}") or (c.get("old") and n.startswith(f"index_{t}_{c['old']}"))
+                    if is_managed and it not in want: await conn.execute(f'drop index if exists "{n}"')
                 for it in want:
-                    if it=="gist" and not c["datatype"].startswith(("geography","geometry")): continue
-                    name=(f'index_{t}_{c["column"]}_{it}')[:55]
-                    if have.get(it)==name: continue
-                    col_def=f'{c["column"]} gin_trgm_ops' if it=="gin" and c["datatype"]=="text" else c["column"]
-                    await conn.execute(f'create index concurrently if not exists {name} on {t} using {it} ({col_def});')
-    async def func_init_check_constraints(conn):
-        rows=await conn.fetch("select constraint_name from information_schema.constraint_column_usage;"); have={r["constraint_name"].lower() for r in rows}
+                    name=f"index_{t}_{c['name']}_{it}"[:55]
+                    if cur.get(it)==name: continue
+                    if it in cur: await conn.execute(f'drop index if exists "{cur[it]}"')
+                    col_def=f"{c['name']} gin_trgm_ops" if it=="gin" and "text" in dt and "[]" not in dt and "array" not in dt else c["name"]
+                    await conn.execute(f"create index concurrently if not exists {name} on {t} using {it} ({col_def});")
+    async def func_init_constraints(conn,db,dtypes):
+        rows=await conn.fetch("select constraint_name,table_name from information_schema.table_constraints where constraint_schema='public';")
+        have={(r["table_name"],r["constraint_name"].lower()) for r in rows}
+        for t,cols in config_postgres["table"].items():
+            want=set()
+            for c in cols:
+                if c.get("is_trim"): want.add(f"constraint_{t}_{c['name']}_trim")
+                if c.get("is_lowercase"): want.add(f"constraint_{t}_{c['name']}_lowercase")
+                if "in" in c: want.add(f"constraint_{t}_{c['name']}_in")
+                if c.get("unique"):
+                    for g in c["unique"].split("|"): want.add(f"constraint_unique_{t}_{'_'.join(x.strip() for x in g.split(','))}")
+            for tbl,cname in have:
+                if tbl!=t or not cname.startswith("constraint_"): continue
+                is_old=any(cname in (f"constraint_{t}_{c['old']}_trim",f"constraint_{t}_{c['old']}_lowercase",f"constraint_{t}_{c['old']}_in") for c in cols if c.get("old"))
+                if cname not in {x.lower() for x in want} and not is_old: await conn.execute(f'alter table {t} drop constraint if exists "{cname}" cascade;')
+        rows=await conn.fetch("select constraint_name,table_name from information_schema.table_constraints where constraint_schema='public';")
+        have={(r["table_name"],r["constraint_name"].lower()) for r in rows}
         for t,cols in config_postgres["table"].items():
             for c in cols:
-                checks=[]
-                if c.get("is_trim"): checks.append(f"{c['column']}=trim({c['column']})")
-                if c.get("is_lowercase"): checks.append(f"{c['column']}=lower({c['column']})")
-                if not checks: continue
-                name=f"constraint_{t}_{c['column']}_check"
-                if name.lower() in have: continue
-                await conn.execute(f'alter table {t} add constraint {name} check ({" and ".join(checks)});')
-    async def func_init_unique_constraints(conn):
-        rows=await conn.fetch("select constraint_name from information_schema.table_constraints where constraint_type='UNIQUE';")
-        have={r["constraint_name"].lower() for r in rows}; done=set()
-        for t,cols in config_postgres["table"].items():
-            for c in cols:
-                u=c.get("unique")
-                if not u: continue
-                groups=[g.strip() for g in u.split("|") if g.strip()]
-                for g in groups:
-                    ucols=tuple(x.strip() for x in g.split(",") if x.strip())
-                    key=(t,tuple(sorted(ucols)))
-                    if key in done: continue
-                    cname="constraint_unique_%s_%s"%(t,"_".join(ucols))
-                    if cname.lower() not in have:
-                        await conn.execute(f'alter table {t} add constraint {cname} unique ({",".join(ucols)});')
-                    done.add(key)
-    async def func_postgres_init_sql_client(conn):
-        rows=await conn.fetch("select constraint_name from information_schema.constraint_column_usage;"); have={r["constraint_name"].lower() for r in rows}
-        for q in config_postgres["sql"].values():
-            if q.split()[0]=="0": continue
-            if "add constraint" in q.lower() and q.split()[5].lower() in have: continue
-            await conn.execute(q)
+                col,dt,old=c["name"],dtypes.get(c["name"],"").lower(),c.get("old")
+                checks=[
+                    ("is_trim",f"constraint_{t}_{col}_trim",f"constraint_{t}_{old}_trim" if old else None,f"check ({col}=trim({col}))" if "text" in dt and "[]" not in dt else f"check (array_all_trimmed({col}))" if "[]" in dt and "text" in dt else None),
+                    ("is_lowercase",f"constraint_{t}_{col}_lowercase",f"constraint_{t}_{old}_lowercase" if old else None,f"check ({col}=lower({col}))" if "text" in dt and "[]" not in dt else f"check (array_all_lowercase({col}))" if "[]" in dt and "text" in dt else None),
+                    ("in",f"constraint_{t}_{col}_in",f"constraint_{t}_{old}_in" if old else None,f"check ({col} in ({','.join(str(x) if isinstance(x,(int,float)) else repr(x) for x in c.get('in',[]))}))" if "in" in c else None)
+                ]
+                for key,n,old_n,sql in checks:
+                    if not c.get(key) or not sql: continue
+                    if old_n and (t,old_n.lower()) in have:
+                        await conn.execute(f'alter table {t} rename constraint "{old_n}" to "{n}";')
+                        have.add((t,n.lower())); have.remove((t,old_n.lower()))
+                    if (t,n.lower()) not in have: await conn.execute(f"alter table {t} add constraint {n} {sql};")
+                if c.get("unique"):
+                    for g in c["unique"].split("|"):
+                        ucols=",".join(x.strip() for x in g.split(",")); n=f"constraint_unique_{t}_{ucols.replace(',','_')}"
+                        if (t,n.lower()) not in have: await conn.execute(f"alter table {t} add constraint {n} unique ({ucols});")
+    async def func_init_custom_sql(conn):
+        for k,sql in config_postgres.get("sql",{}).items(): await conn.execute(sql)
     await _validate()
+    db,dtypes=await func_postgres_schema_read(client_postgres_pool)
     async with client_postgres_pool.acquire() as conn:
-        await func_init_extension(conn)
-        await func_init_table(conn)
-        await func_init_column_rename(conn)
-        await func_init_column(conn)
-        await func_init_nullable(conn)
-        await func_init_drop_column(conn)
-        await func_init_index(conn)
-        await func_init_check_constraints(conn)
-        await func_init_unique_constraints(conn)
-        await func_postgres_init_sql_default(client_postgres_pool)
-        await func_postgres_init_sql_client(conn)
+        await func_init_extension(conn); await func_init_table(conn,db); await func_init_column_rename(conn,db)
+        db,dtypes=await func_postgres_schema_read(client_postgres_pool)
+        await func_init_column(conn,db); await func_init_drop_column(conn,db)
+        db,dtypes=await func_postgres_schema_read(client_postgres_pool)
+        await func_init_default(conn,db); await func_init_nullable(conn,db); await func_init_index(conn,dtypes); await func_init_constraints(conn,db,dtypes); await func_init_custom_sql(conn)
     return None
 
-import hashlib,json
+import hashlib,json,uuid
 from dateutil import parser
-async def func_postgres_obj_list_serialize(cache_postgres_column_datatype,obj_list):
+async def func_postgres_obj_serialize(cache_postgres_column_datatype,obj_list):
     for obj in obj_list:
         for k,v in obj.items():
             if v in (None,"","null"):obj[k]=None;continue
             d=cache_postgres_column_datatype.get(k)
             if not d:continue
-            if k=="password":obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
-            elif "bool" in d:obj[k]=v if isinstance(v,bool) else (str(v).lower() in ("true","t","1","yes"))
-            elif d=="text" or "char" in d:obj[k]=str(v).strip()
-            elif "int" in d and "ARRAY" not in d:obj[k]=int(v)
-            elif "numeric" in d or "double" in d:obj[k]=round(float(v),3)
-            elif "date" == d:obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
-            elif "time" in d or "timestamp" in d:obj[k]=parser.isoparse(v) if isinstance(v,str) else v
-            elif "ARRAY" in d:
-                if isinstance(v,list):ls=v
-                else:
-                    x=str(v).strip();x=x[1:-1] if x.startswith("{") and x.endswith("}") else x
-                    ls=[i.strip().strip('"').strip("'") for i in x.split(",") if i.strip()]
-                obj[k]=[int(i) for i in ls] if any(y in d for y in ("int","smallint","bigint")) else ls
-            elif "json" in d:
-                if isinstance(v,(dict,list)):obj[k]=json.dumps(v,separators=(",",":"))
-                else:
-                    try:json.loads(v);obj[k]=v
-                    except:obj[k]=json.dumps(v)
+            try:
+                if k=="password":obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
+                elif "uuid" in d:obj[k]=str(uuid.UUID(v)) if isinstance(v,str) else str(v)
+                elif "bytea" in d:obj[k]=v.encode() if isinstance(v,str) else v
+                elif "bool" in d:obj[k]=v if isinstance(v,bool) else (str(v).lower() in ("true","t","1","yes"))
+                elif "[]" in d:
+                    if isinstance(v,list):ls=v
+                    else:
+                        s=str(v).strip()
+                        if s.startswith('{') and s.endswith('}'):s=s[1:-1]
+                        elif s.startswith('[') and s.endswith(']'):s=s[1:-1]
+                        ls=[i.strip().strip('"').strip("'") for i in s.split(",") if i.strip()]
+                    obj[k]=[int(i) for i in ls] if any(y in d for y in ("int","serial")) else [str(i) for i in ls]
+                elif any(x in d for x in ("text","char","enum","geography","geometry")):obj[k]=str(v).strip()
+                elif any(x in d for x in ("int","serial")) and "point" not in d:obj[k]=int(v)
+                elif any(x in d for x in ("numeric","double","precision","real")):obj[k]=round(float(v),3)
+                elif d=="date":obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
+                elif "timestamp" in d or "time" in d:obj[k]=parser.isoparse(v) if isinstance(v,str) else v
+                elif "json" in d:
+                    if isinstance(v,(dict,list)):obj[k]=json.dumps(v,separators=(",",":"))
+                    else:
+                        try:json.loads(v);obj[k]=v
+                        except:obj[k]=json.dumps(v)
+            except Exception as e:raise Exception(f"serialize_error:{k}:{d}:{str(e)}")
     return obj_list
 
 async def func_postgres_schema_read(client_postgres_pool):
-    query = """
-    WITH t AS (
-        SELECT * FROM information_schema.tables
-        WHERE table_schema='public' AND table_type='BASE TABLE'
-    ),
-    c AS (
-        SELECT table_name, column_name,
-               CASE
-                 WHEN data_type='ARRAY' THEN
-                   'ARRAY[' ||
-                   CASE udt_name
-                     WHEN '_int2' THEN 'smallint'
-                     WHEN '_int4' THEN 'int'
-                     WHEN '_int8' THEN 'bigint'
-                     WHEN '_text' THEN 'text'
-                     WHEN '_bool' THEN 'bool'
-                     WHEN '_varchar' THEN 'varchar'
-                     ELSE replace(udt_name,'_','')
-                   END
-                   || ']'
-                 ELSE data_type
-               END AS data_type,
-               CASE WHEN is_nullable='YES' THEN 1 ELSE 0 END AS is_nullable,
-               column_default
-        FROM information_schema.columns
-        WHERE table_schema='public'
-    ),
-    i AS (
-        SELECT t.relname::text AS table_name, a.attname AS column_name,
-               CASE WHEN idx.indisprimary OR idx.indisunique OR idx.indisvalid THEN 1 ELSE 0 END AS is_index
-        FROM pg_attribute a
-        JOIN pg_class t ON a.attrelid=t.oid
-        JOIN pg_namespace ns ON t.relnamespace=ns.oid
-        LEFT JOIN pg_index idx ON a.attrelid=idx.indrelid AND a.attnum=ANY(idx.indkey)
-        WHERE ns.nspname='public' AND a.attnum > 0 AND t.relkind='r'
-    )
-    SELECT t.table_name AS table,
-           c.column_name AS column,
-           c.data_type AS datatype,
-           c.column_default AS default,
-           c.is_nullable AS is_null,
-           COALESCE(i.is_index, 0) AS is_index
-    FROM t
-    LEFT JOIN c ON t.table_name=c.table_name
-    LEFT JOIN i ON t.table_name=i.table_name AND c.column_name=i.column_name;
-    """
-    async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query)
+    query="SELECT t.relname AS table_name, a.attname AS column_name, format_type(a.atttypid, a.atttypmod) AS data_type, pg_get_expr(d.adbin, d.adrelid) AS column_default, CASE WHEN a.attnotnull THEN 0 ELSE 1 END AS is_nullable, CASE WHEN EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = a.attrelid AND a.attnum = ANY(i.indkey)) THEN 1 ELSE 0 END AS is_index FROM pg_class t JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_attribute a ON a.attrelid = t.oid LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum WHERE t.relkind = 'r' AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped ORDER BY t.relname, a.attnum;"
+    async with client_postgres_pool.acquire() as conn: output=await conn.fetch(query)
     postgres_schema,postgres_column_datatype={},{}
     for obj in output:
-        table,column=obj["table"],obj["column"]
-        column_data={"datatype":obj["datatype"],"default":obj["default"],"is_null":obj["is_null"],"is_index":obj["is_index"]}
-        if table not in postgres_schema: postgres_schema[table]={}
-        postgres_schema[table][column]=column_data
-    postgres_column_datatype={col:data["datatype"] for table,cols in postgres_schema.items() for col,data in cols.items()}
+        t,c,dt=obj['table_name'],obj['column_name'],obj['data_type'].lower()
+        if t not in postgres_schema: postgres_schema[t]={}
+        postgres_schema[t][c]={"datatype":dt,"default":obj['column_default'],"is_null":obj['is_nullable'],"is_index":obj['is_index']}
+        postgres_column_datatype[c]=dt
     return postgres_schema,postgres_column_datatype
 
 import asyncpg
-async def func_postgres_client_read(config_postgres_url,config_postgres_schema_name=None,config_postgres_min_connection=None,config_postgres_max_connection=None,timeout=None,command_timeout=None):
-    if not config_postgres_schema_name:config_postgres_schema_name="public"
+async def func_postgres_client_read(config_postgres_url,config_postgres_min_connection=None,config_postgres_max_connection=None,timeout=None,command_timeout=None):
     if not config_postgres_min_connection:config_postgres_min_connection=5
     if not config_postgres_max_connection:config_postgres_max_connection=20
     if not timeout:timeout=60
     if not command_timeout:command_timeout=60
-    client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection,server_settings={"search_path":config_postgres_schema_name},timeout=timeout,command_timeout=command_timeout)
+    client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection,timeout=timeout,command_timeout=command_timeout)
     return client_postgres_pool
 
 import random

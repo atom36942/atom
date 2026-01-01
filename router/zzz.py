@@ -23,7 +23,7 @@ async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):
    try:
       while True:
          message=await websocket.receive_text()
-         output=await func_postgres_obj_list_create(websocket.app.state.client_postgres_pool,func_postgres_obj_list_serialize,websocket.app.state.cache_postgres_column_datatype,"buffer","test",[{"title":message}],0,3)
+         output=await func_postgres_obj_create(websocket.app.state.client_postgres_pool,func_postgres_obj_serialize,websocket.app.state.cache_postgres_column_datatype,"buffer","test",[{"title":message}],0,3)
          await websocket.send_text(str(output))
    except WebSocketDisconnect:
       print("client disconnected")
