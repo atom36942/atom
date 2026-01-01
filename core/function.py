@@ -585,11 +585,18 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
     await _validate()
     db,dtypes=await func_postgres_schema_read(client_postgres_pool)
     async with client_postgres_pool.acquire() as conn:
-        await func_init_extension(conn); await func_init_table(conn,db); await func_init_column_rename(conn,db)
+        await func_init_extension(conn)
+        await func_init_table(conn,db)
+        await func_init_column_rename(conn,db)
         db,dtypes=await func_postgres_schema_read(client_postgres_pool)
-        await func_init_column(conn,db); await func_init_drop_column(conn,db)
+        await func_init_column(conn,db)
+        if False:await func_init_drop_column(conn,db)
         db,dtypes=await func_postgres_schema_read(client_postgres_pool)
-        await func_init_default(conn,db); await func_init_nullable(conn,db); await func_init_index(conn,dtypes); await func_init_constraints(conn,db,dtypes); await func_init_custom_sql(conn)
+        await func_init_default(conn,db)
+        await func_init_nullable(conn,db)
+        await func_init_index(conn,dtypes)
+        await func_init_constraints(conn,db,dtypes)
+        await func_init_custom_sql(conn)
     return None
 
 import hashlib,json,uuid
