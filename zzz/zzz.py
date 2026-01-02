@@ -1,1 +1,1 @@
-# use /zzz folder to add extra files like functions,scripts,config,schema etc
+# add extra files in zzz folder to extend
