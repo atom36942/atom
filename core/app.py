@@ -29,7 +29,7 @@ async def func_lifespan(app:FastAPI):
       client_gsheet=func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope_list) if config_gsheet_service_account_json_path else None
       client_sftp=await func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
       #cache init
-      cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None, None)
+      cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else ({},{})
       cache_users_api_access=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_api_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
       cache_users_is_active=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       cache_config=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
