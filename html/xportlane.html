@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XPORTLANE - Managed Export Infrastructure</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--blue:#2563eb;--blue-dark:#1d4ed8;--blue-darker:#1e3a8a;--navy:#0f172a;--navy-light:#1e293b;--gray:#64748b;--gray-light:#94a3b8;--bg-light:#f8fafc;--border:#e2e8f0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.7;color:#1a1a1a}
+.gradient-text{background:linear-gradient(135deg,var(--blue-darker) 0%,var(--blue) 50%,#3b82f6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.btn{padding:0.7rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:500;transition:all 0.3s;display:inline-block;position:relative;overflow:hidden}
+.btn::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;border-radius:50%;background:rgba(255,255,255,0.3);transform:translate(-50%,-50%);transition:width 0.6s,height 0.6s}
+.btn:hover::before{width:300px;height:300px}
+.btn-primary{background:linear-gradient(135deg,var(--blue) 0%,var(--blue-dark) 100%);color:white;box-shadow:0 2px 8px rgba(37,99,235,0.2);position:relative;z-index:1}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(37,99,235,0.3)}
+.btn-secondary{background:white;color:var(--blue);border:2px solid var(--blue)}
+.btn-secondary:hover{background:#eff6ff}
+section{padding:8rem 5%}
+.container{max-width:1400px;margin:0 auto}
+h2{font-size:3rem;font-weight:700;margin-bottom:1rem;color:#1e293b}
+h3{font-size:1.4rem;margin-bottom:1rem;font-weight:600;color:#1e293b}
+.hero{min-height:90vh;display:flex;align-items:center;background:linear-gradient(135deg,rgba(37,99,235,0.05) 0%,rgba(59,130,246,0.1) 100%),url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%232563eb;stop-opacity:0.1"/><stop offset="100%" style="stop-color:%233b82f6;stop-opacity:0.05"/></linearGradient></defs><rect fill="url(%23g1)" width="1200" height="600"/><circle cx="900" cy="150" r="200" fill="%233b82f6" opacity="0.1"/><circle cx="300" cy="450" r="150" fill="%232563eb" opacity="0.08"/><path d="M0,300 Q300,200 600,300 T1200,300" stroke="%232563eb" stroke-width="2" fill="none" opacity="0.2"/><path d="M0,350 Q300,250 600,350 T1200,350" stroke="%233b82f6" stroke-width="2" fill="none" opacity="0.15"/></svg>');background-size:cover;background-position:center;position:relative;overflow:hidden}
+.hero::before,.hero::after{content:'';position:absolute;border-radius:50%;opacity:0.6;animation:float 6s ease-in-out infinite}
+.hero::before{top:-10%;right:5%;width:500px;height:500px;background:radial-gradient(circle,rgba(37,99,235,0.15) 0%,transparent 70%);animation-delay:0s}
+.hero::after{bottom:-20%;left:-5%;width:600px;height:600px;background:radial-gradient(circle,rgba(59,130,246,0.12) 0%,transparent 70%);animation-delay:3s}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+.hero-content{max-width:800px;position:relative;z-index:1;animation:fadeInUp 0.8s ease-out}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.hero h1{font-size:4.5rem;margin-bottom:2.5rem;font-weight:700;line-height:1.1;letter-spacing:-2px}
+.hero p{font-size:1.3rem;color:#475569;margin-bottom:2.5rem}
+.hero-buttons{display:flex;gap:1rem}
+.hero .btn{padding:1.1rem 2.2rem;font-size:1rem;font-weight:600;position:relative}
+.hero .btn span{position:relative;z-index:2}
+.brand{font-size:2.5rem;font-weight:800;color:var(--blue);margin-bottom:1.5rem;text-transform:uppercase;letter-spacing:3px;position:relative;display:inline-block}
+.brand::after{content:'';position:absolute;bottom:-5px;left:0;width:60px;height:4px;background:linear-gradient(90deg,var(--blue) 0%,#3b82f6 100%);border-radius:2px}
+.philosophy{background:white}
+.intro-text{max-width:900px;margin-bottom:6rem}
+.intro-text p{font-size:1.25rem;color:var(--gray);line-height:1.8;margin-bottom:1rem}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2.5rem}
+.card{background:linear-gradient(135deg,var(--bg-light) 0%,#f1f5f9 100%);padding:2.5rem;border-radius:16px;border:1px solid var(--border);transition:all 0.3s;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:linear-gradient(180deg,var(--blue) 0%,#3b82f6 100%);transform:scaleY(0);transition:transform 0.3s}
+.card:hover{transform:translateY(-5px);box-shadow:0 10px 30px rgba(37,99,235,0.15);border-color:var(--blue)}
+.card:hover::before{transform:scaleY(1)}
+.icon{width:60px;height:60px;background:linear-gradient(135deg,var(--blue) 0%,#3b82f6 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:1.5rem;box-shadow:0 4px 12px rgba(37,99,235,0.2);transition:transform 0.3s}
+.card:hover .icon{transform:scale(1.1) rotate(5deg)}
+.card p{color:var(--gray)}
+.stats{padding:6rem 5%;background:linear-gradient(135deg,var(--blue-darker) 0%,var(--blue) 100%);color:white}
+.grid-4.stats-grid{text-align:center}
+.stat-number{font-size:3.5rem;font-weight:700;margin-bottom:0.5rem;background:linear-gradient(135deg,#ffffff 0%,#dbeafe 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-label{font-size:1.1rem;color:#bfdbfe}
+.products{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);position:relative}
+.products::before{content:'🌾';position:absolute;top:10%;right:5%;font-size:8rem;opacity:0.1}
+.section-header{margin-bottom:4rem;text-align:center}
+.section-header h2{color:#78350f}
+.section-header p{font-size:1.2rem;color:#92400e}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:3rem;max-width:1200px;margin:0 auto}
+.product-card{background:white;border-radius:20px;overflow:hidden;transition:all 0.4s;box-shadow:0 4px 20px rgba(0,0,0,0.08)}
+.product-card:hover{transform:translateY(-10px);box-shadow:0 20px 40px rgba(0,0,0,0.15)}
+.product-image{height:280px;background:linear-gradient(135deg,#fef3c7 0%,#fed7aa 100%),url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><defs><pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="5" cy="5" r="2" fill="%23f59e0b" opacity="0.15"/></pattern></defs><rect width="400" height="400" fill="url(%23dots)"/></svg>');background-size:cover,20px 20px;display:flex;align-items:center;justify-content:center;font-size:6rem;position:relative}
+.product-image::after{content:'';position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,rgba(255,255,255,0.3),transparent)}
+.product-content{padding:2.5rem}
+.product-label{font-size:0.85rem;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:0.5rem;font-weight:600}
+.product-content h3{font-size:1.8rem;font-weight:700}
+.product-content p{color:var(--gray);margin-bottom:1.5rem}
+.product-link{color:var(--blue);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:0.5rem;transition:gap 0.3s}
+.product-link:hover{gap:0.8rem}
+.product-link::after{content:'→'}
+.process{background:white}
+.process .intro-text{text-align:center;margin-left:auto;margin-right:auto}
+.step{display:grid;grid-template-columns:120px 1fr;gap:3rem;padding:2.5rem;background:linear-gradient(135deg,var(--bg-light) 0%,#ffffff 100%);border-radius:16px;border:1px solid var(--border);transition:all 0.3s;margin-bottom:2rem}
+.step:hover{border-color:var(--blue);box-shadow:0 8px 24px rgba(37,99,235,0.1)}
+.step-number{font-size:4rem;font-weight:700;background:linear-gradient(135deg,var(--blue) 0%,#3b82f6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.step h3{font-size:1.6rem;font-weight:700}
+.step p{color:var(--gray);font-size:1.05rem}
+.quote{padding:8rem 5%;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%);color:white;text-align:center;position:relative}
+.quote::before{content:'"';position:absolute;top:-50px;left:50%;transform:translateX(-50%);font-size:20rem;opacity:0.05;font-family:Georgia,serif}
+.quote blockquote{max-width:900px;margin:0 auto;font-size:2.2rem;font-weight:500;line-height:1.6;font-style:italic;position:relative}
+.cta{background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);text-align:center}
+.cta p{font-size:1.3rem;color:var(--gray);margin-bottom:2.5rem;max-width:700px;margin-left:auto;margin-right:auto}
+.cta .hero-buttons{justify-content:center;flex-wrap:wrap}
+footer{background:var(--navy);color:white;padding:2rem 5%}
+.footer-bottom{text-align:center;color:var(--gray)}
+.footer-bottom p{margin-bottom:0.5rem;color:#cbd5e1}
+.contact-line{display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:0.3rem}
+@media (max-width:768px){.hero h1{font-size:2.8rem}h2{font-size:2.2rem}.step{grid-template-columns:1fr;gap:1.5rem}.grid-2{grid-template-columns:1fr}.brand{font-size:1.8rem}.hero-buttons{flex-direction:column}.btn{width:100%;text-align:center}.grid-4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<section class="hero">
+<div class="hero-content">
+<div class="brand">XPORTLANE</div>
+<h1 class="gradient-text">Managed export marketplace</h1>
+<p>Connecting verified suppliers with international buyers through infrastructure built on trust and execution.</p>
+<div class="hero-buttons">
+<a href="#contact" class="btn btn-primary"><span>Talk to Us</span></a>
+<a href="#process" class="btn btn-secondary"><span>See How It Works</span></a>
+</div>
+</div>
+</div>
+</section>
+<section class="philosophy">
+<div class="container">
+<div class="intro-text">
+<h2>The Philosophy</h2>
+<p>In a chaotic global market, Xportlane stands for order. We are not a passive listing site. We are not a speculative trader. We are the infrastructure of trust.</p>
+<p>We reduce export risk through managed execution and rigorous verification.</p>
+</div>
+<div class="grid-4">
+<div class="card">
+<div class="icon">✓</div>
+<h3>Verified Suppliers</h3>
+<p>We don't just list companies. We audit factories, verify certifications, and ensure financial stability before any supplier joins our network.</p>
+</div>
+<div class="card">
+<div class="icon">📋</div>
+<h3>Managed Documentation</h3>
+<p>Export documentation is complex. Our team handles the paperwork, ensuring compliance with international trade regulations and preventing customs delays.</p>
+</div>
+<div class="card">
+<div class="icon">🔍</div>
+<h3>Quality Assurance</h3>
+<p>Trust is good, checking is better. We implement mandatory quality inspections at production and pre-shipment stages.</p>
+</div>
+<div class="card">
+<div class="icon">🚢</div>
+<h3>Logistics Coordination</h3>
+<p>From factory floor to the destination port, we coordinate the movement of goods, providing visibility and reliability.</p>
+</div>
+</div>
+</div>
+</section>
+<section class="stats">
+<div class="container">
+<h2 style="text-align:center;color:white;margin-bottom:3rem">Our Impact</h2>
+<div class="grid-4 stats-grid">
+<div>
+<div class="stat-number">500+</div>
+<div class="stat-label">Verified Suppliers</div>
+</div>
+<div>
+<div class="stat-number">50+</div>
+<div class="stat-label">Countries Served</div>
+</div>
+<div>
+<div class="stat-number">99.8%</div>
+<div class="stat-label">On-Time Delivery</div>
+</div>
+<div>
+<div class="stat-number">$50M+</div>
+<div class="stat-label">Trade Volume</div>
+</div>
+</div>
+</section>
+<section class="products">
+<div class="container">
+<div class="section-header">
+<h2>Core Commodities</h2>
+<p>Specialized sourcing for high-demand agricultural products.</p>
+</div>
+<div class="grid-2">
+<div class="product-card">
+<div class="product-image">🧅</div>
+<div class="product-content">
+<div class="product-label">Premium Grade</div>
+<h3>Dehydrated Onion</h3>
+<p>Available in flakes, powder, and granules. Sourced from certified processing units with strict moisture control.</p>
+</div>
+</div>
+<div class="product-card">
+<div class="product-image">🌶️</div>
+<div class="product-content">
+<div class="product-label">Selective Sourcing</div>
+<h3>Dry Chilli</h3>
+<p>Whole and powder variants. Sourced based on specific SHU (heat) and color requirements of the buyer.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="process" id="process">
+<div class="container">
+<div class="intro-text">
+<h2>The Xportlane Standard</h2>
+<p>A transparent, repeatable process designed to eliminate the friction of international trade.</p>
+</div>
+<div style="max-width:1000px;margin:0 auto">
+<div class="step">
+<div class="step-number">01</div>
+<div>
+<h3>Requirement Analysis</h3>
+<p>We don't just take orders. We analyze your specifications to match you with the ideal manufacturing partner from our verified pool.</p>
+</div>
+</div>
+<div class="step">
+<div class="step-number">02</div>
+<div>
+<h3>Supplier Verification</h3>
+<p>Every supplier is vetted for financial health, production capacity, and compliance certifications before we propose them.</p>
+</div>
+</div>
+<div class="step">
+<div class="step-number">03</div>
+<div>
+<h3>Production Oversight</h3>
+<p>Our on-ground team monitors production milestones, ensuring timelines are met and quality standards are adhered to.</p>
+</div>
+</div>
+<div class="step">
+<div class="step-number">04</div>
+<div>
+<h3>Pre-Shipment Inspection</h3>
+<p>Nothing leaves the factory without a final quality check. We verify packaging, labeling, and product specifications.</p>
+</div>
+</div>
+<div class="step">
+<div class="step-number">05</div>
+<div>
+<h3>Documentation & Logistics</h3>
+<p>We handle the Bill of Lading, Certificate of Origin, and customs clearance, ensuring a smooth handover at the port.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="quote">
+<blockquote>"Reliability is not an accident. It is the result of consistent, managed execution."</blockquote>
+</section>
+<section class="cta" id="contact">
+<div class="container">
+<h2>Contact Us</h2>
+<p>Whether you are a buyer seeking reliability or a supplier seeking growth, Xportlane is your managed partner.</p>
+<div class="hero-buttons">
+<a href="mailto:info@xportlane.com" class="btn btn-primary" target="_blank">Email Us</a>
+</div>
+</div>
+</section>
+<footer>
+<div class="container footer-bottom">
+<p class="contact-line">📧 info@xportlane.com</p>
+<p class="contact-line">📱 +91 7984595688</p>
+<p>© 2026 Xportlane. All rights reserved.</p>
+</div>
+</footer>
+<script>document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();document.querySelector(a.getAttribute('href'))?.scrollIntoView({behavior:'smooth'})}))</script>
+</body>
+</html>
