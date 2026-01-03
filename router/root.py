@@ -9,7 +9,7 @@ async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
 
 @router.get("/root/reset-global")
 async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
-   request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await func_postgres_schema_read(request.app.state.client_postgres_pool)
+   request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
    request.app.state.cache_users_api_access=await func_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_api_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_access") else {}
    request.app.state.cache_users_is_active=await func_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
    request.app.state.cache_config=await func_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_config")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("config",{}) else {}
