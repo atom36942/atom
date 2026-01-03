@@ -1,11 +1,12 @@
 #import
 from core.config import *
 from core.function import *
+from fastapi import FastAPI,responses
+from contextlib import asynccontextmanager
+import traceback,os,time
+from pathlib import Path
 
 #lifespan
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-import traceback,os
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    try:
@@ -57,15 +58,12 @@ async def func_lifespan(app:FastAPI):
       
 #app
 app=func_app_create(func_lifespan,config_is_debug_fastapi)
-
-#app add
 func_app_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
-func_app_add_router(app, __import__("pathlib").Path(__file__).parent.parent / "router")
+func_app_add_router(app,Path(__file__).parent.parent/config_folder_router)
 if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
 if config_is_prometheus:func_app_add_prometheus(app)
 
 #middleware
-import time
 @app.middleware("http")
 async def middleware(request,api_function):
    try:
@@ -80,9 +78,11 @@ async def middleware(request,api_function):
    return response
 
 #root
-from pathlib import Path
-from fastapi import Request,responses
 @app.get("/")
-async def func_api_index(request: Request):
-    p = Path("html/index.html")
-    return responses.HTMLResponse(p.read_text()) if p.exists() else {"status": 1, "message": "welcome to atom"}
+async def func_api_index():
+    html_path=next((str(p) for p in Path(config_folder_html).rglob(f"{config_project_name}.html")),None)
+    if not html_path:
+        return {"status":1,"message":"welcome to atom"}
+    html_content=await func_read_html(html_path)
+    return responses.HTMLResponse(content=html_content)
+

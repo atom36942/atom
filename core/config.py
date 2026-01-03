@@ -92,6 +92,9 @@ config_public_table_create_list=(os.getenv("config_public_table_create_list") or
 config_public_table_read_list=(os.getenv("config_public_table_read_list") or "test").split(",")
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
+config_project_name=os.getenv("config_project_name") or "atom"
+config_folder_router=os.getenv("config_folder_router") or "router"
+config_folder_html=os.getenv("config_folder_html") or "html"
 
 #dict
 config_sql={

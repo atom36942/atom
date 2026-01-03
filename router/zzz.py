@@ -14,8 +14,12 @@ async def func_api_1bd8a31e5baa4b67b6f05785f3dd52fb(request:Request):
 
 @router.get("/page/{name}")
 async def func_api_10f177735aac4564a0946f9088f17d9a(name):
-    path=func_find_html(name,"html")
-    return responses.HTMLResponse(content=await func_render_html(path))
+   html_path=next(str(p) for p in Path(config_folder_html).rglob(f"{name}.html"))
+   html_content=await func_read_html(html_path)
+   if name=="zzz":
+      output=await func_folder_filenmae_read("html",0,0)
+      html_content=html_content.replace("__NAMES__",json.dumps(output))
+   return responses.HTMLResponse(content=html_content)
 
 @router.websocket("/websocket")
 async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):

@@ -1,10 +1,3 @@
-from pathlib import Path
-def func_find_html(name,folder):
-    for item in Path(folder).rglob("*.html"):
-        if item.stem == name:
-            return str(item)
-    raise Exception("path not found")
-
 import traceback
 from fastapi import responses
 async def func_handler_api_error(request,e):
@@ -1588,18 +1581,18 @@ def func_folder_reset(folder_path):
             os.remove(path)
     return None
 
-from pathlib import Path
-import uuid, os
-async def func_folder_filename_export(input_path, output_path=None):
-    if not output_path: output_path = f"export/{uuid.uuid4().hex}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    skip = {"venv","__pycache__", ".git",".mypy_cache",".pytest_cache","node_modules"}
-    base = Path(input_path).resolve()
-    with open(output_path,"w") as f:
-        for r,d,fs in os.walk(base):
-            d[:] = [x for x in d if x not in skip]
-            for x in fs: f.write(f"{Path(r,x).relative_to(base)}\n")
-    return output_path
+async def func_folder_filenmae_read(folder_path,is_extension=1,is_folder=1):
+    skip={"venv","__pycache__", ".git",".mypy_cache",".pytest_cache","node_modules"}
+    base=Path(folder_path).resolve(); output=[]
+    for r,d,fs in os.walk(base):
+        d[:]=[x for x in d if x not in skip and not x.startswith(".")]
+        for x in fs:
+            if x.startswith("."): continue
+            p=Path(r,x).relative_to(base)
+            if not is_extension: p=p.with_suffix("")
+            if not is_folder: p=Path(p.name)
+            output.append(str(p))
+    return output
 
 import sys
 def func_variable_size_read_kb(namespace=globals()):
@@ -1630,7 +1623,7 @@ async def func_client_download_file(path,is_cleanup=1,chunk_size=1024*1024):
 
 import os
 import aiofiles
-async def func_render_html(path):
+async def func_read_html(path):
     if ".." in path: raise Exception("invalid name")
     full_path = os.path.abspath(path)
     if not full_path.endswith(".html"): raise Exception("invalid file type")
