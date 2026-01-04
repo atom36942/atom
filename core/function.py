@@ -451,7 +451,7 @@ async def func_postgres_export(client_postgres_pool, query, batch_size=None, out
         if f: f.close()
     return output_path
 
-async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_postgres_schema_read):
+async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_postgres_schema_read,is_match_column=0):
     if not config_postgres or "table" not in config_postgres: raise Exception("config_postgres.table missing")
     async def _validate():
         seen=set()
@@ -583,7 +583,7 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
         await func_init_column_rename(conn,db)
         db,dtypes=await func_postgres_schema_read(client_postgres_pool)
         await func_init_column(conn,db)
-        if False:await func_init_drop_column(conn,db)
+        if is_match_column==1:await func_init_drop_column(conn,db)
         db,dtypes=await func_postgres_schema_read(client_postgres_pool)
         await func_init_default(conn,db)
         await func_init_nullable(conn,db)
