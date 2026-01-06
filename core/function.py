@@ -1280,29 +1280,25 @@ async def func_auth_login_otp_mobile(client_postgres_pool,type,mobile):
             user = output[0] if output else None
     return user
 
-import json
+import json,time
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_request
 async def func_auth_login_google(client_postgres_pool,config_google_login_client_id,type,google_token):
-    request = google_request.Request()
-    id_info = id_token.verify_oauth2_token(google_token, request, config_google_login_client_id)
-    if id_info.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]: raise Exception("invalid issuer")
-    if not id_info.get("email_verified", False): raise Exception("email not verified")
-    if id_info.get("exp", 0) < time.time(): raise Exception("token expired")
-    google_user = {
-        "sub": id_info.get("sub"),
-        "email": id_info.get("email"),
-        "name": id_info.get("name"),
-        "picture": id_info.get("picture"),
-        "email_verified": id_info.get("email_verified")
-    }
+    request=google_request.Request()
+    id_info=id_token.verify_oauth2_token(google_token,request,config_google_login_client_id)
+    if id_info.get("iss") not in ["accounts.google.com","https://accounts.google.com"]: raise Exception("invalid issuer")
+    if not id_info.get("email_verified",False): raise Exception("email not verified")
+    if id_info.get("exp",0)<time.time(): raise Exception("token expired")
+    email=id_info.get("email").lower()
+    google_user={"sub":id_info.get("sub"),"email":email,"name":id_info.get("name"),"picture":id_info.get("picture"),"email_verified":1}
     async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch("SELECT * FROM users WHERE type=$1 AND google_login_id=$2 ORDER BY id DESC LIMIT 1", type, google_user["sub"])
-        user = output[0] if output else None
+        output=await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1",type,email)
+        user=output[0] if output else None
         if not user:
-            metadata = json.dumps(google_user)
-            output = await conn.fetch("INSERT INTO users (type, google_login_id, google_login_metadata) VALUES ($1, $2, $3::jsonb) RETURNING *", type, google_user["sub"], metadata)
-            user = output[0] if output else None
+            output=await conn.fetch("INSERT INTO users (type,email,google_login_id,google_login_metadata) VALUES ($1,$2,$3,$4::jsonb) RETURNING *",type,email,google_user["sub"],json.dumps(google_user))
+            user=output[0] if output else None
+        elif not user.get("google_login_id"):
+            await conn.execute("UPDATE users SET google_login_id=$1,google_login_metadata=$2::jsonb WHERE id=$3",google_user["sub"],json.dumps(google_user),user["id"])
     return user
 
 from openai import OpenAI
