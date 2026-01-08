@@ -5,16 +5,15 @@ from core.route import *
 @router.get("/root/postgres-init")
 async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
    output=await func_postgres_init_schema(request.app.state.client_postgres_pool,config_postgres,func_postgres_schema_read)
+   await fund_handler_reset_cache_postgres(request)
    return {"status":1,"message":output}
 
 @router.get("/root/reset-global")
 async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
-   request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
-   request.app.state.cache_users_api_access=await func_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_api_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_access") else {}
-   request.app.state.cache_users_is_active=await func_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
-   request.app.state.cache_config=await func_postgres_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_config")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("config",{}) else {}
-   await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"flush")
+   await fund_handler_reset_cache_postgres(request)
+   await fund_handler_reset_cache_users(request)
    if config_is_reset_export_folder:func_folder_reset("export")
+   await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"flush")
    return {"status":1,"message":"done"}
 
 @router.get("/root/postgres-clean")
