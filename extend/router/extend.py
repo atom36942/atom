@@ -1,5 +1,7 @@
 #import
 from core.route import *
+from extend.core.config import *
+from extend.core.function import *
 
 #api
 @router.get("/extend")
