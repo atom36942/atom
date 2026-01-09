@@ -1,6 +1,6 @@
 #import
-from core.config import *
 from core.function import *
+from core.config import *
 import asyncio,json
 #logic
 async def logic():

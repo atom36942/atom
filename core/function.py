@@ -1,3 +1,18 @@
+import inspect
+def func_override_vars(path):
+    ns = {}
+    with open(path, "r") as f:
+        exec(compile(f.read(), path, "exec"), ns, ns)
+    caller_globals = inspect.currentframe().f_back.f_globals
+    for k, v in ns.items():
+        if k.startswith("config_") and k in caller_globals:
+            caller_globals[k] = v
+
+from pathlib import Path
+async def func_path_read(folder_list, name):
+    if "." not in Path(name).name:raise ValueError(f"invalid name '{name}': extension required")
+    return next((str(p) for f in folder_list for p in Path(f).rglob(name)), None)
+
 async def fund_handler_reset_cache_postgres(request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await request.app.state.func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
     request.app.state.cache_config=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_config")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("config",{}) else {}
@@ -1040,32 +1055,31 @@ def func_app_add_sentry(config_sentry_dsn):
    sentry_sdk.init(dsn=config_sentry_dsn,integrations=[FastApiIntegration()],traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
-import sys
-import importlib.util
+import sys, importlib.util, traceback
 from pathlib import Path
-import traceback
-def func_app_add_router(app, folder_path):
-    router_root = Path(folder_path).resolve()
-    if not router_root.is_dir():
-        raise ValueError(f"router folder not found: {router_root}")
-    def load_module(file_path):
+def func_app_add_router(app, config_folder_router_list):
+    def load(router_root, file_path):
         try:
             rel = file_path.relative_to(router_root)
-            module_name = "routers." + ".".join(rel.with_suffix("").parts)
-            spec = importlib.util.spec_from_file_location(module_name, file_path)
+            mod = "routers." + ".".join(rel.with_suffix("").parts)
+            spec = importlib.util.spec_from_file_location(mod, file_path)
             if not spec or not spec.loader:
                 return
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-            if hasattr(module, "router"):
-                app.include_router(module.router)
+            m = importlib.util.module_from_spec(spec)
+            sys.modules[mod] = m
+            spec.loader.exec_module(m)
+            if hasattr(m, "router"):
+                app.include_router(m.router)
         except Exception:
             print(f"[WARN] failed to load router: {file_path}")
             traceback.print_exc()
-    for file_path in router_root.rglob("*.py"):
-        if not file_path.name.startswith("__"):
-            load_module(file_path)
+    for p in config_folder_router_list:
+        root = Path(p).resolve()
+        if not root.is_dir():
+            raise ValueError(f"router folder not found: {root}")
+        for f in root.rglob("*.py"):
+            if not f.name.startswith("__"):
+                load(root, f)
     return None
 
 async def func_ownership_check(client_postgres_pool,table,id,user_id):
@@ -1588,18 +1602,15 @@ def func_folder_reset(folder_path):
             os.remove(path)
     return None
 
-async def func_folder_filenmae_read(folder_path,is_extension=1,is_folder=1):
-    skip={"venv","__pycache__", ".git",".mypy_cache",".pytest_cache","node_modules"}
-    base=Path(folder_path).resolve(); output=[]
+async def func_folder_filenmae_read(folder_path):
+    skip={"venv","__pycache__",".git",".mypy_cache",".pytest_cache","node_modules"}
+    base=Path(folder_path).resolve(); out=[]
     for r,d,fs in os.walk(base):
         d[:]=[x for x in d if x not in skip and not x.startswith(".")]
         for x in fs:
             if x.startswith("."): continue
-            p=Path(r,x).relative_to(base)
-            if not is_extension: p=p.with_suffix("")
-            if not is_folder: p=Path(p.name)
-            output.append(str(p))
-    return output
+            out.append(str(Path(r,x).relative_to(base)))
+    return out
 
 import sys
 def func_variable_size_read_kb(namespace=globals()):
@@ -1631,6 +1642,7 @@ async def func_client_download_file(path,is_cleanup=1,chunk_size=1024*1024):
 import os
 import aiofiles
 async def func_read_html(path):
+    if not path: raise Exception("no such path")
     if ".." in path: raise Exception("invalid name")
     full_path = os.path.abspath(path)
     if not full_path.endswith(".html"): raise Exception("invalid file type")

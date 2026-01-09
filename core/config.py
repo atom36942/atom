@@ -1,3 +1,6 @@
+#import
+from core.function import *
+
 #env
 import os
 from dotenv import load_dotenv
@@ -94,15 +97,15 @@ config_public_table_read_list=(os.getenv("config_public_table_read_list") or "te
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
 config_project_name=os.getenv("config_project_name") or "atom"
-config_folder_router=os.getenv("config_folder_router") or "router"
-config_folder_html=os.getenv("config_folder_html") or "html"
+config_folder_router_list=(os.getenv("config_folder_router_list") or "router,extend/router").split(",")
+config_folder_html_list=(os.getenv("config_folder_html_list") or "html,extend/html").split(",")
 
 #dict
 config_sql={
-"user":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
+"cache_config":"select title,metadata from config limit 1000;",
 "cache_users_api_access":"select id,api_access from users where api_access is not null limit 1000",
 "cache_users_is_active":"select id,is_active from users limit 1000",
-"cache_config":"select title,metadata from config limit 1000;",
+"user":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
 }
 
 config_table={
@@ -239,7 +242,6 @@ config_postgres={
 }
 }
 
-#list to tuple
-from core.function import func_list_to_tuple
+#func
 func_list_to_tuple(globals())
-del func_list_to_tuple
+func_override_vars("extend/config.py")
