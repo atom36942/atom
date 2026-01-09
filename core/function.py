@@ -461,7 +461,7 @@ async def func_postgres_export(client_postgres_pool, query, batch_size=None, out
         if f: f.close()
     return output_path
 
-async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_postgres_schema_read,is_extension=1,is_match_column=0):
+async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_postgres_schema_read,config_postgres_is_extension,is_match_column=0):
     if not config_postgres or "table" not in config_postgres: raise Exception("config_postgres.table missing")
     async def _validate():
         seen=set()
@@ -486,7 +486,7 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
                     if key in seen: raise Exception(f"duplicate unique {t}.{','.join(ucols)}")
                     seen.add(key)
     async def func_init_extension(conn):
-        if is_extension:
+        if config_postgres_is_extension:
             for e in ("postgis","pg_trgm"):await conn.execute(f"create extension if not exists {e};")
         await conn.execute("create or replace function array_all_lowercase(text[]) returns boolean immutable as $$ select coalesce(bool_and(v=lower(v)),true) from unnest($1) v $$ language sql;")
         await conn.execute("create or replace function array_all_trimmed(text[]) returns boolean immutable as $$ select coalesce(bool_and(v=trim(v)),true) from unnest($1) v $$ language sql;")
