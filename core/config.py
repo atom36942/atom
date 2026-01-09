@@ -244,4 +244,4 @@ config_postgres={
 
 #func
 func_list_to_tuple(globals())
-func_override_vars("extend/config.py")
+func_override_vars("extend/core/config.py")
