@@ -136,3 +136,5 @@ vectorstore/
 *.sqlite3
 export/
 z.py
+secret/
+extend/secret/
