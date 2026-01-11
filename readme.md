@@ -2,32 +2,20 @@
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
-- Built-in support for Postgres, Redis, S3, Kafka, and many other services  
 - Production-ready to build APIs, background jobs, and integrations quickly  
 - Minimal boilerplate so you don’t have to reinvent the wheel each time  
-- Non-opinionated: full flexibility in defining business schema, API structure, and external libraries
+- Non-opinionated and full flexible to extend
 - Tech Stack:Python,FastAPI,PostgreSQL,Redis,S3,Celery,RabbitMQ,Kafka,Sentry
 
 ### Modules
-- one click postgres database setup
-- postgres csv uploader
-- postgres query runner
-- auth apis
-- logged in user apis
-- admin apis
-- api cache using redis
-- api ratelimiter setup
-- celery/kafka/rabbitmq/redis pub-sub queue setup
-- sentry/mongodb/posthog integration
-- otp client integration - fast2sms/resend
-- aws s3,sns,ses integration
-- html pages serve
-- user crud apis as per rbac
-- bulk insert/update with buffer
-- gsheet integration
-- easy extension
-- supports multi-tenant design
-- sftp integration
+- PostgreSQL: one-click setup, CSV upload, query runner
+- Auth & RBAC: auth APIs, user/admin APIs
+- Performance: Redis cache, rate limiting
+- Async & Queues: Celery, Kafka, RabbitMQ, Redis pub/sub
+- Integrations: Sentry, MongoDB, PostHog
+- Messaging: OTP (Fast2SMS, Resend), AWS S3/SNS/SES
+- Data Ops: bulk insert/update, Google Sheets, SFTP
+- Platform: HTML serving, multi-tenant support, extensible architecture
 
 ### Installation
 ```bash
