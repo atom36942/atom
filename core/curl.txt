@@ -3,14 +3,12 @@ curl -X GET "$baseurl"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token"
-curl -X GET "$baseurl/root/reset-global" -H "Authorization: Bearer $token"
-curl -X GET "$baseurl/root/postgres-clean" -H "Authorization: Bearer $token"
+curl -X GET "$baseurl/root/sync" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"mode":"read","query":"select * from users limit 10;"}'
 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/postgres_export.csv
 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@sample/postgres_create.csv"
-curl -X POST "$baseurl/root/redis-import-create" -H "Authorization: Bearer $token" -F "table=test" -F "file=@sample/postgres_update.csv" -F "expiry_sec=100"
-curl -X POST "$baseurl/root/redis-import-delete" -H "Authorization: Bearer $token" -F "file=@sample/redis_delete.csv"
-curl -X POST "$baseurl/root/mongodb-import-create" -H "Authorization: Bearer $token" -F "database=test" -F "table=test" -F "file=@sample/postgres_create.csv"
+curl -X POST "$baseurl/root/redis-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@sample/postgres_update.csv" -F "expiry_sec=100"
+curl -X POST "$baseurl/root/mongodb-import" -H "Authorization: Bearer $token" -F "mode=create" -F "database=test" -F "table=test" -F "file=@sample/postgres_create.csv"
 0 curl -X GET "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token"
 0 curl -X POST "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"url":"url1,url2,url3"}'
 

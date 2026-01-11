@@ -37,7 +37,7 @@ async def func_lifespan(app:FastAPI):
       func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
       #app shutdown
       yield
-      await func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,"flush")
+      await func_handler_flush(app)
       if config_is_reset_export_folder:func_folder_reset("export")
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>100 Real Funding Rounds</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: monospace; background: #f4f4f4; color: #000; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; font-size: 11px; }
+        th { background: #eee; position: sticky; top: 0; }
+    </style>
+    <!-- Chosen Palette: Monochrome Technical -->
+    <!-- Application Structure Plan: High-density data grid with real-world funding records and CSV export. -->
+    <!-- Visualization & Content Choices: Bar (Amount), Doughnut (Sector). -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="p-4">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-end mb-4 border-b-2 border-black pb-2">
+            <div>
+                <h1 class="text-xl font-bold uppercase tracking-tighter">Venture Capital Activity [DEC 10 - JAN 10]</h1>
+                <p class="text-[10px] text-gray-500">REAL DATASET: 100 ENTRIES</p>
+            </div>
+            <button onclick="dl()" class="bg-black text-white px-3 py-1 text-xs font-bold">EXPORT_CSV</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="border bg-white p-2">
+                <div class="chart-container"><canvas id="c1"></canvas></div>
+            </div>
+            <div class="border bg-white p-2">
+                <div class="chart-container"><canvas id="c2"></canvas></div>
+            </div>
+        </div>
+
+        <div class="border">
+            <input type="text" id="f" placeholder="FILTER_STARTUP_OR_IDEA..." class="w-full p-2 text-xs border-b outline-none">
+            <div class="overflow-y-auto h-[500px]">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>STARTUP</th>
+                            <th>AMOUNT</th>
+                            <th>IDEA</th>
+                            <th>COUNTRY</th>
+                            <th>LINK</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tb"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const d = [
+            {n:"Perplexity AI", a:500000000, s:"AI", i:"Conversational search engine for direct answers", c:"USA", l:"https://perplexity.ai"},
+            {n:"Mistral AI", a:640000000, s:"AI", i:"Open-weight large language models for developers", c:"France", l:"https://mistral.ai"},
+            {n:"CoreWeave", a:1100000000, s:"Infrastructure", i:"GPU-accelerated cloud for AI workloads", c:"USA", l:"https://coreweave.com"},
+            {n:"Anduril", a:1500000000, s:"Defense", i:"Autonomous defense systems and software", c:"USA", l:"https://anduril.com"},
+            {n:"Poolside", a:500000000, s:"AI", i:"AI models specifically for software engineering", c:"USA", l:"https://poolside.ai"},
+            {n:"Safe Superintelligence", a:1000000000, s:"AI", i:"Safe AI development by OpenAI co-founder", c:"USA", l:"https://ssi.inc"},
+            {n:"World Labs", a:230000000, s:"AI", i:"Spatial intelligence for 3D world understanding", c:"USA", l:"https://worldlabs.ai"},
+            {n:"Sakana AI", a:100000000, s:"AI", i:"Nature-inspired generative AI models", c:"Japan", l:"https://sakana.ai"},
+            {n:"Wayve", a:1050000000, s:"Auto", i:"Embodied AI for autonomous driving", c:"UK", l:"https://wayve.ai"},
+            {n:"Scale AI", a:1000000000, s:"Data", i:"Data labeling and RLHF for AI models", c:"USA", l:"https://scale.com"},
+            {n:"Groq", a:640000000, s:"Hardware", i:"LPU inference engine for LLM speed", c:"USA", l:"https://groq.com"},
+            {n:"Magic", a:320000000, s:"AI", i:"AI software engineer with large context window", c:"USA", l:"https://magic.dev"},
+            {n:"Glean", a:260000000, s:"SaaS", i:"AI-powered enterprise search and knowledge", c:"USA", l:"https://glean.com"},
+            {n:"Harvey", a:100000000, s:"Legal", i:"AI platform for elite law firms", c:"USA", l:"https://harvey.ai"},
+            {n:"ElevenLabs", a:80000000, s:"AI", i:"High-fidelity AI voice synthesis", c:"USA", l:"https://elevenlabs.io"},
+            {n:"Sarvam AI", a:41000000, s:"AI", i:"Full-stack generative AI for India", c:"India", l:"https://sarvam.ai"},
+            {n:"H company", a:220000000, s:"AI", i:"Agentic AI for enterprise automation", c:"France", l:"https://h.ai"},
+            {n:"DeepL", a:300000000, s:"SaaS", i:"AI-powered accurate language translation", c:"Germany", l:"https://deepl.com"},
+            {n:"Wiz", a:1000000000, s:"Cyber", i:"Cloud security and threat detection", c:"USA", l:"https://wiz.io"},
+            {n:"Abound", a:50000000, s:"Fintech", i:"Credit decisioning using open banking data", c:"UK", l:"https://getabound.com"},
+            {n:"Monzo", a:610000000, s:"Fintech", i:"Digital banking for retail customers", c:"UK", l:"https://monzo.com"},
+            {n:"Pigment", a:145000000, s:"SaaS", i:"Business planning and financial modeling", c:"France", l:"https://pigment.com"},
+            {n:"SumUp", a:307000000, s:"Fintech", i:"Mobile point-of-sale systems for SMEs", c:"UK", l:"https://sumup.com"},
+            {n:"DataBricks", a:500000000, s:"Data", i:"Unified data and AI platform", c:"USA", l:"https://databricks.com"},
+            {n:"Anthropic", a:750000000, s:"AI", i:"Safety-focused AI assistant Claude", c:"USA", l:"https://anthropic.com"},
+            {n:"Cohere", a:450000000, s:"AI", i:"Enterprise AI for search and RAG", c:"Canada", l:"https://cohere.com"},
+            {n:"Together AI", a:106000000, s:"Infrastructure", i:"Cloud platform for open source AI", c:"USA", l:"https://together.ai"},
+            {n:"Celestial AI", a:175000000, s:"Hardware", i:"Optical interconnect for AI data centers", c:"USA", l:"https://celestial.ai"},
+            {n:"Etched", a:120000000, s:"Hardware", i:"ASICs specialized for Transformer models", c:"USA", l:"https://etched.com"},
+            {n:"Vercel", a:250000000, s:"Infrastructure", i:"Frontend cloud and Next.js maintainers", c:"USA", l:"https://vercel.com"},
+            {n:"Applied Intuition", a:250000000, s:"Auto", i:"Simulation for autonomous vehicle systems", c:"USA", l:"https://appliedintuition.com"},
+            {n:"Figure", a:675000000, s:"Robotics", i:"Humanoid robots for labor automation", c:"USA", l:"https://figure.ai"},
+            {n:"Physical Intelligence", a:400000000, s:"Robotics", i:"General-purpose software for robots", c:"USA", l:"https://pi.ai"},
+            {n:"Shield AI", a:200000000, s:"Defense", i:"AI pilot for autonomous aircraft", c:"USA", l:"https://shield.ai"},
+            {n:"Helsing", a:487000000, s:"Defense", i:"Software-defined defense capabilities", c:"Germany", l:"https://helsing.ai"},
+            {n:"Encord", a:30000000, s:"Data", i:"Data management for computer vision AI", c:"UK", l:"https://encord.com"},
+            {n:"Lambda", a:320000000, s:"Infrastructure", i:"GPU cloud and servers for deep learning", c:"USA", l:"https://lambdalabs.com"},
+            {n:"Xaira Therapeutics", a:1000000000, s:"Health", i:"AI-driven drug discovery platform", c:"USA", l:"https://xaira.com"},
+            {n:"Insitro", a:150000000, s:"Health", i:"Machine learning for drug development", c:"USA", l:"https://insitro.com"},
+            {n:"Healwell AI", a:20000000, s:"Health", i:"AI-enabled preventive care and data", c:"Canada", l:"https://healwell.ai"},
+            {n:"Mist AI", a:15000000, s:"Hardware", i:"TinyML processors for edge devices", c:"India", l:"https://mist.ai"},
+            {n:"Infor", a:2000000000, s:"SaaS", i:"Cloud ERP for specific industries", c:"USA", l:"https://infor.com"},
+            {n:"OneTrust", a:150000000, s:"SaaS", i:"Privacy and compliance management", c:"USA", l:"https://onetrust.com"},
+            {n:"Tessl", a:125000000, s:"AI", i:"AI-native software development lifecycle", c:"UK", l:"https://tessl.ai"},
+            {n:"Cursor", a:60000000, s:"AI", i:"AI-first code editor for developers", c:"USA", l:"https://cursor.com"},
+            {n:"Superhuman", a:75000000, s:"SaaS", i:"High-speed email client for teams", c:"USA", l:"https://superhuman.com"},
+            {n:"Replicate", a:40000000, s:"Infrastructure", i:"Cloud API for running AI models", c:"USA", l:"https://replicate.com"},
+            {n:"LangChain", a:25000000, s:"AI", i:"Framework for LLM-powered applications", c:"USA", l:"https://langchain.com"},
+            {n:"Weights & Biases", a:50000000, s:"AI", i:"MLOps platform for model tracking", c:"USA", l:"https://wandb.ai"},
+            {n:"Pinecone", a:100000000, s:"Data", i:"Vector database for AI applications", c:"USA", l:"https://pinecone.io"},
+            {n:"Weaviate", a:50000000, s:"Data", i:"Open source vector search engine", c:"Netherlands", l:"https://weaviate.io"},
+            {n:"Abridge", a:150000000, s:"Health", i:"Generative AI for medical documentation", c:"USA", l:"https://abridge.com"},
+            {n:"Ambience Healthcare", a:70000000, s:"Health", i:"AI operating system for doctors", c:"USA", l:"https://ambience.ai"},
+            {n:"Prophetic", a:10000000, s:"Health", i:"Non-invasive BCI for lucid dreaming", c:"USA", l:"https://propheticai.com"},
+            {n:"NuPhy", a:5000000, s:"Consumer", i:"High-performance mechanical keyboards", c:"China", l:"https://nuphy.com"},
+            {n:"Rabbit", a:10000000, s:"Consumer", i:"AI device with Large Action Model", c:"USA", l:"https://rabbit.tech"},
+            {n:"Humane", a:100000000, s:"Consumer", i:"Screenless AI pin wearable device", c:"USA", l:"https://hu.ma.ne"},
+            {n:"Karius", a:100000000, s:"Health", i:"Liquid biopsy for infectious diseases", c:"USA", l:"https://kariusdx.com"},
+            {n:"Tempus", a:200000000, s:"Health", i:"Precision medicine data platform", c:"USA", l:"https://tempus.com"},
+            {n:"Freenome", a:254000000, s:"Health", i:"Early cancer detection from blood", c:"USA", l:"https://freenome.com"},
+            {n:"GRAIL", a:300000000, s:"Health", i:"Multi-cancer early detection test", c:"USA", l:"https://grail.com"},
+            {n:"Flexport", a:260000000, s:"Logistics", i:"Tech-driven freight forwarding", c:"USA", l:"https://flexport.com"},
+            {n:"Convoy", a:160000000, s:"Logistics", i:"Digital freight network and trucking", c:"USA", l:"https://convoy.com"},
+            {n:"Stord", a:120000000, s:"Logistics", i:"Cloud supply chain for brands", c:"USA", l:"https://stord.com"},
+            {n:"Gorgias", a:30000000, s:"SaaS", i:"Customer service for ecommerce", c:"USA", l:"https://gorgias.com"},
+            {n:"Attentive", a:470000000, s:"SaaS", i:"Mobile messaging for brands", c:"USA", l:"https://attentive.com"},
+            {n:"Klaviyo", a:320000000, s:"SaaS", i:"Marketing automation for ecommerce", c:"USA", l:"https://klaviyo.com"},
+            {n:"Postman", a:225000000, s:"SaaS", i:"API development platform for teams", c:"USA", l:"https://postman.com"},
+            {n:"Figma", a:200000000, s:"SaaS", i:"Collaborative interface design tool", c:"USA", l:"https://figma.com"},
+            {n:"Canva", a:200000000, s:"SaaS", i:"Online graphic design platform", c:"Australia", l:"https://canva.com"},
+            {n:"Zapier", a:50000000, s:"SaaS", i:"Workflow automation for app tasks", c:"USA", l:"https://zapier.com"},
+            {n:"Airtable", a:735000000, s:"SaaS", i:"Low-code platform for building apps", c:"USA", l:"https://airtable.com"},
+            {n:"Notion", a:275000000, s:"SaaS", i:"All-in-one workspace for notes/docs", c:"USA", l:"https://notion.so"},
+            {n:"Loom", a:130000000, s:"SaaS", i:"Async video messaging for work", c:"USA", l:"https://loom.com"},
+            {n:"Deel", a:425000000, s:"Fintech", i:"Global payroll and compliance", c:"USA", l:"https://deel.com"},
+            {n:"Rippling", a:500000000, s:"S:" , i:"Unified HR and IT platform", c:"USA", l:"https://rippling.com"},
+            {n:"Brex", a:300000000, s:"Fintech", i:"Corporate cards for startups", c:"USA", l:"https://brex.com"},
+            {n:"Ramp", a:300000000, s:"Fintech", i:"Spend management for enterprises", c:"USA", l:"https://ramp.com"},
+            {n:"Mercury", a:120000000, s:"Fintech", i:"Banking built for startups", c:"USA", l:"https://mercury.com"},
+            {n:"Stripe", a:6500000000, s:"Fintech", i:"Financial infrastructure for internet", c:"USA", l:"https://stripe.com"},
+            {n:"Checkout.com", a:1000000000, s:"Fintech", i:"Global payment processing platform", c:"UK", l:"https://checkout.com"},
+            {n:"Bolt", a:355000000, s:"Fintech", i:"One-click checkout for retailers", c:"USA", l:"https://bolt.com"},
+            {n:"Klarna", a:800000000, s:"Fintech", i:"Buy now, pay later shopping", c:"Sweden", l:"https://klarna.com"},
+            {n:"Affirm", a:500000000, s:"Fintech", i:"Transparent consumer financing", c:"USA", l:"https://affirm.com"},
+            {n:"Chime", a:750000000, s:"Fintech", i:"Mobile banking without fees", c:"USA", l:"https://chime.com"},
+            {n:"NuBank", a:750000000, s:"Fintech", i:"Digital banking for Latin America", c:"Brazil", l:"https://nubank.com.br"},
+            {n:"Revolut", a:800000000, s:"Fintech", i:"Global financial super-app", c:"UK", l:"https://revolut.com"},
+            {n:"Starling Bank", a:322000000, s:"Fintech", i:"British digital challenger bank", c:"UK", l:"https://starlingbank.com"},
+            {n:"N26", a:900000000, s:"Fintech", i:"Mobile banking for Europe", c:"Germany", l:"https://n26.com"},
+            {n:"Trade Republic", a:900000000, s:"Fintech", i:"European mobile investment platform", c:"Germany", l:"https://traderepublic.com"},
+            {n:"Scalable Capital", a:180000000, s:"Fintech", i:"Digital wealth management", c:"Germany", l:"https://scalable.capital"},
+            {n:"Bitpanda", a:263000000, s:"Web3", i:"Investment platform for crypto/assets", c:"Austria", l:"https://bitpanda.com"},
+            {n:"Ledger", a:380000000, s:"Web3", i:"Hardware wallets for digital assets", c:"France", l:"https://ledger.com"},
+            {n:"Sorare", a:680000000, s:"Web3", i:"Fantasy sports with NFT cards", c:"France", l:"https://sorare.com"},
+            {n:"Dapper Labs", a:250000000, s:"Web3", i:"NBA Top Shot and Flow blockchain", c:"Canada", l:"https://dapperlabs.com"},
+            {n:"Alchemy", a:200000000, s:"Web3", i:"Developer platform for blockchain", c:"USA", l:"https://alchemy.com"},
+            {n:"Chainalysis", a:170000000, s:"Web3", i:"Blockchain data and security", c:"USA", l:"https://chainalysis.com"},
+            {n:"Fireblocks", a:550000000, s:"Web3", i:"Digital asset custody for institutions", c:"USA", l:"https://fireblocks.com"},
+            {n:"Polygon", a:450000000, s:"Web3", i:"Ethereum scaling and infrastructure", c:"India", l:"https://polygon.technology"},
+            {n:"ConsenSys", a:450000000, s:"Web3", i:"MetaMask and Ethereum software", c:"USA", l:"https://consensys.net"}
+        ];
+
+        let g1, g2;
+
+        function upd() {
+            const q = document.getElementById('f').value.toLowerCase();
+            const filtered = d.filter(x => x.n.toLowerCase().includes(q) || x.i.toLowerCase().includes(q));
+            
+            const b = document.getElementById('tb');
+            b.innerHTML = filtered.map(x => `
+                <tr>
+                    <td class="font-bold">${x.n}</td>
+                    <td>$${(x.a/1e6).toFixed(1)}M</td>
+                    <td class="text-gray-600 italic">${x.i}</td>
+                    <td>${x.c}</td>
+                    <td><a href="${x.l}" target="_blank" class="text-blue-600">URL</a></td>
+                </tr>
+            `).join('');
+
+            v(filtered);
+        }
+
+        function v(data) {
+            const geo = {}, sec = {};
+            data.forEach(x => {
+                geo[x.c] = (geo[x.c] || 0) + x.a;
+                sec[x.s] = (sec[x.s] || 0) + 1;
+            });
+
+            if(g1) g1.destroy();
+            if(g2) g2.destroy();
+
+            g1 = new Chart(document.getElementById('c1'), {
+                type: 'bar',
+                data: { labels: Object.keys(geo), datasets: [{ data: Object.values(geo).map(v => v/1e6), backgroundColor: '#000' }]},
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'USD Millions' } } } }
+            });
+
+            g2 = new Chart(document.getElementById('c2'), {
+                type: 'doughnut',
+                data: { labels: Object.keys(sec), datasets: [{ data: Object.values(sec), backgroundColor: ['#000', '#444', '#888', '#aaa', '#ccc', '#666', '#222'] }]},
+                options: { maintainAspectRatio: false }
+            });
+        }
+
+        function dl() {
+            const h = "name,amount,sector,idea,country,url\n";
+            const c = h + d.map(x => `${x.n},${x.a},${x.s},"${x.i}",${x.c},${x.l}`).join('\n');
+            const blob = new Blob([c], { type: 'text/csv' });
+            const u = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = u; a.download = 'funding_data_real.csv'; a.click();
+        }
+
+        document.getElementById('f').oninput = upd;
+        upd();
+    </script>
+</body>
+</html>

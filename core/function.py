@@ -1,3 +1,7 @@
+async def func_handler_flush(app):
+    await app.state.func_postgres_obj_create(app.state.client_postgres_pool,app.state.func_postgres_obj_serialize,app.state.cache_postgres_column_datatype,"flush")
+    return None
+    
 import inspect
 def func_override_vars(path):
     ns = {}
@@ -368,7 +372,7 @@ import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype, mode,table=None,obj_list=None,is_serialize=None,buffer=None, returning_ids=False,conflict_columns=None,batch_size=None):
+async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,mode,table=None,obj_list=None,is_serialize=None,buffer=None, returning_ids=False,conflict_columns=None,batch_size=None):
     if mode != "flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
     if not is_serialize:is_serialize=0
     buffer = buffer or 10
