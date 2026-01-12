@@ -10,7 +10,7 @@ async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
 
 @router.get("/root/sync")
 async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
-   if config_is_reset_export_folder:func_folder_reset("export")
+   if config_is_reset_export_folder:func_folder_reset(config_folder_export)
    await func_handler_flush(request.app)
    await fund_handler_reset_cache_postgres(request)
    await fund_handler_reset_cache_users(request)

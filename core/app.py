@@ -11,7 +11,7 @@ from pathlib import Path
 async def func_lifespan(app:FastAPI):
    try:
       #start
-      os.makedirs("export",exist_ok=True)
+      os.makedirs(config_folder_export,exist_ok=True)
       #client init
       client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
       client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
@@ -38,7 +38,7 @@ async def func_lifespan(app:FastAPI):
       #app shutdown
       yield
       await func_handler_flush(app)
-      if config_is_reset_export_folder:func_folder_reset("export")
+      if config_is_reset_export_folder:func_folder_reset(config_folder_export)
       if client_postgres_pool:await client_postgres_pool.close()
       if client_redis:await client_redis.aclose()
       if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()

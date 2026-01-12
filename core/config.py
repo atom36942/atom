@@ -97,6 +97,7 @@ config_public_table_read_list=(os.getenv("config_public_table_read_list") or "te
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
 config_project_name=os.getenv("config_project_name") or "atom"
+config_folder_export=os.getenv("config_folder_export") or "export"
 config_folder_router_list=(os.getenv("config_folder_router_list") or "router,extend/router").split(",")
 config_folder_html_list=(os.getenv("config_folder_html_list") or "html,extend/html").split(",")
 
