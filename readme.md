@@ -27,22 +27,25 @@ python3 -m venv venv
 ./venv/bin/uvicorn main:app --reload
 ```
 
-### Docker
+### Commands
 ```bash
+#test curls
+./core/test.sh
+
+#docker
 docker build -t atom .
 docker run -it --rm -p 8000:8000 atom
-```
 
-### Consumer
-```bash
+#consumer
 venv/bin/celery -A consumer.celery worker
 venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 ```
 
-### Env Sample
+### zzz
 ```bash
+#env sample
 config_postgres_url=postgresql://postgres@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
 config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
@@ -51,18 +54,7 @@ config_celery_broker_url=redis://localhost:6379
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_redis_url_pubsub=redis://localhost:6379
 config_mongodb_url=mongodb://localhost:27017
-```
 
-### Commands
-```bash
-#test curls
-./core/test.sh
-```
-
-
-
-### zzz
-```bash
 #package
 ./venv/bin/pip install fastapi
 ./venv/bin/pip uninstall fastapi
