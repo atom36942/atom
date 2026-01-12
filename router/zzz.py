@@ -4,7 +4,7 @@ from core.route import *
 #api
 @router.get("/test")
 async def func_api_2653353cdf3145558dae1c3ce24318e2(request:Request):
-   if False:await func_sftp_file_upload(request.app.state.client_sftp,"sample/ocr.png","ocr.png")
+   if False:await func_sftp_file_upload(request.app.state.client_sftp,"static/ocr.png","ocr.png")
    if False:await func_sftp_file_download(request.app.state.client_sftp, "ocr.png")
    return {"status":1,"message":"welcome to test"}
 

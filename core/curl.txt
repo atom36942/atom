@@ -6,9 +6,9 @@ curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/root/sync" -H "Authorization: Bearer $token"
 curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"mode":"read","query":"select * from users limit 10;"}'
 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/postgres_export.csv
-curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@sample/postgres_create.csv"
-curl -X POST "$baseurl/root/redis-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@sample/postgres_update.csv" -F "expiry_sec=100"
-curl -X POST "$baseurl/root/mongodb-import" -H "Authorization: Bearer $token" -F "mode=create" -F "database=test" -F "table=test" -F "file=@sample/postgres_create.csv"
+curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@static/postgres_create.csv"
+curl -X POST "$baseurl/root/redis-import" -H "Authorization: Bearer $token" -F "mode=create" -F "table=test" -F "file=@static/postgres_update.csv" -F "expiry_sec=100"
+curl -X POST "$baseurl/root/mongodb-import" -H "Authorization: Bearer $token" -F "mode=create" -F "database=test" -F "table=test" -F "file=@static/postgres_create.csv"
 0 curl -X GET "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token"
 0 curl -X POST "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"url":"url1,url2,url3"}'
 
@@ -74,8 +74,8 @@ curl -X GET "$baseurl/page/zzz"
 0 websocat ws://127.0.0.1:8000/websocket
 
 #extend
-curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=update" -F "table=test" -F "file=@sample/postgres_update.csv"
-curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=delete" -F "table=test" -F "file=@sample/postgres_delete.csv"
+curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=update" -F "table=test" -F "file=@static/postgres_update.csv"
+curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=delete" -F "table=test" -F "file=@static/postgres_delete.csv"
 curl -X GET "$baseurl/my/profile?is_metadata=1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/api-usage?days=3" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-received?is_unread=1" -H "Authorization: Bearer $token"

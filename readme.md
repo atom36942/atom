@@ -55,7 +55,7 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_redis_url_pubsub=redis://localhost:6379
 config_mongodb_url=mongodb://localhost:27017
 
-#package
+#package ops
 ./venv/bin/pip install fastapi
 ./venv/bin/pip uninstall fastapi
 ./venv/bin/pip install --upgrade fastapi
