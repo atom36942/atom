@@ -134,7 +134,9 @@ vectorstore/
 .vscode/
 *.db
 *.sqlite3
-export/
 z.py
 secret/
 extend/secret/
+export/*
+!export/
+export/.gitkeep
