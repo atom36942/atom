@@ -6,6 +6,12 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+#project
+config_project_name=os.getenv("config_project_name") or "atom"
+config_folder_export=os.getenv("config_folder_export") or "export"
+config_folder_router_list=(os.getenv("config_folder_router_list") or "router,extend/router").split(",")
+config_folder_html_list=(os.getenv("config_folder_html_list") or "html,extend/html").split(",")
+
 #postgres
 config_postgres_url=os.getenv("config_postgres_url")
 config_postgres_min_connection=int(os.getenv("config_postgres_min_connection") or 5)
@@ -96,10 +102,6 @@ config_public_table_create_list=(os.getenv("config_public_table_create_list") or
 config_public_table_read_list=(os.getenv("config_public_table_read_list") or "test").split(",")
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
-config_project_name=os.getenv("config_project_name") or "atom"
-config_folder_export=os.getenv("config_folder_export") or "export"
-config_folder_router_list=(os.getenv("config_folder_router_list") or "router,extend/router").split(",")
-config_folder_html_list=(os.getenv("config_folder_html_list") or "html,extend/html").split(",")
 
 #dict
 config_sql={

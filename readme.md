@@ -29,7 +29,7 @@ python3 -m venv venv
 
 #docker
 docker build -t atom .
-docker run -it --rm -p 8000:8000 atom
+docker run --rm -p 8000:8000 atom
 ```
 
 ### Commands
