@@ -19,12 +19,17 @@
 
 ### Installation
 ```bash
+#direct
 git clone https://github.com/atom36942/atom.git
 cd atom
 touch .env
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 ./venv/bin/uvicorn main:app --reload
+
+#docker
+docker build -t atom .
+docker run -it --rm -p 8000:8000 atom
 ```
 
 ### Commands
@@ -32,16 +37,15 @@ python3 -m venv venv
 #test curls
 ./core/test.sh
 
-#docker
-docker build -t atom .
-docker run -it --rm -p 8000:8000 atom
-
 #consumer
 venv/bin/celery -A consumer.celery worker
 venv/bin/python -m consumer.kafka
 venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 ```
+
+
+
 
 ### zzz
 ```bash
