@@ -13,9 +13,16 @@ def func_override_vars(path):
             caller_globals[k] = v
 
 from pathlib import Path
-async def func_path_read(folder_list, name):
-    if "." not in Path(name).name:raise ValueError(f"invalid name '{name}': extension required")
-    return next((str(p) for f in folder_list for p in Path(f).rglob(name)), None)
+async def func_html_path_read(config_folder_html, name):
+    file=name if name.endswith(".html") else f"{name}.html"
+    root=Path(config_folder_html)
+    for p in root.rglob(file):
+        if p.is_file() and not p.name.startswith(".") and not any(x.startswith(".") for x in p.parts):
+            return str(p)
+    p=root/name/"index.html"
+    if p.is_file() and not p.name.startswith(".") and not any(x.startswith(".") for x in p.parts):
+        return str(p)
+    raise Exception(f"html not found: {name}")
 
 async def fund_handler_reset_cache_postgres(request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await request.app.state.func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
@@ -1028,7 +1035,7 @@ async def func_jwt_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,
    return token
 
 from fastapi import FastAPI
-def func_app_create(lifespan,config_is_debug_fastapi):
+def func_fastapi_app_read(lifespan,config_is_debug_fastapi):
    app=FastAPI(debug=True if config_is_debug_fastapi else False,lifespan=lifespan)
    return app
 
@@ -1061,29 +1068,20 @@ def func_app_add_sentry(config_sentry_dsn):
 
 import sys, importlib.util, traceback
 from pathlib import Path
-def func_app_add_router(app, config_folder_router_list):
+def func_app_add_router(app, config_folder_router):
     def load(router_root, file_path):
         try:
-            rel = file_path.relative_to(router_root)
-            mod = "routers." + ".".join(rel.with_suffix("").parts)
-            spec = importlib.util.spec_from_file_location(mod, file_path)
-            if not spec or not spec.loader:
-                return
-            m = importlib.util.module_from_spec(spec)
-            sys.modules[mod] = m
-            spec.loader.exec_module(m)
-            if hasattr(m, "router"):
-                app.include_router(m.router)
+            rel=file_path.relative_to(router_root);mod="routers."+".".join(rel.with_suffix("").parts);spec=importlib.util.spec_from_file_location(mod,file_path)
+            if not spec or not spec.loader:return
+            m=importlib.util.module_from_spec(spec);sys.modules[mod]=m;spec.loader.exec_module(m)
+            if hasattr(m,"router"):app.include_router(m.router)
         except Exception:
-            print(f"[WARN] failed to load router: {file_path}")
-            traceback.print_exc()
-    for p in config_folder_router_list:
-        root = Path(p).resolve()
-        if not root.is_dir():
-            raise ValueError(f"router folder not found: {root}")
-        for f in root.rglob("*.py"):
-            if not f.name.startswith("__"):
-                load(root, f)
+            print(f"[WARN] failed to load router: {file_path}");traceback.print_exc()
+    root=Path(config_folder_router).resolve()
+    if not root.is_dir():raise ValueError(f"router folder not found: {root}")
+    for f in root.rglob("*.py"):
+        if f.name.startswith(".") or f.name.startswith("__") or any(p.startswith(".") for p in f.parts):continue
+        load(root,f)
     return None
 
 async def func_ownership_check(client_postgres_pool,table,id,user_id):
@@ -1645,7 +1643,7 @@ async def func_client_download_file(path,is_cleanup=1,chunk_size=1024*1024):
 
 import os
 import aiofiles
-async def func_read_html(path):
+async def func_html_content_read(path):
     if not path: raise Exception("no such path")
     if ".." in path: raise Exception("invalid name")
     full_path = os.path.abspath(path)

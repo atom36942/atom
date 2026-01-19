@@ -9,8 +9,8 @@ load_dotenv()
 #project
 config_project_name=os.getenv("config_project_name") or "atom"
 config_folder_export=os.getenv("config_folder_export") or "export"
-config_folder_router_list=(os.getenv("config_folder_router_list") or "router,extend/router").split(",")
-config_folder_html_list=(os.getenv("config_folder_html_list") or "html,extend/html").split(",")
+config_folder_router=os.getenv("config_folder_router") or "router"
+config_folder_html=os.getenv("config_folder_html") or "html"
 
 #postgres
 config_postgres_url=os.getenv("config_postgres_url")
@@ -247,4 +247,4 @@ config_postgres={
 
 #func
 func_list_to_tuple(globals())
-func_override_vars("extend/core/config.py")
+

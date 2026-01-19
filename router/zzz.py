@@ -14,8 +14,8 @@ async def func_api_1bd8a31e5baa4b67b6f05785f3dd52fb(request:Request):
 
 @router.get("/page/{name}")
 async def func_api_10f177735aac4564a0946f9088f17d9a(name):
-   html_path=await func_path_read(config_folder_html_list,f"{name}.html")
-   return responses.HTMLResponse(content=await func_read_html(html_path))
+   html_path=await func_html_path_read(config_folder_html,name)
+   return responses.HTMLResponse(content=await func_html_content_read(html_path))
 
 @router.websocket("/websocket")
 async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):
