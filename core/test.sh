@@ -8,6 +8,7 @@ ROOT_DIR="$SCRIPT_DIR/.."
 input_file="$SCRIPT_DIR/curl.txt"
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
+token="${token:-}"
 output_curl="$ROOT_DIR/export/curl_report.txt" 
 output_fail="$ROOT_DIR/export/curl_fail.log"
 
@@ -20,7 +21,8 @@ done < <(sed -e ':a' -e '/\\$/N; s/\\\n[[:space:]]*/ /; ta' "$input_file")
 while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" != curl* ]] && continue
     command_line=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
-                                  -e "s|\$token|$token_root|g")
+                              -e "s|\$token_root|$token_root|g" \
+                              -e "s|\$token|$token|g")
     url=$(echo "$command_line" | sed -n 's/^curl[^"]*"\([^"]*\)".*/\1/p')
     echo "🚀 $url"
     echo "$command_line" | sed \

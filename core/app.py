@@ -85,7 +85,7 @@ async def middleware(request,api_function):
 from fastapi import responses
 @app.get("/")
 async def func_api_index():
-   html_path=await func_html_path_read(config_folder_html,config_project_name)
+   html_path=await func_html_path_read(config_folder_html,"index")
    if not html_path:return {"status":1,"message":"welcome to atom"}
    return responses.HTMLResponse(content=await func_html_content_read(html_path))
 
