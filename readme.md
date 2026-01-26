@@ -44,9 +44,6 @@ venv/bin/python -m consumer.rabbitmq
 venv/bin/python -m consumer.redis
 ```
 
-
-
-
 ### zzz
 ```bash
 #env sample

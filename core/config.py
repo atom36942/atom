@@ -54,7 +54,7 @@ config_sftp_username=os.getenv("config_sftp_username")
 config_sftp_password=os.getenv("config_sftp_password")
 config_sftp_key_path=os.getenv("config_sftp_key_path")
 
-#communication
+#otp
 config_fast2sms_url=os.getenv("config_fast2sms_url")
 config_fast2sms_key=os.getenv("config_fast2sms_key")
 config_resend_url=os.getenv("config_resend_url")
@@ -73,6 +73,8 @@ config_posthog_project_key=os.getenv("config_posthog_project_key")
 #integration
 config_mongodb_url=os.getenv("config_mongodb_url")
 config_openai_key=os.getenv("config_openai_key")
+config_searchapi_key=os.getenv("config_searchapi_key")
+config_gemini_key=os.getenv("config_gemini_key")
 
 #cors
 config_cors_origin_list=(os.getenv("config_cors_origin_list") or "*").split(",")

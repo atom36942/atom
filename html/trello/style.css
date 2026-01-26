@@ -1,0 +1,245 @@
+:root {
+    --primary-color: #0052cc;
+    --bg-color: #f4f5f7;
+    --column-bg: #ebecf0;
+    --card-bg: #ffffff;
+    --text-color: #172b4d;
+    --secondary-text: #5e6c84;
+    --shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
+    --hover-bg: #dfe1e6;
+    --danger-color: #cf513d;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.primary-btn:hover {
+    background-color: #0043a5;
+}
+
+.board {
+    display: flex;
+    gap: 20px;
+    flex-grow: 1;
+    overflow-x: auto;
+    padding-bottom: 20px;
+}
+
+.column {
+    background-color: var(--column-bg);
+    border-radius: 8px;
+    width: 300px;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+}
+
+.column-header {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.column-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.task-count {
+    background-color: rgba(9, 30, 66, 0.08);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--secondary-text);
+}
+
+.task-list {
+    padding: 0 8px 8px 8px;
+    flex-grow: 1;
+    overflow-y: auto;
+    min-height: 50px; /* logic for drop target when empty */
+}
+
+.task-card {
+    background-color: var(--card-bg);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+    cursor: grab;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.task-card:hover {
+    background-color: #fafbfc;
+}
+
+.task-card:active {
+    cursor: grabbing;
+}
+
+.task-title {
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+.task-desc {
+    font-size: 14px;
+    color: var(--secondary-text);
+    margin-bottom: 10px;
+}
+
+.task-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    opacity: 0; /* Show on hover */
+    transition: opacity 0.2s;
+}
+
+.task-card:hover .task-actions {
+    opacity: 1;
+}
+
+.edit-btn, .delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--secondary-text);
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.edit-btn:hover {
+    background-color: rgba(9, 30, 66, 0.08);
+}
+
+.delete-btn:hover {
+    background-color: rgba(191, 38, 0, 0.1);
+    color: var(--danger-color);
+}
+
+/* Drag and Drop Visuals */
+.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+}
+
+.drag-over {
+    background-color: #dcdfe4; /* Slightly darker column bg */
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(9, 30, 66, 0.54);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.hidden {
+    display: none;
+}
+
+.modal-content {
+    background-color: var(--card-bg);
+    padding: 24px;
+    border-radius: 8px;
+    width: 400px;
+    box-shadow: 0 4px 8px rgba(9, 30, 66, 0.25);
+    position: relative;
+}
+
+.close-modal {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    cursor: pointer;
+    font-size: 20px;
+    color: var(--secondary-text);
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #dfe1e6;
+    border-radius: 4px;
+    font-family: inherit;
+    box-sizing: border-box; /* Important for padding */
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.secondary-btn {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-weight: 500;
+    cursor: pointer;
+    padding: 10px 20px;
+    border-radius: 4px;
+}
+
+.secondary-btn:hover {
+    background-color: rgba(9, 30, 66, 0.08);
+}

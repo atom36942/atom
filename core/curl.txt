@@ -73,7 +73,7 @@ curl -X GET "$baseurl/test"
 curl -X GET "$baseurl/page/zzz"
 0 websocat ws://127.0.0.1:8000/websocket
 
-#extend
+#derived
 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=update" -F "table=test" -F "file=@static/postgres_update.csv"
 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token" -F "mode=delete" -F "table=test" -F "file=@static/postgres_delete.csv"
 curl -X GET "$baseurl/my/profile?is_metadata=1" -H "Authorization: Bearer $token"
@@ -130,3 +130,6 @@ curl -X POST "$baseurl/admin/object-create?table=test&queue=redis" -H "Authoriza
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
+
+#misc
+0 curl "http://127.0.0.1:8000/public/person-intel?q=dipankar+arhat+backend+developer"

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Person Intel</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;font-family:Inter,system-ui,Arial;
+  background:radial-gradient(circle at top,#020617,#000);
+  color:#e5e7eb;display:flex;align-items:center;justify-content:center;
+}
+.card{
+  width:100%;max-width:760px;background:#020617cc;
+  border:1px solid #1e293b;border-radius:16px;
+  padding:28px 30px 32px;box-shadow:0 30px 80px rgba(0,0,0,.6)
+}
+h1{margin:0 0 6px;font-size:28px}
+p{margin:0 0 18px;color:#94a3b8}
+.row{display:flex;gap:10px;align-items:center}
+.input-wrap{position:relative;flex:1}
+input{
+  width:100%;padding:14px 40px 14px 16px;border-radius:10px;
+  border:1px solid #1e293b;background:#020617;color:#e5e7eb;font-size:15px
+}
+input::placeholder{color:#64748b}
+.clear{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  cursor:pointer;color:#64748b;font-size:18px;display:none
+}
+button{
+  padding:14px 18px;border-radius:10px;border:none;
+  background:linear-gradient(135deg,#22c55e,#16a34a);
+  color:#022c22;font-weight:700;cursor:pointer
+}
+button.secondary{
+  background:#020617;border:1px solid #1e293b;color:#e5e7eb
+}
+button:disabled{opacity:.6;cursor:not-allowed}
+#out{
+  display:none;
+  margin-top:22px;padding:16px;border-radius:10px;
+  background:#020617;border:1px solid #1e293b;line-height:1.6
+}
+.key{color:#22c55e;font-weight:600}
+a{color:#60a5fa;text-decoration:none}
+a:hover{text-decoration:underline}
+.error{color:#f87171}
+small{color:#64748b}
+.loader{
+  width:18px;height:18px;border:3px solid #22c55e;border-top-color:transparent;border-radius:50%;
+  display:inline-block;animation:spin 1s linear infinite;vertical-align:middle
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Person Intel</h1>
+  <p>Public professional summary from multiple sources</p>
+
+  <div class="row">
+    <div class="input-wrap">
+      <input id="q" placeholder="e.g. dipankar arhat backend dev" oninput="toggleClear()"/>
+      <span class="clear" id="clear" onclick="clearInput()">×</span>
+    </div>
+    <button id="btn" onclick="run()">Search</button>
+    <button id="dl" class="secondary" onclick="download()" style="display:none">Download</button>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+const base=location.origin
+let lastData=null
+
+function toggleClear(){
+  const i=document.getElementById("q"),c=document.getElementById("clear")
+  c.style.display=i.value?"block":"none"
+}
+function clearInput(){
+  document.getElementById("q").value=""
+  toggleClear()
+  document.getElementById("out").style.display="none"
+  document.getElementById("dl").style.display="none"
+}
+
+async function run(){
+  const q=document.getElementById("q").value.trim()
+  if(!q)return
+  const out=document.getElementById("out")
+  const btn=document.getElementById("btn")
+  const dl=document.getElementById("dl")
+  btn.disabled=true;dl.style.display="none"
+  out.innerHTML='<span class="loader"></span> Fetching profile...'
+  out.style.display="block"
+  try{
+    const r=await fetch(`${base}/public/person-intel?q=`+encodeURIComponent(q))
+    const j=await r.json()
+    if(j.status!==1)throw j.message
+    lastData=j.message
+    render(j.message);dl.style.display="inline-block"
+  }catch(e){
+    out.innerHTML=`<div class="error">Error: ${e}</div>`
+  }finally{btn.disabled=false}
+}
+
+function render(m){
+  let html=`<div><span class="key">summary</span><br>${m.summary}</div><br>`
+  html+=`<div><span class="key">sources</span>: ${m.sources}</div><br>`
+  if(m.urls){
+    html+=`<div><span class="key">urls</span><ul>`
+    m.urls.forEach(u=>html+=`<li><a href="${u}" target="_blank">${u}</a></li>`)
+    html+=`</ul></div>`
+  }
+  document.getElementById("out").innerHTML=html
+}
+
+function download(){
+  if(!lastData)return
+  const blob=new Blob([JSON.stringify(lastData,null,2)],{type:"application/json"})
+  const a=document.createElement("a")
+  a.href=URL.createObjectURL(blob)
+  a.download="person_intel.json"
+  a.click()
+}
+</script>
+</body>
+</html>
