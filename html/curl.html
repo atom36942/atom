@@ -19,11 +19,14 @@ form{display:flex;flex-direction:column;gap:24px}
 .section-label{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
 .add-btn-small{background:var(--accent);color:#fff;border:none;border-radius:5px;cursor:pointer;height:22px;width:22px;display:flex;align-items:center;justify-content:center}
 .dynamic-container{display:flex;flex-direction:column;gap:12px}
-.input-row{display:flex;gap:10px;align-items:center;animation:slideIn .3s ease}
+.input-row{display:flex;gap:10px;align-items:center;animation:slideIn .3s ease;position:relative}
 @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-input,select{width:100%;padding:12px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:#14171c;color:#e6eef3;box-sizing:border-box}
+.input-wrapper{position:relative;flex:1;display:flex;align-items:center}
+.clear-input-btn{position:absolute;right:8px;background:0 0;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;display:none;z-index:10}
+input,select{width:100%;padding:12px 36px 12px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:#14171c;color:#e6eef3;box-sizing:border-box}
 input:focus,select:focus{outline:none;border-color:var(--accent)}
 .row-key{flex:0 0 140px}.row-val{flex:1}
+.input-wrapper .row-val{width:100%}
 
 .json-type-selector{
     flex:0 0 120px;
@@ -76,15 +79,15 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
 <script>
 const COMMANDS=[
 {p:"/",m:"GET",h:[],q:[],f:[],j:[]},
-{p:"/root/postgres-init",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
-{p:"/root/postgres-runner",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"mode",v:"read",t:"string"},{k:"query",v:"select * from users limit 10;",t:"string"}]},
-{p:"/root/postgres-export",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"query",v:"select * from users limit 10;",t:"string"}]},
-{p:"/root/postgres-import",m:"POST",h:[{k:"Authorization",v:""}],q:[],f:[{k:"mode",v:"create"},{k:"table",v:"test"},{k:"file",v:"@file.csv"}],j:[]},
-{p:"/root/redis-import",m:"POST",h:[{k:"Authorization",v:""}],q:[],f:[{k:"mode",v:"create"},{k:"table",v:"test"},{k:"expiry_sec",v:"100"},{k:"file",v:"@file.csv"}],j:[]},
-{p:"/root/mongodb-import",m:"POST",h:[{k:"Authorization",v:""}],q:[],f:[{k:"mode",v:"create"},{k:"database",v:"test"},{k:"table",v:"test"},{k:"file",v:"@file.csv"}],j:[]},
-{p:"/root/s3-url-delete",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"url",v:"url1,url2,url3",t:"string"}]},
-{p:"/root/s3-bucket-ops",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"mode",v:"create"},{k:"bucket",v:"master"}],f:[],j:[]},
-{p:"/root/sync",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
+{p:"/root/postgres-init",m:"GET",h:[{k:"Authorization",v:"123"}],q:[],f:[],j:[]},
+{p:"/root/postgres-runner",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"mode",v:"read",t:"string"},{k:"query",v:"select * from users limit 10;",t:"string"}]},
+{p:"/root/postgres-export",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"query",v:"select * from users limit 10;",t:"string"}]},
+{p:"/root/postgres-import",m:"POST",h:[{k:"Authorization",v:"123"}],q:[],f:[{k:"mode",v:"create"},{k:"table",v:"test"},{k:"file",v:"@file.csv"}],j:[]},
+{p:"/root/redis-import",m:"POST",h:[{k:"Authorization",v:"123"}],q:[],f:[{k:"mode",v:"create"},{k:"table",v:"test"},{k:"expiry_sec",v:"100"},{k:"file",v:"@file.csv"}],j:[]},
+{p:"/root/mongodb-import",m:"POST",h:[{k:"Authorization",v:"123"}],q:[],f:[{k:"mode",v:"create"},{k:"database",v:"test"},{k:"table",v:"test"},{k:"file",v:"@file.csv"}],j:[]},
+{p:"/root/s3-url-delete",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"url",v:"url1,url2,url3",t:"string"}]},
+{p:"/root/s3-bucket-ops",m:"GET",h:[{k:"Authorization",v:"123"}],q:[{k:"mode",v:"create"},{k:"bucket",v:"master"}],f:[],j:[]},
+{p:"/root/sync",m:"GET",h:[{k:"Authorization",v:"123"}],q:[],f:[],j:[]},
 {p:"/auth/signup-username-password",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"username",v:"test",t:"string"},{k:"password",v:"123",t:"string"}]},
 {p:"/auth/signup-username-password-bigint",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"username_bigint",v:"123",t:"number"},{k:"password_bigint",v:"123",t:"number"}]},
 {p:"/auth/login-password-username",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password",v:"test",t:"string"},{k:"username",v:"test",t:"string"}]},
@@ -94,22 +97,22 @@ const COMMANDS=[
 {p:"/auth/login-otp-email",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"otp",v:"123",t:"string"},{k:"email",v:"test",t:"string"}]},
 {p:"/auth/login-otp-mobile",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"otp",v:"123",t:"string"},{k:"mobile",v:"test",t:"string"}]},
 {p:"/auth/login-google",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"google_token",v:"test",t:"string"}]},
-{p:"/my/profile",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
-{p:"/my/token-refresh",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
-{p:"/my/api-usage",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
-{p:"/my/account-delete",m:"DELETE",h:[{k:"Authorization",v:""}],q:[{k:"mode",v:"soft"}],f:[],j:[]},
-{p:"/my/message-received",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
-{p:"/my/message-inbox",m:"GET",h:[{k:"Authorization",v:""}],q:[],f:[],j:[]},
-{p:"/my/message-thread",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"user_id",v:"1"}],f:[],j:[]},
-{p:"/my/message-delete-single",m:"DELETE",h:[{k:"Authorization",v:""}],q:[{k:"id",v:"1"}],f:[],j:[]},
-{p:"/my/message-delete-bulk",m:"DELETE",h:[{k:"Authorization",v:""}],q:[{k:"mode",v:"all"}],f:[],j:[]},
-{p:"/my/parent-read",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"table",v:"report_test"},{k:"parent_column",v:"test_id"},{k:"parent_table",v:"test"}],f:[],j:[]},
-{p:"/my/object-create-mongodb",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[{k:"database",v:"test"},{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"test",t:"string"}]},
-{p:"/my/object-create",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"my",t:"string"}]},
-{p:"/my/object-update",m:"PUT",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"161",t:"number"},{k:"title",v:"updated",t:"string"},{k:"created_by_id",v:"100",t:"number"}]},
-{p:"/my/ids-update",m:"PUT",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1919,1920,1921",t:"string"},{k:"column",v:"is_deleted",t:"string"},{k:"value",v:"1",t:"number"}]},
-{p:"/my/ids-delete",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1919,1920,1921",t:"string"}]},
-{p:"/my/object-read",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"table",v:"test"}],f:[],j:[]},
+{p:"/my/profile",m:"GET",h:[{k:"Authorization",v:"123"}],q:[],f:[],j:[]},
+{p:"/my/token-refresh",m:"GET",h:[{k:"Authorization",v:"123"}],q:[],f:[],j:[]},
+{p:"/my/api-usage",m:"GET",h:[{k:"Authorization",v:"123"}],q:[],f:[],j:[]},
+{p:"/my/account-delete",m:"DELETE",h:[{k:"Authorization",v:"123"}],q:[{k:"mode",v:"soft"}],f:[],j:[]},
+{p:"/my/message-received",m:"GET",h:[{k:"Authorization",v:"123"}],q:[],f:[],j:[]},
+{p:"/my/message-inbox",m:"GET",h:[{k:"Authorization",v:"123"}],q:[],f:[],j:[]},
+{p:"/my/message-thread",m:"GET",h:[{k:"Authorization",v:"123"}],q:[{k:"user_id",v:"1"}],f:[],j:[]},
+{p:"/my/message-delete-single",m:"DELETE",h:[{k:"Authorization",v:"123"}],q:[{k:"id",v:"1"}],f:[],j:[]},
+{p:"/my/message-delete-bulk",m:"DELETE",h:[{k:"Authorization",v:"123"}],q:[{k:"mode",v:"all"}],f:[],j:[]},
+{p:"/my/parent-read",m:"GET",h:[{k:"Authorization",v:"123"}],q:[{k:"table",v:"report_test"},{k:"parent_column",v:"test_id"},{k:"parent_table",v:"test"}],f:[],j:[]},
+{p:"/my/object-create-mongodb",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[{k:"database",v:"test"},{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"test",t:"string"}]},
+{p:"/my/object-create",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"my",t:"string"}]},
+{p:"/my/object-update",m:"PUT",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"161",t:"number"},{k:"title",v:"updated",t:"string"},{k:"created_by_id",v:"100",t:"number"}]},
+{p:"/my/ids-update",m:"PUT",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1919,1920,1921",t:"string"},{k:"column",v:"is_deleted",t:"string"},{k:"value",v:"1",t:"number"}]},
+{p:"/my/ids-delete",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1919,1920,1921",t:"string"}]},
+{p:"/my/object-read",m:"GET",h:[{k:"Authorization",v:"123"}],q:[{k:"table",v:"test"}],f:[],j:[]},
 {p:"/public/info",m:"GET",h:[],q:[],f:[],j:[]},
 {p:"/public/otp-verify",m:"GET",h:[],q:[{k:"otp",v:"123"},{k:"email",v:"test"}],f:[],j:[]},
 {p:"/public/otp-send-email-ses",m:"GET",h:[],q:[{k:"sender",v:"test"},{k:"email",v:"test"}],f:[],j:[]},
@@ -123,13 +126,13 @@ const COMMANDS=[
 {p:"/public/object-read-gsheet",m:"GET",h:[],q:[{k:"url",v:"test"}],f:[],j:[]},
 {p:"/public/object-create-gsheet",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[{k:"url",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"public",t:"string"}]},
 {p:"/public/converter-number",m:"GET",h:[],q:[{k:"datatype",v:"int"},{k:"mode",v:"encode"},{k:"x",v:"test"}],f:[],j:[]},
-{p:"/private/s3-upload-file",m:"POST",h:[{k:"Authorization",v:""}],q:[],f:[{k:"bucket",v:"test"},{k:"file",v:"@file1"},{k:"key",v:"test1.png"}],j:[]},
-{p:"/private/s3-upload-presigned",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"bucket",v:"test"},{k:"key",v:"test"}],f:[],j:[]},
-{p:"/admin/object-create",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"admin",t:"string"}]},
-{p:"/admin/object-update",m:"PUT",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"197",t:"number"},{k:"title",v:"admin",t:"string"}]},
-{p:"/admin/object-read",m:"GET",h:[{k:"Authorization",v:""}],q:[{k:"table",v:"test"}],f:[],j:[]},
-{p:"/admin/ids-update",m:"PUT",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"title",t:"string"},{k:"value",v:"admin",t:"string"}]},
-{p:"/admin/ids-delete",m:"POST",h:[{k:"Authorization",v:""},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"is_deleted",v:"1",t:"string"}]},
+{p:"/private/s3-upload-file",m:"POST",h:[{k:"Authorization",v:"123"}],q:[],f:[{k:"bucket",v:"test"},{k:"file",v:"@file1"},{k:"key",v:"test1.png"}],j:[]},
+{p:"/private/s3-upload-presigned",m:"GET",h:[{k:"Authorization",v:"123"}],q:[{k:"bucket",v:"test"},{k:"key",v:"test"}],f:[],j:[]},
+{p:"/admin/object-create",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"admin",t:"string"}]},
+{p:"/admin/object-update",m:"PUT",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"197",t:"number"},{k:"title",v:"admin",t:"string"}]},
+{p:"/admin/object-read",m:"GET",h:[{k:"Authorization",v:"123"}],q:[{k:"table",v:"test"}],f:[],j:[]},
+{p:"/admin/ids-update",m:"PUT",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"title",t:"string"},{k:"value",v:"admin",t:"string"}]},
+{p:"/admin/ids-delete",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"is_deleted",v:"1",t:"string"}]},
 ];
 const d=document, $=i=>d.getElementById(i), orig=COMMANDS.map((c,i)=>({...c,oi:i}));
 let curr=null;
@@ -138,9 +141,18 @@ const pop=cs=>{if(!cs.length)return $("apiDrop").classList.remove("show");$("api
 $("apiCount").textContent = `${COMMANDS.length} curls`;
 const row=(ct,k="",v="",t="string")=>{
     const r=d.createElement("div");r.className="input-row";
-    let vi=ct===$("jCont")?`<input type="text" class="row-val" value="${v}"><select class="json-type-selector">${['string','number','boolean','null','array','object'].map(x=>`<option value="${x}" ${t===x?"selected":""}>${x}</option>`).join('')}</select>`:(ct===$("fCont")&&v.startsWith("@")?`<input type="file" class="row-val">`:`<input type="text" class="row-val" value="${v}">`);
+    let vi=ct===$("jCont")?`<div class="input-wrapper"><input type="text" class="row-val" value="${v}"><button type="button" class="clear-input-btn">×</button></div><select class="json-type-selector">${['string','number','boolean','null','array','object'].map(x=>`<option value="${x}" ${t===x?"selected":""}>${x}</option>`).join('')}</select>`:(ct===$("fCont")&&v.startsWith("@")?`<div class="input-wrapper"><input type="file" class="row-val"><button type="button" class="clear-input-btn">×</button></div>`:`<div class="input-wrapper"><input type="text" class="row-val" value="${v}"><button type="button" class="clear-input-btn">×</button></div>`);
     r.innerHTML=`<input type="text" class="row-key" value="${k}">${vi}<button type="button" class="remove-btn">×</button>`;
-    r.querySelector(".remove-btn").onclick=()=>r.remove();ct.appendChild(r)
+    r.querySelector(".remove-btn").onclick=()=>r.remove();
+    const valInput=r.querySelector(".row-val");
+    const clearBtn=r.querySelector(".clear-input-btn");
+    if(clearBtn&&valInput){
+        const updateClearBtn=()=>{clearBtn.style.display=valInput.value?"block":"none"};
+        updateClearBtn();
+        valInput.oninput=updateClearBtn;
+        clearBtn.onclick=(e)=>{e.stopPropagation();valInput.value="";updateClearBtn();valInput.focus()};
+    }
+    ct.appendChild(r)
 };
 const load=i=>{
     curr=i===null?null:COMMANDS[i];[hCont,qCont,fCont,jCont].forEach(c=>c.innerHTML="");[hSec,qSec,fSec,jSec].forEach(s=>s.classList.remove("active"));$("rBox").classList.remove("show");
@@ -151,11 +163,11 @@ const load=i=>{
     if(curr.j.length){jSec.classList.add("active");curr.j.forEach(x=>row(jCont,x.k,x.v,x.t))}
     $("clrSel").style.display="block"
 };
-$("apiIn").oninput=db(e=>{const v=e.target.value.toLowerCase().trim();if(!v)return load(null);pop(orig.filter(c=>c.p.toLowerCase().includes(v)))},200);
-$("apiIn").onfocus=()=>{const v=$("apiIn").value.trim();pop(v?orig.filter(c=>c.p.toLowerCase().includes(v.toLowerCase())):orig)};
-$("apiDrop").onclick=e=>{if(e.target.tagName==="LI"){$("apiIn").value=e.target.textContent;load(e.target.dataset.i);$("apiDrop").classList.remove("show")}};
+$("apiIn").oninput=db(e=>{const v=e.target.value.toLowerCase().trim();$("clrSel").style.display=e.target.value?"block":"none";if(!v)return load(null);pop(orig.filter(c=>c.p.toLowerCase().includes(v)))},200);
+$("apiIn").onfocus=()=>{const v=$("apiIn").value.trim();$("clrSel").style.display=v?"block":"none";pop(v?orig.filter(c=>c.p.toLowerCase().includes(v.toLowerCase())):orig)};
+$("apiDrop").onclick=e=>{if(e.target.tagName==="LI"){$("apiIn").value=e.target.textContent;$("clrSel").style.display="block";load(e.target.dataset.i);$("apiDrop").classList.remove("show")}};
 $("clrSel").onclick=()=>load(null);
-d.onclick=e=>!$("selW").contains(e.target)&&($("apiDrop").classList.remove("show"),$("apiIn").value=curr?curr.p:"");
+d.onclick=e=>!$("selW").contains(e.target)&&($("apiDrop").classList.remove("show"),$("apiIn").value=curr?curr.p:"",$("clrSel").style.display=curr?"block":"none");
 $("addH").onclick=()=>{hSec.classList.add("active");row(hCont)};
 $("addQ").onclick=()=>{qSec.classList.add("active");row(qCont)};
 $("addF").onclick=()=>{fSec.classList.add("active");row(fCont)};
