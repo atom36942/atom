@@ -55,6 +55,7 @@ curl -X GET "$baseurl/public/object-read?table=test"
 0 curl -X POST "$baseurl/public/object-create-gsheet?url=test" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 0 curl -X GET "$baseurl/public/object-read-gsheet?url=test"
 0 curl -X POST "$baseurl/public/jira-worklog-export" -H "Content-Type: application/json" -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test","start_date":"test","end_date":"test"}'
+0 curl "http://127.0.0.1:8000/public/person-intel?q=dipankar+arhat+backend+developer"
 
 #private
 0 curl -X POST "$baseurl/private/s3-upload-file" -H "Authorization: Bearer $token" -F "bucket=test" -F "file=@file1" -F "file=@file2" -F "key=test1.png,test2.csv"
@@ -130,6 +131,3 @@ curl -X POST "$baseurl/admin/object-create?table=test&queue=redis" -H "Authoriza
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
-
-#misc
-0 curl "http://127.0.0.1:8000/public/person-intel?q=dipankar+arhat+backend+developer"
