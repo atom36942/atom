@@ -34,20 +34,11 @@ from pathlib import Path
 async def func_html_path_read(config_folder_html, name):
     file = name if name.endswith(".html") else f"{name}.html"
     root = Path(config_folder_html)
-    # 1. root/name.html
     p = root / file
-    if p.is_file():
-        return str(p)
-    # 2. **/name.html
+    if p.is_file(): return str(p)
     for p in root.rglob(file):
-        if p.is_file() and not any(x.startswith(".") for x in p.parts):
-            return str(p)
-    # 3. **/name/index.html
-    for d in root.rglob(name):
-        p = d / "index.html"
-        if p.is_file() and not any(x.startswith(".") for x in p.parts):
-            return str(p)
-    raise Exception(f"html not found: {name}")
+        if p.is_file() and not any(x.startswith(".") for x in p.parts): return str(p)
+    return None
 
 async def fund_handler_reset_cache_postgres(request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await request.app.state.func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
