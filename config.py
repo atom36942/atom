@@ -1,5 +1,5 @@
 #import
-from core.function import *
+from function import *
 
 #env
 import os

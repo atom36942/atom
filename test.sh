@@ -1,23 +1,22 @@
 #!/bin/bash
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$SCRIPT_DIR/.."
-[ -f "$ROOT_DIR/.env" ] && export $(grep -v '^#' "$ROOT_DIR/.env" | xargs)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+[ -f "$SCRIPT_DIR/.env" ] && export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
 
-#input
-input_file="$SCRIPT_DIR/curl.txt"
+#config
+input_path="$SCRIPT_DIR/curl.txt"
+outpath_path="$SCRIPT_DIR/export/curl_output.txt"
+outpath_path_fail="$SCRIPT_DIR/export/curl_fail.log"
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
 token="${token:-}"
-output_curl="$ROOT_DIR/export/curl_report.txt" 
-output_fail="$ROOT_DIR/export/curl_fail.log"
 
 #logic
-: > "$output_curl"
+: > "$outpath_path"
 count=0; count_success=0; count_fail=0; total_response_time=0
 while IFS= read -r line || [[ -n "$line" ]]; do
     :
-done < <(sed -e ':a' -e '/\\$/N; s/\\\n[[:space:]]*/ /; ta' "$input_file")
+done < <(sed -e ':a' -e '/\\$/N; s/\\\n[[:space:]]*/ /; ta' "$input_path")
 while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" != curl* ]] && continue
     command_line=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
@@ -30,8 +29,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
       -e 's/ -d / \\\n  -d /g' \
       -e 's/ -F / \\\n  -F /g' \
       -e 's/ -o / \\\n  -o /g' \
-      >> "$output_curl"
-    echo >> "$output_curl"
+      >> "$outpath_path"
+    echo >> "$outpath_path"
     out_and_write=$(bash -c "$command_line --silent --show-error --write-out '\n%{http_code} %{time_total}'" 2>&1 || true)
     status_time=$(printf '%s\n' "$out_and_write" | tail -n1 || true)
     status_code=$(awk '{print $1}' <<<"${status_time:-}")
@@ -47,17 +46,17 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     else
         echo "❌ $body"
         if [[ $count_fail -eq 0 ]]; then
-            : > "$output_fail"
+            : > "$outpath_path_fail"
         fi
         {
             echo "$command_line"
             echo "$body"
             echo
-        } >> "$output_fail"
+        } >> "$outpath_path_fail"
         ((count_fail++))
     fi
     echo
-done < <(sed -e ':a' -e '/\\$/N; s/\\\n[[:space:]]*/ /; ta' "$input_file")
+done < <(sed -e ':a' -e '/\\$/N; s/\\\n[[:space:]]*/ /; ta' "$input_path")
 
 # summary
 avg_response_time=$(( count>0 ? total_response_time/count : 0 ))
@@ -67,6 +66,6 @@ echo "🚀 Total: $count"
 echo "✅ Success: $count_success"
 echo "❌ Fail: $count_fail"
 echo "⏳ Avg Response Time: ${avg_response_time}ms"
-echo "📄 Report : $output_curl"
-[[ $count_fail -gt 0 ]] && echo "📄 Failed responses saved in: $output_fail"
+echo "📄 Report : $outpath_path"
+[[ $count_fail -gt 0 ]] && echo "📄 Failed responses saved in: $outpath_path_fail"
 echo "--------------------------------------"

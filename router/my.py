@@ -1,5 +1,5 @@
 #import
-from core.route import *
+from route import *
 
 #api
 @router.get("/my/profile")
@@ -87,12 +87,12 @@ async def func_api_9486563f3c1240c5840a251562e5a5c3(request:Request):
 
 @router.post("/my/object-create")
 async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
-   output=await func_handler_obj_create("my",request)
+   output=await func_obj_create_logic("my",request)
    return {"status":1,"message":output}
 
 @router.put("/my/object-update")
 async def func_api_a10070c5091d40ce90484ec9ec6e6587(request:Request):
-   output=await func_handler_obj_update("my",request)
+   output=await func_obj_update_logic("my",request)
    return {"status":1,"message":output}
 
 @router.get("/my/object-read")

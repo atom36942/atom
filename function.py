@@ -16,7 +16,7 @@ async def func_person_intel_read(q:str,config_searchapi_key:str,config_gemini_ke
     client=genai.Client(api_key=config_gemini_key);merged="\n".join([f for f in fragments if f]);prompt=CONFIG_PROMPT_SUMMARY.format(query=q,merged=merged);r=client.models.generate_content(model=CONFIG_LLM_MODEL,contents=prompt)
     return {"summary":r.text.strip(),"sources":len(fragments),"urls":used}
 
-async def func_handler_flush(app):
+async def func_postgres_flush(app):
     await app.state.func_postgres_obj_create(app.state.client_postgres_pool,app.state.func_postgres_obj_serialize,app.state.cache_postgres_column_datatype,"flush")
     return None
     
@@ -40,19 +40,19 @@ async def func_html_path_read(config_folder_html, name):
         if p.is_file() and not any(x.startswith(".") for x in p.parts): return str(p)
     return None
 
-async def fund_handler_reset_cache_postgres(request):
+async def fund_reset_postgres_cache(request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await request.app.state.func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
     request.app.state.cache_config=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_config")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("config",{}) else {}
     return None
 
-async def fund_handler_reset_cache_users(request):
+async def fund_reset_cache_users(request):
     request.app.state.cache_users_api_access=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_api_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_access") else {}
     request.app.state.cache_users_is_active=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
     return None
 
 import traceback
 from fastapi import responses
-async def func_handler_api_error(request,e):
+async def func_api_response_error(request,e):
    error=str(e)
    if request.app.state.config_is_traceback:print(traceback.format_exc())
    response=responses.JSONResponse(status_code=400,content={"status":0,"message":error})
@@ -60,7 +60,7 @@ async def func_handler_api_error(request,e):
    return error,response
 
 import asyncio
-async def func_handler_log_api(start,request,response,type,error):
+async def func_api_log_create(start,request,response,type,error):
    if request.app.state.config_is_log_api and request.app.state.cache_postgres_schema.get("log_api"):
       api=request.url.path
       obj={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":request.app.state.config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":int((time.perf_counter()-start) * 1000),"type":type,"description":error}
@@ -78,7 +78,7 @@ def func_upgrade_packages():
         status["upgraded" if res.returncode == 0 else "failed"].append(pkg)
     return status
     
-async def func_handler_obj_create(role,request):
+async def func_obj_create_logic(role,request):
     obj_query=await request.app.state.func_request_param_read(request,"query",[["mode","str",0,"now"],["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
@@ -93,10 +93,10 @@ async def func_handler_obj_create(role,request):
     if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],request.app.state.config_table.get(obj_query["table"],{}).get("buffer"))
     elif obj_query["queue"]:
         payload={"func":"func_postgres_obj_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":request.app.state.config_table.get(obj_query["table"],{}).get("buffer")}
-        output=await request.app.state.func_handler_producer(request,obj_query["queue"],payload)
+        output=await request.app.state.func_producer_logic(request,obj_query["queue"],payload)
     return output
 
-async def func_handler_obj_update(role,request):
+async def func_obj_update_logic(role,request):
     obj_query=await request.app.state.func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None],["otp","int",0,None]])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
@@ -116,10 +116,10 @@ async def func_handler_obj_update(role,request):
     if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_update(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
     elif obj_query["queue"]:
         payload={"func":"func_postgres_obj_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
-        output=await request.app.state.func_handler_producer(request,obj_query["queue"],payload)
+        output=await request.app.state.func_producer_logic(request,obj_query["queue"],payload)
     return obj_query,obj_list
 
-async def func_handler_producer(request,queue,payload):
+async def func_producer_logic(request,queue,payload):
    if queue=="celery":output=await request.app.state.func_celery_producer(request.app.state.client_celery_producer,payload["func"],[v for k,v in payload.items() if k!="func"])
    elif queue=="kafka":output=await request.app.state.func_kafka_producer(request.app.state.client_kafka_producer,request.app.state.config_channel_name,payload)
    elif queue=="rabbitmq":output=await request.app.state.func_rabbitmq_producer(request.app.state.client_rabbitmq_producer,request.app.state.config_channel_name,payload)
@@ -129,7 +129,7 @@ async def func_handler_producer(request,queue,payload):
 import asyncio
 from itertools import count
 _counter=count(1)
-async def func_handler_consumer(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool,cache_postgres_column_datatype):
+async def func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool,cache_postgres_column_datatype):
     n=next(_counter)
     if payload["func"]=="func_postgres_obj_create":output=asyncio.create_task(func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
     elif payload["func"]=="func_postgres_obj_update":output=asyncio.create_task(func_postgres_obj_update(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
@@ -918,7 +918,7 @@ async def func_kafka_producer(client_kafka_producer,config_channel_name,payload)
    output=await client_kafka_producer.send_and_wait(config_channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
-async def func_handler_ratelimiter(request):
+async def func_check_ratelimiter(request):
     if not request.app.state.config_api.get(request.url.path,{}).get("ratelimiter_times_sec"):return None
     client_redis_ratelimiter=request.app.state.client_redis_ratelimiter
     if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
@@ -933,7 +933,7 @@ async def func_handler_ratelimiter(request):
     await pipe.execute()
     return None
 
-async def func_handler_is_active(request):
+async def func_check_is_active(request):
     if not request.app.state.config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user:return None
     if request.app.state.config_mode_check_is_active=="token":user_is_active=request.state.user.get("is_active","absent")
     elif request.app.state.config_mode_check_is_active=="cache":user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
@@ -947,7 +947,7 @@ async def func_handler_is_active(request):
     if user_is_active==0:raise Exception("user not active")
     return None
 
-async def func_handler_admin(request):
+async def func_check_admin(request):
     if not request.url.path.startswith("/admin"):return None
     def parse_access_list(access_str):return [int(item.strip()) for item in access_str.split(",")] if access_str else []
     async def fetch_user_access(user_id):
@@ -971,7 +971,7 @@ async def func_handler_admin(request):
 from fastapi import Response
 import gzip, base64, time
 inmemory_cache_api = {}
-async def func_handler_cache(mode,request,response):
+async def func_check_cache(mode,request,response):
     def should_cache(expire_sec): return expire_sec is not None and expire_sec > 0
     def build_cache_key(path, qp, uid): return f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(qp.items()))}:{uid}"
     def compress(body): return base64.b64encode(gzip.compress(body)).decode()
@@ -999,7 +999,7 @@ async def func_handler_cache(mode,request,response):
     
 from fastapi import Request,responses
 from starlette.background import BackgroundTask
-async def func_handler_api_response_background(request,api_function):
+async def func_api_response_background(request,api_function):
    body=await request.body()
    async def receive():return {"type":"http.request","body":body}
    async def api_func_new():
@@ -1009,17 +1009,17 @@ async def func_handler_api_response_background(request,api_function):
    response.background=BackgroundTask(api_func_new)
    return response
 
-async def func_handler_api_response(request,api_function):
+async def func_api_response(request,api_function):
     cache_sec=request.app.state.config_api.get(request.url.path,{}).get("cache_sec")
     response,type=None,None
-    if request.query_params.get("is_background")=="1":response=await request.app.state.func_handler_api_response_background(request,api_function);type=1
-    elif cache_sec:response=await request.app.state.func_handler_cache("get",request,None);type=2
+    if request.query_params.get("is_background")=="1":response=await request.app.state.func_api_response_background(request,api_function);type=1
+    elif cache_sec:response=await request.app.state.func_check_cache("get",request,None);type=2
     if not response:
         response=await api_function(request);type=3
-        if cache_sec:response=await request.app.state.func_handler_cache("set",request,response);type=4
+        if cache_sec:response=await request.app.state.func_check_cache("set",request,response);type=4
     return response,type
 
-async def func_handler_token(request):
+async def func_set_request_user(request):
     user={}
     api=request.url.path
     token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
@@ -1035,7 +1035,8 @@ async def func_handler_token(request):
         elif api.startswith("/private") and not token:raise Exception("token missing")
         elif api.startswith("/admin") and not token:raise Exception("token missing")
         elif request.app.state.config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
-    return user
+    request.state.user=user
+    return None
 
 import jwt,json
 async def func_jwt_token_decode(token,config_key_jwt):

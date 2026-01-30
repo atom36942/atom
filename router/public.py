@@ -1,5 +1,5 @@
 #import
-from core.route import *
+from route import *
 
 #api
 @router.get("/public/info")
@@ -24,7 +24,7 @@ async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):
 
 @router.post("/public/object-create")
 async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
-   output=await func_handler_obj_create("public",request)
+   output=await func_obj_create_logic("public",request)
    return {"status":1,"message":output}
 
 @router.get("/public/object-read")

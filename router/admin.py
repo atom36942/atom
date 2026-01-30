@@ -1,15 +1,15 @@
 #import
-from core.route import *
+from route import *
 
 #api
 @router.post("/admin/object-create")
 async def func_api_6dba580b31ff43e6824ea4292eb9c749(request:Request):
-   output=await func_handler_obj_create("admin",request)
+   output=await func_obj_create_logic("admin",request)
    return {"status":1,"message":output}
 
 @router.put("/admin/object-update")
 async def func_api_febf6094467b456f8cabfb8191f1000e(request:Request):
-   output=await func_handler_obj_update("admin",request)
+   output=await func_obj_update_logic("admin",request)
    return {"status":1,"message":output}
 
 @router.get("/admin/object-read")

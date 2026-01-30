@@ -1,6 +1,6 @@
 #import
-from core.config import *
-from core.function import *
+from config import *
+from function import *
 from datetime import datetime
 from pathlib import Path
 from starlette.background import BackgroundTask
