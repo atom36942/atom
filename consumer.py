@@ -99,7 +99,7 @@ async def logic_kafka():
         cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None,None)
         print("kafka consumer started")
         while True:
-            batch=await client_kafka_consumer.getmany(timeout_ms=1000, max_records=100)
+            batch=await client_kafka_consumer.getmany(timeout_ms=1000, max_records=config_kafka_consumer_batch)
             if not batch:continue
             for tp, messages in batch.items():
                 for message in messages:

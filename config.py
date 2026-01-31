@@ -37,6 +37,7 @@ config_redis_url_pubsub=os.getenv("config_redis_url_pubsub") or config_redis_url
 config_channel_name=os.getenv("config_channel_name") or "channel_1"
 config_kafka_group_id=os.getenv("config_kafka_group_id") or "group_1"
 config_kafka_enable_auto_commit=(os.getenv("config_kafka_enable_auto_commit") or "True").lower()=="true"
+config_kafka_consumer_batch=int(os.getenv("config_kafka_consumer_batch") or 100)
 
 #aws
 config_aws_access_key_id=os.getenv("config_aws_access_key_id")
