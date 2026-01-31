@@ -98,5 +98,5 @@ async def func_api_4a7af87fdb264c41ac62514a908fd0ef(request:Request):
 
 @router.get("/public/person-intel")
 async def func_api_5aa65182abea4af6bd266efc05ac611f(request:Request,q:str):
-    output=await func_person_intel_read(q,config_searchapi_key,config_gemini_key)
+    output=await func_person_intel_read(q,config_searchapi_key,request.app.state.client_gemini)
     return {"status":1,"message":output}

@@ -1,20 +1,32 @@
 import aiohttp
 from bs4 import BeautifulSoup
-from google import genai
-async def func_person_intel_read(q:str,config_searchapi_key:str,config_gemini_key:str):
-    CONFIG_SEARCH_URL="https://www.searchapi.io/api/v1/search";CONFIG_SEARCH_ENGINE="google";CONFIG_MAX_URLS=5;CONFIG_LLM_MODEL="gemini-2.0-flash";CONFIG_HTML_LIMIT=6000;CONFIG_PROMPT_SIGNAL="""From the text below, extract up to 10 distinct factual statements about:\n"{query}"\n\nRules:\n- Each fact must be a separate bullet starting with "-"\n- Do NOT merge facts into one sentence\n- Do NOT repeat the same fact twice\n- Copy only what is explicitly stated\n\nText:\n{html}""";CONFIG_PROMPT_SUMMARY="""You are given factual bullet points from multiple sources about:\n"{query}"\n\nGroup them into 5-10 short paragraphs.\nUse only the facts. No inference, no filler.\nDont start with here is the summary type of text.\n\nFacts:\n{merged}"""
+async def func_person_intel_read(q:str,config_searchapi_key:str,client_gemini):
+    P1="Extract explicit facts only, grouped under identity, role, skills, intent, signals. Text: {ctx}"
+    P2="Summarize the following facts into a coherent person profile. Facts:\n{ctx}"
+    async def _r1(ctx):
+        r=client_gemini.models.generate_content(model="gemini-2.0-flash",contents=P1.format(ctx=ctx))
+        return r.text.strip()
+    async def _r2(ctx):
+        r=client_gemini.models.generate_content(model="gemini-2.0-flash",contents=P2.format(ctx=ctx))
+        return r.text.strip()
+    U="https://www.searchapi.io/api/v1/search";E="google";N=5;L=6000
     async with aiohttp.ClientSession() as s:
-        async with s.get(CONFIG_SEARCH_URL,params={"engine":CONFIG_SEARCH_ENGINE,"q":q,"api_key":config_searchapi_key}) as r:j=await r.json();urls=[x["link"] for x in j.get("organic_results",[])[:CONFIG_MAX_URLS]]
-    fragments=[];used=[]
-    for u in urls:
-        async with aiohttp.ClientSession() as s:
-            async with s.get(u,headers={"User-Agent":"Mozilla/5.0"}) as r:raw=await r.read();html=raw.decode("utf-8","ignore") if True else raw.decode("latin1","ignore")
-        soup=BeautifulSoup(html,"html.parser")
-        for t in soup(["script","style","noscript"]):t.decompose()
-        clean=" ".join(soup.stripped_strings);client=genai.Client(api_key=config_gemini_key);prompt=CONFIG_PROMPT_SIGNAL.format(query=q,html=clean[:CONFIG_HTML_LIMIT]);r=client.models.generate_content(model=CONFIG_LLM_MODEL,contents=prompt);frag=r.text.strip()
-        if frag:fragments.append(frag);used.append(u)
-    client=genai.Client(api_key=config_gemini_key);merged="\n".join([f for f in fragments if f]);prompt=CONFIG_PROMPT_SUMMARY.format(query=q,merged=merged);r=client.models.generate_content(model=CONFIG_LLM_MODEL,contents=prompt)
-    return {"summary":r.text.strip(),"sources":len(fragments),"urls":used}
+        async with s.get(U,params={"engine":E,"q":q,"api_key":config_searchapi_key}) as r:j=await r.json();urls=[x["link"] for x in j.get("organic_results",[])[:N]]
+        fr=[];used=[]
+        for u in urls:
+            async with s.get(u,headers={"User-Agent":"Mozilla/5.0"}) as r:raw=await r.read();html=raw.decode("utf-8","ignore")
+            soup=BeautifulSoup(html,"html.parser")
+            for t in soup(["script","style","noscript"]):t.decompose()
+            clean=" ".join(soup.stripped_strings)[:L]
+            i=await _r1(clean)
+            if i:fr.append(i);used.append(u)
+    m="\n".join(fr);f=await _r2(m)
+    return {"summary":f,"sources":len(fr),"urls":used}
+
+from google import genai
+async def func_gemini_client_read(config_gemini_key):
+    client = genai.Client(api_key=config_gemini_key)
+    return client
 
 async def func_postgres_flush(app):
     await app.state.func_postgres_obj_create(app.state.client_postgres_pool,app.state.func_postgres_obj_serialize,app.state.cache_postgres_column_datatype,"flush")
