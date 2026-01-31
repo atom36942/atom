@@ -110,7 +110,7 @@ async def func_obj_create_logic(role,request):
     if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],request.app.state.config_table.get(obj_query["table"],{}).get("buffer"))
     elif obj_query["queue"]:
         payload={"func":"func_postgres_obj_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":request.app.state.config_table.get(obj_query["table"],{}).get("buffer")}
-        output=await request.app.state.func_producer_logic(request,obj_query["queue"],payload)
+        output=await request.app.state.func_producer_logic(payload,obj_query["queue"],request)
     return output
 
 async def func_obj_update_logic(role,request):
@@ -133,10 +133,10 @@ async def func_obj_update_logic(role,request):
     if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_update(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
     elif obj_query["queue"]:
         payload={"func":"func_postgres_obj_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
-        output=await request.app.state.func_producer_logic(request,obj_query["queue"],payload)
+        output=await request.app.state.func_producer_logic(payload,obj_query["queue"],request)
     return obj_query,obj_list
 
-async def func_producer_logic(request,queue,payload):
+async def func_producer_logic(payload,queue,request):
    if queue=="celery":output=await request.app.state.func_celery_producer(request.app.state.client_celery_producer,payload["func"],[v for k,v in payload.items() if k!="func"])
    elif queue=="kafka":output=await request.app.state.func_kafka_producer(request.app.state.client_kafka_producer,request.app.state.config_channel_name,payload)
    elif queue=="rabbitmq":output=await request.app.state.func_rabbitmq_producer(request.app.state.client_rabbitmq_producer,request.app.state.config_channel_name,payload)
@@ -662,38 +662,56 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
         await func_init_custom_sql(conn)
     return None
 
-import hashlib,json,uuid
+import hashlib, orjson, uuid
 from dateutil import parser
-async def func_postgres_obj_serialize(cache_postgres_column_datatype,obj_list):
+async def func_postgres_obj_serialize(cache_postgres_column_datatype, obj_list):
     for obj in obj_list:
-        for k,v in obj.items():
-            if v in (None,"","null"):obj[k]=None;continue
-            d=cache_postgres_column_datatype.get(k)
-            if not d:continue
+        for k, v in obj.items():
+            if v in (None, "", "null"):
+                obj[k] = None
+                continue
+            d = cache_postgres_column_datatype.get(k)
+            if not d:
+                continue
             try:
-                if k=="password":obj[k]=hashlib.sha256(str(v).encode()).hexdigest()
-                elif "uuid" in d:obj[k]=str(uuid.UUID(v)) if isinstance(v,str) else str(v)
-                elif "bytea" in d:obj[k]=v.encode() if isinstance(v,str) else v
-                elif "bool" in d:obj[k]=v if isinstance(v,bool) else (str(v).lower() in ("true","t","1","yes"))
+                if k == "password":
+                    obj[k] = hashlib.sha256(str(v).encode()).hexdigest()
+                elif "uuid" in d:
+                    obj[k] = str(uuid.UUID(v)) if isinstance(v, str) else str(v)
+                elif "bytea" in d:
+                    obj[k] = v.encode() if isinstance(v, str) else v
+                elif "bool" in d:
+                    obj[k] = v if isinstance(v, bool) else (str(v).lower() in ("true", "t", "1", "yes"))
                 elif "[]" in d:
-                    if isinstance(v,list):ls=v
+                    if isinstance(v, list):
+                        ls = v
                     else:
-                        s=str(v).strip()
-                        if s.startswith('{') and s.endswith('}'):s=s[1:-1]
-                        elif s.startswith('[') and s.endswith(']'):s=s[1:-1]
-                        ls=[i.strip().strip('"').strip("'") for i in s.split(",") if i.strip()]
-                    obj[k]=[int(i) for i in ls] if any(y in d for y in ("int","serial")) else [str(i) for i in ls]
-                elif any(x in d for x in ("text","char","enum","geography","geometry")):obj[k]=str(v).strip()
-                elif any(x in d for x in ("int","serial")) and "point" not in d:obj[k]=int(v)
-                elif any(x in d for x in ("numeric","double","precision","real")):obj[k]=round(float(v),3)
-                elif d=="date":obj[k]=parser.isoparse(v).date() if isinstance(v,str) else v
-                elif "timestamp" in d or "time" in d:obj[k]=parser.isoparse(v) if isinstance(v,str) else v
+                        s = str(v).strip()
+                        if s.startswith('{') and s.endswith('}'): s = s[1:-1]
+                        elif s.startswith('[') and s.endswith(']'): s = s[1:-1]
+                        ls = [i.strip().strip('"').strip("'") for i in s.split(",") if i.strip()]
+                    obj[k] = [int(i) for i in ls] if any(y in d for y in ("int", "serial")) else [str(i) for i in ls]
+                elif any(x in d for x in ("text", "char", "enum", "geography", "geometry")):
+                    obj[k] = str(v).strip()
+                elif any(x in d for x in ("int", "serial")) and "point" not in d:
+                    obj[k] = int(v)
+                elif any(x in d for x in ("numeric", "double", "precision", "real")):
+                    obj[k] = round(float(v), 3)
+                elif d == "date":
+                    obj[k] = parser.isoparse(v).date() if isinstance(v, str) else v
+                elif "timestamp" in d or "time" in d:
+                    obj[k] = parser.isoparse(v) if isinstance(v, str) else v
                 elif "json" in d:
-                    if isinstance(v,(dict,list)):obj[k]=json.dumps(v,separators=(",",":"))
+                    if isinstance(v, (dict, list)):
+                        obj[k] = orjson.dumps(v).decode()
                     else:
-                        try:json.loads(v);obj[k]=v
-                        except:obj[k]=json.dumps(v)
-            except Exception as e:raise Exception(f"serialize_error:{k}:{d}:{str(e)}")
+                        try:
+                            orjson.loads(v)
+                            obj[k] = v
+                        except:
+                            obj[k] = orjson.dumps(v).decode()
+            except Exception as e:
+                raise Exception(f"serialize_error:{k}:{d}:{str(e)}")
     return obj_list
 
 async def func_postgres_schema_read(client_postgres_pool):
