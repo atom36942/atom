@@ -31,14 +31,31 @@ def func_override_vars(path):
             caller_globals[k] = v
 
 from pathlib import Path
-async def func_html_path_read(config_folder_html, name):
+import os
+import aiofiles
+from fastapi import responses, HTTPException
+async def func_html_serve(config_folder_html, name: str):
     file = name if name.endswith(".html") else f"{name}.html"
     root = Path(config_folder_html)
     p = root / file
-    if p.is_file(): return str(p)
-    for p in root.rglob(file):
-        if p.is_file() and not any(x.startswith(".") for x in p.parts): return str(p)
-    return None
+    if not p.is_file():
+        for p in root.rglob(file):
+            parts = p.parts
+            if any(x.startswith(".") or x == "__pycache__" for x in parts): continue
+            if p.is_file(): break
+        else:
+            raise HTTPException(404, "page not found")
+    path = str(p)
+    if ".." in path: raise HTTPException(400, "invalid name")
+    full_path = os.path.abspath(path)
+    if not full_path.endswith(".html"): raise HTTPException(400, "invalid file type")
+    if not os.path.isfile(full_path): raise HTTPException(404, "file not found")
+    try:
+        async with aiofiles.open(full_path, "r", encoding="utf-8") as f:
+            html = await f.read()
+    except Exception:
+        raise HTTPException(500, "failed to read file")
+    return responses.HTMLResponse(content=html)
 
 async def fund_reset_postgres_cache(request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await request.app.state.func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
@@ -1657,17 +1674,6 @@ async def func_client_download_file(path,is_cleanup=1,chunk_size=1024*1024):
                 yield chunk
     background = BackgroundTask(os.remove, path) if is_cleanup else None
     return responses.StreamingResponse(iterator(), media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'}, background=background)
-
-import os
-import aiofiles
-async def func_html_content_read(path):
-    if not path: raise Exception("no such path")
-    if ".." in path: raise Exception("invalid name")
-    full_path = os.path.abspath(path)
-    if not full_path.endswith(".html"): raise Exception("invalid file type")
-    if not os.path.isfile(full_path): raise Exception("file not found")
-    async with aiofiles.open(full_path, "r", encoding="utf-8") as f:
-        return await f.read()
 
 async def func_request_param_read(request,mode,config):
     if mode == "query":param = dict(request.query_params)
