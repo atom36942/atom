@@ -58,14 +58,14 @@ async def func_lifespan(app:FastAPI):
       
 #app
 app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
+
+#app add
 func_app_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
-func_app_add_router(app,config_folder_router)
+func_app_add_router_pattern(app,".","router")
+func_app_add_router_folder(app,config_folder_router)
+func_app_add_static(app,config_folder_static,"/static")
 if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
 if config_is_prometheus:func_app_add_prometheus(app)
-
-#static
-from fastapi.staticfiles import StaticFiles
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 #middleware
 import time
@@ -81,11 +81,6 @@ async def middleware(request,api_function):
    except Exception as e:error,response=await func_api_response_error(request,e)
    await func_api_log_create(start,request,response,type,error)
    return response
-
-#root
-@app.get("/")
-async def func_api_5e118e61a6c348328913f14722d76af6():
-   return await func_html_serve(config_folder_html,config_index_html)
 
 #main
 from function import func_server_start

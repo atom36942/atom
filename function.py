@@ -1,6 +1,6 @@
 import aiohttp
 from bs4 import BeautifulSoup
-async def func_person_intel_read(q:str,config_searchapi_key:str,client_gemini):
+async def func_person_intel_read(q,config_searchapi_key,client_gemini):
     P1="Extract explicit facts only, grouped under identity, role, skills, intent, signals. Text: {ctx}"
     P2="Summarize the following facts into a coherent person profile. Facts:\n{ctx}"
     async def _r1(ctx):
@@ -1130,23 +1130,46 @@ def func_app_add_sentry(config_sentry_dsn):
    sentry_sdk.init(dsn=config_sentry_dsn,integrations=[FastApiIntegration()],traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
+from fastapi.staticfiles import StaticFiles
+def func_app_add_static(app,config_folder_static,mount_path):
+    app.mount(mount_path, StaticFiles(directory=config_folder_static),name="static")
+    return None
+
 import sys, importlib.util, traceback
 from pathlib import Path
-def func_app_add_router(app, config_folder_router):
+def func_app_add_router_folder(app, config_folder_router):
     def load(router_root, file_path):
         try:
-            rel=file_path.relative_to(router_root);mod="routers."+".".join(rel.with_suffix("").parts);spec=importlib.util.spec_from_file_location(mod,file_path)
-            if not spec or not spec.loader:return
-            m=importlib.util.module_from_spec(spec);sys.modules[mod]=m;spec.loader.exec_module(m)
-            if hasattr(m,"router"):app.include_router(m.router)
+            rel = file_path.relative_to(router_root)
+            mod = "routers." + ".".join(rel.with_suffix("").parts)
+            spec = importlib.util.spec_from_file_location(mod, file_path)
+            if not spec or not spec.loader:
+                return
+            m = importlib.util.module_from_spec(spec)
+            sys.modules[mod] = m
+            spec.loader.exec_module(m)
+            if not hasattr(m, "router"):
+                raise RuntimeError(f"Missing `router` in {file_path}")
+            app.include_router(m.router)
         except Exception:
-            print(f"[WARN] failed to load router: {file_path}");traceback.print_exc()
-    root=Path(config_folder_router).resolve()
-    if not root.is_dir():raise ValueError(f"router folder not found: {root}")
+            print(f"[FATAL] router load failed: {file_path}")
+            traceback.print_exc()
+            raise
+    root = Path(config_folder_router).expanduser().resolve()
+    if not root.is_dir():return
     for f in root.rglob("*.py"):
-        if f.name.startswith(".") or f.name.startswith("__") or any(p.startswith(".") for p in f.parts):continue
-        load(root,f)
-    return None
+        if f.name.startswith((".", "__")) or any(p.startswith(".") for p in f.parts):continue
+        load(root, f)
+        
+import importlib
+from pathlib import Path
+def func_app_add_router_pattern(app, folder=".", pattern="router"):
+    root = Path(folder).resolve()
+    for f in root.iterdir():
+        if f.is_file() and f.name.startswith(pattern) and f.suffix == ".py" and not f.name.startswith(("__", ".")):
+            mod = importlib.import_module(f.stem)
+            if hasattr(mod, "router"):
+                app.include_router(mod.router)
 
 async def func_ownership_check(client_postgres_pool,table,id,user_id):
     if table == "users":

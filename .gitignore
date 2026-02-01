@@ -136,4 +136,4 @@ vectorstore/
 *.sqlite3
 export/
 secret/
-z.py
+zzz.py
