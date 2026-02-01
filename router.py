@@ -109,7 +109,7 @@ async def func_api_6dd2a4b658884b8e93df7b89c75a3a38(request:Request):
 
 @router.post("/auth/login-password-username-bigint")
 async def func_api_39329b86e0ad499194916937c84ccbf2(request:Request):
-    obj_body=await func_request_param_read(request,"body",[("type","int",1,None),("password","str",1,None),("username","str",1,None)])
+    obj_body=await func_request_param_read(request,"body",[("type","int",1,None),("password_bigint","int",1,None),("username_bigint","int",1,None)])
     user=await func_auth_login_password_username_bigint(request.app.state.client_postgres_pool,obj_body["type"],obj_body["password_bigint"],obj_body["username_bigint"])
     token=await func_jwt_token_encode(user,config_key_jwt,config_token_expire_sec,config_token_user_key_list)
     return {"status":1,"message":token}
