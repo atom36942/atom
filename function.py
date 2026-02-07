@@ -143,10 +143,8 @@ async def func_obj_update_logic(role,request):
         if obj_query["table"]=="users":
             if len(obj_list)!=1:raise Exception("multi object issue")
             if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
-            if any(key in obj_list[0] and len(obj_list[0])!=2 for key in ["password"]):raise Exception("obj length should be 2")
-            if request.app.state.config_is_otp_verify_users and any(k in obj_list[0] for k in ("email","mobile")):
-                if len(obj_list[0])!=2:raise Exception("obj length should be 2")
-                await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query.get("otp"),obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_otp_expire_sec)
+            if any(key in obj_list[0] and len(obj_list[0])!=2 for key in ["username","password","email","mobile"]):raise Exception("obj length should be 2")
+            if any(k in obj_list[0] for k in ("email","mobile")):await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query.get("otp"),obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_otp_expire_sec)
     elif role=="public":
         pass
     elif role=="admin":

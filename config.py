@@ -91,7 +91,6 @@ config_is_signup=int(os.getenv("config_is_signup") or 1)
 config_is_log_api=int(os.getenv("config_is_log_api") or 1)
 config_is_traceback=int(os.getenv("config_is_traceback") or 1)
 config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
-config_is_otp_verify_users=int(os.getenv("config_is_otp_verify_users") or 0)
 config_is_reset_export_folder=int(os.getenv("config_is_reset_export_folder") or 1)
 config_is_debug_fastapi=int(os.getenv("config_is_debug_fastapi") or 1)
 config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
@@ -168,6 +167,31 @@ config_postgres={
 {"name":"status","datatype":"integer","index":"btree","old":"status2"},
 {"name":"metadata","datatype":"jsonb","index":"gin"}
 ],
+"users":[
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"created_by_id","datatype":"bigint"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"is_active","datatype":"smallint","index":"btree"},
+{"name":"is_verified","datatype":"smallint","index":"btree"},
+{"name":"is_deleted","datatype":"smallint","index":"btree"},
+{"name":"is_protected","datatype":"smallint","index":"btree"},
+{"name":"type","datatype":"integer","is_mandatory":1,"index":"btree"},
+{"name":"username","datatype":"text","index":"btree","is_trim":1,"is_lowercase":1,"unique":"username,type"},
+{"name":"password","datatype":"text","index":"btree"},
+{"name":"username_bigint","datatype":"bigint","index":"btree","unique":"username_bigint,type"},
+{"name":"password_bigint","datatype":"bigint","index":"btree"},
+{"name":"google_login_id","datatype":"text","index":"btree","unique":"google_login_id,type"},
+{"name":"google_login_metadata","datatype":"jsonb"},
+{"name":"email","datatype":"text","index":"btree","unique":"email,type"},
+{"name":"mobile","datatype":"text","index":"btree","unique":"mobile,type"},
+{"name":"api_id_access","datatype":"text"},
+{"name":"last_active_at","datatype":"timestamptz"},
+{"name":"name","datatype":"text"},
+{"name":"country","datatype":"text"},
+{"name":"state","datatype":"text"},
+{"name":"city","datatype":"text"},
+],
 "log_api":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
 {"name":"created_by_id","datatype":"bigint","index":"btree"},
@@ -180,29 +204,6 @@ config_postgres={
 {"name":"status_code","datatype":"smallint","index":"btree"},
 {"name":"response_time_ms","datatype":"integer"},
 {"name":"description","datatype":"text"}
-],
-"users":[
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"created_by_id","datatype":"bigint"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_active","datatype":"smallint","index":"btree"},
-{"name":"is_verified","datatype":"smallint","index":"btree"},
-{"name":"is_deleted","datatype":"smallint","index":"btree"},
-{"name":"is_protected","datatype":"smallint","index":"btree"},
-{"name":"type","datatype":"integer","is_mandatory":1,"index":"btree"},
-{"name":"username","datatype":"text","index":"btree","is_trim":1,"is_lowercase":1,"unique":"username,type"},
-{"name":"email","datatype":"text","index":"btree","unique":"email,type"},
-{"name":"mobile","datatype":"text","index":"btree","unique":"mobile,type"},
-{"name":"google_login_id","datatype":"text","index":"btree","unique":"google_login_id,type"},
-{"name":"username_bigint","datatype":"bigint","index":"btree","unique":"username_bigint,type"},
-{"name":"password","datatype":"text","index":"btree"},
-{"name":"password_bigint","datatype":"bigint","index":"btree"},
-{"name":"google_login_metadata","datatype":"jsonb"},
-{"name":"google_data","datatype":"jsonb"},
-{"name":"api_id_access","datatype":"text"},
-{"name":"name","datatype":"text"},
-{"name":"last_active_at","datatype":"timestamptz"}
 ],
 "otp":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
@@ -258,7 +259,7 @@ config_postgres={
 {"name":"is_deleted","datatype":"smallint"},
 {"name":"type","datatype":"integer","index":"btree"},
 {"name":"title","datatype":"text"},
-{"name":"description","datatype":"text"},
+{"name":"description","datatype":"text","is_mandatory":1},
 {"name":"file_url","datatype":"text"},
 {"name":"link_url","datatype":"text"},
 {"name":"tag","datatype":"text[]","index":"gin"},
