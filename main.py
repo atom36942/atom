@@ -30,7 +30,7 @@ async def func_lifespan(app:FastAPI):
       client_gemini=await func_gemini_client_read(config_gemini_key) if config_gemini_key else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else ({},{})
-      cache_users_api_access=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_api_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_access") else {}
+      cache_users_api_access=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_api_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_id_access") else {}
       cache_users_is_active=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       cache_config=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
       #app state set
@@ -61,8 +61,8 @@ app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
 
 #app add
 func_app_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
-func_app_add_router_pattern(app,".","router")
 func_app_add_router_folder(app,config_folder_router)
+func_app_add_router_file(app,config_file_router_prefix,".")
 func_app_add_static(app,config_folder_static,"/static")
 if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
 if config_is_prometheus:func_app_add_prometheus(app)

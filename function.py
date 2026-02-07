@@ -1,3 +1,9 @@
+async def func_table_tag_read(table,column,limit,pool):
+    q=f"SELECT t, count(*) FROM {table}, unnest({column}) t GROUP BY t ORDER BY count(*) DESC LIMIT {limit}"
+    async with pool.acquire() as conn:
+        rows=await conn.fetch(q)
+    return [{"tag":r["t"],"count":r["count"]} for r in rows]
+
 import aiohttp
 from bs4 import BeautifulSoup
 async def func_person_intel_read(q,config_searchapi_key,client_gemini):
@@ -75,7 +81,7 @@ async def fund_reset_postgres_cache(request):
     return None
 
 async def fund_reset_cache_users(request):
-    request.app.state.cache_users_api_access=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_api_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_access") else {}
+    request.app.state.cache_users_api_access=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_api_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_id_access") else {}
     request.app.state.cache_users_is_active=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
     return None
 
@@ -111,15 +117,17 @@ async def func_obj_create_logic(role,request):
     obj_query=await request.app.state.func_request_param_read(request,"query",[["mode","str",0,"now"],["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
-    if request.state.user.get("id") and "created_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):
-        for item in obj_list:item["created_by_id"]=request.state.user.get("id")
     if role=="my":
-        if obj_query["table"] not in request.app.state.config_my_table_create_list:raise Exception("table not allowed")
-        if any(any(k in request.app.state.config_column_disabled_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+        if obj_query["table"] not in request.app.state.config_table_create_my_list:raise Exception("table not allowed")
+        if any(any(k in request.app.state.config_column_admin_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
     elif role=="public":
-        if obj_query["table"] not in request.app.state.config_public_table_create_list:raise Exception("table not allowed")
-        if any(any(k in request.app.state.config_column_disabled_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
-    if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],request.app.state.config_table.get(obj_query["table"],{}).get("buffer"))
+        if obj_query["table"] not in request.app.state.config_table_create_public_list:raise Exception("table not allowed")
+        if any(any(k in request.app.state.config_column_admin_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+    elif role=="admin":
+        pass
+    if request.state.user.get("id") and "created_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):[item.__setitem__("created_by_id",request.state.user.get("id")) for item in obj_list]
+    if not obj_query["queue"]:
+        output=await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],request.app.state.config_table.get(obj_query["table"],{}).get("buffer"))
     elif obj_query["queue"]:
         payload={"func":"func_postgres_obj_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":request.app.state.config_table.get(obj_query["table"],{}).get("buffer")}
         output=await request.app.state.func_producer_logic(payload,obj_query["queue"],request)
@@ -129,24 +137,27 @@ async def func_obj_update_logic(role,request):
     obj_query=await request.app.state.func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None],["otp","int",0,None]])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
-    if request.state.user.get("id") and "updated_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):
-        for item in obj_list:item["updated_by_id"]=request.state.user.get("id")
     if role=="my":
         created_by_id=None if obj_query["table"]=="users" else request.state.user["id"]
-        if any(any(k in request.app.state.config_column_disabled_list for k in x) for x in obj_list):raise Exception("key not allowed")
+        if any(any(k in request.app.state.config_column_admin_list for k in x) for x in obj_list):raise Exception("key not allowed")
         if obj_query["table"]=="users":
             if len(obj_list)!=1:raise Exception("multi object issue")
             if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
-            if any(key in obj_list[0] and len(obj_list[0])!=3 for key in ["password","email","mobile"]):raise Exception("obj length should be 2")
-            if request.app.state.config_is_otp_verify_profile_update and any(key in obj_list[0] and not obj_query["otp"] for key in ["email","mobile"]):raise Exception("otp missing")
-            if obj_query["otp"]:await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query["otp"],obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_otp_expire_sec)
+            if any(key in obj_list[0] and len(obj_list[0])!=2 for key in ["password"]):raise Exception("obj length should be 2")
+            if request.app.state.config_is_otp_verify_users and any(k in obj_list[0] for k in ("email","mobile")):
+                if len(obj_list[0])!=2:raise Exception("obj length should be 2")
+                await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query.get("otp"),obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_otp_expire_sec)
+    elif role=="public":
+        pass
     elif role=="admin":
         created_by_id=None
-    if not obj_query["queue"]:output=await request.app.state.func_postgres_obj_update(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
+    if request.state.user.get("id") and "updated_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):[item.__setitem__("updated_by_id",request.state.user.get("id")) for item in obj_list]
+    if not obj_query["queue"]:
+        output=await request.app.state.func_postgres_obj_update(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
     elif obj_query["queue"]:
         payload={"func":"func_postgres_obj_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
         output=await request.app.state.func_producer_logic(payload,obj_query["queue"],request)
-    return obj_query,obj_list
+    return output
 
 async def func_producer_logic(payload,queue,request):
    if queue=="celery":output=await request.app.state.func_celery_producer(request.app.state.client_celery_producer,payload["func"],[v for k,v in payload.items() if k!="func"])
@@ -998,11 +1009,11 @@ async def func_check_admin(request):
     if not request.url.path.startswith("/admin"):return None
     def parse_access_list(access_str):return [int(item.strip()) for item in access_str.split(",")] if access_str else []
     async def fetch_user_access(user_id):
-        async with request.app.state.client_postgres_pool.acquire() as conn:rows = await conn.fetch("select id,api_access from users where id=$1", user_id)
+        async with request.app.state.client_postgres_pool.acquire() as conn:rows = await conn.fetch("select id,api_id_access from users where id=$1", user_id)
         if not rows:raise Exception("user not found")
-        return rows[0]["api_access"]
+        return rows[0]["api_id_access"]
     def get_cached_access():
-        if request.app.state.config_mode_check_api_access == "token":return request.state.user.get("api_access", [])
+        if request.app.state.config_mode_check_api_access == "token":return request.state.user.get("api_id_access", [])
         elif request.app.state.config_mode_check_api_access == "cache":return request.app.state.cache_users_api_access.get(request.state.user["id"], [])
         raise Exception("config_mode_check_api_access=token/cache")
     user_api_access = get_cached_access()
@@ -1163,10 +1174,10 @@ def func_app_add_router_folder(app, config_folder_router):
         
 import importlib
 from pathlib import Path
-def func_app_add_router_pattern(app, folder=".", pattern="router"):
+def func_app_add_router_file(app,prefix,folder):
     root = Path(folder).resolve()
     for f in root.iterdir():
-        if f.is_file() and f.name.startswith(pattern) and f.suffix == ".py" and not f.name.startswith(("__", ".")):
+        if f.is_file() and f.name.startswith(prefix) and f.suffix == ".py" and not f.name.startswith(("__", ".")):
             mod = importlib.import_module(f.stem)
             if hasattr(mod, "router"):
                 app.include_router(mod.router)

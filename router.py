@@ -180,7 +180,7 @@ async def func_api_12df64ab29a4486ca541c0610ef30a16(request:Request):
 async def func_api_5a608eaf30a2410cadf331146b37883a(request:Request):
    obj_query=await func_request_param_read(request,"query",[("mode","str",1,None)])
    user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
-   if user["api_access"]:raise Exception("not allowed as you have api_access")
+   if user["api_id_access"]:raise Exception("not allowed as you have api_id_access")
    output=await func_user_single_delete(obj_query["mode"],request.app.state.client_postgres_pool,request.state.user["id"])
    return {"status":1,"message":output}
 
@@ -226,7 +226,7 @@ async def func_api_c0d03f1f0c3d41969cadb97483aeb75e(request:Request):
 async def func_api_da53d5219c094cd1ac0e55017423cedf(request:Request):
    obj_body=await func_request_param_read(request,"body",[("table","str",1,None),("ids","str",1,None),("column","str",1,None),("value","any",1,None)])
    if obj_body["table"] in ("users"):raise Exception("table not allowed")
-   if obj_body["column"] in config_column_disabled_list:raise Exception("column not allowed")
+   if obj_body["column"] in config_column_admin_list:raise Exception("column not allowed")
    output=await func_postgres_ids_update(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],obj_body["column"],obj_body["value"],request.state.user["id"],request.state.user["id"])
    return {"status":1,"message":output}
 
@@ -245,8 +245,7 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
 
 @router.put("/my/object-update")
 async def func_api_a10070c5091d40ce90484ec9ec6e6587(request:Request):
-   output=await func_obj_update_logic("my",request)
-   return {"status":1,"message":output}
+   return {"status":1,"message":await func_obj_update_logic("my",request)}
 
 @router.get("/my/object-read")
 async def func_api_4e9de78a107845b5a1ebcca0c61f7d0e(request:Request):
@@ -292,7 +291,7 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
 @router.get("/public/object-read")
 async def func_api_88fdc8850b714b9db5fcac36cabf446d(request:Request):
    obj_query=await func_request_param_read(request,"query",[("table","str",1,None)])
-   if obj_query["table"] not in config_public_table_read_list:raise Exception("table not allowed")
+   if obj_query["table"] not in config_table_read_public_list:raise Exception("table not allowed")
    obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
@@ -362,6 +361,11 @@ async def func_api_4a7af87fdb264c41ac62514a908fd0ef(request:Request):
 async def func_api_5aa65182abea4af6bd266efc05ac611f(request:Request,q:str):
     output=await func_person_intel_read(q,config_searchapi_key,request.app.state.client_gemini)
     return {"status":1,"message":output}
+ 
+@router.get("/public/table-tag-read")
+async def func_api_3f7b9c2a4e1d4a0b8c6e5f9d1a2b7c3e(request:Request,table:str,column:str="tag",limit:int=100):
+    output=await func_table_tag_read(table,column,limit,request.app.state.client_postgres_pool)
+    return {"status":1,"message":output}
 
 #private
 @router.post("/private/s3-upload-file")
@@ -387,8 +391,7 @@ async def func_api_6dba580b31ff43e6824ea4292eb9c749(request:Request):
 
 @router.put("/admin/object-update")
 async def func_api_febf6094467b456f8cabfb8191f1000e(request:Request):
-   output=await func_obj_update_logic("admin",request)
-   return {"status":1,"message":output}
+   return {"status":1,"message":await func_obj_update_logic("admin",request)}
 
 @router.get("/admin/object-read")
 async def func_api_bb6506520ad349f688f925055cd8b965(request:Request):

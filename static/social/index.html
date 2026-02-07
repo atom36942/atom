@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>atom</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--muted:#a1a1aa;--primary:#f4f4f5;--hover:#27272a}body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}a{color:var(--text);text-decoration:none;transition:color .2s}a:hover{color:var(--muted)}.btn{padding:.5rem 1rem;border-radius:.375rem;font-size:.875rem;font-weight:500;transition:all .2s;border:1px solid transparent}.btn-ghost{background:transparent;border-color:transparent}.btn-ghost:hover{background:var(--hover)}.btn-outline{border-color:var(--border);background:transparent}.btn-outline:hover{background:var(--hover)}.btn-primary{background:var(--primary);color:var(--bg)}.btn-primary:hover{opacity:.9}header{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;border-bottom:1px solid var(--border);background:var(--bg)}.logo{display:flex;align-items:center;gap:.5rem;font-size:1.25rem;font-weight:600}.logo svg{width:1.5rem;height:1.5rem}nav{display:flex;gap:.5rem;align-items:center}.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;place-items:center;z-index:50}.modal.active{display:grid}.modal-content{background:var(--card);border:1px solid var(--border);border-radius:.5rem;padding:1.5rem;max-width:28rem;width:90%;position:relative}.modal-close{position:absolute;top:.75rem;right:.75rem;background:none;border:none;color:var(--muted);cursor:pointer;padding:.25rem}.modal-close:hover{color:var(--text)}.modal h2{font-size:1.25rem;margin-bottom:.75rem}.modal p{color:var(--muted);font-size:.875rem;margin-bottom:.5rem}textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:.375rem;padding:.75rem;color:var(--text);font-family:inherit;min-height:100px;margin-bottom:1rem;resize:vertical}textarea:focus{outline:none;border-color:var(--text)}.toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:100;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}.toast{background:var(--card);border:1px solid var(--border);padding:1rem;border-radius:.5rem;color:var(--text);animation:slideIn .3s ease;pointer-events:auto;min-width:300px;max-width:400px;word-wrap:break-word;display:flex;align-items:center;justify-content:space-between;gap:.5rem}.toast-success{border-color:#22c55e}.toast-error{border-color:#ef4444}@keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}.input-wrapper{position:relative;margin-bottom:1rem}.input-wrapper input{width:100%;background:var(--bg);border:1px solid var(--border);padding:.5rem 2rem .5rem .75rem;border-radius:.375rem;color:var(--text);font-size:.875rem}.input-wrapper input:focus{outline:none;border-color:var(--text)}.clear-icon{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);display:none;background:none;border:none}.input-wrapper input:not(:placeholder-shown)+.clear-icon{display:block}.auth-hidden{display:none!important}</style>
+</head>
+<body>
+  <div id="about-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content">
+      <button class="modal-close" onclick="document.getElementById('about-modal').classList.remove('active')">✕</button>
+      <h2>About us</h2>
+      <p>A minimal social platform built for thoughtful expression. No algorithms, no noise—just pure, unfiltered voices.</p>
+      <p>Share your views. Discover perspectives. Connect with minds that matter.</p>
+      <p style="color:var(--text);margin-top:1rem;font-size:.75rem">Simple. Open. Human.</p>
+    </div>
+  </div>
+  <div id="support-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content">
+      <button class="modal-close" onclick="document.getElementById('support-modal').classList.remove('active')">✕</button>
+      <h2>Support</h2>
+      <textarea id="support-input" placeholder="Describe your issue..."></textarea>
+      <button class="btn btn-primary" style="width:100%" onclick="submitSupport()">Submit</button>
+    </div>
+  </div>
+  <div id="signup-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content">
+      <button class="modal-close" onclick="document.getElementById('signup-modal').classList.remove('active')">✕</button>
+      <h2>Sign up</h2>
+
+      <div class="input-wrapper"><input type="text" id="signup-username" placeholder="Username"><button class="clear-icon" onclick="document.getElementById('signup-username').value=''">✕</button></div>
+      <div class="input-wrapper"><input type="password" id="signup-password" placeholder="Password"><button class="clear-icon" onclick="document.getElementById('signup-password').value=''">✕</button></div>
+      <button class="btn btn-primary" style="width:100%" onclick="signup()">Sign up</button>
+    </div>
+  </div>
+  <div id="login-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content">
+      <button class="modal-close" onclick="document.getElementById('login-modal').classList.remove('active')">✕</button>
+      <h2>Login</h2>
+      <div class="input-wrapper"><input type="text" id="login-username" placeholder="Username"><button class="clear-icon" onclick="document.getElementById('login-username').value=''">✕</button></div>
+      <div class="input-wrapper"><input type="password" id="login-password" placeholder="Password"><button class="clear-icon" onclick="document.getElementById('login-password').value=''">✕</button></div>
+      <button class="btn btn-primary" style="width:100%" onclick="login()">Login</button>
+    </div>
+  </div>
+  <header>
+    <a href="/" class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></svg>atom</a>
+    <nav>
+      <a href="#" class="btn btn-ghost" onclick="document.getElementById('about-modal').classList.add('active');return false">About</a>
+      <a href="#" class="btn btn-ghost" onclick="document.getElementById('support-modal').classList.add('active');return false">Support</a>
+      <a href="#signup" id="nav-signup" class="btn btn-outline" onclick="document.getElementById('signup-modal').classList.add('active');return false">Sign up</a>
+      <a href="#login" id="nav-login" class="btn btn-primary" onclick="document.getElementById('login-modal').classList.add('active');return false">Login</a>
+      <a href="#" id="nav-logout" class="btn btn-ghost auth-hidden" onclick="logout();return false">Logout</a>
+    </nav>
+  </header>
+  <div id="toast-container" class="toast-container"></div>
+  <script>const API_URL=window.location.origin+"/public/object-create?table=support",AUTH_URL=window.location.origin+"/auth/signup-username-password",LOGIN_URL=window.location.origin+"/auth/login-password-username";async function submitSupport(){const e=document.getElementById("support-input"),t=e.value.trim();if(!t)return showToast("Please enter a description","error");try{const n=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:t})}),o=await n.json();200===n.status?(showToast(o.message||"Support request submitted","success"),e.value="",document.getElementById("support-modal").classList.remove("active")):showToast(o.message||"Something went wrong","error")}catch(e){showToast("Network error occurred","error")}}async function signup(){const e=document.getElementById("signup-username").value.trim(),t=document.getElementById("signup-password").value.trim();if(!e||!t)return showToast("Please enter username and password","error");try{const n=await fetch(AUTH_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:e,password:t})}),o=await n.json();if(200===n.status){const{token:e}=o.message;localStorage.setItem("token",e),checkAuthState(),document.getElementById("signup-modal").classList.remove("active"),showToast("Signup successful","success")}else showToast(o.message||"Signup failed","error")}catch(e){showToast("Network error occurred","error")}}async function login(){const e=document.getElementById("login-username").value.trim(),t=document.getElementById("login-password").value.trim();if(!e||!t)return showToast("Please enter username and password","error");try{const n=await fetch(LOGIN_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:e,password:t})}),o=await n.json();if(200===n.status&&1===o.status){localStorage.setItem("token",o.message),checkAuthState(),document.getElementById("login-modal").classList.remove("active"),showToast("Login successful","success")}else showToast(o.message||"Login failed","error")}catch(e){showToast("Network error occurred","error")}}function logout(){localStorage.removeItem("token"),checkAuthState(),showToast("Logged out successfully","success")}function checkAuthState(){const e=localStorage.getItem("token"),t=document.getElementById("nav-signup"),n=document.getElementById("nav-login"),o=document.getElementById("nav-logout");e?(t.classList.add("auth-hidden"),n.classList.add("auth-hidden"),o.classList.remove("auth-hidden")):(t.classList.remove("auth-hidden"),n.classList.remove("auth-hidden"),o.classList.add("auth-hidden"))}function showToast(e,t="success"){const n=document.createElement("div");n.className="toast toast-"+t,n.innerHTML='<span></span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;padding:0;display:flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>',n.firstChild.textContent=e;const o=document.getElementById("toast-container");o.appendChild(n),setTimeout((()=>n.remove()),3e3)}document.addEventListener("DOMContentLoaded",checkAuthState);</script>
+</body>
+</html>
