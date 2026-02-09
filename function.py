@@ -317,7 +317,16 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
         if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', str(name)): raise Exception(f"security error: invalid identifier {name}")
         return name
     safe_table = validate_sql_key(table)
-    order, limit, page = obj.get("order", "id desc"), int(obj.get("limit", 100)), int(obj.get("page", 1))
+    order_raw = obj.get("order", "id desc")
+    order_parts = []
+    for part in order_raw.split(","):
+        sub = part.strip().split()
+        if sub:
+            col = validate_sql_key(sub[0])
+            dir_val = sub[1].upper() if len(sub) > 1 and sub[1].lower() in ["asc", "desc"] else "ASC"
+            order_parts.append(f"{col} {dir_val}")
+    order = ", ".join(order_parts)
+    limit, page = int(obj.get("limit", 100)), int(obj.get("page", 1))
     columns_raw = obj.get("column", "*")
     columns = "*" if columns_raw == "*" else ",".join([validate_sql_key(c.strip()) for c in columns_raw.split(",")])
     creator_key, action_key = obj.get("creator_key"), obj.get("action_key")
@@ -334,7 +343,8 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
         if expr.lower().startswith("point,"):
             try:
                 _, rest = expr.split(",", 1); lon, lat, mn, mx = [float(x) for x in rest.split("|")]
-                conditions.append(f"ST_Distance({col_key}, ST_Point({lon}, {lat})::geography) BETWEEN {mn} AND {mx}"); continue
+                conditions.append(f"ST_Distance({col_key}, ST_Point(${idx}, ${idx+1})::geography) BETWEEN ${idx+2} AND ${idx+3}")
+                values.extend([lon, lat, mn, mx]); idx += 4; continue
             except: raise Exception(f"invalid point filter for {col_key}")
         dtype = cache_postgres_column_datatype.get(col_key, "text")
         dt_low = dtype.lower(); is_json, is_arr = "json" in dt_low, ("[]" in dt_low or "array" in dt_low)
@@ -345,7 +355,7 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
         if any(x in dt_low for x in ["text", "char", "varchar"]): avail += list(str_ops.keys())
         if is_arr: avail += ["contains", "overlap", "any"]
         if is_json: avail += ["contains", "exists"]
-        if op not in avail: raise Exception(f"invalid operator '{op}' for column '{col_key}' ({dtype}). available: {', '.join(avail)}")
+        if op not in avail: raise Exception(f"invalid operator '{op}'")
         s_val = None
         if op == "contains":
             if is_json:
@@ -376,7 +386,8 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
             final_op = v_ops.get(op) or str_ops.get(op)
             conditions.append(f"{col_key} {final_op} ${idx}"); values.append(s_val); idx += 1
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    query = f"SELECT {columns} FROM {safe_table} {where} ORDER BY {order} LIMIT {limit} OFFSET {(page - 1) * limit}"
+    query = f"SELECT {columns} FROM {safe_table} {where} ORDER BY {order} LIMIT ${idx} OFFSET ${idx+1}"
+    values.extend([limit, (page - 1) * limit])
     async with client_postgres_pool.acquire() as conn:
         try:
             records = await conn.fetch(query, *values); res_list = [dict(r) for r in records]
