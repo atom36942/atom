@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>atom</title>
-  <style>*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--muted:#a1a1aa;--primary:#f4f4f5;--hover:#27272a}body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}a{color:var(--text);text-decoration:none;transition:color .2s}a:hover{color:var(--muted)}.btn{padding:.5rem 1rem;border-radius:.375rem;font-size:.875rem;font-weight:500;transition:all .2s;border:1px solid transparent}.btn-ghost{background:transparent;border-color:transparent}.btn-ghost:hover{background:var(--hover)}.btn-outline{border-color:var(--border);background:transparent}.btn-outline:hover{background:var(--hover)}.btn-primary{background:var(--primary);color:var(--bg)}.btn-primary:hover{opacity:.9}header{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;border-bottom:1px solid var(--border);background:var(--bg)}.logo{display:flex;align-items:center;gap:.5rem;font-size:1.25rem;font-weight:600}.logo svg{width:1.5rem;height:1.5rem}nav{display:flex;gap:.5rem;align-items:center}.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;place-items:center;z-index:50}.modal.active{display:grid}.modal-content{background:var(--card);border:1px solid var(--border);border-radius:.5rem;padding:1.5rem;max-width:28rem;width:90%;position:relative}.modal-close{position:absolute;top:.75rem;right:.75rem;background:none;border:none;color:var(--muted);cursor:pointer;padding:.25rem}.modal-close:hover{color:var(--text)}.modal h2{font-size:1.25rem;margin-bottom:.75rem}.modal p{color:var(--muted);font-size:.875rem;margin-bottom:.5rem}textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:.375rem;padding:.75rem;color:var(--text);font-family:inherit;min-height:100px;margin-bottom:1rem;resize:vertical}textarea:focus{outline:none;border-color:var(--text)}.toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:100;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}.toast{background:var(--card);border:1px solid var(--border);padding:1rem;border-radius:.5rem;color:var(--text);animation:slideIn .3s ease;pointer-events:auto;min-width:300px;max-width:400px;word-wrap:break-word;display:flex;align-items:center;justify-content:space-between;gap:.5rem}.toast-success{border-color:#22c55e}.toast-error{border-color:#ef4444}@keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}.input-wrapper{position:relative;margin-bottom:1rem}.input-wrapper input{width:100%;background:var(--bg);border:1px solid var(--border);padding:.75rem 2.5rem .75rem 1rem;border-radius:.375rem;color:var(--text);font-size:1rem}.input-wrapper input:focus{outline:none;border-color:var(--text)}.clear-icon{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);display:none;background:none;border:none}.input-wrapper input:not(:placeholder-shown)+.clear-icon{display:block}.input-wrapper input:disabled+.clear-icon{display:none!important}.password-icon{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);background:none;border:none;display:flex}.password-icon:hover{color:var(--text)}.auth-hidden{display:none!important}.btn-lg{padding:.75rem;font-size:1rem}.profile-dropdown{position:relative}.avatar{width:2.5rem;height:2.5rem;border-radius:50%;background:var(--primary);color:var(--bg);border:none;font-weight:600;cursor:pointer;display:grid;place-items:center}.dropdown-menu{position:absolute;top:100%;right:0;margin-top:.5rem;background:var(--card);border:1px solid var(--border);border-radius:.5rem;padding:.5rem;display:none;flex-direction:column;gap:.25rem;width:max-content;z-index:100}.dropdown-menu.active{display:flex}.dropdown-menu a{padding:.5rem 1rem;border-radius:.25rem;text-align:left}.dropdown-menu a:hover{background:var(--hover)}.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}.modal-header h2{margin:0}.switch{position:relative;display:inline-block;width:34px;height:20px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:var(--border);transition:.4s;border-radius:34px}.slider:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background-color:var(--text);transition:.4s;border-radius:50%}input:checked+.slider{background-color:var(--primary)}input:checked+.slider:before{background-color:var(--bg);transform:translateX(14px)}.login-detail-row{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;border-bottom:1px solid var(--border)}.login-detail-row:last-child{border-bottom:none}.login-detail-label{color:var(--muted);font-size:.875rem}.login-detail-value{font-weight:500;display:flex;align-items:center;gap:.5rem}.login-detail-actions{display:flex;gap:.5rem}</style>
+  <style>*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#09090b;--card:#18181b;--border:#27272a;--text:#fafafa;--muted:#a1a1aa;--primary:#f4f4f5;--hover:#27272a;--accent:#3b82f6}body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}a{color:var(--text);text-decoration:none;transition:color .2s}a:hover{color:var(--muted)}.btn{padding:.5rem 1rem;border-radius:.375rem;font-size:.875rem;font-weight:500;transition:all .2s;border:1px solid transparent;cursor:pointer}.btn-ghost{background:transparent;border-color:transparent}.btn-ghost:hover{background:var(--hover)}.btn-outline{border-color:var(--border);background:transparent;color:var(--text)}.btn-outline:hover{background:var(--hover)}.btn-primary{background:var(--primary);color:var(--bg)}.btn-primary:hover{opacity:.9}header{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:90}.logo{display:flex;align-items:center;gap:.5rem;font-size:1.25rem;font-weight:600}.logo svg{width:1.5rem;height:1.5rem}nav{display:flex;gap:.5rem;align-items:center}.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;place-items:center;z-index:100}.modal.active{display:grid}.modal-content{background:var(--card);border:1px solid var(--border);border-radius:.5rem;padding:1.5rem;max-width:28rem;width:90%;position:relative}.modal-close{position:absolute;top:.75rem;right:.75rem;background:none;border:none;color:var(--muted);cursor:pointer;padding:.25rem}.modal-close:hover{color:var(--text)}.modal h2{font-size:1.25rem;margin-bottom:.75rem}.modal p{color:var(--muted);font-size:.875rem;margin-bottom:.5rem}textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:.375rem;padding:.75rem;color:var(--text);font-family:inherit;min-height:100px;margin-bottom:1rem;resize:vertical}textarea:focus{outline:none;border-color:var(--text)}.toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:110;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}.toast{background:var(--card);border:1px solid var(--border);padding:1rem;border-radius:.5rem;color:var(--text);animation:slideIn .3s ease;pointer-events:auto;min-width:300px;max-width:400px;word-wrap:break-word;display:flex;align-items:center;justify-content:space-between;gap:.5rem}.toast-success{border-color:#22c55e}.toast-error{border-color:#ef4444}@keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}.input-wrapper{position:relative;margin-bottom:1rem}.input-wrapper input{width:100%;background:var(--bg);border:1px solid var(--border);padding:.75rem 2.5rem .75rem 1rem;border-radius:.375rem;color:var(--text);font-size:1rem}.input-wrapper input:focus{outline:none;border-color:var(--text)}.clear-icon{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);display:none;background:none;border:none}.input-wrapper input:not(:placeholder-shown)+.clear-icon{display:block}.input-wrapper input:disabled+.clear-icon{display:none!important}.password-icon{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);background:none;border:none;display:flex}.password-icon:hover{color:var(--text)}.auth-hidden{display:none!important}.btn-lg{padding:.75rem;font-size:1rem}.profile-dropdown{position:relative}.avatar{width:2.5rem;height:2.5rem;border-radius:50%;background:var(--primary);color:var(--bg);border:none;font-weight:600;cursor:pointer;display:grid;place-items:center}.dropdown-menu{position:absolute;top:100%;right:0;margin-top:.5rem;background:var(--card);border:1px solid var(--border);border-radius:.5rem;padding:.5rem;display:none;flex-direction:column;gap:.25rem;width:max-content;z-index:100}.dropdown-menu.active{display:flex}.dropdown-menu a{padding:.5rem 1rem;border-radius:.25rem;text-align:left}.dropdown-menu a:hover{background:var(--hover)}.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}.modal-header h2{margin:0}.switch{position:relative;display:inline-block;width:34px;height:20px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:var(--border);transition:.4s;border-radius:34px}.slider:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background-color:var(--text);transition:.4s;border-radius:50%}input:checked+.slider{background-color:var(--primary)}input:checked+.slider:before{background-color:var(--bg);transform:translateX(14px)}.login-detail-row{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;border-bottom:1px solid var(--border)}.login-detail-row:last-child{border-bottom:none}.login-detail-label{color:var(--muted);font-size:.875rem}.login-detail-value{font-weight:500;display:flex;align-items:center;gap:.5rem}.login-detail-actions{display:flex;gap:.5rem}.feed-container{width:100%;max-width:600px;margin:2rem auto;padding:0 1rem;display:flex;flex-direction:column;gap:1.5rem}.feed-card{background:var(--card);border:1px solid var(--border);border-radius:.75rem;overflow:hidden;transition:transform .2s,box-shadow .2s}.feed-card:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.3)}.feed-header{padding:1rem 1.25rem;display:flex;align-items:center;gap:.75rem}.feed-avatar{width:2.75rem;height:2.75rem;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.1rem;text-transform:uppercase}.feed-meta{display:flex;flex-direction:column;gap:.125rem}.feed-author{font-weight:600;font-size:.95rem}.feed-date{color:var(--muted);font-size:.75rem}.feed-body{padding:0 1.25rem 1.25rem}.feed-description{font-size:1rem;line-height:1.6;color:var(--text);margin-bottom:1rem;white-space:pre-wrap}.feed-tags{display:flex;flex-wrap:wrap;gap:.375rem;margin-bottom:1rem}.tag{background:var(--hover);padding:.25rem .5rem;border-radius:.25rem;font-size:.7rem;color:var(--muted)}.feed-actions{display:flex;align-items:center;gap:.25rem;padding-top:.5rem}.feed-action{display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:.375rem;background:transparent;color:var(--muted);border:none;cursor:pointer;transition:all .2s}.feed-action:hover{background:var(--hover);color:var(--text)}.feed-action.like:hover{color:#ef4444}.feed-action.bookmark:hover{color:#eab308}.feed-action.link:hover{color:var(--accent)}.feed-actions-spacer{flex:1}.load-more-wrapper{text-align:center;padding:1rem 0 2rem}</style>
 </head>
 <body>
   <div id="about-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
@@ -49,8 +49,11 @@
       <div class="modal-header">
         <h2>My Profile</h2>
         <div style="display:flex;gap:.5rem;align-items:center">
-          <button id="btn-edit-profile" class="btn btn-primary" style="padding:.25rem .75rem;font-size:.75rem;color:var(--bg);font-weight:700" onclick="toggleEdit()">Edit</button>
-          <button id="btn-save-profile" class="btn btn-primary" style="padding:.25rem .75rem;font-size:.75rem;display:none" onclick="saveProfile()">Save</button>
+          <button class="btn btn-ghost" style="padding:.25rem;color:var(--muted)" onclick="manualRefreshProfile()" title="Refresh Profile">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+          <button id="btn-edit-profile" class="btn btn-outline" style="padding:.25rem .75rem;font-size:.75rem;font-weight:700;color:white;border-color:white" onclick="toggleEdit()">Edit</button>
+          <button id="btn-save-profile" class="btn btn-primary" style="padding:.25rem .75rem;font-size:.75rem;display:none;background-color:#22c55e;border-color:#22c55e" onclick="saveProfile()">Save</button>
           <button class="modal-close" style="position:static" onclick="document.getElementById('profile-view-modal').classList.remove('active')">✕</button>
         </div>
       </div>
@@ -62,7 +65,12 @@
   <div id="login-details-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
     <div class="modal-content">
       <button class="modal-close" onclick="document.getElementById('login-details-modal').classList.remove('active')">✕</button>
-      <h2>Login Details</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h2 style="margin:0">Login Details</h2>
+        <button class="btn btn-ghost" style="padding:.25rem;color:var(--muted);margin-right:2rem" onclick="manualRefreshLoginDetails()" title="Refresh">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
       <div id="login-details-container"></div>
     </div>
   </div>
@@ -88,6 +96,16 @@
       </div>
     </div>
   </div>
+  <div id="create-post-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content">
+      <button class="modal-close" onclick="this.closest('.modal').classList.remove('active')">&times;</button>
+      <h2>Create Post</h2>
+      <div class="input-wrapper"><textarea id="post-description" placeholder="What's on your mind?" style="min-height:120px"></textarea></div>
+      <div class="input-wrapper"><input type="text" id="post-tags" placeholder="Tags (comma separated)"><button class="clear-icon" onclick="this.previousElementSibling.value='';this.style.display='none'">&times;</button></div>
+      <div class="input-wrapper"><input type="url" id="post-link" placeholder="Link URL (optional)"><button class="clear-icon" onclick="this.previousElementSibling.value='';this.style.display='none'">&times;</button></div>
+      <button class="btn btn-primary" style="width:100%" onclick="createPost()">Post</button>
+    </div>
+  </div>
   <header>
     <a href="/" class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></svg>atom</a>
     <nav>
@@ -95,6 +113,7 @@
       <a href="#" class="btn btn-ghost" onclick="document.getElementById('support-modal').classList.add('active');return false">Support</a>
       <a href="#signup" id="nav-signup" class="btn btn-outline" onclick="document.getElementById('signup-modal').classList.add('active');return false">Sign up</a>
       <a href="#login" id="nav-login" class="btn btn-primary" onclick="document.getElementById('login-modal').classList.add('active');return false">Login</a>
+      <a href="#" id="nav-create-post" class="btn btn-primary auth-hidden" onclick="document.getElementById('create-post-modal').classList.add('active');return false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:.25rem"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Post</a>
       <div id="nav-profile" class="profile-dropdown auth-hidden">
         <button id="avatar" class="avatar" onclick="document.getElementById('profile-menu').classList.toggle('active')"></button>
         <div id="profile-menu" class="dropdown-menu">
@@ -107,6 +126,8 @@
     </nav>
   </header>
   <div id="toast-container" class="toast-container"></div>
+  <div id="feed-container" class="feed-container"></div>
+  <div class="load-more-wrapper"><button id="load-more-btn" class="btn btn-outline" onclick="loadMoreFeed()" style="display:none">Load More</button></div>
 <script>
 const API_URL=window.location.origin+"/public/object-create?table=support",
       AUTH_URL=window.location.origin+"/auth/signup-username-password",
@@ -114,7 +135,12 @@ const API_URL=window.location.origin+"/public/object-create?table=support",
       PROFILE_URL=window.location.origin+"/my/profile",
       UPDATE_PROFILE_URL=window.location.origin+"/my/object-update?table=users",
       DELETE_ACCOUNT_URL=window.location.origin+"/my/account-delete?mode=hard",
+      FEED_URL=window.location.origin+"/public/object-read?table=post",
+      CREATE_POST_URL=window.location.origin+"/my/object-create?table=post",
       SHOW_JOINED_DATE=false;
+
+let feedPage = 1;
+let isLoadingFeed = false;
 
 async function submitSupport(){
   const e=document.getElementById("support-input"),t=e.value.trim();
@@ -124,7 +150,13 @@ async function submitSupport(){
   if(token) headers["Authorization"] = "Bearer " + token;
   try{
     const n=await fetch(API_URL,{method:"POST",headers:headers,body:JSON.stringify({description:t})}),o=await n.json();
-    200===n.status?(showToast(o.message||"Support request submitted","success"),e.value="",document.getElementById("support-modal").classList.remove("active")):showToast(o.message||"Something went wrong","error")
+    if(n.status===200){
+        showToast("Support ticket created","success");
+        e.value="";
+        document.getElementById("support-modal").classList.remove("active");
+        return;
+    }
+    showToast(o.message||"Something went wrong","error");
   }catch(e){showToast("Network error occurred","error")}
 }
 
@@ -133,10 +165,12 @@ async function signup(){
   if(!e||!t)return showToast("Please enter username and password","error");
   try{
     const n=await fetch(AUTH_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:e,password:t})}),o=await n.json();
-    if(200===n.status){
+    if(n.status===200){
       const{token:e}=o.message;
-      localStorage.setItem("token",e),await fetchProfile(),checkAuthState(),document.getElementById("signup-modal").classList.remove("active"),showToast("Signup successful","success")
-    }else showToast(o.message||"Signup failed","error")
+      localStorage.setItem("token",e),await fetchProfile(),checkAuthState(),document.getElementById("signup-modal").classList.remove("active"),showToast("Signup successful","success");
+      return;
+    }
+    showToast(o.message||"Signup failed","error");
   }catch(e){showToast("Network error occurred","error")}
 }
 
@@ -145,9 +179,11 @@ async function login(){
   if(!e||!t)return showToast("Please enter username and password","error");
   try{
     const n=await fetch(LOGIN_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:e,password:t})}),o=await n.json();
-    if(200===n.status&&1===o.status){
-      localStorage.setItem("token",o.message),await fetchProfile(),checkAuthState(),document.getElementById("login-modal").classList.remove("active"),showToast("Login successful","success")
-    }else showToast(o.message||"Login failed","error")
+    if(n.status===200){
+      localStorage.setItem("token",o.message),await fetchProfile(),checkAuthState(),document.getElementById("login-modal").classList.remove("active"),showToast("Login successful","success");
+      return;
+    }
+    showToast(o.message||"Login failed","error");
   }catch(e){showToast("Network error occurred","error")}
 }
 
@@ -156,20 +192,73 @@ async function fetchProfile(){
     if(!t)return;
     try{
         const n=await fetch(PROFILE_URL,{headers:{"Authorization":"Bearer "+t}}),o=await n.json();
-        200===n.status&&1===o.status&&localStorage.setItem("user",JSON.stringify(o.message))
+        if(n.status===200) {
+            localStorage.setItem("user",JSON.stringify(o.message));
+            return;
+        }
+        showToast(o.message||"Failed to fetch profile","error");
     }catch(e){console.error(e)}
+}
+
+async function manualRefreshProfile(){
+    await fetchProfile();
+    viewProfile();
+    showToast("Profile data refreshed", "success");
+}
+
+async function manualRefreshLoginDetails(){
+    await fetchProfile();
+    viewLoginDetails();
+    showToast("Login details refreshed", "success");
 }
 
 function logout(){localStorage.removeItem("token"),localStorage.removeItem("user"),checkAuthState(),document.getElementById("logout-confirmation-modal").classList.remove("active"),showToast("Logged out successfully","success")}
 
+async function createPost(){
+    const desc = document.getElementById("post-description").value.trim();
+    const tagsInput = document.getElementById("post-tags").value.trim();
+    const link = document.getElementById("post-link").value.trim();
+    
+    if(!desc) return showToast("Please enter a description", "error");
+    
+    const token = localStorage.getItem("token");
+    if(!token) return showToast("Please login first", "error");
+    
+    const payload = { description: desc };
+    if(tagsInput) payload.tag = tagsInput.split(',').map(t => t.trim()).filter(t => t);
+    if(link) payload.link_url = link;
+    
+    try {
+        const r = await fetch(CREATE_POST_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+            body: JSON.stringify(payload)
+        });
+        const res = await r.json();
+        if(r.status === 200){
+            showToast("Post created successfully", "success");
+            document.getElementById("post-description").value = "";
+            document.getElementById("post-tags").value = "";
+            document.getElementById("post-link").value = "";
+            document.getElementById("create-post-modal").classList.remove("active");
+            feedPage = 1;
+            fetchFeed();
+        } else {
+            showToast(res.message || "Failed to create post", "error");
+        }
+    } catch(e) {
+        showToast("Network error occurred", "error");
+    }
+}
+
 function checkAuthState(){
-  const e=localStorage.getItem("token"),t=document.getElementById("nav-signup"),n=document.getElementById("nav-login"),o=document.getElementById("nav-profile");
+  const e=localStorage.getItem("token"),t=document.getElementById("nav-signup"),n=document.getElementById("nav-login"),o=document.getElementById("nav-profile"),p=document.getElementById("nav-create-post");
   if(e){
-    t.classList.add("auth-hidden"),n.classList.add("auth-hidden"),o.classList.remove("auth-hidden");
+    t.classList.add("auth-hidden"),n.classList.add("auth-hidden"),o.classList.remove("auth-hidden"),p.classList.remove("auth-hidden");
     const u=JSON.parse(localStorage.getItem("user"));
     u&&(document.getElementById("avatar").textContent=u.username.charAt(0).toUpperCase())
   }else{
-    t.classList.remove("auth-hidden"),n.classList.remove("auth-hidden"),o.classList.add("auth-hidden")
+    t.classList.remove("auth-hidden"),n.classList.remove("auth-hidden"),o.classList.add("auth-hidden"),p.classList.add("auth-hidden")
   }
 }
 
@@ -187,7 +276,139 @@ document.addEventListener("DOMContentLoaded",()=>{
         const m=document.getElementById("profile-menu");
         if(!e.target.closest("#nav-profile")) m.classList.remove("active");
     });
+    fetchFeed();
 });
+
+async function fetchFeed(){
+    if(isLoadingFeed) return;
+    isLoadingFeed = true;
+    const btn = document.getElementById("load-more-btn");
+    
+    if(feedPage === 1) {
+        document.getElementById("feed-container").innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Loading feed...</div>';
+    } else {
+        btn.textContent = "Loading...";
+        btn.style.display = "inline-block";
+    }
+    
+    try {
+        const u = JSON.parse(localStorage.getItem("user"));
+        let url = `${FEED_URL}&limit=30&page=${feedPage}&creator_key=username`;
+        // if(u && u.username) url += `&creator_key=${u.username}`; <-- removed per user request
+        
+        console.log("Fetching Feed URL:", url);
+        const r = await fetch(url);
+        const res = await r.json();
+        console.log("Feed API Response:", res);
+        
+        if(r.status === 200){
+            // Handle different response structures
+            let posts = [];
+            if(Array.isArray(res)) posts = res;
+            else if(Array.isArray(res.message)) posts = res.message;
+            else if(Array.isArray(res.data)) posts = res.data;
+            else if(res.status === 1 && Array.isArray(res.message)) posts = res.message;
+            
+            console.log("Feed Posts:", posts);
+            renderFeed(posts);
+            if(posts.length === 30){
+                feedPage++;
+                btn.style.display = "inline-block";
+                btn.textContent = "Load More";
+            } else {
+                btn.style.display = "none";
+            }
+        } else {
+            console.error("Feed fetch failed", res);
+            btn.style.display = "none";
+            if(feedPage === 1) document.getElementById("feed-container").innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Failed to load posts</div>';
+        }
+    } catch(e) {
+        console.error("Feed Error Details:", e.message, e.stack);
+        btn.textContent = "Error loading feed";
+        if(feedPage === 1) document.getElementById("feed-container").innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Error: ' + e.message + '</div>';
+    } finally {
+        isLoadingFeed = false;
+    }
+}
+
+function renderFeed(posts){
+    const c = document.getElementById("feed-container");
+    console.log("Rendering feed with posts:", posts.length);
+    
+    if(posts.length === 0 && feedPage === 1) {
+        c.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">No posts found</div>';
+        return;
+    }
+    
+    const html = posts.map(p => {
+        const initial = p.creator_username ? p.creator_username.charAt(0).toUpperCase() : "?";
+        const date = calculateTimeAgo(p.created_at);
+        
+        // Handle tags - could be string, array, or null
+        let tags = '';
+        if(p.tag) {
+            if(typeof p.tag === 'string') {
+                tags = p.tag.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('');
+            } else if(Array.isArray(p.tag)) {
+                tags = p.tag.map(t => `<span class="tag">${t}</span>`).join('');
+            }
+        }
+        
+        const link = p.link_url ? `<a href="${p.link_url}" target="_blank" rel="noopener" class="feed-action link" title="${p.link_url}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>` : '';
+        
+        return `
+        <div class="feed-card">
+            <div class="feed-header">
+                <div class="feed-avatar">${initial}</div>
+                <div class="feed-meta">
+                    <span class="feed-author">${p.creator_username || 'Unknown'}</span>
+                    <span class="feed-date">${date}</span>
+                </div>
+            </div>
+            <div class="feed-body">
+                ${p.description ? `<div class="feed-description">${p.description}</div>` : ''}
+                ${tags ? `<div class="feed-tags">${tags}</div>` : ''}
+                <div class="feed-actions">
+                    <button class="feed-action like" title="Like"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+                    <button class="feed-action comment" title="Comment"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
+                    <button class="feed-action bookmark" title="Bookmark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
+                    <div class="feed-actions-spacer"></div>
+                    ${link}
+                    <button class="feed-action report" title="Report"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></button>
+                </div>
+            </div>
+        </div>
+        `;
+    }).join("");
+    
+    if(feedPage === 1) c.innerHTML = html;
+    else c.insertAdjacentHTML('beforeend', html);
+}
+
+function loadMoreFeed(){
+    fetchFeed();
+}
+
+function calculateTimeAgo(dateString) {
+    if(!dateString) return "";
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + "y ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + "m ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + "d ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + "h ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + "min ago";
+    
+    return "Just now";
+}
 
 function calculateDaysJoined(d){
     if(!d)return 0;
@@ -229,9 +450,12 @@ async function saveProfile(){
     const u=JSON.parse(localStorage.getItem("user")),t=localStorage.getItem("token");
     if(!u||!t)return;
     
+    const nameVal = document.getElementById("profile-name").value.trim();
+    const countryVal = document.getElementById("profile-country").value.trim();
+    
     const inputData = {
-        name: document.getElementById("profile-name").value.trim(),
-        country: document.getElementById("profile-country").value.trim()
+        name: nameVal === "" ? null : nameVal,
+        country: countryVal === "" ? null : countryVal
     };
     
     // Construct payload with only changed fields plus ID
@@ -246,21 +470,26 @@ async function saveProfile(){
     }
     
     if (!hasChanges) {
-        return showToast("No changes to save", "info");
+        showToast("No changes to save", "info");
+        viewProfile(); // Revert to view mode
+        return;
     }
     
     try{
         const r=await fetch(UPDATE_PROFILE_URL,{method:"PUT",headers:{"Authorization":"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(upd)});
         const res=await r.json();
-        if(r.status===200&&res.status===1){
+        if(r.status===200){
             // Manually update localStorage user object
             const newUser = { ...u, ...upd };
             localStorage.setItem("user", JSON.stringify(newUser));
             
-            await fetchProfile(); // Ensure latest data from server (optional but good for syncing other fields)
-            showToast("Profile updated","success");
+
+            
+            showToast(res.message||"Profile updated","success");
             viewProfile(); // Refresh modal data and keep open
-        }else showToast(res.message||"Update failed","error");
+            return;
+        }
+        showToast(res.message||"Update failed","error");
     }catch(e){showToast("Network error","error")}
 }
 
@@ -269,9 +498,7 @@ function viewLoginDetails() {
     if (!u) return;
     const fields = [
         { key: "username", label: "Username", val: u.username || "" },
-        { key: "password", label: "Password", val: "********", isPassword: true },
-        { key: "email", label: "Email", val: u.email || "" },
-        { key: "mobile", label: "Mobile", val: u.mobile || "" }
+        { key: "password", label: "Password", val: "********", isPassword: true }
     ];
     
     const container = document.getElementById("login-details-container");
@@ -280,7 +507,7 @@ function viewLoginDetails() {
             <div class="login-detail-label">${f.label}</div>
             <div class="login-detail-value" id="view-${f.key}">
                 <span id="txt-${f.key}">${f.val}</span>
-                <button class="btn btn-ghost" style="padding:0.25rem 0.5rem" onclick="toggleEditLoginDetail('${f.key}')">
+                <button class="btn btn-ghost" style="padding:0.25rem 0.5rem;color:var(--muted)" onclick="toggleEditLoginDetail('${f.key}')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
             </div>
@@ -310,12 +537,12 @@ function toggleEditLoginDetail(key, showEdit = true) {
 
 async function saveLoginDetail(key) {
     const val = document.getElementById(`input-${key}`).value.trim();
-    if (!val && key !== 'email' && key !== 'mobile') return showToast(`${key} cannot be empty`, "error");
+    if (!val && (key === 'username' || key === 'password')) return showToast(`${key} cannot be empty`, "error");
     
     const u = JSON.parse(localStorage.getItem("user")), t = localStorage.getItem("token");
     if (!u || !t) return;
     
-    const payload = { id: u.id, [key]: val };
+    const payload = { id: u.id, [key]: val === "" ? null : val };
     const url = key === 'password' ? `${UPDATE_PROFILE_URL}&is_serialize=1` : UPDATE_PROFILE_URL;
     
     try {
@@ -325,19 +552,18 @@ async function saveLoginDetail(key) {
             body: JSON.stringify(payload)
         });
         const res = await r.json();
-        if (r.status === 200 && res.status === 1) {
+        if (r.status === 200) {
             // Manually update localStorage user object
             if (key !== "password") {
                 const newUser = { ...u, [key]: val };
                 localStorage.setItem("user", JSON.stringify(newUser));
             }
 
-            if (key !== "password") await fetchProfile();
-            showToast(`${key} updated successfully`, "success");
+            showToast(res.message||`${key} updated successfully`, "success");
             viewLoginDetails();
-        } else {
-            showToast(res.message || "Update failed", "error");
+            return;
         }
+        showToast(res.message || "Update failed", "error");
     } catch (e) {
         showToast("Network error", "error");
     }
@@ -349,11 +575,13 @@ async function deleteAccount(){
     try{
         const r=await fetch(DELETE_ACCOUNT_URL,{method:"DELETE",headers:{"Authorization":"Bearer "+t}});
         const res=await r.json();
-        if(r.status===200&&res.status===1){
+        if(r.status===200){
             document.getElementById("delete-account-modal").classList.remove("active");
-            showToast("Account deleted successfully","success");
+            showToast(res.message||"Account deleted successfully","success");
             logout();
-        }else showToast(res.message||"Delete failed","error");
+            return;
+        }
+        showToast(res.message||"Delete failed","error");
     }catch(e){showToast("Network error","error")}
 }
 

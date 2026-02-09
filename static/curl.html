@@ -126,6 +126,8 @@ const COMMANDS=[
 {p:"/public/object-read-gsheet",m:"GET",h:[],q:[{k:"url",v:"test"}],f:[],j:[]},
 {p:"/public/object-create-gsheet",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[{k:"url",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"public",t:"string"}]},
 {p:"/public/converter-number",m:"GET",h:[],q:[{k:"datatype",v:"int"},{k:"mode",v:"encode"},{k:"x",v:"test"}],f:[],j:[]},
+{p:"/public/person-intel",m:"GET",h:[],q:[{k:"q",v:"dipankar arhat backend developer"}],f:[],j:[]},
+{p:"/public/table-tag-read",m:"GET",h:[],q:[{k:"table",v:"test"},{k:"column",v:"tag"}],f:[],j:[]},
 {p:"/private/s3-upload-file",m:"POST",h:[{k:"Authorization",v:"123"}],q:[],f:[{k:"bucket",v:"test"},{k:"file",v:"@file1"},{k:"key",v:"test1.png"}],j:[]},
 {p:"/private/s3-upload-presigned",m:"GET",h:[{k:"Authorization",v:"123"}],q:[{k:"bucket",v:"test"},{k:"key",v:"test"}],f:[],j:[]},
 {p:"/admin/object-create",m:"POST",h:[{k:"Authorization",v:"123"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"admin",t:"string"}]},

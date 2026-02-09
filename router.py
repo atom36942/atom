@@ -363,8 +363,9 @@ async def func_api_5aa65182abea4af6bd266efc05ac611f(request:Request,q:str):
     return {"status":1,"message":output}
  
 @router.get("/public/table-tag-read")
-async def func_api_3f7b9c2a4e1d4a0b8c6e5f9d1a2b7c3e(request:Request,table:str,column:str="tag",limit:int=100):
-    output=await func_table_tag_read(table,column,limit,request.app.state.client_postgres_pool)
+async def func_api_3f7b9c2a4e1d4a0b8c6e5f9d1a2b7c3e(request:Request,table:str,column:str,filter_col:str=None,filter_val:str=None,limit:int=None,page:int=None):
+    obj_list=await func_postgres_obj_serialize(request.app.state.cache_postgres_column_datatype,[{filter_col:filter_val}])
+    output=await func_table_tag_read(request.app.state.client_postgres_pool,table,column,filter_col,obj_list[0][filter_col],limit,page)
     return {"status":1,"message":output}
 
 #private

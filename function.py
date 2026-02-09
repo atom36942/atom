@@ -1,8 +1,19 @@
-async def func_table_tag_read(table,column,limit,pool):
-    q=f"SELECT t, count(*) FROM {table}, unnest({column}) t GROUP BY t ORDER BY count(*) DESC LIMIT {limit}"
-    async with pool.acquire() as conn:
-        rows=await conn.fetch(q)
-    return [{"tag":r["t"],"count":r["count"]} for r in rows]
+import re
+async def func_table_tag_read(client_postgres_pool,table,column,filter_col=None,filter_val=None,limit=None,page=None):
+    if not limit:limit=100
+    if not page:page=1
+    rx=re.compile(r"^[a-z_][a-z0-9_]*$")
+    if not rx.match(table):raise Exception("bad table")
+    if not rx.match(column):raise Exception("bad column")
+    if filter_col and not rx.match(filter_col):raise Exception("bad filter")
+    limit=min(max(int(limit),1),500);page=max(int(page),1)
+    where="";args=[]
+    if filter_col and filter_val is not None:
+        where=f"WHERE x.{filter_col}=$1";args=[filter_val]
+    q=f"SELECT t,count(*) FROM {table} x CROSS JOIN LATERAL unnest(x.{column}) t {where} GROUP BY t ORDER BY count(*) DESC LIMIT {limit} OFFSET {(page-1)*limit}"
+    async with client_postgres_pool.acquire() as conn:
+        rows=await conn.fetch(q,*args)
+    return [{"tag":r['t'],"count":r['count']} for r in rows]
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -288,6 +299,8 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
     obj={"id":"in,1|2|3|4"}
     obj={"title":"ilike,%search%"}
     obj={"status":"is,null"}
+    obj={"id":"is distinct from,1"}
+    obj={"id":"is not distinct from,null"}
     obj={"age":"between,18|35"}
     obj={"tag":"contains,python"}
     obj={"tag":"overlap,python|sql"}
@@ -314,7 +327,7 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
         res = await func_postgres_obj_serialize({col: datatype}, [{col: val}])
         return res[0][col]
     conditions, values, idx = [], [], 1
-    v_ops = {"=": "=", "==": "=", "!=": "!=", "<>": "<>", ">": ">", "<": "<", ">=": ">=", "<=": "<=", "is": "IS", "is not": "IS NOT", "in": "IN", "not in": "NOT IN", "between": "BETWEEN"}
+    v_ops = {"=": "=", "==": "=", "!=": "!=", "<>": "<>", ">": ">", "<": "<", ">=": ">=", "<=": "<=", "is": "IS", "is not": "IS NOT", "in": "IN", "not in": "NOT IN", "between": "BETWEEN", "is distinct from": "IS DISTINCT FROM", "is not distinct from": "IS NOT DISTINCT FROM"}
     str_ops = {"like": "LIKE", "ilike": "ILIKE", "~": "~", "~*": "~*"}
     for col_key, expr in filters.items():
         validate_sql_key(col_key)
@@ -350,7 +363,7 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
         elif op == "any": s_val = await _serialize_single(col_key, raw_val, base_type)
         else: s_val = await _serialize_single(col_key, raw_val, dtype)
         if s_val is None:
-            if op not in ["is", "is not"]: raise Exception(f"null requires is/is not for {col_key}")
+            if op not in ["is", "is not", "is distinct from", "is not distinct from"]: raise Exception(f"null requires is/distinct for {col_key}")
             conditions.append(f"{col_key} {v_ops[op]} NULL")
         elif op == "contains": values.append(s_val); conditions.append(f"{col_key} @> ${idx}{'::jsonb' if is_json else ''}"); idx += 1
         elif op == "exists": values.append(s_val); conditions.append(f"{col_key} ? ${idx}"); idx += 1

@@ -120,7 +120,7 @@ config_sql={
 
 config_table={
 "test":{"buffer":3},
-"log_api":{"retention_day":30,"buffer":3},
+"log_api":{"retention_day":30,"buffer":10},
 "log_password":{"retention_day":90},
 "otp":{"retention_day":365},
 }

@@ -56,7 +56,7 @@ curl -X GET "$baseurl/public/object-read?table=test"
 0 curl -X GET "$baseurl/public/object-read-gsheet?url=test"
 0 curl -X POST "$baseurl/public/jira-worklog-export" -H "Content-Type: application/json" -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test","start_date":"test","end_date":"test"}'
 0 curl -X GET "$baseurl/public/person-intel?q=dipankar+arhat+backend+developer"
-curl -X GET "$baseurl/public/table-tag-read?table=test&limit=5"
+curl -X GET "$baseurl/public/table-tag-read?table=test&column=tag"
 
 #private
 0 curl -X POST "$baseurl/private/s3-upload-file" -H "Authorization: Bearer $token" -F "bucket=test" -F "file=@file1" -F "file=@file2" -F "key=test1.png,test2.csv"
@@ -111,6 +111,7 @@ curl -X GET "$baseurl/public/object-read?table=test&creator_key=username,email"
 curl -X GET "$baseurl/public/object-read?table=test&action_key=report_test,test_id,count,id"
 curl -X GET "$baseurl/public/object-read?table=test&id=>,100"
 curl -X GET "$baseurl/public/object-read?table=test&id=!=,5"
+curl -X GET "$baseurl/public/object-read?table=test&is_active=is%20distinct%20from,0"
 curl -X GET "$baseurl/public/object-read?table=test&id=in,1|2|3|4"
 curl -X GET "$baseurl/public/object-read?table=test&title=ilike,%python%"
 curl -X GET "$baseurl/public/object-read?table=test&title=is,null"
@@ -135,3 +136,4 @@ curl -X POST "$baseurl/admin/object-create?table=test&queue=redis" -H "Authoriza
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=celery" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=rabbitmq" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
 curl -X PUT "$baseurl/admin/object-update?table=test&queue=redis" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"id":1,"title":"test"}'
+curl -X GET "$baseurl/public/table-tag-read?table=test&column=tag&filter_col=type&filter_val=1&limit=10&page=1"
