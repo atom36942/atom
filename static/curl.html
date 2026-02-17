@@ -9,8 +9,8 @@ body{margin:0;background:var(--bg);color:#e6eef3;font-family:Inter,system-ui;lin
 .card{background:var(--card);border-radius:12px;padding:28px;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.05)}
 h1{margin:0 0 24px 0;font-size:22px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
 .custom-select-wrapper{position:relative;display:flex;align-items:center;margin-bottom:28px}
-#apiInput{width:100%;padding:12px 40px 12px 16px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#1a1d23;color:#e6eef3;box-sizing:border-box}
-#apiInput:focus{outline:none;border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0}
+#apiIn{width:100%;padding:12px 40px 12px 16px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#1a1d23;color:#e6eef3;box-sizing:border-box}
+#apiIn:focus{outline:none;border-color:var(--accent)}
 .clear-api-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:0 0;border:none;color:var(--muted);font-size:20px;cursor:pointer;display:none}
 .api-dropdown{position:absolute;top:100%;left:0;right:0;z-index:1000;list-style:none;padding:0;margin:0;background:#1a1d23;border:1px solid var(--accent);border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;max-height:250px;overflow-y:auto;display:none}
 .api-dropdown.show{display:block}.api-dropdown li{padding:10px 16px;font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -26,42 +26,32 @@ form{display:flex;flex-direction:column;gap:24px}
 input,select{width:100%;padding:12px 36px 12px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:#14171c;color:#e6eef3;box-sizing:border-box}
 input:focus,select:focus{outline:none;border-color:var(--accent)}
 .row-key{flex:0 0 140px}.row-val{flex:1}
-.input-wrapper .row-val{width:100%}
-
-.json-type-selector{
-    flex:0 0 120px;
-    padding:12px 32px 12px 14px;
-    appearance:none;
-    -webkit-appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;
-    background-position:right 12px center;
-    width:auto;
-    cursor:pointer
-}
-
+.json-type-selector{flex:0 0 120px;padding:12px 32px 12px 14px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:auto;cursor:pointer}
 .remove-btn{background:var(--delete);color:#fff;border:none;width:36px;height:36px;flex:0 0 36px;border-radius:8px;cursor:pointer}
 .footer-row{display:flex;gap:16px;margin-top:12px}.btn{padding:14px 24px;flex:1;font-size:15px;font-weight:600;border-radius:8px;border:none;cursor:pointer;height:48px}
 .btn-primary{background:var(--primary);color:var(--primary-text)}.btn-secondary{background:var(--secondary);color:var(--secondary-text)}
 .resp-box{background:#14171c;border-radius:10px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden;max-height:500px;flex-direction:column}
 .resp-box.show{display:flex}.resp-header{padding:16px 20px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;font-size:13px;color:var(--accent);text-transform:uppercase}
 .resp-content{overflow-y:auto}table{width:100%;border-collapse:collapse}
-
-/* FIXED: vertical-align top keeps the Copy button at the top even for long messages */
 td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;vertical-align:top}
-
-.key{color:var(--muted);width:140px;font-weight:600;}
-
-/* FIXED: Changed font-family to Inter to match main UI */
-.val{word-break:break-all;font-family:Inter,system-ui}
-
+.key{color:var(--muted);width:140px;font-weight:600;}.val{word-break:break-all;font-family:Inter,system-ui}
 .copy-btn{background:#2a3642;color:#ccc;border:none;padding:8px 14px;border-radius:6px;cursor:pointer}
 .section-group{display:none}.section-group.active{display:block}
+.modal{display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(4px)}
+.modal-content{background:var(--card);margin:5% auto;padding:24px;width:90%;max-width:600px;border-radius:12px;border:1px solid rgba(255,255,255,.1)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-actions{display:flex;gap:12px;align-items:center}
+#lsList{max-height:400px;overflow-y:auto;margin-bottom:20px;display:flex;flex-direction:column;gap:12px}
+#lsBtn{background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:10px}
+.icon-btn{background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.icon-btn:hover{color:#fff}
+.icon-btn.delete:hover{color:var(--delete)}
+.icon-btn.save:hover{color:var(--primary)}
 </style>
 </head>
 <body>
 <div class="container"><div class="card">
-<h1>Curl Requester <span id="apiCount" style="font-size:14px;color:var(--muted)"></span></h1>
+<h1>Curl Requester <div><span id="apiCount" style="font-size:14px;color:var(--muted)"></span><button type="button" id="lsBtn">LocalStorage</button></div></h1>
 <div class="custom-select-wrapper" id="selW">
     <input type="text" id="apiIn" placeholder="Search" autocomplete="off">
     <button type="button" id="clrSel" class="clear-api-btn">×</button>
@@ -76,6 +66,26 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
 </form>
 <div class="resp-box" id="rBox"><div class="resp-header">Response</div><div class="resp-content"><table id="rTab"></table></div></div>
 </div></div>
+
+<div id="lsModal" class="modal"><div class="modal-content">
+    <div class="modal-header">
+        <h3>LocalStorage Manager</h3>
+        <div class="modal-actions">
+            <button type="button" class="icon-btn save" title="Save All" onclick="saveLs()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            </button>
+            <button type="button" class="icon-btn delete" title="Reset All" onclick="if(confirm('Reset all?')){localStorage.clear();renderLs()}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m-6 9 2 2 4-4"/></svg>
+            </button>
+            <button type="button" class="icon-btn" title="Close" onclick="$('lsModal').style.display='none'">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+    </div>
+    <div class="section-label" style="margin-bottom:12px">Add <button type="button" onclick="addLsRow()" class="add-btn-small">+</button></div>
+    <div id="lsList"></div>
+</div></div>
+
 <script>
 const COMMANDS=[
 {p:"/",m:"GET",h:[],q:[],f:[],j:[]},
@@ -141,35 +151,66 @@ let curr=null;
 const db=(f,t)=>{let o;return(...a)=>{clearTimeout(o);o=setTimeout(()=>f(...a),t)}};
 const pop=cs=>{if(!cs.length)return $("apiDrop").classList.remove("show");$("apiDrop").innerHTML=cs.map(c=>`<li data-i="${c.oi}">${c.p}</li>`).join('');$("apiDrop").classList.add("show")};
 $("apiCount").textContent = `${COMMANDS.length} curls`;
+
 const row=(ct,k="",v="",t="string")=>{
     const r=d.createElement("div");r.className="input-row";
     let vi=ct===$("jCont")?`<div class="input-wrapper"><input type="text" class="row-val" value="${v}"><button type="button" class="clear-input-btn">×</button></div><select class="json-type-selector">${['string','number','boolean','null','array','object'].map(x=>`<option value="${x}" ${t===x?"selected":""}>${x}</option>`).join('')}</select>`:(ct===$("fCont")&&v.startsWith("@")?`<div class="input-wrapper"><input type="file" class="row-val"><button type="button" class="clear-input-btn">×</button></div>`:`<div class="input-wrapper"><input type="text" class="row-val" value="${v}"><button type="button" class="clear-input-btn">×</button></div>`);
     r.innerHTML=`<input type="text" class="row-key" value="${k}">${vi}<button type="button" class="remove-btn">×</button>`;
     r.querySelector(".remove-btn").onclick=()=>r.remove();
-    const valInput=r.querySelector(".row-val");
-    const clearBtn=r.querySelector(".clear-input-btn");
-    if(clearBtn&&valInput){
-        const updateClearBtn=()=>{clearBtn.style.display=valInput.value?"block":"none"};
-        updateClearBtn();
-        valInput.oninput=updateClearBtn;
-        clearBtn.onclick=(e)=>{e.stopPropagation();valInput.value="";updateClearBtn();valInput.focus()};
-    }
+    const valInput=r.querySelector(".row-val"), clearBtn=r.querySelector(".clear-input-btn");
+    if(clearBtn&&valInput){const upd=()=>{clearBtn.style.display=valInput.value?"block":"none"};upd();valInput.oninput=upd;clearBtn.onclick=(e)=>{e.stopPropagation();valInput.value="";upd();valInput.focus()}}
     ct.appendChild(r)
 };
+
 const load=i=>{
     curr=i===null?null:COMMANDS[i];[hCont,qCont,fCont,jCont].forEach(c=>c.innerHTML="");[hSec,qSec,fSec,jSec].forEach(s=>s.classList.remove("active"));$("rBox").classList.remove("show");
     if(!curr){$("apiIn").value="";$("clrSel").style.display="none";return}
-    if(curr.h.length){hSec.classList.add("active");curr.h.forEach(x=>row(hCont,x.k,x.v))}
+    if(curr.h.length){
+        hSec.classList.add("active");
+        curr.h.forEach(x=>{
+            let val = x.v;
+            if(x.k.toLowerCase() === "authorization") {
+                const lsKey = curr.p.startsWith("/root") ? "token_root" : "token";
+                val = localStorage.getItem(lsKey) || x.v;
+            }
+            row(hCont,x.k,val);
+        });
+    }
     qSec.classList.add("active");curr.q.forEach(x=>row(qCont,x.k,x.v));
     if(curr.f.length){fSec.classList.add("active");curr.f.forEach(x=>row(fCont,x.k,x.v))}
     if(curr.j.length){jSec.classList.add("active");curr.j.forEach(x=>row(jCont,x.k,x.v,x.t))}
     $("clrSel").style.display="block"
 };
+
+const renderLs=()=>{
+    $("lsList").innerHTML="";
+    Object.keys(localStorage).forEach(k=>addLsRow(k,localStorage.getItem(k)));
+};
+
+const addLsRow=(k="",v="")=>{
+    const r=d.createElement("div");r.className="input-row";
+    r.innerHTML=`<input type="text" class="row-key ls-k" value="${k}" placeholder="Key"><div class="input-wrapper"><input type="text" class="row-val ls-v" value="${v}" placeholder="Value"><button type="button" class="clear-input-btn">×</button></div><button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>`;
+    const valInput=r.querySelector(".row-val"), clearBtn=r.querySelector(".clear-input-btn");
+    if(clearBtn&&valInput){const upd=()=>{clearBtn.style.display=valInput.value?"block":"none"};upd();valInput.oninput=upd;clearBtn.onclick=(e)=>{e.stopPropagation();valInput.value="";upd();valInput.focus()};upd()}
+    $("lsList").appendChild(r);
+};
+
+const saveLs=()=>{
+    localStorage.clear();
+    d.querySelectorAll("#lsList .input-row").forEach(r=>{
+        const k=r.querySelector(".ls-k").value.trim(),v=r.querySelector(".ls-v").value.trim();
+        if(k)localStorage.setItem(k,v);
+    });
+    $("lsModal").style.display="none";
+    if(curr) load(COMMANDS.findIndex(c => c.p === curr.p));
+};
+
+$("lsBtn").onclick=()=>{$("lsModal").style.display="block";renderLs()};
 $("apiIn").oninput=db(e=>{const v=e.target.value.toLowerCase().trim();$("clrSel").style.display=e.target.value?"block":"none";if(!v)return load(null);pop(orig.filter(c=>c.p.toLowerCase().includes(v)))},200);
 $("apiIn").onfocus=()=>{const v=$("apiIn").value.trim();$("clrSel").style.display=v?"block":"none";pop(v?orig.filter(c=>c.p.toLowerCase().includes(v.toLowerCase())):orig)};
-$("apiDrop").onclick=e=>{if(e.target.tagName==="LI"){$("apiIn").value=e.target.textContent;$("clrSel").style.display="block";load(e.target.dataset.i);$("apiDrop").classList.remove("show")}};
+$("apiDrop").onclick=e=>{if(e.target.tagName==="LI"){$("apiIn").value=e.target.textContent;load(e.target.dataset.i);$("apiDrop").classList.remove("show")}};
 $("clrSel").onclick=()=>load(null);
-d.onclick=e=>!$("selW").contains(e.target)&&($("apiDrop").classList.remove("show"),$("apiIn").value=curr?curr.p:"",$("clrSel").style.display=curr?"block":"none");
+d.onclick=e=>{if(!$("selW").contains(e.target)){$("apiDrop").classList.remove("show");$("apiIn").value=curr?curr.p:""}};
 $("addH").onclick=()=>{hSec.classList.add("active");row(hCont)};
 $("addQ").onclick=()=>{qSec.classList.add("active");row(qCont)};
 $("addF").onclick=()=>{fSec.classList.add("active");row(fCont)};
@@ -182,11 +223,17 @@ $("apiForm").onsubmit=async e=>{
     const ex=(c,isJ=false)=>{const d=[];c.querySelectorAll(".input-row").forEach(r=>{const k=r.querySelector(".row-key").value.trim(),v=r.querySelector(".row-val"),t=isJ?r.querySelector("select").value:null;if(k||v.value)d.push({k,v:v.value,t,f:v.files?.[0]})});return d};
     const hD=ex(hCont),qD=ex(qCont),fD=ex(fCont),jD=ex(jCont,true);
     let u=window.location.origin+curr.p,qs=qD.filter(x=>x.k&&x.v).map(x=>`${encodeURIComponent(x.k)}=${encodeURIComponent(x.v)}`).join('&');if(qs)u+="?"+qs;
-    const h={};hD.forEach(x=>{if(x.k&&x.v)h[x.k]=x.k.toLowerCase()==="authorization"?`Bearer ${x.v}`:x.v});
+    const h={};
+    hD.forEach(x=>{
+        if(x.k&&x.v){
+            if(x.k.toLowerCase()==="authorization"){h[x.k]=`Bearer ${x.v}`}
+            else{h[x.k]=x.v}
+        }
+    });
     const o={method:curr.m,headers:h};
     if(fD.length){const fd=new FormData();fD.forEach(x=>{if(x.f)fd.append(x.k,x.f);else if(x.v)fd.append(x.k,x.v)});o.body=fd}
-    else if(jD.length){const jo={};try{jD.forEach(x=>{if(!x.k)return;let v=x.v;if(x.t==="number"){v=Number(v);if(isNaN(v))throw new Error(x.k+" NaN")}else if(x.t==="boolean")v=v.toLowerCase()==="true";else if(x.t==="null")v=null;else if(x.t==="array")v=JSON.parse(v);jo[x.k]=v});o.body=JSON.stringify(jo);h["Content-Type"]="application/json"}catch(e){alert(e.message);$("subBtn").disabled=false;return}}
-    try{const r=await fetch(u,o),cd=r.headers.get("content-disposition");if(cd?.includes("attachment")){const b=await r.blob(),l=d.createElement("a");l.href=URL.createObjectURL(b);l.download=cd.split("filename=")[1]?.replace(/"/g,"")||"file.csv";l.click();res({status:r.status,message:"Downloaded"})}else{const t=await r.text();let j;try{j=JSON.parse(t)}catch{j={status:r.status,message:t||"Raw"}}res({status:j.status||r.status,message:j.message||j})}}catch(e){res({status:0,message:e.message})}finally{$("subBtn").disabled=false;$("subBtn").textContent="Submit"}
+    else if(jD.length){const jo={};try{jD.forEach(x=>{if(!x.k)return;let v=x.v;if(x.t==="number"){v=Number(v)}else if(x.t==="boolean")v=v.toLowerCase()==="true";else if(x.t==="null")v=null;else if(x.t==="array")v=JSON.parse(v);jo[x.k]=v});o.body=JSON.stringify(jo);h["Content-Type"]="application/json"}catch(e){alert(e.message);$("subBtn").disabled=false;return}}
+    try{const r=await fetch(u,o),t=await r.text();let j;try{j=JSON.parse(t)}catch{j={status:r.status,message:t||"Raw"}}res({status:j.status||r.status,message:j.message||j})}catch(e){res({status:0,message:e.message})}finally{$("subBtn").disabled=false;$("subBtn").textContent="Submit"}
 };load(null);
 </script>
 </body>

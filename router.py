@@ -12,7 +12,7 @@ from fastapi import Request,responses,WebSocket,WebSocketDisconnect
 #index
 @router.get("/")
 async def func_api_5e118e61a6c348328913f14722d76af6():
-   return await func_html_serve(config_folder_html,config_index_html)
+   return await func_html_serve(config_folder_html,config_index_html) if config_is_index_html else {"status":1,"message":"welcome to atom"}
 
 #root
 @router.get("/root/postgres-init")

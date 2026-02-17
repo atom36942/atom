@@ -94,6 +94,7 @@ config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
 config_is_reset_export_folder=int(os.getenv("config_is_reset_export_folder") or 1)
 config_is_debug_fastapi=int(os.getenv("config_is_debug_fastapi") or 1)
 config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
+config_is_index_html=int(os.getenv("config_is_index_html") or 1)
 
 #table/column
 config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,rating_test,post,support").split(",")
