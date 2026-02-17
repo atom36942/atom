@@ -226,7 +226,7 @@ async def func_api_c0d03f1f0c3d41969cadb97483aeb75e(request:Request):
 async def func_api_da53d5219c094cd1ac0e55017423cedf(request:Request):
    obj_body=await func_request_param_read(request,"body",[("table","str",1,None),("ids","str",1,None),("column","str",1,None),("value","any",1,None)])
    if obj_body["table"] in ("users"):raise Exception("table not allowed")
-   if obj_body["column"] in config_column_admin_list:raise Exception("column not allowed")
+   if obj_body["column"] in config_column_blocked_list:raise Exception("column not allowed")
    output=await func_postgres_ids_update(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],obj_body["column"],obj_body["value"],request.state.user["id"],request.state.user["id"])
    return {"status":1,"message":output}
 

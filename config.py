@@ -99,7 +99,7 @@ config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
 config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,rating_test,post,support").split(",")
 config_table_create_public_list=(os.getenv("config_table_create_public_list") or "test,support").split(",")
 config_table_read_public_list=(os.getenv("config_table_read_public_list") or "test,post").split(",")
-config_column_admin_list=(os.getenv("config_column_admin_list") or "is_active,is_verified,api_id_access").split(",")
+config_column_blocked_list=(os.getenv("config_column_blocked_list") or "is_active,is_verified,api_id_access").split(",")
 
 #zzz
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"

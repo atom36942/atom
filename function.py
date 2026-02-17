@@ -130,10 +130,10 @@ async def func_obj_create_logic(role,request):
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
     if role=="my":
         if obj_query["table"] not in request.app.state.config_table_create_my_list:raise Exception("table not allowed")
-        if any(any(k in request.app.state.config_column_admin_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+        if any(any(k in request.app.state.config_column_blocked_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
     elif role=="public":
         if obj_query["table"] not in request.app.state.config_table_create_public_list:raise Exception("table not allowed")
-        if any(any(k in request.app.state.config_column_admin_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+        if any(any(k in request.app.state.config_column_blocked_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
     elif role=="admin":
         pass
     if request.state.user.get("id") and "created_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):[item.__setitem__("created_by_id",request.state.user.get("id")) for item in obj_list]
@@ -150,7 +150,7 @@ async def func_obj_update_logic(role,request):
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
     if role=="my":
         created_by_id=None if obj_query["table"]=="users" else request.state.user["id"]
-        if any(any(k in request.app.state.config_column_admin_list for k in x) for x in obj_list):raise Exception("key not allowed")
+        if any(any(k in request.app.state.config_column_blocked_list for k in x) for x in obj_list):raise Exception("key not allowed")
         if obj_query["table"]=="users":
             if len(obj_list)!=1:raise Exception("multi object issue")
             if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
