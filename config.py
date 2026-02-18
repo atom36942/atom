@@ -249,6 +249,8 @@ config_postgres={
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"description","datatype":"text","is_mandatory":1},
 {"name":"status","datatype":"integer","index":"btree"},
+{"name":"email","datatype":"text"},
+{"name":"mobile","datatype":"text"},
 ],
 "post":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},

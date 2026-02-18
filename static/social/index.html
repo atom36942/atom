@@ -20,6 +20,8 @@
     <div class="modal-content">
       <button class="modal-close" onclick="document.getElementById('support-modal').classList.remove('active')">✕</button>
       <h2>Support</h2>
+      <div class="input-wrapper"><input type="email" id="support-email" placeholder="Email"><button class="clear-icon" onclick="document.getElementById('support-email').value=''">✕</button></div>
+      <div class="input-wrapper"><input type="tel" id="support-mobile" placeholder="Mobile"><button class="clear-icon" onclick="document.getElementById('support-mobile').value=''">✕</button></div>
       <div class="input-wrapper" style="position:relative;margin-bottom:1rem"><textarea id="support-input" placeholder="Describe your issue..." style="margin-bottom:0"></textarea><button class="clear-icon" onclick="document.getElementById('support-input').value=''" style="top:1rem;transform:none">✕</button></div>
       <button class="btn btn-primary" style="width:100%" onclick="submitSupport()">Submit</button>
     </div>
@@ -52,7 +54,9 @@
           <button class="btn btn-ghost" style="padding:.25rem;color:var(--muted)" onclick="manualRefreshProfile()" title="Refresh Profile">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           </button>
-          <button id="btn-edit-profile" class="btn btn-outline" style="padding:.25rem .75rem;font-size:.75rem;font-weight:700;color:white;border-color:white" onclick="toggleEdit()">Edit</button>
+          <button id="btn-edit-profile" class="btn btn-ghost" style="padding:.25rem;color:var(--muted)" onclick="toggleEdit()" title="Edit Profile">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
           <button id="btn-save-profile" class="btn btn-primary" style="padding:.25rem .75rem;font-size:.75rem;display:none;background-color:#22c55e;border-color:#22c55e" onclick="saveProfile()">Save</button>
           <button class="modal-close" style="position:static" onclick="document.getElementById('profile-view-modal').classList.remove('active')">✕</button>
         </div>
@@ -117,7 +121,7 @@
       <div id="nav-profile" class="profile-dropdown auth-hidden">
         <button id="avatar" class="avatar" onclick="document.getElementById('profile-menu').classList.toggle('active')"></button>
         <div id="profile-menu" class="dropdown-menu">
-           <a href="#" onclick="viewProfile();return false">View Profile</a>
+           <a href="#" onclick="viewProfile();return false">My Profile</a>
            <a href="#" onclick="viewLoginDetails();return false">Login Details</a>
            <a href="#" onclick="document.getElementById('delete-account-modal').classList.add('active');return false">Delete Account</a>
            <a href="#" onclick="document.getElementById('logout-confirmation-modal').classList.add('active');return false">Logout</a>
@@ -144,15 +148,29 @@ let isLoadingFeed = false;
 
 async function submitSupport(){
   const e=document.getElementById("support-input"),t=e.value.trim();
+  const emailInput = document.getElementById("support-email");
+  const mobileInput = document.getElementById("support-mobile");
+  const email = emailInput.value.trim();
+  const mobile = mobileInput.value.trim();
+
   if(!t)return showToast("Please enter a description","error");
+  if(!email && !mobile) return showToast("Please enter either email or mobile", "error");
+
   const token=localStorage.getItem("token");
   const headers={"Content-Type":"application/json"};
   if(token) headers["Authorization"] = "Bearer " + token;
+  
+  const payload = { description: t };
+  if(email) payload.email = email;
+  if(mobile) payload.mobile = mobile;
+
   try{
-    const n=await fetch(API_URL,{method:"POST",headers:headers,body:JSON.stringify({description:t})}),o=await n.json();
+    const n=await fetch(API_URL,{method:"POST",headers:headers,body:JSON.stringify(payload)}),o=await n.json();
     if(n.status===200){
         showToast("Support ticket created","success");
         e.value="";
+        emailInput.value = "";
+        mobileInput.value = "";
         document.getElementById("support-modal").classList.remove("active");
         return;
     }
@@ -166,8 +184,13 @@ async function signup(){
   try{
     const n=await fetch(AUTH_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:e,password:t})}),o=await n.json();
     if(n.status===200){
-      const{token:e}=o.message;
-      localStorage.setItem("token",e),await fetchProfile(),checkAuthState(),document.getElementById("signup-modal").classList.remove("active"),showToast("Signup successful","success");
+      const { user, token } = o.message;
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("token", token);
+      localStorage.setItem("last_profile_sync", Date.now().toString());
+      checkAuthState();
+      document.getElementById("signup-modal").classList.remove("active");
+      showToast("Signup successful","success");
       return;
     }
     showToast(o.message||"Signup failed","error");
@@ -187,32 +210,47 @@ async function login(){
   }catch(e){showToast("Network error occurred","error")}
 }
 
-async function fetchProfile(){
+async function fetchProfile(force=false){
     const t=localStorage.getItem("token");
     if(!t)return;
+    
+    if(!force){
+        const lastSync = localStorage.getItem("last_profile_sync");
+        const user = localStorage.getItem("user");
+        if(user && lastSync){
+            const diff = Date.now() - parseInt(lastSync);
+            if(diff < 3 * 60 * 60 * 1000) return; // 3 hours cache
+        }
+    }
+
     try{
         const n=await fetch(PROFILE_URL,{headers:{"Authorization":"Bearer "+t}}),o=await n.json();
         if(n.status===200) {
             localStorage.setItem("user",JSON.stringify(o.message));
+            localStorage.setItem("last_profile_sync", Date.now().toString());
+            // Update UI if modals open? No, user requested manual refresh flow.
             return;
         }
-        showToast(o.message||"Failed to fetch profile","error");
-    }catch(e){console.error(e)}
+        if(force) showToast(o.message||"Failed to fetch profile","error");
+    }catch(e){
+        console.error(e);
+        if(force) showToast("Network error","error");
+    }
 }
 
 async function manualRefreshProfile(){
-    await fetchProfile();
+    await fetchProfile(true);
     viewProfile();
     showToast("Profile data refreshed", "success");
 }
 
 async function manualRefreshLoginDetails(){
-    await fetchProfile();
+    await fetchProfile(true);
     viewLoginDetails();
     showToast("Login details refreshed", "success");
 }
 
-function logout(){localStorage.removeItem("token"),localStorage.removeItem("user"),checkAuthState(),document.getElementById("logout-confirmation-modal").classList.remove("active"),showToast("Logged out successfully","success")}
+function logout(){localStorage.clear(),checkAuthState(),document.getElementById("logout-confirmation-modal").classList.remove("active"),showToast("Logged out successfully","success")}
 
 async function createPost(){
     const desc = document.getElementById("post-description").value.trim();
@@ -270,7 +308,11 @@ function showToast(e,t="success"){
 
 document.addEventListener("DOMContentLoaded",()=>{
     const t=localStorage.getItem("token");
-    if(t){fetchProfile().then(checkAuthState);setInterval(fetchProfile,36e5)}
+    if(t){
+        fetchProfile().then(checkAuthState);
+        // Profile update check every 3 hours (10800000 ms)
+        setInterval(fetchProfile, 10800000);
+    }
     checkAuthState();
     document.addEventListener("click",(e)=>{
         const m=document.getElementById("profile-menu");
@@ -449,6 +491,7 @@ function toggleEdit(){
 async function saveProfile(){
     const u=JSON.parse(localStorage.getItem("user")),t=localStorage.getItem("token");
     if(!u||!t)return;
+    if(!u.id) return showToast("User ID missing from local storage", "error");
     
     const nameVal = document.getElementById("profile-name").value.trim();
     const countryVal = document.getElementById("profile-country").value.trim();
@@ -541,6 +584,7 @@ async function saveLoginDetail(key) {
     
     const u = JSON.parse(localStorage.getItem("user")), t = localStorage.getItem("token");
     if (!u || !t) return;
+    if (!u.id) return showToast("User ID missing from local storage", "error");
     
     const payload = { id: u.id, [key]: val === "" ? null : val };
     const url = key === 'password' ? `${UPDATE_PROFILE_URL}&is_serialize=1` : UPDATE_PROFILE_URL;
