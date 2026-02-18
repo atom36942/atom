@@ -9,9 +9,10 @@ body{margin:0;background:var(--bg);color:#e6eef3;font-family:Inter,system-ui;lin
 .card{background:var(--card);border-radius:12px;padding:28px;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.05)}
 h1{margin:0 0 24px 0;font-size:22px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
 .custom-select-wrapper{position:relative;display:flex;align-items:center;margin-bottom:28px}
-#apiIn{width:100%;padding:12px 40px 12px 16px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#1a1d23;color:#e6eef3;box-sizing:border-box}
+#apiIn{width:100%;padding:12px 100px 12px 16px;font-size:15px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#1a1d23;color:#e6eef3;box-sizing:border-box}
 #apiIn:focus{outline:none;border-color:var(--accent)}
 .clear-api-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:0 0;border:none;color:var(--muted);font-size:20px;cursor:pointer;display:none}
+#apiCountBadge{position:absolute;right:40px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);pointer-events:none}
 .api-dropdown{position:absolute;top:100%;left:0;right:0;z-index:1000;list-style:none;padding:0;margin:0;background:#1a1d23;border:1px solid var(--accent);border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;max-height:250px;overflow-y:auto;display:none}
 .api-dropdown.show{display:block}.api-dropdown li{padding:10px 16px;font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .api-dropdown li:hover{background:#2a3642;color:#fff}
@@ -51,9 +52,10 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
 </head>
 <body>
 <div class="container"><div class="card">
-<h1>Curl Requester <div><span id="apiCount" style="font-size:14px;color:var(--muted)"></span><button type="button" id="lsBtn">LocalStorage</button></div></h1>
+<h1>Curl Requester <div><button type="button" id="lsBtn">LocalStorage (<span id="lsCount">0</span>)</button></div></h1>
 <div class="custom-select-wrapper" id="selW">
     <input type="text" id="apiIn" placeholder="Search" autocomplete="off">
+    <span id="apiCountBadge"></span>
     <button type="button" id="clrSel" class="clear-api-btn">×</button>
     <ul id="apiDrop" class="api-dropdown"></ul>
 </div>
@@ -149,8 +151,9 @@ const COMMANDS=[
 const d=document, $=i=>d.getElementById(i), orig=COMMANDS.map((c,i)=>({...c,oi:i}));
 let curr=null;
 const db=(f,t)=>{let o;return(...a)=>{clearTimeout(o);o=setTimeout(()=>f(...a),t)}};
-const pop=cs=>{if(!cs.length)return $("apiDrop").classList.remove("show");$("apiDrop").innerHTML=cs.map(c=>`<li data-i="${c.oi}">${c.p}</li>`).join('');$("apiDrop").classList.add("show")};
-$("apiCount").textContent = `${COMMANDS.length} curls`;
+const updateLsCount = () => { $("lsCount").textContent = localStorage.length; };
+const pop=cs=>{if(!cs.length){$("apiDrop").classList.remove("show");$("apiCountBadge").textContent="";return}$("apiDrop").innerHTML=cs.map(c=>`<li data-i="${c.oi}">${c.p}</li>`).join('');$("apiDrop").classList.add("show");$("apiCountBadge").textContent=`${cs.length} curls`};
+$("apiCountBadge").textContent = `${COMMANDS.length} curls`;
 
 const row=(ct,k="",v="",t="string")=>{
     const r=d.createElement("div");r.className="input-row";
@@ -164,7 +167,7 @@ const row=(ct,k="",v="",t="string")=>{
 
 const load=i=>{
     curr=i===null?null:COMMANDS[i];[hCont,qCont,fCont,jCont].forEach(c=>c.innerHTML="");[hSec,qSec,fSec,jSec].forEach(s=>s.classList.remove("active"));$("rBox").classList.remove("show");
-    if(!curr){$("apiIn").value="";$("clrSel").style.display="none";return}
+    if(!curr){$("apiIn").value="";$("clrSel").style.display="none";$("apiCountBadge").textContent=`${COMMANDS.length} curls`;return}
     if(curr.h.length){
         hSec.classList.add("active");
         curr.h.forEach(x=>{
@@ -183,6 +186,7 @@ const load=i=>{
 };
 
 const renderLs=()=>{
+    updateLsCount();
     $("lsList").innerHTML="";
     Object.keys(localStorage).forEach(k=>addLsRow(k,localStorage.getItem(k)));
 };
@@ -201,6 +205,7 @@ const saveLs=()=>{
         const k=r.querySelector(".ls-k").value.trim(),v=r.querySelector(".ls-v").value.trim();
         if(k)localStorage.setItem(k,v);
     });
+    updateLsCount();
     $("lsModal").style.display="none";
     if(curr) load(COMMANDS.findIndex(c => c.p === curr.p));
 };
@@ -234,7 +239,9 @@ $("apiForm").onsubmit=async e=>{
     if(fD.length){const fd=new FormData();fD.forEach(x=>{if(x.f)fd.append(x.k,x.f);else if(x.v)fd.append(x.k,x.v)});o.body=fd}
     else if(jD.length){const jo={};try{jD.forEach(x=>{if(!x.k)return;let v=x.v;if(x.t==="number"){v=Number(v)}else if(x.t==="boolean")v=v.toLowerCase()==="true";else if(x.t==="null")v=null;else if(x.t==="array")v=JSON.parse(v);jo[x.k]=v});o.body=JSON.stringify(jo);h["Content-Type"]="application/json"}catch(e){alert(e.message);$("subBtn").disabled=false;return}}
     try{const r=await fetch(u,o),t=await r.text();let j;try{j=JSON.parse(t)}catch{j={status:r.status,message:t||"Raw"}}res({status:j.status||r.status,message:j.message||j})}catch(e){res({status:0,message:e.message})}finally{$("subBtn").disabled=false;$("subBtn").textContent="Submit"}
-};load(null);
+};
+load(null);
+updateLsCount();
 </script>
 </body>
 </html>
