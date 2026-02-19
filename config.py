@@ -102,14 +102,16 @@ config_table_create_public_list=(os.getenv("config_table_create_public_list") or
 config_table_read_public_list=(os.getenv("config_table_read_public_list") or "test,post").split(",")
 config_column_blocked_list=(os.getenv("config_column_blocked_list") or "is_active,is_verified,api_id_access").split(",")
 
+#token
+config_token_expiry_sec=int(os.getenv("config_token_expiry_sec") or 100*365*24*60*60)
+config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_id_access").split(",")
+
 #zzz
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
-config_mode_check_api_access=os.getenv("config_mode_check_api_access") or "token"
+config_mode_check_is_admin=os.getenv("config_mode_check_is_admin") or "token"
 config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))
-config_token_expire_sec=int(os.getenv("config_token_expire_sec") or 365*24*60*60)
-config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_id_access").split(",")
+config_expiry_sec_otp=int(os.getenv("config_expiry_sec_otp") or 600)
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
-config_otp_expire_sec=int(os.getenv("config_otp_expire_sec") or 10*60)
 
 #dict
 config_sql={
@@ -192,6 +194,8 @@ config_postgres={
 {"name":"country","datatype":"text"},
 {"name":"state","datatype":"text"},
 {"name":"city","datatype":"text"},
+{"name":"email_communication","datatype":"text"},
+{"name":"mobile_communication","datatype":"text"},
 ],
 "log_api":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},

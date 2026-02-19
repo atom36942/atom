@@ -23,7 +23,7 @@
       <div class="input-wrapper"><input type="email" id="support-email" placeholder="Email"><button class="clear-icon" onclick="document.getElementById('support-email').value=''">✕</button></div>
       <div class="input-wrapper"><input type="tel" id="support-mobile" placeholder="Mobile"><button class="clear-icon" onclick="document.getElementById('support-mobile').value=''">✕</button></div>
       <div class="input-wrapper" style="position:relative;margin-bottom:1rem"><textarea id="support-input" placeholder="Describe your issue..." style="margin-bottom:0"></textarea><button class="clear-icon" onclick="document.getElementById('support-input').value=''" style="top:1rem;transform:none">✕</button></div>
-      <button class="btn btn-primary" style="width:100%" onclick="submitSupport()">Submit</button>
+      <button class="btn btn-primary btn-lg" style="width:100%" onclick="submitSupport()">Submit</button>
     </div>
   </div>
   <div id="signup-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
@@ -62,18 +62,22 @@
         </div>
       </div>
       <p id="profile-joined" style="margin-bottom:1rem;color:var(--muted);font-size:.875rem"></p>
-      <div class="input-wrapper"><label style="display:block;margin-bottom:.25rem;color:var(--muted);font-size:.75rem">Name</label><div style="position:relative"><input type="text" id="profile-name" placeholder="Name" disabled><button class="clear-icon" onclick="document.getElementById('profile-name').value=''">✕</button></div></div>
-      <div class="input-wrapper"><label style="display:block;margin-bottom:.25rem;color:var(--muted);font-size:.75rem">Country</label><div style="position:relative"><input type="text" id="profile-country" placeholder="Country" disabled><button class="clear-icon" onclick="document.getElementById('profile-country').value=''">✕</button></div></div>
+      <div class="input-wrapper"><label style="display:block;margin-bottom:.25rem;color:var(--muted);font-size:.75rem">Name</label><div style="position:relative"><input type="text" id="profile-name" disabled><button class="clear-icon" onclick="document.getElementById('profile-name').value=''">✕</button></div></div>
+      <div class="input-wrapper"><label style="display:block;margin-bottom:.25rem;color:var(--muted);font-size:.75rem">Country</label><div style="position:relative"><input type="text" id="profile-country" disabled><button class="clear-icon" onclick="document.getElementById('profile-country').value=''">✕</button></div></div>
+      <div class="input-wrapper"><label style="display:block;margin-bottom:.25rem;color:var(--muted);font-size:.75rem">Email Communication</label><div style="position:relative"><input type="email" id="profile-email-comm" disabled><button class="clear-icon" onclick="document.getElementById('profile-email-comm').value=''">✕</button></div></div>
+      <div class="input-wrapper"><label style="display:block;margin-bottom:.25rem;color:var(--muted);font-size:.75rem">Mobile Communication</label><div style="position:relative"><input type="tel" id="profile-mobile-comm" disabled><button class="clear-icon" onclick="document.getElementById('profile-mobile-comm').value=''">✕</button></div></div>
     </div>
   </div>
   <div id="login-details-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
     <div class="modal-content">
-      <button class="modal-close" onclick="document.getElementById('login-details-modal').classList.remove('active')">✕</button>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-        <h2 style="margin:0">Login Details</h2>
-        <button class="btn btn-ghost" style="padding:.25rem;color:var(--muted);margin-right:2rem" onclick="manualRefreshLoginDetails()" title="Refresh">
+      <div class="modal-header">
+        <h2>Login Details</h2>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <button class="btn btn-ghost" style="padding:.25rem;color:var(--muted)" onclick="manualRefreshLoginDetails()" title="Refresh">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        </button>
+          </button>
+          <button class="modal-close" style="position:static" onclick="document.getElementById('login-details-modal').classList.remove('active')">✕</button>
+        </div>
       </div>
       <div id="login-details-container"></div>
     </div>
@@ -84,8 +88,8 @@
       <h2>Delete Account</h2>
       <p style="margin-bottom:1.5rem">Are you sure you want to delete your account? This action cannot be undone.</p>
       <div style="display:flex;gap:1rem">
-        <button class="btn" style="width:100%;background:white;color:black" onclick="document.getElementById('delete-account-modal').classList.remove('active')">Cancel</button>
-        <button class="btn btn-primary" style="width:100%;background-color:#ef4444;border-color:#ef4444;color:white" onclick="deleteAccount()">Delete</button>
+        <button class="btn btn-lg" style="width:100%;background:white;color:black" onclick="document.getElementById('delete-account-modal').classList.remove('active')">Cancel</button>
+        <button class="btn btn-primary btn-lg" style="width:100%;background-color:#ef4444;border-color:#ef4444;color:white" onclick="deleteAccount()">Delete</button>
       </div>
     </div>
   </div>
@@ -95,8 +99,8 @@
       <h2>Logout</h2>
       <p style="margin-bottom:1.5rem">Are you sure you want to logout?</p>
       <div style="display:flex;gap:1rem">
-        <button class="btn" style="width:100%;background:white;color:black" onclick="document.getElementById('logout-confirmation-modal').classList.remove('active')">Cancel</button>
-        <button class="btn btn-primary" style="width:100%;background-color:#ef4444;border-color:#ef4444;color:white" onclick="logout()">Logout</button>
+        <button class="btn btn-lg" style="width:100%;background:white;color:black" onclick="document.getElementById('logout-confirmation-modal').classList.remove('active')">Cancel</button>
+        <button class="btn btn-primary btn-lg" style="width:100%;background-color:#ef4444;border-color:#ef4444;color:white" onclick="logout()">Logout</button>
       </div>
     </div>
   </div>
@@ -107,7 +111,7 @@
       <div class="input-wrapper"><textarea id="post-description" placeholder="What's on your mind?" style="min-height:120px"></textarea></div>
       <div class="input-wrapper"><input type="text" id="post-tags" placeholder="Tags (comma separated)"><button class="clear-icon" onclick="this.previousElementSibling.value='';this.style.display='none'">&times;</button></div>
       <div class="input-wrapper"><input type="url" id="post-link" placeholder="Link URL (optional)"><button class="clear-icon" onclick="this.previousElementSibling.value='';this.style.display='none'">&times;</button></div>
-      <button class="btn btn-primary" style="width:100%" onclick="createPost()">Post</button>
+      <button class="btn btn-primary btn-lg" style="width:100%" onclick="createPost()">Post</button>
     </div>
   </div>
   <header>
@@ -121,7 +125,7 @@
       <div id="nav-profile" class="profile-dropdown auth-hidden">
         <button id="avatar" class="avatar" onclick="document.getElementById('profile-menu').classList.toggle('active')"></button>
         <div id="profile-menu" class="dropdown-menu">
-           <a href="#" onclick="viewProfile();return false">My Profile</a>
+           <a href="#" onclick="myProfile();return false">My Profile</a>
            <a href="#" onclick="viewLoginDetails();return false">Login Details</a>
            <a href="#" onclick="document.getElementById('delete-account-modal').classList.add('active');return false">Delete Account</a>
            <a href="#" onclick="document.getElementById('logout-confirmation-modal').classList.add('active');return false">Logout</a>
@@ -133,512 +137,183 @@
   <div id="feed-container" class="feed-container"></div>
   <div class="load-more-wrapper"><button id="load-more-btn" class="btn btn-outline" onclick="loadMoreFeed()" style="display:none">Load More</button></div>
 <script>
-const API_URL=window.location.origin+"/public/object-create?table=support",
-      AUTH_URL=window.location.origin+"/auth/signup-username-password",
-      LOGIN_URL=window.location.origin+"/auth/login-password-username",
-      PROFILE_URL=window.location.origin+"/my/profile",
-      UPDATE_PROFILE_URL=window.location.origin+"/my/object-update?table=users",
-      DELETE_ACCOUNT_URL=window.location.origin+"/my/account-delete?mode=hard",
-      FEED_URL=window.location.origin+"/public/object-read?table=post",
-      CREATE_POST_URL=window.location.origin+"/my/object-create?table=post",
-      SHOW_JOINED_DATE=false;
+const AP="object-create?table=support",AU="auth/signup-username-password",LO="auth/login-password-username",PR="my/profile",UP="my/object-update?table=users",DE="my/account-delete?mode=hard",FE="public/object-read?table=post",CP="my/object-create?table=post",JOIN=false;
+const url=(p)=>window.location.origin+"/"+p;
+let feedPage=1,isLoadingFeed=false;
 
-let feedPage = 1;
-let isLoadingFeed = false;
+
 
 async function submitSupport(){
-  const e=document.getElementById("support-input"),t=e.value.trim();
-  const emailInput = document.getElementById("support-email");
-  const mobileInput = document.getElementById("support-mobile");
-  const email = emailInput.value.trim();
-  const mobile = mobileInput.value.trim();
-
-  if(!t)return showToast("Please enter a description","error");
-  if(!email && !mobile) return showToast("Please enter either email or mobile", "error");
-
-  const token=localStorage.getItem("token");
-  const headers={"Content-Type":"application/json"};
-  if(token) headers["Authorization"] = "Bearer " + token;
-  
-  const payload = { description: t };
-  if(email) payload.email = email;
-  if(mobile) payload.mobile = mobile;
-
+  const d=document.getElementById("support-input").value.trim(),e=document.getElementById("support-email").value.trim(),m=document.getElementById("support-mobile").value.trim();
+  if(!d)return showToast("Please enter a description","error");
+  if(!e&&!m)return showToast("To submit, enter email or mobile","error");
+  const t=localStorage.getItem("token"),h={"Content-Type":"application/json"}; if(t)h["Authorization"]="Bearer "+t;
+  const p={description:d}; if(e)p.email=e; if(m)p.mobile=m;
   try{
-    const n=await fetch(API_URL,{method:"POST",headers:headers,body:JSON.stringify(payload)}),o=await n.json();
-    if(n.status===200){
-        showToast("Support ticket created","success");
-        e.value="";
-        emailInput.value = "";
-        mobileInput.value = "";
-        document.getElementById("support-modal").classList.remove("active");
-        return;
-    }
-    showToast(o.message||"Something went wrong","error");
+    const r=await fetch(url(AP),{method:"POST",headers:h,body:JSON.stringify(p)}),j=await r.json();
+    if(r.status===200){showToast("Support ticket created","success");document.getElementById("support-input").value=document.getElementById("support-email").value=document.getElementById("support-mobile").value="";document.getElementById("support-modal").classList.remove("active");return}
+    showToast(j.message||"Something went wrong","error")
   }catch(e){showToast("Network error occurred","error")}
 }
 
 async function signup(){
-  const e=document.getElementById("signup-username").value.trim(),t=document.getElementById("signup-password").value.trim();
-  if(!e||!t)return showToast("Please enter username and password","error");
+  const u=document.getElementById("signup-username").value.trim(),p=document.getElementById("signup-password").value.trim();
+  if(!u||!p)return showToast("Enter username & password","error");
   try{
-    const n=await fetch(AUTH_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:e,password:t})}),o=await n.json();
-    if(n.status===200){
-      const { user, token } = o.message;
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("token", token);
-      localStorage.setItem("last_profile_sync", Date.now().toString());
-      checkAuthState();
-      document.getElementById("signup-modal").classList.remove("active");
-      showToast("Signup successful","success");
-      return;
-    }
-    showToast(o.message||"Signup failed","error");
-  }catch(e){showToast("Network error occurred","error")}
+    const r=await fetch(url(AU),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:u,password:p})}),j=await r.json();
+    if(r.status===200){const{user:U,token:T}=j.message;localStorage.setItem("user",JSON.stringify(U));localStorage.setItem("token",T);localStorage.setItem("last_profile_sync",Date.now().toString());checkAuthState();document.getElementById("signup-modal").classList.remove("active");showToast("Signup successful","success");return}
+    showToast(j.message||"Signup failed","error");
+  }catch(e){showToast("Network error","error")}
 }
 
 async function login(){
-  const e=document.getElementById("login-username").value.trim(),t=document.getElementById("login-password").value.trim();
-  if(!e||!t)return showToast("Please enter username and password","error");
+  const u=document.getElementById("login-username").value.trim(),p=document.getElementById("login-password").value.trim();
+  if(!u||!p)return showToast("Enter username & password","error");
   try{
-    const n=await fetch(LOGIN_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:e,password:t})}),o=await n.json();
-    if(n.status===200){
-      localStorage.setItem("token",o.message),await fetchProfile(),checkAuthState(),document.getElementById("login-modal").classList.remove("active"),showToast("Login successful","success");
-      return;
-    }
-    showToast(o.message||"Login failed","error");
-  }catch(e){showToast("Network error occurred","error")}
+    const r=await fetch(url(LO),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:1,username:u,password:p})}),j=await r.json();
+    if(r.status===200){const{user:U,token:T}=j.message;localStorage.setItem("user",JSON.stringify(U));localStorage.setItem("token",T);localStorage.setItem("last_profile_sync",Date.now().toString());checkAuthState();document.getElementById("login-modal").classList.remove("active");showToast("Login successful","success");return}
+    showToast(j.message||"Login failed","error");
+  }catch(e){showToast("Network error","error")}
 }
 
 async function fetchProfile(force=false){
-    const t=localStorage.getItem("token");
-    if(!t)return;
-    
+    const t=localStorage.getItem("token"); if(!t)return;
     if(!force){
-        const lastSync = localStorage.getItem("last_profile_sync");
-        const user = localStorage.getItem("user");
-        if(user && lastSync){
-            const diff = Date.now() - parseInt(lastSync);
-            if(diff < 3 * 60 * 60 * 1000) return; // 3 hours cache
-        }
+        const l=localStorage.getItem("last_profile_sync"),u=localStorage.getItem("user");
+        if(u&&l&&(Date.now()-parseInt(l)<10800000))return;
     }
-
     try{
-        const n=await fetch(PROFILE_URL,{headers:{"Authorization":"Bearer "+t}}),o=await n.json();
-        if(n.status===200) {
-            localStorage.setItem("user",JSON.stringify(o.message));
-            localStorage.setItem("last_profile_sync", Date.now().toString());
-            // Update UI if modals open? No, user requested manual refresh flow.
-            return;
-        }
-        if(force) showToast(o.message||"Failed to fetch profile","error");
-    }catch(e){
-        console.error(e);
-        if(force) showToast("Network error","error");
-    }
+        const r=await fetch(url(PR),{headers:{"Authorization":"Bearer "+t}}),j=await r.json();
+        if(r.status===200){localStorage.setItem("user",JSON.stringify(j.message));localStorage.setItem("last_profile_sync",Date.now().toString());return}
+        if(force)showToast(j.message||"Failed to fetch profile","error")
+    }catch(e){if(force)showToast("Network error","error")}
 }
-
-async function manualRefreshProfile(){
-    await fetchProfile(true);
-    viewProfile();
-    showToast("Profile data refreshed", "success");
-}
-
-async function manualRefreshLoginDetails(){
-    await fetchProfile(true);
-    viewLoginDetails();
-    showToast("Login details refreshed", "success");
-}
-
-function logout(){localStorage.clear(),checkAuthState(),document.getElementById("logout-confirmation-modal").classList.remove("active"),showToast("Logged out successfully","success")}
+async function manualRefreshProfile(){await fetchProfile(true);myProfile();showToast("Profile refreshed","success")}
+async function manualRefreshLoginDetails(){await fetchProfile(true);viewLoginDetails();showToast("Login details refreshed","success")}
+function logout(){localStorage.clear();checkAuthState();document.getElementById("logout-confirmation-modal").classList.remove("active");showToast("Logged out","success")}
 
 async function createPost(){
-    const desc = document.getElementById("post-description").value.trim();
-    const tagsInput = document.getElementById("post-tags").value.trim();
-    const link = document.getElementById("post-link").value.trim();
-    
-    if(!desc) return showToast("Please enter a description", "error");
-    
-    const token = localStorage.getItem("token");
-    if(!token) return showToast("Please login first", "error");
-    
-    const payload = { description: desc };
-    if(tagsInput) payload.tag = tagsInput.split(',').map(t => t.trim()).filter(t => t);
-    if(link) payload.link_url = link;
-    
-    try {
-        const r = await fetch(CREATE_POST_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-            body: JSON.stringify(payload)
-        });
-        const res = await r.json();
-        if(r.status === 200){
-            showToast("Post created successfully", "success");
-            document.getElementById("post-description").value = "";
-            document.getElementById("post-tags").value = "";
-            document.getElementById("post-link").value = "";
-            document.getElementById("create-post-modal").classList.remove("active");
-            feedPage = 1;
-            fetchFeed();
-        } else {
-            showToast(res.message || "Failed to create post", "error");
-        }
-    } catch(e) {
-        showToast("Network error occurred", "error");
-    }
+    const d=document.getElementById("post-description").value.trim(),T=document.getElementById("post-tags").value.trim(),l=document.getElementById("post-link").value.trim(),t=localStorage.getItem("token");
+    if(!d)return showToast("Description required","error");
+    if(!t)return showToast("Please login","error");
+    const p={description:d}; if(T)p.tag=T.split(',').map(x=>x.trim()).filter(x=>x); if(l)p.link_url=l;
+    try{
+        const r=await fetch(url(CP),{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+t},body:JSON.stringify(p)}),j=await r.json();
+        if(r.status===200){showToast("Post created","success");document.getElementById("post-description").value=document.getElementById("post-tags").value=document.getElementById("post-link").value="";document.getElementById("create-post-modal").classList.remove("active");feedPage=1;fetchFeed()}
+        else{showToast(j.message||"Failed","error")}
+    }catch(e){showToast("Network error","error")}
 }
 
 function checkAuthState(){
-  const e=localStorage.getItem("token"),t=document.getElementById("nav-signup"),n=document.getElementById("nav-login"),o=document.getElementById("nav-profile"),p=document.getElementById("nav-create-post");
-  if(e){
-    t.classList.add("auth-hidden"),n.classList.add("auth-hidden"),o.classList.remove("auth-hidden"),p.classList.remove("auth-hidden");
-    const u=JSON.parse(localStorage.getItem("user"));
-    u&&(document.getElementById("avatar").textContent=u.username.charAt(0).toUpperCase())
-  }else{
-    t.classList.remove("auth-hidden"),n.classList.remove("auth-hidden"),o.classList.add("auth-hidden"),p.classList.add("auth-hidden")
-  }
+  const t=localStorage.getItem("token"),el={s:document.getElementById("nav-signup"),l:document.getElementById("nav-login"),p:document.getElementById("nav-profile"),cp:document.getElementById("nav-create-post")};
+  if(t){el.s.classList.add("auth-hidden"),el.l.classList.add("auth-hidden"),el.p.classList.remove("auth-hidden"),el.cp.classList.remove("auth-hidden");const u=JSON.parse(localStorage.getItem("user"));u&&(document.getElementById("avatar").textContent=u.username.charAt(0).toUpperCase())}
+  else{el.s.classList.remove("auth-hidden"),el.l.classList.remove("auth-hidden"),el.p.classList.add("auth-hidden"),el.cp.classList.add("auth-hidden")}
 }
 
-function showToast(e,t="success"){
-  const n=document.createElement("div");
-  n.className="toast toast-"+t,n.innerHTML='<span></span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;padding:0;display:flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>',n.firstChild.textContent=e;
-  document.getElementById("toast-container").appendChild(n),setTimeout((()=>n.remove()),3e3)
+function showToast(m,t="success"){
+  const n=document.createElement("div");n.className="toast toast-"+t;n.innerHTML=`<span>${m}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;padding:0;display:flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
+  document.getElementById("toast-container").appendChild(n);setTimeout(()=>n.remove(),3e3)
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
-    const t=localStorage.getItem("token");
-    if(t){
-        fetchProfile().then(checkAuthState);
-        // Profile update check every 3 hours (10800000 ms)
-        setInterval(fetchProfile, 10800000);
-    }
-    checkAuthState();
-    document.addEventListener("click",(e)=>{
-        const m=document.getElementById("profile-menu");
-        if(!e.target.closest("#nav-profile")) m.classList.remove("active");
-    });
-    fetchFeed();
+    const t=localStorage.getItem("token"); if(t){fetchProfile().then(checkAuthState);setInterval(fetchProfile,10800000)}
+    checkAuthState(); fetchFeed();
+    document.addEventListener("click",e=>{if(!e.target.closest("#nav-profile"))document.getElementById("profile-menu").classList.remove("active")});
 });
 
 async function fetchFeed(){
-    if(isLoadingFeed) return;
-    isLoadingFeed = true;
-    const btn = document.getElementById("load-more-btn");
-    
-    if(feedPage === 1) {
-        document.getElementById("feed-container").innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Loading feed...</div>';
-    } else {
-        btn.textContent = "Loading...";
-        btn.style.display = "inline-block";
-    }
-    
-    try {
-        const u = JSON.parse(localStorage.getItem("user"));
-        let url = `${FEED_URL}&limit=30&page=${feedPage}&creator_key=username`;
-        // if(u && u.username) url += `&creator_key=${u.username}`; <-- removed per user request
-        
-        console.log("Fetching Feed URL:", url);
-        const r = await fetch(url);
-        const res = await r.json();
-        console.log("Feed API Response:", res);
-        
-        if(r.status === 200){
-            // Handle different response structures
-            let posts = [];
-            if(Array.isArray(res)) posts = res;
-            else if(Array.isArray(res.message)) posts = res.message;
-            else if(Array.isArray(res.data)) posts = res.data;
-            else if(res.status === 1 && Array.isArray(res.message)) posts = res.message;
-            
-            console.log("Feed Posts:", posts);
-            renderFeed(posts);
-            if(posts.length === 30){
-                feedPage++;
-                btn.style.display = "inline-block";
-                btn.textContent = "Load More";
-            } else {
-                btn.style.display = "none";
-            }
-        } else {
-            console.error("Feed fetch failed", res);
-            btn.style.display = "none";
-            if(feedPage === 1) document.getElementById("feed-container").innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Failed to load posts</div>';
-        }
-    } catch(e) {
-        console.error("Feed Error Details:", e.message, e.stack);
-        btn.textContent = "Error loading feed";
-        if(feedPage === 1) document.getElementById("feed-container").innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Error: ' + e.message + '</div>';
-    } finally {
-        isLoadingFeed = false;
-    }
+    if(isLoadingFeed)return; isLoadingFeed=true;
+    const b=document.getElementById("load-more-btn"),c=document.getElementById("feed-container");
+    if(feedPage===1)c.innerHTML='<div style="text-align:center;padding:2rem;color:var(--muted)">Loading feed...</div>';
+    else{b.textContent="Loading...";b.style.display="inline-block"}
+    try{
+        const U=`${url(FE)}&limit=30&page=${feedPage}&creator_key=username`,r=await fetch(U),j=await r.json();
+        if(r.status===200){
+            let p=[]; if(Array.isArray(j))p=j; else if(Array.isArray(j.message))p=j.message; else if(Array.isArray(j.data))p=j.data;
+            renderFeed(p);
+            if(p.length===30){feedPage++;b.style.display="inline-block";b.textContent="Load More"}else{b.style.display="none"}
+        }else{b.style.display="none";if(feedPage===1)c.innerHTML='<div style="text-align:center;padding:2rem;color:var(--muted)">Failed from server</div>'}
+    }catch(e){b.textContent="Error";if(feedPage===1)c.innerHTML='<div style="text-align:center;padding:2rem;color:var(--muted)">Error: '+e.message+'</div>'}
+    finally{isLoadingFeed=false}
 }
 
-function renderFeed(posts){
-    const c = document.getElementById("feed-container");
-    console.log("Rendering feed with posts:", posts.length);
-    
-    if(posts.length === 0 && feedPage === 1) {
-        c.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">No posts found</div>';
-        return;
-    }
-    
-    const html = posts.map(p => {
-        const initial = p.creator_username ? p.creator_username.charAt(0).toUpperCase() : "?";
-        const date = calculateTimeAgo(p.created_at);
-        
-        // Handle tags - could be string, array, or null
-        let tags = '';
-        if(p.tag) {
-            if(typeof p.tag === 'string') {
-                tags = p.tag.split(',').map(t => `<span class="tag">${t.trim()}</span>`).join('');
-            } else if(Array.isArray(p.tag)) {
-                tags = p.tag.map(t => `<span class="tag">${t}</span>`).join('');
-            }
-        }
-        
-        const link = p.link_url ? `<a href="${p.link_url}" target="_blank" rel="noopener" class="feed-action link" title="${p.link_url}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>` : '';
-        
-        return `
-        <div class="feed-card">
-            <div class="feed-header">
-                <div class="feed-avatar">${initial}</div>
-                <div class="feed-meta">
-                    <span class="feed-author">${p.creator_username || 'Unknown'}</span>
-                    <span class="feed-date">${date}</span>
-                </div>
-            </div>
-            <div class="feed-body">
-                ${p.description ? `<div class="feed-description">${p.description}</div>` : ''}
-                ${tags ? `<div class="feed-tags">${tags}</div>` : ''}
-                <div class="feed-actions">
-                    <button class="feed-action like" title="Like"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
-                    <button class="feed-action comment" title="Comment"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
-                    <button class="feed-action bookmark" title="Bookmark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
-                    <div class="feed-actions-spacer"></div>
-                    ${link}
-                    <button class="feed-action report" title="Report"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></button>
-                </div>
-            </div>
-        </div>
-        `;
+function renderFeed(p){
+    const c=document.getElementById("feed-container"); if(p.length===0&&feedPage===1){c.innerHTML='<div style="text-align:center;padding:2rem;color:var(--muted)">No posts found</div>';return}
+    const h=p.map(x=>{
+        const i=x.creator_username?x.creator_username.charAt(0).toUpperCase():"?",d=calculateTimeAgo(x.created_at);
+        let t="";if(x.tag){if(typeof x.tag==='string')t=x.tag.split(',').map(v=>`<span class="tag">${v.trim()}</span>`).join('');else if(Array.isArray(x.tag))t=x.tag.map(v=>`<span class="tag">${v}</span>`).join('')}
+        const l=x.link_url?`<a href="${x.link_url}" target="_blank" rel="noopener" class="feed-action link" title="${x.link_url}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`:'';
+        return `<div class="feed-card"><div class="feed-header"><div class="feed-avatar">${i}</div><div class="feed-meta"><span class="feed-author">${x.creator_username||'Unknown'}</span><span class="feed-date">${d}</span></div></div><div class="feed-body">${x.description?`<div class="feed-description">${x.description}</div>`:''}${t?`<div class="feed-tags">${t}</div>`:''}<div class="feed-actions"><button class="feed-action like" title="Like"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button><button class="feed-action comment" title="Comment"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button><button class="feed-action bookmark" title="Bookmark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button><div class="feed-actions-spacer"></div>${l}<button class="feed-action report" title="Report"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></button></div></div></div>`
     }).join("");
-    
-    if(feedPage === 1) c.innerHTML = html;
-    else c.insertAdjacentHTML('beforeend', html);
+    if(feedPage===1)c.innerHTML=h;else c.insertAdjacentHTML('beforeend',h)
 }
-
-function loadMoreFeed(){
-    fetchFeed();
-}
-
-function calculateTimeAgo(dateString) {
-    if(!dateString) return "";
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-    
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + "y ago";
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + "m ago";
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + "d ago";
-    interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + "h ago";
-    interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + "min ago";
-    
-    return "Just now";
-}
-
-function calculateDaysJoined(d){
-    if(!d)return 0;
-    const j=new Date(d),n=new Date(),diff=Math.abs(n-j);
-    return Math.ceil(diff/(1000*60*60*24));
-}
-
-function viewProfile(){
-    const u=JSON.parse(localStorage.getItem("user"));
-    if(!u)return;
+function loadMoreFeed(){fetchFeed()}
+function calculateTimeAgo(d){if(!d)return"";const s=Math.floor((new Date()-new Date(d))/1000);let i=s/31536000;if(i>1)return Math.floor(i)+"y ago";i=s/2592000;if(i>1)return Math.floor(i)+"m ago";i=s/86400;if(i>1)return Math.floor(i)+"d ago";i=s/3600;if(i>1)return Math.floor(i)+"h ago";i=s/60;if(i>1)return Math.floor(i)+"min ago";return"Just now"}
+function calculateDaysJoined(d){if(!d)return 0;return Math.ceil(Math.abs(new Date()-new Date(d))/(864e5))}
+function myProfile(){
+    const u=JSON.parse(localStorage.getItem("user"));if(!u)return;
     document.getElementById("profile-name").value=u.name||"";
     document.getElementById("profile-country").value=u.country||"";
-    
-    const d=calculateDaysJoined(u.created_at);
-
-    const joinedEl = document.getElementById("profile-joined");
-    if(SHOW_JOINED_DATE){
-        joinedEl.textContent=`Joined ${d} days ago`;
-        joinedEl.style.display="block";
-    }else{
-        joinedEl.style.display="none";
-    }
-    
-    document.getElementById("btn-edit-profile").style.display="block";
-    document.getElementById("btn-save-profile").style.display="none";
-    ["profile-name","profile-country"].forEach(id=>document.getElementById(id).disabled=true);
-    
-    document.getElementById("profile-view-modal").classList.add("active");
-    document.getElementById("profile-menu").classList.remove("active");
+    document.getElementById("profile-email-comm").value=u.email_communication||"";
+    document.getElementById("profile-mobile-comm").value=u.mobile_communication||"";
+    const j=document.getElementById("profile-joined");
+    if(JOIN){j.textContent=`Joined ${calculateDaysJoined(u.created_at)} days ago`;j.style.display="block"}else{j.style.display="none"}
+    document.getElementById("btn-edit-profile").style.display="block";document.getElementById("btn-save-profile").style.display="none";
+    ["profile-name","profile-country","profile-email-comm","profile-mobile-comm"].forEach(id=>document.getElementById(id).disabled=true);
+    document.getElementById("profile-view-modal").classList.add("active");document.getElementById("profile-menu").classList.remove("active")
 }
-
-function toggleEdit(){
-    document.getElementById("btn-edit-profile").style.display="none";
-    document.getElementById("btn-save-profile").style.display="block";
-    ["profile-name","profile-country"].forEach(id=>document.getElementById(id).disabled=false);
-}
+function toggleEdit(){document.getElementById("btn-edit-profile").style.display="none";document.getElementById("btn-save-profile").style.display="block";["profile-name","profile-country","profile-email-comm","profile-mobile-comm"].forEach(id=>document.getElementById(id).disabled=false)}
 
 async function saveProfile(){
-    const u=JSON.parse(localStorage.getItem("user")),t=localStorage.getItem("token");
-    if(!u||!t)return;
-    if(!u.id) return showToast("User ID missing from local storage", "error");
+    const u=JSON.parse(localStorage.getItem("user")),t=localStorage.getItem("token");if(!u||!t)return;
+    if(!u.id)return showToast("User ID missing","error");
+    const n=document.getElementById("profile-name").value.trim(),c=document.getElementById("profile-country").value.trim(),
+          ec=document.getElementById("profile-email-comm").value.trim(),mc=document.getElementById("profile-mobile-comm").value.trim();
     
-    const nameVal = document.getElementById("profile-name").value.trim();
-    const countryVal = document.getElementById("profile-country").value.trim();
-    
-    const inputData = {
-        name: nameVal === "" ? null : nameVal,
-        country: countryVal === "" ? null : countryVal
-    };
-    
-    // Construct payload with only changed fields plus ID
-    const upd = { id: u.id };
-    let hasChanges = false;
-    
-    for (const key in inputData) {
-        if (inputData[key] !== (u[key] || "")) {
-            upd[key] = inputData[key];
-            hasChanges = true;
-        }
-    }
-    
-    if (!hasChanges) {
-        showToast("No changes to save", "info");
-        viewProfile(); // Revert to view mode
-        return;
-    }
-    
+    const i={name:n===""?null:n,country:c===""?null:c,email_communication:ec===""?null:ec,mobile_communication:mc===""?null:mc},p={id:u.id};
+    let h=false; for(const k in i){if((i[k]||"")!==(u[k]||"")){p[k]=i[k];h=true}}
+    if(!h){showToast("No changes","info");myProfile();return}
     try{
-        const r=await fetch(UPDATE_PROFILE_URL,{method:"PUT",headers:{"Authorization":"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(upd)});
-        const res=await r.json();
-        if(r.status===200){
-            // Manually update localStorage user object
-            const newUser = { ...u, ...upd };
-            localStorage.setItem("user", JSON.stringify(newUser));
-            
-
-            
-            showToast(res.message||"Profile updated","success");
-            viewProfile(); // Refresh modal data and keep open
-            return;
-        }
-        showToast(res.message||"Update failed","error");
+        const r=await fetch(url(UP),{method:"PUT",headers:{"Authorization":"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(p)}),j=await r.json();
+        if(r.status===200){localStorage.setItem("user",JSON.stringify({...u,...p}));showToast("Profile updated","success");myProfile();return}
+        showToast(j.message||"Update failed","error")
     }catch(e){showToast("Network error","error")}
 }
-
-function viewLoginDetails() {
-    const u = JSON.parse(localStorage.getItem("user"));
-    if (!u) return;
-    const fields = [
-        { key: "username", label: "Username", val: u.username || "" },
-        { key: "password", label: "Password", val: "********", isPassword: true }
-    ];
-    
-    const container = document.getElementById("login-details-container");
-    container.innerHTML = fields.map(f => `
-        <div class="login-detail-row" id="row-${f.key}">
-            <div class="login-detail-label">${f.label}</div>
-            <div class="login-detail-value" id="view-${f.key}">
-                <span id="txt-${f.key}">${f.val}</span>
-                <button class="btn btn-ghost" style="padding:0.25rem 0.5rem;color:var(--muted)" onclick="toggleEditLoginDetail('${f.key}')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-            </div>
-            <div class="login-detail-actions" id="edit-${f.key}" style="display:none;align-items:center;flex-grow:1;justify-content:flex-end;gap:0.5rem">
-                <div class="input-wrapper" style="margin:0;width:auto;flex-grow:1;position:relative">
-                    <input type="${f.isPassword ? 'password' : 'text'}" id="input-${f.key}" value="${f.isPassword ? '' : f.val}" placeholder="${f.label}" style="padding:0.25rem 0.5rem;font-size:0.875rem">
-                    <button class="clear-icon" onclick="document.getElementById('input-${f.key}').value=''" style="right:0.25rem">✕</button>
-                </div>
-                <button class="btn btn-ghost" style="padding:0.25rem 0.5rem;color:#22c55e" onclick="saveLoginDetail('${f.key}')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
-                <button class="btn btn-ghost" style="padding:0.25rem 0.5rem;color:#ef4444" onclick="toggleEditLoginDetail('${f.key}', false)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
-        </div>
-    `).join("");
-    
-    document.getElementById("login-details-modal").classList.add("active");
-    document.getElementById("profile-menu").classList.remove("active");
+function viewLoginDetails(){
+    const u=JSON.parse(localStorage.getItem("user"));if(!u)return;
+    const f=[{k:"username",l:"Username",v:u.username||""},{k:"password",l:"Password",v:"********",ip:true}],c=document.getElementById("login-details-container");
+    c.innerHTML=f.map(x=>{
+        const icon = x.k==='password' 
+            ? `<button class="password-icon" onclick="togglePassword('input-${x.k}',this)" style="right:0.25rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>`
+            : '';
+        return `<div class="login-detail-row" id="row-${x.k}"><div class="login-detail-label" style="min-width:80px">${x.l}</div><div class="login-detail-value" id="view-${x.k}"><span id="txt-${x.k}">${x.v}</span><button class="btn btn-ghost" style="padding:0.25rem 0.5rem;color:var(--muted)" onclick="toggleEditLoginDetail('${x.k}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div><div class="login-detail-actions" id="edit-${x.k}" style="display:none;align-items:center;flex-grow:1;justify-content:flex-end;gap:0.5rem"><div class="input-wrapper" style="margin:0;width:auto;flex-grow:1;position:relative"><input type="${x.ip?'password':'text'}" id="input-${x.k}" value="${x.ip?'':x.v}" style="padding:0.25rem 1.75rem 0.25rem 0.5rem;font-size:0.875rem">${icon}</div><button class="btn btn-ghost" style="padding:0.25rem 0.5rem;color:#22c55e" onclick="saveLoginDetail('${x.k}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button><button class="btn btn-ghost" style="padding:0.25rem 0.5rem;color:#ef4444" onclick="toggleEditLoginDetail('${x.k}',false)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></div>`
+    }).join("");
+    document.getElementById("login-details-modal").classList.add("active");document.getElementById("profile-menu").classList.remove("active")
 }
-
-function toggleEditLoginDetail(key, showEdit = true) {
-    document.getElementById(`view-${key}`).style.display = showEdit ? "none" : "flex";
-    document.getElementById(`edit-${key}`).style.display = showEdit ? "flex" : "none";
+function toggleEditLoginDetail(k,s=true){document.getElementById(`view-${k}`).style.display=s?"none":"flex";document.getElementById(`edit-${k}`).style.display=s?"flex":"none"}
+async function saveLoginDetail(k){
+    const v=document.getElementById(`input-${k}`).value.trim();if(!v&&(k==='username'||k==='password'))return showToast(k+" required","error");
+    const u=JSON.parse(localStorage.getItem("user")),t=localStorage.getItem("token");if(!u||!t)return;
+    if(!u.id)return showToast("User ID missing","error");
+    if(k==='username' && v===u.username){showToast("No changes","info");toggleEditLoginDetail(k,false);return}
+    // Optimizing - checking for changes before API Call. For password, we don't have the plain text to compare, so we proceed if not empty.
+    
+    const p={id:u.id,[k]:v===""?null:v},U=k==='password'?`${url(UP)}&is_serialize=1`:url(UP);
+    try{
+        const r=await fetch(U,{method:"PUT",headers:{"Authorization":"Bearer "+t,"Content-Type":"application/json"},body:JSON.stringify(p)}),j=await r.json();
+        if(r.status===200){if(k!=="password")localStorage.setItem("user",JSON.stringify({...u,[k]:v}));showToast(j.message||k+" updated","success");viewLoginDetails();return}
+        showToast(j.message||"Update failed","error")
+    }catch(e){showToast("Network error","error")}
 }
-
-async function saveLoginDetail(key) {
-    const val = document.getElementById(`input-${key}`).value.trim();
-    if (!val && (key === 'username' || key === 'password')) return showToast(`${key} cannot be empty`, "error");
-    
-    const u = JSON.parse(localStorage.getItem("user")), t = localStorage.getItem("token");
-    if (!u || !t) return;
-    if (!u.id) return showToast("User ID missing from local storage", "error");
-    
-    const payload = { id: u.id, [key]: val === "" ? null : val };
-    const url = key === 'password' ? `${UPDATE_PROFILE_URL}&is_serialize=1` : UPDATE_PROFILE_URL;
-    
-    try {
-        const r = await fetch(url, {
-            method: "PUT",
-            headers: { "Authorization": "Bearer " + t, "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        const res = await r.json();
-        if (r.status === 200) {
-            // Manually update localStorage user object
-            if (key !== "password") {
-                const newUser = { ...u, [key]: val };
-                localStorage.setItem("user", JSON.stringify(newUser));
-            }
-
-            showToast(res.message||`${key} updated successfully`, "success");
-            viewLoginDetails();
-            return;
-        }
-        showToast(res.message || "Update failed", "error");
-    } catch (e) {
-        showToast("Network error", "error");
-    }
-}
-
 async function deleteAccount(){
-    const t=localStorage.getItem("token");
-    if(!t)return;
+    const t=localStorage.getItem("token");if(!t)return;
     try{
-        const r=await fetch(DELETE_ACCOUNT_URL,{method:"DELETE",headers:{"Authorization":"Bearer "+t}});
-        const res=await r.json();
-        if(r.status===200){
-            document.getElementById("delete-account-modal").classList.remove("active");
-            showToast(res.message||"Account deleted successfully","success");
-            logout();
-            return;
-        }
-        showToast(res.message||"Delete failed","error");
+        const r=await fetch(url(DE),{method:"DELETE",headers:{"Authorization":"Bearer "+t}}),j=await r.json();
+        if(r.status===200){document.getElementById("delete-account-modal").classList.remove("active");showToast("Account deleted","success");logout();return}
+        showToast(j.message||"Delete failed","error");
     }catch(e){showToast("Network error","error")}
 }
-
-function togglePassword(id, btn){
-    const i=document.getElementById(id);
-    if(i.type==="password"){
-        i.type="text";
-        btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-    }else{
-        i.type="password";
-        btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
-    }
-}
+function togglePassword(id,b){const i=document.getElementById(id);if(i.type==="password"){i.type="text";b.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'}else{i.type="password";b.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'}}
 </script>
 </body>
 </html>

@@ -155,7 +155,7 @@ async def func_obj_update_logic(role,request):
             if len(obj_list)!=1:raise Exception("multi object issue")
             if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
             if any(key in obj_list[0] and len(obj_list[0])!=2 for key in ["username","password","email","mobile"]):raise Exception("obj length should be 2")
-            if any(k in obj_list[0] for k in ("email","mobile")):await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query.get("otp"),obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_otp_expire_sec)
+            if any(k in obj_list[0] for k in ("email","mobile")):await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query.get("otp"),obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_expiry_sec_otp)
     elif role=="public":
         pass
     elif role=="admin":
@@ -1014,38 +1014,45 @@ async def func_check_ratelimiter(request):
     return None
 
 async def func_check_is_active(request):
-    if not request.app.state.config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user:return None
-    if request.app.state.config_mode_check_is_active=="token":user_is_active=request.state.user.get("is_active","absent")
-    elif request.app.state.config_mode_check_is_active=="cache":user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
-    else:raise Exception("config_mode_check_is_active=token/cache")
-    if user_is_active=="absent":
-        async with request.app.state.client_postgres_pool.acquire() as conn:
-            rows=await conn.fetch("select id,is_active from users where id=$1",request.state.user["id"])
-        user=rows[0] if rows else None
-        if not user:raise Exception("user not found")
-        user_is_active=user["is_active"]
-    if user_is_active==0:raise Exception("user not active")
+    if not request.app.state.config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user: return None
+    async def fetch_user_is_active(user_id):
+        async with request.app.state.client_postgres_pool.acquire() as conn: rows=await conn.fetch("select id,is_active from users where id=$1",user_id)
+        if not rows: raise Exception("user not found")
+        return rows[0]["is_active"]
+    mode=request.app.state.config_mode_check_is_active; user_is_active=None
+    if mode=="realtime":
+        user_is_active=await fetch_user_is_active(request.state.user["id"])
+    elif mode=="cache":
+        user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
+        if user_is_active=="absent": user_is_active=await fetch_user_is_active(request.state.user["id"])
+    elif mode=="token":
+        user_is_active=request.state.user.get("is_active","absent")
+        if user_is_active=="absent": raise Exception("token has no is_active key")
+    else: raise Exception("config_mode_check_is_active=token/cache/realtime")
+    if user_is_active==0: raise Exception("user not active")
     return None
 
 async def func_check_admin(request):
-    if not request.url.path.startswith("/admin"):return None
-    def parse_access_list(access_str):return [int(item.strip()) for item in access_str.split(",")] if access_str else []
+    if not request.url.path.startswith("/admin"): return None
+    def parse_access_list(access_str): return [int(item.strip()) for item in access_str.split(",")] if access_str else []
     async def fetch_user_access(user_id):
-        async with request.app.state.client_postgres_pool.acquire() as conn:rows = await conn.fetch("select id,api_id_access from users where id=$1", user_id)
-        if not rows:raise Exception("user not found")
+        async with request.app.state.client_postgres_pool.acquire() as conn: rows = await conn.fetch("select id,api_id_access from users where id=$1", user_id)
+        if not rows: raise Exception("user not found")
         return rows[0]["api_id_access"]
-    def get_cached_access():
-        if request.app.state.config_mode_check_api_access == "token":return request.state.user.get("api_id_access", [])
-        elif request.app.state.config_mode_check_api_access == "cache":return request.app.state.cache_users_api_access.get(request.state.user["id"], [])
-        raise Exception("config_mode_check_api_access=token/cache")
-    user_api_access = get_cached_access()
-    if not user_api_access:
-        user_api_access = await fetch_user_access(request.state.user["id"])
-        if not user_api_access:raise Exception("api access denied")
-    user_api_access_list = parse_access_list(user_api_access)
-    api_id = request.app.state.config_api.get(request.url.path, {}).get("id")
-    if not api_id:raise Exception("api id not mapped")
-    if api_id not in user_api_access_list:raise Exception("api access denied")
+    mode = request.app.state.config_mode_check_is_admin; user_api_id_access = None
+    if mode == "realtime":
+        user_api_id_access = await fetch_user_access(request.state.user["id"])
+    elif mode == "cache":
+        user_api_id_access = request.app.state.cache_users_api_access.get(request.state.user["id"], "absent")
+        if user_api_id_access == "absent": user_api_id_access = await fetch_user_access(request.state.user["id"])
+    elif mode == "token":
+        user_api_id_access = request.state.user.get("api_id_access","absent")
+        if user_api_id_access == "absent": raise Exception("token has no api_id_access key")
+    else: raise Exception("config_mode_check_is_admin=token/cache/realtime")
+    if not user_api_id_access: raise Exception("you are not admin")
+    user_api_access_list = parse_access_list(user_api_id_access); api_id = request.app.state.config_api.get(request.url.path, {}).get("id")
+    if not api_id: raise Exception("api id not mapped")
+    if api_id not in user_api_access_list: raise Exception("api access denied")
     return None
 
 from fastapi import Response
@@ -1124,11 +1131,11 @@ async def func_jwt_token_decode(token,config_key_jwt):
    return user
 
 import jwt,json,time
-async def func_jwt_token_encode(obj,config_key_jwt,config_token_expire_sec=1000,key_list=None):
+async def func_jwt_token_encode(obj,config_key_jwt,config_token_expiry_sec=1000,key_list=None):
    if not isinstance(obj,dict):obj=dict(obj)
    payload={k:obj.get(k) for k in key_list} if key_list else obj
    payload=json.dumps(payload,default=str)
-   token=jwt.encode({"exp":time.time()+config_token_expire_sec,"data":payload},config_key_jwt)
+   token=jwt.encode({"exp":time.time()+config_token_expiry_sec,"data":payload},config_key_jwt)
    return token
 
 from fastapi import FastAPI
@@ -1301,16 +1308,16 @@ async def func_otp_generate(client_postgres_pool,email,mobile):
         await conn.execute(query,*values)
     return otp
 
-async def func_otp_verify(client_postgres_pool,otp,email,mobile,config_otp_expire_sec=None):
+async def func_otp_verify(client_postgres_pool,otp,email,mobile,config_expiry_sec_otp=None):
     if not otp:raise Exception("otp missing")
-    if not config_otp_expire_sec:config_otp_expire_sec=600
+    if not config_expiry_sec_otp:config_expiry_sec_otp=600
     if not email and not mobile: raise Exception("email/mobile any one is must")
     if email and mobile: raise Exception("only one of email or mobile is allowed")
     if email:
-        query = f"select otp from otp where created_at>current_timestamp-interval '{config_otp_expire_sec} seconds' and email=$1 order by id desc limit 1;"
+        query = f"select otp from otp where created_at>current_timestamp-interval '{config_expiry_sec_otp} seconds' and email=$1 order by id desc limit 1;"
         value = email.strip().lower()
     else:
-        query = f"select otp from otp where created_at>current_timestamp-interval '{config_otp_expire_sec} seconds' and mobile=$1 order by id desc limit 1;"
+        query = f"select otp from otp where created_at>current_timestamp-interval '{config_expiry_sec_otp} seconds' and mobile=$1 order by id desc limit 1;"
         value = mobile.strip()
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch(query, value)
