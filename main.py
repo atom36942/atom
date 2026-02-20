@@ -30,7 +30,7 @@ async def func_lifespan(app:FastAPI):
       client_gemini=await func_gemini_client_read(config_gemini_key) if config_gemini_key else None
       #cache init
       cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else ({},{})
-      cache_users_api_access=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_api_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_id_access") else {}
+      cache_users_api_id_access=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_api_id_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_id_access") else {}
       cache_users_is_active=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
       cache_config=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_config")) if client_postgres_pool and cache_postgres_schema.get("config",{}) else {}
       #app state set
@@ -73,7 +73,7 @@ import time
 async def middleware(request,api_function):
    try:
       start,type,error,request.state.user=time.perf_counter(),None,None,{}
-      await func_set_request_user(request)
+      await func_check_token(request)
       await func_check_admin(request)
       await func_check_is_active(request)
       await func_check_ratelimiter(request)

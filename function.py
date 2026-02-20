@@ -92,7 +92,7 @@ async def fund_reset_postgres_cache(request):
     return None
 
 async def fund_reset_cache_users(request):
-    request.app.state.cache_users_api_access=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_api_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_id_access") else {}
+    request.app.state.cache_users_api_id_access=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_api_id_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_id_access") else {}
     request.app.state.cache_users_is_active=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
     return None
 
@@ -1043,16 +1043,16 @@ async def func_check_admin(request):
     if mode == "realtime":
         user_api_id_access = await fetch_user_access(request.state.user["id"])
     elif mode == "cache":
-        user_api_id_access = request.app.state.cache_users_api_access.get(request.state.user["id"], "absent")
+        user_api_id_access = request.app.state.cache_users_api_id_access.get(request.state.user["id"], "absent")
         if user_api_id_access == "absent": user_api_id_access = await fetch_user_access(request.state.user["id"])
     elif mode == "token":
         user_api_id_access = request.state.user.get("api_id_access","absent")
         if user_api_id_access == "absent": raise Exception("token has no api_id_access key")
     else: raise Exception("config_mode_check_is_admin=token/cache/realtime")
     if not user_api_id_access: raise Exception("you are not admin")
-    user_api_access_list = parse_access_list(user_api_id_access); api_id = request.app.state.config_api.get(request.url.path, {}).get("id")
+    user_api_id_access_list = parse_access_list(user_api_id_access); api_id = request.app.state.config_api.get(request.url.path, {}).get("id")
     if not api_id: raise Exception("api id not mapped")
-    if api_id not in user_api_access_list: raise Exception("api access denied")
+    if api_id not in user_api_id_access_list: raise Exception("api access denied")
     return None
 
 from fastapi import Response
@@ -1106,7 +1106,7 @@ async def func_api_response(request,api_function):
         if cache_sec:response=await request.app.state.func_check_cache("set",request,response);type=4
     return response,type
 
-async def func_set_request_user(request):
+async def func_check_token(request):
     user={}
     api=request.url.path
     token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None

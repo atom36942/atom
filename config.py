@@ -116,14 +116,14 @@ config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 #dict
 config_sql={
 "cache_config":"select title,metadata from config limit 1000;",
-"cache_users_api_access":"select id,api_id_access from users where api_id_access is not null limit 1000",
+"cache_users_api_id_access":"select id,api_id_access from users where api_id_access is not null limit 1000",
 "cache_users_is_active":"select id,is_active from users limit 1000",
 "user":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
 }
 
 config_table={
 "test":{"buffer":3},
-"log_api":{"retention_day":30,"buffer":10},
+"log_api":{"retention_day":30,"buffer":3},
 "log_password":{"retention_day":90},
 "otp":{"retention_day":365},
 }
