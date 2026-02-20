@@ -32,11 +32,15 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 .footer-row{display:flex;gap:16px;margin-top:12px}.btn{padding:14px 24px;flex:1;font-size:15px;font-weight:600;border-radius:8px;border:none;cursor:pointer;height:48px}
 .btn-primary{background:var(--primary);color:var(--primary-text)}.btn-secondary{background:var(--secondary);color:var(--secondary-text)}
 .resp-box{background:#14171c;border-radius:10px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden;max-height:500px;flex-direction:column}
-.resp-box.show{display:flex}.resp-header{padding:16px 20px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;font-size:13px;color:var(--accent);text-transform:uppercase}
+.resp-box.show{display:flex}.resp-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;font-size:13px;color:var(--accent);text-transform:uppercase}
 .resp-content{overflow-y:auto}table{width:100%;border-collapse:collapse}
 td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;vertical-align:top}
-.key{color:var(--muted);width:140px;font-weight:600;}.val{word-break:break-all;font-family:Inter,system-ui}
+.key{color:var(--muted);width:140px;font-weight:600}.val{word-break:break-all;font-family:Inter,system-ui}.copy-td{width:70px;text-align:right}
 .copy-btn{background:#2a3642;color:#ccc;border:none;padding:8px 14px;border-radius:6px;cursor:pointer}
+.resp-pre{background:#1a1d23;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:16px;margin:0;font-size:13px;font-family:'SF Mono',Menlo,monospace;color:#e6eef3;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto}
+.resp-pre .jp{color:var(--muted)}.resp-pre .jk{color:#7ec8e3}.resp-pre .js{color:#98c379}.resp-pre .jn{color:#d19a66}.resp-pre .jb{color:#c678dd}.resp-pre .jl{color:#56b6c2}
+.resp-tbl{width:100%;border-collapse:collapse;font-size:13px;margin:0}.resp-tbl th{background:#1a1d23;padding:10px 14px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.resp-tbl td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);word-break:break-all;color:#e6eef3}
 .section-group{display:none}.section-group.active{display:block}
 .modal{display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(4px)}
 .modal-content{background:var(--card);margin:5% auto;padding:24px;width:90%;max-width:600px;border-radius:12px;border:1px solid rgba(255,255,255,.1)}
@@ -66,7 +70,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
     <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
     <div class="footer-row"><button id="clrBtn" type="button" class="btn btn-secondary">Clear</button><button id="subBtn" type="submit" class="btn btn-primary">Submit</button></div>
 </form>
-<div class="resp-box" id="rBox"><div class="resp-header">Response</div><div class="resp-content"><table id="rTab"></table></div></div>
+<div class="resp-box" id="rBox"><div class="resp-header">Response <span id="rCode" style="margin-left:auto;font-weight:400"></span></div><div class="resp-content"><table id="rTab"></table></div></div>
 </div></div>
 
 <div id="lsModal" class="modal"><div class="modal-content">
@@ -148,97 +152,129 @@ const COMMANDS=[
 {p:"/admin/ids-update",m:"PUT",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"title",t:"string"},{k:"value",v:"admin",t:"string"}]},
 {p:"/admin/ids-delete",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"is_deleted",v:"1",t:"string"}]},
 ];
+
 const d=document, $=i=>d.getElementById(i), orig=COMMANDS.map((c,i)=>({...c,oi:i}));
 let curr=null;
-const db=(f,t)=>{let o;return(...a)=>{clearTimeout(o);o=setTimeout(()=>f(...a),t)}};
-const updateLsCount = () => { $("lsCount").textContent = localStorage.length; };
-const pop=cs=>{if(!cs.length){$("apiDrop").classList.remove("show");$("apiCountBadge").textContent="";return}$("apiDrop").innerHTML=cs.map(c=>`<li data-i="${c.oi}">${c.p}</li>`).join('');$("apiDrop").classList.add("show");$("apiCountBadge").textContent=`${cs.length} curls`};
-$("apiCountBadge").textContent = `${COMMANDS.length} curls`;
 
-const row=(ct,k="",v="",t="string")=>{
-    const r=d.createElement("div");r.className="input-row";
-    let vi=ct===$("jCont")?`<div class="input-wrapper"><input type="text" class="row-val" value="${v}"><button type="button" class="clear-input-btn">×</button></div><select class="json-type-selector">${['string','number','boolean','null','array','object'].map(x=>`<option value="${x}" ${t===x?"selected":""}>${x}</option>`).join('')}</select>`:(ct===$("fCont")&&v.startsWith("@")?`<div class="input-wrapper"><input type="file" class="row-val"><button type="button" class="clear-input-btn">×</button></div>`:`<div class="input-wrapper"><input type="text" class="row-val" value="${v}"><button type="button" class="clear-input-btn">×</button></div>`);
-    r.innerHTML=`<input type="text" class="row-key" value="${k}">${vi}<button type="button" class="remove-btn">×</button>`;
-    r.querySelector(".remove-btn").onclick=()=>r.remove();
-    const valInput=r.querySelector(".row-val"), clearBtn=r.querySelector(".clear-input-btn");
-    if(clearBtn&&valInput){const upd=()=>{clearBtn.style.display=valInput.value?"block":"none"};upd();valInput.oninput=upd;clearBtn.onclick=(e)=>{e.stopPropagation();valInput.value="";upd();valInput.focus()}}
-    ct.appendChild(r)
+/* ── Reusable helpers ── */
+const db=(f,t)=>{let o;return(...a)=>{clearTimeout(o);o=setTimeout(()=>f(...a),t)}};
+const updateLsCount=()=>{$("lsCount").textContent=localStorage.length};
+
+// Bind clear-button behaviour on any .row-val + .clear-input-btn pair inside a row element
+const bindClear=r=>{
+    const inp=r.querySelector(".row-val"), btn=r.querySelector(".clear-input-btn");
+    if(!btn||!inp) return;
+    const upd=()=>{btn.style.display=inp.value?"block":"none"};
+    upd(); inp.oninput=upd;
+    btn.onclick=e=>{e.stopPropagation();inp.value="";upd();inp.focus()};
 };
 
+// Build val-column HTML for a row (handles json-type, file-upload, and plain text)
+const valHtml=(ct,v,t)=>{
+    const TYPES=['string','number','boolean','null','array','object'];
+    const wrap=inner=>`<div class="input-wrapper">${inner}<button type="button" class="clear-input-btn">×</button></div>`;
+    if(ct===$("jCont")) return wrap(`<input type="text" class="row-val" value="${v}">`)+`<select class="json-type-selector">${TYPES.map(x=>`<option value="${x}" ${t===x?"selected":""}>${x}</option>`).join('')}</select>`;
+    if(ct===$("fCont")&&v.startsWith("@")) return wrap(`<input type="file" class="row-val">`);
+    return wrap(`<input type="text" class="row-val" value="${v}">`);
+};
+
+// Create and append an input-row to a container
+const mkRow=(ct,k="",v="",t="string")=>{
+    const r=d.createElement("div"); r.className="input-row";
+    r.innerHTML=`<input type="text" class="row-key" value="${k}">${valHtml(ct,v,t)}<button type="button" class="remove-btn">×</button>`;
+    r.querySelector(".remove-btn").onclick=()=>r.remove();
+    bindClear(r);
+    ct.appendChild(r);
+};
+
+// Section definitions: [addBtnId, sectionId, containerId]
+const SECTIONS=[["addH","hSec","hCont"],["addQ","qSec","qCont"],["addF","fSec","fCont"],["addJ","jSec","jCont"]];
+SECTIONS.forEach(([btn,sec,cont])=>{$(btn).onclick=()=>{$(sec).classList.add("active");mkRow($(cont))}});
+
+/* ── Dropdown ── */
+const pop=cs=>{if(!cs.length){$("apiDrop").classList.remove("show");$("apiCountBadge").textContent="";return}$("apiDrop").innerHTML=cs.map(c=>`<li data-i="${c.oi}">${c.p}</li>`).join('');$("apiDrop").classList.add("show");$("apiCountBadge").textContent=`${cs.length} curls`};
+$("apiCountBadge").textContent=`${COMMANDS.length} curls`;
+
+/* ── Load a command ── */
 const load=i=>{
-    curr=i===null?null:COMMANDS[i];[hCont,qCont,fCont,jCont].forEach(c=>c.innerHTML="");[hSec,qSec,fSec,jSec].forEach(s=>s.classList.remove("active"));$("rBox").classList.remove("show");
+    curr=i===null?null:COMMANDS[i];
+    SECTIONS.forEach(([,sec,cont])=>{$(cont).innerHTML="";$(sec).classList.remove("active")});
+    $("rBox").classList.remove("show");
     if(!curr){$("apiIn").value="";$("clrSel").style.display="none";$("apiCountBadge").textContent=`${COMMANDS.length} curls`;return}
     if(curr.h.length){
-        hSec.classList.add("active");
+        $("hSec").classList.add("active");
         curr.h.forEach(x=>{
-            let val = x.v;
-            if(x.k.toLowerCase() === "authorization") {
-                const lsKey = curr.p.startsWith("/root") ? "token_root" : "token";
-                val = localStorage.getItem(lsKey) || x.v;
-            }
-            row(hCont,x.k,val);
+            let val=x.v;
+            if(x.k.toLowerCase()==="authorization"){const lsKey=curr.p.startsWith("/root")?"token_root":"token";val=localStorage.getItem(lsKey)||x.v}
+            mkRow($("hCont"),x.k,val);
         });
     }
-    qSec.classList.add("active");curr.q.forEach(x=>row(qCont,x.k,x.v));
-    if(curr.f.length){fSec.classList.add("active");curr.f.forEach(x=>row(fCont,x.k,x.v))}
-    if(curr.j.length){jSec.classList.add("active");curr.j.forEach(x=>row(jCont,x.k,x.v,x.t))}
-    $("clrSel").style.display="block"
+    $("qSec").classList.add("active");curr.q.forEach(x=>mkRow($("qCont"),x.k,x.v));
+    if(curr.f.length){$("fSec").classList.add("active");curr.f.forEach(x=>mkRow($("fCont"),x.k,x.v))}
+    if(curr.j.length){$("jSec").classList.add("active");curr.j.forEach(x=>mkRow($("jCont"),x.k,x.v,x.t))}
+    $("clrSel").style.display="block";
 };
 
-const renderLs=()=>{
-    updateLsCount();
-    $("lsList").innerHTML="";
-    Object.keys(localStorage).forEach(k=>addLsRow(k,localStorage.getItem(k)));
-};
-
+/* ── LocalStorage modal ── */
 const addLsRow=(k="",v="")=>{
-    const r=d.createElement("div");r.className="input-row";
-    r.innerHTML=`<input type="text" class="row-key ls-k" value="${k}" placeholder="Key"><div class="input-wrapper"><input type="text" class="row-val ls-v" value="${v}" placeholder="Value"><button type="button" class="clear-input-btn">×</button></div><button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>`;
-    const valInput=r.querySelector(".row-val"), clearBtn=r.querySelector(".clear-input-btn");
-    if(clearBtn&&valInput){const upd=()=>{clearBtn.style.display=valInput.value?"block":"none"};upd();valInput.oninput=upd;clearBtn.onclick=(e)=>{e.stopPropagation();valInput.value="";upd();valInput.focus()};upd()}
+    const r=d.createElement("div"); r.className="input-row";
+    r.innerHTML=`<input type="text" class="row-key ls-k" placeholder="Key"><div class="input-wrapper"><input type="text" class="row-val ls-v" placeholder="Value"><button type="button" class="clear-input-btn">×</button></div><button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>`;
+    r.querySelector(".ls-k").value=k; r.querySelector(".ls-v").value=v;
+    bindClear(r);
     $("lsList").appendChild(r);
 };
-
+const renderLs=()=>{updateLsCount();$("lsList").innerHTML="";Object.keys(localStorage).forEach(k=>addLsRow(k,localStorage.getItem(k)))};
 const saveLs=()=>{
     localStorage.clear();
-    d.querySelectorAll("#lsList .input-row").forEach(r=>{
-        const k=r.querySelector(".ls-k").value.trim(),v=r.querySelector(".ls-v").value.trim();
-        if(k)localStorage.setItem(k,v);
-    });
-    updateLsCount();
-    $("lsModal").style.display="none";
-    if(curr) load(COMMANDS.findIndex(c => c.p === curr.p));
+    d.querySelectorAll("#lsList .input-row").forEach(r=>{const k=r.querySelector(".ls-k").value.trim(),v=r.querySelector(".ls-v").value.trim();if(k)localStorage.setItem(k,v)});
+    updateLsCount();$("lsModal").style.display="none";
+    if(curr) load(COMMANDS.findIndex(c=>c.p===curr.p));
 };
 
+/* ── Event wiring ── */
 $("lsBtn").onclick=()=>{$("lsModal").style.display="block";renderLs()};
 $("apiIn").oninput=db(e=>{const v=e.target.value.toLowerCase().trim();$("clrSel").style.display=e.target.value?"block":"none";if(!v)return load(null);pop(orig.filter(c=>c.p.toLowerCase().includes(v)))},200);
 $("apiIn").onfocus=()=>{const v=$("apiIn").value.trim();$("clrSel").style.display=v?"block":"none";pop(v?orig.filter(c=>c.p.toLowerCase().includes(v.toLowerCase())):orig)};
 $("apiDrop").onclick=e=>{if(e.target.tagName==="LI"){$("apiIn").value=e.target.textContent;load(e.target.dataset.i);$("apiDrop").classList.remove("show")}};
 $("clrSel").onclick=()=>load(null);
 d.onclick=e=>{if(!$("selW").contains(e.target)){$("apiDrop").classList.remove("show");$("apiIn").value=curr?curr.p:""}};
-$("addH").onclick=()=>{hSec.classList.add("active");row(hCont)};
-$("addQ").onclick=()=>{qSec.classList.add("active");row(qCont)};
-$("addF").onclick=()=>{fSec.classList.add("active");row(fCont)};
-$("addJ").onclick=()=>{jSec.classList.add("active");row(jCont)};
 $("clrBtn").onclick=()=>{$("apiForm").reset();$("rTab").innerHTML="";load(null)};
-const res=j=>{$("rTab").innerHTML=Object.entries(j).map(([k,v])=>{const s=v&&typeof v=="object"?JSON.stringify(v,null,2):String(v);return `<tr><td class="key">${k}</td><td class="val">${s}</td><td><button class="copy-btn" data-v="${encodeURIComponent(s)}">Copy</button></td></tr>`}).join('');$("rBox").classList.add("show")};
+
+/* ── Response rendering ── */
+const hl=s=>s.replace(/"([^"]+)"\s*:/g,'<span class="jk">"$1"</span>:').replace(/:"([^"]*)"/g,':<span class="js">"$1"</span>').replace(/:\s*([\d.]+)/g,': <span class="jn">$1</span>').replace(/:\s*(true|false)/g,': <span class="jb">$1</span>').replace(/:\s*(null)/g,': <span class="jl">$1</span>');
+const fmtVal=v=>{
+    if(v==null) return 'null';
+    if(typeof v!=='object') return String(v);
+    if(Array.isArray(v)&&v.length&&typeof v[0]==='object'&&v[0]!==null){
+        const keys=[...new Set(v.flatMap(Object.keys))];
+        return `<table class="resp-tbl"><thead><tr>${keys.map(k=>`<th>${k}</th>`).join('')}</tr></thead><tbody>${v.map(row=>`<tr>${keys.map(k=>{const c=row[k];return `<td>${c&&typeof c==='object'?JSON.stringify(c):c??''}</td>`}).join('')}</tr>`).join('')}</tbody></table>`;
+    }
+    return `<pre class="resp-pre">${hl(JSON.stringify(v,null,2))}</pre>`;
+};
+const res=(j,httpCode)=>{
+    $("rCode").textContent=httpCode!=null?httpCode:"";
+    $("rTab").innerHTML=Object.entries(j).map(([k,v])=>{
+        const raw=v&&typeof v=="object"?JSON.stringify(v,null,2):String(v);
+        const html=k==="message"?fmtVal(v):raw;
+        return `<tr><td class="key">${k}</td><td class="val">${html}</td><td class="copy-td"><button class="copy-btn" data-v="${encodeURIComponent(raw)}">Copy</button></td></tr>`;
+    }).join('');$("rBox").classList.add("show")
+};
 $("rTab").onclick=e=>{if(e.target.className==="copy-btn"){navigator.clipboard.writeText(decodeURIComponent(e.target.dataset.v));e.target.textContent="Copied!";setTimeout(()=>e.target.textContent="Copy",1500)}};
+
+/* ── Extract row data from a section container ── */
+const extract=(c,isJ=false)=>{const d=[];c.querySelectorAll(".input-row").forEach(r=>{const k=r.querySelector(".row-key").value.trim(),v=r.querySelector(".row-val"),t=isJ?r.querySelector("select").value:null;if(k||v.value)d.push({k,v:v.value,t,f:v.files?.[0]})});return d};
+
+/* ── Form submit ── */
 $("apiForm").onsubmit=async e=>{
     e.preventDefault();if(!curr)return alert("Select API");$("subBtn").disabled=true;$("subBtn").textContent="Sending...";
-    const ex=(c,isJ=false)=>{const d=[];c.querySelectorAll(".input-row").forEach(r=>{const k=r.querySelector(".row-key").value.trim(),v=r.querySelector(".row-val"),t=isJ?r.querySelector("select").value:null;if(k||v.value)d.push({k,v:v.value,t,f:v.files?.[0]})});return d};
-    const hD=ex(hCont),qD=ex(qCont),fD=ex(fCont),jD=ex(jCont,true);
+    const hD=extract($("hCont")),qD=extract($("qCont")),fD=extract($("fCont")),jD=extract($("jCont"),true);
     let u=window.location.origin+curr.p,qs=qD.filter(x=>x.k&&x.v).map(x=>`${encodeURIComponent(x.k)}=${encodeURIComponent(x.v)}`).join('&');if(qs)u+="?"+qs;
     const h={};
-    hD.forEach(x=>{
-        if(x.k&&x.v){
-            if(x.k.toLowerCase()==="authorization"){h[x.k]=`Bearer ${x.v}`}
-            else{h[x.k]=x.v}
-        }
-    });
+    hD.forEach(x=>{if(x.k&&x.v){h[x.k]=x.k.toLowerCase()==="authorization"?`Bearer ${x.v}`:x.v}});
     const o={method:curr.m,headers:h};
     if(fD.length){const fd=new FormData();fD.forEach(x=>{if(x.f)fd.append(x.k,x.f);else if(x.v)fd.append(x.k,x.v)});o.body=fd}
     else if(jD.length){const jo={};try{jD.forEach(x=>{if(!x.k)return;let v=x.v;if(x.t==="number"){v=Number(v)}else if(x.t==="boolean")v=v.toLowerCase()==="true";else if(x.t==="null")v=null;else if(x.t==="array")v=JSON.parse(v);jo[x.k]=v});o.body=JSON.stringify(jo);h["Content-Type"]="application/json"}catch(e){alert(e.message);$("subBtn").disabled=false;return}}
-    try{const r=await fetch(u,o),t=await r.text();let j;try{j=JSON.parse(t)}catch{j={status:r.status,message:t||"Raw"}}res({status:j.status||r.status,message:j.message||j})}catch(e){res({status:0,message:e.message})}finally{$("subBtn").disabled=false;$("subBtn").textContent="Submit"}
+    try{const r=await fetch(u,o),t=await r.text();let j;try{j=JSON.parse(t)}catch{j={status:r.status,message:t||"Raw"}}res(j,r.status)}catch(e){res({status:0,message:e.message})}finally{$("subBtn").disabled=false;$("subBtn").textContent="Submit"}
 };
 load(null);
 updateLsCount();

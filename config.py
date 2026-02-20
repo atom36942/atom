@@ -12,7 +12,7 @@ config_folder_export=os.getenv("config_folder_export") or "export"
 config_folder_static=os.getenv("config_folder_static") or "static"
 config_folder_html=os.getenv("config_folder_html") or "static"
 config_folder_router=os.getenv("config_folder_router") or "router"
-config_index_html=os.getenv("config_index_html") or "index"
+config_index_html=os.getenv("config_index_html") or "social"
 config_file_router_prefix=os.getenv("config_file_router_prefix") or "router"
 
 #postgres
@@ -94,7 +94,7 @@ config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
 config_is_reset_export_folder=int(os.getenv("config_is_reset_export_folder") or 1)
 config_is_debug_fastapi=int(os.getenv("config_is_debug_fastapi") or 1)
 config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
-config_is_index_html=int(os.getenv("config_is_index_html") or 1)
+config_is_index_html=int(os.getenv("config_is_index_html") or 0)
 
 #table/column
 config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,rating_test,post,support").split(",")
@@ -103,7 +103,7 @@ config_table_read_public_list=(os.getenv("config_table_read_public_list") or "te
 config_column_blocked_list=(os.getenv("config_column_blocked_list") or "is_active,is_verified,api_id_access").split(",")
 
 #token
-config_token_expiry_sec=int(os.getenv("config_token_expiry_sec") or 100*365*24*60*60)
+config_token_expiry_sec=int(os.getenv("config_token_expiry_sec") or 3*24*60*60)
 config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_id_access").split(",")
 
 #zzz
