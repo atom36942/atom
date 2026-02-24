@@ -157,10 +157,9 @@ async def func_api_3cf56dd2c1b7458895585180af1b496d(request:Request):
 #my
 @router.get("/my/profile")
 async def func_api_27860b1e950446a9b5bd28c2e9a33de4(request:Request):
-   obj_query=await func_request_param_read(request,"query",[("is_metadata","int",0,None)])
    user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
    metadata={}
-   if obj_query["is_metadata"]==1:metadata=await func_user_sql_read(request.app.state.client_postgres_pool,config_sql,request.state.user["id"])
+   if config_is_profile_metadata==1:metadata=await func_user_sql_read(request.app.state.client_postgres_pool,config_sql,request.state.user["id"])
    asyncio.create_task(func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}],None,None))
    return {"status":1,"message":user|metadata}
 

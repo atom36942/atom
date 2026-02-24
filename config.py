@@ -95,6 +95,7 @@ config_is_reset_export_folder=int(os.getenv("config_is_reset_export_folder") or 
 config_is_debug_fastapi=int(os.getenv("config_is_debug_fastapi") or 1)
 config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
 config_is_index_html=int(os.getenv("config_is_index_html") or 0)
+config_is_profile_metadata=int(os.getenv("config_is_profile_metadata") or 0)
 
 #table/column
 config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,rating_test,post,support").split(",")

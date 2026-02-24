@@ -78,7 +78,6 @@ curl -X GET "$baseurl/page/zzz"
 #derived
 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=update" -F "table=test" -F "file=@static/postgres_update.csv"
 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=delete" -F "table=test" -F "file=@static/postgres_delete.csv"
-curl -X GET "$baseurl/my/profile?is_metadata=1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/api-usage?days=3" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-received?is_unread=1" -H "Authorization: Bearer $token"
 curl -X GET "$baseurl/my/message-inbox?is_unread=1" -H "Authorization: Bearer $token"
