@@ -421,8 +421,6 @@ async def func_api_219e40d87ece488fb927dd4ee8f14bb9(request:Request):
 #zzz
 @router.get("/test")
 async def func_api_2653353cdf3145558dae1c3ce24318e2(request:Request):
-   if False:await func_sftp_file_upload(request.app.state.client_sftp,"static/ocr.png","ocr.png")
-   if False:await func_sftp_file_download(request.app.state.client_sftp, "ocr.png")
    return {"status":1,"message":"welcome to test"}
 
 @router.get("/protected/test")
