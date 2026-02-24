@@ -8,6 +8,8 @@ from function import *
 import asyncio
 from datetime import datetime
 from fastapi import Request,responses,WebSocket,WebSocketDisconnect
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 #index
 @router.get("/")
@@ -161,13 +163,17 @@ async def func_api_27860b1e950446a9b5bd28c2e9a33de4(request:Request):
    metadata={}
    if config_is_profile_metadata==1:metadata=await func_user_sql_read(request.app.state.client_postgres_pool,config_sql,request.state.user["id"])
    asyncio.create_task(func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}],None,None))
-   return {"status":1,"message":user|metadata}
+   response=JSONResponse({"status":1,"message":jsonable_encoder(user|metadata)})
+   response.headers["Authorization"]=f"{await func_jwt_token_encode(user,config_key_jwt,config_token_expiry_sec,config_token_user_key_list)}"
+   return response
 
-@router.get("/my/token-refresh")
+@router.post("/my/token-refresh")
 async def func_api_a39a95f6167a4ef2a33ea19a0f0e01e7(request:Request):
    user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
    token=await func_jwt_token_encode(user,config_key_jwt,config_token_expiry_sec,config_token_user_key_list)
-   return {"status":1,"message":token}
+   response=JSONResponse({"status":1,"message":"check Authorization header"})
+   response.headers["Authorization"]=f"{token}"
+   return response
 
 @router.get("/my/api-usage")
 async def func_api_12df64ab29a4486ca541c0610ef30a16(request:Request):
