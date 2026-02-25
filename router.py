@@ -272,7 +272,6 @@ async def func_api_ad13e1541fdf4aeda4702eba872afc41(request:Request):
 async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
    obj_query=await func_request_param_read(request,"query",[("key","str",0,None)])
    output={
-   "request_state_app":{k:type(v).__name__ for k, v in request.app.state._state.items()},
    "api_list":[route.path for route in request.app.routes],
    "cache_postgres_schema":request.app.state.cache_postgres_schema,
    "cache_postgres_column_datatype":request.app.state.cache_postgres_column_datatype,

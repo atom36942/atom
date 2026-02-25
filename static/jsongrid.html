@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>JSON Grid</title>
+<style>
+body{font-family:Arial;margin:20px}
+#controls{margin-bottom:10px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #ccc;padding:6px;font-size:13px}
+th{background:#f5f5f5;cursor:pointer;position:relative}
+input.filter{width:100%;box-sizing:border-box;font-size:12px}
+tr:nth-child(even){background:#fafafa}
+td[contenteditable="true"]{background:#fffbe6}
+button{margin-right:6px}
+</style>
+</head>
+<body>
+
+<div id="controls">
+<button onclick="addRow()">Add Row</button>
+<button onclick="exportJSON()">Export JSON</button>
+</div>
+
+<table id="grid"></table>
+
+<script>
+let data = [
+  {id:1,name:"A",amount:10},
+  {id:2,name:"B",amount:20},
+  {id:3,name:"C",amount:30}
+]
+
+let columns = []
+let sortState = {key:null,asc:true}
+let filters = {}
+
+function detectColumns(){
+  const set = new Set()
+  data.forEach(r=>Object.keys(r).forEach(k=>set.add(k)))
+  columns = Array.from(set)
+}
+
+function render(){
+  detectColumns()
+  const table = document.getElementById("grid")
+  table.innerHTML=""
+
+  const thead = document.createElement("thead")
+  const trHead = document.createElement("tr")
+
+  columns.forEach(col=>{
+    const th = document.createElement("th")
+    th.textContent = col
+    th.onclick = ()=>sort(col)
+    trHead.appendChild(th)
+  })
+
+  const thDel = document.createElement("th")
+  thDel.textContent="x"
+  trHead.appendChild(thDel)
+  thead.appendChild(trHead)
+
+  const trFilter = document.createElement("tr")
+  columns.forEach(col=>{
+    const th = document.createElement("th")
+    const inp = document.createElement("input")
+    inp.className="filter"
+    inp.value = filters[col]||""
+    inp.oninput = e=>{filters[col]=e.target.value;render()}
+    th.appendChild(inp)
+    trFilter.appendChild(th)
+  })
+  trFilter.appendChild(document.createElement("th"))
+  thead.appendChild(trFilter)
+
+  table.appendChild(thead)
+
+  const tbody = document.createElement("tbody")
+
+  let rows = data.filter(row=>{
+    return columns.every(col=>{
+      if(!filters[col]) return true
+      return String(row[col]??"").toLowerCase().includes(filters[col].toLowerCase())
+    })
+  })
+
+  if(sortState.key){
+    rows.sort((a,b)=>{
+      const v1=a[sortState.key],v2=b[sortState.key]
+      if(v1==v2) return 0
+      return (v1>v2?1:-1)*(sortState.asc?1:-1)
+    })
+  }
+
+  rows.forEach((row,rowIdx)=>{
+    const tr = document.createElement("tr")
+    columns.forEach(col=>{
+      const td = document.createElement("td")
+      td.contentEditable="true"
+      td.textContent = row[col] ?? ""
+      td.onblur = e=>{
+        data[rowIdx][col] = parseValue(e.target.textContent)
+      }
+      tr.appendChild(td)
+    })
+    const tdDel = document.createElement("td")
+    const btn = document.createElement("button")
+    btn.textContent="Del"
+    btn.onclick=()=>{data.splice(rowIdx,1);render()}
+    tdDel.appendChild(btn)
+    tr.appendChild(tdDel)
+    tbody.appendChild(tr)
+  })
+
+  table.appendChild(tbody)
+}
+
+function parseValue(v){
+  if(v==="") return ""
+  if(!isNaN(v)) return Number(v)
+  return v
+}
+
+function sort(col){
+  if(sortState.key===col) sortState.asc=!sortState.asc
+  else {sortState.key=col;sortState.asc=true}
+  render()
+}
+
+function addRow(){
+  const obj={}
+  columns.forEach(c=>obj[c]="")
+  data.push(obj)
+  render()
+}
+
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"})
+  const a = document.createElement("a")
+  a.href = URL.createObjectURL(blob)
+  a.download="data.json"
+  a.click()
+}
+
+render()
+</script>
+</body>
+</html>

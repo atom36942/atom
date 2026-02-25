@@ -146,7 +146,6 @@ const UPDATE_API     = "my/object-update?table=users";
 const DELETE_API     = "my/account-delete?mode=hard";
 const FEED_API       = "public/object-read?table=post";
 const POST_API       = "my/object-create?table=post";
-const REFRESH_API    = "my/token-refresh";
 const SYNC_INTERVAL  = 10800000;
 const SHOW_JOIN_DATE = false;
 const PROFILE_FIELDS = ["profile-name","profile-country","profile-email-comm","profile-mobile-comm"];
@@ -174,7 +173,7 @@ function toast(msg, type="success"){
 
 /* ── Session expiry ── */
 const isExpired = j => j && j.status===0 && j.message==="Signature has expired";
-function expireSession(){ del("token"); del("last_profile_sync"); del("last_token_refresh"); checkAuthState() }
+function expireSession(){ del("token"); del("last_profile_sync"); checkAuthState() }
 function handleExpiry(j){ if(!isExpired(j)) return false; expireSession(); closeAllModals(); toast("Session expired. Please login again","error"); $("login-modal").classList.add("active"); return true }
 function handlePublicExpiry(j,retry){ if(!isExpired(j)) return false; expireSession(); toast("Session expired. Please login again","error"); retry(); return true }
 
@@ -185,7 +184,7 @@ function checkAuthState(){
   else { s.classList.remove("auth-hidden"); l.classList.remove("auth-hidden"); p.classList.add("auth-hidden"); cp.classList.add("auth-hidden") }
 }
 
-function setAuthData(u,t){ set("user",u); set("token",t); set("last_profile_sync",Date.now()); set("last_token_refresh",Date.now()); checkAuthState() }
+function setAuthData(u,t){ set("user",u); set("token",t); set("last_profile_sync",Date.now()); checkAuthState() }
 
 /* ── Auth: signup / login / logout ── */
 async function signup(){
@@ -216,20 +215,12 @@ async function fetchProfile(force=false){
   if(!force && !stale("last_profile_sync") && get("user")) return;
   try{
     const r=await fetch(api(PROFILE_API),{headers:headers()}), j=await r.json();
-    if(r.status===200){ set("user",j.message); set("last_profile_sync",Date.now()); return }
+    if(r.status===200){ const nt=r.headers.get("Authorization"); if(nt) set("token",nt); set("user",j.message); set("last_profile_sync",Date.now()); return }
     if(handleExpiry(j)) return;
     if(force) toast(j.message||"Failed to fetch profile","error");
   }catch(e){ if(force) toast("Network error","error") }
 }
 
-async function refreshToken(){
-  const t=get("token"); if(!t || !stale("last_token_refresh")) return;
-  try{
-    const r=await fetch(api(REFRESH_API),{headers:headers()}), j=await r.json();
-    if(r.status===200 && j.message){ set("token",j.message); set("last_token_refresh",Date.now()); return }
-    if(handleExpiry(j)) return;
-  }catch(e){}
-}
 
 async function manualRefreshProfile(){ await fetchProfile(true); checkAuthState(); myProfile(); toast("Profile refreshed") }
 async function manualRefreshLoginDetails(){ await fetchProfile(true); checkAuthState(); viewLoginDetails(); toast("Profile refreshed") }
@@ -373,7 +364,7 @@ function togglePassword(id,btn){ const i=$(id); const show=i.type==="password"; 
 
 /* ── Init ── */
 document.addEventListener("DOMContentLoaded",()=>{
-  if(get("token")){ fetchProfile().then(checkAuthState); refreshToken(); setInterval(fetchProfile,SYNC_INTERVAL); setInterval(refreshToken,SYNC_INTERVAL) }
+  if(get("token")){ fetchProfile().then(checkAuthState); setInterval(fetchProfile,SYNC_INTERVAL) }
   checkAuthState(); fetchFeed();
   document.addEventListener("click",e=>{ if(!e.target.closest("#nav-profile")) closeMenu() });
 });
