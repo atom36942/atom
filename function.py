@@ -1369,10 +1369,13 @@ async def func_message_delete_bulk(mode,client_postgres_pool,user_id):
    return None
 
 import hashlib
+def func_encode_sha256(data):
+    return hashlib.sha256(str(data).encode()).hexdigest()
+    
 async def func_auth_signup_username_password(client_postgres_pool,type,username,password):
     query="insert into users (type,username,password) values ($1,$2,$3) returning *;"
     async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
+        output = await conn.fetch(query,type,username,password)
     return output[0]
 
 async def func_auth_signup_username_password_bigint(client_postgres_pool,type,username_bigint,password_bigint):
@@ -1381,11 +1384,10 @@ async def func_auth_signup_username_password_bigint(client_postgres_pool,type,us
         output = await conn.fetch(query,type,username_bigint,password_bigint)
     return output[0]
 
-import hashlib
 async def func_auth_login_password_username(client_postgres_pool,type,password,username):
     query="select * from users where type=$1 and username=$2 and password=$3 order by id desc limit 1;"
     async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,username,hashlib.sha256(str(password).encode()).hexdigest())
+        output = await conn.fetch(query,type,username,password)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
     return user
@@ -1398,20 +1400,18 @@ async def func_auth_login_password_username_bigint(client_postgres_pool,type,pas
     if not user: raise Exception("user not found")
     return user
 
-import hashlib
 async def func_auth_login_password_email(client_postgres_pool,type,password,email):
     query="select * from users where type=$1 and email=$2 and password=$3 order by id desc limit 1;"
     async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,email,hashlib.sha256(str(password).encode()).hexdigest())
+        output = await conn.fetch(query,type,email,password)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
     return user
 
-import hashlib
 async def func_auth_login_password_mobile(client_postgres_pool,type,password,mobile):
     query="select * from users where type=$1 and mobile=$2 and password=$3 order by id desc limit 1;"
     async with client_postgres_pool.acquire() as conn:
-        output = await conn.fetch(query,type,mobile,hashlib.sha256(str(password).encode()).hexdigest())
+        output = await conn.fetch(query,type,mobile,password)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
     return user

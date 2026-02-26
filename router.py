@@ -89,7 +89,7 @@ async def func_api_770160e847a341998b5b1c698e52e5c4(request:Request):
     if config_is_signup==0:raise Exception("signup disabled")
     obj_body=await func_request_param_read(request,"body",[("type","int",1,None),("username","str",1,None),("password","str",1,None)])
     if obj_body["type"] not in config_auth_type_list:raise Exception("type not allowed")
-    user=await func_auth_signup_username_password(request.app.state.client_postgres_pool,obj_body["type"],obj_body["username"],obj_body["password"])
+    user=await func_auth_signup_username_password(request.app.state.client_postgres_pool,obj_body["type"],obj_body["username"],func_encode_sha256(obj_body["password"]))
     token=await func_jwt_token_encode(user,config_key_jwt,config_token_expiry_sec,config_token_user_key_list)
     return {"status":1,"message":{"user":user,"token":token}}
 
@@ -105,7 +105,7 @@ async def func_api_20406b7c056f42cfaeaa3a290740d804(request:Request):
 @router.post("/auth/login-password-username")
 async def func_api_6dd2a4b658884b8e93df7b89c75a3a38(request:Request):
     obj_body=await func_request_param_read(request,"body",[["type","int",1,None],["password","str",1,None],["username","str",1,None]])
-    user=await func_auth_login_password_username(request.app.state.client_postgres_pool,obj_body["type"],obj_body["password"],obj_body["username"])
+    user=await func_auth_login_password_username(request.app.state.client_postgres_pool,obj_body["type"],func_encode_sha256(obj_body["password"]),obj_body["username"])
     token=await func_jwt_token_encode(user,config_key_jwt,config_token_expiry_sec,config_token_user_key_list)
     return {"status":1,"message":{"user":user,"token":token}}
 
@@ -119,14 +119,14 @@ async def func_api_39329b86e0ad499194916937c84ccbf2(request:Request):
 @router.post("/auth/login-password-email")
 async def func_api_19f9214e86384b53a8a8284101b2e503(request:Request):
     obj_body=await func_request_param_read(request,"body",[("type","int",1,None),("password","str",1,None),("email","str",1,None)])
-    user=await func_auth_login_password_email(request.app.state.client_postgres_pool,obj_body["type"],obj_body["password"],obj_body["email"])
+    user=await func_auth_login_password_email(request.app.state.client_postgres_pool,obj_body["type"],func_encode_sha256(obj_body["password"]),obj_body["email"])
     token=await func_jwt_token_encode(user,config_key_jwt,config_token_expiry_sec,config_token_user_key_list)
     return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-password-mobile")
 async def func_api_bf6b5a6e72b34115add276d4639ecfa5(request:Request):
     obj_body=await func_request_param_read(request,"body",[("type","int",1,None),("password","str",1,None),("mobile","str",1,None)])
-    user=await func_auth_login_password_mobile(request.app.state.client_postgres_pool,obj_body["type"],obj_body["password"],obj_body["mobile"])
+    user=await func_auth_login_password_mobile(request.app.state.client_postgres_pool,obj_body["type"],func_encode_sha256(obj_body["password"]),obj_body["mobile"])
     token=await func_jwt_token_encode(user,config_key_jwt,config_token_expiry_sec,config_token_user_key_list)
     return {"status":1,"message":{"user":user,"token":token}}
 
