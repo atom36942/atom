@@ -98,10 +98,10 @@ config_is_index_html=int(os.getenv("config_is_index_html") or 0)
 config_is_profile_metadata=int(os.getenv("config_is_profile_metadata") or 0)
 
 #table/column
-config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,rating_test,post,support").split(",")
+config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,post,support,rating_test").split(",")
 config_table_create_public_list=(os.getenv("config_table_create_public_list") or "test,support").split(",")
 config_table_read_public_list=(os.getenv("config_table_read_public_list") or "test,post").split(",")
-config_column_blocked_list=(os.getenv("config_column_blocked_list") or "is_active,is_verified,api_id_access").split(",")
+config_column_blocked_list=(os.getenv("config_column_blocked_list") or "is_active,is_verified,api_id_access,created_at,updated_at").split(",")
 
 #token
 config_token_expiry_sec=int(os.getenv("config_token_expiry_sec") or 3*24*60*60)
@@ -116,7 +116,6 @@ config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 
 #dict
 config_sql={
-"cache_config":"select title,metadata from config limit 1000;",
 "cache_users_api_id_access":"select id,api_id_access from users where api_id_access is not null limit 1000",
 "cache_users_is_active":"select id,is_active from users limit 1000",
 "user":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
@@ -125,7 +124,7 @@ config_sql={
 config_table={
 "test":{"buffer":3},
 "log_api":{"retention_day":30,"buffer":3},
-"log_password":{"retention_day":90},
+"log_users_password":{"retention_day":90},
 "otp":{"retention_day":365},
 }
 
@@ -154,11 +153,11 @@ config_postgres={
 {"name":"is_deleted","datatype":"smallint","in":(0,1)},
 {"name":"is_protected","datatype":"smallint","in":(0,1)},
 {"name":"type","datatype":"integer","index":"btree"},
-{"name":"title","datatype":"text","index":"btree,gin","is_mandatory":1,"is_trim":1,"is_lowercase":1},
+{"name":"title","datatype":"text","index":"btree,gin","is_mandatory":1},
 {"name":"description","datatype":"text"},
 {"name":"file_url","datatype":"text"},
 {"name":"link_url","datatype":"text"},
-{"name":"tag","datatype":"text[]","index":"gin","is_trim":1,"is_lowercase":1},
+{"name":"tag","datatype":"text[]","index":"gin","regex":"^[a-z0-9_@-]*$"},
 {"name":"tag_int","datatype":"integer[]","index":"gin"},
 {"name":"tag_bigint","datatype":"bigint[]","index":"gin"},
 {"name":"rating","datatype":"numeric(3,1)"},
@@ -181,7 +180,7 @@ config_postgres={
 {"name":"is_deleted","datatype":"smallint","index":"btree"},
 {"name":"is_protected","datatype":"smallint","index":"btree"},
 {"name":"type","datatype":"integer","is_mandatory":1,"index":"btree"},
-{"name":"username","datatype":"text","index":"btree","is_trim":1,"is_lowercase":1,"unique":"username,type"},
+{"name":"username","datatype":"text","index":"btree","unique":"username,type","regex":"^[a-z][a-z0-9_@-]*$"},
 {"name":"password","datatype":"text","index":"btree"},
 {"name":"username_bigint","datatype":"bigint","index":"btree","unique":"username_bigint,type"},
 {"name":"password_bigint","datatype":"bigint","index":"btree"},
@@ -217,7 +216,7 @@ config_postgres={
 {"name":"email","datatype":"text","index":"btree"},
 {"name":"mobile","datatype":"text","index":"btree"}
 ],
-"log_password":[
+"log_users_password":[
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"user_id","datatype":"bigint"},
 {"name":"password","datatype":"text"}
@@ -242,10 +241,6 @@ config_postgres={
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
 {"name":"rating","datatype":"numeric(3,1)","is_mandatory":1}
-],
-"config":[
-{"name":"title","datatype":"text","is_mandatory":1,"unique":"title"},
-{"name":"metadata","datatype":"jsonb","is_mandatory":1,"index":"gin"}
 ],
 "support":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
@@ -274,15 +269,23 @@ config_postgres={
 ],
 },
 "sql":{
-"is_protected_rule": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE RULE rule_protect_%I AS ON DELETE TO %I WHERE OLD.is_protected=1 DO INSTEAD NOTHING;', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"updated_at_default_1": "CREATE OR REPLACE FUNCTION func_set_updated_at_now() RETURNS trigger AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;",
-"updated_at_default_2": "DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('CREATE OR REPLACE TRIGGER trigger_set_updated_at_now_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION func_set_updated_at_now();', tbl.table_name, tbl.table_name); END LOOP; END $$;",
-"delete_disable_bulk_1": "CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows', n; END IF; RETURN OLD; END; $$;",
-"delete_disable_bulk_2":"create or replace trigger trigger_delete_disable_bulk_users after delete on users referencing old table as deleted_rows for each statement execute procedure func_delete_disable_bulk(1);",
-"log_password_1": "CREATE OR REPLACE FUNCTION func_log_password_change() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password <> NEW.password THEN INSERT INTO log_password(user_id,password) VALUES(OLD.id,OLD.password); END IF; RETURN NEW; END; $$;",
-"log_password_2": "CREATE OR REPLACE TRIGGER trigger_log_password_change AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION func_log_password_change();",
-"root_user_1": "INSERT INTO users (type,username,password,api_id_access) VALUES (1,'atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100') ON CONFLICT DO NOTHING;",
-"root_user_2": "CREATE OR REPLACE RULE rule_delete_disable_root_user AS ON DELETE TO users WHERE OLD.id=1 DO INSTEAD NOTHING;",
+"drop_disable_table_1":"CREATE OR REPLACE FUNCTION func_drop_disable_table() RETURNS event_trigger LANGUAGE plpgsql AS $$ DECLARE r record; BEGIN FOR r IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP IF r.object_type='table' THEN RAISE EXCEPTION 'DROP TABLE not allowed: %',r.object_identity; END IF; END LOOP; END; $$;",
+"drop_disable_table_2":"DROP EVENT TRIGGER IF EXISTS trigger_drop_disable_table; CREATE EVENT TRIGGER trigger_drop_disable_table ON sql_drop EXECUTE FUNCTION func_drop_disable_table();",
+"truncate_disable_1":"CREATE OR REPLACE FUNCTION func_truncate_disable() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'TRUNCATE not allowed on %',TG_TABLE_NAME; END; $$;",
+"truncate_disable_2":"DO $$ DECLARE r record; BEGIN FOR r IN SELECT schemaname,tablename FROM pg_tables WHERE schemaname='public' LOOP EXECUTE format('DROP TRIGGER IF EXISTS trigger_truncate_disable_%s ON %I.%I;',r.tablename,r.schemaname,r.tablename); EXECUTE format('CREATE TRIGGER trigger_truncate_disable_%s BEFORE TRUNCATE ON %I.%I EXECUTE FUNCTION func_truncate_disable();',r.tablename,r.schemaname,r.tablename); END LOOP; END $$;",
+"root_user_1":"INSERT INTO users (type,username,password,api_id_access) VALUES (1,'atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3','1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50') ON CONFLICT DO NOTHING;",
+"root_user_2":"CREATE OR REPLACE FUNCTION func_delete_disable_root_user() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE v_root_id INT:=TG_ARGV[0]::INT; BEGIN IF OLD.id=v_root_id THEN RAISE EXCEPTION 'delete not allowed for root user (id=%)',v_root_id; END IF; RETURN OLD; END; $$;",
+"root_user_3":"DROP TRIGGER IF EXISTS trigger_delete_disable_root_user ON users; CREATE TRIGGER trigger_delete_disable_root_user BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_root_user(1);",
+"log_users_password_1":"CREATE OR REPLACE FUNCTION func_log_users_password() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN INSERT INTO log_users_password(user_id,password) VALUES(OLD.id,OLD.password); RETURN NEW; END; $$;",
+"log_users_password_2":"DROP TRIGGER IF EXISTS trigger_log_users_password ON users; CREATE TRIGGER trigger_log_users_password AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION func_log_users_password();",
+"is_protected_1":"CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected=1 THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %',TG_TABLE_NAME; END IF; RETURN OLD; END; $$;",
+"is_protected_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('DROP TRIGGER IF EXISTS trigger_delete_disable_is_protected_%I ON %I;',tbl.table_name,tbl.table_name); EXECUTE FORMAT('CREATE TRIGGER trigger_delete_disable_is_protected_%I BEFORE DELETE ON %I FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();',tbl.table_name,tbl.table_name); END LOOP; END $$;",
+"updated_at_default_1":"CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;",
+"updated_at_default_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('DROP TRIGGER IF EXISTS trigger_set_updated_at_%I ON %I;',tbl.table_name,tbl.table_name); EXECUTE FORMAT('CREATE TRIGGER trigger_set_updated_at_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();',tbl.table_name,tbl.table_name); END LOOP; END $$;",
+"delete_disable_bulk_1":"CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;",
+"delete_disable_bulk_2":"DROP TRIGGER IF EXISTS trigger_delete_disable_bulk_users ON users; CREATE TRIGGER trigger_delete_disable_bulk_users AFTER DELETE ON users REFERENCING OLD TABLE AS deleted_rows FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_bulk(1);",
+"delete_disable_1":"CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'delete not allowed on %',TG_TABLE_NAME; END; $$;",
+"delete_disable_2":"DROP TRIGGER IF EXISTS trigger_delete_disable_users ON users; CREATE TRIGGER trigger_delete_disable_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();",
 }
 }
 

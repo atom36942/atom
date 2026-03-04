@@ -422,10 +422,6 @@ async def func_api_219e40d87ece488fb927dd4ee8f14bb9(request:Request):
 async def func_api_2653353cdf3145558dae1c3ce24318e2(request:Request):
    return {"status":1,"message":"welcome to test"}
 
-@router.get("/protected/test")
-async def func_api_1bd8a31e5baa4b67b6f05785f3dd52fb(request:Request):
-   return {"status":1,"message":"welcome to test protected"}
-
 @router.get("/page/{name}")
 async def func_api_10f177735aac4564a0946f9088f17d9a(name):
    return await func_html_serve(config_folder_html,name)

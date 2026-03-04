@@ -379,7 +379,7 @@ async function saveLoginDetail(k){
   const u=user(), t=get("token"); if(!u||!t) return;
   if(!u.id) return toast("User ID not found","error");
   if(k==="username" && v===u.username){ toast("No changes detected","info"); toggleEditLoginDetail(k,false); return }
-  const payload={id:u.id,[k]:v||null}, endpoint=k==="password"?`${api(UPDATE_API)}&is_serialize=1`:api(UPDATE_API);
+  const payload={id:u.id,[k]:v||null}, endpoint=api(UPDATE_API);
   try{
     const r=await fetch(endpoint,{method:"PUT",headers:headers(true),body:JSON.stringify(payload)}), j=await r.json();
     if(r.status===200){ if(k!=="password") set("user",{...u,[k]:v}); toast(j.message||k.charAt(0).toUpperCase()+k.slice(1)+" updated"); viewLoginDetails(); return }

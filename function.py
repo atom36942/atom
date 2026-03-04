@@ -88,7 +88,6 @@ async def func_html_serve(config_folder_html, name: str):
 
 async def fund_reset_postgres_cache(request):
     request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await request.app.state.func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
-    request.app.state.cache_config=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_config")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("config",{}) else {}
     return None
 
 async def fund_reset_cache_users(request):
@@ -128,6 +127,7 @@ async def func_obj_create_logic(role,request):
     obj_query=await request.app.state.func_request_param_read(request,"query",[["mode","str",0,"now"],["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
+    if obj_query["table"]=="users":obj_query["is_serialize"]=1
     if role=="my":
         if obj_query["table"] not in request.app.state.config_table_create_my_list:raise Exception("table not allowed")
         if any(any(k in request.app.state.config_column_blocked_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
@@ -148,6 +148,7 @@ async def func_obj_update_logic(role,request):
     obj_query=await request.app.state.func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None],["otp","int",0,None]])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
+    if obj_query["table"]=="users":obj_query["is_serialize"]=1
     if role=="my":
         created_by_id=None if obj_query["table"]=="users" else request.state.user["id"]
         if any(any(k in request.app.state.config_column_blocked_list for k in x) for x in obj_list):raise Exception("key not allowed")
@@ -457,7 +458,7 @@ import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,mode,table=None,obj_list=None,is_serialize=None,buffer=None, returning_ids=False,conflict_columns=None,batch_size=None):
+async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,mode,table=None,obj_list=None,is_serialize=None,buffer=None,returning_ids=False,conflict_columns=None,batch_size=None):
     if mode != "flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
     if not is_serialize:is_serialize=0
     buffer = buffer or 10
@@ -476,7 +477,7 @@ async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serial
         col_count = len(cols)
         max_batch = 65535 // col_count
         batch_sz = min(batch_sz, max_batch)
-        conflict = f"on conflict ({','.join(conflict_cols)}) do nothing" if conflict_cols else "on conflict do nothing"
+        conflict = f"on conflict ({','.join(conflict_cols)})" if conflict_cols else ""
         ids = [] if ret_ids else None
         async with client_pool.acquire() as conn:
             async with conn.transaction():
@@ -573,7 +574,7 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
             if not isinstance(cols,(list,tuple)): raise Exception(f"table config must be list {t}")
             names={c.get("name") for c in cols}
             for c in cols:
-                allowed={"name","datatype","old","default","is_mandatory","index","unique","in","is_trim","is_lowercase"}
+                allowed={"name","datatype","old","default","is_mandatory","index","unique","in","regex"}
                 if not isinstance(c,dict): raise Exception(f"column config must be dict {t}")
                 if not {"name","datatype"}<=c.keys(): raise Exception(f"missing required keys {t}.{c}")
                 if set(c)-allowed: raise Exception(f"unknown keys {t}.{c.get('name')}:{set(c)-allowed}")
@@ -591,9 +592,8 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
                     seen.add(key)
     async def func_init_extension(conn):
         if config_postgres_is_extension:
-            for e in ("postgis","pg_trgm"):await conn.execute(f"create extension if not exists {e};")
-        await conn.execute("create or replace function array_all_lowercase(text[]) returns boolean immutable as $$ select coalesce(bool_and(v=lower(v)),true) from unnest($1) v $$ language sql;")
-        await conn.execute("create or replace function array_all_trimmed(text[]) returns boolean immutable as $$ select coalesce(bool_and(v=trim(v)),true) from unnest($1) v $$ language sql;")
+            for e in ("postgis","pg_trgm"): await conn.execute(f"create extension if not exists {e};")
+        await conn.execute("create or replace function array_regex_match(text[],text) returns boolean immutable as $$ select coalesce(bool_and(v ~ $2),true) from unnest($1) v $$ language sql;")
     async def func_init_table(conn,db):
         for t in config_postgres["table"]:
             if t not in db: await conn.execute(f"create table {t} (id bigint primary key generated by default as identity not null);")
@@ -654,35 +654,34 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
                     col_def=f"{c['name']} gin_trgm_ops" if it=="gin" and "text" in dt and "[]" not in dt and "array" not in dt else c["name"]
                     await conn.execute(f"create index concurrently if not exists {name} on {t} using {it} ({col_def});")
     async def func_init_constraints(conn,db,dtypes):
-        rows=await conn.fetch("select constraint_name,table_name from information_schema.table_constraints where constraint_schema='public';")
-        have={(r["table_name"],r["constraint_name"].lower()) for r in rows}
+        rows=await conn.fetch("select constraint_name,table_name from information_schema.table_constraints where constraint_schema='public';"); have={(r["table_name"],r["constraint_name"].lower()) for r in rows}
         for t,cols in config_postgres["table"].items():
             want=set()
             for c in cols:
-                if c.get("is_trim"): want.add(f"constraint_{t}_{c['name']}_trim")
-                if c.get("is_lowercase"): want.add(f"constraint_{t}_{c['name']}_lowercase")
-                if "in" in c: want.add(f"constraint_{t}_{c['name']}_in")
+                col=c["name"]
+                if c.get("regex"): want.add(f"constraint_{t}_{col}_regex")
+                if "in" in c: want.add(f"constraint_{t}_{col}_in")
                 if c.get("unique"):
                     for g in c["unique"].split("|"): want.add(f"constraint_unique_{t}_{'_'.join(x.strip() for x in g.split(','))}")
             for tbl,cname in have:
                 if tbl!=t or not cname.startswith("constraint_"): continue
-                is_old=any(cname in (f"constraint_{t}_{c['old']}_trim",f"constraint_{t}_{c['old']}_lowercase",f"constraint_{t}_{c['old']}_in") for c in cols if c.get("old"))
+                is_old=any(cname==f"constraint_{t}_{c['old']}_regex" or cname==f"constraint_{t}_{c['old']}_in" for c in cols if c.get("old"))
                 if cname not in {x.lower() for x in want} and not is_old: await conn.execute(f'alter table {t} drop constraint if exists "{cname}" cascade;')
-        rows=await conn.fetch("select constraint_name,table_name from information_schema.table_constraints where constraint_schema='public';")
-        have={(r["table_name"],r["constraint_name"].lower()) for r in rows}
+        rows=await conn.fetch("select constraint_name,table_name from information_schema.table_constraints where constraint_schema='public';"); have={(r["table_name"],r["constraint_name"].lower()) for r in rows}
         for t,cols in config_postgres["table"].items():
             for c in cols:
                 col,dt,old=c["name"],dtypes.get(c["name"],"").lower(),c.get("old")
                 checks=[
-                    ("is_trim",f"constraint_{t}_{col}_trim",f"constraint_{t}_{old}_trim" if old else None,f"check ({col}=trim({col}))" if "text" in dt and "[]" not in dt else f"check (array_all_trimmed({col}))" if "[]" in dt and "text" in dt else None),
-                    ("is_lowercase",f"constraint_{t}_{col}_lowercase",f"constraint_{t}_{old}_lowercase" if old else None,f"check ({col}=lower({col}))" if "text" in dt and "[]" not in dt else f"check (array_all_lowercase({col}))" if "[]" in dt and "text" in dt else None),
-                    ("in",f"constraint_{t}_{col}_in",f"constraint_{t}_{old}_in" if old else None,f"check ({col} in ({','.join(str(x) if isinstance(x,(int,float)) else repr(x) for x in c.get('in',[]))}))" if "in" in c else None)
+                    ("regex",f"constraint_{t}_{col}_regex",f"constraint_{t}_{old}_regex" if old else None,
+                     f"check ({col} ~ '{c['regex']}')" if "text" in dt and "[]" not in dt and c.get("regex") else
+                     f"check (array_regex_match({col},'{c['regex']}'))" if "[]" in dt and "text" in dt and c.get("regex") else None),
+                    ("in",f"constraint_{t}_{col}_in",f"constraint_{t}_{old}_in" if old else None,
+                     f"check ({col} in ({','.join(str(x) if isinstance(x,(int,float)) else repr(x) for x in c.get('in',[]))}))" if "in" in c else None)
                 ]
                 for key,n,old_n,sql in checks:
-                    if not c.get(key) or not sql: continue
+                    if not sql: continue
                     if old_n and (t,old_n.lower()) in have:
-                        await conn.execute(f'alter table {t} rename constraint "{old_n}" to "{n}";')
-                        have.add((t,n.lower())); have.remove((t,old_n.lower()))
+                        await conn.execute(f'alter table {t} rename constraint "{old_n}" to "{n}";'); have.add((t,n.lower())); have.remove((t,old_n.lower()))
                     if (t,n.lower()) not in have: await conn.execute(f"alter table {t} add constraint {n} {sql};")
                 if c.get("unique"):
                     for g in c["unique"].split("|"):
@@ -698,7 +697,7 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
         await func_init_column_rename(conn,db)
         db,dtypes=await func_postgres_schema_read(client_postgres_pool)
         await func_init_column(conn,db)
-        if is_match_column==1:await func_init_drop_column(conn,db)
+        if is_match_column==1: await func_init_drop_column(conn,db)
         db,dtypes=await func_postgres_schema_read(client_postgres_pool)
         await func_init_default(conn,db)
         await func_init_nullable(conn,db)
@@ -1113,9 +1112,6 @@ async def func_check_token(request):
     if api.startswith("/root"):
         if not token:raise Exception("token missing")
         if token!=request.app.state.config_key_root:raise Exception("token mismatch")
-    elif api.startswith("/protected"):
-        if not token:raise Exception("token missing")
-        if token!=request.app.state.cache_config["config_api"][api]["password"]:raise Exception("token mismatch")
     else:
         if token:user=await request.app.state.func_jwt_token_decode(token,request.app.state.config_key_jwt)
         if api.startswith("/my") and not token:raise Exception("token missing")

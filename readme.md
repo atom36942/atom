@@ -78,6 +78,7 @@ create schema if not exists public;
 #p95
 SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
 
-#sample config table sql
-INSERT INTO config (title, metadata) VALUES ('config_api', '{"\/protected\/test":{"password":"123"}}'::jsonb);
+#func/trigger
+SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.proname LIKE 'func_%' ORDER BY p.proname;
+SELECT trigger_name FROM information_schema.triggers WHERE trigger_name LIKE 'trigger_%' UNION ALL SELECT evtname FROM pg_event_trigger WHERE evtname LIKE 'trigger_%' ORDER BY 1;
 ```
