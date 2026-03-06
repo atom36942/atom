@@ -188,9 +188,11 @@ async def func_api_12df64ab29a4486ca541c0610ef30a16(request:Request):
 @router.delete("/my/account-delete")
 async def func_api_5a608eaf30a2410cadf331146b37883a(request:Request):
    obj_query=await func_request_param_read(request,"query",[("mode","str",1,None)])
-   user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
-   if user["api_id_access"]:raise Exception("not allowed as you are admin")
-   output=await func_user_single_delete(obj_query["mode"],request.app.state.client_postgres_pool,request.state.user["id"])
+   if obj_query["mode"]=="hard" and config_is_account_delete_hard==0:raise Exception("hard delete disabled")
+   if config_is_account_delete_admin==0:
+      user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
+      if user["api_id_access"]:raise Exception("not allowed as you are admin")
+   output=await func_account_delete(obj_query["mode"],request.app.state.client_postgres_pool,request.state.user["id"],config_user_column_list,config_table_system_list)
    return {"status":1,"message":output}
 
 @router.get("/my/message-received")
@@ -234,19 +236,19 @@ async def func_api_c0d03f1f0c3d41969cadb97483aeb75e(request:Request):
 @router.post("/my/ids-delete")
 async def func_api_9486563f3c1240c5840a251562e5a5c3(request:Request):
    obj_body=await func_request_param_read(request,"body",[("table","str",1,None),("ids","str",1,None)])
-   if obj_body["table"] in ("users"):raise Exception("table not allowed")
+   if obj_body["table"] in config_table_system_list:raise Exception("table not allowed")
+   if obj_body["table"]=="users":raise Exception("use account delete api")
    if len(obj_body["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],request.state.user["id"])
    return {"status":1,"message":output}
 
 @router.post("/my/object-create")
 async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
-   output=await func_obj_create_logic("my",request)
-   return {"status":1,"message":output}
+   return {"status":1,"message":await func_obj_create_logic(request,"my")}
 
 @router.put("/my/object-update")
 async def func_api_a10070c5091d40ce90484ec9ec6e6587(request:Request):
-   return {"status":1,"message":await func_obj_update_logic("my",request)}
+   return {"status":1,"message":await func_obj_update_logic(request,"my")}
 
 @router.get("/my/object-read")
 async def func_api_4e9de78a107845b5a1ebcca0c61f7d0e(request:Request):
@@ -285,8 +287,7 @@ async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):
 
 @router.post("/public/object-create")
 async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
-   output=await func_obj_create_logic("public",request)
-   return {"status":1,"message":output}
+   return {"status":1,"message":await func_obj_create_logic(request,"public")}
 
 @router.get("/public/object-read")
 async def func_api_88fdc8850b714b9db5fcac36cabf446d(request:Request):
@@ -363,9 +364,12 @@ async def func_api_5aa65182abea4af6bd266efc05ac611f(request:Request,q:str):
    return {"status":1,"message":output}
  
 @router.get("/public/table-tag-read")
-async def func_api_3f7b9c2a4e1d4a0b8c6e5f9d1a2b7c3e(request:Request,table:str,column:str,filter_col:str=None,filter_val:str=None,limit:int=None,page:int=None):
-   obj_list=await func_postgres_obj_serialize(request.app.state.cache_postgres_column_datatype,[{filter_col:filter_val}])
-   output=await func_table_tag_read(request.app.state.client_postgres_pool,table,column,filter_col,obj_list[0][filter_col],limit,page)
+async def func_api_3f7b9c2a4e1d4a0b8c6e5f9d1a2b7c3e(request:Request):
+   obj_query=await func_request_param_read(request,"query",[("table","str",1,None),("column","str",1,None),("filter_col","str",0,None),("filter_val","str",0,None),("limit","int",0,None),("page","int",0,None)])
+   val=None
+   if obj_query["filter_col"] and obj_query["filter_val"]:
+      val=(await func_postgres_obj_serialize(request.app.state.cache_postgres_column_datatype,[{obj_query["filter_col"]:obj_query["filter_val"]}]))[0][obj_query["filter_col"]]
+   output=await func_table_tag_read(request.app.state.client_postgres_pool,obj_query["table"],obj_query["column"],obj_query["filter_col"],val,obj_query["limit"],obj_query["page"])
    return {"status":1,"message":output}
 
 #private
@@ -387,12 +391,11 @@ async def func_api_7031e803bbc544958a91c92a89187338(request:Request):
 #admin
 @router.post("/admin/object-create")
 async def func_api_6dba580b31ff43e6824ea4292eb9c749(request:Request):
-   output=await func_obj_create_logic("admin",request)
-   return {"status":1,"message":output}
+   return {"status":1,"message":await func_obj_create_logic(request,"admin")}
 
 @router.put("/admin/object-update")
 async def func_api_febf6094467b456f8cabfb8191f1000e(request:Request):
-   return {"status":1,"message":await func_obj_update_logic("admin",request)}
+   return {"status":1,"message":await func_obj_update_logic(request,"admin")}
 
 @router.get("/admin/object-read")
 async def func_api_bb6506520ad349f688f925055cd8b965(request:Request):
@@ -403,6 +406,7 @@ async def func_api_bb6506520ad349f688f925055cd8b965(request:Request):
 @router.post("/admin/ids-delete")
 async def func_api_219e40d87ece488fb927dd4ee8f14bb9(request:Request):
    obj_body=await func_request_param_read(request,"body",[("table","str",1,None),("ids","str",1,None)])
+   if obj_body["table"] in config_table_system_list:raise Exception("table not allowed")
    if len(obj_body["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],None)
    return {"status":1,"message":output}

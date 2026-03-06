@@ -123,8 +123,8 @@ def func_upgrade_packages():
         status["upgraded" if res.returncode == 0 else "failed"].append(pkg)
     return status
     
-async def func_obj_create_logic(role,request):
-    obj_query=await request.app.state.func_request_param_read(request,"query",[["mode","str",0,"now"],["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None]])
+async def func_obj_create_logic(request,role):
+    obj_query=await request.app.state.func_request_param_read(request,"query",[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
     if obj_query["table"]=="users":obj_query["is_serialize"]=1
@@ -144,8 +144,8 @@ async def func_obj_create_logic(role,request):
         output=await request.app.state.func_producer_logic(payload,obj_query["queue"],request)
     return output
 
-async def func_obj_update_logic(role,request):
-    obj_query=await request.app.state.func_request_param_read(request,"query",[["table","str",1,None],["is_serialize","int",0,0],["queue","str",0,None],["otp","int",0,None]])
+async def func_obj_update_logic(request,role):
+    obj_query=await request.app.state.func_request_param_read(request,"query",[("table","str",1,None),("is_serialize","int",0,0),("otp","int",0,None),("queue","str",0,None)])
     obj_body=await request.app.state.func_request_param_read(request,"body",[])
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
     if obj_query["table"]=="users":obj_query["is_serialize"]=1
@@ -155,7 +155,8 @@ async def func_obj_update_logic(role,request):
         if obj_query["table"]=="users":
             if len(obj_list)!=1:raise Exception("multi object issue")
             if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
-            if any(key in obj_list[0] and len(obj_list[0])!=2 for key in ["username","password","email","mobile"]):raise Exception("obj length should be 2")
+            if "is_deleted" in obj_list[0]:raise Exception("use account delete api")
+            if any(key in obj_list[0] and len(obj_list[0])!=2 for key in request.app.state.config_column_single_update_list):raise Exception("obj length should be 2")
             if any(k in obj_list[0] for k in ("email","mobile")):await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query.get("otp"),obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_expiry_sec_otp)
     elif role=="public":
         pass
@@ -579,21 +580,17 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,config_
             names={c.get("name") for c in cols}
             for c in cols:
                 allowed={"name","datatype","old","default","is_mandatory","index","unique","in","regex"}
-                if not isinstance(c,dict): raise Exception(f"column config must be dict {t}")
-                if not {"name","datatype"}<=c.keys(): raise Exception(f"missing required keys {t}.{c}")
-                if set(c)-allowed: raise Exception(f"unknown keys {t}.{c.get('name')}:{set(c)-allowed}")
-                if c.get("index"):
-                    for it in c["index"].split(","):
-                        if it=="gin" and not any(x in c["datatype"].lower() for x in ("text","[]","jsonb")): raise Exception(f"gin not supported {t}.{c['name']}")
+                if not isinstance(c,dict) or not {"name","datatype"}<=c.keys(): raise Exception(f"invalid column config {t}")
+                if set(c)-allowed: raise Exception(f"unknown keys {t}.{c.get('name')}")
+                if c.get("index")=="gin" and "text" not in c["datatype"].lower() and "[]" not in c["datatype"] and "jsonb" not in c["datatype"]: raise Exception(f"gin error {t}.{c['name']}")
                 u=c.get("unique")
-                if not u: continue
-                for g in (x.strip() for x in u.split("|") if x.strip()):
-                    ucols=[x.strip() for x in g.split(",") if x.strip()]
-                    for x in ucols:
-                        if x not in names: raise Exception(f"unique column not found {t}.{x}")
-                    key=(t,tuple(sorted(ucols)))
-                    if key in seen: raise Exception(f"duplicate unique {t}.{','.join(ucols)}")
-                    seen.add(key)
+                if u:
+                    for g in (x.strip() for x in u.split("|") if x.strip()):
+                        ucols=[x.strip() for x in g.split(",") if x.strip()]
+                        if any(x not in names for x in ucols): raise Exception(f"unique column not found {t}")
+                        key=(t,tuple(sorted(ucols)))
+                        if key in seen: raise Exception(f"duplicate unique {t}")
+                        seen.add(key)
     async def read_db(conn):
         tables=await conn.fetch("select table_name from information_schema.tables where table_schema='public'")
         cols=await conn.fetch("select table_name,column_name,data_type,is_nullable,column_default,udt_name from information_schema.columns where table_schema='public'")
@@ -601,9 +598,7 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,config_
         idx=await conn.fetch("select indexname,indexdef from pg_indexes where schemaname='public'")
         db={}
         for r in cols:
-            t=r["table_name"]; db.setdefault(t,{})
-            db[t][r["column_name"]]={"type":(r["udt_name"] or r["data_type"]).lower(),"null":r["is_nullable"]=="YES","default":r["column_default"]}
-        cons={(r["relname"],r["conname"].lower()) for r in cons}
+            t=r["table_name"]; db.setdefault(t,{})[r["column_name"]]={"type":(r["udt_name"] or r["data_type"]).lower(),"null":r["is_nullable"]=="YES","default":r["column_default"]}
         idx_map={}
         for r in idx:
             if " USING " not in r["indexdef"]: continue
@@ -611,40 +606,36 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,config_
             col=r["indexdef"].split("(",1)[1].split(")",1)[0].split()[0]
             it=r["indexdef"].split(" USING ")[1].split()[0].lower()
             idx_map.setdefault((tbl,col),{})[it]=r["indexname"]
-        return db,cons,idx_map
+        return db,{(r["relname"],r["conname"].lower()) for r in cons},idx_map
     def trim(x): return x[:63]
     await _validate()
     async with client_postgres_pool.acquire() as conn:
         if config_postgres_is_extension:
             for e in ("postgis","pg_trgm"): await conn.execute(f"create extension if not exists {e}")
         await conn.execute("create or replace function array_regex_match(text[],text) returns boolean immutable as $$ select coalesce(bool_and(v ~ $2),true) from unnest($1) v $$ language sql")
-        db,cons,idx=await read_db(conn)
-        for t in config_postgres["table"]:
-            if t not in db: await conn.execute(f"create table {t} (id bigint primary key generated by default as identity not null)")
+        for t in config_postgres["table"]: await conn.execute(f"create table if not exists {t} (id bigint primary key generated by default as identity not null)")
         db,cons,idx=await read_db(conn)
         for t,cols in config_postgres["table"].items():
             have=db.get(t,{})
             for c in cols:
-                if c.get("old") and c["name"] not in have and c["old"] in have:
-                    await conn.execute(f"alter table {t} rename column {c['old']} to {c['name']}")
+                if c.get("old") and c["name"] not in have and c["old"] in have: await conn.execute(f"alter table {t} rename column {c['old']} to {c['name']}")
         db,cons,idx=await read_db(conn)
         for t,cols in config_postgres["table"].items():
             have=db.get(t,{})
             for c in cols:
-                col=c["name"]; dt=c["datatype"]
+                col,dt=c["name"],c["datatype"]
                 if col not in have: await conn.execute(f"alter table {t} add column {col} {dt}")
                 elif have[col]["type"]!=dt.lower(): await conn.execute(f"alter table {t} alter column {col} type {dt} using {col}::{dt}")
         if is_match_column:
             db,_,_=await read_db(conn)
             for t,cols in config_postgres["table"].items():
                 want={c["name"] for c in cols}; have=set(db.get(t,{}))
-                for col in have-want:
-                    if col!="id": await conn.execute(f"alter table {t} drop column {col} cascade")
+                for col in have-want-{"id"}: await conn.execute(f"alter table {t} drop column {col} cascade")
         db,cons,idx=await read_db(conn)
         for t,cols in config_postgres["table"].items():
             have=db.get(t,{})
             for c in cols:
-                col=c["name"]; cur=have.get(col)
+                col,cur=c["name"],have.get(c["name"])
                 if not cur: continue
                 if "default" in c:
                     d=c["default"]; sql=d if isinstance(d,str) and d.endswith("()") else repr(d) if isinstance(d,str) else str(d)
@@ -652,53 +643,48 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,config_
                 elif cur["default"] is not None: await conn.execute(f"alter table {t} alter column {col} drop default")
                 m=c.get("is_mandatory")
                 if m in (1,True) and cur["null"]: await conn.execute(f"alter table {t} alter column {col} set not null")
-                if m in (0,False) and not cur["null"]: await conn.execute(f"alter table {t} alter column {col} drop not null")
+                elif m in (0,False) and not cur["null"]: await conn.execute(f"alter table {t} alter column {col} drop not null")
         for t,cols in config_postgres["table"].items():
             for c in cols:
-                col=c["name"]; dt=c["datatype"].lower(); want=set(c.get("index","").split(",")) if c.get("index") else set()
+                col,dt,want=c["name"],c["datatype"].lower(),set(c.get("index","").split(",")) if c.get("index") else set()
                 cur=idx.get((t,col),{})
                 for it,n in cur.items():
                     if n.startswith(f"index_{t}_{col}") and it not in want: await conn.execute(f'drop index if exists "{n}"')
                 for it in want:
                     name=trim(f"index_{t}_{col}_{it}")
-                    if cur.get(it)==name: continue
-                    if it in cur: await conn.execute(f'drop index if exists "{cur[it]}"')
-                    col_def=f"{col} gin_trgm_ops" if it=="gin" and dt=="text" else col
-                    await conn.execute(f"create index if not exists {name} on {t} using {it} ({col_def})")
+                    if cur.get(it)!=name:
+                        if it in cur: await conn.execute(f'drop index if exists "{cur[it]}"')
+                        await conn.execute(f"create index if not exists {name} on {t} using {it} ({col+' gin_trgm_ops' if it=='gin' and dt=='text' else col})")
         db,cons,idx=await read_db(conn)
         for t,cols in config_postgres["table"].items():
-            want=set()
+            w_cons=set()
             for c in cols:
-                col=c["name"]; dt=c["datatype"].lower()
-                if c.get("regex"): want.add(trim(f"constraint_{t}_{col}_regex"))
-                if "in" in c: want.add(trim(f"constraint_{t}_{col}_in"))
+                col,dt=c["name"],c["datatype"].lower()
+                if c.get("regex"): w_cons.add(trim(f"constraint_{t}_{col}_regex"))
+                if "in" in c: w_cons.add(trim(f"constraint_{t}_{col}_in"))
                 if c.get("unique"):
-                    for g in c["unique"].split("|"): want.add(trim(f"constraint_unique_{t}_{'_'.join(x.strip() for x in g.split(','))}"))
+                    for g in c["unique"].split("|"): w_cons.add(trim(f"constraint_unique_{t}_{'_'.join(x.strip() for x in g.split(','))}"))
             for tbl,n in list(cons):
-                if tbl==t and n.startswith("constraint_") and n not in {x.lower() for x in want}:
+                if tbl==t and n.startswith("constraint_") and n not in {x.lower() for x in w_cons}:
                     await conn.execute(f'alter table {t} drop constraint if exists "{n}" cascade'); cons.remove((tbl,n))
-        db,cons,_=await read_db(conn)
-        for t,cols in config_postgres["table"].items():
             for c in cols:
-                col=c["name"]; dt=c["datatype"].lower()
+                col,dt=c["name"],c["datatype"].lower()
                 if c.get("regex"):
-                    n=trim(f"constraint_{t}_{col}_regex")
-                    sql=f"check ({col} ~ '{c['regex']}')" if dt=="text" else f"check (array_regex_match({col},'{c['regex']}'))" if dt=="text[]" else None
+                    n=trim(f"constraint_{t}_{col}_regex"); sql=f"check ({col} ~ '{c['regex']}')" if dt=="text" else f"check (array_regex_match({col},'{c['regex']}'))" if dt=="text[]" else None
                     if sql:
                         if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
                         await conn.execute(f"alter table {t} add constraint {n} {sql}")
                 if "in" in c:
-                    n=trim(f"constraint_{t}_{col}_in")
-                    vals=",".join(str(x) if isinstance(x,(int,float)) else repr(x) for x in c["in"])
+                    n=trim(f"constraint_{t}_{col}_in"); vals=",".join(str(x) if isinstance(x,(int,float)) else repr(x) for x in c["in"])
                     if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
                     await conn.execute(f"alter table {t} add constraint {n} check ({col} in ({vals}))")
                 if c.get("unique"):
                     for g in c["unique"].split("|"):
-                        ucols=",".join(x.strip() for x in g.split(","))
-                        n=trim(f"constraint_unique_{t}_{ucols.replace(',','_')}")
+                        ucols=",".join(x.strip() for x in g.split(",")); n=trim(f"constraint_unique_{t}_{ucols.replace(',','_')}")
                         if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
                         await conn.execute(f"alter table {t} add constraint {n} unique ({ucols})")
-        for k,sql in config_postgres.get("sql",{}).items(): await conn.execute(sql)
+        for k,sql in config_postgres.get("sql",{}).items():
+            if not sql.startswith("0"): await conn.execute(sql)
     return None
 
 import hashlib, orjson, uuid
@@ -1267,13 +1253,29 @@ async def func_action_count_add(client_postgres_pool, obj_list, action_key):
         obj[f"{table}_{operator}"] = action_values.get(obj_id, 0 if operator == "count" else None)
     return obj_list
 
-async def func_user_single_delete(mode,client_postgres_pool,user_id):
-    if mode == "soft":query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
-    elif mode == "hard":query = "DELETE FROM users WHERE id=$1;"
-    else:raise Exception("mode=soft/hard")
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(query, user_id)
-    return None
+async def func_account_delete(mode, client_postgres_pool, user_id, config_user_column_list, config_table_system_list):
+    if mode not in ("soft", "hard"): raise Exception("mode=soft/hard")
+    try:
+        async with client_postgres_pool.acquire() as conn:
+            if not await conn.fetchval("SELECT 1 FROM users WHERE id=$1", user_id): raise Exception(f"User {user_id} not found")
+            schema = await conn.fetch("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public'")
+            tables = {}
+            for r in schema: tables.setdefault(r[0], []).append(r[1])
+            ops = []
+            for tbl, cols in tables.items():
+                if tbl == "users" or tbl in config_table_system_list: continue
+                matched = [c for c in cols if c in config_user_column_list]
+                if matched:
+                    if mode == "soft" and "is_deleted" not in cols: raise Exception(f"Missing is_deleted in {tbl}")
+                    for c in matched:
+                        if mode == "soft": ops.append(f"UPDATE {tbl} SET is_deleted=1 WHERE {c}=$1")
+                        elif mode == "hard": ops.append(f"DELETE FROM {tbl} WHERE {c}=$1")
+            async with conn.transaction():
+                if mode == "soft": await conn.execute("UPDATE users SET is_deleted=1 WHERE id=$1", user_id)
+                elif mode == "hard": await conn.execute("DELETE FROM users WHERE id=$1", user_id)
+                for op in ops: await conn.execute(op, user_id)
+    except Exception as e: raise e
+    return "account deleted"
 
 async def func_user_single_read(client_postgres_pool,user_id):
     query = "SELECT * FROM users WHERE id=$1;"

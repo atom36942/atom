@@ -86,6 +86,18 @@ config_cors_method_list=(os.getenv("config_cors_method_list") or "*").split(",")
 config_cors_headers_list=(os.getenv("config_cors_headers_list") or "*").split(",")
 config_cors_allow_credentials=(os.getenv("config_cors_allow_credentials") or "False").lower() == "true"
 
+#token
+config_token_expiry_sec=int(os.getenv("config_token_expiry_sec") or 3*24*60*60)
+config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_id_access").split(",")
+
+#table/column
+config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,post,support,rating_test").split(",")
+config_table_create_public_list=(os.getenv("config_table_create_public_list") or "test,support").split(",")
+config_table_read_public_list=(os.getenv("config_table_read_public_list") or "test,post").split(",")
+config_column_blocked_list=(os.getenv("config_column_blocked_list") or "is_active,is_verified,api_id_access,created_at,updated_at").split(",")
+config_table_system_list=(os.getenv("config_table_system_list") or "spatial_ref_sys").split(",")
+config_column_single_update_list=(os.getenv("config_column_single_update_list") or "username,password,email,mobile").split(",")
+
 #switch
 config_is_signup=int(os.getenv("config_is_signup") or 1)
 config_is_log_api=int(os.getenv("config_is_log_api") or 1)
@@ -97,16 +109,8 @@ config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
 config_postgres_is_match_column=int(os.getenv("config_postgres_is_match_column") or 0)
 config_is_index_html=int(os.getenv("config_is_index_html") or 0)
 config_is_profile_metadata=int(os.getenv("config_is_profile_metadata") or 0)
-
-#table/column
-config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,post,support,rating_test").split(",")
-config_table_create_public_list=(os.getenv("config_table_create_public_list") or "test,support").split(",")
-config_table_read_public_list=(os.getenv("config_table_read_public_list") or "test,post").split(",")
-config_column_blocked_list=(os.getenv("config_column_blocked_list") or "is_active,is_verified,api_id_access,created_at,updated_at").split(",")
-
-#token
-config_token_expiry_sec=int(os.getenv("config_token_expiry_sec") or 3*24*60*60)
-config_token_user_key_list=(os.getenv("config_token_user_key_list") or "id,type,is_active,api_id_access").split(",")
+config_is_account_delete_admin=int(os.getenv("config_is_account_delete_admin") or 0)
+config_is_account_delete_hard=int(os.getenv("config_is_account_delete_hard") or 1)
 
 #zzz
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
@@ -149,9 +153,9 @@ config_postgres={
 {"name":"created_by_id","datatype":"bigint","index":"btree"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"is_active","datatype":"smallint","index":"btree","in":(0,1)},
-{"name":"is_verified","datatype":"smallint","in":(0,1)},
-{"name":"is_deleted","datatype":"smallint","in":(0,1)},
-{"name":"is_protected","datatype":"smallint","in":(0,1)},
+{"name":"is_verified","datatype":"smallint","index":"btree","in":(0,1)},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
+{"name":"is_protected","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"type","datatype":"integer","index":"btree"},
 {"name":"title","datatype":"text","index":"btree,gin","is_mandatory":1},
 {"name":"description","datatype":"text"},
@@ -175,10 +179,10 @@ config_postgres={
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_active","datatype":"smallint","index":"btree"},
-{"name":"is_verified","datatype":"smallint","index":"btree"},
-{"name":"is_deleted","datatype":"smallint","index":"btree"},
-{"name":"is_protected","datatype":"smallint","index":"btree"},
+{"name":"is_active","datatype":"smallint","index":"btree","in":(0,1)},
+{"name":"is_verified","datatype":"smallint","index":"btree","in":(0,1)},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
+{"name":"is_protected","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"type","datatype":"integer","is_mandatory":1,"index":"btree"},
 {"name":"username","datatype":"text","index":"btree","unique":"username,type","regex":"^(?=.{3,20}$)[a-z][a-z0-9_@-]*$"},
 {"name":"password","datatype":"text","index":"btree"},
@@ -200,6 +204,7 @@ config_postgres={
 "log_api":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
 {"name":"created_by_id","datatype":"bigint","index":"btree"},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"type","datatype":"integer"},
 {"name":"ip_address","datatype":"text"},
 {"name":"api","datatype":"text","index":"btree"},
@@ -218,6 +223,7 @@ config_postgres={
 ],
 "log_users_password":[
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"user_id","datatype":"bigint"},
 {"name":"password","datatype":"text"}
 ],
@@ -226,18 +232,20 @@ config_postgres={
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_deleted","datatype":"smallint","index":"btree"},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
 {"name":"description","datatype":"text","is_mandatory":1},
 {"name":"is_read","datatype":"smallint","index":"btree"}
 ],
 "report_test":[
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree","unique":"created_by_id,test_id"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree"}
 ],
 "rating_test":[
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree"},
 {"name":"rating","datatype":"numeric(3,1)","is_mandatory":1}
@@ -245,6 +253,7 @@ config_postgres={
 "support":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
 {"name":"updated_at","datatype":"timestamptz"},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"created_by_id","datatype":"bigint","index":"btree"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"description","datatype":"text","is_mandatory":1},
@@ -258,8 +267,8 @@ config_postgres={
 {"name":"created_by_id","datatype":"bigint","index":"btree"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"is_active","datatype":"smallint","index":"btree","in":(0,1)},
-{"name":"is_verified","datatype":"smallint"},
-{"name":"is_deleted","datatype":"smallint"},
+{"name":"is_verified","datatype":"smallint","index":"btree","in":(0,1)},
+{"name":"is_deleted","datatype":"smallint","index":"btree","in":(0,1)},
 {"name":"type","datatype":"integer","index":"btree"},
 {"name":"title","datatype":"text"},
 {"name":"description","datatype":"text","is_mandatory":1},
@@ -282,10 +291,10 @@ config_postgres={
 "is_protected_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public') LOOP EXECUTE FORMAT('DROP TRIGGER IF EXISTS trigger_delete_disable_is_protected_%I ON %I;',tbl.table_name,tbl.table_name); EXECUTE FORMAT('CREATE TRIGGER trigger_delete_disable_is_protected_%I BEFORE DELETE ON %I FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();',tbl.table_name,tbl.table_name); END LOOP; END $$;",
 "updated_at_default_1":"CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;",
 "updated_at_default_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public') LOOP EXECUTE FORMAT('DROP TRIGGER IF EXISTS trigger_set_updated_at_%I ON %I;',tbl.table_name,tbl.table_name); EXECUTE FORMAT('CREATE TRIGGER trigger_set_updated_at_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();',tbl.table_name,tbl.table_name); END LOOP; END $$;",
+"delete_disable_1":"CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'delete not allowed on %',TG_TABLE_NAME; END; $$;",
+"delete_disable_2":"0 DROP TRIGGER IF EXISTS trigger_delete_disable_users ON users; CREATE TRIGGER trigger_delete_disable_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();",
 "delete_disable_bulk_1":"CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;",
 "delete_disable_bulk_2":"DROP TRIGGER IF EXISTS trigger_delete_disable_bulk_users ON users; CREATE TRIGGER trigger_delete_disable_bulk_users AFTER DELETE ON users REFERENCING OLD TABLE AS deleted_rows FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_bulk(1);",
-"delete_disable_1":"CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'delete not allowed on %',TG_TABLE_NAME; END; $$;",
-"delete_disable_2":"DROP TRIGGER IF EXISTS trigger_delete_disable_users ON users; CREATE TRIGGER trigger_delete_disable_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();",
 }
 }
 
