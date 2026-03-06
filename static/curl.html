@@ -146,7 +146,6 @@ const COMMANDS=[
 {p:"/my/object-create-mongodb",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"database",v:"test"},{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"test",t:"string"}]},
 {p:"/my/object-create",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"my",t:"string"}]},
 {p:"/my/object-update",m:"PUT",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"161",t:"number"},{k:"title",v:"updated",t:"string"},{k:"created_by_id",v:"100",t:"number"}]},
-{p:"/my/ids-update",m:"PUT",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1919,1920,1921",t:"string"},{k:"column",v:"is_deleted",t:"string"},{k:"value",v:"1",t:"number"}]},
 {p:"/my/ids-delete",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1919,1920,1921",t:"string"}]},
 {p:"/my/object-read",m:"GET",h:[{k:"Authorization",v:"test"}],q:[{k:"table",v:"test"}],f:[],j:[]},
 {p:"/public/info",m:"GET",h:[],q:[],f:[],j:[]},
@@ -169,7 +168,6 @@ const COMMANDS=[
 {p:"/admin/object-create",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"admin",t:"string"}]},
 {p:"/admin/object-update",m:"PUT",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"197",t:"number"},{k:"title",v:"admin",t:"string"}]},
 {p:"/admin/object-read",m:"GET",h:[{k:"Authorization",v:"test"}],q:[{k:"table",v:"test"}],f:[],j:[]},
-{p:"/admin/ids-update",m:"PUT",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"title",t:"string"},{k:"value",v:"admin",t:"string"}]},
 {p:"/admin/ids-delete",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"},{k:"column",v:"is_deleted",v:"1",t:"string"}]},
 ];
 
@@ -504,11 +502,29 @@ const extractRows = (container, isJson = false) => {
 };
 
 /* ── JSON type casting ── */
-const castJsonValue = (val, type) => {
-  if (type === 'number') return Number(val);
-  if (type === 'boolean') return val.toLowerCase() === 'true';
-  if (type === 'null') return null;
-  if (type === 'array') return JSON.parse(val);
+const castJsonValue = (val, type, key) => {
+  if (val === '') return null;
+  if (type === 'number') {
+    const num = Number(val);
+    if (isNaN(num)) throw new Error(`Field '${key}' expects a number`);
+    return num;
+  }
+  if (type === 'boolean') {
+    const l = val.toLowerCase();
+    if (l !== 'true' && l !== 'false') throw new Error(`Field '${key}' expects a boolean (true/false)`);
+    return l === 'true';
+  }
+  if (type === 'null') {
+    if (val.toLowerCase() !== 'null') throw new Error(`Field '${key}' expects 'null'`);
+    return null;
+  }
+  if (type === 'array' || type === 'object') {
+    let parsed;
+    try { parsed = JSON.parse(val); } catch(e) { throw new Error(`Field '${key}' expects valid JSON`); }
+    if (type === 'array' && !Array.isArray(parsed)) throw new Error(`Field '${key}' expects an array`);
+    if (type === 'object' && (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))) throw new Error(`Field '${key}' expects an object`);
+    return parsed;
+  }
   return val;
 };
 
@@ -527,8 +543,8 @@ $('apiForm').onsubmit = async e => {
     jsonData = extractRows($('jCont'), true);
   let url = window.location.origin + curr.p;
   const qs = queryParams
-    .filter(x => x.k && x.v)
-    .map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v)}`)
+    .filter(x => x.k)
+    .map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v === '' ? 'null' : x.v)}`)
     .join('&');
   if (qs) url += '?' + qs;
   const h = {};
@@ -538,12 +554,12 @@ $('apiForm').onsubmit = async e => {
   const opts = { method: curr.m, headers: h };
   if (formData.length) {
     const fd = new FormData();
-    formData.forEach(x => { if (x.f) fd.append(x.k, x.f); else if (x.v) fd.append(x.k, x.v) });
+    formData.forEach(x => { if (x.f) fd.append(x.k, x.f); else if (x.k) fd.append(x.k, x.v === '' ? 'null' : x.v) });
     opts.body = fd;
   } else if (jsonData.length) {
     const body = {};
     try {
-      jsonData.forEach(x => { if (x.k) body[x.k] = castJsonValue(x.v, x.t) });
+      jsonData.forEach(x => { if (x.k) body[x.k] = castJsonValue(x.v, x.t, x.k) });
       opts.body = JSON.stringify(body);
       h['Content-Type'] = 'application/json';
     } catch (err) {

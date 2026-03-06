@@ -398,61 +398,65 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
         except Exception as e: raise Exception(f"Read Error: {e}")
         
 async def func_postgres_obj_update(client_postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, table, obj_list, is_serialize=None, created_by_id=None, batch_size=None, return_ids=False):
-    if not obj_list:return None
+    if not obj_list:return "0 rows updated"
     if not is_serialize:is_serialize=0
     if not all("id" in obj for obj in obj_list):raise Exception("all objects must have 'id' field")
-    batch_size = batch_size or 5000
-    if is_serialize:obj_list = await func_postgres_obj_serialize(cache_postgres_column_datatype, obj_list)
-    async def postgres_update_objects(client_pool, tbl, objs, user_id=None, batch_sz=5000, ret_ids=False):
-        cols = [c for c in objs[0] if c != "id"]
-        if not cols:return [] if ret_ids else None
-        max_batch = 65535 // (len(cols) + 1 + (1 if user_id else 0))
-        batch_sz = min(batch_sz, max_batch)
-        ids = [] if ret_ids else None
+    batch_size=batch_size or 5000
+    if is_serialize:obj_list=await func_postgres_obj_serialize(cache_postgres_column_datatype,obj_list)
+    async def postgres_update_objects(client_pool,tbl,objs,user_id=None,batch_sz=5000,ret_ids=False):
+        cols=[c for c in objs[0] if c!="id"]
+        if not cols:return "0 rows updated"
+        max_batch=65535//(len(cols)+1+(1 if user_id else 0))
+        batch_sz=min(batch_sz,max_batch)
+        ids=[] if ret_ids else None
+        total=0
         async with client_pool.acquire() as conn:
-            if len(objs) == 1:
-                obj = objs[0]
-                params = [obj[c] for c in cols] + [obj["id"]]
-                where = f"id=${len(params)}" + (f" AND created_by_id=${len(params)+1}" if user_id else "")
+            if len(objs)==1:
+                obj=objs[0]
+                params=[obj[c] for c in cols]+[obj["id"]]
+                where=f"id=${len(params)}"+(f" AND created_by_id=${len(params)+1}" if user_id else "")
                 if user_id:params.append(user_id)
-                set_clause = ",".join(f"{c}=${i+1}" for i, c in enumerate(cols))
+                set_clause=",".join(f"{c}=${i+1}" for i,c in enumerate(cols))
                 if ret_ids:
-                    row = await conn.fetch(f"UPDATE {tbl} SET {set_clause} WHERE {where} RETURNING id;", *params)
-                    return [row[0]["id"]] if row else []
+                    row=await conn.fetch(f"UPDATE {tbl} SET {set_clause} WHERE {where} RETURNING id;",*params)
+                    total=len(row)
                 else:
-                    await conn.execute(f"UPDATE {tbl} SET {set_clause} WHERE {where};", *params)
-                    return None
+                    res=await conn.execute(f"UPDATE {tbl} SET {set_clause} WHERE {where};",*params)
+                    total=int(res.split()[-1])
+                return f"{total} rows updated"
             async with conn.transaction():
-                for i in range(0, len(objs), batch_sz):
-                    batch = objs[i:i+batch_sz]
-                    vals, set_clauses = [], []
+                for i in range(0,len(objs),batch_sz):
+                    batch=objs[i:i+batch_sz]
+                    vals,set_clauses=[],[]
                     for col in cols:
-                        cases = []
+                        cases=[]
                         for obj in batch:
-                            vals.extend([obj[col], obj["id"]])
-                            idx_val, idx_id = len(vals)-1, len(vals)
+                            vals.extend([obj[col],obj["id"]])
+                            idx_val,idx_id=len(vals)-1,len(vals)
                             if user_id:
                                 vals.append(user_id)
-                                idx_user = len(vals)
+                                idx_user=len(vals)
                                 cases.append(f"WHEN id=${idx_id} AND created_by_id=${idx_user} THEN ${idx_val}")
                             else:
                                 cases.append(f"WHEN id=${idx_id} THEN ${idx_val}")
                         set_clauses.append(f"{col} = CASE {' '.join(cases)} ELSE {col} END")
-                    ids_list = [obj["id"] for obj in batch]
-                    vals_offset = len(vals)
-                    where_parts = [f"id IN ({','.join(f'${vals_offset+j+1}' for j in range(len(ids_list)))})"]
+                    ids_list=[obj["id"] for obj in batch]
+                    vals_offset=len(vals)
+                    where_parts=[f"id IN ({','.join(f'${vals_offset+j+1}' for j in range(len(ids_list)))})"]
                     vals.extend(ids_list)
                     if user_id:
                         where_parts.append(f"created_by_id=${len(vals)+1}")
                         vals.append(user_id)
-                    where_clause = " AND ".join(where_parts)
+                    where_clause=" AND ".join(where_parts)
                     if ret_ids:
-                        rows = await conn.fetch(f"UPDATE {tbl} SET {', '.join(set_clauses)} WHERE {where_clause} RETURNING id;", *vals)
+                        rows=await conn.fetch(f"UPDATE {tbl} SET {', '.join(set_clauses)} WHERE {where_clause} RETURNING id;",*vals)
                         ids.extend([r["id"] for r in rows])
                     else:
-                        await conn.execute(f"UPDATE {tbl} SET {', '.join(set_clauses)} WHERE {where_clause};", *vals)
-        return ids if ret_ids else None
-    return await postgres_update_objects(client_postgres_pool, table, obj_list, created_by_id, batch_size, return_ids)
+                        res=await conn.execute(f"UPDATE {tbl} SET {', '.join(set_clauses)} WHERE {where_clause};",*vals)
+                        total+=int(res.split()[-1])
+        if ret_ids:total=len(ids)
+        return f"{total} rows updated"
+    return await postgres_update_objects(client_postgres_pool,table,obj_list,created_by_id,batch_size,return_ids)
 
 import asyncio
 inmemory_cache_object_create = {}
@@ -566,7 +570,7 @@ async def func_postgres_export(client_postgres_pool, query, batch_size=None, out
         if f: f.close()
     return output_path
 
-async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_postgres_schema_read,config_postgres_is_extension,is_match_column=0):
+async def func_postgres_init_schema(client_postgres_pool,config_postgres,config_postgres_is_extension,is_match_column):
     if not config_postgres or "table" not in config_postgres: raise Exception("config_postgres.table missing")
     async def _validate():
         seen=set()
@@ -580,7 +584,7 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
                 if set(c)-allowed: raise Exception(f"unknown keys {t}.{c.get('name')}:{set(c)-allowed}")
                 if c.get("index"):
                     for it in c["index"].split(","):
-                        if it=="gin" and not any(x in c["datatype"].lower() for x in ("text","[]","jsonb")): raise Exception(f"gin not supported {t}.{c['name']}:{c['datatype']}")
+                        if it=="gin" and not any(x in c["datatype"].lower() for x in ("text","[]","jsonb")): raise Exception(f"gin not supported {t}.{c['name']}")
                 u=c.get("unique")
                 if not u: continue
                 for g in (x.strip() for x in u.split("|") if x.strip()):
@@ -590,120 +594,111 @@ async def func_postgres_init_schema(client_postgres_pool,config_postgres,func_po
                     key=(t,tuple(sorted(ucols)))
                     if key in seen: raise Exception(f"duplicate unique {t}.{','.join(ucols)}")
                     seen.add(key)
-    async def func_init_extension(conn):
-        if config_postgres_is_extension:
-            for e in ("postgis","pg_trgm"): await conn.execute(f"create extension if not exists {e};")
-        await conn.execute("create or replace function array_regex_match(text[],text) returns boolean immutable as $$ select coalesce(bool_and(v ~ $2),true) from unnest($1) v $$ language sql;")
-    async def func_init_table(conn,db):
-        for t in config_postgres["table"]:
-            if t not in db: await conn.execute(f"create table {t} (id bigint primary key generated by default as identity not null);")
-    async def func_init_column_rename(conn,db):
-        for t,cols in config_postgres["table"].items():
-            have=db.get(t,{})
-            for c in cols:
-                if c.get("old") and c["name"] not in have and c["old"] in have: await conn.execute(f"alter table {t} rename column {c['old']} to {c['name']};")
-    async def func_init_column(conn,db):
-        for t,cols in config_postgres["table"].items():
-            have=db.get(t,{})
-            for c in cols:
-                if c["name"] not in have: await conn.execute(f"alter table {t} add column {c['name']} {c['datatype']};")
-    async def func_init_drop_column(conn,db):
-        for t,cols in config_postgres["table"].items():
-            want={c["name"] for c in cols}; have=set(db.get(t,{}))
-            for col in have-want:
-                if col!="id": await conn.execute(f"alter table {t} drop column {col} cascade;")
-    async def func_init_default(conn,db):
-        for t,cols in config_postgres["table"].items():
-            have=db.get(t,{})
-            for col,data in have.items():
-                if col=="id": continue
-                conf=next((c for c in cols if c["name"]==col), None)
-                if data["default"] is not None and (not conf or "default" not in conf): await conn.execute(f"alter table {t} alter column {col} drop default;")
-            for c in cols:
-                if "default" in c:
-                    d,col=c["default"],c["name"]; sql=d if isinstance(d,str) and d.endswith("()") else repr(d) if isinstance(d,str) else str(d)
-                    await conn.execute(f"alter table {t} alter column {col} set default {sql};")
-    async def func_init_nullable(conn,db):
-        for t,cols in config_postgres["table"].items():
-            for c in cols:
-                cur=db.get(t,{}).get(c["name"])
-                if not cur: continue
-                m=c.get("is_mandatory",0)
-                if m in (0,False) and cur["is_null"]==0: await conn.execute(f"alter table {t} alter column {c['name']} drop not null;")
-                if m in (1,True) and cur["is_null"]==1: await conn.execute(f"alter table {t} alter column {c['name']} set not null;")
-    async def func_init_index(conn,dtypes):
-        rows=await conn.fetch("select indexname,indexdef from pg_indexes where schemaname='public';"); have={}
-        for r in rows:
+    async def read_db(conn):
+        tables=await conn.fetch("select table_name from information_schema.tables where table_schema='public'")
+        cols=await conn.fetch("select table_name,column_name,data_type,is_nullable,column_default,udt_name from information_schema.columns where table_schema='public'")
+        cons=await conn.fetch("select conname,relname from pg_constraint join pg_class on pg_class.oid=conrelid join pg_namespace n on n.oid=pg_class.relnamespace where n.nspname='public'")
+        idx=await conn.fetch("select indexname,indexdef from pg_indexes where schemaname='public'")
+        db={}
+        for r in cols:
+            t=r["table_name"]; db.setdefault(t,{})
+            db[t][r["column_name"]]={"type":(r["udt_name"] or r["data_type"]).lower(),"null":r["is_nullable"]=="YES","default":r["column_default"]}
+        cons={(r["relname"],r["conname"].lower()) for r in cons}
+        idx_map={}
+        for r in idx:
             if " USING " not in r["indexdef"]: continue
-            tbl=r["indexdef"].split(" ON ")[1].split()[0].split(".")[-1]; col=r["indexdef"].split("(",1)[1].split(")",1)[0].split()[0]; it=r["indexdef"].split(" USING ")[1].split()[0].lower()
-            have.setdefault((tbl,col),{})[it]=r["indexname"]
+            tbl=r["indexdef"].split(" ON ")[1].split()[0].split(".")[-1]
+            col=r["indexdef"].split("(",1)[1].split(")",1)[0].split()[0]
+            it=r["indexdef"].split(" USING ")[1].split()[0].lower()
+            idx_map.setdefault((tbl,col),{})[it]=r["indexname"]
+        return db,cons,idx_map
+    def trim(x): return x[:63]
+    await _validate()
+    async with client_postgres_pool.acquire() as conn:
+        if config_postgres_is_extension:
+            for e in ("postgis","pg_trgm"): await conn.execute(f"create extension if not exists {e}")
+        await conn.execute("create or replace function array_regex_match(text[],text) returns boolean immutable as $$ select coalesce(bool_and(v ~ $2),true) from unnest($1) v $$ language sql")
+        db,cons,idx=await read_db(conn)
+        for t in config_postgres["table"]:
+            if t not in db: await conn.execute(f"create table {t} (id bigint primary key generated by default as identity not null)")
+        db,cons,idx=await read_db(conn)
+        for t,cols in config_postgres["table"].items():
+            have=db.get(t,{})
+            for c in cols:
+                if c.get("old") and c["name"] not in have and c["old"] in have:
+                    await conn.execute(f"alter table {t} rename column {c['old']} to {c['name']}")
+        db,cons,idx=await read_db(conn)
+        for t,cols in config_postgres["table"].items():
+            have=db.get(t,{})
+            for c in cols:
+                col=c["name"]; dt=c["datatype"]
+                if col not in have: await conn.execute(f"alter table {t} add column {col} {dt}")
+                elif have[col]["type"]!=dt.lower(): await conn.execute(f"alter table {t} alter column {col} type {dt} using {col}::{dt}")
+        if is_match_column:
+            db,_,_=await read_db(conn)
+            for t,cols in config_postgres["table"].items():
+                want={c["name"] for c in cols}; have=set(db.get(t,{}))
+                for col in have-want:
+                    if col!="id": await conn.execute(f"alter table {t} drop column {col} cascade")
+        db,cons,idx=await read_db(conn)
+        for t,cols in config_postgres["table"].items():
+            have=db.get(t,{})
+            for c in cols:
+                col=c["name"]; cur=have.get(col)
+                if not cur: continue
+                if "default" in c:
+                    d=c["default"]; sql=d if isinstance(d,str) and d.endswith("()") else repr(d) if isinstance(d,str) else str(d)
+                    await conn.execute(f"alter table {t} alter column {col} set default {sql}")
+                elif cur["default"] is not None: await conn.execute(f"alter table {t} alter column {col} drop default")
+                m=c.get("is_mandatory")
+                if m in (1,True) and cur["null"]: await conn.execute(f"alter table {t} alter column {col} set not null")
+                if m in (0,False) and not cur["null"]: await conn.execute(f"alter table {t} alter column {col} drop not null")
         for t,cols in config_postgres["table"].items():
             for c in cols:
-                want=set() if not c.get("index") else set(c["index"].split(",")); cur=have.get((t,c["name"]),{}); dt=dtypes.get(c["name"],"").lower()
-                if any(x in dt for x in ("geography","geometry")): want.add("gist")
-                if c.get("old"):
-                    for it,idx in have.get((t,c["old"]),{}).items():
-                        if it not in cur: cur[it]=idx
+                col=c["name"]; dt=c["datatype"].lower(); want=set(c.get("index","").split(",")) if c.get("index") else set()
+                cur=idx.get((t,col),{})
                 for it,n in cur.items():
-                    is_managed=n.startswith(f"index_{t}_{c['name']}") or (c.get("old") and n.startswith(f"index_{t}_{c['old']}"))
-                    if is_managed and it not in want: await conn.execute(f'drop index if exists "{n}"')
+                    if n.startswith(f"index_{t}_{col}") and it not in want: await conn.execute(f'drop index if exists "{n}"')
                 for it in want:
-                    name=f"index_{t}_{c['name']}_{it}"[:55]
+                    name=trim(f"index_{t}_{col}_{it}")
                     if cur.get(it)==name: continue
                     if it in cur: await conn.execute(f'drop index if exists "{cur[it]}"')
-                    col_def=f"{c['name']} gin_trgm_ops" if it=="gin" and "text" in dt and "[]" not in dt and "array" not in dt else c["name"]
-                    await conn.execute(f"create index concurrently if not exists {name} on {t} using {it} ({col_def});")
-    async def func_init_constraints(conn,db,dtypes):
-        rows=await conn.fetch("select constraint_name,table_name from information_schema.table_constraints where constraint_schema='public';"); have={(r["table_name"],r["constraint_name"].lower()) for r in rows}
+                    col_def=f"{col} gin_trgm_ops" if it=="gin" and dt=="text" else col
+                    await conn.execute(f"create index if not exists {name} on {t} using {it} ({col_def})")
+        db,cons,idx=await read_db(conn)
         for t,cols in config_postgres["table"].items():
             want=set()
             for c in cols:
-                col=c["name"]
-                if c.get("regex"): want.add(f"constraint_{t}_{col}_regex")
-                if "in" in c: want.add(f"constraint_{t}_{col}_in")
+                col=c["name"]; dt=c["datatype"].lower()
+                if c.get("regex"): want.add(trim(f"constraint_{t}_{col}_regex"))
+                if "in" in c: want.add(trim(f"constraint_{t}_{col}_in"))
                 if c.get("unique"):
-                    for g in c["unique"].split("|"): want.add(f"constraint_unique_{t}_{'_'.join(x.strip() for x in g.split(','))}")
-            for tbl,cname in have:
-                if tbl!=t or not cname.startswith("constraint_"): continue
-                is_old=any(cname==f"constraint_{t}_{c['old']}_regex" or cname==f"constraint_{t}_{c['old']}_in" for c in cols if c.get("old"))
-                if cname not in {x.lower() for x in want} and not is_old: await conn.execute(f'alter table {t} drop constraint if exists "{cname}" cascade;')
-        rows=await conn.fetch("select constraint_name,table_name from information_schema.table_constraints where constraint_schema='public';"); have={(r["table_name"],r["constraint_name"].lower()) for r in rows}
+                    for g in c["unique"].split("|"): want.add(trim(f"constraint_unique_{t}_{'_'.join(x.strip() for x in g.split(','))}"))
+            for tbl,n in list(cons):
+                if tbl==t and n.startswith("constraint_") and n not in {x.lower() for x in want}:
+                    await conn.execute(f'alter table {t} drop constraint if exists "{n}" cascade'); cons.remove((tbl,n))
+        db,cons,_=await read_db(conn)
         for t,cols in config_postgres["table"].items():
             for c in cols:
-                col,dt,old=c["name"],dtypes.get(c["name"],"").lower(),c.get("old")
-                checks=[
-                    ("regex",f"constraint_{t}_{col}_regex",f"constraint_{t}_{old}_regex" if old else None,
-                     f"check ({col} ~ '{c['regex']}')" if "text" in dt and "[]" not in dt and c.get("regex") else
-                     f"check (array_regex_match({col},'{c['regex']}'))" if "[]" in dt and "text" in dt and c.get("regex") else None),
-                    ("in",f"constraint_{t}_{col}_in",f"constraint_{t}_{old}_in" if old else None,
-                     f"check ({col} in ({','.join(str(x) if isinstance(x,(int,float)) else repr(x) for x in c.get('in',[]))}))" if "in" in c else None)
-                ]
-                for key,n,old_n,sql in checks:
-                    if not sql: continue
-                    if old_n and (t,old_n.lower()) in have:
-                        await conn.execute(f'alter table {t} rename constraint "{old_n}" to "{n}";'); have.add((t,n.lower())); have.remove((t,old_n.lower()))
-                    if (t,n.lower()) not in have: await conn.execute(f"alter table {t} add constraint {n} {sql};")
+                col=c["name"]; dt=c["datatype"].lower()
+                if c.get("regex"):
+                    n=trim(f"constraint_{t}_{col}_regex")
+                    sql=f"check ({col} ~ '{c['regex']}')" if dt=="text" else f"check (array_regex_match({col},'{c['regex']}'))" if dt=="text[]" else None
+                    if sql:
+                        if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
+                        await conn.execute(f"alter table {t} add constraint {n} {sql}")
+                if "in" in c:
+                    n=trim(f"constraint_{t}_{col}_in")
+                    vals=",".join(str(x) if isinstance(x,(int,float)) else repr(x) for x in c["in"])
+                    if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
+                    await conn.execute(f"alter table {t} add constraint {n} check ({col} in ({vals}))")
                 if c.get("unique"):
                     for g in c["unique"].split("|"):
-                        ucols=",".join(x.strip() for x in g.split(",")); n=f"constraint_unique_{t}_{ucols.replace(',','_')}"
-                        if (t,n.lower()) not in have: await conn.execute(f"alter table {t} add constraint {n} unique ({ucols});")
-    async def func_init_custom_sql(conn):
+                        ucols=",".join(x.strip() for x in g.split(","))
+                        n=trim(f"constraint_unique_{t}_{ucols.replace(',','_')}")
+                        if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
+                        await conn.execute(f"alter table {t} add constraint {n} unique ({ucols})")
         for k,sql in config_postgres.get("sql",{}).items(): await conn.execute(sql)
-    await _validate()
-    db,dtypes=await func_postgres_schema_read(client_postgres_pool)
-    async with client_postgres_pool.acquire() as conn:
-        await func_init_extension(conn)
-        await func_init_table(conn,db)
-        await func_init_column_rename(conn,db)
-        db,dtypes=await func_postgres_schema_read(client_postgres_pool)
-        await func_init_column(conn,db)
-        if is_match_column==1: await func_init_drop_column(conn,db)
-        db,dtypes=await func_postgres_schema_read(client_postgres_pool)
-        await func_init_default(conn,db)
-        await func_init_nullable(conn,db)
-        await func_init_index(conn,dtypes)
-        await func_init_constraints(conn,db,dtypes)
-        await func_init_custom_sql(conn)
     return None
 
 import hashlib, orjson, uuid
@@ -1795,6 +1790,8 @@ async def func_request_param_read(request,mode,config):
         if mandatory and key not in param:
             raise Exception(f"{key} missing in {mode}")
         val = param.get(key,default)
+        if mandatory and (val is None or (isinstance(val,str) and val.strip()=="")):
+            raise Exception(f"{key} cannot be null")
         if val is not None:
             try:
                 val = CAST_MAP[dtype](val)

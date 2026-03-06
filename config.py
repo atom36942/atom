@@ -94,6 +94,7 @@ config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
 config_is_reset_export_folder=int(os.getenv("config_is_reset_export_folder") or 1)
 config_is_debug_fastapi=int(os.getenv("config_is_debug_fastapi") or 1)
 config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
+config_postgres_is_match_column=int(os.getenv("config_postgres_is_match_column") or 0)
 config_is_index_html=int(os.getenv("config_is_index_html") or 0)
 config_is_profile_metadata=int(os.getenv("config_is_profile_metadata") or 0)
 
@@ -132,7 +133,6 @@ config_api={
 "/admin/object-create":{"id":1},
 "/admin/object-update":{"id":2},
 "/admin/object-read":{"id":3},
-"/admin/ids-update":{"id":4},
 "/admin/ids-delete":{"id":5},
 "/test":{"id":6,"is_token":0,"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":[10,3]},
 "/public/object-read":{"id":7,"cache_sec":["inmemory",60]},
@@ -180,7 +180,7 @@ config_postgres={
 {"name":"is_deleted","datatype":"smallint","index":"btree"},
 {"name":"is_protected","datatype":"smallint","index":"btree"},
 {"name":"type","datatype":"integer","is_mandatory":1,"index":"btree"},
-{"name":"username","datatype":"text","index":"btree","unique":"username,type","regex":"^[a-z][a-z0-9_@-]*$"},
+{"name":"username","datatype":"text","index":"btree","unique":"username,type","regex":"^(?=.{3,20}$)[a-z][a-z0-9_@-]*$"},
 {"name":"password","datatype":"text","index":"btree"},
 {"name":"username_bigint","datatype":"bigint","index":"btree","unique":"username_bigint,type"},
 {"name":"password_bigint","datatype":"bigint","index":"btree"},

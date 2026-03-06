@@ -10,8 +10,16 @@ outpath_path_fail="$SCRIPT_DIR/export/curl_fail.log"
 baseurl="http://127.0.0.1:8000"
 token_root="${config_key_root:-}"
 token="${token:-}"
+uuid=$(uuidgen)
+username=$(python3 -c "import random, string; print(random.choice(string.ascii_lowercase) + ''.join(random.choices(string.ascii_lowercase + string.digits, k=11)))")
+username_bigint=$(python3 -c "import random; print(random.randint(10**15, 10**18))")
 
 #logic
+if [ ! -f "$input_path" ]; then
+    echo "❌ Input file not found: $input_path"
+    exit 1
+fi
+mkdir -p "$SCRIPT_DIR/export"
 : > "$outpath_path"
 count=0; count_success=0; count_fail=0; total_response_time=0
 while IFS= read -r line || [[ -n "$line" ]]; do
@@ -21,7 +29,10 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" != curl* ]] && continue
     command_line=$(echo "$line" | sed -e "s|\$baseurl|$baseurl|g" \
                               -e "s|\$token_root|$token_root|g" \
-                              -e "s|\$token|$token|g")
+                              -e "s|\$token|$token|g" \
+                              -e "s|\$uuid|$uuid|g" \
+                              -e "s|\$username_bigint|$username_bigint|g" \
+                              -e "s|\$username|$username|g")
     url=$(echo "$command_line" | sed -n 's/^curl[^"]*"\([^"]*\)".*/\1/p')
     echo "🚀 $url"
     echo "$command_line" | sed \
