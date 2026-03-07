@@ -106,11 +106,9 @@ config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
 config_is_reset_export_folder=int(os.getenv("config_is_reset_export_folder") or 1)
 config_is_debug_fastapi=int(os.getenv("config_is_debug_fastapi") or 1)
 config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
-config_postgres_is_match_column=int(os.getenv("config_postgres_is_match_column") or 0)
+config_postgres_init_is_match_column=int(os.getenv("config_postgres_init_is_match_column") or 0)
 config_is_index_html=int(os.getenv("config_is_index_html") or 0)
 config_is_profile_metadata=int(os.getenv("config_is_profile_metadata") or 0)
-config_is_account_delete_admin=int(os.getenv("config_is_account_delete_admin") or 0)
-config_is_account_delete_hard=int(os.getenv("config_is_account_delete_hard") or 1)
 
 #zzz
 config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
@@ -123,7 +121,7 @@ config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 config_sql={
 "cache_users_api_id_access":"select id,api_id_access from users where api_id_access is not null limit 1000",
 "cache_users_is_active":"select id,is_active from users limit 1000",
-"user":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
+"profile_metadata":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
 }
 
 config_table={
@@ -137,12 +135,12 @@ config_api={
 "/admin/object-create":{"id":1},
 "/admin/object-update":{"id":2},
 "/admin/object-read":{"id":3},
-"/admin/ids-delete":{"id":5},
-"/test":{"id":6,"is_token":0,"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":[10,3]},
-"/public/object-read":{"id":7,"cache_sec":["inmemory",60]},
-"/my/profile":{"id":8,"is_active_check":1,"cache_sec":["inmemory",10]},
-"/my/object-read":{"id":9,"cache_sec":["inmemory",60]},
-"/public/info":{"id":11,"cache_sec":["inmemory",10]},
+"/admin/ids-delete":{"id":4},
+"/test":{"id":5,"is_token":0,"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":[10,3]},
+"/public/object-read":{"id":6,"cache_sec":["inmemory",60]},
+"/my/profile":{"id":7,"is_active_check":1,"cache_sec":["inmemory",10]},
+"/my/object-read":{"id":8,"cache_sec":["inmemory",60]},
+"/public/info":{"id":9,"cache_sec":["inmemory",10]},
 }
 
 config_postgres={
@@ -289,10 +287,12 @@ config_postgres={
 "log_users_password_2":"CREATE TRIGGER trigger_log_users_password AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.password IS DISTINCT FROM NEW.password) EXECUTE FUNCTION func_log_users_password();",
 "is_protected_1":"CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected=1 THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %',TG_TABLE_NAME; END IF; RETURN OLD; END; $$;",
 "is_protected_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='is_protected' AND table_schema='public' AND table_name NOT IN ('spatial_ref_sys')) LOOP EXECUTE FORMAT('CREATE TRIGGER trigger_delete_disable_is_protected_%I BEFORE DELETE ON %I FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();',tbl.table_name,tbl.table_name); END LOOP; END $$;",
-"soft_delete_1":"CREATE OR REPLACE FUNCTION func_users_soft_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; BEGIN FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'is_deleted') THEN RAISE EXCEPTION 'Table %.% missing is_deleted column', r.table_schema, r.table_name; END IF; EXECUTE format('UPDATE %I.%I SET is_deleted = 1 WHERE %I = $1', r.table_schema, r.table_name, r.column_name) USING NEW.id; END LOOP; RETURN NEW; END; $$;",
-"soft_delete_2":"CREATE TRIGGER trigger_users_soft_delete AFTER UPDATE ON users FOR EACH ROW WHEN (NEW.is_deleted = 1) EXECUTE FUNCTION func_users_soft_delete();",
-"hard_delete_1":"CREATE OR REPLACE FUNCTION func_users_hard_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; BEGIN FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP EXECUTE format('DELETE FROM %I.%I WHERE %I = $1', r.table_schema, r.table_name, r.column_name) USING OLD.id; END LOOP; RETURN OLD; END; $$;",
-"hard_delete_2":"CREATE TRIGGER trigger_users_hard_delete AFTER DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_hard_delete();",
+"users_delete_soft_1":"CREATE OR REPLACE FUNCTION func_users_soft_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; BEGIN FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'is_deleted') THEN RAISE EXCEPTION 'Table %.% missing is_deleted column', r.table_schema, r.table_name; END IF; EXECUTE format('UPDATE %I.%I SET is_deleted = 1 WHERE %I = $1', r.table_schema, r.table_name, r.column_name) USING NEW.id; END LOOP; RETURN NEW; END; $$;",
+"users_delete_soft_2":"CREATE TRIGGER trigger_users_soft_delete AFTER UPDATE ON users FOR EACH ROW WHEN (NEW.is_deleted = 1) EXECUTE FUNCTION func_users_soft_delete();",
+"users_delete_hard_1":"CREATE OR REPLACE FUNCTION func_users_hard_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; BEGIN FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP EXECUTE format('DELETE FROM %I.%I WHERE %I = $1', r.table_schema, r.table_name, r.column_name) USING OLD.id; END LOOP; RETURN OLD; END; $$;",
+"users_delete_hard_2":"CREATE TRIGGER trigger_users_hard_delete AFTER DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_hard_delete();",
+"users_delete_api_id_access_1":"CREATE OR REPLACE FUNCTION func_users_delete_api_id_access() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.api_id_access IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with api_id_access'; END IF; RETURN OLD; END; $$;",
+"users_delete_api_id_access_2":"CREATE TRIGGER trigger_users_delete_api_id_access BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_delete_api_id_access();",
 "updated_at_default_1":"CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;",
 "updated_at_default_2":"DO $$ DECLARE tbl RECORD; BEGIN FOR tbl IN (SELECT table_name FROM information_schema.columns WHERE column_name='updated_at' AND table_schema='public' AND table_name NOT IN ('spatial_ref_sys')) LOOP EXECUTE FORMAT('CREATE TRIGGER trigger_set_updated_at_%I BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();',tbl.table_name,tbl.table_name); END LOOP; END $$;",
 "delete_disable_bulk_1":"CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;",

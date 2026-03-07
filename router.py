@@ -19,7 +19,7 @@ async def func_api_5e118e61a6c348328913f14722d76af6():
 #root
 @router.get("/root/postgres-init")
 async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
-   output=await func_postgres_init_schema(request.app.state.client_postgres_pool,config_postgres,config_postgres_is_extension,config_postgres_is_match_column)
+   output=await func_postgres_init_schema(request.app.state.client_postgres_pool,config_postgres,config_postgres_is_extension,config_postgres_init_is_match_column)
    await fund_reset_postgres_cache(request)
    return {"status":1,"message":output}
 
@@ -188,9 +188,6 @@ async def func_api_12df64ab29a4486ca541c0610ef30a16(request:Request):
 @router.delete("/my/account-delete")
 async def func_api_5a608eaf30a2410cadf331146b37883a(request:Request):
    obj_query=await func_request_param_read(request,"query",[("mode","str",1,None)])
-   user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
-   if config_is_account_delete_hard==0 and obj_query["mode"]=="hard":raise Exception("hard delete disabled")
-   if config_is_account_delete_admin==0 and user["api_id_access"]:raise Exception("not allowed as you are admin")
    output=await func_account_delete(obj_query["mode"],request.app.state.client_postgres_pool,request.state.user["id"])
    return {"status":1,"message":output}
 
@@ -406,7 +403,6 @@ async def func_api_bb6506520ad349f688f925055cd8b965(request:Request):
 async def func_api_219e40d87ece488fb927dd4ee8f14bb9(request:Request):
    obj_body=await func_request_param_read(request,"body",[("table","str",1,None),("ids","str",1,None)])
    if obj_body["table"] in config_table_system_list:raise Exception("table not allowed")
-   if config_is_account_delete_hard==0 and obj_body["table"]=="users":raise Exception("hard delete disabled")
    if len(obj_body["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],None)
    return {"status":1,"message":output}

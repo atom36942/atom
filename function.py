@@ -242,6 +242,7 @@ async def func_postgres_ids_delete(client_postgres_pool,table,ids,created_by_id=
     query=f"delete from {table} where id in ({ids}) and ($1::bigint is null or created_by_id=$1);"
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(query,created_by_id)
+    return "ids deleted"
 
 async def func_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None,order=None,limit=None,page=None):
     order,limit,page=order or "id desc",limit or 100,page or 1
@@ -1195,7 +1196,7 @@ async def func_ownership_check(client_postgres_pool,table,id,user_id):
     return None
 
 async def func_user_sql_read(client_postgres_pool,config_sql,user_id):
-    obj = config_sql.get("user", {})
+    obj = config_sql.get("profile_metadata", {})
     output = {}
     async with client_postgres_pool.acquire() as conn:
         for key, query in obj.items():
