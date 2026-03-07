@@ -95,14 +95,23 @@ async def fund_reset_cache_users(request):
     request.app.state.cache_users_is_active=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
     return None
 
-import traceback
+import traceback,asyncpg,re
 from fastapi import responses
 async def func_api_response_error(request,e):
-   error=str(e)
-   if request.app.state.config_is_traceback:print(traceback.format_exc())
-   response=responses.JSONResponse(status_code=400,content={"status":0,"message":error})
-   if request.app.state.config_sentry_dsn:sentry_sdk.capture_exception(e)
-   return error,response
+    if isinstance(e,asyncpg.exceptions.UniqueViolationError):col=re.findall(r'\((.*?)\)=',e.detail or "");error=(col[0].replace("_"," ")+" already exists") if col else "duplicate value"
+    elif isinstance(e,asyncpg.exceptions.CheckViolationError):c=e.constraint_name or "";error=re.sub(r"^constraint_|_regex$","",c).replace("_"," ")+" invalid"
+    elif isinstance(e,asyncpg.exceptions.ForeignKeyViolationError):col=re.findall(r'\((.*?)\)=',e.detail or "");error=(col[0].replace("_"," ")+" invalid reference") if col else "invalid reference"
+    elif isinstance(e,asyncpg.exceptions.NotNullViolationError):col=re.findall(r'"(.*?)"',e.message or "");error=(col[-1].replace("_"," ")+" required") if col else "missing required field"
+    elif isinstance(e,asyncpg.exceptions.InvalidTextRepresentationError):error="invalid datatype"
+    elif isinstance(e,asyncpg.exceptions.NumericValueOutOfRangeError):error="value out of range"
+    elif isinstance(e,asyncpg.exceptions.StringDataRightTruncationError):error="value too long"
+    elif isinstance(e,asyncpg.exceptions.DeadlockDetectedError):error="database deadlock retry"
+    elif isinstance(e,asyncpg.exceptions.SerializationError):error="transaction conflict retry"
+    else:error=str(e)
+    if request.app.state.config_is_traceback:print(traceback.format_exc())
+    response=responses.JSONResponse(status_code=400,content={"status":0,"message":error})
+    if request.app.state.config_sentry_dsn:sentry_sdk.capture_exception(e)
+    return error,response
 
 import asyncio
 async def func_api_log_create(start,request,response,type,error):
@@ -1345,13 +1354,14 @@ async def func_message_delete_bulk(mode,client_postgres_pool,user_id):
 import hashlib
 def func_encode_sha256(data):
     return hashlib.sha256(str(data).encode()).hexdigest()
-    
+
 async def func_auth_signup_username_password(client_postgres_pool,type,username,password):
     query="insert into users (type,username,password) values ($1,$2,$3) returning *;"
     async with client_postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username,password)
+    print(output)
     return output[0]
-
+    
 async def func_auth_signup_username_password_bigint(client_postgres_pool,type,username_bigint,password_bigint):
     query="insert into users (type,username_bigint,password_bigint) values ($1,$2,$3) returning *;"
     async with client_postgres_pool.acquire() as conn:

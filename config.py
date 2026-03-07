@@ -159,7 +159,7 @@ config_postgres={
 {"name":"description","datatype":"text"},
 {"name":"file_url","datatype":"text"},
 {"name":"link_url","datatype":"text"},
-{"name":"tag","datatype":"text[]","index":"gin","regex":"^[a-z0-9_@-]*$"},
+{"name":"tag","datatype":"text[]","index":"gin","regex":"^[a-z0-9 _@-]*$"},
 {"name":"tag_int","datatype":"integer[]","index":"gin"},
 {"name":"tag_bigint","datatype":"bigint[]","index":"gin"},
 {"name":"rating","datatype":"numeric(3,1)"},
