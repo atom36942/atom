@@ -217,7 +217,7 @@ async def func_api_27632b8e47c144519a8cdc38262762db(request:Request):
 @router.delete("/my/message-delete-single")
 async def func_api_468c6788fdf24e749600298a5031caa4(request:Request):
    obj_query=await func_request_param_read(request,"query",[("id","int",1,None)])
-   output=await func_message_delete_single_user(request.app.state.client_postgres_pool,obj_query["id"],request.state.user["id"])
+   output=await func_message_delete_single(request.app.state.client_postgres_pool,obj_query["id"],request.state.user["id"])
    return {"status":1,"message":output}
 
 @router.delete("/my/message-delete-bulk")

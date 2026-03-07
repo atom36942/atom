@@ -875,14 +875,7 @@ async def func_s3_client_read(config_aws_access_key_id,config_aws_secret_access_
    return client_s3,client_s3_resource
 
 async def func_s3_bucket_create(client_s3,config_s3_region_name,bucket):
-   output=client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
-   return output
-
-async def func_s3_url_delete(client_s3_resource,url):
-   bucket=url.split("//",1)[1].split(".",1)[0]
-   key=url.rsplit("/",1)[1]
-   output=client_s3_resource.Object(bucket,key).delete()
-   return output
+   return client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
 
 async def func_s3_bucket_public(client_s3,bucket):
    client_s3.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
@@ -891,11 +884,15 @@ async def func_s3_bucket_public(client_s3,bucket):
    return output
 
 async def func_s3_bucket_empty(client_s3_resource,bucket):
-   output=client_s3_resource.Bucket(bucket).objects.all().delete()
-   return output
+   return client_s3_resource.Bucket(bucket).objects.all().delete()
 
 async def func_s3_bucket_delete(client_s3,bucket):
-   output=client_s3.delete_bucket(Bucket=bucket)
+   return client_s3.delete_bucket(Bucket=bucket)
+
+async def func_s3_url_delete(client_s3_resource,url):
+   bucket=url.split("//",1)[1].split(".",1)[0]
+   key=url.rsplit("/",1)[1]
+   output=client_s3_resource.Object(bucket,key).delete()
    return output
 
 import uuid
@@ -1329,7 +1326,7 @@ async def func_message_thread_mark_read(client_postgres_pool,user_id_1,user_id_2
       await conn.execute(query,user_id_2,user_id_1)
    return None
 
-async def func_message_delete_single_user(client_postgres_pool,message_id,user_id):
+async def func_message_delete_single(client_postgres_pool,message_id,user_id):
    query="delete from message where id=$1 and (created_by_id=$2 or user_id=$2);"
    async with client_postgres_pool.acquire() as conn:
       await conn.execute(query,message_id,user_id)

@@ -10,7 +10,7 @@ curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_ro
 curl -X POST "$baseurl/root/redis-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@static/postgres_update.csv" -F "expiry_sec=100"
 curl -X POST "$baseurl/root/mongodb-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "database=test" -F "table=test" -F "file=@static/postgres_create.csv"
 0 curl -X GET "$baseurl/root/s3-bucket-ops?mode=create&bucket=master" -H "Authorization: Bearer $token_root"
-0 curl -X POST "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":"url1,url2,url3"}'
+0 curl -X POST "$baseurl/root/s3-url-delete" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"url":[url1,url2,url3]}'
 
 #auth
 curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":1,"username":"$username","password":"123"}'
@@ -115,4 +115,3 @@ curl -X GET "$baseurl/public/object-read?table=test&metadata=contains,active|tru
 curl -X GET "$baseurl/public/object-read?table=test&metadata=exists,is_verified"
 curl -X GET "$baseurl/public/info?key=cache_postgres_column_datatype"
 curl -X GET "$baseurl/public/table-tag-read?table=test&column=tag&filter_col=type&filter_val=1&limit=10&page=1"
-
