@@ -138,9 +138,10 @@ config_api={
 "/admin/ids-delete":{"id":4},
 "/test":{"id":5,"is_token":0,"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":[10,3]},
 "/public/object-read":{"id":6,"cache_sec":["inmemory",60]},
-"/my/profile":{"id":7,"is_active_check":1,"cache_sec":["inmemory",10]},
+"/my/profile":{"id":7,"is_active_check":0,"cache_sec":["inmemory",10]},
 "/my/object-read":{"id":8,"cache_sec":["inmemory",60]},
 "/public/info":{"id":9,"cache_sec":["inmemory",10]},
+"/public/table-tag-read":{"id":10,"cache_sec":["redis",10]},
 }
 
 config_postgres={

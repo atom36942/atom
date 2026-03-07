@@ -4,6 +4,7 @@ curl -X GET "$baseurl"
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
 curl -X GET "$baseurl/root/sync" -H "Authorization: Bearer $token_root"
+curl -X GET "$baseurl/root/check" -H "Authorization: Bearer $token_root"
 curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d "{\"mode\":\"write\",\"query\":\"update users set email='test',mobile='test' where id=1;insert into otp (otp,email,mobile) values (123,'test','test');\"}"
 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o export/postgres_export.csv
 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@static/postgres_create.csv"

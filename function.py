@@ -1,3 +1,30 @@
+async def func_check_config_api(config_api,request):
+    allowed={"id","is_token","is_active_check","cache_sec","ratelimiter_times_sec"}
+    route_set=set()
+    for r in request.app.routes:
+        p=getattr(r,"path",None)
+        if p:route_set.add(p)
+    for path,cfg in config_api.items():
+        if type(path) is not str or not path.startswith("/"):raise Exception("invalid api path:"+str(path))
+        if path not in route_set:raise Exception("path not in fastapi routes:"+path)
+        if type(cfg) is not dict:raise Exception("invalid config for:"+path)
+        for k in cfg:
+            if k not in allowed:raise Exception("invalid key "+k+" in "+path)
+        if "id" not in cfg or type(cfg["id"]) is not int:raise Exception("invalid id in "+path)
+        if "is_token" in cfg and cfg["is_token"] not in (0,1):raise Exception("invalid is_token in "+path)
+        if "is_active_check" in cfg and cfg["is_active_check"] not in (0,1):raise Exception("invalid is_active_check in "+path)
+        if "cache_sec" in cfg:
+            v=cfg["cache_sec"]
+            if type(v) not in (list,tuple) or len(v)!=2:raise Exception("invalid cache_sec in "+path)
+            if v[0] not in ("redis","inmemory"):raise Exception("invalid cache backend in "+path)
+            if type(v[1]) is not int or v[1]<0:raise Exception("invalid cache ttl in "+path)
+        if "ratelimiter_times_sec" in cfg:
+            v=cfg["ratelimiter_times_sec"]
+            if type(v) not in (list,tuple) or len(v)!=2:raise Exception("invalid ratelimiter_times_sec in "+path)
+            if type(v[0]) is not int or type(v[1]) is not int:raise Exception("invalid ratelimiter_times_sec value in "+path)
+            if v[0]<=0 or v[1]<=0:raise Exception("invalid ratelimiter_times_sec range in "+path)
+    return None
+
 import re
 async def func_table_tag_read(client_postgres_pool,table,column,filter_col=None,filter_val=None,limit=None,page=None):
     if not limit:limit=100
@@ -581,7 +608,7 @@ async def func_postgres_export(client_postgres_pool, query, batch_size=None, out
         if f: f.close()
     return output_path
 
-async def func_postgres_init_schema(client_postgres_pool, config_postgres, config_postgres_is_extension, is_match_column):
+async def func_postgres_init(client_postgres_pool, config_postgres, config_postgres_is_extension, is_match_column):
     if not config_postgres or "table" not in config_postgres: raise Exception("config_postgres.table missing")
     async def _validate():
         seen=set()

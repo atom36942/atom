@@ -19,7 +19,7 @@ async def func_api_5e118e61a6c348328913f14722d76af6():
 #root
 @router.get("/root/postgres-init")
 async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
-   output=await func_postgres_init_schema(request.app.state.client_postgres_pool,config_postgres,config_postgres_is_extension,config_postgres_init_is_match_column)
+   output=await func_postgres_init(request.app.state.client_postgres_pool,config_postgres,config_postgres_is_extension,config_postgres_init_is_match_column)
    await fund_reset_postgres_cache(request)
    return {"status":1,"message":output}
 
@@ -29,6 +29,11 @@ async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
    await fund_reset_postgres_cache(request)
    await fund_reset_cache_users(request)
    await func_postgres_clean(request.app.state.client_postgres_pool,config_table)
+   return {"status":1,"message":"done"}
+
+@router.get("/root/check")
+async def func_api_06b949942d0445c9954ddfc82d213689(request:Request):
+   await func_check_config_api(config_api,request)
    return {"status":1,"message":"done"}
 
 @router.post("/root/postgres-runner")
