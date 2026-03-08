@@ -180,9 +180,7 @@ async def func_api_27860b1e950446a9b5bd28c2e9a33de4(request:Request):
 async def func_api_a39a95f6167a4ef2a33ea19a0f0e01e7(request:Request):
    user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
    token=await func_jwt_token_encode(user,config_key_jwt,config_token_expiry_sec,config_token_user_key_list)
-   response=JSONResponse({"status":1,"message":"check Authorization header"})
-   response.headers["Authorization"]=f"{token}"
-   return response
+   return {"status":1,"message":token}
 
 @router.get("/my/api-usage")
 async def func_api_12df64ab29a4486ca541c0610ef30a16(request:Request):
