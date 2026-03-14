@@ -48,7 +48,7 @@ docker run --rm -p 8000:8000 atom
 ./test.sh
 
 #consumer
-venv/bin/celery -A consumer.celery worker --loglevel=info -P solo
+venv/bin/python consumer.py celery
 venv/bin/python consumer.py kafka
 venv/bin/python consumer.py rabbitmq
 venv/bin/python consumer.py redis
