@@ -88,6 +88,7 @@ config_cors_allow_credentials=(os.getenv("config_cors_allow_credentials") or "Fa
 
 #token
 config_token_expiry_sec=int(os.getenv("config_token_expiry_sec") or 3*24*60*60)
+config_token_refresh_expiry_sec=int(os.getenv("config_token_refresh_expiry_sec") or 3*24*60*60*100)
 config_token_key_list=(os.getenv("config_token_key_list") or "id,type,is_active,api_id_access").split(",")
 
 #table/column

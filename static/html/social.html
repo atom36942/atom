@@ -282,7 +282,7 @@ async function fetchProfile(force=false){
   if(!force && !stale("last_profile_sync") && get("user")) return;
   try{
     const r=await fetch(api(PROFILE_API),{headers:headers()}), j=await r.json();
-    if(r.status===200){ const nt=r.headers.get("Authorization"); if(nt) set("token",nt); set("user",j.message); set("last_profile_sync",Date.now()); return }
+    if(r.status===200){ const nt=j.message.token; if(nt){ set("token",nt); delete j.message.token; } set("user",j.message); set("last_profile_sync",Date.now()); return }
     if(handleExpiry(j)) return;
     if(force) toast(j.message||"Failed to fetch profile","error");
   }catch(e){ if(force) toast("Network error","error") }

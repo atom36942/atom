@@ -1127,7 +1127,7 @@ async def func_check_token(request):
         if not token:raise Exception("token missing")
         if token!=request.app.state.config_key_root:raise Exception("token mismatch")
     else:
-        if token:user=await request.app.state.func_jwt_token_decode(token,request.app.state.config_key_jwt)
+        if token:user=await request.app.state.func_token_decode(token,request.app.state.config_key_jwt)
         if api.startswith("/my") and not token:raise Exception("token missing")
         elif api.startswith("/private") and not token:raise Exception("token missing")
         elif api.startswith("/admin") and not token:raise Exception("token missing")
@@ -1136,17 +1136,21 @@ async def func_check_token(request):
     return None
 
 import jwt,json
-async def func_jwt_token_decode(token,config_key_jwt):
+async def func_token_decode(token,config_key_jwt):
    user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
    return user
 
 import jwt,json,time
-async def func_jwt_token_encode(obj,config_key_jwt,config_token_expiry_sec=1000,key_list=None):
+async def func_token_encode(obj,config_key_jwt,config_token_expiry_sec,config_token_refresh_expiry_sec,key_list=None):
    if not isinstance(obj,dict):obj=dict(obj)
    payload={k:obj.get(k) for k in key_list} if key_list else obj
    payload=json.dumps(payload,default=str)
-   token=jwt.encode({"exp":time.time()+config_token_expiry_sec,"data":payload},config_key_jwt)
-   return token
+   now=int(time.time())
+   exp=now+config_token_expiry_sec
+   exp_refresh=now+config_token_refresh_expiry_sec
+   token=jwt.encode({"exp":exp,"data":payload,"type":"access"},config_key_jwt)
+   token_refresh=jwt.encode({"exp":exp_refresh,"data":payload,"type":"refresh"},config_key_jwt)
+   return {"token":token,"token_refresh":token_refresh,"token_expiry_sec":config_token_expiry_sec,"token_refresh_expiry_sec":config_token_refresh_expiry_sec}
 
 from fastapi import FastAPI
 def func_fastapi_app_read(lifespan,config_is_debug_fastapi):
