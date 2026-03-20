@@ -276,6 +276,14 @@ config_postgres={
 {"name":"link_url","datatype":"text"},
 {"name":"tag","datatype":"text[]","index":"gin"},
 ],
+"invoice":[
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"invoice_id","datatype":"text","is_mandatory":1},
+{"name":"filename","datatype":"text","is_mandatory": 1},
+{"name":"metadata","datatype":"jsonb","index":"gin","is_mandatory":1},
+{"name":"status","datatype":"integer","index":"btree"},
+],
 },
 "sql":{
 "drop_disable_table_1":"CREATE OR REPLACE FUNCTION func_drop_disable_table() RETURNS event_trigger LANGUAGE plpgsql AS $$ DECLARE r record; BEGIN FOR r IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP IF r.object_type='table' THEN RAISE EXCEPTION 'DROP TABLE not allowed: %',r.object_identity; END IF; END LOOP; END; $$;",

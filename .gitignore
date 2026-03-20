@@ -1,139 +1,73 @@
-# Byte-compiled / optimized / DLL files
+# python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
 
-# Distribution / packaging
-.Python
+# build
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
+site/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
 *.egg
-MANIFEST
+*.egg-info/
+pip-wheel-metadata/
 
-# PyInstaller
-*.manifest
-*.spec
+# logs
+*.log
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
+# test
+.coverage*
+.cache
+.pytest_cache/
 htmlcov/
 .tox/
 .nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
 .hypothesis/
-.pytest_cache/
-cover/
 
-# Translations
-*.mo
-*.pot
+# env
+.env
+.env.*
+.venv/
+venv/
+env/
+ENV/
+.python-version
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+# tools
+.mypy_cache/
+.pyre/
+.pytype/
+.dmypy.json
 
-# Flask stuff:
+# notebooks
+.ipynb_checkpoints
+
+# ide/os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# db
+*.db
+*.sqlite3
+
+# frameworks
 instance/
 .webassets-cache
 
-# Scrapy stuff:
-.scrapy
+# dotfiles
+.*
+!.gitignore
+!.env.example
 
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-.pdm.toml
-.pdm-python
-.pdm-build/
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-#zzz
+# misc
+*.manifest
+*.spec
 vectorstore/
-.DS_Store
-.DS_Store
-.vscode/
-*.db
-*.sqlite3
+
+# zzz
 export/
 secret/
 z.py

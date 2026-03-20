@@ -32,18 +32,6 @@ docker build -t atom .
 docker run --rm -p 8000:8000 atom
 ```
 
-### Env
-```bash
-config_postgres_url=postgresql://postgres@127.0.0.1/postgres
-config_redis_url=redis://localhost:6379
-config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
-config_key_root=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
-config_celery_broker_url=redis://localhost:6379
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-config_redis_url_pubsub=redis://localhost:6379
-config_mongodb_url=mongodb://localhost:27017
-```
-
 ### Commands
 ```bash
 #test curls
@@ -55,6 +43,11 @@ venv/bin/python consumer.py kafka
 venv/bin/python consumer.py rabbitmq
 venv/bin/python consumer.py redis
 ```
+
+
+
+
+
 
 ### zzz
 ```bash
@@ -83,4 +76,17 @@ SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)
 #func/trigger
 SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.proname LIKE 'func_%' ORDER BY p.proname;
 SELECT trigger_name FROM information_schema.triggers WHERE trigger_name LIKE 'trigger_%' UNION ALL SELECT evtname FROM pg_event_trigger WHERE evtname LIKE 'trigger_%' ORDER BY 1;
+
+#uuid without dash
+uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-'
+
+#env
+config_postgres_url=postgresql://postgres@127.0.0.1/postgres
+config_redis_url=redis://localhost:6379
+config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
+config_key_root=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+config_celery_broker_url=redis://localhost:6379
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_redis_url_pubsub=redis://localhost:6379
+config_mongodb_url=mongodb://localhost:27017
 ```

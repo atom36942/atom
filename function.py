@@ -1,3 +1,37 @@
+import csv, tempfile, shutil, os
+from collections import defaultdict
+def func_csv_vlookup(p_path, c_path, p_search, c_search, c_src, p_tgt):
+    if len(p_search) != len(c_search): return print("Err: Col count mismatch")
+    s_lkp, f_lkp, r_opt = defaultdict(set), defaultdict(set), {'encoding': 'latin-1'}
+    try:
+        with open(c_path, 'r', **r_opt) as f:
+            for r in csv.DictReader(f):
+                v = str(r.get(c_src) or "").strip()
+                if not v: continue
+                k_f = tuple(str(r[c] or "").strip().lower() for c in c_search)
+                s_lkp[k_f].add(v)
+                f_lkp[k_f[0]].add(v)
+        fd, tmp_p = tempfile.mkstemp()
+        with os.fdopen(fd, 'w', newline='', encoding='latin-1') as tmp:
+            with open(p_path, 'r', **r_opt) as f:
+                reader = csv.DictReader(f)
+                fields = list(reader.fieldnames)
+                if p_tgt not in fields: fields.append(p_tgt)
+                writer = csv.DictWriter(tmp, fieldnames=fields)
+                writer.writeheader()
+                m, t = 0, 0
+                for r in reader:
+                    t += 1
+                    k_f = tuple(str(r[c] or "").strip().lower() for c in p_search)
+                    res = s_lkp.get(k_f) or f_lkp.get(k_f[0])
+                    if res: r[p_tgt], m = ", ".join(sorted(res)), m + 1
+                    writer.writerow(r)
+        shutil.move(tmp_p, p_path)
+        print(f"Rows: {t} | Matches: {m}")
+    except Exception as e:
+        if 'tmp_p' in locals() and os.path.exists(tmp_p): os.remove(tmp_p)
+        print(f"Error: {e}")
+        
 async def func_check_config_api(config_api,request):
     allowed={"id","is_token","is_active_check","cache_sec","ratelimiter_times_sec"}
     route_set=set()
