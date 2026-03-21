@@ -9,8 +9,11 @@ import traceback,os
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    #start
-   if False:os.makedirs(config_folder_export,exist_ok=True)
-   func_check_code_structure(".", dirs=("venv","secret","static","export","zzz"), files=(".gitignore",".env","Dockerfile","readme.md","requirements.txt","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py","z.py"))
+   os.makedirs(config_folder_export,exist_ok=True)
+   os.makedirs("secret",exist_ok=True)
+   open(".env","a").close()
+   open("z.py","a").close()
+   func_check_code_structure(".", dirs=("venv","secret","export","static","zzz"), files=(".gitignore",".env","Dockerfile","readme.md","requirements.txt","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py","z.py"))
    #client init
    client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
    client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
