@@ -89,4 +89,16 @@ config_celery_broker_url=redis://localhost:6379
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_redis_url_pubsub=redis://localhost:6379
 config_mongodb_url=mongodb://localhost:27017
+
+#github clone repo
+ssh-keygen -t ed25519 -C "atom36942@gmail.com"
+cat ~/.ssh/id_ed25519.pub
+ssh -T git@github.com
+git clone git@github.com:atom36942/atom.git
+cd atom
+git remote set-url origin git@github.com:atom36942/atom.git
+git pull origin main
+git add .
+git commit -m "msg"
+git push origin main
 ```
