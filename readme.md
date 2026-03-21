@@ -22,9 +22,15 @@
 #direct
 git clone https://github.com/atom36942/atom.git
 cd atom
-touch .env
-python3 -m venv venv
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+brew install python@3.11
+rm -rf venv
+/opt/homebrew/bin/python3.11 -m venv venv
+./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
+./venv/bin/python -V
 ./venv/bin/uvicorn main:app --reload
 
 #docker
@@ -90,7 +96,7 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_redis_url_pubsub=redis://localhost:6379
 config_mongodb_url=mongodb://localhost:27017
 
-#github clone repo
+#github setup repo as dev
 ssh-keygen -t ed25519 -C "atom36942@gmail.com"
 cat ~/.ssh/id_ed25519.pub
 ssh -T git@github.com
