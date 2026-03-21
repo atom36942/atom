@@ -68,6 +68,7 @@ instance/
 vectorstore/
 
 # zzz
-export/
 secret/
+export/
+.env
 z.py

@@ -105,6 +105,6 @@ cd atom
 git remote set-url origin git@github.com:atom36942/atom.git
 git pull origin main
 git add .
-git commit -m "msg"
+git commit -m "sync"
 git push origin main
 ```

@@ -1,3 +1,24 @@
+from pathlib import Path
+def func_check_code_structure(root, dirs=(), files=()):
+    r = Path(root)
+    if not r.exists():
+        raise RuntimeError(f"[ROOT_MISSING] {r}")
+    md = [d for d in dirs if not (r/d).is_dir()]
+    mf = [f for f in files if not (r/f).is_file()]
+    allowed = set(dirs) | set(files)
+    ignore = {"__pycache__", ".git", ".DS_Store"}
+    extra_dirs = [p.name for p in r.iterdir() if p.name not in allowed and p.name not in ignore and p.is_dir()]
+    extra_files = [p.name for p in r.iterdir() if p.name not in allowed and p.name not in ignore and p.is_file()]
+    if md or mf or extra_dirs or extra_files:
+        raise RuntimeError(
+            "STRUCTURE_INVALID\n"
+            f"DIRS_MISSING: {','.join(md) if md else '-'}\n"
+            f"FILES_MISSING: {','.join(mf) if mf else '-'}\n"
+            f"DIRS_EXTRA: {','.join(extra_dirs) if extra_dirs else '-'}\n"
+            f"FILES_EXTRA: {','.join(extra_files) if extra_files else '-'}"
+        )
+    return None
+
 import csv, tempfile, shutil, os
 from collections import defaultdict
 def func_csv_vlookup(p_path, c_path, p_search, c_search, c_src, p_tgt):
