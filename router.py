@@ -433,5 +433,5 @@ async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):
 #mgh
 @router.post("/mgh/send-invoice-amazon")
 async def func_api_28d37ab82cbe410bb83fcef0f231e268(request:Request):
-    await func_send_invoice(request,func_get_amazon_token, build_amazon_invoice_payload, append_unit_charge,func_send_invoice_to_amazon)
+    await func_mgh_amazon_invoice_logic(request)
     return {"status":1,"message":"done"}

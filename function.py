@@ -1,3 +1,147 @@
+import httpx
+from datetime import datetime, timezone, timedelta
+async def func_mgh_amazon_payload_send(payload, amazon_client_id, amazon_client_secret):
+    token_url = "https://sendstack-prod-token.auth.us-east-1.amazoncognito.com/oauth2/token"
+    api_url = "https://prod.send.irisapi.iris.ctt.amazon.dev/sendInvoiceDocument"
+    cert = ("secret/mgh-cert.txt", "secret/mgh-pv.key")
+    if not hasattr(func_mgh_amazon_payload_send, "_token"):
+        func_mgh_amazon_payload_send._token = None
+        func_mgh_amazon_payload_send._expires = None
+    now = datetime.now(timezone.utc)
+    if not func_mgh_amazon_payload_send._token or not func_mgh_amazon_payload_send._expires or now >= func_mgh_amazon_payload_send._expires:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r_tk = await client.post(token_url, data={"grant_type": "client_credentials", "client_id": amazon_client_id, "client_secret": amazon_client_secret}, headers={"Content-Type": "application/x-www-form-urlencoded"})
+            r_tk.raise_for_status()
+            data = r_tk.json()
+            func_mgh_amazon_payload_send._token = data["access_token"]
+            func_mgh_amazon_payload_send._expires = now + timedelta(minutes=55)
+    headers = {"Authorization": f"Bearer {func_mgh_amazon_payload_send._token}", "Content-Type": "application/json"}
+    async with httpx.AsyncClient(timeout=60, cert=cert) as client:
+        r = await client.post(api_url, json=payload, headers=headers)
+    res = {"success": r.status_code in (200, 202), "status_code": r.status_code, "request_id": r.headers.get("x-amzn-RequestId")}
+    if res["success"]:
+        res["body"] = r.json() if r.content else None
+    else:
+        res["error_body"] = r.text
+    return res
+
+def func_mgh_amazon_payload_build(row):
+    invoice_id = row["INVOICENUMBER"]
+    if not invoice_id or not invoice_id.strip(): raise ValueError("Invoice number is missing in the row data.")
+    payload = {
+        "invoiceDocument": {
+            "invoiceId": invoice_id,
+            "accountId": row["AccountID"],
+            "invoiceDocumentOwner": {"supplierId": "MGHP","supplierIdType": "SCAC"},
+            "invoiceHeader": {
+                "invoiceNumber": invoice_id,
+                "purchaseOrderNumber": invoice_id,
+                "invoiceDate": row["INVOICEDATE"],
+                "invoiceAmount": {"amount": float(row["INVOICEAMOUNT"]), "currencyCode": row["CURRENCY"]},
+                "invoiceAmountWithoutTaxes": {"amount": float(row["INVOICEAMOUNT"]), "currencyCode": row["CURRENCY"]},
+                "invoiceReferences": [{"invoiceId": invoice_id, "invoiceNumber": invoice_id}],
+                "buyer": {"legalEntity": {"addresses": [{
+                    "addressee": "Attend to : Transportation Finance","addressLine1": "300 Boren Ave N","addressLine2": "NA","addressLine3": "NA",
+                    "municipalityName": "Seattle","cityName": "Seattle","stateName": "WA","countryName": "United States","countryCode": "US","postalCode": "98109"
+                }],"taxIdentities": [{"taxIdentityNumber": "32-0765633","taxIdentityType": "VAT"}],
+                "legalEntityName": "Amazon.com Services LLC","businessName": "Amazon Logistics"}},
+                "supplier": {"legalEntity": {"addresses": [{
+                    "addressee": "MGH LOGISTICS PRIVATE LIMITED","addressLine1": "Unit No. 1107, 11th Floor, E-Wing, Times Square",
+                    "addressLine2": "CTS No. 758/759, Marol, Mittal Industrial Estate","addressLine3": "Andheri East",
+                    "municipalityName": "Mumbai","cityName": "Mumbai","stateName": "MH","countryName": "India","countryCode": "IN","postalCode": "400059"
+                }],"taxIdentities": [{"taxIdentityNumber": "27AAECM2361B1ZW","taxIdentityType": "VAT"}],
+                "legalEntityName": "MGH LOGISTICS PRIVATE LIMITED","businessName": "MGH LOGISTICS PRIVATE LIMITED"}},
+                "billTo": {"legalEntity": {"addresses": [{
+                    "addressee": "Amazon Logistics, Inc.","addressLine1": "410 Terry Ave N","addressLine2": "Floor 5","addressLine3": "South Lake Union",
+                    "municipalityName": "Seattle","cityName": "Seattle","stateName": "WA","countryName": "United States","countryCode": "US","postalCode": "98109"
+                }],"taxIdentities": [{"taxIdentityNumber": "32-0765633","taxIdentityType": "VAT"}],
+                "legalEntityName": "Amazon.com Services LLC","businessName": "Amazon AP"}},
+                "billFrom": {"legalEntity": {"addresses": [{
+                    "addressee": "MGH LOGISTICS INC","addressLine1": "67 WALNUT AVE","addressLine2": "SUITE 301","addressLine3": "NA",
+                    "municipalityName": "CLARK","cityName": "CLARK","stateName": "NJ","countryName": "United States","countryCode": "US","postalCode": "07066"
+                }],"taxIdentities": [{"taxIdentityNumber": "32-0765633","taxIdentityType": "VAT"}],
+                "legalEntityName": "MGH LOGISTICS INC","businessName": "MGH LOGISTICS"}},
+                "documentTypeInfo": {"documentType": "INVOICE","requestForPayment": True}
+            },
+            "invoiceLineItems": [{
+                "lineItemId": "1",
+                "description": row["DESCRIPTION"],
+                "lineItemRequisitionIdentifierInfo": {"primaryRefId": {"extensions": [{"trackingId": row["TRACKINGID"]}]}},
+                "lineItemDetail": {"freightShipmentDetail": {
+                    "shipmentIdentificationNumber": row["FBANumber"],
+                    "shipmentBillOfLadingNumber": row["SHIPMENTBILLOFLADINGNUMBER"],
+                    "proofOfDelivery": row["PROOFOFDELIVERY"],
+                    "consigneeAddress": {
+                        "addressee": "Amazon Fulfillment Center","addressLine1": "2121 8th Ave","addressLine2": "Receiving Dock","addressLine3": "Building 7",
+                        "municipalityName": "Seattle","cityName": "Seattle","stateName": "WA","countryName": "United States","countryCode": "US","postalCode": "98121"
+                    },
+                    "transportationMethodType": row["TRANSPORTATIONMETHODTYPE"],
+                    "shippedDate": row["SHIPPEDDATE"],
+                    "deliveryDate": row["DELIVERYDATE"],
+                    "shipmentWeightDetail": {
+                        "grossWeight": {"weight": float(row["GROSSWEIGHT"]),"unitOfMeasurement": "KG"},
+                        "netWeight": {"weight": float(row["GROSSWEIGHT"]),"unitOfMeasurement": "KG"},
+                        "billedWeight": {"weight": float(row["GROSSWEIGHT"]),"unitOfMeasurement": "KG"},
+                        "declaredWeight": {"weight": float(row["GROSSWEIGHT"]),"unitOfMeasurement": "KG"}
+                    },
+                    "shipmentVolumeDetail": {
+                        "billedVolume": {"length": float(row["VOLUMELENGTH"]),"breadth": float(row["VOLUMEBREADTH"]),"height": float(row["VOLUMEHEIGHT"]),"unitOfMeasurement": row["UOM"]},
+                        "declaredVolume": {"length": float(row["VOLUMELENGTH"]),"breadth": float(row["VOLUMEBREADTH"]),"height": float(row["VOLUMEHEIGHT"]),"unitOfMeasurement": row["UOM"]}
+                    },
+                    "packageDetails": [{
+                        "packageReferenceId": row["CHARGEID"],
+                        "packageWeightDetail": {
+                            "grossWeight": {"weight": float(row["GROSSWEIGHT"]),"unitOfMeasurement": "KG"},
+                            "netWeight": {"weight": float(row["GROSSWEIGHT"]),"unitOfMeasurement": "KG"},
+                            "billedWeight": {"weight": float(row["GROSSWEIGHT"]),"unitOfMeasurement": "KG"},
+                            "declaredWeight": {"weight": float(row["GROSSWEIGHT"]),"unitOfMeasurement": "KG"}
+                        },
+                        "packageVolumeDetail": {
+                            "billedVolume": {"length": float(row["VOLUMELENGTH"]),"breadth": float(row["VOLUMEBREADTH"]),"height": float(row["VOLUMEHEIGHT"]),"unitOfMeasurement": row["UOM"]},
+                            "declaredVolume": {"length": float(row["VOLUMELENGTH"]),"breadth": float(row["VOLUMEBREADTH"]),"height": float(row["VOLUMEHEIGHT"]),"unitOfMeasurement": row["UOM"]}
+                        }
+                    }]
+                }},
+                "unitCharges": [],
+                "quantity": {"quantity": 1.0,"quantityUnit": "COUNT"},
+                "lineItemAmount": {"amount": float(row["INVOICEAMOUNT"]),"currencyCode": row["CURRENCYCODE"]},
+                "lineItemAmountWithoutTaxes": {"amount": float(row["INVOICEAMOUNT"]),"currencyCode": row["CURRENCYCODE"]}
+            }]
+        }
+    }
+    charge_amount = float(row["AMOUNT"])
+    payload["invoiceDocument"]["invoiceLineItems"][0]["unitCharges"].append({
+        "chargeId": row["CHARGEID"],
+        "chargeCode": row["CHARGECODE"],
+        "chargeAmount": {"amount": charge_amount,"currencyCode": row["CURRENCYCODE"]}
+    })
+    return payload
+
+import os
+from datetime import datetime, timezone
+async def func_mgh_amazon_invoice_logic(request):
+    if not request.app.state.client_sftp: raise Exception("sftp client not connected")
+    output=await request.app.state.func_sftp_folder_filename_read(request.app.state.client_sftp,"mgh/amazon")
+    for filename in output:
+        if filename in (".","..") or not filename.lower().endswith(".csv"): continue
+        local_path=f"export/mgh_amazon_{filename}"
+        await request.app.state.func_sftp_file_download(request.app.state.client_sftp,f"mgh/amazon/{filename}",local_path)
+        csv_obj=request.app.state.func_csv_to_obj_list(local_path)
+        invoices={}
+        for row in csv_obj:
+            invoice_id=row["INVOICENUMBER"]
+            today_utc=datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+            for k in ("INVOICEDATE","SHIPPEDDATE","DELIVERYDATE"):
+                v=row.get(k)
+                row[k]=datetime.strptime(v.strip(),"%Y%m%d").strftime("%Y-%m-%dT%H:%M:%SZ") if v and v!="00000000" else today_utc
+            row["UOM"]="GALLONS"
+            if invoice_id not in invoices: invoices[invoice_id]=request.app.state.func_mgh_amazon_payload_build(row)
+        for invoice_id,payload in invoices.items():
+            amazon_response=await request.app.state.func_mgh_amazon_payload_send(payload,request.app.state.config_amazon_client_id,request.app.state.config_amazon_client_secret)
+            db_object={"invoice_id":invoice_id,"payload":payload,"filename":filename,"status":1 if amazon_response["success"] else 0,"response":amazon_response.get("body") if amazon_response["success"] else amazon_response.get("error_body")}
+            await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"now","mgh_amazon_invoice",db_object,1)
+    return {"status":1,"message":"done"}
+
 from pathlib import Path
 def func_check_code_structure(root, dirs=(), files=()):
     r = Path(root)

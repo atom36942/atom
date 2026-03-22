@@ -277,12 +277,13 @@ config_postgres={
 {"name":"link_url","datatype":"text"},
 {"name":"tag","datatype":"text[]","index":"gin"},
 ],
-"invoice":[
+"mgh_amazon_invoice":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"invoice_id","datatype":"text","is_mandatory":1},
+{"name":"payload","datatype":"jsonb","is_mandatory":1},
+{"name":"response","datatype":"jsonb","is_mandatory":1},
 {"name":"filename","datatype":"text","is_mandatory": 1},
-{"name":"metadata","datatype":"jsonb","index":"gin","is_mandatory":1},
 {"name":"status","datatype":"integer","index":"btree"},
 ],
 },
