@@ -119,6 +119,10 @@ config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3
 config_expiry_sec_otp=int(os.getenv("config_expiry_sec_otp") or 600)
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 
+#mgh
+config_amazon_client_id=os.getenv("config_amazon_client_id")
+config_amazon_client_secret=os.getenv("config_amazon_client_secret")
+
 #dict
 config_sql={
 "cache_users_api_id_access":"select id,api_id_access from users where api_id_access is not null limit 1000",

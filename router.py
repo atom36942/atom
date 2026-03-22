@@ -6,11 +6,8 @@ router=APIRouter()
 from config import *
 from function import *
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
-import httpx, os, json
 
 #index
 @router.get("/")
@@ -431,7 +428,7 @@ async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):
       print("client disconnected")
       
 #mgh
-@router.post("/mgh/amazon-invoice-send")
+@router.get("/mgh/amazon-invoice-send")
 async def func_api_28d37ab82cbe410bb83fcef0f231e268(request:Request):
     output=await func_mgh_amazon_invoice_logic(request)
     return {"status":1,"message":output}
