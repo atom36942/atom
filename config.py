@@ -9,6 +9,7 @@ load_dotenv()
 #project
 config_project_name=os.getenv("config_project_name") or "atom"
 config_folder_export=os.getenv("config_folder_export") or "export"
+config_folder_secret=os.getenv("config_folder_secret") or "secret"
 config_folder_static=os.getenv("config_folder_static") or "static"
 config_folder_html=os.getenv("config_folder_html") or "static/html"
 config_folder_router=os.getenv("config_folder_router") or "router"
