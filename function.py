@@ -1,26 +1,21 @@
 import httpx
 from datetime import datetime, timezone, timedelta
-async def func_mgh_amazon_payload_send(request, payload, amazon_client_id, amazon_client_secret):
+async def func_mgh_amazon_payload_send(client_http, payload, amazon_client_id, amazon_client_secret):
     token_url = "https://sendstack-prod-token.auth.us-east-1.amazoncognito.com/oauth2/token"
     api_url = "https://prod.send.irisapi.iris.ctt.amazon.dev/sendInvoiceDocument"
     cert = ("secret/mgh-cert.txt", "secret/mgh-pv.key")
-    if not hasattr(func_mgh_amazon_payload_send, "_token"):
-        func_mgh_amazon_payload_send._token = None
-        func_mgh_amazon_payload_send._expires = None
+    f = func_mgh_amazon_payload_send
+    if not hasattr(f, "_token"): f._token = f._expires = None
     now = datetime.now(timezone.utc)
-    if not func_mgh_amazon_payload_send._token or not func_mgh_amazon_payload_send._expires or now >= func_mgh_amazon_payload_send._expires:
-        r_tk = await request.app.state.client_http.post(token_url, data={"grant_type": "client_credentials", "client_id": amazon_client_id, "client_secret": amazon_client_secret}, headers={"Content-Type": "application/x-www-form-urlencoded"})
+    if not f._token or not f._expires or now >= f._expires:
+        r_tk = await client_http.post(token_url, data={"grant_type": "client_credentials", "client_id": amazon_client_id, "client_secret": amazon_client_secret}, headers={"Content-Type": "application/x-www-form-urlencoded"})
         r_tk.raise_for_status()
         data = r_tk.json()
-        func_mgh_amazon_payload_send._token = data["access_token"]
-        func_mgh_amazon_payload_send._expires = now + timedelta(minutes=55)
-    headers = {"Authorization": f"Bearer {func_mgh_amazon_payload_send._token}", "Content-Type": "application/json"}
-    r = await request.app.state.client_http.post(api_url, json=payload, headers=headers, cert=cert, timeout=60)
+        f._token, f._expires = data["access_token"], now + timedelta(minutes=55)
+    r = await client_http.post(api_url, json=payload, headers={"Authorization": f"Bearer {f._token}", "Content-Type": "application/json"}, cert=cert, timeout=60)
     res = {"success": r.status_code in (200, 202), "status_code": r.status_code, "request_id": r.headers.get("x-amzn-RequestId")}
-    if res["success"]:
-        res["body"] = r.json() if r.content else None
-    else:
-        res["error_body"] = r.text
+    if res["success"]: res["body"] = r.json() if r.content else None
+    else: res["error_body"] = r.text
     return res
 
 import os
@@ -154,14 +149,13 @@ async def func_mgh_amazon_invoice_logic(request):
         for row in csv_obj:
             invoice_id = row.get("INVOICENUMBER")
             if not invoice_id: continue
-            if invoice_id in invoices: raise ValueError(f"Duplicate invoice {invoice_id} found in {filename}. Expected one invoice per row.")
+            if invoice_id in invoices: raise ValueError(f"Duplicate invoice {invoice_id} in {filename}")
             invoices[invoice_id] = func_mgh_amazon_payload_build(row)
         db_objects = []
-        output=None
         for invoice_id, payload in invoices.items():
-            amazon_response = await func_mgh_amazon_payload_send(request, payload, request.app.state.config_amazon_client_id, request.app.state.config_amazon_client_secret)
+            amazon_response = await func_mgh_amazon_payload_send(request.app.state.client_http, payload, request.app.state.config_amazon_client_id, request.app.state.config_amazon_client_secret)
             db_objects.append({"invoice_id": invoice_id, "payload": payload, "filename": filename, "status": 1 if amazon_response["success"] else 0, "response": amazon_response.get("body") if amazon_response["success"] else amazon_response.get("error_body")})
-        if db_objects:output=await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool, request.app.state.func_postgres_obj_serialize, request.app.state.cache_postgres_column_datatype, "now", "mgh_amazon_invoice", db_objects, 1)
+        if db_objects: output = await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool, request.app.state.func_postgres_obj_serialize, request.app.state.cache_postgres_column_datatype, "now", "mgh_amazon_invoice", db_objects, 1)
     return output
 
 from pathlib import Path
