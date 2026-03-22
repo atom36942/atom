@@ -1,6 +1,6 @@
 import httpx
 from datetime import datetime, timezone, timedelta
-async def func_mgh_amazon_payload_send(payload, amazon_client_id, amazon_client_secret):
+async def func_mgh_amazon_payload_send(request, payload, amazon_client_id, amazon_client_secret):
     token_url = "https://sendstack-prod-token.auth.us-east-1.amazoncognito.com/oauth2/token"
     api_url = "https://prod.send.irisapi.iris.ctt.amazon.dev/sendInvoiceDocument"
     cert = ("secret/mgh-cert.txt", "secret/mgh-pv.key")
@@ -9,15 +9,13 @@ async def func_mgh_amazon_payload_send(payload, amazon_client_id, amazon_client_
         func_mgh_amazon_payload_send._expires = None
     now = datetime.now(timezone.utc)
     if not func_mgh_amazon_payload_send._token or not func_mgh_amazon_payload_send._expires or now >= func_mgh_amazon_payload_send._expires:
-        async with httpx.AsyncClient(timeout=30) as client:
-            r_tk = await client.post(token_url, data={"grant_type": "client_credentials", "client_id": amazon_client_id, "client_secret": amazon_client_secret}, headers={"Content-Type": "application/x-www-form-urlencoded"})
-            r_tk.raise_for_status()
-            data = r_tk.json()
-            func_mgh_amazon_payload_send._token = data["access_token"]
-            func_mgh_amazon_payload_send._expires = now + timedelta(minutes=55)
+        r_tk = await request.app.state.client_http.post(token_url, data={"grant_type": "client_credentials", "client_id": amazon_client_id, "client_secret": amazon_client_secret}, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        r_tk.raise_for_status()
+        data = r_tk.json()
+        func_mgh_amazon_payload_send._token = data["access_token"]
+        func_mgh_amazon_payload_send._expires = now + timedelta(minutes=55)
     headers = {"Authorization": f"Bearer {func_mgh_amazon_payload_send._token}", "Content-Type": "application/json"}
-    async with httpx.AsyncClient(timeout=60, cert=cert) as client:
-        r = await client.post(api_url, json=payload, headers=headers)
+    r = await request.app.state.client_http.post(api_url, json=payload, headers=headers, cert=cert, timeout=60)
     res = {"success": r.status_code in (200, 202), "status_code": r.status_code, "request_id": r.headers.get("x-amzn-RequestId")}
     if res["success"]:
         res["body"] = r.json() if r.content else None
@@ -121,26 +119,26 @@ import os
 from datetime import datetime, timezone
 async def func_mgh_amazon_invoice_logic(request):
     if not request.app.state.client_sftp: raise Exception("sftp client not connected")
-    output=await request.app.state.func_sftp_folder_filename_read(request.app.state.client_sftp,"mgh/amazon")
+    output = await request.app.state.func_sftp_folder_filename_read(request.app.state.client_sftp, "mgh/amazon")
     for filename in output:
-        if filename in (".","..") or not filename.lower().endswith(".csv"): continue
-        local_path=f"export/mgh_amazon_{filename}"
-        await request.app.state.func_sftp_file_download(request.app.state.client_sftp,f"mgh/amazon/{filename}",local_path)
-        csv_obj=request.app.state.func_csv_to_obj_list(local_path)
-        invoices={}
+        if filename in (".", "..") or not filename.lower().endswith(".csv"): continue
+        local_path = f"export/mgh_amazon_{filename}"
+        await request.app.state.func_sftp_file_download(request.app.state.client_sftp, f"mgh/amazon/{filename}", local_path)
+        csv_obj = request.app.state.func_csv_to_obj_list(local_path)
+        invoices = {}
         for row in csv_obj:
-            invoice_id=row["INVOICENUMBER"]
-            today_utc=datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
-            for k in ("INVOICEDATE","SHIPPEDDATE","DELIVERYDATE"):
-                v=row.get(k)
-                row[k]=datetime.strptime(v.strip(),"%Y%m%d").strftime("%Y-%m-%dT%H:%M:%SZ") if v and v!="00000000" else today_utc
-            row["UOM"]="GALLONS"
-            if invoice_id not in invoices: invoices[invoice_id]=request.app.state.func_mgh_amazon_payload_build(row)
-        for invoice_id,payload in invoices.items():
-            amazon_response=await request.app.state.func_mgh_amazon_payload_send(payload,request.app.state.config_amazon_client_id,request.app.state.config_amazon_client_secret)
-            db_object={"invoice_id":invoice_id,"payload":payload,"filename":filename,"status":1 if amazon_response["success"] else 0,"response":amazon_response.get("body") if amazon_response["success"] else amazon_response.get("error_body")}
-            await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"now","mgh_amazon_invoice",db_object,1)
-    return {"status":1,"message":"done"}
+            invoice_id = row["INVOICENUMBER"]
+            today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+            for k in ("INVOICEDATE", "SHIPPEDDATE", "DELIVERYDATE"):
+                v = row.get(k)
+                row[k] = datetime.strptime(v.strip(), "%Y%m%d").strftime("%Y-%m-%dT%H:%M:%SZ") if v and v != "00000000" else today_utc
+            row["UOM"] = "GALLONS"
+            if invoice_id not in invoices: invoices[invoice_id] = request.app.state.func_mgh_amazon_payload_build(row)
+        for invoice_id, payload in invoices.items():
+            amazon_response = await func_mgh_amazon_payload_send(request, payload, request.app.state.config_amazon_client_id, request.app.state.config_amazon_client_secret)
+            db_object = {"invoice_id": invoice_id, "payload": payload, "filename": filename, "status": 1 if amazon_response["success"] else 0, "response": amazon_response.get("body") if amazon_response["success"] else amazon_response.get("error_body")}
+            await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool, request.app.state.func_postgres_obj_serialize, request.app.state.cache_postgres_column_datatype, "now", "mgh_amazon_invoice", db_object, 1)
+    return {"status": 1, "message": "done"}
 
 from pathlib import Path
 def func_check_code_structure(root, dirs=(), files=()):

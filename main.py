@@ -5,7 +5,8 @@ from config import *
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import traceback,os
+import os
+import httpx
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    #start
@@ -16,6 +17,7 @@ async def func_lifespan(app:FastAPI):
    open("z.py","a").close()
    func_check_code_structure(".", dirs=("venv",config_folder_secret,config_folder_export,config_folder_static,"zzz"), files=(".gitignore",".env","Dockerfile","readme.md","requirements.txt","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py","z.py"))
    #client init
+   client_http=httpx.AsyncClient()
    client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
    client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
    client_redis_ratelimiter=await func_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
@@ -42,6 +44,7 @@ async def func_lifespan(app:FastAPI):
    yield
    await func_postgres_flush(app)
    if config_is_reset_export_folder:func_folder_reset(config_folder_export)
+   await client_http.aclose()
    if client_postgres_pool:await client_postgres_pool.close()
    if client_redis:await client_redis.aclose()
    if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()
