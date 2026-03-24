@@ -1,3 +1,8 @@
+import os
+def func_file_ensure(dirs, files):
+    for d in dirs: os.makedirs(d, exist_ok=True)
+    for f in files: open(f, "a").close()
+    
 import httpx
 import os
 from datetime import datetime, timezone, timedelta

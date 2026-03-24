@@ -5,16 +5,11 @@ from config import *
 #lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import os
 import httpx
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    #start
-   os.makedirs(config_folder_secret,exist_ok=True)
-   os.makedirs(config_folder_export,exist_ok=True)
-   os.makedirs("zzz",exist_ok=True)
-   open(".env","a").close()
-   open("z.py","a").close()
+   func_file_ensure([config_folder_secret, config_folder_export, "zzz"], [".env", "z.py"])
    func_check_code_structure(".", dirs=("venv",config_folder_secret,config_folder_export,config_folder_static,"zzz"), files=(".gitignore",".env","Dockerfile","readme.md","requirements.txt","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py","z.py"))
    #client init
    client_http=httpx.AsyncClient()

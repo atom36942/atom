@@ -86,16 +86,6 @@ SELECT trigger_name FROM information_schema.triggers WHERE trigger_name LIKE 'tr
 #uuid without dash
 uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-'
 
-#env
-config_postgres_url=postgresql://postgres@127.0.0.1/postgres
-config_redis_url=redis://localhost:6379
-config_key_jwt=YwAyJ6hIrvpRrv4clHM8asr6gATOg
-config_key_root=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
-config_celery_broker_url=redis://localhost:6379
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-config_redis_url_pubsub=redis://localhost:6379
-config_mongodb_url=mongodb://localhost:27017
-
 #github setup repo as dev
 ssh-keygen -t ed25519 -C "atom36942@gmail.com"
 cat ~/.ssh/id_ed25519.pub
@@ -107,4 +97,43 @@ git pull origin main
 git add .
 git commit -m "sync"
 git push origin main
+
+#brew install
+brew update
+brew install postgresql@16
+brew install redis
+brew install rabbitmq
+brew tap mongodb/brew && brew install mongodb-community@7.0
+brew install pgweb
+
+#brew start
+brew services start postgresql@16
+brew services start redis
+brew services start rabbitmq
+brew services start mongodb-community@7.0
+pgweb
+brew services list
+
+#env
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+config_redis_url=redis://localhost:6379
+config_celery_broker_url=redis://localhost:6379
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_redis_url_pubsub=redis://localhost:6379
+config_mongodb_url=mongodb://localhost:27017
+
+#psql
+psql -U atom -d postgres
+psql postgres
+\x off
+psql postgres -c "\du"
+psql postgres -c "\l"
+
+#psql create user
+psql postgres -c "CREATE USER user_1;"
+psql postgres -c "ALTER USER user_1 WITH PASSWORD '123';"
+psql postgres -c "ALTER USER user_1 NOSUPERUSER NOCREATEDB NOCREATEROLE;"
+psql postgres -c "CREATE DATABASE db_1 OWNER user_1;"
+psql -U user_1 -d db_1
+postgresql://user_1:123@127.0.0.1/db_1
 ```
