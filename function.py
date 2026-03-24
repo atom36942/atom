@@ -1,5 +1,5 @@
 import os
-def func_file_ensure(dirs, files):
+def func_structure_ensure(dirs, files):
     for d in dirs: os.makedirs(d, exist_ok=True)
     for f in files: open(f, "a").close()
     
@@ -81,7 +81,7 @@ async def func_mgh_amazon_invoice_logic(request):
     return process_results
 
 from pathlib import Path
-def func_check_code_structure(root, dirs=(), files=()):
+def func_structure_check(root, dirs=(), files=()):
     r = Path(root)
     if not r.exists():
         raise RuntimeError(f"[ROOT_MISSING] {r}")

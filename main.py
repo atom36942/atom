@@ -9,8 +9,8 @@ import httpx
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    #start
-   func_file_ensure([config_folder_secret, config_folder_export, "zzz"], [".env", "z.py"])
-   func_check_code_structure(".", dirs=("venv",config_folder_secret,config_folder_export,config_folder_static,"zzz"), files=(".gitignore",".env","Dockerfile","readme.md","requirements.txt","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py","z.py"))
+   func_structure_ensure([config_folder_export,config_folder_secret], [".env"])
+   func_structure_check(".", dirs=(config_folder_export,config_folder_secret,config_folder_static,"venv"), files=(".env",".gitignore","Dockerfile","requirements.txt","readme.md","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py"))
    #client init
    client_http=httpx.AsyncClient()
    client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
