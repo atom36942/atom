@@ -22,10 +22,6 @@
 #direct
 git clone https://github.com/atom36942/atom.git
 cd atom
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
-eval "$(/opt/homebrew/bin/brew shellenv)"
-brew install python@3.11
 rm -rf venv
 /opt/homebrew/bin/python3.11 -m venv venv
 ./venv/bin/pip install --upgrade pip
@@ -57,6 +53,14 @@ venv/bin/python consumer.py redis
 
 ### zzz
 ```bash
+#env
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+config_redis_url=redis://localhost:6379
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_mongodb_url=mongodb://localhost:27017
+config_redis_url_pubsub=redis://localhost:6379
+config_celery_broker_url=redis://localhost:6379
+
 #package
 ./venv/bin/pip install fastapi
 ./venv/bin/pip uninstall fastapi
@@ -98,31 +102,23 @@ git add .
 git commit -m "sync"
 git push origin main
 
-#brew install
-brew update
-brew install postgresql@16
-brew install redis
-brew install rabbitmq
-brew tap mongodb/brew && brew install mongodb-community@7.0
-brew install pgweb
-
-#brew start
-brew services start postgresql@16
-brew services start redis
-brew services start rabbitmq
-brew services start mongodb-community@7.0
-pgweb
+#brew setup
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+brew install python@3.11
+brew install postgresql && brew install redis && brew install rabbitmq && brew tap mongodb/brew && brew install mongodb-community && echo 'export PATH="/opt/homebrew/sbin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+brew services start postgresql && brew services start redis && brew services start rabbitmq && brew services start mongodb-community
+brew services restart postgresql && brew services restart redis && brew services restart rabbitmq && brew services restart mongodb-community
+brew services stop postgresql && brew services stop redis && brew services stop rabbitmq && brew services stop mongodb-community
+brew update && brew upgrade postgresql && brew upgrade redis && brew upgrade rabbitmq && brew upgrade mongodb-community && brew services restart --all
+brew services stop --all && brew uninstall --force postgresql && brew uninstall --force redis && brew uninstall --force rabbitmq && brew uninstall --force mongodb-community && rm -rf /opt/homebrew/var/postgres /opt/homebrew/var/db/redis /opt/homebrew/var/lib/rabbitmq /opt/homebrew/var/mongodb && brew cleanup
+psql --version && redis-cli --version && rabbitmqctl version && mongosh --version && mongod --version
+brew services list && nc -zv 127.0.0.1 5432 6379 5672 27017
 brew services list
 
-#env
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
-config_redis_url=redis://localhost:6379
-config_celery_broker_url=redis://localhost:6379
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-config_redis_url_pubsub=redis://localhost:6379
-config_mongodb_url=mongodb://localhost:27017
-
 #psql
+psql --version
 psql -U atom -d postgres
 psql postgres
 \x off

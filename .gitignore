@@ -48,6 +48,7 @@ ENV/
 .idea/
 .DS_Store
 Thumbs.db
+.agents/
 
 # db
 *.db

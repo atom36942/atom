@@ -1,15 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-[ -f "$SCRIPT_DIR/.env" ] && export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
-
 #config
 input_path="$SCRIPT_DIR/curl.txt"
 outpath_path="$SCRIPT_DIR/export/curl_output.txt"
 outpath_path_fail="$SCRIPT_DIR/export/curl_fail.log"
 baseurl="http://127.0.0.1:8000"
-token_root="${config_key_root:-}"
-token="${token:-}"
+token_root="123"
+token=""
 uuid=$(uuidgen)
 username=$(python3 -c "import random, string; print(random.choice(string.ascii_lowercase) + ''.join(random.choices(string.ascii_lowercase + string.digits, k=11)))")
 username_bigint=$(python3 -c "import random; print(random.randint(10**15, 10**18))")
@@ -54,6 +52,12 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$status_code" -eq 200 ]]; then
         echo "✅ Success (${execution_time}ms)"
         ((count_success++))
+        if [[ "$url" == *"/auth/login-password-username"* ]]; then
+            new_token=$(echo "$body" | python3 -c "import sys, json; t=json.load(sys.stdin).get('message',{}).get('token',{}); print(t.get('token','') if isinstance(t,dict) else t)" 2>/dev/null || true)
+            if [ -n "$new_token" ]; then
+                token="$new_token"
+            fi
+        fi
     else
         echo "❌ $body"
         if [[ $count_fail -eq 0 ]]; then

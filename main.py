@@ -9,7 +9,7 @@ import httpx
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    #start
-   func_structure_ensure([config_folder_export,config_folder_secret], [".env"])
+   func_structure_create([config_folder_export,config_folder_secret], [".env","z.py"])
    func_structure_check(".", dirs=(config_folder_export,config_folder_secret,config_folder_static,"venv"), files=(".env",".gitignore","Dockerfile","requirements.txt","readme.md","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py"))
    #client init
    client_http=httpx.AsyncClient()
