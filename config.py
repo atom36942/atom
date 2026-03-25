@@ -1,123 +1,109 @@
-#import
-from function import *
+#url
+config_postgres_url=None
+config_redis_url=None
+config_redis_url_ratelimiter=None
+config_celery_broker_url=None
+config_celery_backend_url=config_celery_broker_url
+config_kafka_url=None
+config_kafka_username=None
+config_kafka_password=None
+config_rabbitmq_url=None
 
-#env
-import os
-from dotenv import load_dotenv
-load_dotenv()
 
-#project
-config_project_name=os.getenv("config_project_name") or "atom"
-config_folder_export=os.getenv("config_folder_export") or "export"
-config_folder_secret=os.getenv("config_folder_secret") or "secret"
-config_folder_static=os.getenv("config_folder_static") or "static"
-config_folder_html=os.getenv("config_folder_html") or "static/html"
-config_folder_router=os.getenv("config_folder_router") or "router"
-config_index_html=os.getenv("config_index_html") or "social"
-config_file_router_prefix=os.getenv("config_file_router_prefix") or "router"
 
-#postgres
-config_postgres_url=os.getenv("config_postgres_url")
-config_postgres_min_connection=int(os.getenv("config_postgres_min_connection") or 5)
-config_postgres_max_connection=int(os.getenv("config_postgres_max_connection") or 20)
+config_postgres_min_connection=5
+config_postgres_max_connection=20
+config_key_jwt="123"
+config_key_root="123"
 
-#redis
-config_redis_url=os.getenv("config_redis_url")
-config_redis_url_ratelimiter=os.getenv("config_redis_url_ratelimiter") or config_redis_url
 
-#key
-config_key_jwt=os.getenv("config_key_jwt") or "123"
-config_key_root=os.getenv("config_key_root") or "123"
 
-#queue
-config_celery_broker_url=os.getenv("config_celery_broker_url")
-config_celery_backend_url=os.getenv("config_celery_backend_url") or config_celery_broker_url
-config_kafka_url=os.getenv("config_kafka_url")
-config_kafka_username=os.getenv("config_kafka_username")
-config_kafka_password=os.getenv("config_kafka_password")
-config_rabbitmq_url=os.getenv("config_rabbitmq_url")
-config_redis_url_pubsub=os.getenv("config_redis_url_pubsub") or config_redis_url
-config_channel_name=os.getenv("config_channel_name") or "channel_1"
-config_kafka_group_id=os.getenv("config_kafka_group_id") or "group_1"
-config_kafka_enable_auto_commit=(os.getenv("config_kafka_enable_auto_commit") or "True").lower()=="true"
-config_kafka_consumer_batch=int(os.getenv("config_kafka_consumer_batch") or 100)
+
+
+
+
+config_redis_url_pubsub=config_redis_url
+config_channel_name="channel_1"
+config_kafka_group_id="group_1"
+config_kafka_enable_auto_commit=True
+config_kafka_consumer_batch=100
 
 #aws
-config_aws_access_key_id=os.getenv("config_aws_access_key_id")
-config_aws_secret_access_key=os.getenv("config_aws_secret_access_key")
-config_s3_region_name=os.getenv("config_s3_region_name")
-config_sns_region_name=os.getenv("config_sns_region_name")
-config_ses_region_name=os.getenv("config_ses_region_name")
-config_limit_s3_kb=int(os.getenv("config_limit_s3_kb") or 100)
-config_s3_presigned_expire_sec=int(os.getenv("config_s3_presigned_expire_sec") or 60)
+config_aws_access_key_id=None
+config_aws_secret_access_key=None
+config_s3_region_name=None
+config_sns_region_name=None
+config_ses_region_name=None
+config_limit_s3_kb=100
+config_s3_presigned_expire_sec=60
 
 #sftp
-config_sftp_auth_method=os.getenv("config_sftp_auth_method") or "password"
-config_sftp_host=os.getenv("config_sftp_host")
-config_sftp_port=os.getenv("config_sftp_port")
-config_sftp_username=os.getenv("config_sftp_username")
-config_sftp_password=os.getenv("config_sftp_password")
-config_sftp_key_path=os.getenv("config_sftp_key_path")
+config_sftp_auth_method="password"
+config_sftp_host=None
+config_sftp_port=None
+config_sftp_username=None
+config_sftp_password=None
+config_sftp_key_path=None
 
 #otp
-config_fast2sms_url=os.getenv("config_fast2sms_url")
-config_fast2sms_key=os.getenv("config_fast2sms_key")
-config_resend_url=os.getenv("config_resend_url")
-config_resend_key=os.getenv("config_resend_key")
+config_fast2sms_url=None
+config_fast2sms_key=None
+config_resend_url=None
+config_resend_key=None
 
 #google
-config_google_login_client_id=os.getenv("config_google_login_client_id")
-config_gsheet_service_account_json_path=os.getenv("config_gsheet_service_account_json_path")
-config_gsheet_scope_list=(os.getenv("config_gsheet_scope_list") or "https://www.googleapis.com/auth/spreadsheets").split(",")
+config_google_login_client_id=None
+config_gsheet_service_account_json_path=None
+config_gsheet_scope_list=['https://www.googleapis.com/auth/spreadsheets']
 
 #analytics
-config_sentry_dsn=os.getenv("config_sentry_dsn")
-config_posthog_project_host=os.getenv("config_posthog_project_host")
-config_posthog_project_key=os.getenv("config_posthog_project_key")
+config_sentry_dsn=None
+config_posthog_project_host=None
+config_posthog_project_key=None
 
 #integration
-config_mongodb_url=os.getenv("config_mongodb_url")
-config_openai_key=os.getenv("config_openai_key")
-config_searchapi_key=os.getenv("config_searchapi_key")
-config_gemini_key=os.getenv("config_gemini_key")
+config_mongodb_url=None
+config_openai_key=None
+config_searchapi_key=None
+config_gemini_key=None
 
 #cors
-config_cors_origin_list=(os.getenv("config_cors_origin_list") or "*").split(",")
-config_cors_method_list=(os.getenv("config_cors_method_list") or "*").split(",")
-config_cors_headers_list=(os.getenv("config_cors_headers_list") or "*").split(",")
-config_cors_allow_credentials=(os.getenv("config_cors_allow_credentials") or "False").lower() == "true"
+config_cors_origin_list=['*']
+config_cors_method_list=['*']
+config_cors_headers_list=['*']
+config_cors_allow_credentials=False
 
 #token
-config_token_expiry_sec=int(os.getenv("config_token_expiry_sec") or 3*24*60*60)
-config_token_refresh_expiry_sec=int(os.getenv("config_token_refresh_expiry_sec") or 3*24*60*60*100)
-config_token_key_list=(os.getenv("config_token_key_list") or "id,type,is_active,api_id_access").split(",")
+config_token_expiry_sec=3*24*60*60
+config_token_refresh_expiry_sec=3*24*60*60*100
+config_token_key_list=['id', 'type', 'is_active', 'api_id_access']
 
 #table/column
-config_table_create_my_list=(os.getenv("config_table_create_my_list") or "test,post,support,rating_test").split(",")
-config_table_create_public_list=(os.getenv("config_table_create_public_list") or "test,support").split(",")
-config_table_read_public_list=(os.getenv("config_table_read_public_list") or "test,post").split(",")
-config_column_blocked_list=(os.getenv("config_column_blocked_list") or "is_active,is_verified,api_id_access,created_at,updated_at").split(",")
-config_table_system_list=(os.getenv("config_table_system_list") or "spatial_ref_sys").split(",")
-config_column_single_update_list=(os.getenv("config_column_single_update_list") or "username,password,email,mobile").split(",")
+config_table_create_my_list=['test', 'post', 'support', 'rating_test']
+config_table_create_public_list=['test', 'support']
+config_table_read_public_list=['test', 'post']
+config_column_blocked_list=['is_active', 'is_verified', 'api_id_access', 'created_at', 'updated_at']
+config_table_system_list=['spatial_ref_sys']
+config_column_single_update_list=['username', 'password', 'email', 'mobile']
 
 #switch
-config_is_signup=int(os.getenv("config_is_signup") or 1)
-config_is_log_api=int(os.getenv("config_is_log_api") or 1)
-config_is_traceback=int(os.getenv("config_is_traceback") or 1)
-config_is_prometheus=int(os.getenv("config_is_prometheus") or 0)
-config_is_reset_export_folder=int(os.getenv("config_is_reset_export_folder") or 1)
-config_is_debug_fastapi=int(os.getenv("config_is_debug_fastapi") or 1)
-config_postgres_is_extension=int(os.getenv("config_postgres_is_extension") or 1)
-config_postgres_init_is_match_column=int(os.getenv("config_postgres_init_is_match_column") or 0)
-config_is_index_html=int(os.getenv("config_is_index_html") or 0)
-config_is_profile_metadata=int(os.getenv("config_is_profile_metadata") or 0)
+config_is_signup=1
+config_is_log_api=1
+config_is_traceback=1
+config_is_prometheus=0
+config_is_reset_export_folder=1
+config_is_debug_fastapi=1
+config_postgres_is_extension=1
+config_postgres_init_is_match_column=0
+config_is_index_html=0
+config_is_profile_metadata=0
 
 #zzz
-config_mode_check_is_active=os.getenv("config_mode_check_is_active") or "token"
-config_mode_check_is_admin=os.getenv("config_mode_check_is_admin") or "token"
-config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3").split(",")))
-config_expiry_sec_otp=int(os.getenv("config_expiry_sec_otp") or 600)
-config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
+config_mode_check_is_active="token"
+config_mode_check_is_admin="token"
+config_auth_type_list=[1, 2, 3]
+config_expiry_sec_otp=600
+config_limit_ids_delete=1000
 
 #dict
 config_sql={
@@ -306,5 +292,8 @@ config_postgres={
 }
 }
 
-#func
-func_list_to_tuple(globals())
+
+
+#override
+from function import func_config_override_from_env
+func_config_override_from_env(globals())

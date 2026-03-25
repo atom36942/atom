@@ -46,11 +46,6 @@ venv/bin/python consumer.py redis
 venv/bin/python consumer.py kafka
 ```
 
-
-
-
-
-
 ### zzz
 ```bash
 #env
@@ -60,6 +55,7 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_mongodb_url=mongodb://localhost:27017
 config_redis_url_pubsub=redis://localhost:6379
 config_celery_broker_url=redis://localhost:6379
+config_redis_url_ratelimiter=redis://localhost:6379
 
 #package
 ./venv/bin/pip install fastapi
@@ -136,7 +132,7 @@ postgresql://user_1:123@127.0.0.1/db_1
 
 #agend.md
 * Write compact code; no newlines between logic lines/imports.
-* Use newlines and #comments only for major logic blocks.
+* Use newlines and and comments for major logic blocks.
 * Prefix variables: config_ (configs), func_ (functions), client_ (resources), cache_ (memory) etc
 * Use inline if-else for assignments/initialization.
 * Try to use pure functions wherever possible.

@@ -12,7 +12,7 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 #index
 @router.get("/")
 async def func_api_5e118e61a6c348328913f14722d76af6():
-   return await func_html_serve(config_folder_html,config_index_html) if config_is_index_html else {"status":1,"message":"welcome to atom"}
+   return {"status":1,"message":"welcome to atom"}
 
 #root
 @router.get("/root/postgres-init")
@@ -414,7 +414,7 @@ async def func_api_2653353cdf3145558dae1c3ce24318e2(request:Request):
 
 @router.get("/page/{name}")
 async def func_api_10f177735aac4564a0946f9088f17d9a(name):
-   return await func_html_serve(config_folder_html,name)
+   return await func_html_serve(name)
 
 @router.websocket("/websocket")
 async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):

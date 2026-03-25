@@ -58,15 +58,15 @@ Thumbs.db
 instance/
 .webassets-cache
 
-# dotfiles
-.*
-!.gitignore
-!.env.example
-
 # misc
 *.manifest
 *.spec
 vectorstore/
+
+# dotfiles
+.*
+!.gitignore
+!.env.example
 
 # zzz
 secret/

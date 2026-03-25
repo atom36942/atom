@@ -52,13 +52,13 @@ def func_csv_vlookup(p_path, c_path, p_search, c_search, c_src, p_tgt):
         if 'tmp_p' in locals() and os.path.exists(tmp_p): os.remove(tmp_p)
         print(f"Error: {e}")
 
-async def func_check_config_api(config_api,request):
+async def func_check_config_api(api,request):
     allowed={"id","is_token","is_active_check","cache_sec","ratelimiter_times_sec"}
     route_set=set()
     for r in request.app.routes:
         p=getattr(r,"path",None)
         if p:route_set.add(p)
-    for path,cfg in config_api.items():
+    for path,cfg in api.items():
         if type(path) is not str or not path.startswith("/"):raise Exception("invalid api path:"+str(path))
         if path not in route_set:raise Exception("path not in fastapi routes:"+path)
         if type(cfg) is not dict:raise Exception("invalid config for:"+path)
@@ -80,7 +80,7 @@ async def func_check_config_api(config_api,request):
     return None
 
 import re
-async def func_table_tag_read(client_postgres_pool,table,column,filter_col=None,filter_val=None,limit=None,page=None):
+async def func_table_tag_read(postgres_pool,table,column,filter_col=None,filter_val=None,limit=None,page=None):
     if not limit:limit=100
     if not page:page=1
     rx=re.compile(r"^[a-z_][a-z0-9_]*$")
@@ -92,24 +92,24 @@ async def func_table_tag_read(client_postgres_pool,table,column,filter_col=None,
     if filter_col and filter_val is not None:
         where=f"WHERE x.{filter_col}=$1";args=[filter_val]
     q=f"SELECT t,count(*) FROM {table} x CROSS JOIN LATERAL unnest(x.{column}) t {where} GROUP BY t ORDER BY count(*) DESC LIMIT {limit} OFFSET {(page-1)*limit}"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         rows=await conn.fetch(q,*args)
     return [{"tag":r['t'],"count":r['count']} for r in rows]
 
 import aiohttp
 from bs4 import BeautifulSoup
-async def func_person_intel_read(q,config_searchapi_key,client_gemini):
+async def func_person_intel_read(q,searchapi_key,gemini):
     P1="Extract explicit facts only, grouped under identity, role, skills, intent, signals. Text: {ctx}"
     P2="Summarize the following facts into a coherent person profile. Facts:\n{ctx}"
     async def _r1(ctx):
-        r=client_gemini.models.generate_content(model="gemini-2.0-flash",contents=P1.format(ctx=ctx))
+        r=gemini.models.generate_content(model="gemini-2.0-flash",contents=P1.format(ctx=ctx))
         return r.text.strip()
     async def _r2(ctx):
-        r=client_gemini.models.generate_content(model="gemini-2.0-flash",contents=P2.format(ctx=ctx))
+        r=gemini.models.generate_content(model="gemini-2.0-flash",contents=P2.format(ctx=ctx))
         return r.text.strip()
     U="https://www.searchapi.io/api/v1/search";E="google";N=5;L=6000
     async with aiohttp.ClientSession() as s:
-        async with s.get(U,params={"engine":E,"q":q,"api_key":config_searchapi_key}) as r:j=await r.json();urls=[x["link"] for x in j.get("organic_results",[])[:N]]
+        async with s.get(U,params={"engine":E,"q":q,"api_key":searchapi_key}) as r:j=await r.json();urls=[x["link"] for x in j.get("organic_results",[])[:N]]
         fr=[];used=[]
         for u in urls:
             async with s.get(u,headers={"User-Agent":"Mozilla/5.0"}) as r:raw=await r.read();html=raw.decode("utf-8","ignore")
@@ -122,8 +122,8 @@ async def func_person_intel_read(q,config_searchapi_key,client_gemini):
     return {"summary":f,"sources":len(fr),"urls":used}
 
 from google import genai
-async def func_gemini_client_read(config_gemini_key):
-    client = genai.Client(api_key=config_gemini_key)
+async def func_gemini_client_read(gemini_key):
+    client = genai.Client(api_key=gemini_key)
     return client
 
 async def func_postgres_flush(app):
@@ -144,14 +144,17 @@ from pathlib import Path
 import os
 import aiofiles
 from fastapi import responses, HTTPException
-async def func_html_serve(config_folder_html, name: str):
+async def func_html_serve(name: str):
     file = name if name.endswith(".html") else f"{name}.html"
-    root = Path(config_folder_html)
+    root = Path(".")
+    ig = {"__pycache__", "venv", "env", "node_modules"}
+    if os.path.isfile(".gitignore"):
+        with open(".gitignore","r") as f:
+            ig.update(l.strip().rstrip("/") for l in f if l.strip() and not l.startswith("#"))
     p = root / file
     if not p.is_file():
         for p in root.rglob(file):
-            parts = p.parts
-            if any(x.startswith(".") or x == "__pycache__" for x in parts): continue
+            if any(x.startswith(".") or x in ig for x in p.parts): continue
             if p.is_file(): break
         else:
             raise HTTPException(404, "page not found")
@@ -270,10 +273,10 @@ async def func_producer_logic(payload,queue,request):
 import asyncio
 from itertools import count
 _counter=count(1)
-async def func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool,cache_postgres_column_datatype):
+async def func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,postgres_pool,cache_postgres_column_datatype):
     n=next(_counter)
-    if payload["func"]=="func_postgres_obj_create":output=asyncio.create_task(func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
-    elif payload["func"]=="func_postgres_obj_update":output=asyncio.create_task(func_postgres_obj_update(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
+    if payload["func"]=="func_postgres_obj_create":output=asyncio.create_task(func_postgres_obj_create(postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,payload["mode"],payload["table"],payload["obj_list"],payload["is_serialize"],payload["buffer"]))
+    elif payload["func"]=="func_postgres_obj_update":output=asyncio.create_task(func_postgres_obj_update(postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,payload["table"],payload["obj_list"],payload["is_serialize"],payload["created_by_id"]))
     else:raise Exception("wrong consumer func")
     print(n)
     return output
@@ -300,56 +303,69 @@ async def func_api_file_save(file,output_path=None):
     with open(output_path, "wb") as f: shutil.copyfileobj(file.file, f)
     return output_path
 
-def func_list_to_tuple(ns):
-    for k, v in ns.items():
-        if isinstance(v, list):
-            ns[k] = tuple(v)
+def func_config_override_from_env(g):
+    import json, os
+    from dotenv import load_dotenv
+    load_dotenv()
+    for k,v in list(g.items()):
+        if k.startswith("config_"):
+            if (e:=os.getenv(k)) is not None:
+                if k.endswith("_list"):g[k]=json.loads(e)
+                elif isinstance(v,bool):g[k]=e.lower()=="true"
+                elif isinstance(v,int):g[k]=int(e)
+                elif isinstance(v,dict):
+                    try:g[k]=json.loads(e)
+                    except:pass
+                else:
+                    try:g[k]=int(e)
+                    except:g[k]=e
+            if isinstance(g[k], list):g[k]=tuple(g[k])
 
-async def func_postgres_runner(client_postgres_pool,mode,query):
+async def func_postgres_runner(postgres_pool,mode,query):
     query_lower=query.lower()
     if mode not in ["read","write"]:raise Exception("mode=read/write")
     block_word = ["drop", "truncate"]
     for item in block_word:
         if item in query_lower:
             raise Exception(f"{item} keyword not allowed in query")
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         if mode == "read":return await conn.fetch(query)
         if mode == "write":
             if "returning" in query_lower:return await conn.fetch(query)
             else:return await conn.execute(query)
     return None
 
-async def func_postgres_ids_update(client_postgres_pool,table,ids,column,value,created_by_id=None,updated_by_id=None):
+async def func_postgres_ids_update(postgres_pool,table,ids,column,value,created_by_id=None,updated_by_id=None):
     set_clause=f"{column}=$1" if updated_by_id is None else f"{column}=$1,updated_by_id=$2"
     query=f"update {table} set {set_clause} where id in ({ids}) and ($3::bigint is null or created_by_id=$3);"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         params=[value]
         if updated_by_id is not None:params.append(updated_by_id)
         params.append(created_by_id)
         await conn.execute(query,*params)
 
-async def func_postgres_ids_delete(client_postgres_pool,table,ids,created_by_id=None):
+async def func_postgres_ids_delete(postgres_pool,table,ids,created_by_id=None):
     query=f"delete from {table} where id in ({ids}) and ($1::bigint is null or created_by_id=$1);"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         await conn.execute(query,created_by_id)
     return "ids deleted"
 
-async def func_postgres_parent_read(client_postgres_pool,table,parent_column,parent_table,created_by_id=None,order=None,limit=None,page=None):
+async def func_postgres_parent_read(postgres_pool,table,parent_column,parent_table,created_by_id=None,order=None,limit=None,page=None):
     order,limit,page=order or "id desc",limit or 100,page or 1
     query=f"with x as (select {parent_column} from {table} where ($1::bigint is null or created_by_id=$1) order by {order} limit {limit} offset {(page-1)*limit}) select ct.* from x left join {parent_table} ct on x.{parent_column}=ct.id;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         obj_list=await conn.fetch(query,created_by_id)
     return obj_list
 
 import re, json
-async def func_postgres_map_column(client_postgres_pool,query):
+async def func_postgres_map_column(postgres_pool,query):
     if not query:return {}
     def parse_cols(q):
         m=re.search(r"select\s+(.*?)\s+from\s",q,flags=re.I|re.S)
         cols=[c.strip() for c in m.group(1).split(",")]
         return cols[0],cols[1:]
     c1,c2_cols=parse_cols(query);output={}
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         async with conn.transaction():
             async for row in conn.cursor(query,prefetch=5000):
                 k=row.get(c1)
@@ -367,9 +383,9 @@ async def func_postgres_map_column(client_postgres_pool,query):
     return output
 
 import datetime
-async def func_postgres_clean(client_postgres_pool, config_table):
-    async with client_postgres_pool.acquire() as conn:
-        for table_name, cfg in config_table.items():
+async def func_postgres_clean(postgres_pool, table):
+    async with postgres_pool.acquire() as conn:
+        for table_name, cfg in table.items():
             days = cfg.get("retention_day")
             if days is None:continue
             threshold_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
@@ -380,7 +396,7 @@ async def func_postgres_clean(client_postgres_pool, config_table):
 from datetime import datetime
 import json
 import re
-async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, func_creator_data_add, func_action_count_add, table, obj):
+async def func_postgres_obj_read(postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, func_creator_data_add, func_action_count_add, table, obj):
     """
     obj={"order":"created_at desc"}
     obj={"limit":20}
@@ -481,15 +497,15 @@ async def func_postgres_obj_read(client_postgres_pool, func_postgres_obj_seriali
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     query = f"SELECT {columns} FROM {safe_table} {where} ORDER BY {order} LIMIT ${idx} OFFSET ${idx+1}"
     values.extend([limit, (page - 1) * limit])
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         try:
             records = await conn.fetch(query, *values); res_list = [dict(r) for r in records]
-            if creator_key and res_list: res_list = await func_creator_data_add(client_postgres_pool, res_list, creator_key)
-            if action_key and res_list: res_list = await func_action_count_add(client_postgres_pool, res_list, action_key)
+            if creator_key and res_list: res_list = await func_creator_data_add(postgres_pool, res_list, creator_key)
+            if action_key and res_list: res_list = await func_action_count_add(postgres_pool, res_list, action_key)
             return res_list
         except Exception as e: raise Exception(f"Read Error: {e}")
 
-async def func_postgres_obj_update(client_postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, table, obj_list, is_serialize=None, created_by_id=None, batch_size=None, return_ids=False):
+async def func_postgres_obj_update(postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, table, obj_list, is_serialize=None, created_by_id=None, batch_size=None, return_ids=False):
     if not obj_list:return "0 rows updated"
     if not is_serialize:is_serialize=0
     if not all("id" in obj for obj in obj_list):raise Exception("all objects must have 'id' field")
@@ -548,13 +564,13 @@ async def func_postgres_obj_update(client_postgres_pool, func_postgres_obj_seria
                         total+=int(res.split()[-1])
         if ret_ids:total=len(ids)
         return f"{total} rows updated"
-    return await postgres_update_objects(client_postgres_pool,table,obj_list,created_by_id,batch_size,return_ids)
+    return await postgres_update_objects(postgres_pool,table,obj_list,created_by_id,batch_size,return_ids)
 
 import asyncio
 inmemory_cache_object_create = {}
 table_object_key = {}
 buffer_lock = asyncio.Lock()
-async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,mode,table=None,obj_list=None,is_serialize=None,buffer=None,returning_ids=False,conflict_columns=None,batch_size=None):
+async def func_postgres_obj_create(postgres_pool,func_postgres_obj_serialize,cache_postgres_column_datatype,mode,table=None,obj_list=None,is_serialize=None,buffer=None,returning_ids=False,conflict_columns=None,batch_size=None):
     if mode != "flush" and (not table or not obj_list):raise Exception("table/obj_list cant be null")
     if not is_serialize:is_serialize=0
     buffer = buffer or 10
@@ -595,7 +611,7 @@ async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serial
     global inmemory_cache_object_create, table_object_key
     async with buffer_lock:
         if mode == "now":
-            return await postgres_insert_objects(client_postgres_pool, table, obj_list, returning_ids, conflict_columns, batch_size)
+            return await postgres_insert_objects(postgres_pool, table, obj_list, returning_ids, conflict_columns, batch_size)
         elif mode == "buffer":
             if table not in inmemory_cache_object_create:inmemory_cache_object_create[table] = []
             if table not in table_object_key:table_object_key[table] = set()
@@ -604,7 +620,7 @@ async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serial
             if len(inmemory_cache_object_create[table]) >= buffer:
                 objs_to_insert = inmemory_cache_object_create[table]
                 inmemory_cache_object_create[table] = []
-                await postgres_insert_objects(client_postgres_pool, table, objs_to_insert, returning_ids, conflict_columns, batch_size, table_object_key[table])
+                await postgres_insert_objects(postgres_pool, table, objs_to_insert, returning_ids, conflict_columns, batch_size, table_object_key[table])
                 return "buffer released"
             return None
         elif mode == "flush":
@@ -613,7 +629,7 @@ async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serial
                 if not rows:continue
                 try:
                     schema = table_object_key.get(tbl)
-                    results[tbl] = await postgres_insert_objects(client_postgres_pool, tbl, rows, returning_ids, conflict_columns, batch_size, schema)
+                    results[tbl] = await postgres_insert_objects(postgres_pool, tbl, rows, returning_ids, conflict_columns, batch_size, schema)
                 except Exception as e:
                     results[tbl] = e
                 finally:
@@ -625,11 +641,11 @@ async def func_postgres_obj_create(client_postgres_pool,func_postgres_obj_serial
 import csv
 from io import StringIO
 import time, re
-async def func_postgres_stream(client_postgres_pool, query, batch_size=None):
+async def func_postgres_stream(postgres_pool, query, batch_size=None):
     if not batch_size:batch_size=1000
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I):
         raise ValueError("Only read-only queries allowed")
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         async with conn.transaction():
             stmt = await conn.prepare(query)
             col_names = [a.name for a in stmt.get_attributes()]
@@ -645,13 +661,13 @@ async def func_postgres_stream(client_postgres_pool, query, batch_size=None):
 
 from pathlib import Path
 import csv, re, uuid
-async def func_postgres_export(client_postgres_pool, query, batch_size=None, output_path=None):
+async def func_postgres_export(postgres_pool, query, batch_size=None, output_path=None):
     if not output_path: output_path = f"export/{uuid.uuid4().hex}.csv"
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise Exception("Only read-only queries allowed")
     f, batch_size = None, batch_size or 1000
     try:
-        async with client_postgres_pool.acquire() as conn, conn.transaction():
+        async with postgres_pool.acquire() as conn, conn.transaction():
             writer = None
             async for r in conn.cursor(query, prefetch=batch_size):
                 if not writer:
@@ -662,11 +678,11 @@ async def func_postgres_export(client_postgres_pool, query, batch_size=None, out
         if f: f.close()
     return output_path
 
-async def func_postgres_init(client_postgres_pool, config_postgres, config_postgres_is_extension, is_match_column):
-    if not config_postgres or "table" not in config_postgres: raise Exception("config_postgres.table missing")
+async def func_postgres_init(postgres_pool, postgres, postgres_is_extension, is_match_column):
+    if not postgres or "table" not in postgres: raise Exception("postgres.table missing")
     async def _validate():
         seen=set()
-        for t,cols in config_postgres["table"].items():
+        for t,cols in postgres["table"].items():
             if not isinstance(cols,(list,tuple)): raise Exception(f"table config must be list {t}")
             names={c.get("name") for c in cols}
             for c in cols:
@@ -697,20 +713,20 @@ async def func_postgres_init(client_postgres_pool, config_postgres, config_postg
         return db,{(r["relname"],r["conname"].lower()) for r in cons},idx_map
     def trim(x): return x[:63]
     await _validate()
-    async with client_postgres_pool.acquire() as conn:
-        if config_postgres_is_extension:
+    async with postgres_pool.acquire() as conn:
+        if postgres_is_extension:
             for e in ("postgis","pg_trgm"): await conn.execute(f"create extension if not exists {e}")
         await conn.execute("create or replace function array_regex_match(text[],text) returns boolean immutable as $$ select coalesce(bool_and(v ~ $2),true) from unnest($1) v $$ language sql")
-        for t in config_postgres["table"]: await conn.execute(f"create table if not exists {t} (id bigint primary key generated by default as identity not null)")
-        for t in config_postgres["table"]:
+        for t in postgres["table"]: await conn.execute(f"create table if not exists {t} (id bigint primary key generated by default as identity not null)")
+        for t in postgres["table"]:
             await conn.execute(f"""DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger WHERE tgrelid = '{t}'::regclass AND tgname LIKE 'trigger_%' AND tgisinternal = false LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{t}'); END LOOP; END $$;""")
         db,cons,idx=await read_db(conn)
-        for t,cols in config_postgres["table"].items():
+        for t,cols in postgres["table"].items():
             have=db.get(t,{})
             for c in cols:
                 if c.get("old") and c["name"] not in have and c["old"] in have: await conn.execute(f"alter table {t} rename column {c['old']} to {c['name']}")
         db,cons,idx=await read_db(conn)
-        for t,cols in config_postgres["table"].items():
+        for t,cols in postgres["table"].items():
             have=db.get(t,{})
             for c in cols:
                 col,dt=c["name"],c["datatype"]
@@ -718,11 +734,11 @@ async def func_postgres_init(client_postgres_pool, config_postgres, config_postg
                 elif have[col]["type"]!=dt.lower(): await conn.execute(f"alter table {t} alter column {col} type {dt} using {col}::{dt}")
         if is_match_column:
             db,_,_=await read_db(conn)
-            for t,cols in config_postgres["table"].items():
+            for t,cols in postgres["table"].items():
                 want={c["name"] for c in cols}; have=set(db.get(t,{}))
                 for col in have-want-{"id"}: await conn.execute(f"alter table {t} drop column {col} cascade")
         db,cons,idx=await read_db(conn)
-        for t,cols in config_postgres["table"].items():
+        for t,cols in postgres["table"].items():
             have=db.get(t,{})
             for c in cols:
                 col,cur=c["name"],have.get(c["name"])
@@ -734,7 +750,7 @@ async def func_postgres_init(client_postgres_pool, config_postgres, config_postg
                 m=c.get("is_mandatory")
                 if m in (1,True) and cur["null"]: await conn.execute(f"alter table {t} alter column {col} set not null")
                 elif m in (0,False) and not cur["null"]: await conn.execute(f"alter table {t} alter column {col} drop not null")
-        for t,cols in config_postgres["table"].items():
+        for t,cols in postgres["table"].items():
             for c in cols:
                 col,dt,want=c["name"],c["datatype"].lower(),set(c.get("index","").split(",")) if c.get("index") else set()
                 cur=idx.get((t,col),{})
@@ -746,7 +762,7 @@ async def func_postgres_init(client_postgres_pool, config_postgres, config_postg
                         if it in cur: await conn.execute(f'drop index if exists "{cur[it]}"')
                         await conn.execute(f"create index if not exists {name} on {t} using {it} ({col+' gin_trgm_ops' if it=='gin' and dt=='text' else col})")
         db,cons,idx=await read_db(conn)
-        for t,cols in config_postgres["table"].items():
+        for t,cols in postgres["table"].items():
             w_cons=set()
             for c in cols:
                 col,dt=c["name"],c["datatype"].lower()
@@ -773,7 +789,7 @@ async def func_postgres_init(client_postgres_pool, config_postgres, config_postg
                         ucols=",".join(x.strip() for x in g.split(",")); n=trim(f"constraint_unique_{t}_{ucols.replace(',','_')}")
                         if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
                         await conn.execute(f"alter table {t} add constraint {n} unique ({ucols})")
-        for k,sql in config_postgres.get("sql",{}).items():
+        for k,sql in postgres.get("sql",{}).items():
             if not sql.startswith("0"): await conn.execute(sql)
     return "database init done"
 
@@ -829,9 +845,9 @@ async def func_postgres_obj_serialize(cache_postgres_column_datatype, obj_list):
                 raise Exception(f"serialize_error:{k}:{d}:{str(e)}")
     return obj_list
 
-async def func_postgres_schema_read(client_postgres_pool):
+async def func_postgres_schema_read(postgres_pool):
     query="SELECT t.relname AS table_name, a.attname AS column_name, format_type(a.atttypid, a.atttypmod) AS data_type, pg_get_expr(d.adbin, d.adrelid) AS column_default, CASE WHEN a.attnotnull THEN 0 ELSE 1 END AS is_nullable, CASE WHEN EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = a.attrelid AND a.attnum = ANY(i.indkey)) THEN 1 ELSE 0 END AS is_index FROM pg_class t JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_attribute a ON a.attrelid = t.oid LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum WHERE t.relkind = 'r' AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped ORDER BY t.relname, a.attnum;"
-    async with client_postgres_pool.acquire() as conn: output=await conn.fetch(query)
+    async with postgres_pool.acquire() as conn: output=await conn.fetch(query)
     postgres_schema,postgres_column_datatype={},{}
     for obj in output:
         t,c,dt=obj['table_name'],obj['column_name'],obj['data_type'].lower()
@@ -841,17 +857,17 @@ async def func_postgres_schema_read(client_postgres_pool):
     return postgres_schema,postgres_column_datatype
 
 import asyncpg
-async def func_postgres_client_read(config_postgres_url,config_postgres_min_connection=None,config_postgres_max_connection=None,timeout=None,command_timeout=None):
-    if not config_postgres_min_connection:config_postgres_min_connection=5
-    if not config_postgres_max_connection:config_postgres_max_connection=20
+async def func_postgres_client_read(postgres_url,postgres_min_connection=None,postgres_max_connection=None,timeout=None,command_timeout=None):
+    if not postgres_min_connection:postgres_min_connection=5
+    if not postgres_max_connection:postgres_max_connection=20
     if not timeout:timeout=60
     if not command_timeout:command_timeout=60
-    client_postgres_pool=await asyncpg.create_pool(dsn=config_postgres_url,min_size=config_postgres_min_connection,max_size=config_postgres_max_connection,timeout=timeout,command_timeout=command_timeout)
-    return client_postgres_pool
+    postgres_pool=await asyncpg.create_pool(dsn=postgres_url,min_size=postgres_min_connection,max_size=postgres_max_connection,timeout=timeout,command_timeout=command_timeout)
+    return postgres_pool
 
 import random
 from mimesis import Person,Address,Food,Text,Code,Datetime
-async def func_postgres_create_fake_data(client_postgres_pool,total_row=None,batch_size=None):
+async def func_postgres_create_fake_data(postgres_pool,total_row=None,batch_size=None):
     if not total_row:total_row=1000
     if not batch_size:batch_size=1000
     person,address,food,text_gen,code,dt = Person(),Address(),Food(),Text(),Code(),Datetime()
@@ -895,34 +911,34 @@ async def func_postgres_create_fake_data(client_postgres_pool,total_row=None,bat
                     batch_values.clear()
             if batch_values:await insert_batch(conn, table_name, columns, batch_values)
             print(f"Completed inserting {total_row} rows into {table_name}")
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         await create_tables(conn,tables)
         await generate_data(conn,insert_batch,tables,total_row,batch_size)
     return None
 
 import redis.asyncio as redis
-async def func_redis_client_read(config_redis_url):
-   client_redis=redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
-   return client_redis
+async def func_redis_client_read(redis_url):
+   r=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_url))
+   return r
 
-async def func_redis_client_read_consumer(client_redis,config_channel_name):
-   client_redis_consumer=client_redis.pubsub()
-   await client_redis_consumer.subscribe(config_channel_name)
+async def func_redis_client_read_consumer(redis,channel_name):
+   client_redis_consumer=redis.pubsub()
+   await client_redis_consumer.subscribe(channel_name)
    return client_redis_consumer
 
 import json
-async def func_redis_producer(client_redis,config_channel_name,payload):
-   output=await client_redis.publish(config_channel_name,json.dumps(payload))
+async def func_redis_producer(redis,channel_name,payload):
+   output=await redis.publish(channel_name,json.dumps(payload))
    return output
 
 import json
-async def func_redis_object_read(client_redis,key):
-   output=await client_redis.get(key)
+async def func_redis_object_read(redis,key):
+   output=await redis.get(key)
    if output:output=json.loads(output)
    return output
 
-async def func_redis_object_create(client_redis,key_list,obj_list,expiry_sec):
-   async with client_redis.pipeline(transaction=True) as pipe:
+async def func_redis_object_create(redis,key_list,obj_list,expiry_sec):
+   async with redis.pipeline(transaction=True) as pipe:
       for index,obj in enumerate(obj_list):
          key=key_list[index]
          if not expiry_sec:pipe.set(key,json.dumps(obj))
@@ -930,66 +946,66 @@ async def func_redis_object_create(client_redis,key_list,obj_list,expiry_sec):
       await pipe.execute()
    return None
 
-async def func_redis_object_delete(client_redis,obj_list):
-   async with client_redis.pipeline(transaction=True) as pipe:
+async def func_redis_object_delete(redis,obj_list):
+   async with redis.pipeline(transaction=True) as pipe:
       for obj in obj_list:
          pipe.delete(obj["key"])
       await pipe.execute()
    return None
 
 import boto3
-async def func_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name):
-   client_ses=boto3.client("ses",region_name=config_ses_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
-   return client_ses
+async def func_ses_client_read(aws_access_key_id,aws_secret_access_key,ses_region_name):
+   ses=boto3.client("ses",region_name=ses_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   return ses
 
-async def func_ses_send_email(client_ses,email_from,email_to_list,title,body):
-   client_ses.send_email(Source=email_from,Destination={"ToAddresses":email_to_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
+async def func_ses_send_email(ses,email_from,email_to_list,title,body):
+   ses.send_email(Source=email_from,Destination={"ToAddresses":email_to_list},Message={"Subject":{"Charset":"UTF-8","Data":title},"Body":{"Text":{"Charset":"UTF-8","Data":body}}})
    return None
 
-async def func_sns_send_mobile_message(client_sns,mobile,message):
-   client_sns.publish(PhoneNumber=mobile,Message=message)
+async def func_sns_send_mobile_message(sns,mobile,message):
+   sns.publish(PhoneNumber=mobile,Message=message)
    return None
 
-async def func_sns_send_mobile_message_template(client_sns,mobile,message,template_id,entity_id,sender_id):
-   client_sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
+async def func_sns_send_mobile_message_template(sns,mobile,message,template_id,entity_id,sender_id):
+   sns.publish(PhoneNumber=mobile, Message=message,MessageAttributes={"AWS.MM.SMS.EntityId":{"DataType":"String","StringValue":entity_id},"AWS.MM.SMS.TemplateId":{"DataType":"String","StringValue":template_id},"AWS.SNS.SMS.SenderID":{"DataType":"String","StringValue":sender_id},"AWS.SNS.SMS.SMSType":{"DataType":"String","StringValue":"Transactional"}})
    return None
 
 import boto3
-async def func_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name):
-   client_sns=boto3.client("sns",region_name=config_sns_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
-   return client_sns
+async def func_sns_client_read(aws_access_key_id,aws_secret_access_key,sns_region_name):
+   sns=boto3.client("sns",region_name=sns_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   return sns
 
 import boto3
-async def func_s3_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name):
-   client_s3=boto3.client("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
-   client_s3_resource=boto3.resource("s3",region_name=config_s3_region_name,config_aws_access_key_id=config_aws_access_key_id,config_aws_secret_access_key=config_aws_secret_access_key)
-   return client_s3,client_s3_resource
+async def func_s3_client_read(aws_access_key_id,aws_secret_access_key,s3_region_name):
+   s3=boto3.client("s3",region_name=s3_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   s3_resource=boto3.resource("s3",region_name=s3_region_name,aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
+   return s3,s3_resource
 
-async def func_s3_bucket_create(client_s3,config_s3_region_name,bucket):
-   return client_s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':config_s3_region_name})
+async def func_s3_bucket_create(s3,s3_region_name,bucket):
+   return s3.create_bucket(Bucket=bucket,CreateBucketConfiguration={'LocationConstraint':s3_region_name})
 
-async def func_s3_bucket_public(client_s3,bucket):
-   client_s3.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
+async def func_s3_bucket_public(s3,bucket):
+   s3.put_public_access_block(Bucket=bucket,PublicAccessBlockConfiguration={'BlockPublicAcls':False,'IgnorePublicAcls':False,'BlockPublicPolicy':False,'RestrictPublicBuckets':False})
    policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''
-   output=client_s3.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
+   output=s3.put_bucket_policy(Bucket=bucket,Policy=policy.replace("bucket_name",bucket))
    return output
 
-async def func_s3_bucket_empty(client_s3_resource,bucket):
-   return client_s3_resource.Bucket(bucket).objects.all().delete()
+async def func_s3_bucket_empty(s3_resource,bucket):
+   return s3_resource.Bucket(bucket).objects.all().delete()
 
-async def func_s3_bucket_delete(client_s3,bucket):
-   return client_s3.delete_bucket(Bucket=bucket)
+async def func_s3_bucket_delete(s3,bucket):
+   return s3.delete_bucket(Bucket=bucket)
 
-async def func_s3_url_delete(client_s3_resource,url):
+async def func_s3_url_delete(s3_resource,url):
    bucket=url.split("//",1)[1].split(".",1)[0]
    key=url.rsplit("/",1)[1]
-   output=client_s3_resource.Object(bucket,key).delete()
+   output=s3_resource.Object(bucket,key).delete()
    return output
 
 import uuid
 from io import BytesIO
-async def func_s3_upload(client_s3,config_s3_region_name,bucket,file,key=None,config_limit_s3_kb=None):
-    if not config_limit_s3_kb:config_limit_s3_kb=100
+async def func_s3_upload(s3,s3_region_name,bucket,file,key=None,limit_s3_kb=None):
+    if not limit_s3_kb:limit_s3_kb=100
     if not key:
         if "." not in file.filename:raise Exception("file must have extension")
         key=f"{uuid.uuid4().hex}.{file.filename.rsplit('.',1)[1]}"
@@ -997,72 +1013,72 @@ async def func_s3_upload(client_s3,config_s3_region_name,bucket,file,key=None,co
     file_content=await file.read()
     file.file.close()
     file_size_kb=round(len(file_content)/1024)
-    if file_size_kb>config_limit_s3_kb:raise Exception("file size issue")
-    client_s3.upload_fileobj(BytesIO(file_content),bucket,key)
-    output={file.filename:f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"}
+    if file_size_kb>limit_s3_kb:raise Exception("file size issue")
+    s3.upload_fileobj(BytesIO(file_content),bucket,key)
+    output={file.filename:f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"}
     return output
 
 import uuid
-async def func_s3_upload_presigned(client_s3,config_s3_region_name,bucket,key=None,config_limit_s3_kb=None,config_s3_presigned_expire_sec=None):
-   if not config_limit_s3_kb:config_limit_s3_kb=100
-   if not config_s3_presigned_expire_sec:config_s3_presigned_expire_sec=100
+async def func_s3_upload_presigned(s3,s3_region_name,bucket,key=None,limit_s3_kb=None,s3_presigned_expire_sec=None):
+   if not limit_s3_kb:limit_s3_kb=100
+   if not s3_presigned_expire_sec:s3_presigned_expire_sec=100
    if not key:key=f"{uuid.uuid4().hex}.bin"
    if "." not in key:raise Exception("extension must")
-   output=client_s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=config_s3_presigned_expire_sec,Conditions=[['content-length-range',1,config_limit_s3_kb*1024]])
+   output=s3.generate_presigned_post(Bucket=bucket,Key=key,ExpiresIn=s3_presigned_expire_sec,Conditions=[['content-length-range',1,limit_s3_kb*1024]])
    for k,v in output["fields"].items():output[k]=v
    del output["fields"]
-   output["url_final"]=f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{key}"
+   output["url_final"]=f"https://{bucket}.s3.{s3_region_name}.amazonaws.com/{key}"
    return output
 
 from celery import Celery
-async def func_celery_client_read_producer(config_celery_broker_url,config_celery_backend_url):
-   client_celery_producer=Celery("producer",broker=config_celery_broker_url,backend=config_celery_backend_url)
-   return client_celery_producer
+async def func_celery_client_read_producer(celery_broker_url,celery_backend_url):
+   celery_producer=Celery("producer",broker=celery_broker_url,backend=celery_backend_url)
+   return celery_producer
 
 from celery import Celery
-def func_celery_client_read_consumer(config_celery_broker_url,config_celery_backend_url):
-   client_celery_consumer=Celery("worker",broker=config_celery_broker_url,backend=config_celery_backend_url)
+def func_celery_client_read_consumer(celery_broker_url,celery_backend_url):
+   client_celery_consumer=Celery("worker",broker=celery_broker_url,backend=celery_backend_url)
    return client_celery_consumer
 
-async def func_celery_producer(client_celery_producer,func,param_list):
-   output=client_celery_producer.send_task(func,args=param_list)
+async def func_celery_producer(celery_producer,func,param_list):
+   output=celery_producer.send_task(func,args=param_list)
    return output.id
 
 import aio_pika
-async def func_rabbitmq_client_read_producer(config_rabbitmq_url):
-   client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
-   client_rabbitmq_producer=await client_rabbitmq.channel()
-   return client_rabbitmq,client_rabbitmq_producer
+async def func_rabbitmq_client_read_producer(rabbitmq_url):
+   client_rabbitmq=await aio_pika.connect_robust(rabbitmq_url)
+   rabbitmq_producer=await client_rabbitmq.channel()
+   return client_rabbitmq,rabbitmq_producer
 
 import aio_pika
-async def func_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name):
-   client_rabbitmq=await aio_pika.connect_robust(config_rabbitmq_url)
+async def func_rabbitmq_client_read_consumer(rabbitmq_url,channel_name):
+   client_rabbitmq=await aio_pika.connect_robust(rabbitmq_url)
    client_rabbitmq_channel=await client_rabbitmq.channel()
-   client_rabbitmq_consumer=await client_rabbitmq_channel.declare_queue(config_channel_name,auto_delete=False)
+   client_rabbitmq_consumer=await client_rabbitmq_channel.declare_queue(channel_name,auto_delete=False)
    return client_rabbitmq,client_rabbitmq_consumer
 
 import json,aio_pika
-async def func_rabbitmq_producer(client_rabbitmq_producer,config_channel_name,payload):
+async def func_rabbitmq_producer(rabbitmq_producer,channel_name,payload):
     payload=json.dumps(payload).encode()
     message=aio_pika.Message(body=payload)
-    output=await client_rabbitmq_producer.default_exchange.publish(message,routing_key=config_channel_name)
+    output=await rabbitmq_producer.default_exchange.publish(message,routing_key=channel_name)
     return output
 
 from aiokafka import AIOKafkaProducer
-async def func_kafka_client_read_producer(config_kafka_url,config_kafka_username,config_kafka_password):
-    client_kafka_producer=AIOKafkaProducer(bootstrap_servers=config_kafka_url,security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=config_kafka_username,sasl_plain_password=config_kafka_password,)
-    await client_kafka_producer.start()
-    return client_kafka_producer
+async def func_kafka_client_read_producer(kafka_url,kafka_username,kafka_password):
+    kafka_producer=AIOKafkaProducer(bootstrap_servers=kafka_url,security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=kafka_username,sasl_plain_password=kafka_password,)
+    await kafka_producer.start()
+    return kafka_producer
  
 from aiokafka import AIOKafkaConsumer
-async def func_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_kafka_group_id,config_kafka_enable_auto_commit):
-    client_kafka_consumer=AIOKafkaConsumer(config_channel_name,bootstrap_servers=config_kafka_url,group_id=config_kafka_group_id, security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=config_kafka_username,sasl_plain_password=config_kafka_password,auto_offset_reset="earliest",enable_auto_commit=config_kafka_enable_auto_commit)
+async def func_kafka_client_read_consumer(kafka_url,kafka_username,kafka_password,channel_name,kafka_group_id,kafka_enable_auto_commit):
+    client_kafka_consumer=AIOKafkaConsumer(channel_name,bootstrap_servers=kafka_url,group_id=kafka_group_id, security_protocol="SASL_PLAINTEXT",sasl_mechanism="PLAIN",sasl_plain_username=kafka_username,sasl_plain_password=kafka_password,auto_offset_reset="earliest",enable_auto_commit=kafka_enable_auto_commit)
     await client_kafka_consumer.start()
     return client_kafka_consumer
  
 import json
-async def func_kafka_producer(client_kafka_producer,config_channel_name,payload):
-   output=await client_kafka_producer.send_and_wait(config_channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
+async def func_kafka_producer(kafka_producer,channel_name,payload):
+   output=await kafka_producer.send_and_wait(channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
 async def func_check_ratelimiter(request):
@@ -1190,25 +1206,25 @@ async def func_check_token(request):
     return None
 
 import jwt,json
-async def func_token_decode(token,config_key_jwt):
-   user=json.loads(jwt.decode(token,config_key_jwt,algorithms="HS256")["data"])
+async def func_token_decode(token,key_jwt):
+   user=json.loads(jwt.decode(token,key_jwt,algorithms="HS256")["data"])
    return user
 
 import jwt,json,time
-async def func_token_encode(obj,config_key_jwt,config_token_expiry_sec,config_token_refresh_expiry_sec,key_list=None):
+async def func_token_encode(obj,key_jwt,token_expiry_sec,token_refresh_expiry_sec,key_list=None):
    if not isinstance(obj,dict):obj=dict(obj)
    payload={k:obj.get(k) for k in key_list} if key_list else obj
    payload=json.dumps(payload,default=str)
    now=int(time.time())
-   exp=now+config_token_expiry_sec
-   exp_refresh=now+config_token_refresh_expiry_sec
-   token=jwt.encode({"exp":exp,"data":payload,"type":"access"},config_key_jwt)
-   token_refresh=jwt.encode({"exp":exp_refresh,"data":payload,"type":"refresh"},config_key_jwt)
-   return {"token":token,"token_refresh":token_refresh,"token_expiry_sec":config_token_expiry_sec,"token_refresh_expiry_sec":config_token_refresh_expiry_sec}
+   exp=now+token_expiry_sec
+   exp_refresh=now+token_refresh_expiry_sec
+   token=jwt.encode({"exp":exp,"data":payload,"type":"access"},key_jwt)
+   token_refresh=jwt.encode({"exp":exp_refresh,"data":payload,"type":"refresh"},key_jwt)
+   return {"token":token,"token_refresh":token_refresh,"token_expiry_sec":token_expiry_sec,"token_refresh_expiry_sec":token_refresh_expiry_sec}
 
 from fastapi import FastAPI
-def func_fastapi_app_read(lifespan,config_is_debug_fastapi):
-   app=FastAPI(debug=True if config_is_debug_fastapi else False,lifespan=lifespan)
+def func_fastapi_app_read(lifespan,is_debug_fastapi):
+   app=FastAPI(debug=True if is_debug_fastapi else False,lifespan=lifespan)
    return app
 
 import uvicorn
@@ -1218,8 +1234,8 @@ async def func_server_start(app):
    await server.serve()
    
 from fastapi.middleware.cors import CORSMiddleware
-def func_app_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials):
-   app.add_middleware(CORSMiddleware,allow_origins=config_cors_origin_list,allow_methods=config_cors_method_list,allow_headers=config_cors_headers_list,allow_credentials=config_cors_allow_credentials)
+def func_app_add_cors(app,cors_origin_list,cors_method_list,cors_headers_list,cors_allow_credentials):
+   app.add_middleware(CORSMiddleware,allow_origins=cors_origin_list,allow_methods=cors_method_list,allow_headers=cors_headers_list,allow_credentials=cors_allow_credentials)
    return None
 
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -1234,18 +1250,19 @@ def func_app_state_add(app,obj,pattern_tuple):
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-def func_app_add_sentry(config_sentry_dsn):
-   sentry_sdk.init(dsn=config_sentry_dsn,integrations=[FastApiIntegration()],traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
+def func_app_add_sentry(sentry_dsn):
+   sentry_sdk.init(dsn=sentry_dsn,integrations=[FastApiIntegration()],traces_sample_rate=1.0,profiles_sample_rate=1.0,send_default_pii=True)
    return None
 
 from fastapi.staticfiles import StaticFiles
-def func_app_add_static(app,config_folder_static,mount_path):
-    app.mount(mount_path, StaticFiles(directory=config_folder_static),name="static")
+def func_app_add_static(app,folder_static,mount_path):
+    app.mount(mount_path, StaticFiles(directory=folder_static),name="static")
     return None
 
 import sys, importlib.util, traceback
 from pathlib import Path
-def func_app_add_router_folder(app, config_folder_router):
+def func_add_router(app):
+    import os
     def load(router_root, file_path):
         try:
             rel = file_path.relative_to(router_root)
@@ -1256,55 +1273,49 @@ def func_app_add_router_folder(app, config_folder_router):
             m = importlib.util.module_from_spec(spec)
             sys.modules[mod] = m
             spec.loader.exec_module(m)
-            if not hasattr(m, "router"):
-                raise RuntimeError(f"Missing `router` in {file_path}")
-            app.include_router(m.router)
+            if hasattr(m, "router"):
+                app.include_router(m.router)
         except Exception:
             print(f"[FATAL] router load failed: {file_path}")
             traceback.print_exc()
             raise
-    root = Path(config_folder_router).expanduser().resolve()
+    root = Path(".").expanduser().resolve()
     if not root.is_dir():return
+    ig = {"__pycache__", "venv", "env", "node_modules"}
+    if os.path.isfile(".gitignore"):
+        with open(".gitignore","r") as fg:
+            ig.update(l.strip().rstrip("/") for l in fg if l.strip() and not l.startswith("#"))
     for f in root.rglob("*.py"):
-        if f.name.startswith((".", "__")) or any(p.startswith(".") for p in f.parts):continue
+        if f.parent == root and not f.name.startswith("router"): continue
+        if f.name.startswith((".", "__")) or any(p.startswith(".") or p in ig for p in f.parts):continue
         load(root, f)
 
-import importlib
-from pathlib import Path
-def func_app_add_router_file(app,prefix,folder):
-    root = Path(folder).resolve()
-    for f in root.iterdir():
-        if f.is_file() and f.name.startswith(prefix) and f.suffix == ".py" and not f.name.startswith(("__", ".")):
-            mod = importlib.import_module(f.stem)
-            if hasattr(mod, "router"):
-                app.include_router(mod.router)
-
-async def func_ownership_check(client_postgres_pool,table,id,user_id):
+async def func_ownership_check(postgres_pool,table,id,user_id):
     if table == "users":
         if id != user_id:raise Exception("obj ownership issue")
     else:
         query = f"SELECT created_by_id FROM {table} WHERE id = $1;"
-        row = await client_postgres_pool.fetchrow(query, id)
+        row = await postgres_pool.fetchrow(query, id)
         if not row:raise Exception("no obj")
         if row["created_by_id"] != user_id:raise Exception("obj ownership issue")
     return None
 
-async def func_user_sql_read(client_postgres_pool,config_sql,user_id):
-    obj = config_sql.get("profile_metadata", {})
+async def func_user_sql_read(postgres_pool,sql,user_id):
+    obj = sql.get("profile_metadata", {})
     output = {}
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         for key, query in obj.items():
             rows = await conn.fetch(query, user_id)
             output[key] = [dict(r) for r in rows]
     return output
 
-async def func_api_usage_read(client_postgres_pool, days, created_by_id=None):
+async def func_api_usage_read(postgres_pool, days, created_by_id=None):
     query="select api,count(*) from log_api where created_at >= now() - ($1 * interval '1 day') and ($2::bigint is null or created_by_id=$2) group by api limit 1000;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         obj_list=await conn.fetch(query,days,created_by_id)
     return obj_list
 
-async def func_creator_data_add(client_postgres_pool, obj_list, creator_key):
+async def func_creator_data_add(postgres_pool, obj_list, creator_key):
     if not obj_list or not creator_key:return obj_list
     creator_key_list=creator_key.split(",")
     obj_list = [dict(obj) for obj in obj_list]
@@ -1312,7 +1323,7 @@ async def func_creator_data_add(client_postgres_pool, obj_list, creator_key):
     users = {}
     if created_by_ids:
         query = f"SELECT * FROM users WHERE id = ANY($1);"
-        rows = await client_postgres_pool.fetch(query, list(map(int, created_by_ids)))
+        rows = await postgres_pool.fetch(query, list(map(int, created_by_ids)))
         users = {str(user["id"]): dict(user) for user in rows}
     for obj in obj_list:
         created_by_id = str(obj.get("created_by_id"))
@@ -1324,7 +1335,7 @@ async def func_creator_data_add(client_postgres_pool, obj_list, creator_key):
                 obj[f"creator_{key}"] = None
     return obj_list
 
-async def func_action_count_add(client_postgres_pool, obj_list, action_key):
+async def func_action_count_add(postgres_pool, obj_list, action_key):
     if not obj_list or not action_key: return obj_list
     obj_list = [dict(obj) for obj in obj_list]
     table, column, operator, operator_column = action_key.split(",")
@@ -1337,24 +1348,24 @@ async def func_action_count_add(client_postgres_pool, obj_list, action_key):
             WHERE {column} = ANY($1)
             GROUP BY {column};
         """
-        rows = await client_postgres_pool.fetch(query, list(ids))
+        rows = await postgres_pool.fetch(query, list(ids))
         action_values = {str(row["id"]): row["value"] for row in rows}
     for obj in obj_list:
         obj_id = str(obj.get("id"))
         obj[f"{table}_{operator}"] = action_values.get(obj_id, 0 if operator == "count" else None)
     return obj_list
 
-async def func_account_delete(mode,client_postgres_pool,user_id):
+async def func_account_delete(mode,postgres_pool,user_id):
     if mode == "soft":query = "UPDATE users SET is_deleted=1 WHERE id=$1;"
     elif mode == "hard":query = "DELETE FROM users WHERE id=$1;"
     else:raise Exception("mode=soft/hard")
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         await conn.execute(query, user_id)
     return "account deleted"
 
-async def func_user_single_read(client_postgres_pool,user_id):
+async def func_user_single_read(postgres_pool,user_id):
     query = "SELECT * FROM users WHERE id=$1;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         row = await conn.fetchrow(query, user_id)
     user = dict(row) if row else None
     if not user:
@@ -1362,7 +1373,7 @@ async def func_user_single_read(client_postgres_pool,user_id):
     return user
 
 import random
-async def func_otp_generate(client_postgres_pool,email,mobile):
+async def func_otp_generate(postgres_pool,email,mobile):
     if not email and not mobile:raise Exception("email/mobile any one is must")
     if email and mobile:raise Exception("only one of email or mobile is allowed")
     otp=random.randint(100000,999999)
@@ -1372,67 +1383,67 @@ async def func_otp_generate(client_postgres_pool,email,mobile):
     else:
         query="insert into otp (otp,mobile) values ($1,$2);"
         values=(otp,mobile.strip())
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         await conn.execute(query,*values)
     return otp
 
-async def func_otp_verify(client_postgres_pool,otp,email,mobile,config_expiry_sec_otp=None):
+async def func_otp_verify(postgres_pool,otp,email,mobile,expiry_sec_otp=None):
     if not otp:raise Exception("otp missing")
-    if not config_expiry_sec_otp:config_expiry_sec_otp=600
+    if not expiry_sec_otp:expiry_sec_otp=600
     if not email and not mobile: raise Exception("email/mobile any one is must")
     if email and mobile: raise Exception("only one of email or mobile is allowed")
     if email:
-        query = f"select otp from otp where created_at>current_timestamp-interval '{config_expiry_sec_otp} seconds' and email=$1 order by id desc limit 1;"
+        query = f"select otp from otp where created_at>current_timestamp-interval '{expiry_sec_otp} seconds' and email=$1 order by id desc limit 1;"
         value = email.strip().lower()
     else:
-        query = f"select otp from otp where created_at>current_timestamp-interval '{config_expiry_sec_otp} seconds' and mobile=$1 order by id desc limit 1;"
+        query = f"select otp from otp where created_at>current_timestamp-interval '{expiry_sec_otp} seconds' and mobile=$1 order by id desc limit 1;"
         value = mobile.strip()
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query, value)
     if not output: raise Exception("otp not found")
     if int(output[0]["otp"]) != int(otp): raise Exception("otp mismatch")
     return None
 
-async def func_message_inbox(client_postgres_pool,user_id,is_unread=None,order=None,limit=None,page=None):
+async def func_message_inbox(postgres_pool,user_id,is_unread=None,order=None,limit=None,page=None):
     order,limit,page=order or "id desc",limit or 100,page or 1
     if is_unread==1:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and is_read is distinct from 1) select * from a order by {order} limit {limit} offset {(page-1)*limit};"
     elif is_unread==0:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id), a as (select * from z where user_id=$1 and is_read=1) select * from a order by {order} limit {limit} offset {(page-1)*limit};"
     else:query = f"with x as (select id,abs(created_by_id-user_id) as unique_id from message where (created_by_id=$1 or user_id=$1)), y as (select max(id) as id from x group by unique_id), z as (select m.* from y left join message as m on y.id=m.id) select * from z order by {order} limit {limit} offset {(page-1)*limit};"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         return await conn.fetch(query, user_id)
 
-async def func_message_received(client_postgres_pool,user_id,is_unread=None,order=None,limit=None,page=None):
+async def func_message_received(postgres_pool,user_id,is_unread=None,order=None,limit=None,page=None):
     order,limit,page=order or "id desc",limit or 100,page or 1
     if is_unread==1:query=f"select * from message where user_id=$1 and is_read is distinct from 1 order by {order} limit {limit} offset {(page-1)*limit};"
     elif is_unread==0:query=f"select * from message where user_id=$1 and is_read=1 order by {order} limit {limit} offset {(page-1)*limit};"
     else:query=f"select * from message where user_id=$1 order by {order} limit {limit} offset {(page-1)*limit};"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         return await conn.fetch(query,user_id)
 
-async def func_message_thread(client_postgres_pool,user_id_1,user_id_2,order=None,limit=None,page=None):
+async def func_message_thread(postgres_pool,user_id_1,user_id_2,order=None,limit=None,page=None):
     order,limit,page=order or "id desc",limit or 100,page or 1
     query = f"select * from message where ((created_by_id=$1 and user_id=$2) or (created_by_id=$2 and user_id=$1)) order by {order} limit {limit} offset {(page-1)*limit};"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         return await conn.fetch(query, user_id_1, user_id_2)
 
-async def func_message_thread_mark_read(client_postgres_pool,user_id_1,user_id_2):
+async def func_message_thread_mark_read(postgres_pool,user_id_1,user_id_2):
    query="update message set is_read=1 where created_by_id=$1 and user_id=$2;"
-   async with client_postgres_pool.acquire() as conn:
+   async with postgres_pool.acquire() as conn:
       await conn.execute(query,user_id_2,user_id_1)
    return None
 
-async def func_message_delete_single(client_postgres_pool,message_id,user_id):
+async def func_message_delete_single(postgres_pool,message_id,user_id):
    query="delete from message where id=$1 and (created_by_id=$2 or user_id=$2);"
-   async with client_postgres_pool.acquire() as conn:
+   async with postgres_pool.acquire() as conn:
       await conn.execute(query,message_id,user_id)
    return None
 
-async def func_message_delete_bulk(mode,client_postgres_pool,user_id):
+async def func_message_delete_bulk(mode,postgres_pool,user_id):
    if mode=="created":query="delete from message where created_by_id=$1;"
    elif mode=="received":query="delete from message where user_id=$1;"
    elif mode=="all":query="delete from message where (created_by_id=$1 or user_id=$1);"
    else:raise Exception("mode=created/received/all")
-   async with client_postgres_pool.acquire() as conn:
+   async with postgres_pool.acquire() as conn:
       await conn.execute(query,user_id)
    return None
 
@@ -1440,53 +1451,53 @@ import hashlib
 def func_encode_sha256(data):
     return hashlib.sha256(str(data).encode()).hexdigest()
 
-async def func_auth_signup_username_password(client_postgres_pool,type,username,password):
+async def func_auth_signup_username_password(postgres_pool,type,username,password):
     query="insert into users (type,username,password) values ($1,$2,$3) returning *;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username,password)
     print(output)
     return output[0]
     
-async def func_auth_signup_username_password_bigint(client_postgres_pool,type,username_bigint,password_bigint):
+async def func_auth_signup_username_password_bigint(postgres_pool,type,username_bigint,password_bigint):
     query="insert into users (type,username_bigint,password_bigint) values ($1,$2,$3) returning *;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username_bigint,password_bigint)
     return output[0]
 
-async def func_auth_login_password_username(client_postgres_pool,type,password,username):
+async def func_auth_login_password_username(postgres_pool,type,password,username):
     query="select * from users where type=$1 and username=$2 and password=$3 order by id desc limit 1;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username,password)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
     return user
 
-async def func_auth_login_password_username_bigint(client_postgres_pool,type,password_bigint,username_bigint):
+async def func_auth_login_password_username_bigint(postgres_pool,type,password_bigint,username_bigint):
     query="select * from users where type=$1 and username_bigint=$2 and password_bigint=$3 order by id desc limit 1;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username_bigint,password_bigint)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
     return user
 
-async def func_auth_login_password_email(client_postgres_pool,type,password,email):
+async def func_auth_login_password_email(postgres_pool,type,password,email):
     query="select * from users where type=$1 and email=$2 and password=$3 order by id desc limit 1;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,email,password)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
     return user
 
-async def func_auth_login_password_mobile(client_postgres_pool,type,password,mobile):
+async def func_auth_login_password_mobile(postgres_pool,type,password,mobile):
     query="select * from users where type=$1 and mobile=$2 and password=$3 order by id desc limit 1;"
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,mobile,password)
     user = output[0] if output else None
     if not user: raise Exception("user not found")
     return user
 
-async def func_auth_login_otp_email(client_postgres_pool,type,email):
-    async with client_postgres_pool.acquire() as conn:
+async def func_auth_login_otp_email(postgres_pool,type,email):
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch("select * from users where type=$1 and email=$2 order by id desc limit 1;",type,email)
         user = output[0] if output else None
         if not user:
@@ -1494,8 +1505,8 @@ async def func_auth_login_otp_email(client_postgres_pool,type,email):
             user = output[0] if output else None
     return user
 
-async def func_auth_login_otp_mobile(client_postgres_pool,type,mobile):
-    async with client_postgres_pool.acquire() as conn:
+async def func_auth_login_otp_mobile(postgres_pool,type,mobile):
+    async with postgres_pool.acquire() as conn:
         output = await conn.fetch("select * from users where type=$1 and mobile=$2 order by id desc limit 1;",type,mobile)
         user = output[0] if output else None
         if not user:
@@ -1506,15 +1517,15 @@ async def func_auth_login_otp_mobile(client_postgres_pool,type,mobile):
 import json,time
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_request
-async def func_auth_login_google(client_postgres_pool,config_google_login_client_id,type,google_token):
+async def func_auth_login_google(postgres_pool,google_login_client_id,type,google_token):
     request=google_request.Request()
-    id_info=id_token.verify_oauth2_token(google_token,request,config_google_login_client_id)
+    id_info=id_token.verify_oauth2_token(google_token,request,google_login_client_id)
     if id_info.get("iss") not in ["accounts.google.com","https://accounts.google.com"]: raise Exception("invalid issuer")
     if not id_info.get("email_verified",False): raise Exception("email not verified")
     if id_info.get("exp",0)<time.time(): raise Exception("token expired")
     email=id_info.get("email").lower()
     google_user={"sub":id_info.get("sub"),"email":email,"name":id_info.get("name"),"picture":id_info.get("picture"),"email_verified":1}
-    async with client_postgres_pool.acquire() as conn:
+    async with postgres_pool.acquire() as conn:
         output=await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1",type,email)
         user=output[0] if output else None
         if not user:
@@ -1525,23 +1536,23 @@ async def func_auth_login_google(client_postgres_pool,config_google_login_client
     return user
 
 from openai import OpenAI
-def func_openai_client_read(config_openai_key):
-   client_openai=OpenAI(api_key=config_openai_key)
-   return client_openai
+def func_openai_client_read(openai_key):
+   openai=OpenAI(api_key=openai_key)
+   return openai
 
-async def func_openai_prompt(client_openai,model,prompt,is_web_search,previous_response_id):
-   if not client_openai or not model or not prompt:raise Exception("param missing")
+async def func_openai_prompt(openai,model,prompt,is_web_search,previous_response_id):
+   if not openai or not model or not prompt:raise Exception("param missing")
    params={"model":model,"input":prompt}
    if is_web_search==1:params["tools"]=[{"type":"web_search"}]
    if previous_response_id:params["previous_response_id"]=previous_response_id
-   output=client_openai.responses.create(**params)
+   output=openai.responses.create(**params)
    return output
 
 import base64
-async def func_openai_ocr(client_openai,model,file,prompt):
+async def func_openai_ocr(openai,model,file,prompt):
    contents=await file.read()
    b64_image=base64.b64encode(contents).decode("utf-8")
-   output=client_openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
+   output=openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
    return output
 
 from pathlib import Path
@@ -1562,35 +1573,35 @@ async def func_ocr_tesseract_export(input_path, output_path=None):
     return output_path
 
 import httpx
-async def func_resend_send_email(config_resend_url,config_resend_key,email_from,email_to_list,title,body):
+async def func_resend_send_email(resend_url,resend_key,email_from,email_to_list,title,body):
    payload={"from":email_from,"to":email_to_list,"subject":title,"html":body}
-   headers={"Authorization":f"Bearer {config_resend_key}","Content-Type": "application/json"}
+   headers={"Authorization":f"Bearer {resend_key}","Content-Type": "application/json"}
    async with httpx.AsyncClient() as client:
-      output=await client.post(config_resend_url,json=payload,headers=headers)
+      output=await client.post(resend_url,json=payload,headers=headers)
    if output.status_code!=200:raise Exception(f"{output.text}")
    return None
 
 import requests
-async def func_fast2sms_send_otp_mobile(config_fast2sms_url,config_fast2sms_key,mobile,otp):
-   response=requests.get(config_fast2sms_url,params={"authorization":config_fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
+async def func_fast2sms_send_otp_mobile(fast2sms_url,fast2sms_key,mobile,otp):
+   response=requests.get(fast2sms_url,params={"authorization":fast2sms_key,"numbers":mobile,"variables_values":otp,"route":"otp"})
    output=response.json()
    if output.get("return") is not True:raise Exception(f"{output.get('message')}")
    return output
 
 from posthog import Posthog
-async def func_posthog_client_read(config_posthog_project_host,config_posthog_project_key):
-   client_posthog=Posthog(config_posthog_project_key,host=config_posthog_project_host)
+async def func_posthog_client_read(posthog_project_host,posthog_project_key):
+   client_posthog=Posthog(posthog_project_key,host=posthog_project_host)
    return client_posthog
 
 import gspread
 from google.oauth2.service_account import Credentials
-def func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope_list):
-    creds = Credentials.from_service_account_file(config_gsheet_service_account_json_path,scopes=config_gsheet_scope_list)
-    client_gsheet = gspread.authorize(creds)
-    return client_gsheet
+def func_gsheet_client_read(gsheet_service_account_json_path, gsheet_scope_list):
+    creds = Credentials.from_service_account_file(gsheet_service_account_json_path,scopes=gsheet_scope_list)
+    gsheet = gspread.authorize(creds)
+    return gsheet
 
 from urllib.parse import urlparse, parse_qs
-def func_gsheet_object_create(client_gsheet, sheet_url, obj_list):
+def func_gsheet_object_create(gsheet, sheet_url, obj_list):
     if not obj_list:
         return None
     url_path = urlparse(sheet_url).path.split('/')
@@ -1602,7 +1613,7 @@ def func_gsheet_object_create(client_gsheet, sheet_url, obj_list):
     if "gid" not in qs:
         raise Exception("invalid sheet URL: gid not found")
     sheet_gid = int(qs["gid"][0])
-    ss = client_gsheet.open_by_key(spreadsheet_id)
+    ss = gsheet.open_by_key(spreadsheet_id)
     sheet = next((s for s in ss.worksheets() if s.id == sheet_gid), None)
     if not sheet:
         raise Exception("sheet gid invalid")
@@ -1636,12 +1647,12 @@ async def func_gsheet_object_read(url):
     return df.to_dict(orient="records")
 
 import motor.motor_asyncio
-async def func_mongodb_client_read(config_mongodb_url):
-   client_mongodb=motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_url)
-   return client_mongodb
+async def func_mongodb_client_read(mongodb_url):
+   mongodb=motor.motor_asyncio.AsyncIOMotorClient(mongodb_url)
+   return mongodb
 
-async def func_mongodb_object_create(client_mongodb,database,table,obj_list):
-   mongodb_client_database=client_mongodb[database]
+async def func_mongodb_object_create(mongodb,database,table,obj_list):
+   mongodb_client_database=mongodb[database]
    output=await mongodb_client_database[table].insert_many(obj_list)
    return str(output)
 
@@ -1902,23 +1913,23 @@ async def func_converter_number(datatype, mode, x):
     raise ValueError(f"Invalid mode '{mode}': Use encode|decode")
 
 import asyncssh
-async def func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method):
-    if config_sftp_auth_method not in ("key","password"):raise Exception("auth_method must be 'key' or 'password'")
-    if config_sftp_auth_method=="key":
-        if not config_sftp_key_path:raise Exception("key_path required for key auth")
-        conn=await asyncssh.connect(host=config_sftp_host,port=int(config_sftp_port),username=config_sftp_username,client_keys=[config_sftp_key_path],known_hosts=None)
+async def func_sftp_client_read(sftp_host,sftp_port,sftp_username,sftp_password,sftp_key_path,sftp_auth_method):
+    if sftp_auth_method not in ("key","password"):raise Exception("auth_method must be 'key' or 'password'")
+    if sftp_auth_method=="key":
+        if not sftp_key_path:raise Exception("key_path required for key auth")
+        conn=await asyncssh.connect(host=sftp_host,port=int(sftp_port),username=sftp_username,client_keys=[sftp_key_path],known_hosts=None)
     else:
-        if not config_sftp_password:raise Exception("password required for password auth")
-        conn=await asyncssh.connect(host=config_sftp_host,port=int(config_sftp_port),username=config_sftp_username,password=config_sftp_password,known_hosts=None)
+        if not sftp_password:raise Exception("password required for password auth")
+        conn=await asyncssh.connect(host=sftp_host,port=int(sftp_port),username=sftp_username,password=sftp_password,known_hosts=None)
     return conn
 
-async def func_sftp_folder_filename_read(client_sftp,folder_path):
-    async with client_sftp.start_sftp_client() as sftp:
+async def func_sftp_folder_filename_read(sftp,folder_path):
+    async with sftp.start_sftp_client() as sftp:
         output=await sftp.listdir(folder_path)
         return output
     
-async def func_sftp_file_upload(client_sftp, input_path, output_path, chunk_size=65536):
-    async with client_sftp.start_sftp_client() as sftp:
+async def func_sftp_file_upload(sftp, input_path, output_path, chunk_size=65536):
+    async with sftp.start_sftp_client() as sftp:
         async with sftp.open(output_path, "wb") as rf:
             with open(input_path, "rb") as lf:
                 while True:
@@ -1929,11 +1940,11 @@ async def func_sftp_file_upload(client_sftp, input_path, output_path, chunk_size
     
 import uuid
 from pathlib import Path
-async def func_sftp_file_download(client_sftp,input_path,output_path=None,chunk_size=None):
+async def func_sftp_file_download(sftp,input_path,output_path=None,chunk_size=None):
     if not output_path:output_path=f"export/{uuid.uuid4().hex}{Path(input_path).suffix}"
     Path(output_path).parent.mkdir(parents=True,exist_ok=True)
     if not chunk_size:chunk_size=65536
-    async with client_sftp.start_sftp_client() as sftp:
+    async with sftp.start_sftp_client() as sftp:
         async with sftp.open(input_path,"rb") as rf:
             with open(output_path,"wb") as lf:
                 while True:
@@ -1942,15 +1953,15 @@ async def func_sftp_file_download(client_sftp,input_path,output_path=None,chunk_
                     lf.write(c)
     return output_path
 
-async def func_sftp_file_delete(client_sftp, path):
-    async with client_sftp.start_sftp_client() as sftp:
+async def func_sftp_file_delete(sftp, path):
+    async with sftp.start_sftp_client() as sftp:
         await sftp.remove(path)
     return None
 
 import csv,io,os
-async def func_sftp_csv_stream(client_sftp,path,batch_size=1000,encoding="utf-8"):
+async def func_sftp_csv_stream(sftp,path,batch_size=1000,encoding="utf-8"):
     if os.path.splitext(path)[1].lower()!=".csv":raise Exception("only csv files allowed")
-    async with client_sftp.start_sftp_client() as sftp:
+    async with sftp.start_sftp_client() as sftp:
         async with sftp.open(path,"rb") as rf:
             buffer=""
             reader=None

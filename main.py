@@ -9,8 +9,8 @@ import httpx
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    #start
-   func_structure_create([config_folder_export,config_folder_secret], [".env","z.py"])
-   func_structure_check(".", dirs=(config_folder_export,config_folder_secret,config_folder_static,"script","venv"), files=(".env",".gitignore","Dockerfile","requirements.txt","readme.md","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py"))
+   func_structure_create(["export","secret"], [".env","z.py"])
+   func_structure_check(".", dirs=("export","secret","static","script","venv"), files=(".env",".gitignore","Dockerfile","requirements.txt","readme.md","curl.txt","test.sh","main.py","function.py","config.py","router.py","consumer.py"))
    #client init
    client_http=httpx.AsyncClient()
    client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
@@ -38,7 +38,7 @@ async def func_lifespan(app:FastAPI):
    #app shutdown
    yield
    await func_postgres_flush(app)
-   if config_is_reset_export_folder:func_folder_reset(config_folder_export)
+   if config_is_reset_export_folder:func_folder_reset("export")
    await client_http.aclose()
    if client_postgres_pool:await client_postgres_pool.close()
    if client_redis:await client_redis.aclose()
@@ -59,9 +59,8 @@ app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
 
 #app add
 func_app_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
-func_app_add_router_folder(app,config_folder_router)
-func_app_add_router_file(app,config_file_router_prefix,".")
-func_app_add_static(app,config_folder_static,"/static")
+func_add_router(app)
+func_app_add_static(app,"./static","/static")
 if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
 if config_is_prometheus:func_app_add_prometheus(app)
 
@@ -79,11 +78,6 @@ async def middleware(request,api_function):
    except Exception as e:error,response=await func_api_response_error(request,e)
    await func_api_log_create(start,request,response,type,error)
    return response
-
-#index
-@app.get("/")
-async def func_api_5e118e61a6c348328913f14722d76af6():
-   return await func_html_serve(config_folder_html,config_index_html) if config_is_index_html else {"status":1,"message":"welcome to atom"}
 
 #main
 from function import func_server_start
