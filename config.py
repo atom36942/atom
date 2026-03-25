@@ -119,10 +119,6 @@ config_auth_type_list=list(map(int,(os.getenv("config_auth_type_list") or "1,2,3
 config_expiry_sec_otp=int(os.getenv("config_expiry_sec_otp") or 600)
 config_limit_ids_delete=int(os.getenv("config_limit_ids_delete") or 1000)
 
-#mgh
-config_amazon_client_id=os.getenv("config_amazon_client_id")
-config_amazon_client_secret=os.getenv("config_amazon_client_secret")
-
 #dict
 config_sql={
 "cache_users_api_id_access":"select id,api_id_access from users where api_id_access is not null limit 1000",
@@ -280,16 +276,7 @@ config_postgres={
 {"name":"file_url","datatype":"text"},
 {"name":"link_url","datatype":"text"},
 {"name":"tag","datatype":"text[]","index":"gin"},
-],
-"mgh_amazon_invoice":[
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"invoice_id","datatype":"text","is_mandatory":1},
-{"name":"payload","datatype":"jsonb","is_mandatory":1},
-{"name":"response","datatype":"jsonb","is_mandatory":1},
-{"name":"filename","datatype":"text","is_mandatory": 1},
-{"name":"status","datatype":"integer","index":"btree"},
-],
+]
 },
 "sql":{
 "drop_disable_table_1":"CREATE OR REPLACE FUNCTION func_drop_disable_table() RETURNS event_trigger LANGUAGE plpgsql AS $$ DECLARE r record; BEGIN FOR r IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP IF r.object_type='table' THEN RAISE EXCEPTION 'DROP TABLE not allowed: %',r.object_identity; END IF; END LOOP; END; $$;",
@@ -321,4 +308,3 @@ config_postgres={
 
 #func
 func_list_to_tuple(globals())
-

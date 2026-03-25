@@ -427,8 +427,3 @@ async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):
    except WebSocketDisconnect:
       print("client disconnected")
       
-#mgh
-@router.get("/mgh/amazon-invoice-send")
-async def func_api_28d37ab82cbe410bb83fcef0f231e268(request:Request):
-    output=await func_mgh_amazon_invoice_logic(request)
-    return {"status":1,"message":output}
