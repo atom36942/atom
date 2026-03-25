@@ -132,4 +132,12 @@ psql postgres -c "ALTER USER user_1 NOSUPERUSER NOCREATEDB NOCREATEROLE;"
 psql postgres -c "CREATE DATABASE db_1 OWNER user_1;"
 psql -U user_1 -d db_1
 postgresql://user_1:123@127.0.0.1/db_1
+
+#agend.md
+* Write compact code; no newlines between logic lines/imports.
+* Use newlines and #comments only for major logic blocks.
+* Prefix variables: config_ (configs), func_ (functions), client_ (resources), cache_ (memory) etc
+* Use inline if-else for assignments/initialization.
+* Try to use pure functions wherever possible.
+* Take inspiration from existing config.py for configs,router.py for apis, function.py for pure functions etc while writing new such logics for python based code else write as per that language best practise.
 ```
