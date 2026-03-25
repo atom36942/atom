@@ -41,9 +41,9 @@ docker run --rm -p 8000:8000 atom
 
 #consumer
 venv/bin/python consumer.py celery
-venv/bin/python consumer.py kafka
 venv/bin/python consumer.py rabbitmq
 venv/bin/python consumer.py redis
+venv/bin/python consumer.py kafka
 ```
 
 
@@ -107,6 +107,7 @@ git push origin main
 echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/opt/homebrew/bin/brew shellenv)"
 brew install python@3.11
+brew install postgis
 brew install postgresql && brew install redis && brew install rabbitmq && brew tap mongodb/brew && brew install mongodb-community && echo 'export PATH="/opt/homebrew/sbin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 brew services start postgresql && brew services start redis && brew services start rabbitmq && brew services start mongodb-community
 brew services restart postgresql && brew services restart redis && brew services restart rabbitmq && brew services restart mongodb-community
@@ -125,7 +126,7 @@ psql postgres
 psql postgres -c "\du"
 psql postgres -c "\l"
 
-#psql create user
+#psql
 psql postgres -c "CREATE USER user_1;"
 psql postgres -c "ALTER USER user_1 WITH PASSWORD '123';"
 psql postgres -c "ALTER USER user_1 NOSUPERUSER NOCREATEDB NOCREATEROLE;"

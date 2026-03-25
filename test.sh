@@ -52,7 +52,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$status_code" -eq 200 ]]; then
         echo "✅ Success (${execution_time}ms)"
         ((count_success++))
-        if [[ "$url" == *"/auth/login-password-username"* ]]; then
+        if [[ "$url" == *"/auth/login-password-username" ]]; then
             new_token=$(echo "$body" | python3 -c "import sys, json; t=json.load(sys.stdin).get('message',{}).get('token',{}); print(t.get('token','') if isinstance(t,dict) else t)" 2>/dev/null || true)
             if [ -n "$new_token" ]; then
                 token="$new_token"
