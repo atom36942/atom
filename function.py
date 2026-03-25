@@ -146,15 +146,10 @@ import aiofiles
 from fastapi import responses, HTTPException
 async def func_html_serve(name: str):
     file = name if name.endswith(".html") else f"{name}.html"
-    root = Path(".")
-    ig = {"__pycache__", "venv", "env", "node_modules"}
-    if os.path.isfile(".gitignore"):
-        with open(".gitignore","r") as f:
-            ig.update(l.strip().rstrip("/") for l in f if l.strip() and not l.startswith("#"))
+    root = Path("static")
     p = root / file
     if not p.is_file():
         for p in root.rglob(file):
-            if any(x.startswith(".") or x in ig for x in p.parts): continue
             if p.is_file(): break
         else:
             raise HTTPException(404, "page not found")
@@ -1262,7 +1257,6 @@ def func_app_add_static(app,folder_static,mount_path):
 import sys, importlib.util, traceback
 from pathlib import Path
 def func_add_router(app):
-    import os
     def load(router_root, file_path):
         try:
             rel = file_path.relative_to(router_root)
@@ -1273,22 +1267,22 @@ def func_add_router(app):
             m = importlib.util.module_from_spec(spec)
             sys.modules[mod] = m
             spec.loader.exec_module(m)
-            if hasattr(m, "router"):
-                app.include_router(m.router)
+            if not hasattr(m, "router"):
+                raise RuntimeError(f"Missing `router` in {file_path}")
+            app.include_router(m.router)
         except Exception:
             print(f"[FATAL] router load failed: {file_path}")
             traceback.print_exc()
             raise
-    root = Path(".").expanduser().resolve()
+    root = Path(".").resolve()
     if not root.is_dir():return
-    ig = {"__pycache__", "venv", "env", "node_modules"}
-    if os.path.isfile(".gitignore"):
-        with open(".gitignore","r") as fg:
-            ig.update(l.strip().rstrip("/") for l in fg if l.strip() and not l.startswith("#"))
     for f in root.rglob("*.py"):
-        if f.parent == root and not f.name.startswith("router"): continue
-        if f.name.startswith((".", "__")) or any(p.startswith(".") or p in ig for p in f.parts):continue
-        load(root, f)
+        if f.name.startswith((".", "__")) or any(p.startswith(".") or p in ("venv", "env", "__pycache__") for p in f.parts):continue
+        rel = f.relative_to(root)
+        if len(rel.parts) == 1:
+            if f.name.startswith("router"): load(root, f)
+        elif "router" in rel.parts[:-1]:
+            load(root, f)
 
 async def func_ownership_check(postgres_pool,table,id,user_id):
     if table == "users":
