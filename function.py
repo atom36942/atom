@@ -19,7 +19,7 @@ def func_structure_check(root, dirs=(), files=()):
     return None
 
 async def func_check_config_api(api,app_routes):
-    allowed={"id","is_token","is_active_check","cache_sec","ratelimiter_times_sec"}
+    allowed={"id","is_token","is_active_check","cache_sec","ratelimiter_times_sec","role_allowed"}
     route_set=set()
     for r in app_routes:
         p=getattr(r,"path",None)
@@ -30,9 +30,12 @@ async def func_check_config_api(api,app_routes):
         if type(cfg) is not dict:raise Exception("invalid config for:"+path)
         for k in cfg:
             if k not in allowed:raise Exception("invalid key "+k+" in "+path)
-        if "id" not in cfg or type(cfg["id"]) is not int:raise Exception("invalid id in "+path)
+        if "id" in cfg and type(cfg["id"]) is not int:raise Exception("invalid id in "+path)
         if "is_token" in cfg and cfg["is_token"] not in (0,1):raise Exception("invalid is_token in "+path)
         if "is_active_check" in cfg and cfg["is_active_check"] not in (0,1):raise Exception("invalid is_active_check in "+path)
+        if "role_allowed" in cfg:
+            v=cfg["role_allowed"]
+            if not isinstance(v,list) or not all(isinstance(i,int) for i in v):raise Exception("invalid role_allowed in "+path)
         if "cache_sec" in cfg:
             v=cfg["cache_sec"]
             if type(v) not in (list,tuple) or len(v)!=2:raise Exception("invalid cache_sec in "+path)
@@ -125,7 +128,7 @@ async def func_postgres_cache_reset(postgres_pool, func_postgres_schema_read):
     return await func_postgres_schema_read(postgres_pool) if postgres_pool else ({},{})
 
 async def func_users_cache_reset(postgres_pool, func_postgres_map_column, sql_config, postgres_schema):
-    c1=await func_postgres_map_column(postgres_pool,sql_config.get("cache_users_api_id_access")) if postgres_pool and postgres_schema.get("users",{}).get("api_id_access") else {}
+    c1=await func_postgres_map_column(postgres_pool,sql_config.get("cache_users_role")) if postgres_pool and postgres_schema.get("users",{}).get("role") else {}
     c2=await func_postgres_map_column(postgres_pool,sql_config.get("cache_users_is_active")) if postgres_pool and postgres_schema.get("users",{}).get("is_active") else {}
     return c1, c2
 
@@ -309,13 +312,13 @@ async def func_postgres_map_column(postgres_pool,query):
                     output[k].append(v)
     return output
 
-import datetime
+from datetime import timedelta
 async def func_postgres_clean(postgres_pool, table):
     async with postgres_pool.acquire() as conn:
         for table_name, cfg in table.items():
             days = cfg.get("retention_day")
             if days is None:continue
-            threshold_date = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+            threshold_date = datetime.utcnow() - timedelta(days=days)
             query = f"DELETE FROM {table_name} WHERE created_at < $1"
             await conn.execute(query, threshold_date)
     return None
@@ -938,44 +941,44 @@ async def func_check_ratelimiter(redis_client, api_config, path, identifier):
     await pipe.execute()
     return None
 
-async def func_check_is_active(user, path, api_config, active_check_mode, postgres_pool, users_active_cache):
+async def func_check_is_active(mode, user, path, api_config, postgres_pool, users_active_cache):
     if not api_config.get(path,{}).get("is_active_check")==1 or not user: return None
     async def fetch_user_is_active(user_id):
         async with postgres_pool.acquire() as conn: rows=await conn.fetch("select id,is_active from users where id=$1",user_id)
         if not rows: raise Exception("user not found")
         return rows[0]["is_active"]
     user_is_active=None
-    if active_check_mode=="realtime":user_is_active=await fetch_user_is_active(user["id"])
-    elif active_check_mode=="cache":
+    if mode=="realtime":user_is_active=await fetch_user_is_active(user["id"])
+    elif mode=="cache":
         user_is_active=users_active_cache.get(user["id"],"absent")
         if user_is_active=="absent": user_is_active=await fetch_user_is_active(user["id"])
-    elif active_check_mode=="token":
+    elif mode=="token":
         user_is_active=user.get("is_active","absent")
         if user_is_active=="absent": raise Exception("token has no is_active key")
-    else: raise Exception("config_mode_check_is_active=token/cache/realtime")
+    else: raise Exception("config_mode_check_active=token/cache/realtime")
     if user_is_active==0: raise Exception("user not active")
     return None
 
-async def func_check_admin(user, path, api_config, admin_check_mode, postgres_pool, users_access_cache):
-    if not path.startswith("/admin"): return None
-    def parse_access_list(access_str): return [int(item.strip()) for item in access_str.split(",")] if access_str else []
-    async def fetch_user_access(user_id):
-        async with postgres_pool.acquire() as conn: rows = await conn.fetch("select id,api_id_access from users where id=$1", user_id)
-        if not rows: raise Exception("user not found")
-        return rows[0]["api_id_access"]
-    user_api_id_access = None
-    if admin_check_mode == "realtime":user_api_id_access = await fetch_user_access(user["id"])
-    elif admin_check_mode == "cache":
-        user_api_id_access = users_access_cache.get(user["id"], "absent")
-        if user_api_id_access == "absent": user_api_id_access = await fetch_user_access(user["id"])
-    elif admin_check_mode == "token":
-        user_api_id_access = user.get("api_id_access","absent")
-        if user_api_id_access == "absent": raise Exception("token has no api_id_access key")
-    else: raise Exception("config_mode_check_is_admin=token/cache/realtime")
-    if not user_api_id_access: raise Exception("you are not admin")
-    user_api_id_access_list = parse_access_list(user_api_id_access); api_id = api_config.get(path, {}).get("id")
-    if not api_id: raise Exception("api id not mapped")
-    if api_id not in user_api_id_access_list: raise Exception("api access denied")
+async def func_check_admin(mode,user,path,api_config,postgres_pool,users_role_cache):
+    if not path.startswith("/admin"):return None
+    if not (cfg:=api_config.get(path)) or "role_allowed" not in cfg:raise Exception("role_allowed not mapped")
+    if (roles_allowed:=cfg.get("role_allowed")) is None:raise Exception("role_allowed is none")
+    roles_allowed=set(roles_allowed)
+    async def fetch_user_role(uid):
+        async with postgres_pool.acquire() as conn:rows=await conn.fetch("select role from users where id=$1",uid)
+        if not rows:raise Exception("user not found")
+        return rows[0]["role"]
+    if mode=="realtime":user_role=await fetch_user_role(user["id"])
+    elif mode=="cache":
+        user_role=users_role_cache.get(user["id"],"absent")
+        if user_role=="absent":user_role=await fetch_user_role(user["id"]);users_role_cache[user["id"]]=user_role
+    elif mode=="token":
+        user_role=user.get("role","absent")
+        if user_role=="absent":raise Exception("token has no role key")
+    else:raise Exception("config_mode_check_admin=token/cache/realtime")
+    if not isinstance(user_role,int):raise Exception("invalid role type")
+    if user_role is None:raise Exception("you are not admin")
+    if user_role not in roles_allowed:raise Exception("role access denied")
     return None
 
 from fastapi import Response

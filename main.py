@@ -31,7 +31,7 @@ async def func_lifespan(app:FastAPI):
    client_gemini=await func_gemini_client_read(config_gemini_key) if config_gemini_key else None
    #cache init
    cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else ({},{})
-   cache_users_api_id_access=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_api_id_access")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("api_id_access") else {}
+   cache_users_role=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("role") else {}
    cache_users_is_active=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
    #app state set
    func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
@@ -72,8 +72,8 @@ async def middleware(request,api_function):
       start,type,error,request.state.user=time.perf_counter(),None,None,{}
       st=request.app.state
       request.state.user=await st.func_check_token(request.headers,request.url.path,st.config_key_root,st.config_token_secret_key,st.config_api,st.func_token_decode)
-      await st.func_check_admin(request.state.user,request.url.path,st.config_api,st.config_mode_check_is_admin,st.client_postgres_pool,st.cache_users_api_id_access)
-      await st.func_check_is_active(request.state.user,request.url.path,st.config_api,st.config_mode_check_is_active,st.client_postgres_pool,st.cache_users_is_active)
+      await st.func_check_admin(st.config_mode_check_admin,request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.cache_users_role)
+      await st.func_check_is_active(st.config_mode_check_active,request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.cache_users_is_active)
       await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)
       response,type=await st.func_api_response(request,api_function,st.config_api,st.client_redis,request.state.user.get("id") if request.state.user else 0,st.func_api_response_background,st.func_check_cache)
    except Exception as e:error,response=await request.app.state.func_api_response_error(e,request.app.state.config_is_traceback,request.app.state.config_sentry_dsn)
