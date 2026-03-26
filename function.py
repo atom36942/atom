@@ -18,44 +18,10 @@ def func_structure_check(root, dirs=(), files=()):
         )
     return None
 
-import csv, tempfile, shutil, os
-from collections import defaultdict
-def func_csv_vlookup(p_path, c_path, p_search, c_search, c_src, p_tgt):
-    if len(p_search) != len(c_search): return print("Err: Col count mismatch")
-    s_lkp, f_lkp, r_opt = defaultdict(set), defaultdict(set), {'encoding': 'latin-1'}
-    try:
-        with open(c_path, 'r', **r_opt) as f:
-            for r in csv.DictReader(f):
-                v = str(r.get(c_src) or "").strip()
-                if not v: continue
-                k_f = tuple(str(r[c] or "").strip().lower() for c in c_search)
-                s_lkp[k_f].add(v)
-                f_lkp[k_f[0]].add(v)
-        fd, tmp_p = tempfile.mkstemp()
-        with os.fdopen(fd, 'w', newline='', encoding='latin-1') as tmp:
-            with open(p_path, 'r', **r_opt) as f:
-                reader = csv.DictReader(f)
-                fields = list(reader.fieldnames)
-                if p_tgt not in fields: fields.append(p_tgt)
-                writer = csv.DictWriter(tmp, fieldnames=fields)
-                writer.writeheader()
-                m, t = 0, 0
-                for r in reader:
-                    t += 1
-                    k_f = tuple(str(r[c] or "").strip().lower() for c in p_search)
-                    res = s_lkp.get(k_f) or f_lkp.get(k_f[0])
-                    if res: r[p_tgt], m = ", ".join(sorted(res)), m + 1
-                    writer.writerow(r)
-        shutil.move(tmp_p, p_path)
-        print(f"Rows: {t} | Matches: {m}")
-    except Exception as e:
-        if 'tmp_p' in locals() and os.path.exists(tmp_p): os.remove(tmp_p)
-        print(f"Error: {e}")
-
-async def func_check_config_api(api,request):
+async def func_check_config_api(api,app_routes):
     allowed={"id","is_token","is_active_check","cache_sec","ratelimiter_times_sec"}
     route_set=set()
-    for r in request.app.routes:
+    for r in app_routes:
         p=getattr(r,"path",None)
         if p:route_set.add(p)
     for path,cfg in api.items():
@@ -130,16 +96,6 @@ async def func_postgres_flush(app):
     await app.state.func_postgres_obj_create(app.state.client_postgres_pool,app.state.func_postgres_obj_serialize,app.state.cache_postgres_column_datatype,"flush")
     return None
     
-import inspect
-def func_override_vars(path):
-    ns = {}
-    with open(path, "r") as f:
-        exec(compile(f.read(), path, "exec"), ns, ns)
-    caller_globals = inspect.currentframe().f_back.f_globals
-    for k, v in ns.items():
-        if k.startswith("config_") and k in caller_globals:
-            caller_globals[k] = v
-
 from pathlib import Path
 import os
 import aiofiles
@@ -165,18 +121,17 @@ async def func_html_serve(name: str):
         raise HTTPException(500, "failed to read file")
     return responses.HTMLResponse(content=html)
 
-async def fund_reset_postgres_cache(request):
-    request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await request.app.state.func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
-    return None
+async def func_postgres_cache_reset(postgres_pool, func_postgres_schema_read):
+    return await func_postgres_schema_read(postgres_pool) if postgres_pool else ({},{})
 
-async def fund_reset_cache_users(request):
-    request.app.state.cache_users_api_id_access=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_api_id_access")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("api_id_access") else {}
-    request.app.state.cache_users_is_active=await request.app.state.func_postgres_map_column(request.app.state.client_postgres_pool,request.app.state.config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
-    return None
+async def func_users_cache_reset(postgres_pool, func_postgres_map_column, sql_config, postgres_schema):
+    c1=await func_postgres_map_column(postgres_pool,sql_config.get("cache_users_api_id_access")) if postgres_pool and postgres_schema.get("users",{}).get("api_id_access") else {}
+    c2=await func_postgres_map_column(postgres_pool,sql_config.get("cache_users_is_active")) if postgres_pool and postgres_schema.get("users",{}).get("is_active") else {}
+    return c1, c2
 
 import traceback,asyncpg,re
 from fastapi import responses
-async def func_api_response_error(request,e):
+async def func_api_response_error(e,is_traceback,sentry_dsn):
     if isinstance(e,asyncpg.exceptions.UniqueViolationError):col=re.findall(r'\((.*?)\)=',e.detail or "");error=(col[0].replace("_"," ")+" already exists") if col else "duplicate value"
     elif isinstance(e,asyncpg.exceptions.CheckViolationError):c=e.constraint_name or "";error=re.sub(r"^constraint_|_regex$","",c).replace("_"," ")+" invalid"
     elif isinstance(e,asyncpg.exceptions.ForeignKeyViolationError):col=re.findall(r'\((.*?)\)=',e.detail or "");error=(col[0].replace("_"," ")+" invalid reference") if col else "invalid reference"
@@ -187,82 +142,66 @@ async def func_api_response_error(request,e):
     elif isinstance(e,asyncpg.exceptions.DeadlockDetectedError):error="database deadlock retry"
     elif isinstance(e,asyncpg.exceptions.SerializationError):error="transaction conflict retry"
     else:error=str(e)
-    if request.app.state.config_is_traceback:print(traceback.format_exc())
+    if is_traceback:print(traceback.format_exc())
     response=responses.JSONResponse(status_code=400,content={"status":0,"message":error})
-    if request.app.state.config_sentry_dsn:sentry_sdk.capture_exception(e)
+    if sentry_dsn:import sentry_sdk;sentry_sdk.capture_exception(e)
     return error,response
 
-import asyncio
-async def func_api_log_create(start,request,response,type,error):
-   if request.app.state.config_is_log_api and request.app.state.cache_postgres_schema.get("log_api"):
-      api=request.url.path
-      obj={"ip_address":request.client.host,"created_by_id":request.state.user.get("id"),"api":api,"api_id":request.app.state.config_api.get(api,{}).get("id"),"method":request.method,"query_param":json.dumps(dict(request.query_params)),"status_code":response.status_code,"response_time_ms":int((time.perf_counter()-start) * 1000),"type":type,"description":error}
-      asyncio.create_task(request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"buffer","log_api",[obj],0,request.app.state.config_table.get("log_api",{}).get("buffer")))
+import asyncio,time
+async def func_api_log_create(start, ip_address, user_id, api, method, query_param_str, status_code, type, error, is_log_api, log_api_schema, api_id, func_postgres_obj_create, postgres_pool, func_postgres_obj_serialize, postgres_column_datatype, table_buffer):
+   if is_log_api and log_api_schema:
+      obj={"ip_address":ip_address,"created_by_id":user_id,"api":api,"api_id":api_id,"method":method,"query_param":query_param_str,"status_code":status_code,"response_time_ms":int((time.perf_counter()-start) * 1000),"type":type,"description":error}
+      asyncio.create_task(func_postgres_obj_create(postgres_pool,func_postgres_obj_serialize,postgres_column_datatype,"buffer","log_api",[obj],0,table_buffer))
       return None
 
-import json, subprocess, sys
-def func_upgrade_packages():
-    subprocess.run([sys.executable, "-m", "pip", "install", "-U", "pip"], capture_output=True)
-    out = subprocess.check_output([sys.executable, "-m", "pip", "list", "--outdated", "--format=json"])
-    packages = [p["name"] for p in json.loads(out)]
-    status = {"upgraded": [], "failed": []}
-    for pkg in packages:
-        res = subprocess.run([sys.executable, "-m", "pip", "install", "-U", "--upgrade-strategy", "only-if-needed", pkg], capture_output=True)
-        status["upgraded" if res.returncode == 0 else "failed"].append(pkg)
-    return status
-    
-async def func_obj_create_logic(request,role):
-    obj_query=await request.app.state.func_request_param_read(request,"query",[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
-    obj_body=await request.app.state.func_request_param_read(request,"body",[])
+async def func_obj_create_logic(obj_query, obj_body, role, user_id, table_create_my_list, table_create_public_list, column_blocked_list, postgres_schema, postgres_pool, func_postgres_obj_serialize, postgres_column_datatype, table_config, func_producer_logic, celery_producer, kafka_producer, rabbitmq_producer, redis_producer, channel_name, func_celery_producer, func_kafka_producer, func_rabbitmq_producer, func_redis_producer, func_postgres_obj_create):
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
-    if obj_query["table"]=="users":obj_query["is_serialize"]=1
+    if obj_query.get("table")=="users":obj_query["is_serialize"]=1
     if role=="my":
-        if obj_query["table"] not in request.app.state.config_table_create_my_list:raise Exception("table not allowed")
-        if any(any(k in request.app.state.config_column_blocked_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+        if obj_query.get("table") not in table_create_my_list:raise Exception("table not allowed")
+        if any(any(k in column_blocked_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
     elif role=="public":
-        if obj_query["table"] not in request.app.state.config_table_create_public_list:raise Exception("table not allowed")
-        if any(any(k in request.app.state.config_column_blocked_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
+        if obj_query.get("table") not in table_create_public_list:raise Exception("table not allowed")
+        if any(any(k in column_blocked_list for k in x) for x in obj_list):raise Exception(f"key not allowed")
     elif role=="admin":
         pass
-    if request.state.user.get("id") and "created_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):[item.__setitem__("created_by_id",request.state.user.get("id")) for item in obj_list]
-    if not obj_query["queue"]:
-        output=await request.app.state.func_postgres_obj_create(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["mode"],obj_query["table"],obj_list,obj_query["is_serialize"],request.app.state.config_table.get(obj_query["table"],{}).get("buffer"))
-    elif obj_query["queue"]:
-        payload={"func":"func_postgres_obj_create","mode":obj_query["mode"],"table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"buffer":request.app.state.config_table.get(obj_query["table"],{}).get("buffer")}
-        output=await request.app.state.func_producer_logic(payload,obj_query["queue"],request)
+    if user_id and "created_by_id" in postgres_schema.get(obj_query.get("table"),{}):[item.__setitem__("created_by_id",user_id) for item in obj_list]
+    if not obj_query.get("queue"):
+        output=await func_postgres_obj_create(postgres_pool,func_postgres_obj_serialize,postgres_column_datatype,obj_query.get("mode"),obj_query.get("table"),obj_list,obj_query.get("is_serialize"),table_config.get(obj_query.get("table"),{}).get("buffer"))
+    elif obj_query.get("queue"):
+        payload={"func":"func_postgres_obj_create","mode":obj_query.get("mode"),"table":obj_query.get("table"),"obj_list":obj_list,"is_serialize":obj_query.get("is_serialize"),"buffer":table_config.get(obj_query.get("table"),{}).get("buffer")}
+        output=await func_producer_logic(payload,obj_query.get("queue"),celery_producer,kafka_producer,rabbitmq_producer,redis_producer,channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer)
     return output
 
-async def func_obj_update_logic(request,role):
-    obj_query=await request.app.state.func_request_param_read(request,"query",[("table","str",1,None),("is_serialize","int",0,0),("otp","int",0,None),("queue","str",0,None)])
-    obj_body=await request.app.state.func_request_param_read(request,"body",[])
+async def func_obj_update_logic(obj_query, obj_body, role, user_id, column_blocked_list, column_single_update_list, postgres_schema, postgres_pool, func_postgres_obj_serialize, postgres_column_datatype, func_producer_logic, celery_producer, kafka_producer, rabbitmq_producer, redis_producer, channel_name, func_celery_producer, func_kafka_producer, func_rabbitmq_producer, func_redis_producer, func_postgres_obj_update, func_otp_verify, expiry_sec_otp):
     obj_list=obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
-    if obj_query["table"]=="users":obj_query["is_serialize"]=1
+    if obj_query.get("table")=="users":obj_query["is_serialize"]=1
     if role=="my":
-        created_by_id=None if obj_query["table"]=="users" else request.state.user["id"]
-        if any(any(k in request.app.state.config_column_blocked_list for k in x) for x in obj_list):raise Exception("key not allowed")
-        if obj_query["table"]=="users":
+        created_by_id=None if obj_query.get("table")=="users" else user_id
+        if any(any(k in column_blocked_list for k in x) for x in obj_list):raise Exception("key not allowed")
+        if obj_query.get("table")=="users":
             if len(obj_list)!=1:raise Exception("multi object issue")
-            if obj_list[0]["id"]!=request.state.user["id"]:raise Exception("ownership issue")
+            if obj_list[0].get("id")!=user_id:raise Exception("ownership issue")
             if "is_deleted" in obj_list[0]:raise Exception("use account delete api")
-            if any(key in obj_list[0] and len(obj_list[0])!=2 for key in request.app.state.config_column_single_update_list):raise Exception("obj length should be 2")
-            if any(k in obj_list[0] for k in ("email","mobile")):await request.app.state.func_otp_verify(request.app.state.client_postgres_pool,obj_query.get("otp"),obj_list[0].get("email"),obj_list[0].get("mobile"),request.app.state.config_expiry_sec_otp)
+            if any(key in obj_list[0] and len(obj_list[0])!=2 for key in column_single_update_list):raise Exception("obj length should be 2")
+            if any(k in obj_list[0] for k in ("email","mobile")):await func_otp_verify(postgres_pool,obj_query.get("otp"),obj_list[0].get("email"),obj_list[0].get("mobile"),expiry_sec_otp)
     elif role=="public":
         raise Exception("not allowed")
     elif role=="admin":
         created_by_id=None
-    if request.state.user.get("id") and "updated_by_id" in request.app.state.cache_postgres_schema.get(obj_query["table"],{}):[item.__setitem__("updated_by_id",request.state.user.get("id")) for item in obj_list]
-    if not obj_query["queue"]:
-        output=await request.app.state.func_postgres_obj_update(request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_query["table"],obj_list,obj_query["is_serialize"],created_by_id)
-    elif obj_query["queue"]:
-        payload={"func":"func_postgres_obj_update","table":obj_query["table"],"obj_list":obj_list,"is_serialize":obj_query["is_serialize"],"created_by_id":created_by_id}
-        output=await request.app.state.func_producer_logic(payload,obj_query["queue"],request)
+    if user_id and "updated_by_id" in postgres_schema.get(obj_query.get("table"),{}):[item.__setitem__("updated_by_id",user_id) for item in obj_list]
+    if not obj_query.get("queue"):
+        output=await func_postgres_obj_update(postgres_pool,func_postgres_obj_serialize,postgres_column_datatype,obj_query.get("table"),obj_list,obj_query.get("is_serialize"),created_by_id)
+    elif obj_query.get("queue"):
+        payload={"func":"func_postgres_obj_update","table":obj_query.get("table"),"obj_list":obj_list,"is_serialize":obj_query.get("is_serialize"),"created_by_id":created_by_id}
+        output=await func_producer_logic(payload,obj_query.get("queue"),celery_producer,kafka_producer,rabbitmq_producer,redis_producer,channel_name,func_celery_producer,func_kafka_producer,func_rabbitmq_producer,func_redis_producer)
     return output
 
-async def func_producer_logic(payload,queue,request):
-   if queue=="celery":output=await request.app.state.func_celery_producer(request.app.state.client_celery_producer,payload["func"],[v for k,v in payload.items() if k!="func"])
-   elif queue=="kafka":output=await request.app.state.func_kafka_producer(request.app.state.client_kafka_producer,request.app.state.config_channel_name,payload)
-   elif queue=="rabbitmq":output=await request.app.state.func_rabbitmq_producer(request.app.state.client_rabbitmq_producer,request.app.state.config_channel_name,payload)
-   elif queue=="redis":output=await request.app.state.func_redis_producer(request.app.state.client_redis_producer,request.app.state.config_channel_name,payload)
+async def func_producer_logic(payload, queue, celery_producer, kafka_producer, rabbitmq_producer, redis_producer, channel_name, func_celery_producer, func_kafka_producer, func_rabbitmq_producer, func_redis_producer):
+   if queue=="celery":output=await func_celery_producer(celery_producer,payload["func"],[v for k,v in payload.items() if k!="func"])
+   elif queue=="kafka":output=await func_kafka_producer(kafka_producer,channel_name,payload)
+   elif queue=="rabbitmq":output=await func_rabbitmq_producer(rabbitmq_producer,channel_name,payload)
+   elif queue=="redis":output=await func_redis_producer(redis_producer,channel_name,payload)
    return output
 
 import asyncio
@@ -276,12 +215,6 @@ async def func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj
     print(n)
     return output
 
-import csv
-def func_csv_to_obj_list(path):
-    with open(path,"r",encoding="utf-8") as f:
-        reader=csv.DictReader(f)
-        return [row for row in reader]
-    
 import csv, io
 async def func_api_file_to_obj_list(file):
     text = io.TextIOWrapper(file.file, encoding="utf-8")
@@ -290,22 +223,14 @@ async def func_api_file_to_obj_list(file):
     await file.close()
     return obj_list
 
-from pathlib import Path
-import uuid, shutil
-async def func_api_file_save(file,output_path=None):
-    if not output_path:output_path=f"export/{uuid.uuid4().hex}{Path(file.filename or '').suffix}"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "wb") as f: shutil.copyfileobj(file.file, f)
-    return output_path
-
 def func_config_override_from_env(g):
-    import json, os
+    import json, os, ast
     from dotenv import load_dotenv
     load_dotenv()
     for k,v in list(g.items()):
         if k.startswith("config_"):
             if (e:=os.getenv(k)) is not None:
-                if k.endswith("_list"):g[k]=json.loads(e)
+                if isinstance(g[k], list) or k.endswith("_list"):g[k]=json.loads(e)
                 elif isinstance(v,bool):g[k]=e.lower()=="true"
                 elif isinstance(v,int):g[k]=int(e)
                 elif isinstance(v,dict):
@@ -315,6 +240,13 @@ def func_config_override_from_env(g):
                     try:g[k]=int(e)
                     except:g[k]=e
             if isinstance(g[k], list):g[k]=tuple(g[k])
+    try:
+        with open("config.py","r") as f:
+            for n in ast.parse(f.read()).body:
+                if isinstance(n,ast.Assign) and len(n.targets)==1 and isinstance(n.targets[0],ast.Name) and isinstance(n.value,ast.Name):
+                    t,v = n.targets[0].id, n.value.id
+                    if t.startswith("config_") and v.startswith("config_") and os.getenv(t) is None:g[t]=g[v]
+    except Exception:pass
 
 async def func_postgres_runner(postgres_pool,mode,query):
     query_lower=query.lower()
@@ -654,25 +586,6 @@ async def func_postgres_stream(postgres_pool, query, batch_size=None):
                 yield stream.getvalue()
                 stream.seek(0); stream.truncate(0)
 
-from pathlib import Path
-import csv, re, uuid
-async def func_postgres_export(postgres_pool, query, batch_size=None, output_path=None):
-    if not output_path: output_path = f"export/{uuid.uuid4().hex}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.I): raise Exception("Only read-only queries allowed")
-    f, batch_size = None, batch_size or 1000
-    try:
-        async with postgres_pool.acquire() as conn, conn.transaction():
-            writer = None
-            async for r in conn.cursor(query, prefetch=batch_size):
-                if not writer:
-                    f = open(output_path, "w", newline="", encoding="utf-8")
-                    writer = csv.writer(f); writer.writerow(r.keys())
-                writer.writerow(r.values())
-    finally:
-        if f: f.close()
-    return output_path
-
 async def func_postgres_init(postgres_pool, postgres, postgres_is_extension, is_match_column):
     if not postgres or "table" not in postgres: raise Exception("postgres.table missing")
     async def _validate():
@@ -860,57 +773,6 @@ async def func_postgres_client_read(postgres_url,postgres_min_connection=None,po
     postgres_pool=await asyncpg.create_pool(dsn=postgres_url,min_size=postgres_min_connection,max_size=postgres_max_connection,timeout=timeout,command_timeout=command_timeout)
     return postgres_pool
 
-import random
-from mimesis import Person,Address,Food,Text,Code,Datetime
-async def func_postgres_create_fake_data(postgres_pool,total_row=None,batch_size=None):
-    if not total_row:total_row=1000
-    if not batch_size:batch_size=1000
-    person,address,food,text_gen,code,dt = Person(),Address(),Food(),Text(),Code(),Datetime()
-    tables = {
-    "customers": [("name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("birth_date", "DATE", lambda: dt.date()), ("signup_code", "TEXT", lambda: code.imei()), ("loyalty_points", "INT", lambda: random.randint(0, 10000)), ("favorite_fruit", "TEXT", lambda: food.fruit())],
-    "orders": [("order_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("order_date", "DATE", lambda: dt.date()), ("shipping_city", "TEXT", lambda: address.city()), ("total_amount", "INT", lambda: random.randint(10, 5000)), ("status", "TEXT", lambda: random.choice(["pending", "shipped", "delivered", "cancelled"])), ("item_count", "INT", lambda: random.randint(1, 20)), ("shipping_country", "TEXT", lambda: address.country())],
-    "products": [("product_name", "TEXT", lambda: food.fruit()), ("category", "TEXT", lambda: random.choice(["electronics", "clothing", "food", "books"])), ("price", "INT", lambda: random.randint(5, 1000)), ("supplier_city", "TEXT", lambda: address.city()), ("stock_quantity", "INT", lambda: random.randint(0, 500)), ("manufacture_date", "DATE", lambda: dt.date()), ("expiry_date", "DATE", lambda: dt.date()), ("sku_code", "TEXT", lambda: code.imei())],
-    "employees": [("full_name", "TEXT", lambda: person.full_name()), ("email", "TEXT", lambda: person.email()), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Marketing"])), ("city", "TEXT", lambda: address.city()), ("salary", "INT", lambda: random.randint(30000, 150000)), ("hire_date", "DATE", lambda: dt.date()), ("employee_id", "TEXT", lambda: code.imei())],
-    "suppliers": [("supplier_name", "TEXT", lambda: person.full_name()), ("contact_email", "TEXT", lambda: person.email()), ("city", "TEXT", lambda: address.city()), ("country", "TEXT", lambda: address.country()), ("phone_number", "TEXT", lambda: person.telephone()), ("rating", "INT", lambda: random.randint(1, 5))],
-    "invoices": [("invoice_number", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("invoice_date", "DATE", lambda: dt.date()), ("amount_due", "INT", lambda: random.randint(100, 10000)), ("due_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["paid", "unpaid", "overdue"]))],
-    "payments": [("payment_id", "TEXT", lambda: code.imei()), ("invoice_number", "TEXT", lambda: code.imei()), ("payment_date", "DATE", lambda: dt.date()), ("amount", "INT", lambda: random.randint(50, 10000)), ("payment_method", "TEXT", lambda: random.choice(["credit_card", "paypal", "bank_transfer"])), ("status", "TEXT", lambda: random.choice(["completed", "pending", "failed"]))],
-    "departments": [("department_name", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Marketing"])), ("manager", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city()), ("budget", "INT", lambda: random.randint(50000, 1000000))],
-    "projects": [("project_name", "TEXT", lambda: text_gen.word()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("budget", "INT", lambda: random.randint(10000, 500000)), ("department", "TEXT", lambda: random.choice(["HR", "Engineering", "Sales", "Marketing"]))],
-    "inventory": [("item_name", "TEXT", lambda: food.spices()), ("quantity", "INT", lambda: random.randint(0, 1000)), ("warehouse_location", "TEXT", lambda: address.city()), ("last_restock_date", "DATE", lambda: dt.date())],
-    "shipments": [("shipment_id", "TEXT", lambda: code.imei()), ("order_number", "TEXT", lambda: code.imei()), ("shipment_date", "DATE", lambda: dt.date()), ("delivery_date", "DATE", lambda: dt.date()), ("status", "TEXT", lambda: random.choice(["in_transit", "delivered", "delayed"]))],
-    "reviews": [("review_id", "TEXT", lambda: code.imei()), ("product_name", "TEXT", lambda: food.fruit()), ("customer_name", "TEXT", lambda: person.full_name()), ("rating", "INT", lambda: random.randint(1, 5)), ("review_date", "DATE", lambda: dt.date()), ("comments", "TEXT", lambda: text_gen.sentence())],
-    "tasks": [("task_name", "TEXT", lambda: text_gen.word()), ("assigned_to", "TEXT", lambda: person.full_name()), ("due_date", "DATE", lambda: dt.date()), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"])), ("status", "TEXT", lambda: random.choice(["pending", "in_progress", "completed"]))],
-    "assets": [("asset_tag", "TEXT", lambda: code.imei()), ("asset_name", "TEXT", lambda: food.fruit()), ("purchase_date", "DATE", lambda: dt.date()), ("warranty_expiry", "DATE", lambda: dt.date()), ("value", "INT", lambda: random.randint(100, 10000))],
-    "locations": [("location_name", "TEXT", lambda: address.city()), ("address", "TEXT", lambda: address.address()), ("country", "TEXT", lambda: address.country()), ("postal_code", "TEXT", lambda: address.postal_code())],
-    "meetings": [("meeting_id", "TEXT", lambda: code.imei()), ("topic", "TEXT", lambda: text_gen.word()), ("meeting_date", "DATE", lambda: dt.date()), ("organizer", "TEXT", lambda: person.full_name()), ("location", "TEXT", lambda: address.city())],
-    "tickets": [("ticket_id", "TEXT", lambda: code.imei()), ("issue", "TEXT", lambda: text_gen.sentence()), ("reported_by", "TEXT", lambda: person.full_name()), ("status", "TEXT", lambda: random.choice(["open", "closed", "in_progress"])), ("priority", "TEXT", lambda: random.choice(["low", "medium", "high"]))],
-    "subscriptions": [("subscription_id", "TEXT", lambda: code.imei()), ("customer_name", "TEXT", lambda: person.full_name()), ("start_date", "DATE", lambda: dt.date()), ("end_date", "DATE", lambda: dt.date()), ("plan_type", "TEXT", lambda: random.choice(["basic", "premium", "enterprise"]))],
-    }
-    async def create_tables(conn,tables):
-        for table_name, columns in tables.items():
-            await conn.execute(f"DROP TABLE IF EXISTS {table_name};")
-            columns_def = ", ".join(f"{name} {dtype}" for name, dtype, _ in columns)
-            await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id bigint primary key generated always as identity not null, {columns_def});")
-    async def insert_batch(conn, table_name, columns, batch_values):
-        cols = ", ".join(name for name, _, _ in columns)
-        placeholders = ", ".join(f"${i+1}" for i in range(len(columns)))
-        await conn.executemany(f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})", batch_values)
-    async def generate_data(conn,insert_batch,tables,total_row,batch_size):
-        for table_name, columns in tables.items():
-            print(f"Inserting data into {table_name}...")
-            batch_values = []
-            for _ in range(total_row):
-                batch_values.append(tuple(gen() for _, _, gen in columns))
-                if len(batch_values) == batch_size:
-                    await insert_batch(conn, table_name, columns, batch_values)
-                    batch_values.clear()
-            if batch_values:await insert_batch(conn, table_name, columns, batch_values)
-            print(f"Completed inserting {total_row} rows into {table_name}")
-    async with postgres_pool.acquire() as conn:
-        await create_tables(conn,tables)
-        await generate_data(conn,insert_batch,tables,total_row,batch_size)
-    return None
-
 import redis.asyncio as redis
 async def func_redis_client_read(redis_url):
    r=redis.Redis.from_pool(redis.ConnectionPool.from_url(redis_url))
@@ -926,25 +788,12 @@ async def func_redis_producer(redis,channel_name,payload):
    output=await redis.publish(channel_name,json.dumps(payload))
    return output
 
-import json
-async def func_redis_object_read(redis,key):
-   output=await redis.get(key)
-   if output:output=json.loads(output)
-   return output
-
 async def func_redis_object_create(redis,key_list,obj_list,expiry_sec):
    async with redis.pipeline(transaction=True) as pipe:
       for index,obj in enumerate(obj_list):
          key=key_list[index]
          if not expiry_sec:pipe.set(key,json.dumps(obj))
          else:pipe.setex(key,expiry_sec,json.dumps(obj))
-      await pipe.execute()
-   return None
-
-async def func_redis_object_delete(redis,obj_list):
-   async with redis.pipeline(transaction=True) as pipe:
-      for obj in obj_list:
-         pipe.delete(obj["key"])
       await pipe.execute()
    return None
 
@@ -1076,59 +925,55 @@ async def func_kafka_producer(kafka_producer,channel_name,payload):
    output=await kafka_producer.send_and_wait(channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
-async def func_check_ratelimiter(request):
-    if not request.app.state.config_api.get(request.url.path,{}).get("ratelimiter_times_sec"):return None
-    client_redis_ratelimiter=request.app.state.client_redis_ratelimiter
-    if not client_redis_ratelimiter:raise Exception("config_redis_url_ratelimiter missing")
-    limit,window=request.app.state.config_api.get(request.url.path).get("ratelimiter_times_sec")
-    identifier=request.state.user.get("id") if request.state.user else request.client.host
-    ratelimiter_key=f"ratelimiter:{request.url.path}:{identifier}"
-    current_count=await client_redis_ratelimiter.get(ratelimiter_key)
+async def func_check_ratelimiter(redis_client, api_config, path, identifier):
+    if not api_config.get(path,{}).get("ratelimiter_times_sec"):return None
+    if not redis_client:raise Exception("redis_url_ratelimiter missing")
+    limit,window=api_config.get(path).get("ratelimiter_times_sec")
+    ratelimiter_key=f"ratelimiter:{path}:{identifier}"
+    current_count=await redis_client.get(ratelimiter_key)
     if current_count and int(current_count)+1>limit:raise Exception("ratelimiter exceeded")
-    pipe=client_redis_ratelimiter.pipeline()
+    pipe=redis_client.pipeline()
     pipe.incr(ratelimiter_key)
     if not current_count:pipe.expire(ratelimiter_key,window)
     await pipe.execute()
     return None
 
-async def func_check_is_active(request):
-    if not request.app.state.config_api.get(request.url.path,{}).get("is_active_check")==1 or not request.state.user: return None
+async def func_check_is_active(user, path, api_config, active_check_mode, postgres_pool, users_active_cache):
+    if not api_config.get(path,{}).get("is_active_check")==1 or not user: return None
     async def fetch_user_is_active(user_id):
-        async with request.app.state.client_postgres_pool.acquire() as conn: rows=await conn.fetch("select id,is_active from users where id=$1",user_id)
+        async with postgres_pool.acquire() as conn: rows=await conn.fetch("select id,is_active from users where id=$1",user_id)
         if not rows: raise Exception("user not found")
         return rows[0]["is_active"]
-    mode=request.app.state.config_mode_check_is_active; user_is_active=None
-    if mode=="realtime":
-        user_is_active=await fetch_user_is_active(request.state.user["id"])
-    elif mode=="cache":
-        user_is_active=request.app.state.cache_users_is_active.get(request.state.user["id"],"absent")
-        if user_is_active=="absent": user_is_active=await fetch_user_is_active(request.state.user["id"])
-    elif mode=="token":
-        user_is_active=request.state.user.get("is_active","absent")
+    user_is_active=None
+    if active_check_mode=="realtime":user_is_active=await fetch_user_is_active(user["id"])
+    elif active_check_mode=="cache":
+        user_is_active=users_active_cache.get(user["id"],"absent")
+        if user_is_active=="absent": user_is_active=await fetch_user_is_active(user["id"])
+    elif active_check_mode=="token":
+        user_is_active=user.get("is_active","absent")
         if user_is_active=="absent": raise Exception("token has no is_active key")
     else: raise Exception("config_mode_check_is_active=token/cache/realtime")
     if user_is_active==0: raise Exception("user not active")
     return None
 
-async def func_check_admin(request):
-    if not request.url.path.startswith("/admin"): return None
+async def func_check_admin(user, path, api_config, admin_check_mode, postgres_pool, users_access_cache):
+    if not path.startswith("/admin"): return None
     def parse_access_list(access_str): return [int(item.strip()) for item in access_str.split(",")] if access_str else []
     async def fetch_user_access(user_id):
-        async with request.app.state.client_postgres_pool.acquire() as conn: rows = await conn.fetch("select id,api_id_access from users where id=$1", user_id)
+        async with postgres_pool.acquire() as conn: rows = await conn.fetch("select id,api_id_access from users where id=$1", user_id)
         if not rows: raise Exception("user not found")
         return rows[0]["api_id_access"]
-    mode = request.app.state.config_mode_check_is_admin; user_api_id_access = None
-    if mode == "realtime":
-        user_api_id_access = await fetch_user_access(request.state.user["id"])
-    elif mode == "cache":
-        user_api_id_access = request.app.state.cache_users_api_id_access.get(request.state.user["id"], "absent")
-        if user_api_id_access == "absent": user_api_id_access = await fetch_user_access(request.state.user["id"])
-    elif mode == "token":
-        user_api_id_access = request.state.user.get("api_id_access","absent")
+    user_api_id_access = None
+    if admin_check_mode == "realtime":user_api_id_access = await fetch_user_access(user["id"])
+    elif admin_check_mode == "cache":
+        user_api_id_access = users_access_cache.get(user["id"], "absent")
+        if user_api_id_access == "absent": user_api_id_access = await fetch_user_access(user["id"])
+    elif admin_check_mode == "token":
+        user_api_id_access = user.get("api_id_access","absent")
         if user_api_id_access == "absent": raise Exception("token has no api_id_access key")
     else: raise Exception("config_mode_check_is_admin=token/cache/realtime")
     if not user_api_id_access: raise Exception("you are not admin")
-    user_api_id_access_list = parse_access_list(user_api_id_access); api_id = request.app.state.config_api.get(request.url.path, {}).get("id")
+    user_api_id_access_list = parse_access_list(user_api_id_access); api_id = api_config.get(path, {}).get("id")
     if not api_id: raise Exception("api id not mapped")
     if api_id not in user_api_id_access_list: raise Exception("api access denied")
     return None
@@ -1136,19 +981,19 @@ async def func_check_admin(request):
 from fastapi import Response
 import gzip, base64, time
 inmemory_cache_api = {}
-async def func_check_cache(mode,request,response):
+async def func_check_cache(mode, url_path, query_params, api_config, redis_client, user_id, response):
     def should_cache(expire_sec): return expire_sec is not None and expire_sec > 0
     def build_cache_key(path, qp, uid): return f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(qp.items()))}:{uid}"
     def compress(body): return base64.b64encode(gzip.compress(body)).decode()
     def decompress(data): return gzip.decompress(base64.b64decode(data)).decode()
     if mode not in ["get","set"]: raise Exception("mode=get/set")
-    uid = request.state.user.get("id") if "my/" in request.url.path else 0
-    cache_key = build_cache_key(request.url.path, request.query_params, uid)
-    cache_mode, expire_sec = request.app.state.config_api.get(request.url.path, {}).get("cache_sec", (None, None))
+    uid = user_id if "my/" in url_path else 0
+    cache_key = build_cache_key(url_path, query_params, uid)
+    cache_mode, expire_sec = api_config.get(url_path, {}).get("cache_sec", (None, None))
     if not should_cache(expire_sec): return None if mode == "get" else response
     if mode == "get":
         data = None
-        if cache_mode == "redis": data = await request.app.state.client_redis.get(cache_key)
+        if cache_mode == "redis": data = await redis_client.get(cache_key)
         elif cache_mode == "inmemory":
             item = inmemory_cache_api.get(cache_key)
             if item and item["expire_at"] > time.time(): data = item["data"]
@@ -1158,47 +1003,46 @@ async def func_check_cache(mode,request,response):
         body = getattr(response, "body", None)
         if body is None: body = b"".join([c async for c in response.body_iterator])
         comp = compress(body)
-        if cache_mode == "redis": await request.app.state.client_redis.setex(cache_key, expire_sec, comp)
+        if cache_mode == "redis": await redis_client.setex(cache_key, expire_sec, comp)
         elif cache_mode == "inmemory": inmemory_cache_api[cache_key] = {"data": comp, "expire_at": time.time() + expire_sec}
         return Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
     
 from fastapi import Request,responses
 from starlette.background import BackgroundTask
-async def func_api_response_background(request,api_function):
-   body=await request.body()
-   async def receive():return {"type":"http.request","body":body}
+async def func_api_response_background(scope, body_bytes, api_function):
+   async def receive():return {"type":"http.request","body":body_bytes}
    async def api_func_new():
-      request_new=Request(scope=request.scope,receive=receive)
+      request_new=Request(scope=scope,receive=receive)
       await api_function(request_new)
    response=responses.JSONResponse(status_code=200,content={"status":1,"message":"added in background"})
    response.background=BackgroundTask(api_func_new)
    return response
 
-async def func_api_response(request,api_function):
-    cache_sec=request.app.state.config_api.get(request.url.path,{}).get("cache_sec")
-    response,type=None,None
-    if request.query_params.get("is_background")=="1":response=await request.app.state.func_api_response_background(request,api_function);type=1
-    elif cache_sec:response=await request.app.state.func_check_cache("get",request,None);type=2
+async def func_api_response(request, api_function, api_config, redis_client, user_id, func_background, func_cache):
+    cache_sec=api_config.get(request.url.path,{}).get("cache_sec")
+    response,type,qp=None,None,dict(request.query_params)
+    if qp.get("is_background")=="1":
+        body=await request.body()
+        response=await func_background(request.scope,body,api_function);type=1
+    elif cache_sec:response=await func_cache("get",request.url.path,qp,api_config,redis_client,user_id,None);type=2
     if not response:
         response=await api_function(request);type=3
-        if cache_sec:response=await request.app.state.func_check_cache("set",request,response);type=4
+        if cache_sec:response=await func_cache("set",request.url.path,qp,api_config,redis_client,user_id,response);type=4
     return response,type
 
-async def func_check_token(request):
+async def func_check_token(headers, path, root_key, token_secret_key, api_config, func_decode_token):
     user={}
-    api=request.url.path
-    token=request.headers.get("Authorization").split("Bearer ",1)[1] if request.headers.get("Authorization") and request.headers.get("Authorization").startswith("Bearer ") else None
-    if api.startswith("/root"):
+    token=headers.get("Authorization").split("Bearer ",1)[1] if headers.get("Authorization") and headers.get("Authorization").startswith("Bearer ") else None
+    if path.startswith("/root"):
         if not token:raise Exception("token missing")
-        if token!=request.app.state.config_key_root:raise Exception("token mismatch")
+        if token!=root_key:raise Exception("token mismatch")
     else:
-        if token:user=await request.app.state.func_token_decode(token,request.app.state.config_key_jwt)
-        if api.startswith("/my") and not token:raise Exception("token missing")
-        elif api.startswith("/private") and not token:raise Exception("token missing")
-        elif api.startswith("/admin") and not token:raise Exception("token missing")
-        elif request.app.state.config_api.get(api,{}).get("is_token")==1 and not token:raise Exception("token missing")
-    request.state.user=user
-    return None
+        if token:user=await func_decode_token(token,token_secret_key)
+        if path.startswith("/my") and not token:raise Exception("token missing")
+        elif path.startswith("/private") and not token:raise Exception("token missing")
+        elif path.startswith("/admin") and not token:raise Exception("token missing")
+        elif api_config.get(path,{}).get("is_token")==1 and not token:raise Exception("token missing")
+    return user
 
 import jwt,json
 async def func_token_decode(token,key_jwt):
@@ -1283,16 +1127,6 @@ def func_add_router(app):
             if f.name.startswith("router"): load(root, f)
         elif "router" in rel.parts[:-1]:
             load(root, f)
-
-async def func_ownership_check(postgres_pool,table,id,user_id):
-    if table == "users":
-        if id != user_id:raise Exception("obj ownership issue")
-    else:
-        query = f"SELECT created_by_id FROM {table} WHERE id = $1;"
-        row = await postgres_pool.fetchrow(query, id)
-        if not row:raise Exception("no obj")
-        if row["created_by_id"] != user_id:raise Exception("obj ownership issue")
-    return None
 
 async def func_user_sql_read(postgres_pool,sql,user_id):
     obj = sql.get("profile_metadata", {})
@@ -1442,10 +1276,8 @@ async def func_message_delete_bulk(mode,postgres_pool,user_id):
    return None
 
 import hashlib
-def func_encode_sha256(data):
-    return hashlib.sha256(str(data).encode()).hexdigest()
-
 async def func_auth_signup_username_password(postgres_pool,type,username,password):
+    password=hashlib.sha256(str(password).encode()).hexdigest()
     query="insert into users (type,username,password) values ($1,$2,$3) returning *;"
     async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username,password)
@@ -1458,7 +1290,9 @@ async def func_auth_signup_username_password_bigint(postgres_pool,type,username_
         output = await conn.fetch(query,type,username_bigint,password_bigint)
     return output[0]
 
+import hashlib
 async def func_auth_login_password_username(postgres_pool,type,password,username):
+    password=hashlib.sha256(str(password).encode()).hexdigest()
     query="select * from users where type=$1 and username=$2 and password=$3 order by id desc limit 1;"
     async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,username,password)
@@ -1474,7 +1308,9 @@ async def func_auth_login_password_username_bigint(postgres_pool,type,password_b
     if not user: raise Exception("user not found")
     return user
 
+import hashlib
 async def func_auth_login_password_email(postgres_pool,type,password,email):
+    password=hashlib.sha256(str(password).encode()).hexdigest()
     query="select * from users where type=$1 and email=$2 and password=$3 order by id desc limit 1;"
     async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,email,password)
@@ -1482,7 +1318,9 @@ async def func_auth_login_password_email(postgres_pool,type,password,email):
     if not user: raise Exception("user not found")
     return user
 
+import hashlib
 async def func_auth_login_password_mobile(postgres_pool,type,password,mobile):
+    password=hashlib.sha256(str(password).encode()).hexdigest()
     query="select * from users where type=$1 and mobile=$2 and password=$3 order by id desc limit 1;"
     async with postgres_pool.acquire() as conn:
         output = await conn.fetch(query,type,mobile,password)
@@ -1533,38 +1371,6 @@ from openai import OpenAI
 def func_openai_client_read(openai_key):
    openai=OpenAI(api_key=openai_key)
    return openai
-
-async def func_openai_prompt(openai,model,prompt,is_web_search,previous_response_id):
-   if not openai or not model or not prompt:raise Exception("param missing")
-   params={"model":model,"input":prompt}
-   if is_web_search==1:params["tools"]=[{"type":"web_search"}]
-   if previous_response_id:params["previous_response_id"]=previous_response_id
-   output=openai.responses.create(**params)
-   return output
-
-import base64
-async def func_openai_ocr(openai,model,file,prompt):
-   contents=await file.read()
-   b64_image=base64.b64encode(contents).decode("utf-8")
-   output=openai.responses.create(model=model,input=[{"role":"user","content":[{"type":"input_text","text":prompt},{"type":"input_image","image_url":f"data:image/png;base64,{b64_image}"},],}],)
-   return output
-
-from pathlib import Path
-import uuid, pytesseract
-from PIL import Image
-from pdf2image import convert_from_path
-async def func_ocr_tesseract_export(input_path, output_path=None):
-    if not output_path: output_path = f"export/{uuid.uuid4().hex}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    if input_path.lower().endswith(".pdf"):
-        text = "\n".join(
-            pytesseract.image_to_string(img, lang="eng")
-            for img in convert_from_path(input_path)
-        )
-    else:
-        text = pytesseract.image_to_string(Image.open(input_path), lang="eng")
-    with open(output_path, "w", encoding="utf-8") as f: f.write(text)
-    return output_path
 
 import httpx
 async def func_resend_send_email(resend_url,resend_key,email_from,email_to_list,title,body):
@@ -1650,28 +1456,6 @@ async def func_mongodb_object_create(mongodb,database,table,obj_list):
    output=await mongodb_client_database[table].insert_many(obj_list)
    return str(output)
 
-from pathlib import Path
-import json, requests
-def func_grafana_dashbord_all_export(host, username, password, max_limit, output_path=None):
-    if not output_path: output_path = "export/grafana"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    base = Path(output_path)
-    s = requests.Session(); s.auth = (username, password)
-    sanitize = lambda x: "".join(c if c.isalnum() or c in " _-()" else "_" for c in x)
-    try: orgs = s.get(f"{host}/api/orgs").json()
-    except Exception as e: print("❌ Failed to get organizations:", e); return None
-    for o in orgs:
-        if s.post(f"{host}/api/user/using/{o['id']}").status_code != 200: continue
-        r = s.get(f"{host}/api/search?type=dash-db&limit={max_limit}", headers={"X-Grafana-Org-Id": str(o["id"])})
-        if r.status_code == 422: continue
-        for d in r.json():
-            try:
-                data = s.get(f"{host}/api/dashboards/uid/{d['uid']}").json()["dashboard"]
-                p = base / sanitize(o["name"]) / sanitize(d.get("folderTitle") or "General"); p.mkdir(parents=True, exist_ok=True)
-                with open(p / f"{sanitize(d['title'])}.json", "w", encoding="utf-8") as f: json.dump(data, f, indent=2)
-            except Exception as e: print("❌ Failed to export", d.get("title"), ":", e)
-    return output_path
-
 from jira import JIRA
 from pathlib import Path
 import pandas as pd, uuid, calendar
@@ -1693,105 +1477,6 @@ def func_jira_worklog_export(jira_base_url, jira_email, jira_token, start_date=N
     pd.DataFrame(rows, columns=["author","date","hours"]).pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(assignees, fill_value=0).round(0).astype(int).to_csv(output_path)
     return output_path
 
-from pathlib import Path
-import requests, csv, uuid
-from requests.auth import HTTPBasicAuth
-def func_jira_filter_count_export(jira_base_url, jira_email, jira_token, output_path=None):
-    if not output_path: output_path = f"export/{uuid.uuid4().hex}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    auth = HTTPBasicAuth(jira_email, jira_token)
-    h = {"Accept": "application/json", "Content-Type": "application/json"}
-    r = requests.get(f"{jira_base_url}/rest/api/3/filter/search", headers=h, auth=auth, params={"maxResults": 1000})
-    if r.status_code != 200: return f"error {r.status_code}: {r.text}"
-    filters = sorted(r.json().get("values", []), key=lambda x: x.get("name", "").lower())
-    with open(output_path, "w", newline="") as f:
-        w = csv.writer(f); w.writerow(["filter_name", "issue_count"])
-        for flt in filters:
-            jql = flt.get("jql") or f"filter={flt.get('id')}"
-            cr = requests.post(f"{jira_base_url}/rest/api/3/search/approximate-count", headers=h, auth=auth, json={"jql": jql})
-            w.writerow([flt.get("name", ""), cr.json().get("count", 0) if cr.status_code == 200 else f"error {cr.status_code}"])
-    return output_path
-
-from pathlib import Path
-import requests, datetime, re, uuid
-from collections import defaultdict, Counter
-from openai import OpenAI
-def func_jira_summary_export(jira_base_url,jira_email,jira_token,jira_project_key_list,jira_max_issues_per_status,openai_key,output_path=None):
-    if not output_path: output_path=f"export/{uuid.uuid4().hex}.txt"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    c=OpenAI(api_key=openai_key); h={"Accept":"application/json"}; a=(jira_email,jira_token)
-    fi=lambda q: requests.get(f"{jira_base_url}/rest/api/3/search",headers=h,auth=a,params={"jql":q,"fields":"summary,project,duedate,assignee,worklog,resolutiondate,updated","maxResults":jira_max_issues_per_status}).json().get("issues",[])
-    fc=lambda k:[(lambda x: x["body"]["content"][0]["content"][0]["text"])(c) for c in requests.get(f"{jira_base_url}/rest/api/3/issue/{k}/comment",headers=h,auth=a).json().get("comments",[]) if isinstance(c,dict)]
-    grp=lambda xs: defaultdict(list,{i["fields"]["project"]["name"]:[*grp(xs).get(i["fields"]["project"]["name"],[]),i] for i in xs})
-    def build(g,s):
-        now=datetime.datetime.now(); seen=set(); o=[]
-        for p,xs in g.items():
-            for i in xs:
-                f=i["fields"]; t=f.get("summary","")
-                if t in seen: continue
-                seen.add(t); cm=fc(i["key"]); last=cm[-1][:100] if cm else ""
-                try:d=(now-datetime.datetime.strptime(f["updated"][:10],"%Y-%m-%d")).days
-                except:d="N/A"
-                h=sum(w.get("timeSpentSeconds",0) for w in f.get("worklog",{}).get("worklogs",[]))//3600
-                o.append(f"{p} - {t}. Comment: {last}. Hours: {h}. Last Updated: {d}d ago. [{s}]")
-        return "\n".join(o)
-    ai=lambda p:[l.strip("-•* ") for l in c.chat.completions.create(model="gpt-4-0125-preview",messages=[{"role":"user","content":p}]).choices[0].message.content.splitlines() if l.strip()]
-    perf=lambda ds:(Counter({(f:=i["fields"]).get("assignee",{}).get("displayName","Unassigned"):len(fc(i["key"]))+len(f.get("worklog",{}).get("worklogs",[])) for i in ds}).most_common(3),sorted(defaultdict(list,{(f:=i["fields"]).get("assignee",{}).get("displayName","Unassigned"):[i["key"]] for i in ds if f.get("duedate") and f.get("resolutiondate") and f["resolutiondate"][:10]<=f["duedate"]}).items(),key=lambda x:len(x[1]),reverse=True)[:3])
-    clean=lambda xs,p=False:["- "+re.sub(r"\s+"," ",re.sub(r"[^\w\s\-.,/()]","",l)).strip() for l in xs if len(l.split())>2 and (not p or "-" in l)]
-    todo=inprog=done=[]
-    for k in jira_project_key_list:
-        todo+=fi(f'project={k} AND statusCategory="To Do" ORDER BY updated DESC')
-        inprog+=fi(f'project={k} AND statusCategory="In Progress" ORDER BY updated DESC')
-        done+=fi(f'project={k} AND statusCategory="Done" ORDER BY resolutiondate DESC')
-    txt=build(grp(todo),"To Do")+"\n"+build(grp(inprog),"In Progress")+"\n"+build(grp(done),"Done")
-    b=ai("List blockers.\n"+txt); i=ai("Give 5 improvements.\n"+txt); ta,ot=perf(done)
-    with open(output_path,"w",encoding="utf-8") as f:
-        f.write("Key Blockers\n");[f.write(f"{n+1}. {x}\n") for n,x in enumerate(clean(b,True))]
-        f.write("\nSuggested Improvements\n");[f.write(f"{n+1}. {x}\n") for n,x in enumerate(clean(i))]
-        f.write("\nTop 3 Active Assignees\n");[f.write(f"{n}. {x[0]} ({x[1]} updates)\n") for n,x in enumerate(ta,1)]
-        f.write("\nBest On-Time Assignees\n");[f.write(f"{n}. {x[0]} - {len(x[1])} issues closed on or before due date\n") for n,x in enumerate(ot,1)]
-    return output_path
-
-from pathlib import Path
-import requests,time,csv,json,uuid
-from requests.auth import HTTPBasicAuth
-from requests.exceptions import RequestException
-def func_jira_jql_output_export(jira_base_url,jira_email,jira_token,jql,column=None,limit=None,output_path=None):
-    if not output_path: output_path=f"export/{uuid.uuid4().hex}.csv"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    if not column: column="key,assignee,status"
-    if not limit: limit=10000
-    if "order by" not in jql.lower(): jql=f"{jql} ORDER BY key ASC"
-    auth=HTTPBasicAuth(jira_email,jira_token); h={"Accept":"application/json","Content-Type":"application/json"}
-    fields=[c.strip() for c in column.split(",")]; issues=[]; token=None; page=0
-    while True:
-        if limit and len(issues)>=limit: break
-        page+=1; size=min(100,limit-len(issues))
-        payload={"jql":jql,"fields":fields,"maxResults":size}
-        if token: payload["nextPageToken"]=token
-        try: r=requests.post(f"{jira_base_url}/rest/api/3/search/jql",headers=h,auth=auth,data=json.dumps(payload))
-        except RequestException as e: return f"Connection error: {e}"
-        if r.status_code!=200: return f"API error {r.status_code}: {r.text}"
-        d=r.json(); cur=d.get("issues",[])
-        if not cur: break
-        issues+=cur
-        if d.get("isLast",True) or not d.get("nextPageToken") or page>=1000: break
-        token=d.get("nextPageToken"); time.sleep(0.1)
-    with open(output_path,"w",newline="",encoding="utf-8") as f:
-        w=csv.writer(f); w.writerow([c.title().replace("_"," ") for c in fields])
-        for i in issues:
-            row=[]
-            for k in fields:
-                if k=="key": v=i.get("key","")
-                else:
-                    d=i.get("fields",{}).get(k)
-                    if isinstance(d,dict): v=d.get("displayName") or d.get("name") or str(d)
-                    elif isinstance(d,list): v=", ".join(x.get("name") for x in d if isinstance(x,dict) and x.get("name"))
-                    else: v=d or ""
-                row.append(v)
-            w.writerow(row)
-    return output_path
-
 import os, shutil
 def func_folder_reset(folder_path):
     folder_path = folder_path if os.path.isabs(folder_path) else os.path.join(os.getcwd(), folder_path)
@@ -1804,27 +1489,6 @@ def func_folder_reset(folder_path):
         else:
             os.remove(path)
     return None
-
-async def func_folder_filenmae_read(folder_path):
-    skip={"venv","__pycache__",".git",".mypy_cache",".pytest_cache","node_modules"}
-    base=Path(folder_path).resolve(); out=[]
-    for r,d,fs in os.walk(base):
-        d[:]=[x for x in d if x not in skip and not x.startswith(".")]
-        for x in fs:
-            if x.startswith("."): continue
-            out.append(str(Path(r,x).relative_to(base)))
-    return out
-
-import sys
-def func_variable_size_read_kb(namespace=globals()):
-   result = {}
-   for name, var in namespace.items():
-      if not name.startswith("__"):
-         key = f"{name} ({type(var).__name__})"
-         size_kb = sys.getsizeof(var) / 1024
-         result[key] = size_kb
-   sorted_result = dict(sorted(result.items(), key=lambda item: item[1], reverse=True))
-   return sorted_result
 
 import os, mimetypes, aiofiles
 from fastapi import responses
@@ -1842,7 +1506,7 @@ async def func_client_download_file(path,is_cleanup=1,chunk_size=1024*1024):
     background = BackgroundTask(os.remove, path) if is_cleanup else None
     return responses.StreamingResponse(iterator(), media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'}, background=background)
 
-async def func_request_param_read(request,mode,config):
+async def func_request_param_read(mode,request,config):
     if mode == "query":param = dict(request.query_params)
     elif mode == "form":
         form = await request.form()
@@ -1851,9 +1515,9 @@ async def func_request_param_read(request,mode,config):
             fs = [f for f in form.getlist(k) if getattr(f,"filename",None)]
             if fs: param[k] = fs
     elif mode == "body":
-        try: body = await request.json()
-        except: body = None
-        param = body if isinstance(body,dict) else {"body":body}
+        try: payload = await request.json()
+        except: payload = None
+        param = payload if isinstance(payload,dict) else {"body":payload}
     else:raise Exception("mode should be query,form,body")
     CAST_MAP = {
         "int":   lambda v: int(v),
@@ -1917,63 +1581,3 @@ async def func_sftp_client_read(sftp_host,sftp_port,sftp_username,sftp_password,
         conn=await asyncssh.connect(host=sftp_host,port=int(sftp_port),username=sftp_username,password=sftp_password,known_hosts=None)
     return conn
 
-async def func_sftp_folder_filename_read(sftp,folder_path):
-    async with sftp.start_sftp_client() as sftp:
-        output=await sftp.listdir(folder_path)
-        return output
-    
-async def func_sftp_file_upload(sftp, input_path, output_path, chunk_size=65536):
-    async with sftp.start_sftp_client() as sftp:
-        async with sftp.open(output_path, "wb") as rf:
-            with open(input_path, "rb") as lf:
-                while True:
-                    chunk = lf.read(chunk_size)
-                    if not chunk:
-                        break
-                    await rf.write(chunk)
-    
-import uuid
-from pathlib import Path
-async def func_sftp_file_download(sftp,input_path,output_path=None,chunk_size=None):
-    if not output_path:output_path=f"export/{uuid.uuid4().hex}{Path(input_path).suffix}"
-    Path(output_path).parent.mkdir(parents=True,exist_ok=True)
-    if not chunk_size:chunk_size=65536
-    async with sftp.start_sftp_client() as sftp:
-        async with sftp.open(input_path,"rb") as rf:
-            with open(output_path,"wb") as lf:
-                while True:
-                    c=await rf.read(chunk_size)
-                    if not c:break
-                    lf.write(c)
-    return output_path
-
-async def func_sftp_file_delete(sftp, path):
-    async with sftp.start_sftp_client() as sftp:
-        await sftp.remove(path)
-    return None
-
-import csv,io,os
-async def func_sftp_csv_stream(sftp,path,batch_size=1000,encoding="utf-8"):
-    if os.path.splitext(path)[1].lower()!=".csv":raise Exception("only csv files allowed")
-    async with sftp.start_sftp_client() as sftp:
-        async with sftp.open(path,"rb") as rf:
-            buffer=""
-            reader=None
-            batch=[]
-            while True:
-                chunk=await rf.read(65536)
-                if not chunk:break
-                buffer+=chunk.decode(encoding)
-                while "\n" in buffer:
-                    line,buffer=buffer.split("\n",1)
-                    if reader is None:
-                        reader=csv.DictReader(io.StringIO(line+"\n"))
-                    else:
-                        row=next(csv.DictReader(io.StringIO(reader.fieldnames and ",".join(reader.fieldnames)+"\n"+line)))
-                        batch.append(row)
-                        if len(batch)==batch_size:
-                            yield batch
-                            batch=[]
-            if batch:
-                yield batch
-                

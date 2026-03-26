@@ -1,32 +1,48 @@
-#url
+#postgres
 config_postgres_url=None
+config_postgres_min_connection=5
+config_postgres_max_connection=20
+config_postgres_is_extension=1
+config_postgres_is_match_column=0
+
+#redis
 config_redis_url=None
-config_redis_url_ratelimiter=None
-config_celery_broker_url=None
+config_redis_url_ratelimiter=config_redis_url
+
+#queue
+config_channel_name="channel_1"
+config_redis_url_pubsub=config_redis_url
+config_rabbitmq_url=None
+config_celery_broker_url=config_redis_url
 config_celery_backend_url=config_celery_broker_url
 config_kafka_url=None
 config_kafka_username=None
 config_kafka_password=None
-config_rabbitmq_url=None
-
-
-
-config_postgres_min_connection=5
-config_postgres_max_connection=20
-config_key_jwt="123"
-config_key_root="123"
-
-
-
-
-
-
-
-config_redis_url_pubsub=config_redis_url
-config_channel_name="channel_1"
 config_kafka_group_id="group_1"
 config_kafka_enable_auto_commit=True
 config_kafka_consumer_batch=100
+
+#token
+config_token_secret_key="123"
+config_token_expiry_sec=3*24*60*60
+config_token_refresh_expiry_sec=3*24*60*60*100
+config_token_key_list=['id', 'type', 'is_active', 'api_id_access']
+
+#gsheet
+config_gsheet_service_account_json_path=None
+config_gsheet_scope_list=['https://www.googleapis.com/auth/spreadsheets']
+
+#fast2sms
+config_fast2sms_url=None
+config_fast2sms_key=None
+
+#resend
+config_resend_url=None
+config_resend_key=None
+
+#posthog
+config_posthog_project_host=None
+config_posthog_project_key=None
 
 #aws
 config_aws_access_key_id=None
@@ -34,7 +50,7 @@ config_aws_secret_access_key=None
 config_s3_region_name=None
 config_sns_region_name=None
 config_ses_region_name=None
-config_limit_s3_kb=100
+config_s3_limit_kb=100
 config_s3_presigned_expire_sec=60
 
 #sftp
@@ -45,46 +61,25 @@ config_sftp_username=None
 config_sftp_password=None
 config_sftp_key_path=None
 
-#otp
-config_fast2sms_url=None
-config_fast2sms_key=None
-config_resend_url=None
-config_resend_key=None
-
-#google
-config_google_login_client_id=None
-config_gsheet_service_account_json_path=None
-config_gsheet_scope_list=['https://www.googleapis.com/auth/spreadsheets']
-
-#analytics
-config_sentry_dsn=None
-config_posthog_project_host=None
-config_posthog_project_key=None
-
-#integration
-config_mongodb_url=None
-config_openai_key=None
-config_searchapi_key=None
-config_gemini_key=None
-
 #cors
 config_cors_origin_list=['*']
 config_cors_method_list=['*']
 config_cors_headers_list=['*']
 config_cors_allow_credentials=False
 
-#token
-config_token_expiry_sec=3*24*60*60
-config_token_refresh_expiry_sec=3*24*60*60*100
-config_token_key_list=['id', 'type', 'is_active', 'api_id_access']
-
-#table/column
+#table
 config_table_create_my_list=['test', 'post', 'support', 'rating_test']
 config_table_create_public_list=['test', 'support']
 config_table_read_public_list=['test', 'post']
-config_column_blocked_list=['is_active', 'is_verified', 'api_id_access', 'created_at', 'updated_at']
 config_table_system_list=['spatial_ref_sys']
+
+#column
+config_column_blocked_list=['is_active', 'is_verified', 'api_id_access', 'created_at', 'updated_at']
 config_column_single_update_list=['username', 'password', 'email', 'mobile']
+
+#mode
+config_mode_check_is_active="token"
+config_mode_check_is_admin="token"
 
 #switch
 config_is_signup=1
@@ -93,17 +88,20 @@ config_is_traceback=1
 config_is_prometheus=0
 config_is_reset_export_folder=1
 config_is_debug_fastapi=1
-config_postgres_is_extension=1
-config_postgres_init_is_match_column=0
 config_is_index_html=0
 config_is_profile_metadata=0
 
 #zzz
-config_mode_check_is_active="token"
-config_mode_check_is_admin="token"
+config_key_root="123"
 config_auth_type_list=[1, 2, 3]
 config_expiry_sec_otp=600
 config_limit_ids_delete=1000
+config_google_login_client_id=None
+config_mongodb_url=None
+config_openai_key=None
+config_searchapi_key=None
+config_gemini_key=None
+config_sentry_dsn=None
 
 #dict
 config_sql={
@@ -291,8 +289,6 @@ config_postgres={
 "delete_disable_table_3":"0 CREATE TRIGGER trigger_delete_disable_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();"
 }
 }
-
-
 
 #override
 from function import func_config_override_from_env

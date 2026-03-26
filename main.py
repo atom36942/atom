@@ -65,18 +65,19 @@ if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
 if config_is_prometheus:func_app_add_prometheus(app)
 
 #middleware
-import time
+import time,json
 @app.middleware("http")
 async def middleware(request,api_function):
    try:
       start,type,error,request.state.user=time.perf_counter(),None,None,{}
-      await func_check_token(request)
-      await func_check_admin(request)
-      await func_check_is_active(request)
-      await func_check_ratelimiter(request)
-      response,type=await func_api_response(request,api_function)
-   except Exception as e:error,response=await func_api_response_error(request,e)
-   await func_api_log_create(start,request,response,type,error)
+      st=request.app.state
+      request.state.user=await st.func_check_token(request.headers,request.url.path,st.config_key_root,st.config_token_secret_key,st.config_api,st.func_token_decode)
+      await st.func_check_admin(request.state.user,request.url.path,st.config_api,st.config_mode_check_is_admin,st.client_postgres_pool,st.cache_users_api_id_access)
+      await st.func_check_is_active(request.state.user,request.url.path,st.config_api,st.config_mode_check_is_active,st.client_postgres_pool,st.cache_users_is_active)
+      await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)
+      response,type=await st.func_api_response(request,api_function,st.config_api,st.client_redis,request.state.user.get("id") if request.state.user else 0,st.func_api_response_background,st.func_check_cache)
+   except Exception as e:error,response=await request.app.state.func_api_response_error(e,request.app.state.config_is_traceback,request.app.state.config_sentry_dsn)
+   await request.app.state.func_api_log_create(start,request.client.host,request.state.user.get("id") if getattr(request.state,"user",None) else None,request.url.path,request.method,json.dumps(dict(request.query_params)),response.status_code if response else 0,type,error,request.app.state.config_is_log_api,request.app.state.cache_postgres_schema.get("log_api"),request.app.state.config_api.get(request.url.path,{}).get("id"),request.app.state.func_postgres_obj_create,request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,request.app.state.config_table.get("log_api",{}).get("buffer") if request.app.state.config_table else 10)
    return response
 
 #main

@@ -53,9 +53,6 @@ config_postgres_url=postgresql://atom@127.0.0.1/postgres
 config_redis_url=redis://localhost:6379
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_mongodb_url=mongodb://localhost:27017
-config_redis_url_pubsub=redis://localhost:6379
-config_celery_broker_url=redis://localhost:6379
-config_redis_url_ratelimiter=redis://localhost:6379
 
 #package
 ./venv/bin/pip install fastapi
@@ -129,12 +126,4 @@ psql postgres -c "ALTER USER user_1 NOSUPERUSER NOCREATEDB NOCREATEROLE;"
 psql postgres -c "CREATE DATABASE db_1 OWNER user_1;"
 psql -U user_1 -d db_1
 postgresql://user_1:123@127.0.0.1/db_1
-
-#agend.md
-* Write compact code; no newlines between logic lines/imports.
-* Use newlines and and comments for major logic blocks.
-* Prefix variables: config_ (configs), func_ (functions), client_ (resources), cache_ (memory) etc
-* Use inline if-else for assignments/initialization.
-* Try to use pure functions wherever possible.
-* Take inspiration from existing config.py for configs,router.py for apis, function.py for pure functions etc while writing new such logics for python based code else write as per that language best practise.
 ```
