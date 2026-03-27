@@ -55,7 +55,6 @@ curl -X GET "$baseurl/public/otp-verify?otp=123&email=test"
 0 curl -X POST "$baseurl/public/object-create-gsheet?url=test" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 0 curl -X GET "$baseurl/public/object-read-gsheet?url=test"
 0 curl -X POST "$baseurl/public/jira-worklog-export" -H "Content-Type: application/json" -d '{"jira_base_url":"test","jira_email":"test","jira_token":"test","start_date":"test","end_date":"test"}'
-0 curl -X GET "$baseurl/public/person-intel?q=dipankar+arhat+backend+developer"
 curl -X GET "$baseurl/public/table-tag-read?table=test&column=tag"
 
 #private
