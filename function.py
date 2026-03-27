@@ -95,10 +95,6 @@ async def func_gemini_client_read(gemini_key):
     client = genai.Client(api_key=gemini_key)
     return client
 
-async def func_postgres_flush(app):
-    await app.state.func_postgres_obj_create(app.state.client_postgres_pool,app.state.func_postgres_obj_serialize,app.state.cache_postgres_column_datatype,"flush")
-    return None
-    
 from pathlib import Path
 import os
 import aiofiles
@@ -124,13 +120,6 @@ async def func_html_serve(name: str):
         raise HTTPException(500, "failed to read file")
     return responses.HTMLResponse(content=html)
 
-async def func_postgres_cache_reset(postgres_pool, func_postgres_schema_read):
-    return await func_postgres_schema_read(postgres_pool) if postgres_pool else ({},{})
-
-async def func_users_cache_reset(postgres_pool, func_postgres_map_column, sql_config, postgres_schema):
-    c1=await func_postgres_map_column(postgres_pool,sql_config.get("cache_users_role")) if postgres_pool and postgres_schema.get("users",{}).get("role") else {}
-    c2=await func_postgres_map_column(postgres_pool,sql_config.get("cache_users_is_active")) if postgres_pool and postgres_schema.get("users",{}).get("is_active") else {}
-    return c1, c2
 
 import traceback,asyncpg,re
 from fastapi import responses
@@ -233,7 +222,7 @@ def func_config_override_from_env(g):
     for k,v in list(g.items()):
         if k.startswith("config_"):
             if (e:=os.getenv(k)) is not None:
-                if isinstance(g[k], list) or k.endswith("_list"):g[k]=json.loads(e)
+                if isinstance(g[k], list):g[k]=json.loads(e)
                 elif isinstance(v,bool):g[k]=e.lower()=="true"
                 elif isinstance(v,int):g[k]=int(e)
                 elif isinstance(v,dict):
@@ -288,7 +277,7 @@ async def func_postgres_parent_read(postgres_pool,table,parent_column,parent_tab
     return obj_list
 
 import re, json
-async def func_postgres_map_column(postgres_pool,query):
+async def func_sql_map_column(postgres_pool,query):
     if not query:return {}
     def parse_cols(q):
         m=re.search(r"select\s+(.*?)\s+from\s",q,flags=re.I|re.S)
@@ -589,119 +578,106 @@ async def func_postgres_stream(postgres_pool, query, batch_size=None):
                 yield stream.getvalue()
                 stream.seek(0); stream.truncate(0)
 
-async def func_postgres_init(postgres_pool, postgres, postgres_is_extension, is_match_column):
+async def func_postgres_init(postgres_pool, postgres):
     if not postgres or "table" not in postgres: raise Exception("postgres.table missing")
+    ctrl=postgres.get("control",{})
+    ext=ctrl.get("is_extension",0); match_col=ctrl.get("is_match_column",0); drop_tbl=ctrl.get("is_drop_disable_table",0); trunc=ctrl.get("is_truncate_disable",0)
+    soft=ctrl.get("is_child_delete_soft",0); hard=ctrl.get("is_child_delete_hard",0); role_dis=ctrl.get("is_delete_disable_role",0)
+    bulk_list=ctrl.get("delete_disable_bulk",[]); tbl_list=ctrl.get("delete_disable_table",[])
+    wants={"idx":set(),"uni":set(),"chk":set()}
     async def _validate():
-        seen=set()
         for t,cols in postgres["table"].items():
-            if not isinstance(cols,(list,tuple)): raise Exception(f"table config must be list {t}")
-            names={c.get("name") for c in cols}
+            names=set()
             for c in cols:
-                allowed={"name","datatype","old","default","is_mandatory","index","unique","in","regex"}
-                if not isinstance(c,dict) or not {"name","datatype"}<=c.keys(): raise Exception(f"invalid column config {t}")
-                if set(c)-allowed: raise Exception(f"unknown keys {t}.{c.get('name')}")
-                if c.get("index")=="gin" and "text" not in c["datatype"].lower() and "[]" not in c["datatype"] and "jsonb" not in c["datatype"]: raise Exception(f"gin error {t}.{c['name']}")
-                u=c.get("unique")
-                if u:
-                    for g in (x.strip() for x in u.split("|") if x.strip()):
-                        ucols=[x.strip() for x in g.split(",") if x.strip()]
-                        if any(x not in names for x in ucols): raise Exception(f"unique column not found {t}")
-                        key=(t,tuple(sorted(ucols)))
-                        if key in seen: raise Exception(f"duplicate unique {t}")
-                        seen.add(key)
-    async def read_db(conn):
-        cols=await conn.fetch("select table_name,column_name,data_type,is_nullable,column_default,udt_name from information_schema.columns where table_schema='public'")
-        cons=await conn.fetch("select conname,relname from pg_constraint join pg_class on pg_class.oid=conrelid join pg_namespace n on n.oid=pg_class.relnamespace where n.nspname='public'")
-        idx=await conn.fetch("select indexname,indexdef from pg_indexes where schemaname='public'")
-        db={}
-        for r in cols:
-            t=r["table_name"]; db.setdefault(t,{})[r["column_name"]]={"type":(r["udt_name"] or r["data_type"]).lower(),"null":r["is_nullable"]=="YES","default":r["column_default"]}
-        idx_map={}
-        for r in idx:
-            if " USING " not in r["indexdef"]: continue
-            tbl=r["indexdef"].split(" ON ")[1].split()[0].split(".")[-1]; col=r["indexdef"].split("(",1)[1].split(")",1)[0].split()[0]; it=r["indexdef"].split(" USING ")[1].split()[0].lower()
-            idx_map.setdefault((tbl,col),{})[it]=r["indexname"]
-        return db,{(r["relname"],r["conname"].lower()) for r in cons},idx_map
-    def trim(x): return x[:63]
+                if c["name"] in names: raise Exception(f"Duplicate column {c['name']} in {t}")
+                names.add(c["name"])
     await _validate()
     async with postgres_pool.acquire() as conn:
-        if postgres_is_extension:
-            for e in ("postgis","pg_trgm"): await conn.execute(f"create extension if not exists {e}")
-        await conn.execute("create or replace function array_regex_match(text[],text) returns boolean immutable as $$ select coalesce(bool_and(v ~ $2),true) from unnest($1) v $$ language sql")
-        for t in postgres["table"]: await conn.execute(f"create table if not exists {t} (id bigint primary key generated by default as identity not null)")
-        for t in postgres["table"]:
-            await conn.execute(f"""DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger WHERE tgrelid = '{t}'::regclass AND tgname LIKE 'trigger_%' AND tgisinternal = false LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{t}'); END LOOP; END $$;""")
-        db,cons,idx=await read_db(conn)
         for t,cols in postgres["table"].items():
-            have=db.get(t,{})
+            await conn.execute(f"CREATE TABLE IF NOT EXISTS {t} (id BIGSERIAL PRIMARY KEY);")
+            await conn.execute(f"ALTER TABLE {t} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
+            cur_cols = await conn.fetch("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'", t)
+            cur = {r["column_name"]: r["data_type"] for r in cur_cols}
             for c in cols:
-                if c.get("old") and c["name"] not in have and c["old"] in have: await conn.execute(f"alter table {t} rename column {c['old']} to {c['name']}")
-        db,cons,idx=await read_db(conn)
-        for t,cols in postgres["table"].items():
-            have=db.get(t,{})
-            for c in cols:
-                col,dt=c["name"],c["datatype"]
-                if col not in have: await conn.execute(f"alter table {t} add column {col} {dt}")
-                elif have[col]["type"]!=dt.lower(): await conn.execute(f"alter table {t} alter column {col} type {dt} using {col}::{dt}")
-        if is_match_column:
-            db,_,_=await read_db(conn)
-            for t,cols in postgres["table"].items():
-                want={c["name"] for c in cols}; have=set(db.get(t,{}))
-                for col in have-want-{"id"}: await conn.execute(f"alter table {t} drop column {col} cascade")
-        db,cons,idx=await read_db(conn)
-        for t,cols in postgres["table"].items():
-            have=db.get(t,{})
-            for c in cols:
-                col,cur=c["name"],have.get(c["name"])
-                if not cur: continue
-                if "default" in c:
-                    d=c["default"]; sql=d if isinstance(d,str) and d.endswith("()") else repr(d) if isinstance(d,str) else str(d)
-                    await conn.execute(f"alter table {t} alter column {col} set default {sql}")
-                elif cur["default"] is not None: await conn.execute(f"alter table {t} alter column {col} drop default")
-                m=c.get("is_mandatory")
-                if m in (1,True) and cur["null"]: await conn.execute(f"alter table {t} alter column {col} set not null")
-                elif m in (0,False) and not cur["null"]: await conn.execute(f"alter table {t} alter column {col} drop not null")
-        for t,cols in postgres["table"].items():
-            for c in cols:
-                col,dt,want=c["name"],c["datatype"].lower(),set(c.get("index","").split(",")) if c.get("index") else set()
-                cur=idx.get((t,col),{})
-                for it,n in cur.items():
-                    if n.startswith(f"index_{t}_{col}") and it not in want: await conn.execute(f'drop index if exists "{n}"')
-                for it in want:
-                    name=trim(f"index_{t}_{col}_{it}")
-                    if cur.get(it)!=name:
-                        if it in cur: await conn.execute(f'drop index if exists "{cur[it]}"')
-                        await conn.execute(f"create index if not exists {name} on {t} using {it} ({col+' gin_trgm_ops' if it=='gin' and dt=='text' else col})")
-        db,cons,idx=await read_db(conn)
-        for t,cols in postgres["table"].items():
-            w_cons=set()
-            for c in cols:
-                col,dt=c["name"],c["datatype"].lower()
-                if c.get("regex"): w_cons.add(trim(f"constraint_{t}_{col}_regex"))
-                if "in" in c: w_cons.add(trim(f"constraint_{t}_{col}_in"))
-                if c.get("unique"):
-                    for g in c["unique"].split("|"): w_cons.add(trim(f"constraint_unique_{t}_{'_'.join(x.strip() for x in g.split(','))}"))
-            for tbl,n in list(cons):
-                if tbl==t and n.startswith("constraint_") and n not in {x.lower() for x in w_cons}:
-                    await conn.execute(f'alter table {t} drop constraint if exists "{n}" cascade'); cons.remove((tbl,n))
-            for c in cols:
-                col,dt=c["name"],c["datatype"].lower()
-                if c.get("regex"):
-                    n=trim(f"constraint_{t}_{col}_regex"); sql=f"check ({col} ~ '{c['regex']}')" if dt=="text" else f"check (array_regex_match({col},'{c['regex']}'))" if dt=="text[]" else None
-                    if sql:
-                        if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
-                        await conn.execute(f"alter table {t} add constraint {n} {sql}")
+                name, dtype = c["name"], c["datatype"]
+                if name not in cur:
+                    if c.get("old") and c["old"] in cur:
+                        await conn.execute(f"ALTER TABLE {t} RENAME COLUMN {c['old']} TO {name}")
+                    else:
+                        def_sql = f"DEFAULT {c['default']}" if 'default' in c else ""
+                        await conn.execute(f"ALTER TABLE {t} ADD COLUMN {name} {dtype} {def_sql};")
+                elif match_col and cur[name] != dtype.split('(')[0].lower():
+                    await conn.execute(f"ALTER TABLE {t} ALTER COLUMN {name} TYPE {dtype} USING {name}::{dtype}")
+                elif not match_col and cur[name] != dtype.split('(')[0].lower():
+                    raise Exception(f"Column {t}.{name} type mismatch: {cur[name]} vs {dtype}")
+                if c.get("index"):
+                    for idx in (x.strip() for x in c["index"].split(",")):
+                        idx_name=f"idx_{t}_{name}_{idx}"; wants["idx"].add(idx_name)
+                        await conn.execute(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {t} USING {idx}({name});")
                 if "in" in c:
-                    n=trim(f"constraint_{t}_{col}_in"); vals=",".join(str(x) if isinstance(x,(int,float)) else repr(x) for x in c["in"])
-                    if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
-                    await conn.execute(f"alter table {t} add constraint {n} check ({col} in ({vals}))")
+                    chk_name=f"check_{t}_{name}_in"; wants["chk"].add(chk_name)
+                    await conn.execute(f"ALTER TABLE {t} DROP CONSTRAINT IF EXISTS {chk_name}; ALTER TABLE {t} ADD CONSTRAINT {chk_name} CHECK ({name} IN {c['in']});")
                 if c.get("unique"):
                     for g in c["unique"].split("|"):
-                        ucols=",".join(x.strip() for x in g.split(",")); n=trim(f"constraint_unique_{t}_{ucols.replace(',','_')}")
-                        if (t,n.lower()) in cons: await conn.execute(f'alter table {t} drop constraint "{n}"')
-                        await conn.execute(f"alter table {t} add constraint {n} unique ({ucols})")
+                        u_cols = [x.strip() for x in g.split(",")]; u_name=f"unique_{t}_{'_'.join(u_cols)}"; wants["uni"].add(u_name)
+                        await conn.execute(f"ALTER TABLE {t} DROP CONSTRAINT IF EXISTS {u_name}; ALTER TABLE {t} ADD CONSTRAINT {u_name} UNIQUE ({','.join(u_cols)});")
+            if match_col:
+                want_cols = {c["name"] for c in cols} | {"id"}
+                for c_name in set(cur.keys()) - want_cols:
+                    await conn.execute(f"ALTER TABLE {t} DROP COLUMN IF EXISTS {c_name} CASCADE;")
+        if ext: await conn.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
+        async def read_db(conn):
+            rows = await conn.fetch("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'")
+            db = {}
+            for r in rows: db.setdefault(r["table_name"], []).append(r["column_name"])
+            return db
+        db = await read_db(conn); users_cols = db.get("users", [])
         for k,sql in postgres.get("sql",{}).items():
             if not sql.startswith("0"): await conn.execute(sql)
+        # cleanup
+        await conn.execute("DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname, relname FROM pg_trigger JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid WHERE tgname LIKE 'trigger_%' LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, r.relname); END LOOP; END $$;")
+        await conn.execute(f"""DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT indexname, tablename FROM pg_indexes WHERE indexname LIKE 'idx_%%' AND indexname NOT IN ({",".join(f"'{i}'" for i in wants['idx']) if wants['idx'] else 'NULL'}) LOOP EXECUTE format('DROP INDEX IF EXISTS %%I', r.indexname); END LOOP; END $$;""")
+        await conn.execute(f"""DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT conname, relname FROM pg_constraint JOIN pg_class ON pg_constraint.conrelid = pg_class.oid WHERE (conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND conname NOT IN ({",".join(f"'{c}'" for c in wants['uni']|wants['chk']) if (wants['uni']|wants['chk']) else 'NULL'}) LOOP EXECUTE format('ALTER TABLE %%I DROP CONSTRAINT IF EXISTS %%I', r.relname, r.conname); END LOOP; END $$;""")
+        # drop disable
+        if drop_tbl:
+            await conn.execute("CREATE OR REPLACE FUNCTION func_drop_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'DROP TABLE not allowed'; END; $$;")
+            await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable; CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ('DROP TABLE') EXECUTE FUNCTION func_drop_disable();")
+        else: await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable;")
+        # truncate disable
+        if trunc:
+            await conn.execute("CREATE OR REPLACE FUNCTION func_truncate_disable() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'TRUNCATE not allowed on %', TG_TABLE_NAME; END; $$;")
+            for t in db:
+                if t != "spatial_ref_sys": await conn.execute(f"CREATE TRIGGER trigger_truncate_disable_{t} BEFORE TRUNCATE ON {t} FOR EACH STATEMENT EXECUTE FUNCTION func_truncate_disable();")
+        # users triggers
+        if users_cols:
+            if all(c in users_cols for c in ("type","username","password","role")):
+                await conn.execute("INSERT INTO users (type,username,password,role) VALUES (1,'root_user_1','123',1),(1,'root_user_2','123',1),(1,'root_user_3','123',1) ON CONFLICT (username,type) DO NOTHING;")
+            if "password" in users_cols and "log_users_password" in db:
+                await conn.execute("CREATE OR REPLACE FUNCTION func_users_password_log() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
+                await conn.execute("CREATE TRIGGER trigger_users_password_log AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_users_password_log();")
+            if soft and "is_deleted" in users_cols:
+                await conn.execute("CREATE OR REPLACE FUNCTION func_users_soft_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; v_val INTEGER; BEGIN IF NEW.is_deleted=1 THEN v_val:=1; ELSE v_val:=NULL; END IF; FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'is_deleted') THEN EXECUTE format('UPDATE %I.%I SET is_deleted = $1 WHERE %I = $2', r.table_schema, r.table_name, r.column_name) USING v_val, NEW.id; END IF; END LOOP; RETURN NEW; END; $$;")
+                await conn.execute("CREATE TRIGGER trigger_users_soft_delete AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.is_deleted IS DISTINCT FROM NEW.is_deleted) EXECUTE FUNCTION func_users_soft_delete();")
+            if hard:
+                await conn.execute("CREATE OR REPLACE FUNCTION func_users_hard_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; BEGIN FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP EXECUTE format('DELETE FROM %I.%I WHERE %I = $1', r.table_schema, r.table_name, r.column_name) USING OLD.id; END LOOP; RETURN OLD; END; $$;")
+                await conn.execute("CREATE TRIGGER trigger_users_hard_delete AFTER DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_hard_delete();")
+            if role_dis and "role" in users_cols:
+                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_users_role() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
+                await conn.execute("CREATE TRIGGER trigger_delete_disable_users_role BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_users_role();")
+        # common triggers
+        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected=1 THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'delete not allowed on %', TG_TABLE_NAME; END; $$;")
+        for t, cols in db.items():
+            if t == "spatial_ref_sys": continue
+            if "is_protected" in cols: await conn.execute(f"CREATE TRIGGER trigger_delete_disable_is_protected_{t} BEFORE DELETE ON {t} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();")
+            if "updated_at" in cols: await conn.execute(f"CREATE TRIGGER trigger_set_updated_at_{t} BEFORE UPDATE ON {t} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();")
+        for t, n in bulk_list:
+            if t in db: await conn.execute(f"CREATE TRIGGER trigger_delete_disable_bulk_{t} AFTER DELETE ON {t} REFERENCING OLD TABLE AS deleted_rows FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_bulk({n});")
+        for t in tbl_list:
+            if t in db: await conn.execute(f"CREATE TRIGGER trigger_delete_disable_{t} BEFORE DELETE ON {t} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();")
+        await conn.execute("ANALYZE;")
     return "database init done"
 
 import hashlib, orjson, uuid
@@ -928,17 +904,30 @@ async def func_kafka_producer(kafka_producer,channel_name,payload):
    output=await kafka_producer.send_and_wait(channel_name,json.dumps(payload,indent=2).encode('utf-8'),partition=0)
    return output
 
+import time as _time_rl
+inmemory_cache_ratelimiter = {}
 async def func_check_ratelimiter(redis_client, api_config, path, identifier):
-    if not api_config.get(path,{}).get("ratelimiter_times_sec"):return None
-    if not redis_client:raise Exception("redis_url_ratelimiter missing")
-    limit,window=api_config.get(path).get("ratelimiter_times_sec")
+    cfg=api_config.get(path,{}).get("ratelimiter_times_sec")
+    if not cfg:return None
+    mode,limit,window=cfg
     ratelimiter_key=f"ratelimiter:{path}:{identifier}"
-    current_count=await redis_client.get(ratelimiter_key)
-    if current_count and int(current_count)+1>limit:raise Exception("ratelimiter exceeded")
-    pipe=redis_client.pipeline()
-    pipe.incr(ratelimiter_key)
-    if not current_count:pipe.expire(ratelimiter_key,window)
-    await pipe.execute()
+    if mode=="redis":
+        if not redis_client:raise Exception("redis_url_ratelimiter missing")
+        current_count=await redis_client.get(ratelimiter_key)
+        if current_count and int(current_count)+1>limit:raise Exception("ratelimiter exceeded")
+        pipe=redis_client.pipeline()
+        pipe.incr(ratelimiter_key)
+        if not current_count:pipe.expire(ratelimiter_key,window)
+        await pipe.execute()
+    elif mode=="inmemory":
+        now=_time_rl.time()
+        item=inmemory_cache_ratelimiter.get(ratelimiter_key)
+        if item and item["expire_at"]>now:
+            if item["count"]+1>limit:raise Exception("ratelimiter exceeded")
+            item["count"]+=1
+        else:
+            inmemory_cache_ratelimiter[ratelimiter_key]={"count":1,"expire_at":now+window}
+    else:raise Exception("ratelimiter mode=redis/inmemory")
     return None
 
 async def func_check_is_active(mode, user, path, api_config, postgres_pool, users_active_cache):

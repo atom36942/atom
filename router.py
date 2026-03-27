@@ -17,15 +17,15 @@ async def func_api_5e118e61a6c348328913f14722d76af6():
 #root
 @router.get("/root/postgres-init")
 async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
-   output=await func_postgres_init(request.app.state.client_postgres_pool,config_postgres,config_postgres_is_extension,config_postgres_is_match_column)
-   request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await func_postgres_cache_reset(request.app.state.client_postgres_pool,request.app.state.func_postgres_schema_read)
+   output=await func_postgres_init(request.app.state.client_postgres_pool,config_postgres)
    return {"status":1,"message":output}
 
 @router.get("/root/sync")
 async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
-   await func_postgres_flush(request.app)
-   request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await func_postgres_cache_reset(request.app.state.client_postgres_pool,request.app.state.func_postgres_schema_read)
-   request.app.state.cache_users_role,request.app.state.cache_users_is_active=await func_users_cache_reset(request.app.state.client_postgres_pool,request.app.state.func_postgres_map_column,config_sql,request.app.state.cache_postgres_schema)
+   await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"flush")
+   request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
+   request.app.state.cache_users_role=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_role")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("role") else {}
+   request.app.state.cache_users_is_active=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
    await func_postgres_clean(request.app.state.client_postgres_pool,config_table)
    return {"status":1,"message":"done"}
 
@@ -91,72 +91,72 @@ async def func_api_ece7d0b10f9b4cb29167defe3b471f71(request:Request):
 async def func_api_770160e847a341998b5b1c698e52e5c4(request:Request):
    if config_is_signup==0:raise Exception("signup disabled")
    obj_body=await func_request_param_read("body",request,[("type","int",1,None),("username","str",1,None),("password","str",1,None)])
-   if obj_body["type"] not in config_auth_type_list:raise Exception("type not allowed")
+   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
    user=await func_auth_signup_username_password(request.app.state.client_postgres_pool,obj_body["type"],obj_body["username"],obj_body["password"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/signup-username-password-bigint")
 async def func_api_20406b7c056f42cfaeaa3a290740d804(request:Request):
    if config_is_signup==0:raise Exception("signup disabled")
    obj_body=await func_request_param_read("body",request,[("type","int",1,None),("username_bigint","int",1,None),("password_bigint","int",1,None)])
-   if obj_body["type"] not in config_auth_type_list:raise Exception("type not allowed")
+   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
    user=await func_auth_signup_username_password_bigint(request.app.state.client_postgres_pool,obj_body["type"],obj_body["username_bigint"],obj_body["password_bigint"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-password-username")
 async def func_api_6dd2a4b658884b8e93df7b89c75a3a38(request:Request):
    obj_body=await func_request_param_read("body",request,[["type","int",1,None],["password","str",1,None],["username","str",1,None]])
    user=await func_auth_login_password_username(request.app.state.client_postgres_pool,obj_body["type"],obj_body["password"],obj_body["username"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-password-username-bigint")
 async def func_api_39329b86e0ad499194916937c84ccbf2(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None),("password_bigint","int",1,None),("username_bigint","int",1,None)])
    user=await func_auth_login_password_username_bigint(request.app.state.client_postgres_pool,obj_body["type"],obj_body["password_bigint"],obj_body["username_bigint"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-password-email")
 async def func_api_19f9214e86384b53a8a8284101b2e503(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None),("password","str",1,None),("email","str",1,None)])
    user=await func_auth_login_password_email(request.app.state.client_postgres_pool,obj_body["type"],obj_body["password"],obj_body["email"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-password-mobile")
 async def func_api_bf6b5a6e72b34115add276d4639ecfa5(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None),("password","str",1,None),("mobile","str",1,None)])
    user=await func_auth_login_password_mobile(request.app.state.client_postgres_pool,obj_body["type"],obj_body["password"],obj_body["mobile"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-otp-email")
 async def func_api_03fd5ebf6cd84797a79d50e0c0d513d4(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None),("email","str",1,None),("otp","int",1,None)])
-   if obj_body["type"] not in config_auth_type_list:raise Exception("type not allowed")
+   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
    await func_otp_verify(request.app.state.client_postgres_pool,obj_body["otp"],obj_body["email"],None,config_expiry_sec_otp)
    user=await func_auth_login_otp_email(request.app.state.client_postgres_pool,obj_body["type"],obj_body["email"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-otp-mobile")
 async def func_api_10dbfd715056459eb9a54d6b57d4ec44(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None),("mobile","str",1,None),("otp","int",1,None)])
-   if obj_body["type"] not in config_auth_type_list:raise Exception("type not allowed")
+   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
    await func_otp_verify(request.app.state.client_postgres_pool,obj_body["otp"],None,obj_body["mobile"],config_expiry_sec_otp)
    user=await func_auth_login_otp_mobile(request.app.state.client_postgres_pool,obj_body["type"],obj_body["mobile"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-google")
 async def func_api_3cf56dd2c1b7458895585180af1b496d(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None),("google_token","str",1,None)])
-   if obj_body["type"] not in config_auth_type_list:raise Exception("type not allowed")
+   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
    user=await func_auth_login_google(request.app.state.client_postgres_pool,config_google_login_client_id,obj_body["type"],obj_body["google_token"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 #my
@@ -166,13 +166,13 @@ async def func_api_27860b1e950446a9b5bd28c2e9a33de4(request:Request):
    metadata={}
    if config_is_profile_metadata==1:metadata=await func_user_sql_read(request.app.state.client_postgres_pool,config_sql,request.state.user["id"])
    asyncio.create_task(func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}],None,None))
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":user|metadata|token}
 
 @router.post("/my/token-refresh")
 async def func_api_a39a95f6167a4ef2a33ea19a0f0e01e7(request:Request):
    user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key_list)
+   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":token}
 
 @router.get("/my/api-usage")
@@ -228,7 +228,7 @@ async def func_api_c0d03f1f0c3d41969cadb97483aeb75e(request:Request):
 @router.post("/my/ids-delete")
 async def func_api_9486563f3c1240c5840a251562e5a5c3(request:Request):
    obj_body=await func_request_param_read("body",request,[("table","str",1,None),("ids","str",1,None)])
-   if obj_body["table"] in config_table_system_list:raise Exception("table not allowed")
+   if obj_body["table"] in config_table_system:raise Exception("table not allowed")
    if obj_body["table"]=="users":raise Exception("use account delete api")
    if len(obj_body["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],request.state.user["id"])
@@ -239,14 +239,14 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"my",request.state.user.get("id"),st.config_table_create_my_list,st.config_table_create_public_list,st.config_column_blocked_list,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
+   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"my",request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
 
 @router.put("/my/object-update")
 async def func_api_a10070c5091d40ce90484ec9ec6e6587(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("otp","int",0,None),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_update_logic(obj_query,obj_body,"my",request.state.user.get("id"),st.config_column_blocked_list,st.config_column_single_update_list,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_update,st.func_otp_verify,st.config_expiry_sec_otp)}
+   return {"status":1,"message":await func_obj_update_logic(obj_query,obj_body,"my",request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_update,st.func_otp_verify,st.config_expiry_sec_otp)}
 
 @router.get("/my/object-read")
 async def func_api_4e9de78a107845b5a1ebcca0c61f7d0e(request:Request):
@@ -288,12 +288,12 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"public",request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my_list,st.config_table_create_public_list,st.config_column_blocked_list,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
+   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"public",request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
 
 @router.get("/public/object-read")
 async def func_api_88fdc8850b714b9db5fcac36cabf446d(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None)])
-   if obj_query["table"] not in config_table_read_public_list:raise Exception("table not allowed")
+   if obj_query["table"] not in config_table_read_public:raise Exception("table not allowed")
    obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
@@ -394,14 +394,14 @@ async def func_api_6dba580b31ff43e6824ea4292eb9c749(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"admin",request.state.user.get("id"),st.config_table_create_my_list,st.config_table_create_public_list,st.config_column_blocked_list,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
+   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"admin",request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
 
 @router.put("/admin/object-update")
 async def func_api_febf6094467b456f8cabfb8191f1000e(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("otp","int",0,None),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_update_logic(obj_query,obj_body,"admin",request.state.user.get("id"),st.config_column_blocked_list,st.config_column_single_update_list,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_update,st.func_otp_verify,st.config_expiry_sec_otp)}
+   return {"status":1,"message":await func_obj_update_logic(obj_query,obj_body,"admin",request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_update,st.func_otp_verify,st.config_expiry_sec_otp)}
 
 @router.get("/admin/object-read")
 async def func_api_bb6506520ad349f688f925055cd8b965(request:Request):
@@ -412,7 +412,7 @@ async def func_api_bb6506520ad349f688f925055cd8b965(request:Request):
 @router.post("/admin/ids-delete")
 async def func_api_219e40d87ece488fb927dd4ee8f14bb9(request:Request):
    obj_body=await func_request_param_read("body",request,[("table","str",1,None),("ids","str",1,None)])
-   if obj_body["table"] in config_table_system_list:raise Exception("table not allowed")
+   if obj_body["table"] in config_table_system:raise Exception("table not allowed")
    if len(obj_body["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
    output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],None)
    return {"status":1,"message":output}

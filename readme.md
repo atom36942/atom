@@ -49,7 +49,7 @@ venv/bin/python consumer.py kafka
 ### zzz
 ```bash
 #env
-config_postgres_url=postgresql://atom@127.0.0.1/postgres
+config_postgres_url=postgresql://atom@127.0.0.1/postgres?sslmode=disable
 config_redis_url=redis://localhost:6379
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_mongodb_url=mongodb://localhost:27017

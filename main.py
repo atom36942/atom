@@ -26,18 +26,18 @@ async def func_lifespan(app:FastAPI):
    client_kafka_producer=await func_kafka_client_read_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
    client_rabbitmq,client_rabbitmq_producer=await func_rabbitmq_client_read_producer(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
    client_redis_producer=await func_redis_client_read(config_redis_url_pubsub) if config_redis_url_pubsub else None
-   client_gsheet=func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope_list) if config_gsheet_service_account_json_path else None
+   client_gsheet=func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope) if config_gsheet_service_account_json_path else None
    client_sftp=await func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
    client_gemini=await func_gemini_client_read(config_gemini_key) if config_gemini_key else None
    #cache init
    cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else ({},{})
-   cache_users_role=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("role") else {}
-   cache_users_is_active=await func_postgres_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
+   cache_users_role=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("role") else {}
+   cache_users_is_active=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
    #app state set
    func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
    #app shutdown
    yield
-   await func_postgres_flush(app)
+   await func_postgres_obj_create(client_postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, "flush")
    if config_is_reset_export_folder:func_folder_reset("export")
    await client_http.aclose()
    if client_postgres_pool:await client_postgres_pool.close()
@@ -58,7 +58,7 @@ async def func_lifespan(app:FastAPI):
 app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
 
 #app add
-func_app_add_cors(app,config_cors_origin_list,config_cors_method_list,config_cors_headers_list,config_cors_allow_credentials)
+func_app_add_cors(app,config_cors_origin,config_cors_method,config_cors_headers,config_cors_allow_credentials)
 func_add_router(app)
 func_app_add_static(app,"./static","/static")
 if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
