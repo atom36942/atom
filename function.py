@@ -1,4 +1,4 @@
-# System & Structure
+# system & structure
 def func_structure_create(directories_list: list, files_list: list) -> None:
     """Create directory and file structure if it doesn't exist."""
     import os
@@ -28,7 +28,8 @@ async def func_check_config_api(config_api: dict, app_routes: list) -> None:
     allowed_keys = {"id", "is_token", "is_active_check", "cache_sec", "ratelimiter_times_sec", "role_allowed"}
     route_set = {getattr(route, "path", None) for route in app_routes if getattr(route, "path", None)}
     for path, cfg in config_api.items():
-        if not isinstance(path, str) or not path.startswith("/"): raise Exception(f"invalid api path: {path}")
+        if not isinstance(path, str): raise Exception(f"invalid api path type: {path}")
+        if not path.startswith("/"): raise Exception(f"api path must start with slash: {path}")
         if path not in route_set: raise Exception(f"path not in fastapi routes: {path}")
         if not isinstance(cfg, dict): raise Exception(f"invalid config for: {path}")
         for key in cfg:
@@ -37,22 +38,33 @@ async def func_check_config_api(config_api: dict, app_routes: list) -> None:
         if "is_token" in cfg and cfg["is_token"] not in (0, 1): raise Exception(f"invalid is_token in {path}")
         if "is_active_check" in cfg and cfg["is_active_check"] not in (0, 1): raise Exception(f"invalid is_active_check in {path}")
         if "role_allowed" in cfg:
-            if not isinstance(cfg["role_allowed"], list) or not all(isinstance(i, int) for i in cfg["role_allowed"]): raise Exception(f"invalid role_allowed in {path}")
+            if not isinstance(cfg["role_allowed"], list): raise Exception(f"role_allowed must be a list in {path}")
+            if not all(isinstance(i, int) for i in cfg["role_allowed"]): raise Exception(f"role_allowed must contain only integers in {path}")
         if "cache_sec" in cfg:
             cache_config = cfg["cache_sec"]
-            if not isinstance(cache_config, (list, tuple)) or len(cache_config) != 2 or cache_config[0] not in ("redis", "inmemory") or not isinstance(cache_config[1], int) or cache_config[1] < 0: raise Exception(f"invalid cache_sec in {path}")
+            if not isinstance(cache_config, (list, tuple)): raise Exception(f"cache_sec must be list/tuple in {path}")
+            if len(cache_config) != 2: raise Exception(f"cache_sec must have 2 elements in {path}")
+            if cache_config[0] not in ("redis", "inmemory"): raise Exception(f"invalid cache mode in {path}")
+            if not isinstance(cache_config[1], int): raise Exception(f"cache duration must be int in {path}")
+            if cache_config[1] < 0: raise Exception(f"cache duration cannot be negative in {path}")
         if "ratelimiter_times_sec" in cfg:
             rate_limit_config = cfg["ratelimiter_times_sec"]
-            if not isinstance(rate_limit_config, (list, tuple)) or len(rate_limit_config) != 3 or rate_limit_config[0] not in ("redis", "inmemory") or not all(isinstance(i, int) for i in rate_limit_config[1:]) or rate_limit_config[1] <= 0 or rate_limit_config[2] <= 0: raise Exception(f"invalid ratelimiter_times_sec in {path}")
+            if not isinstance(rate_limit_config, (list, tuple)): raise Exception(f"ratelimiter must be list/tuple in {path}")
+            if len(rate_limit_config) != 3: raise Exception(f"ratelimiter must have 3 elements in {path}")
+            if rate_limit_config[0] not in ("redis", "inmemory"): raise Exception(f"invalid ratelimiter mode in {path}")
+            if not all(isinstance(i, int) for i in rate_limit_config[1:]): raise Exception(f"rate limits must be integers in {path}")
+            if rate_limit_config[1] <= 0: raise Exception(f"rate limit count must be positive in {path}")
+            if rate_limit_config[2] <= 0: raise Exception(f"rate limit window must be positive in {path}")
     return None
 
-# Utils & Converters
+# utils & converters
 async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: str, filter_column: str = None, filter_value: any = None, limit_count: int = 100, page_number: int = 1) -> list:
     """Read unique tags/items from an array column with occurrence counts."""
     import re
     limit, page = min(max(int(limit_count or 100), 1), 500), max(int(page_number or 1), 1)
     regex_identifier = re.compile(r"^[a-z_][a-z0-9_]*$")
-    if not all(regex_identifier.match(x) for x in (table_name, column_name) if x) or (filter_column and not regex_identifier.match(filter_column)): raise Exception("bad identifier")
+    if not all(regex_identifier.match(x) for x in (table_name, column_name) if x): raise Exception("bad table or column identifier")
+    if filter_column and not regex_identifier.match(filter_column): raise Exception("bad filter column identifier")
     where_clause, query_args = (f"WHERE x.{filter_column}=$1", [filter_value]) if filter_column and filter_value is not None else ("", [])
     query = f"SELECT tag_item, count(*) FROM {table_name} x CROSS JOIN LATERAL unnest(x.{column_name}) tag_item {where_clause} GROUP BY tag_item ORDER BY count(*) DESC LIMIT {limit} OFFSET {(page-1)*limit}"
     async with postgres_pool.acquire() as conn: rows = await conn.fetch(query, *query_args)
@@ -84,7 +96,8 @@ async def func_html_serve(html_name: str) -> any:
     except: raise HTTPException(500, "failed to read file")
     return responses.HTMLResponse(content=html_content)
 
-# API & Middleware Utilities
+
+# api & middleware utilities
 async def func_api_response_error(exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple[str, any]:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
     import traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
@@ -112,13 +125,17 @@ async def func_api_log_create(start_time: float, ip_address: str, user_id: any, 
         asyncio.create_task(func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, "buffer", "log_api", [log_obj], 0, table_buffer))
     return None
 
-# API Core Logic
+# api core logic
 async def func_obj_create_logic(obj_query: dict, obj_body: dict, role: str, user_id: any, table_create_my_list: list, table_create_public_list: list, column_blocked_list: list, postgres_pool: any, func_postgres_obj_serialize: callable, table_config: dict, func_producer_logic: callable, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_obj_create: callable) -> any:
     """Wrapper logic for object creation with role-based validation and optional queueing."""
     obj_list = obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
     if obj_query.get("table") == "users": obj_query["is_serialize"] = 1
-    if role == "my" and (obj_query.get("table") not in table_create_my_list or any(any(key in column_blocked_list for key in item) for item in obj_list)): raise Exception("table or key not allowed")
-    if role == "public" and (obj_query.get("table") not in table_create_public_list or any(any(key in column_blocked_list for key in item) for item in obj_list)): raise Exception("table or key not allowed")
+    if role == "my":
+        if obj_query.get("table") not in table_create_my_list: raise Exception("table not allowed")
+        if any(any(key in column_blocked_list for key in item) for item in obj_list): raise Exception("key not allowed")
+    if role == "public":
+        if obj_query.get("table") not in table_create_public_list: raise Exception("table not allowed")
+        if any(any(key in column_blocked_list for key in item) for item in obj_list): raise Exception("key not allowed")
     if user_id: [item.__setitem__("created_by_id", user_id) for item in obj_list]
     if not obj_query.get("queue"): return await func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, obj_query.get("mode"), obj_query.get("table"), obj_list, obj_query.get("is_serialize"), table_config.get(obj_query.get("table"), {}).get("buffer"))
     payload = {"func": "func_postgres_obj_create", "mode": obj_query.get("mode"), "table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "buffer": table_config.get(obj_query.get("table"), {}).get("buffer")}
@@ -131,7 +148,9 @@ async def func_obj_update_logic(obj_query: dict, obj_body: dict, role: str, user
     if role == "my":
         if any(any(key in column_blocked_list for key in item) for item in obj_list): raise Exception("key not allowed")
         if obj_query.get("table") == "users":
-            if len(obj_list) != 1 or obj_list[0].get("id") != user_id or "is_deleted" in obj_list[0]: raise Exception("ownership or multi-object or account delete issue")
+            if len(obj_list) != 1: raise Exception("multi-object update not allowed")
+            if obj_list[0].get("id") != user_id: raise Exception("ownership issue")
+            if "is_deleted" in obj_list[0]: raise Exception("field is_deleted cannot be modified")
             csu = column_single_update_list.split(",") if isinstance(column_single_update_list, str) else column_single_update_list
             if any(key in obj_list[0] and len(obj_list[0]) != 2 for key in csu): raise Exception("obj length should be 2")
             if any(key in obj_list[0] for key in ("email", "mobile")): await func_otp_verify(postgres_pool, obj_query.get("otp"), obj_list[0].get("email"), obj_list[0].get("mobile"), expiry_sec_otp)
@@ -195,7 +214,8 @@ def func_config_override_from_env(global_dict: dict) -> None:
                     if target_id.startswith("config_") and value_id.startswith("config_") and os.getenv(target_id) is None: global_dict[target_id] = global_dict[value_id]
     except: pass
 
-# Database - Core Operations
+
+# database - core operations
 async def func_postgres_runner(postgres_pool: any, execution_mode: str, sql_query: str) -> any:
     """Execute raw SQL queries in 'read' or 'write' mode with basic DDL protection."""
     if execution_mode not in ("read", "write"): raise Exception("execution_mode should be 'read' or 'write'")
@@ -244,7 +264,8 @@ async def func_sql_map_column(postgres_pool: any, sql_query: str) -> dict:
                     result_map[key].append(val)
     return result_map
 
-# Database - Maintenance & Schema
+
+# database - maintenance & schema
 async def func_postgres_clean(postgres_pool: any, table_config: dict) -> None:
     """Delete old records from tables based on retention_day configuration."""
     from datetime import datetime, timedelta
@@ -285,7 +306,6 @@ async def func_postgres_obj_read(postgres_pool: any, func_postgres_obj_serialize
                     except: serialized_val = raw_val
             elif is_array:
                 parts = raw_val.split("|")
-                # Detect the element type (e.g., int from int[])
                 dtype = func_postgres_obj_serialize.state[table].get(filter_key, "text").lower()
                 elem_type = dtype.replace("[]", "").replace("array", "").replace("int4", "int").replace("_", "").strip()
                 fake_schema = {**func_postgres_obj_serialize.state[table], filter_key: elem_type}
@@ -342,11 +362,17 @@ async def func_postgres_obj_read(postgres_pool: any, func_postgres_obj_serialize
             for res_row in result_list: res_row[f"{target_tbl}_{action_op}"] = action_map.get(str(res_row.get("id")), 0 if action_op == "count" else None)
         return result_list
 
-async def func_postgres_obj_update(postgres_pool, func_postgres_obj_serialize, table_name, obj_list, is_serialize=0, created_by_id=None, batch_size=5000, return_ids=False):
+async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, obj_list: list, is_serialize: int = 0, created_by_id: int = None, batch_size: int = 5000, return_ids: bool = False) -> str:
+    """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
+    import re, json
+    def validate_identifier(name):
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', str(name)): raise Exception(f"invalid identifier {name}")
+        return name
     if not obj_list: return "0 rows updated"
     if not all("id" in obj for obj in obj_list): raise Exception("id field required")
+    validate_identifier(table_name)
     if is_serialize: obj_list = await func_postgres_obj_serialize(postgres_pool, table_name, obj_list)
-    update_cols = [c for c in obj_list[0] if c != "id"]; total_updated = 0
+    update_cols = [validate_identifier(c) for c in obj_list[0] if c != "id"]; total_updated = 0
     if not update_cols: return "0 rows updated"
     actual_batch_size = min(batch_size or 5000, 65535 // (len(update_cols) + (2 if created_by_id else 1)))
     async with postgres_pool.acquire() as conn:
@@ -371,6 +397,7 @@ async def func_postgres_obj_update(postgres_pool, func_postgres_obj_serialize, t
                 if return_ids: returned_ids.extend([r["id"] for r in (await conn.fetch(f"UPDATE {table_name} SET {', '.join(set_clauses)} WHERE {where_clause} RETURNING id;", *batch_vals))])
                 else: total_updated += int((await conn.execute(f"UPDATE {table_name} SET {', '.join(set_clauses)} WHERE {where_clause};", *batch_vals)).split()[-1])
             return f"{len(returned_ids) if return_ids else total_updated} rows updated"
+
 
 async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_serialize: callable, execution_mode: str, table_name: str = None, object_list: list = None, is_serialize: int = 0, table_buffer: int = 0) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
@@ -399,7 +426,6 @@ async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_seriali
         else:
             import json
             schema = func_postgres_obj_serialize.state.get(table_name, {})
-            # Use jsonb_to_recordset for robust bulk unnesting with arrays and custom types
             col_list = ",".join(columns)
             def_list = ",".join([f"{c} jsonb" for c in columns])
             cast_list = ",".join([f"(SELECT ARRAY(SELECT jsonb_array_elements_text({c})))::{schema.get(c, 'text')}" if '[]' in schema.get(c, '') else (f"{c}::{schema.get(c, 'text')}" if 'jsonb' in schema.get(c, '') else f"({c}->>0)::{schema.get(c, 'text')}") for c in columns])
@@ -471,7 +497,8 @@ async def func_postgres_stream(postgres_pool: any, sql_query: str) -> any:
 
 async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
-    if not postgres_config or "table" not in postgres_config: raise Exception("postgres_config.table missing")
+    if not postgres_config: raise Exception("postgres_config missing")
+    if "table" not in postgres_config: raise Exception("postgres_config.table missing")
     control = postgres_config.get("control", {}); is_ext, is_match, disable_drop, disable_trunc = control.get("is_extension", 0), control.get("is_match_column", 0), control.get("is_drop_disable_table", 0), control.get("is_truncate_disable", 0)
     is_soft, is_hard, role_dis = control.get("is_child_delete_soft", 0), control.get("is_child_delete_hard", 0), control.get("is_delete_disable_role", 0)
     bulk_blocked, table_blocked, catalog = control.get("delete_disable_bulk", []), control.get("delete_disable_table", []), {"idx":set(),"uni":set(),"chk":set(),"tg":set()}
@@ -581,7 +608,8 @@ async def func_postgres_client_read(config_postgres: dict) -> any:
     import asyncpg
     return await asyncpg.create_pool(dsn=config_postgres["dsn"], min_size=config_postgres["min_size"], max_size=config_postgres["max_size"])
 
-# External Clients - Messaging & Cache (Redis/RabbitMQ/Kafka/Celery)
+
+# external clients - messaging & cache (redis/rabbitmq/kafka/celery)
 async def func_redis_client_read(redis_url: str) -> any:
     """Initialize Redis client using connection pooling."""
     import redis.asyncio as redis
@@ -626,7 +654,8 @@ async def func_sns_client_read(aws_access_key: str, aws_secret_key: str, region:
     import boto3
     return boto3.client("sns", region_name=region, aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key)
 
-# External Clients - Cloud (AWS/S3/SNS/SES)
+
+# external clients - cloud (aws/s3/sns/ses)
 async def func_s3_client_read(config_s3: dict) -> any:
     """Initialize AWS S3 client and resource."""
     import aiobotocore.session, boto3
@@ -710,7 +739,8 @@ async def func_kafka_producer(kafka_producer: any, channel_name: str, payload: d
     import json
     return await kafka_producer.send_and_wait(channel_name, json.dumps(payload, indent=2).encode('utf-8'), partition=0)
 
-# API Cache & Rate Limiting
+
+# api cache & rate limiting
 async def func_check_ratelimiter(redis_client: any, config_api: dict, url_path: str, identifier: str) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     import time
@@ -749,9 +779,13 @@ async def func_check_admin(mode: str, user_dict: dict, url_path: str, api_config
     async def fetch_role(uid):
         async with postgres_pool.acquire() as conn: rows = await conn.fetch("select role from users where id=$1", uid)
         if not rows: raise Exception("user not found")
-        return roles_allowed.intersection({rows[0]["role"]})
+        return rows[0]["role"]
     user_role = (await fetch_role(user_dict["id"]) if mode == "realtime" else cache_map.get(user_dict["id"], await fetch_role(user_dict["id"])) if mode == "cache" else user_dict.get("role", "absent"))
-    if user_role == "absent" or not isinstance(user_role, int) or user_role not in roles_allowed: raise Exception("access denied")
+    if user_role == "absent": raise Exception("user role missing")
+    if user_role is None: raise Exception("user role is null")
+    if user_role == "role": raise Exception("user role is invalid")
+    if not isinstance(user_role, int): raise Exception("invalid user role type")
+    if user_role not in roles_allowed: raise Exception("access denied")
 
 async def func_check_cache(mode: str, url_path: str, query_params: dict, api_config: dict, redis_client: any, user_id: int, response_obj: any) -> any:
     """Retrieve from or store to cache API responses based on configuration."""
@@ -782,7 +816,6 @@ async def func_check_cache(mode: str, url_path: str, query_params: dict, api_con
         elif cache_mode == "inmemory": func_check_cache.state[cache_key] = {"data": compressed_body, "expire_at": time.time() + expire_sec}
         return Response(content=body_content, status_code=response_obj.status_code, media_type=response_obj.media_type, headers=dict(response_obj.headers))
 
-# API Core Logic
 async def func_api_response_background(scope: dict, body_bytes: bytes, api_function: callable) -> any:
     """Execute an API function in the background and return a 200 response immediately."""
     from fastapi import Request, responses
@@ -820,7 +853,10 @@ async def func_check_token(headers: dict, url_path: str, root_auth_key: str, jwt
     else:
         if token: user_obj = await func_decode_token(token, jwt_secret_key)
         is_token_mandatory = api_config.get(url_path, {}).get("is_token") == 1
-        if (url_path.startswith(("/my", "/private", "/admin")) or is_token_mandatory) and not token: raise Exception("authorization token missing")
+        if not token:
+            if url_path.startswith(("/my", "/private", "/admin")): raise Exception("authorization token missing")
+            if is_token_mandatory: raise Exception("authorization token missing")
+
     return user_obj
 
 async def func_token_decode(token: str, jwt_secret_key: str) -> dict:
@@ -840,7 +876,6 @@ async def func_token_encode(user_obj: dict, jwt_secret_key: str, token_expiry_se
     refresh_token = jwt.encode({"exp": refresh_exp, "data": serialized_payload, "type": "refresh"}, jwt_secret_key)
     return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": token_expiry_sec, "token_refresh_expiry_sec": token_refresh_expiry_sec}
 
-# System & Structure
 def func_fastapi_app_read(lifespan_handler: any, is_debug_mode: bool) -> any:
     """Initialize a FastAPI application with debug mode and lifespan handler."""
     from fastapi import FastAPI
@@ -894,7 +929,8 @@ def func_add_router(fastapi_app: any) -> None:
         if py_file.name.startswith((".", "__")) or any(p.startswith(".") or p in ("venv", "env", "__pycache__") for p in py_file.parts): continue
         rel = py_file.relative_to(root_dir); ( load_router(root_dir, py_file) if (len(rel.parts) == 1 and py_file.name.startswith("router")) or ("router" in rel.parts[:-1]) else None )
 
-# Admin & Analytics
+
+# admin & analytics
 async def func_user_sql_read(postgres_pool: any, config_sql: dict, user_id: int) -> dict:
     """Execute pre-defined analytics queries for a specific user profile."""
     queries_metadata = config_sql.get("profile_metadata", {}); result_data = {}
@@ -912,18 +948,21 @@ async def func_account_delete(delete_mode: str, postgres_pool: any, user_id: int
     if not query: raise Exception("invalid delete mode")
     async with postgres_pool.acquire() as conn: await conn.execute(query, user_id); return "account deleted"
 
-# User & Message Operations
+
+# user & message operations
 async def func_user_single_read(postgres_pool: any, user_id: int) -> dict:
     """Read a single user's full record by their ID."""
     async with postgres_pool.acquire() as conn: record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", user_id)
     if not record: raise Exception("user not found")
     return dict(record)
 
-# Auth & OTP
+
+# auth & otp
 async def func_otp_generate(postgres_pool: any, email_address: str = None, mobile_number: str = None) -> int:
     """Generate and store a numeric OTP for email or mobile verification."""
     import random
-    if not (email_address or mobile_number) or (email_address and mobile_number): raise Exception("provide either email or mobile")
+    if not email_address and not mobile_number: raise Exception("email or mobile missing")
+    if email_address and mobile_number: raise Exception("provide only one identifier")
     otp_code = random.randint(100000, 999999)
     query, values = (("INSERT INTO otp (otp, email) VALUES ($1, $2)", (otp_code, email_address.strip().lower())) if email_address else ("INSERT INTO otp (otp, mobile) VALUES ($1, $2)", (otp_code, mobile_number.strip())))
     async with postgres_pool.acquire() as conn: await conn.execute(query, *values)
@@ -931,10 +970,13 @@ async def func_otp_generate(postgres_pool: any, email_address: str = None, mobil
 
 async def func_otp_verify(postgres_pool: any, otp_code: int, email_address: str = None, mobile_number: str = None, expiry_sec: int = 600) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
-    if not otp_code or (not (email_address or mobile_number)) or (email_address and mobile_number): raise Exception("invalid verification input")
+    if not otp_code: raise Exception("otp code missing")
+    if not email_address and not mobile_number: raise Exception("email or mobile missing")
+    if email_address and mobile_number: raise Exception("provide only one identifier")
     query, identifier = ((f"SELECT otp FROM otp WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '{expiry_sec}s' AND email=$1 ORDER BY id DESC LIMIT 1", email_address.strip().lower()) if email_address else (f"SELECT otp FROM otp WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '{expiry_sec}s' AND mobile=$1 ORDER BY id DESC LIMIT 1", mobile_number.strip()))
     async with postgres_pool.acquire() as conn: records = await conn.fetch(query, identifier)
-    if not records or int(records[0]["otp"]) != int(otp_code): raise Exception("invalid or expired otp")
+    if not records: raise Exception("otp expired or not found")
+    if int(records[0]["otp"]) != int(otp_code): raise Exception("invalid otp code")
 
 async def func_message_inbox(postgres_pool: any, user_id: int, is_unread: int = None, sort_order: str = "id desc", limit_count: int = 100, page_number: int = 1) -> list:
     """Read a conversation-summarized inbox for a user with unread filtering."""
@@ -1019,7 +1061,9 @@ async def func_auth_login_google(postgres_pool: any, google_client_id: str, user
     """Authenticate or register a user using Google OAuth ID token."""
     import json, time; from google.oauth2 import id_token; from google.auth.transport import requests as google_requests
     token_info = id_token.verify_oauth2_token(google_token, google_requests.Request(), google_client_id)
-    if token_info.get("iss") not in ["accounts.google.com", "https://accounts.google.com"] or not token_info.get("email_verified") or token_info.get("exp", 0) < time.time(): raise Exception("invalid or expired google token")
+    if token_info.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]: raise Exception("invalid google token issuer")
+    if not token_info.get("email_verified"): raise Exception("google email not verified")
+    if token_info.get("exp", 0) < time.time(): raise Exception("google token expired")
     email_address = token_info.get("email").lower(); google_metadata = {"sub": token_info.get("sub"), "email": email_address, "name": token_info.get("name"), "picture": token_info.get("picture"), "email_verified": 1}
     async with postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1", user_type, email_address); user = records[0] if records else (await conn.fetch("INSERT INTO users (type, email, google_login_id, google_login_metadata) VALUES ($1, $2, $3, $4::jsonb) RETURNING *", user_type, email_address, google_metadata["sub"], json.dumps(google_metadata)))[0]
@@ -1097,7 +1141,7 @@ def func_jira_worklog_export(jira_url: str, email_address: str, api_token: str, 
             if start_date <= started_at <= end_date: log_rows.append((worklog.author.displayName, started_at, worklog.timeSpentSeconds / 3600))
     pd.DataFrame(log_rows, columns=["author", "date", "hours"]).pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(assignees, fill_value=0).round(0).astype(int).to_csv(output_path); return output_path
 
-# Utils & Converters
+# utils & converters
 def func_folder_reset(folder_path: str) -> str:
     """Purge all files and subdirectories within a specified directory."""
     import os, shutil
@@ -1135,7 +1179,9 @@ async def func_request_param_read(parsing_mode: str, request_obj: any, param_con
     for key, data_type, is_mandatory, default_value in param_config:
         if is_mandatory and key not in params_dict: raise Exception(f"parameter '{key}' missing")
         val = params_dict.get(key, default_value)
-        if is_mandatory and (val is None or (isinstance(val, str) and not val.strip())): raise Exception(f"parameter '{key}' cannot be null")
+        if is_mandatory:
+            if val is None: raise Exception(f"parameter '{key}' missing")
+            if isinstance(val, str) and not val.strip(): raise Exception(f"parameter '{key}' cannot be empty")
         if val is not None:
             try: val = TYPE_MAP[data_type](val)
             except: raise Exception(f"parameter '{key}' invalid type {data_type}")

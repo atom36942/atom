@@ -1,9 +1,9 @@
-#import
+# import
 from function import *
 from config import *
 import asyncio,sys,orjson as json
 
-#celery
+# celery
 client_postgres_pool=None
 worker_loop=None
 def logic_celery():
@@ -46,7 +46,7 @@ def logic_celery():
         return run_async(func_postgres_obj_update, table, obj_list, is_serialize, created_by_id)
     return app
 
-#redis
+# redis
 async def logic_redis():
     try:
         client_redis=await func_redis_client_read(config_redis_url_pubsub)
@@ -64,7 +64,7 @@ async def logic_redis():
         if 'client_redis' in locals():await client_redis.aclose()
         if 'client_postgres_pool' in locals() and client_postgres_pool:await client_postgres_pool.close()
 
-#rabbitmq
+# rabbitmq
 async def logic_rabbitmq():
     import aio_pika
     try:
@@ -85,7 +85,7 @@ async def logic_rabbitmq():
         if 'client_rabbitmq' in locals() and not client_rabbitmq.is_closed:await client_rabbitmq.close()
         if 'client_postgres_pool' in locals() and client_postgres_pool:await client_postgres_pool.close()
 
-#kafka
+# kafka
 async def logic_kafka():
     try:
         client_kafka_consumer=await func_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_kafka_group_id,config_kafka_enable_auto_commit)
@@ -106,11 +106,11 @@ async def logic_kafka():
         if 'client_kafka_consumer' in locals():await client_kafka_consumer.stop()
         if 'client_postgres_pool' in locals() and client_postgres_pool:await client_postgres_pool.close()
 
-#celery init
+# celery init
 celery=None
 if "celery" in sys.argv[0] or (len(sys.argv) > 1 and sys.argv[1] == "celery"):celery=logic_celery()
 
-#main
+# main
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("usage: venv/bin/python consumer.py [redis|rabbitmq|kafka|celery]")

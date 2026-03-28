@@ -1,15 +1,16 @@
-# [ATOM ARCHITECT]
-## [CORE RULES]
-* **Style:** Senior level, compact, no blank lines in imports/logic.
+* **Style:** Senior level, compact; exactly one blank line before headers if outside functions; no blank lines between comments/logic inside functions/APIs.
 * **Logic:** Pure functions in `function.py`, minimize side effects, SOLID.
 * **Vars:** Explicit names; switch vars: `is_[name]` (0/1). 
-* **Prefixes:** `config_`, `func_`, `client_`, `cache_`.
+* **Prefixes:** `config_` (strictly for `config.py` variables); use explicit names for others; `func_`, `client_`, `cache_`.
 * **IO:** `tmp/` only for temp files/folders. No exceptions.
 * **Functionality:** `function.py` strictly for pure functions; no external state dependencies.
-* **State:** `main.py` stores all integrations (DB/Redis/S3) in `request.state`.
-* **Pattern:** Use `is_active = 1` vs `0` for boolean logic. `#` comments only for major blocks.
+* **State:** `main.py` stores all integrations (DB, Redis, S3) in `request.state`.
+* **Boolean:** Use `is_active = 1` vs `0` for boolean logic. 
+* **Pattern:** `# name` (lowercase, no brackets) for `.py` logic breaks; `### name` (lowercase, no brackets) for `.md` files.
+* **Errors:** No combined `or` logic in error checks. Break multiple failure conditions into individual `if` blocks with specific exception messages.
+* **Config:** Single line assignment only; no chain statements (e.g. `a, b = 1, 2`).
 
-## [REPO MAP]
+### repo map
 * `tmp/`: Runtime dumps & temp storage (Rule 5); auto-created by `main.py`.
 * `script/`: Standalone utility scripts (non-API context).
 * `secret/`: Sensitive data; holds certs and keys.
@@ -21,7 +22,7 @@
 * `function.py`: Library of pure functions; no external state (Rule 8).
 * `consumer.py`: Queue workers for asynchronous background tasks (Redis/Celery/Kafka/RabbitMQ).
 * `curl.txt`: Reference list of all API endpoints in curl format for testing.
-* `test.sh`: Bash script to automate API testing using `curl.txt`.
+* `test.py`: Python script to automate API testing using `curl.txt`.
 * `requirements.txt`: Python package dependencies for the project.
 * `Dockerfile`: Containerization setup for consistent deployment.
 * `readme.md`: Project overview, installation, and common developer commands.
@@ -30,7 +31,7 @@
 * `.env`: Environment-specific overrides for `config.py`.
 * `z.py`: Developer scratchpad for temporary snippets.
 
-## [API WORKFLOW]
+### api workflow
 1. `router.py`: Add route with correct prefix:
    * `root/`: Root user/Sudo access.
    * `auth/`: Auth operations (Login/Signup).

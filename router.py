@@ -1,20 +1,20 @@
-#router
+# router
 from fastapi import APIRouter
 router=APIRouter()
 
-#import
+# import
 from config import *
 from function import *
 import asyncio
 from datetime import datetime
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 
-#index
+# index
 @router.get("/")
 async def func_api_5e118e61a6c348328913f14722d76af6():
    return {"status":1,"message":"welcome to atom"}
 
-#root
+# root
 @router.get("/root/postgres-init")
 async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
    output=await func_postgres_init(request.app.state.client_postgres_pool,config_postgres)
@@ -86,7 +86,7 @@ async def func_api_ece7d0b10f9b4cb29167defe3b471f71(request:Request):
    for item in obj_body["url"]:output=await func_s3_url_delete(request.app.state.client_s3_resource,item)
    return {"status":1,"message":output}
 
-#auth
+# auth
 @router.post("/auth/signup-username-password")
 async def func_api_770160e847a341998b5b1c698e52e5c4(request:Request):
    if config_is_signup==0:raise Exception("signup disabled")
@@ -159,7 +159,7 @@ async def func_api_3cf56dd2c1b7458895585180af1b496d(request:Request):
    token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
-#my
+# my
 @router.get("/my/profile")
 async def func_api_27860b1e950446a9b5bd28c2e9a33de4(request:Request):
    user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
@@ -257,7 +257,7 @@ async def func_api_ad13e1541fdf4aeda4702eba872afc41(request:Request):
    output=await func_mongodb_object_create(request.app.state.client_mongodb,obj_query["database"],obj_query["table"],obj_list)
    return {"status":1,"message":output}
 
-#public
+# public
 @router.get("/public/info")
 async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
    output={
@@ -359,7 +359,7 @@ async def func_api_3f7b9c2a4e1d4a0b8c6e5f9d1a2b7c3e(request:Request):
    output=await func_table_tag_read(request.app.state.client_postgres_pool,obj_query["table"],obj_query["column"],obj_query["filter_col"],val,obj_query["limit"],obj_query["page"])
    return {"status":1,"message":output}
 
-#private
+# private
 @router.post("/private/s3-upload-file")
 async def func_api_cf28dc32bf3c4adab8b6192cebec5e39(request:Request):
    obj_form=await func_request_param_read("form",request,[("bucket","str",1,None),("file","file",1,[]),("key","list",0,[])])
@@ -375,7 +375,7 @@ async def func_api_7031e803bbc544958a91c92a89187338(request:Request):
    output=func_s3_upload_presigned(request.app.state.client_s3,config_s3_region_name,obj_query["bucket"],obj_query["key"],config_s3_limit_kb,config_s3_presigned_expire_sec)
    return {"status":1,"message":output}
 
-#admin
+# admin
 @router.post("/admin/object-create")
 async def func_api_6dba580b31ff43e6824ea4292eb9c749(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
@@ -404,7 +404,7 @@ async def func_api_219e40d87ece488fb927dd4ee8f14bb9(request:Request):
    output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],None)
    return {"status":1,"message":output}
 
-#zzz
+# zzz
 @router.get("/test")
 async def func_api_2653353cdf3145558dae1c3ce24318e2(request:Request):
    return {"status":1,"message":"welcome to test"}

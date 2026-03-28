@@ -16,7 +16,7 @@ curl -X POST "$baseurl/root/mongodb-import" -H "Authorization: Bearer $token_roo
 #auth
 curl -X POST "$baseurl/auth/signup-username-password" -H "Content-Type: application/json" -d '{"type":1,"username":"$username","password":"123"}'
 curl -X POST "$baseurl/auth/signup-username-password-bigint" -H "Content-Type: application/json" -d '{"type":1,"username_bigint":$username_bigint,"password_bigint":123}'
-curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":1,"password":"123","username":"atom"}'
+curl -X POST "$baseurl/auth/login-password-username" -H "Content-Type: application/json" -d '{"type":1,"username":"atom","password":"123"}'
 curl -X POST "$baseurl/auth/login-password-username-bigint" -H "Content-Type: application/json" -d '{"type":1,"password_bigint":123,"username_bigint":$username_bigint}'
 curl -X POST "$baseurl/auth/login-password-email" -H "Content-Type: application/json" -d '{"type":1,"password":123,"email":"test"}'
 curl -X POST "$baseurl/auth/login-password-mobile" -H "Content-Type: application/json" -d '{"type":1,"password":123,"mobile":"test"}'

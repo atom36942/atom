@@ -1,4 +1,4 @@
-### About
+### about
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
@@ -7,7 +7,7 @@
 - Non-opinionated and full flexible to extend
 - Tech Stack:Python,FastAPI,PostgreSQL,Redis,S3,Celery,RabbitMQ,Kafka,Sentry
 
-### Modules
+### modules
 - PostgreSQL: one-click setup, CSV upload, query runner
 - Auth & RBAC: auth APIs, user/admin APIs
 - Performance: Redis cache, rate limiting
@@ -17,7 +17,7 @@
 - Data Ops: bulk insert/update, Google Sheets, SFTP
 - Platform: HTML serving, multi-tenant support, extensible architecture
 
-### Installation
+### installation
 ```bash
 #direct
 git clone https://github.com/atom36942/atom.git
@@ -34,10 +34,10 @@ docker build -t atom .
 docker run --rm -p 8000:8000 atom
 ```
 
-### Commands
+### commands
 ```bash
 #test curls
-./test.sh
+./venv/bin/python3.11 test.py
 
 #consumer
 venv/bin/python consumer.py celery
