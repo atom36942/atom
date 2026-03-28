@@ -18,5 +18,5 @@
 !requirements.txt
 !Dockerfile
 !readme.md
-AGENTS.md
+!AGENTS.md
 !.gitignore
