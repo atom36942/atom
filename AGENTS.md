@@ -14,7 +14,7 @@
 * `tmp/`: Runtime dumps & temp storage (Rule 5); auto-created by `main.py`.
 * `script/`: Standalone utility scripts (non-API context).
 * `secret/`: Sensitive data; holds certs and keys.
-* `static/`: Assets served at `/static`; contains `curl.html` & data templates.
+* `static/`: Assets served at `/static`;
 * `venv/`: Python virtual environment.
 * `config.py`: Centralized configuration; all vars prefixed with `config_`.
 * `main.py`: App entry; initializes `app.state.client_*` & global middleware.
@@ -42,4 +42,4 @@
 2. `function.py`: Core logic as pure func (use local imports).
 3. `config.py`: Add required `config_` vars.
 4. `main.py`: Init `client_` in lifespan; access via `request.state`.
-5. `curl.txt` + `static/curl.html`: Sync entry in standard format.
+5. `curl.txt` + `static/api.html`: Sync entry in standard format.

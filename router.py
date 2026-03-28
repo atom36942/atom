@@ -262,6 +262,7 @@ async def func_api_ad13e1541fdf4aeda4702eba872afc41(request:Request):
 async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
    output={
    "api_list":[route.path for route in request.app.routes],
+   "api_metadata":func_api_metadata_read(request.app.routes),
    "postgres_schema":request.app.state.cache_postgres_schema,
    "postgres_datatype_used_app":set(sorted({k["datatype"] for cols in config_postgres["table"].values() for k in cols})),
    "postgres_datatype_used_db":set(sorted({col_info["datatype"] for tbl in request.app.state.cache_postgres_schema.values() for col_info in tbl.values()})),
@@ -276,7 +277,7 @@ async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):
    return {"status":1,"message":output}
 
 @router.post("/public/object-create")
-async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
+async def func_api_f48100707a724b979ccc5582a9bd0e29(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state

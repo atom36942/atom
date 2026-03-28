@@ -185,6 +185,41 @@ async def func_api_file_to_obj_list(upload_file: any) -> list:
     reader = csv.DictReader(io.TextIOWrapper(upload_file.file, encoding="utf-8"))
     obj_list = [row for row in reader]; await upload_file.close(); return obj_list
 
+# api metadata
+def func_api_metadata_read(app_routes: list) -> list:
+    """Extract API paths, methods, and parameter schemas from FastAPI routes using source inspection."""
+    import inspect, re, ast
+    metadata = []
+    for route in app_routes:
+        if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
+        route_meta = {"path": route.path, "methods": list(getattr(route, "methods", [])), "params": {"header": [], "query": [], "form": [], "body": [], "path": []}}
+        for p in re.findall(r"\{(\w+)\}", route.path): route_meta["params"]["path"].append({"name": p, "type": "str", "required": 1, "default": None})
+        try:
+            sig = inspect.signature(route.endpoint)
+            for name, par in sig.parameters.items():
+                p_type = par.annotation.__name__ if hasattr(par.annotation, "__name__") else str(par.annotation)
+                if name in ["request", "websocket", "req"] or "Request" in p_type or "Response" in p_type or "WebSocket" in p_type or "BackgroundTasks" in p_type or any(x["name"] == name for x in route_meta["params"]["path"]): continue
+                route_meta["params"]["query"].append({"name": name, "type": p_type, "required": 1 if par.default == inspect.Parameter.empty else 0, "default": None if par.default == inspect.Parameter.empty else par.default})
+            source = inspect.getsource(route.endpoint)
+            tree = ast.parse(source)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and (getattr(node.func, "id", None) == "func_request_param_read" or (isinstance(node.func, ast.Name) and node.func.id == "func_request_param_read")):
+                    try:
+                        p_type = node.args[0].value if hasattr(node.args[0], "value") else node.args[0].s
+                        p_list = ast.literal_eval(node.args[2])
+                        for p in p_list:
+                            route_meta["params"][p_type] = [x for x in route_meta["params"][p_type] if x["name"] != p[0]]
+                            route_meta["params"][p_type].append({"name": p[0], "type": p[1], "required": p[2], "default": p[3]})
+                    except: pass
+        except: pass
+        p, h = route.path, route_meta["params"]["header"]
+        is_auth, req = 0, 1
+        if any(p.startswith(x) for x in ["/root/", "/my/", "/private/", "/admin/"]): is_auth = 1
+        elif not any(p.startswith(x) for x in ["/auth/", "/public/", "/openapi.json", "/docs", "/redoc"]) and p != "/": is_auth, req = 1, 0
+        if is_auth and not any(x["name"].lower() == "authorization" for x in h): h.append({"name": "Authorization", "type": "str", "required": req, "default": None})
+        metadata.append(route_meta)
+    return metadata
+
 def func_config_override_from_env(global_dict: dict) -> None:
     """Override configuration variables starting with 'config_' from environment variables and .env file."""
     import json, os, ast

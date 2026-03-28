@@ -72,6 +72,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
     <ul id="apiDrop" class="api-dropdown"></ul>
 </div>
 <form id="apiForm">
+    <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
     <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small">+</button></div><div id="hCont" class="dynamic-container"></div></div>
     <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
     <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
@@ -113,69 +114,10 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
 </div></div>
 
 <script>
-const COMMANDS=[
-{p:"/",m:"GET",h:[],q:[],f:[],j:[]},
-{p:"/root/postgres-init",m:"GET",h:[{k:"Authorization",v:"test"}],q:[],f:[],j:[]},
-{p:"/root/sync",m:"GET",h:[{k:"Authorization",v:"test"}],q:[],f:[],j:[]},
-{p:"/root/check",m:"GET",h:[{k:"Authorization",v:"test"}],q:[],f:[],j:[]},
-{p:"/root/postgres-runner",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"mode",v:"read",t:"string"},{k:"query",v:"select * from users limit 10;",t:"string"}]},
-{p:"/root/postgres-export",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"query",v:"select * from users limit 10;",t:"string"}]},
-{p:"/root/postgres-import",m:"POST",h:[{k:"Authorization",v:"test"}],q:[],f:[{k:"mode",v:"create"},{k:"table",v:"test"},{k:"file",v:"@file.csv"}],j:[]},
-{p:"/root/redis-import",m:"POST",h:[{k:"Authorization",v:"test"}],q:[],f:[{k:"mode",v:"create"},{k:"table",v:"test"},{k:"expiry_sec",v:"100"},{k:"file",v:"@file.csv"}],j:[]},
-{p:"/root/mongodb-import",m:"POST",h:[{k:"Authorization",v:"test"}],q:[],f:[{k:"mode",v:"create"},{k:"database",v:"test"},{k:"table",v:"test"},{k:"file",v:"@file.csv"}],j:[]},
-{p:"/root/s3-url-delete",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"url",v:"url1,url2,url3",t:"string"}]},
-{p:"/root/s3-bucket-ops",m:"GET",h:[{k:"Authorization",v:"test"}],q:[{k:"mode",v:"create"},{k:"bucket",v:"master"}],f:[],j:[]},
-{p:"/auth/signup-username-password",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"username",v:"test",t:"string"},{k:"password",v:"test",t:"string"}]},
-{p:"/auth/signup-username-password-bigint",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"username_bigint",v:"test",t:"number"},{k:"password_bigint",v:"test",t:"number"}]},
-{p:"/auth/login-password-username",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password",v:"test",t:"string"},{k:"username",v:"test",t:"string"}]},
-{p:"/auth/login-password-username-bigint",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password_bigint",v:"test",t:"number"},{k:"username_bigint",v:"test",t:"number"}]},
-{p:"/auth/login-password-email",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password",v:"test",t:"string"},{k:"email",v:"test",t:"string"}]},
-{p:"/auth/login-password-mobile",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"password",v:"test",t:"string"},{k:"mobile",v:"test",t:"string"}]},
-{p:"/auth/login-otp-email",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"otp",v:"test",t:"number"},{k:"email",v:"test",t:"string"}]},
-{p:"/auth/login-otp-mobile",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"otp",v:"test",t:"number"},{k:"mobile",v:"test",t:"string"}]},
-{p:"/auth/login-google",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"type",v:"1",t:"number"},{k:"google_token",v:"test",t:"string"}]},
-{p:"/my/profile",m:"GET",h:[{k:"Authorization",v:"test"}],q:[],f:[],j:[]},
-{p:"/my/token-refresh",m:"POST",h:[{k:"Authorization",v:"test"}],q:[],f:[],j:[]},
-{p:"/my/api-usage",m:"GET",h:[{k:"Authorization",v:"test"}],q:[],f:[],j:[]},
-{p:"/my/account-delete",m:"DELETE",h:[{k:"Authorization",v:"test"}],q:[{k:"mode",v:"soft"}],f:[],j:[]},
-{p:"/my/message-received",m:"GET",h:[{k:"Authorization",v:"test"}],q:[],f:[],j:[]},
-{p:"/my/message-inbox",m:"GET",h:[{k:"Authorization",v:"test"}],q:[],f:[],j:[]},
-{p:"/my/message-thread",m:"GET",h:[{k:"Authorization",v:"test"}],q:[{k:"user_id",v:"1"}],f:[],j:[]},
-{p:"/my/message-delete",m:"DELETE",h:[{k:"Authorization",v:"test"}],q:[{k:"mode",v:"single"},{k:"id",v:"1"}],f:[],j:[]},
-{p:"/my/message-delete",m:"DELETE",h:[{k:"Authorization",v:"test"}],q:[{k:"mode",v:"all"}],f:[],j:[]},
-
-{p:"/my/parent-read",m:"GET",h:[{k:"Authorization",v:"test"}],q:[{k:"table",v:"report_test"},{k:"parent_column",v:"test_id"},{k:"parent_table",v:"test"}],f:[],j:[]},
-{p:"/my/object-create-mongodb",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"database",v:"test"},{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"test",t:"string"}]},
-{p:"/my/object-create",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"my",t:"string"}]},
-{p:"/my/object-update",m:"PUT",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"161",t:"number"},{k:"title",v:"updated",t:"string"},{k:"created_by_id",v:"100",t:"number"}]},
-{p:"/my/ids-delete",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1919,1920,1921",t:"string"}]},
-{p:"/my/object-read",m:"GET",h:[{k:"Authorization",v:"test"}],q:[{k:"table",v:"test"}],f:[],j:[]},
-{p:"/public/info",m:"GET",h:[],q:[],f:[],j:[]},
-{p:"/public/otp-verify",m:"GET",h:[],q:[{k:"otp",v:"test"},{k:"email",v:"test"}],f:[],j:[]},
-{p:"/public/otp-send-email-ses",m:"GET",h:[],q:[{k:"sender",v:"test"},{k:"email",v:"test"}],f:[],j:[]},
-{p:"/public/otp-send-email-resend",m:"GET",h:[],q:[{k:"sender",v:"test"},{k:"email",v:"test"}],f:[],j:[]},
-{p:"/public/otp-send-mobile-sns",m:"GET",h:[],q:[{k:"mobile",v:"test"}],f:[],j:[]},
-{p:"/public/otp-send-mobile-sns-template",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"mobile",v:"test",t:"string"},{k:"message",v:"test",t:"string"},{k:"template_id",v:"test",t:"string"},{k:"entity_id",v:"test",t:"string"},{k:"sender_id",v:"test",t:"string"}]},
-{p:"/public/otp-send-mobile-fast2sms",m:"GET",h:[],q:[{k:"mobile",v:"test"}],f:[],j:[]},
-{p:"/public/jira-worklog-export",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"jira_base_url",v:"test",t:"string"},{k:"jira_email",v:"test",t:"string"},{k:"jira_token",v:"test",t:"string"},{k:"start_date",v:"test",t:"string"},{k:"end_date",v:"test",t:"string"}]},
-{p:"/public/object-create",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"public",t:"string"}]},
-{p:"/public/object-read",m:"GET",h:[],q:[{k:"table",v:"test"}],f:[],j:[]},
-{p:"/public/object-read-gsheet",m:"GET",h:[],q:[{k:"url",v:"test"}],f:[],j:[]},
-{p:"/public/object-create-gsheet",m:"POST",h:[{k:"Content-Type",v:"application/json"}],q:[{k:"url",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"public",t:"string"}]},
-{p:"/public/converter-number",m:"GET",h:[],q:[{k:"datatype",v:"int"},{k:"mode",v:"encode"},{k:"x",v:"test"}],f:[],j:[]},
-{p:"/public/table-tag-read",m:"GET",h:[],q:[{k:"table",v:"test"},{k:"column",v:"tag"}],f:[],j:[]},
-{p:"/private/s3-upload-file",m:"POST",h:[{k:"Authorization",v:"test"}],q:[],f:[{k:"bucket",v:"test"},{k:"file",v:"@file1"},{k:"key",v:"test1.png"}],j:[]},
-{p:"/private/s3-upload-presigned",m:"GET",h:[{k:"Authorization",v:"test"}],q:[{k:"bucket",v:"test"},{k:"key",v:"test"}],f:[],j:[]},
-{p:"/admin/object-create",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"type",v:"1",t:"number"},{k:"title",v:"admin",t:"string"}]},
-{p:"/admin/object-update",m:"PUT",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[{k:"table",v:"test"}],f:[],j:[{k:"id",v:"197",t:"number"},{k:"title",v:"admin",t:"string"}]},
-{p:"/admin/object-read",m:"GET",h:[{k:"Authorization",v:"test"}],q:[{k:"table",v:"test"}],f:[],j:[]},
-{p:"/admin/ids-delete",m:"POST",h:[{k:"Authorization",v:"test"},{k:"Content-Type",v:"application/json"}],q:[],f:[],j:[{k:"table",v:"test",t:"string"},{k:"ids",v:"1,2,3",t:"string"}]},
-];
-
+let COMMANDS = [];
 const d = document,
-  $ = id => d.getElementById(id),
-  orig = COMMANDS.map((c, i) => ({ ...c, oi: i }));
-let curr = null;
+  $ = id => d.getElementById(id);
+let curr = null, orig = [];
 
 /* ── SVG icon templates ── */
 const SVG = (w, paths, stroke = 'currentColor') =>
@@ -224,16 +166,44 @@ const csvEscape = v => {
 };
 
 const arrayToCsv = arr => {
+  if(!arr.length) return '';
   const keys = [...new Set(arr.flatMap(Object.keys))];
   return [keys.join(','), ...arr.map(r => keys.map(k => csvEscape(r[k])).join(','))].join('\n');
 };
 
-const yn = a => a.length ? 'Yes' : 'No';
-const hasToken = c => c.h.some(x => x.k.toLowerCase() === 'authorization') ? 'Yes' : 'No';
+const yn = a => a && a.length ? 'Yes' : 'No';
+const hasToken = c => c.h && c.h.some(x => x.k.toLowerCase() === 'authorization') ? 'Yes' : 'No';
 
 const updateLsIcon = () => {
   $('lsBtn').style.color = localStorage.length ? 'var(--accent)' : 'var(--muted)';
 };
+
+async function init() {
+  try {
+    const r = await fetch('/public/info');
+    const json = await r.json();
+    const meta = json.message.api_metadata || [];
+    COMMANDS = meta.map(m => ({
+      p: m.path,
+      m: m.methods[0] || 'GET',
+      h: m.params.header.map(p => ({ k: p.name, v: String(p.default || '') })),
+      q: m.params.query.map(p => ({ k: p.name, v: String(p.default || '') })),
+      f: m.params.form.map(p => ({ k: p.name, v: String(p.default || '') })),
+      u: m.params.path.map(p => ({ k: p.name, v: String(p.default || '') })),
+      j: m.params.body.map(p => ({ 
+        k: p.name, 
+        v: String(p.default || ''), 
+        t: p.type === 'int' ? 'number' : p.type === 'bool' ? 'boolean' : (p.type === 'list' ? 'array' : (p.type === 'dict' ? 'object' : 'string'))
+      }))
+    }));
+    orig = COMMANDS.map((c, i) => ({ ...c, oi: i }));
+    load(null);
+    updateLsIcon();
+  } catch (err) {
+    console.error('Failed to load API info', err);
+    load(null);
+  }
+}
 
 /* ── Input row helpers ── */
 const bindClear = r => {
@@ -267,7 +237,7 @@ const mkRow = (ct, k = '', v = '', t = 'string') => {
 };
 
 /* ── Sections ── */
-const SECTIONS = [['addH', 'hSec', 'hCont'], ['addQ', 'qSec', 'qCont'], ['addF', 'fSec', 'fCont'], ['addJ', 'jSec', 'jCont']];
+const SECTIONS = [['addH', 'hSec', 'hCont'], ['addQ', 'qSec', 'qCont'], ['addF', 'fSec', 'fCont'], ['addJ', 'jSec', 'jCont'], ['addU', 'uSec', 'uCont']];
 SECTIONS.forEach(([btn, sec, cont]) => {
   $(btn).onclick = () => { $(sec).classList.add('active'); mkRow($(cont)) };
 });
@@ -287,7 +257,7 @@ const load = i => {
   SECTIONS.forEach(([, sec, cont]) => { $(cont).innerHTML = ''; $(sec).classList.remove('active') });
   $('rBox').classList.remove('show');
   if (!curr) { $('apiIn').value = ''; $('clrSel').style.display = 'none'; return }
-  if (curr.h.length) {
+  if (curr.h && curr.h.length) {
     $('hSec').classList.add('active');
     curr.h.forEach(x => {
       let val = x.v;
@@ -298,10 +268,10 @@ const load = i => {
       mkRow($('hCont'), x.k, val);
     });
   }
-  $('qSec').classList.add('active');
-  curr.q.forEach(x => mkRow($('qCont'), x.k, x.v));
-  if (curr.f.length) { $('fSec').classList.add('active'); curr.f.forEach(x => mkRow($('fCont'), x.k, x.v)) }
-  if (curr.j.length) { $('jSec').classList.add('active'); curr.j.forEach(x => mkRow($('jCont'), x.k, x.v, x.t)) }
+  if(curr.q && curr.q.length) { $('qSec').classList.add('active'); curr.q.forEach(x => mkRow($('qCont'), x.k, x.v)) }
+  if (curr.f && curr.f.length) { $('fSec').classList.add('active'); curr.f.forEach(x => mkRow($('fCont'), x.k, x.v)) }
+  if (curr.u && curr.u.length) { $('uSec').classList.add('active'); curr.u.forEach(x => mkRow($('uCont'), x.k, x.v)) }
+  if (curr.j && curr.j.length) { $('jSec').classList.add('active'); curr.j.forEach(x => mkRow($('jCont'), x.k, x.v, x.t)) }
   $('clrSel').style.display = 'block';
 };
 
@@ -541,8 +511,11 @@ $('apiForm').onsubmit = async e => {
   const headers = extractRows($('hCont')),
     queryParams = extractRows($('qCont')),
     formData = extractRows($('fCont')),
+    pathParams = extractRows($('uCont')),
     jsonData = extractRows($('jCont'), true);
-  let url = window.location.origin + curr.p;
+  let urlPath = curr.p;
+  pathParams.forEach(x => { if (x.k) urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(x.v || 'null')) });
+  let url = window.location.origin + urlPath;
   const qs = queryParams
     .filter(x => x.k)
     .map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v === '' ? 'null' : x.v)}`)
@@ -600,7 +573,7 @@ d.addEventListener('keydown', e => {
   }
 });
 
-load(null);
+init();
 updateLsIcon();
 </script>
 </body>
