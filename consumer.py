@@ -5,8 +5,6 @@ import asyncio,sys,orjson as json
 
 #celery
 client_postgres_pool=None
-cache_postgres_schema=None
-cache_postgres_column_datatype=None
 worker_loop=None
 def logic_celery():
     from celery import signals
@@ -15,10 +13,9 @@ def logic_celery():
     app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
     _run_counter=count(1)
     async def _init_pool():
-        global client_postgres_pool,cache_postgres_schema,cache_postgres_column_datatype
+        global client_postgres_pool
         if client_postgres_pool is None:
             client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection)
-            cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool)
             print("postgres pool initialized")
     @signals.worker_process_init.connect
     def init_worker(**kwargs):
@@ -30,13 +27,12 @@ def logic_celery():
         print("celery worker initialized")
     def run_async(coro_func, *args):
         n=next(_run_counter)
-        global worker_loop, client_postgres_pool, cache_postgres_column_datatype
+        global worker_loop, client_postgres_pool
         if not worker_loop:
             worker_loop=asyncio.new_event_loop()
             asyncio.set_event_loop(worker_loop)
         try:
-            worker_loop.run_until_complete(_init_pool())
-            worker_loop.run_until_complete(coro_func(client_postgres_pool, func_postgres_obj_serialize, cache_postgres_column_datatype, *args))
+            worker_loop.run_until_complete(coro_func(client_postgres_pool, func_postgres_obj_serialize, *args))
             print(f"task completed #{n}")
             return None
         except Exception as e:
@@ -56,12 +52,11 @@ async def logic_redis():
         client_redis=await func_redis_client_read(config_redis_url_pubsub)
         client_redis_consumer=await func_redis_client_read_consumer(client_redis,config_channel_name)
         client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
-        cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None,None)
         print("redis consumer started")
         async for message in client_redis_consumer.listen():
             if message["type"]=="message" and message["channel"]==config_channel_name.encode():
                 payload=json.loads(message['data'])
-                await func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool,cache_postgres_column_datatype)
+                await func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool)
                 print("redis message processed")
     except asyncio.CancelledError:pass
     except Exception as e:print(f"redis error: {str(e)}")
@@ -75,11 +70,10 @@ async def logic_rabbitmq():
     try:
         client_rabbitmq,client_rabbitmq_consumer=await func_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
         client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
-        cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None,None)
         async def aqmp_callback(message:aio_pika.IncomingMessage):
             async with message.process():
                 payload=json.loads(message.body)
-                await func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool,cache_postgres_column_datatype)
+                await func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool)
                 print("rabbitmq message processed")
         print("rabbitmq consumer started")
         await client_rabbitmq_consumer.consume(aqmp_callback)
@@ -96,7 +90,6 @@ async def logic_kafka():
     try:
         client_kafka_consumer=await func_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_kafka_group_id,config_kafka_enable_auto_commit)
         client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
-        cache_postgres_schema,cache_postgres_column_datatype=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else (None,None)
         print("kafka consumer started")
         while True:
             batch=await client_kafka_consumer.getmany(timeout_ms=1000, max_records=config_kafka_consumer_batch)
@@ -104,7 +97,7 @@ async def logic_kafka():
             for tp, messages in batch.items():
                 for message in messages:
                     payload=json.loads(message.value.decode('utf-8'))
-                    await func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool,cache_postgres_column_datatype)
+                    await func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool)
                 if not config_kafka_enable_auto_commit:await client_kafka_consumer.commit(tp)
                 print(f"kafka batch processed: {len(messages)} msgs")
     except asyncio.CancelledError:pass

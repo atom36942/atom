@@ -1,76 +1,22 @@
-# python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
+# deny all
+*
 
-# build
-build/
-dist/
-site/
-.eggs/
-*.egg
-*.egg-info/
-pip-wheel-metadata/
+# folders
+!static/
+!static/**
+!script/
+!script/**
 
-# logs
-*.log
-
-# test
-.coverage*
-.cache
-.pytest_cache/
-htmlcov/
-.tox/
-.nox/
-.hypothesis/
-
-# env
-.env
-.env.*
-.venv/
-venv/
-env/
-ENV/
-.python-version
-
-# tools
-.mypy_cache/
-.pyre/
-.pytype/
-.dmypy.json
-
-# notebooks
-.ipynb_checkpoints
-
-# ide/os
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-.agents/
-
-# db
-*.db
-*.sqlite3
-
-# frameworks
-instance/
-.webassets-cache
-
-# dotfiles
-.*
+# files
+!function.py
+!config.py
+!main.py
+!router.py
+!consumer.py
+!curl.txt
+!test.sh
+!requirements.txt
+!Dockerfile
+!readme.md
+AGENTS.md
 !.gitignore
-!.env.example
-
-# misc
-*.manifest
-*.spec
-vectorstore/
-tmp/
-
-# zzz
-secret/
-export/
-.env
-z.py

@@ -1,17 +1,16 @@
 #postgres
-config_postgres_url=None
+config_postgres_url="postgresql://atom@127.0.0.1/postgres?sslmode=disable"
 config_postgres_min_connection=5
 config_postgres_max_connection=20
 
-
 #redis
-config_redis_url=None
+config_redis_url="redis://localhost:6379"
 config_redis_url_ratelimiter=config_redis_url
 
 #queue
 config_channel_name="channel_1"
 config_redis_url_pubsub=config_redis_url
-config_rabbitmq_url=None
+config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 config_celery_broker_url=config_redis_url
 config_celery_backend_url=config_celery_broker_url
 config_kafka_url=None
@@ -98,7 +97,6 @@ config_limit_ids_delete=1000
 config_google_login_client_id=None
 config_mongodb_url=None
 config_openai_key=None
-config_searchapi_key=None
 config_gemini_key=None
 config_sentry_dsn=None
 
@@ -111,7 +109,7 @@ config_sql={
 
 config_table={
 "test":{"buffer":3},
-"log_api":{"retention_day":30,"buffer":3},
+"log_api":{"retention_day":30,"buffer":10},
 "log_users_password":{"retention_day":90},
 "otp":{"retention_day":365},
 }

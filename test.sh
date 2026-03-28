@@ -3,8 +3,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 #config
 input_path="$SCRIPT_DIR/curl.txt"
-outpath_path="$SCRIPT_DIR/export/curl_output.txt"
-outpath_path_fail="$SCRIPT_DIR/export/curl_fail.log"
+outpath_path="$SCRIPT_DIR/tmp/curl_output.txt"
+outpath_path_fail="$SCRIPT_DIR/tmp/curl_fail.log"
 baseurl="http://127.0.0.1:8000"
 token_root="123"
 token=""
@@ -17,7 +17,7 @@ if [ ! -f "$input_path" ]; then
     echo "❌ Input file not found: $input_path"
     exit 1
 fi
-mkdir -p "$SCRIPT_DIR/export"
+mkdir -p "$SCRIPT_DIR/tmp"
 : > "$outpath_path"
 count=0; count_success=0; count_fail=0; total_response_time=0
 while IFS= read -r line || [[ -n "$line" ]]; do

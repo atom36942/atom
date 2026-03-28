@@ -22,8 +22,8 @@ async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
 
 @router.get("/root/sync")
 async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
-   await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"flush")
-   request.app.state.cache_postgres_schema,request.app.state.cache_postgres_column_datatype=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else ({},{})
+   await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"flush")
+   request.app.state.cache_postgres_schema=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else {}
    request.app.state.cache_users_role=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_role")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("role") else {}
    request.app.state.cache_users_is_active=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
    await func_postgres_clean(request.app.state.client_postgres_pool,config_table)
@@ -50,8 +50,8 @@ async def func_api_4eb43535bb05413c967fc18bfe93ac10(request:Request):
 async def func_api_5f4c0fdf16244ca084cd6a07687b245f(request:Request):
    obj_form=await func_request_param_read("form",request,[("mode","str",1,None),("table","str",1,None),("file","file",1,[])])
    obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
-   if obj_form["mode"]=="create":output=await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"now",obj_form["table"],obj_list,1,None)
-   elif obj_form["mode"]=="update":output=await func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,obj_form["table"],obj_list,1,None)
+   if obj_form["mode"]=="create":output=await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"now",obj_form["table"],obj_list,1,None)
+   elif obj_form["mode"]=="update":output=await func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,obj_form["table"],obj_list,1,None)
    elif obj_form["mode"]=="delete":output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_form["table"],",".join(str(obj["id"]) for obj in obj_list),None)
    return {"status":1,"message":output}
 
@@ -165,7 +165,7 @@ async def func_api_27860b1e950446a9b5bd28c2e9a33de4(request:Request):
    user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
    metadata={}
    if config_is_profile_metadata==1:metadata=await func_user_sql_read(request.app.state.client_postgres_pool,config_sql,request.state.user["id"])
-   asyncio.create_task(func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}],None,None))
+   asyncio.create_task(func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}],None,None))
    token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":user|metadata|token}
 
@@ -207,16 +207,10 @@ async def func_api_27632b8e47c144519a8cdc38262762db(request:Request):
    asyncio.create_task(func_message_thread_mark_read(request.app.state.client_postgres_pool,request.state.user["id"],obj_query["user_id"]))
    return {"status":1,"message":obj_list}
 
-@router.delete("/my/message-delete-single")
+@router.delete("/my/message-delete")
 async def func_api_468c6788fdf24e749600298a5031caa4(request:Request):
-   obj_query=await func_request_param_read("query",request,[("id","int",1,None)])
-   output=await func_message_delete_single(request.app.state.client_postgres_pool,obj_query["id"],request.state.user["id"])
-   return {"status":1,"message":output}
-
-@router.delete("/my/message-delete-bulk")
-async def func_api_425899c34d174bd788b11e86981288ae(request:Request):
-   obj_query=await func_request_param_read("query",request,[("mode","str",1,None)])
-   output=await func_message_delete_bulk(obj_query["mode"],request.app.state.client_postgres_pool,request.state.user["id"])
+   obj_query=await func_request_param_read("query",request,[("mode","str",1,None),("id","int",0,None)])
+   output=await func_message_delete(obj_query["mode"],request.app.state.client_postgres_pool,request.state.user["id"],obj_query["id"])
    return {"status":1,"message":output}
 
 @router.get("/my/parent-read")
@@ -239,20 +233,20 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"my",request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
+   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"my",request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_obj_serialize,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
 
 @router.put("/my/object-update")
 async def func_api_a10070c5091d40ce90484ec9ec6e6587(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("otp","int",0,None),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_update_logic(obj_query,obj_body,"my",request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_update,st.func_otp_verify,st.config_expiry_sec_otp)}
+   return {"status":1,"message":await func_obj_update_logic(obj_query,obj_body,"my",request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.client_postgres_pool,st.func_postgres_obj_serialize,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_update,st.func_otp_verify,st.config_expiry_sec_otp)}
 
 @router.get("/my/object-read")
 async def func_api_4e9de78a107845b5a1ebcca0c61f7d0e(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None)])
    obj_query["created_by_id"]=f"=,{request.state.user['id']}"
-   obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
+   obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
 @router.post("/my/object-create-mongodb")
@@ -266,16 +260,14 @@ async def func_api_ad13e1541fdf4aeda4702eba872afc41(request:Request):
 #public
 @router.get("/public/info")
 async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
-   obj_query=await func_request_param_read("query",request,[("key","str",0,None)])
    output={
    "api_list":[route.path for route in request.app.routes],
-   "cache_postgres_schema":request.app.state.cache_postgres_schema,
-   "cache_postgres_column_datatype":request.app.state.cache_postgres_column_datatype,
+   "postgres_schema":request.app.state.cache_postgres_schema,
    "postgres_datatype_used_app":set(sorted({k["datatype"] for cols in config_postgres["table"].values() for k in cols})),
-   "postgres_datatype_used_db":set(request.app.state.cache_postgres_column_datatype.values()),
+   "postgres_datatype_used_db":set(sorted({col_info["datatype"] for tbl in request.app.state.cache_postgres_schema.values() for col_info in tbl.values()})),
    "config_postgres_column_setting":set([k for cols in config_postgres["table"].values() for col in cols for k in col]),
    }
-   return {"status":1,"message":output if not obj_query["key"] else output[obj_query["key"]]}
+   return {"status":1,"message":output}
 
 @router.get("/public/converter-number")
 async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):
@@ -288,13 +280,13 @@ async def func_api_f48100707a724b979ccc5582a9bd0e28(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"public",request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
+   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"public",request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_obj_serialize,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
 
 @router.get("/public/object-read")
 async def func_api_88fdc8850b714b9db5fcac36cabf446d(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None)])
    if obj_query["table"] not in config_table_read_public:raise Exception("table not allowed")
-   obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
+   obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
 @router.get("/public/otp-verify")
@@ -359,16 +351,11 @@ async def func_api_4a7af87fdb264c41ac62514a908fd0ef(request:Request):
    output_path=func_jira_worklog_export(obj_body["jira_base_url"],obj_body["jira_email"],obj_body["jira_token"],obj_body["start_date"],obj_body["end_date"],None)
    return await func_client_download_file(output_path)
 
-@router.get("/public/person-intel")
-async def func_api_5aa65182abea4af6bd266efc05ac611f(request:Request,q:str):
-   output=await func_person_intel_read(q,config_searchapi_key,request.app.state.client_gemini)
-   return {"status":1,"message":output}
- 
 @router.get("/public/table-tag-read")
 async def func_api_3f7b9c2a4e1d4a0b8c6e5f9d1a2b7c3e(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("column","str",1,None),("filter_col","str",0,None),("filter_val","str",0,None),("limit","int",0,None),("page","int",0,None)])
    val=None
-   if obj_query["filter_col"] and obj_query["filter_val"]:val=(await func_postgres_obj_serialize(request.app.state.cache_postgres_column_datatype,[{obj_query["filter_col"]:obj_query["filter_val"]}]))[0][obj_query["filter_col"]]
+   if obj_query["filter_col"] and obj_query["filter_val"]:val=(await func_postgres_obj_serialize(request.app.state.client_postgres_pool,obj_query["table"],[{obj_query["filter_col"]:obj_query["filter_val"]}]))[0][obj_query["filter_col"]]
    output=await func_table_tag_read(request.app.state.client_postgres_pool,obj_query["table"],obj_query["column"],obj_query["filter_col"],val,obj_query["limit"],obj_query["page"])
    return {"status":1,"message":output}
 
@@ -394,19 +381,19 @@ async def func_api_6dba580b31ff43e6824ea4292eb9c749(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"admin",request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
+   return {"status":1,"message":await func_obj_create_logic(obj_query,obj_body,"admin",request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_obj_serialize,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_create)}
 
 @router.put("/admin/object-update")
 async def func_api_febf6094467b456f8cabfb8191f1000e(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("otp","int",0,None),("queue","str",0,None)])
    obj_body=await func_request_param_read("body",request,[])
    st=request.app.state
-   return {"status":1,"message":await func_obj_update_logic(obj_query,obj_body,"admin",request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.cache_postgres_schema,st.client_postgres_pool,st.func_postgres_obj_serialize,st.cache_postgres_column_datatype,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_update,st.func_otp_verify,st.config_expiry_sec_otp)}
+   return {"status":1,"message":await func_obj_update_logic(obj_query,obj_body,"admin",request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.client_postgres_pool,st.func_postgres_obj_serialize,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_name,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_obj_update,st.func_otp_verify,st.config_expiry_sec_otp)}
 
 @router.get("/admin/object-read")
 async def func_api_bb6506520ad349f688f925055cd8b965(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None)])
-   obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,request.app.state.cache_postgres_column_datatype,func_creator_data_add,func_action_count_add,obj_query["table"],obj_query)
+   obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
 @router.post("/admin/ids-delete")
@@ -432,7 +419,7 @@ async def func_api_8d1ca30d92ee40c4afe50974fb3363e8(websocket:WebSocket):
    try:
       while True:
          message=await websocket.receive_text()
-         output=await func_postgres_obj_create(websocket.app.state.client_postgres_pool,func_postgres_obj_serialize,websocket.app.state.cache_postgres_column_datatype,"buffer","test",[{"title":message}],0,3)
+         output=await func_postgres_obj_create(websocket.app.state.client_postgres_pool,func_postgres_obj_serialize,"buffer","test",[{"title":message}],0,3)
          await websocket.send_text(str(output))
    except WebSocketDisconnect:
       print("client disconnected")
