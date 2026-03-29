@@ -83,7 +83,6 @@ config_is_prometheus=0
 config_is_reset_export_folder=1
 config_is_debug_fastapi=1
 config_is_index_html=0
-config_is_profile_metadata=0
 
 #zzz
 config_auth_type=[1, 2, 3]

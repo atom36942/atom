@@ -19,19 +19,15 @@ async def func_api_index(request:Request):
 #auth
 @router.post("/auth/signup-username-password")
 async def func_api_auth_signup_username_password(request:Request):
-   if config_is_signup==0:raise Exception("signup disabled")
    obj_body=await func_request_param_read("body",request,[("type","int",1,None,None),("username","str",1,None,None),("password","str",1,None,None)])
-   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
-   user=await func_auth_signup_username_password(request.app.state.client_postgres_pool,obj_body["type"],obj_body["username"],obj_body["password"])
+   user=await func_auth_signup_username_password(request.app.state.client_postgres_pool,obj_body["type"],obj_body["username"],obj_body["password"],config_is_signup,config_auth_type)
    token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/signup-username-password-bigint")
 async def func_api_auth_signup_username_password_bigint(request:Request):
-   if config_is_signup==0:raise Exception("signup disabled")
    obj_body=await func_request_param_read("body",request,[("type","int",1,None,None),("username_bigint","int",1,None,None),("password_bigint","int",1,None,None)])
-   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
-   user=await func_auth_signup_username_password_bigint(request.app.state.client_postgres_pool,obj_body["type"],obj_body["username_bigint"],obj_body["password_bigint"])
+   user=await func_auth_signup_username_password_bigint(request.app.state.client_postgres_pool,obj_body["type"],obj_body["username_bigint"],obj_body["password_bigint"],config_is_signup,config_auth_type)
    token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
@@ -66,38 +62,33 @@ async def func_api_auth_login_password_mobile(request:Request):
 @router.post("/auth/login-otp-email")
 async def func_api_auth_login_otp_email(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None,None),("email","str",1,None,None),("otp","int",1,None,None)])
-   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
    await func_otp_verify(request.app.state.client_postgres_pool,obj_body["otp"],obj_body["email"],None,config_expiry_sec_otp)
-   user=await func_auth_login_otp_email(request.app.state.client_postgres_pool,obj_body["type"],obj_body["email"])
+   user=await func_auth_login_otp_email(request.app.state.client_postgres_pool,obj_body["type"],obj_body["email"],config_auth_type)
    token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-otp-mobile")
 async def func_api_auth_login_otp_mobile(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None,None),("mobile","str",1,None,None),("otp","int",1,None,None)])
-   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
    await func_otp_verify(request.app.state.client_postgres_pool,obj_body["otp"],None,obj_body["mobile"],config_expiry_sec_otp)
-   user=await func_auth_login_otp_mobile(request.app.state.client_postgres_pool,obj_body["type"],obj_body["mobile"])
+   user=await func_auth_login_otp_mobile(request.app.state.client_postgres_pool,obj_body["type"],obj_body["mobile"],config_auth_type)
    token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-google")
 async def func_api_auth_login_google(request:Request):
    obj_body=await func_request_param_read("body",request,[("type","int",1,None,None),("google_token","str",1,None,None)])
-   if obj_body["type"] not in config_auth_type:raise Exception("type not allowed")
-   user=await func_auth_login_google(request.app.state.client_postgres_pool,config_google_login_client_id,obj_body["type"],obj_body["google_token"])
+   user=await func_auth_login_google(request.app.state.client_postgres_pool,config_google_login_client_id,obj_body["type"],obj_body["google_token"],config_auth_type)
    token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 
 #my
 @router.get("/my/profile")
 async def func_api_my_profile(request:Request):
-   user=await func_user_single_read(request.app.state.client_postgres_pool,request.state.user["id"])
-   metadata={}
-   if config_is_profile_metadata==1:metadata=await func_user_sql_read(request.app.state.client_postgres_pool,config_sql,request.state.user["id"])
-   asyncio.create_task(func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"users",[{"id":request.state.user["id"],"last_active_at":datetime.utcnow()}],None,None))
-   token=await func_token_encode(user,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
-   return {"status":1,"message":user|metadata|token}
+   st=request.app.state
+   profile=await func_my_profile_read(st.client_postgres_pool,request.state.user["id"],config_sql)
+   token=await func_token_encode(profile,config_token_secret_key,config_token_expiry_sec,config_token_refresh_expiry_sec,config_token_key)
+   return {"status":1,"message":profile|token}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(request:Request):
@@ -120,8 +111,7 @@ async def func_api_my_account_delete(request:Request):
 @router.get("/my/message-received")
 async def func_api_my_message_received(request:Request):
    obj_query=await func_request_param_read("query",request,[("is_unread","int",0,None,None),("order","str",0,None,None),("limit","int",0,None,None),("page","int",0,None,None)])
-   obj_list=await func_message_received(request.app.state.client_postgres_pool,request.state.user["id"],obj_query["is_unread"],obj_query["order"],obj_query["limit"],obj_query["page"])
-   if obj_list:asyncio.create_task(func_postgres_ids_update(request.app.state.client_postgres_pool,"message",','.join(str(item['id']) for item in obj_list),"is_read",1,None,request.state.user["id"]))
+   obj_list=await func_message_received(request.app.state.client_postgres_pool,request.state.user["id"],obj_query["is_unread"],obj_query["order"],obj_query["limit"],obj_query["page"],request.app.state.func_postgres_ids_update)
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-inbox")
@@ -152,10 +142,7 @@ async def func_api_my_parent_read(request:Request):
 @router.post("/my/ids-delete")
 async def func_api_my_ids_delete(request:Request):
    obj_body=await func_request_param_read("body",request,[("table","str",1,None,None),("ids","str",1,None,None)])
-   if obj_body["table"] in config_table_system:raise Exception("table not allowed")
-   if obj_body["table"]=="users":raise Exception("use account delete api")
-   if len(obj_body["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
-   output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],request.state.user["id"])
+   output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],request.state.user["id"],config_table_system,config_limit_ids_delete)
    return {"status":1,"message":output}
 
 @router.post("/my/object-create")
@@ -204,8 +191,7 @@ async def func_api_public_object_create(request:Request):
 @router.get("/public/object-read")
 async def func_api_public_object_read(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None,None)])
-   if obj_query["table"] not in config_table_read_public:raise Exception("table not allowed")
-   obj_list=await func_postgres_obj_read(request.app.state.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query)
+   obj_list=await func_postgres_obj_read_public(request.app.state.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query,config_table_read_public)
    return {"status":1,"message":obj_list}
 
 @router.get("/public/otp-verify")
@@ -384,9 +370,7 @@ async def func_api_admin_object_read(request:Request):
 @router.post("/admin/ids-delete")
 async def func_api_admin_ids_delete(request:Request):
    obj_body=await func_request_param_read("body",request,[("table","str",1,None,None),("ids","str",1,None,None)])
-   if obj_body["table"] in config_table_system:raise Exception("table not allowed")
-   if len(obj_body["ids"].split(","))>config_limit_ids_delete:raise Exception("ids length exceeded")
-   output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],None)
+   output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_body["table"],obj_body["ids"],None,config_table_system,config_limit_ids_delete)
    return {"status":1,"message":output}
 
 #zzz
@@ -408,4 +392,3 @@ async def func_api_websocket(websocket:WebSocket):
          await websocket.send_text(str(output))
    except WebSocketDisconnect:
       print("client disconnected")
-      

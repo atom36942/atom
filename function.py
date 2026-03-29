@@ -23,7 +23,6 @@ def func_structure_check(root_path: str, dirs: tuple = (), files: tuple = ()) ->
     except: pass
     return None
 
-
 #utils & converters
 async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: str, filter_column: str = None, filter_value: any = None, limit_count: int = 100, page_number: int = 1) -> list:
     """Read unique tags/items from an array column with occurrence counts."""
@@ -261,10 +260,17 @@ async def func_postgres_ids_update(postgres_pool: any, table_name: str, record_i
     update_query = f"UPDATE {table_name} SET {set_clause} WHERE id IN ({record_ids}) AND ($3::bigint IS NULL OR created_by_id=$3);"
     async with postgres_pool.acquire() as conn: await conn.execute(update_query, target_value, updated_by_id, created_by_id)
 
-async def func_postgres_ids_delete(postgres_pool: any, table_name: str, record_ids: any, created_by_id: int = None) -> str:
-    """Delete records by ID with optional ownership restriction."""
-    if isinstance(record_ids, str): record_ids = ",".join([str(int(x.strip())) for x in record_ids.split(",") if x.strip()])
-    elif isinstance(record_ids, (list, tuple)): record_ids = ",".join([str(int(x)) for x in record_ids])
+async def func_postgres_ids_delete(postgres_pool: any, table_name: str, record_ids: any, created_by_id: int = None, table_system_list: list = None, limit_ids_delete: int = 100) -> str:
+    """Delete records by ID with optional ownership and system table restrictions."""
+    if table_system_list and table_name in table_system_list: raise Exception("table not allowed")
+    if table_name == "users" and created_by_id is not None: raise Exception("use account delete api")
+    if isinstance(record_ids, str):
+        id_list = [str(int(x.strip())) for x in record_ids.split(",") if x.strip()]
+        if len(id_list) > limit_ids_delete: raise Exception("ids length exceeded")
+        record_ids = ",".join(id_list)
+    elif isinstance(record_ids, (list, tuple)):
+        if len(record_ids) > limit_ids_delete: raise Exception("ids length exceeded")
+        record_ids = ",".join([str(int(x)) for x in record_ids])
     delete_query = f"DELETE FROM {table_name} WHERE id IN ({record_ids}) AND ($1::bigint IS NULL OR created_by_id=$1);"
     async with postgres_pool.acquire() as conn: await conn.execute(delete_query, created_by_id)
     return "ids deleted"
@@ -973,14 +979,7 @@ def func_add_router(fastapi_app: any) -> None:
         if py_file.name.startswith((".", "__")) or any(p.startswith(".") or p in ("venv", "env", "__pycache__") for p in py_file.parts): continue
         rel = py_file.relative_to(root_dir); ( load_router(root_dir, py_file) if (len(rel.parts) == 1 and py_file.name.startswith("router")) or ("router" in rel.parts[:-1]) else None )
 
-
 #admin & analytics
-async def func_user_sql_read(postgres_pool: any, config_sql: dict, user_id: int) -> dict:
-    """Execute pre-defined analytics queries for a specific user profile."""
-    queries_metadata = config_sql.get("profile_metadata", {}); result_data = {}
-    async with postgres_pool.acquire() as conn:
-        for key, sql_query in queries_metadata.items(): result_data[key] = [dict(record) for record in await conn.fetch(sql_query, user_id)]
-    return result_data
 
 async def func_api_usage_read(postgres_pool: any, days_limit: int, user_id: int = None) -> list:
     """Read API usage logs for a specific user or globally within a day limit."""
@@ -1000,6 +999,16 @@ async def func_user_single_read(postgres_pool: any, user_id: int) -> dict:
     if not record: raise Exception("user not found")
     return dict(record)
 
+async def func_my_profile_read(postgres_pool: any, user_id: int, config_sql: dict) -> dict:
+    """Read full user profile and update last activity status."""
+    import asyncio
+    user = await func_user_single_read(postgres_pool, user_id)
+    metadata = {}
+    if (queries_metadata := config_sql.get("profile_metadata")):
+        async with postgres_pool.acquire() as conn:
+            for key, sql_query in queries_metadata.items(): metadata[key] = [dict(record) for record in await conn.fetch(sql_query, user_id)]
+    asyncio.create_task(postgres_pool.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
+    return user | metadata
 
 #auth & otp
 async def func_otp_generate(postgres_pool: any, email_address: str = None, mobile_number: str = None) -> int:
@@ -1029,12 +1038,15 @@ async def func_message_inbox(postgres_pool: any, user_id: int, is_unread: int = 
     query = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
     async with postgres_pool.acquire() as conn: return [dict(r) for r in (await conn.fetch(query, user_id))]
 
-async def func_message_received(postgres_pool: any, user_id: int, is_unread: int = None, sort_order: str = "id desc", limit_count: int = 100, page_number: int = 1) -> list:
-    """Read all messages received by a specific user."""
+async def func_message_received(postgres_pool: any, user_id: int, is_unread: int = None, sort_order: str = "id desc", limit_count: int = 100, page_number: int = 1, func_postgres_ids_update: callable = None) -> list:
+    """Read all messages received by a specific user and optionally mark unread ones as read."""
+    import asyncio
     limit, page, order = int(limit_count or 100), int(page_number or 1), (sort_order or "id desc")
     unread_filter = ('AND is_read' + ('=1' if is_unread == 0 else ' IS DISTINCT FROM 1') if is_unread in (0, 1) else '')
     query = f"SELECT * FROM message WHERE user_id=$1 {unread_filter} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
-    async with postgres_pool.acquire() as conn: return [dict(r) for r in (await conn.fetch(query, user_id))]
+    async with postgres_pool.acquire() as conn: obj_list = [dict(r) for r in (await conn.fetch(query, user_id))]
+    if obj_list and func_postgres_ids_update: asyncio.create_task(func_postgres_ids_update(postgres_pool, "message", ','.join(str(item['id']) for item in obj_list), "is_read", 1, None, user_id))
+    return obj_list
 
 async def func_message_thread(postgres_pool: any, user_one_id: int, user_two_id: int, sort_order: str = "id desc", limit_count: int = 100, page_number: int = 1) -> list:
     """Read the full message thread between two users."""
@@ -1051,14 +1063,18 @@ async def func_message_delete(delete_mode: str, postgres_pool: any, user_id: int
     if not query: raise Exception("invalid delete mode")
     async with postgres_pool.acquire() as conn: await conn.execute(query, *query_args); return "messages deleted"
 
-async def func_auth_signup_username_password(postgres_pool: any, user_type: int, username: str, password_raw: str) -> dict:
+async def func_auth_signup_username_password(postgres_pool: any, user_type: int, username: str, password_raw: str, is_signup: int, auth_type_list: list) -> dict:
     """Register a new user with username and password."""
     import hashlib
+    if is_signup == 0: raise Exception("signup disabled")
+    if user_type not in auth_type_list: raise Exception("type not allowed")
     async with postgres_pool.acquire() as conn: records = await conn.fetch("INSERT INTO users (type, username, password) VALUES ($1, $2, $3) RETURNING *;", user_type, username, hashlib.sha256(str(password_raw).encode()).hexdigest())
     return records[0]
 
-async def func_auth_signup_username_password_bigint(postgres_pool: any, user_type: int, username_bigint: int, password_bigint: int) -> dict:
+async def func_auth_signup_username_password_bigint(postgres_pool: any, user_type: int, username_bigint: int, password_bigint: int, is_signup: int, auth_type_list: list) -> dict:
     """Register a new user with bigint identifier and bigint password (for specialized devices)."""
+    if is_signup == 0: raise Exception("signup disabled")
+    if user_type not in auth_type_list: raise Exception("type not allowed")
     async with postgres_pool.acquire() as conn: records = await conn.fetch("INSERT INTO users (type, username_bigint, password_bigint) VALUES ($1, $2, $3) RETURNING *;", user_type, username_bigint, password_bigint)
     return records[0]
 
@@ -1089,21 +1105,24 @@ async def func_auth_login_password_mobile(postgres_pool: any, user_type: int, pa
     if not records: raise Exception("invalid mobile or password")
     return records[0]
 
-async def func_auth_login_otp_email(postgres_pool: any, user_type: int, email_address: str) -> dict:
-    """Authenticate or register a user using email OTP."""
+async def func_auth_login_otp_email(postgres_pool: any, user_type: int, email_address: str, auth_type_list: list) -> dict:
+    """Authenticate or register a user using email OTP with type validation."""
+    if auth_type_list and user_type not in auth_type_list: raise Exception("type not allowed")
     async with postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", user_type, email_address); user = records[0] if records else (await conn.fetch("INSERT INTO users (type, email) VALUES ($1, $2) RETURNING *;", user_type, email_address))[0]
     return user
 
-async def func_auth_login_otp_mobile(postgres_pool: any, user_type: int, mobile_number: str) -> dict:
-    """Authenticate or register a user using mobile OTP."""
+async def func_auth_login_otp_mobile(postgres_pool: any, user_type: int, mobile_number: str, auth_type_list: list) -> dict:
+    """Authenticate or register a user using mobile OTP with type validation."""
+    if auth_type_list and user_type not in auth_type_list: raise Exception("type not allowed")
     async with postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", user_type, mobile_number); user = records[0] if records else (await conn.fetch("INSERT INTO users (type, mobile) VALUES ($1, $2) RETURNING *;", user_type, mobile_number))[0]
     return user
 
-async def func_auth_login_google(postgres_pool: any, google_client_id: str, user_type: int, google_token: str) -> dict:
-    """Authenticate or register a user using Google OAuth ID token."""
+async def func_auth_login_google(postgres_pool: any, google_client_id: str, user_type: int, google_token: str, auth_type_list: list) -> dict:
+    """Authenticate or register a user using Google OAuth ID token with type validation."""
     import json, time; from google.oauth2 import id_token; from google.auth.transport import requests as google_requests
+    if auth_type_list and user_type not in auth_type_list: raise Exception("type not allowed")
     token_info = id_token.verify_oauth2_token(google_token, google_requests.Request(), google_client_id)
     if token_info.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]: raise Exception("invalid google token issuer")
     if not token_info.get("email_verified"): raise Exception("google email not verified")
@@ -1113,6 +1132,11 @@ async def func_auth_login_google(postgres_pool: any, google_client_id: str, user
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1", user_type, email_address); user = records[0] if records else (await conn.fetch("INSERT INTO users (type, email, google_login_id, google_login_metadata) VALUES ($1, $2, $3, $4::jsonb) RETURNING *", user_type, email_address, google_metadata["sub"], json.dumps(google_metadata)))[0]
         if not user.get("google_login_id"): await conn.execute("UPDATE users SET google_login_id=$1, google_login_metadata=$2::jsonb WHERE id=$3", google_metadata["sub"], json.dumps(google_metadata), user["id"])
     return user
+
+async def func_postgres_obj_read_public(postgres_pool, func_postgres_obj_serialize, table_name, obj_query, table_read_public_list: list) -> list:
+    """Read records from public tables with access restriction check."""
+    if table_read_public_list and table_name not in table_read_public_list: raise Exception("table not allowed")
+    return await func_postgres_obj_read(postgres_pool, func_postgres_obj_serialize, table_name, obj_query)
 
 def func_openai_client_read(api_key: str) -> any:
     """Initialize OpenAI client."""
