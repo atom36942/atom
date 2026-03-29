@@ -11,8 +11,10 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 
 # index
 @router.get("/")
-async def func_api_5e118e61a6c348328913f14722d76af6():
-   return {"status":1,"message":"welcome to atom"}
+async def func_api_5e118e61a6c348328913f14722d76af6(request:Request):
+   st=request.app.state
+   output=st.func_info_read(request.app.routes,st.cache_postgres_schema,st.config_postgres)
+   return {"status":1,"message":output}
 
 # root
 @router.get("/root/postgres-init")
@@ -29,10 +31,6 @@ async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
    await func_postgres_clean(request.app.state.client_postgres_pool,config_table)
    return {"status":1,"message":"done"}
 
-@router.get("/root/check")
-async def func_api_06b949942d0445c9954ddfc82d213689(request:Request):
-   await func_check_config_api(config_api,request.app.routes)
-   return {"status":1,"message":"done"}
 
 @router.post("/root/postgres-runner")
 async def func_api_ccb985fc962349e4a2961d4bb030718c(request:Request):
@@ -258,17 +256,6 @@ async def func_api_ad13e1541fdf4aeda4702eba872afc41(request:Request):
    return {"status":1,"message":output}
 
 # public
-@router.get("/public/info")
-async def func_api_05a7908253e14b7b8e37fc034d5dab95(request:Request):
-   output={
-   "api_list":[route.path for route in request.app.routes],
-   "api_metadata":func_api_metadata_read(request.app.routes),
-   "postgres_schema":request.app.state.cache_postgres_schema,
-   "postgres_datatype_used_app":set(sorted({k["datatype"] for cols in config_postgres["table"].values() for k in cols})),
-   "postgres_datatype_used_db":set(sorted({col_info["datatype"] for tbl in request.app.state.cache_postgres_schema.values() for col_info in tbl.values()})),
-   "config_postgres_column_setting":set([k for cols in config_postgres["table"].values() for col in cols for k in col]),
-   }
-   return {"status":1,"message":output}
 
 @router.get("/public/converter-number")
 async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):

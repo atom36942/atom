@@ -1,10 +1,9 @@
 #index
-curl -X GET "$baseurl"
+curl -X GET "$baseurl/"
 
 #root
 curl -X GET "$baseurl/root/postgres-init" -H "Authorization: Bearer $token_root"
 curl -X GET "$baseurl/root/sync" -H "Authorization: Bearer $token_root"
-curl -X GET "$baseurl/root/check" -H "Authorization: Bearer $token_root"
 curl -X POST "$baseurl/root/postgres-runner" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d "{\"mode\":\"write\",\"query\":\"update users set email='test',mobile='test' where id=1;insert into otp (otp,email,mobile) values (123,'test','test');\"}"
 curl -X POST "$baseurl/root/postgres-export" -H "Authorization: Bearer $token_root" -H "Content-Type: application/json" -d '{"query":"select * from users limit 10;"}' -o tmp/postgres_export.csv
 curl -X POST "$baseurl/root/postgres-import" -H "Authorization: Bearer $token_root" -F "mode=create" -F "table=test" -F "file=@static/postgres_create.csv"
@@ -41,7 +40,7 @@ curl -X GET "$baseurl/my/object-read?table=test" -H "Authorization: Bearer $toke
 curl -X POST "$baseurl/my/object-create-mongodb?database=test&table=test" -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 
 #public
-curl -X GET "$baseurl/public/info"
+curl -X GET "$baseurl/"
 curl -X GET "$baseurl/public/converter-number?datatype=int&mode=encode&x=test"
 curl -X POST "$baseurl/public/object-create?table=test" -H "Content-Type: application/json" -d '{"type":1,"title":"test"}'
 curl -X GET "$baseurl/public/object-read?table=test"

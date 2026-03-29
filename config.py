@@ -123,7 +123,7 @@ config_api={
 "/public/object-read":{"role_allowed":[1],"cache_sec":["inmemory",60]},
 "/my/profile":{"role_allowed":[1],"is_active_check":0,"cache_sec":["inmemory",10]},
 "/my/object-read":{"role_allowed":[1],"cache_sec":["inmemory",60]},
-"/public/info":{"role_allowed":[1],"cache_sec":["inmemory",10]},
+"/":{"role_allowed":[1],"cache_sec":["inmemory",10]},
 "/public/table-tag-read":{"role_allowed":[1],"cache_sec":["redis",10]},
 }
 
@@ -150,7 +150,6 @@ config_postgres={
 {"name":"remark","datatype":"text"},
 {"name":"location","datatype":"geography(point)","index":"gist"},
 {"name":"dob","datatype":"date"},
-{"name":"is_public","datatype":"boolean"},
 {"name":"email","datatype":"text"},
 {"name":"mobile","datatype":"text"},
 {"name":"status","datatype":"integer","index":"btree","old":"status2"},

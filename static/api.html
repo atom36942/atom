@@ -61,6 +61,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
 .icon-btn:hover{color:#fff}
 .icon-btn.delete:hover{color:var(--delete)}
 .icon-btn.save:hover{color:var(--primary)}
+.tree-table{width:100%;border-collapse:collapse;margin:4px 0}.tree-key{color:var(--muted);font-weight:600;padding:4px 8px;width:120px;font-size:12px;vertical-align:top;border-bottom:1px solid rgba(255,255,255,0.03)}.tree-val{padding:4px 8px;font-family:'SF Mono',Menlo,monospace;font-size:12px;position:relative;border-bottom:1px solid rgba(255,255,255,0.03)}.tree-toggle{background:none;border:none;color:var(--accent);cursor:pointer;padding:2px 6px;font-size:11px;display:flex;align-items:center;gap:4px;border-radius:4px}.tree-toggle:hover{background:rgba(66,153,225,.1)}.tree-content{display:none;margin-left:12px;border-left:1px solid rgba(255,255,255,.1);padding-left:8px}.tree-content.show{display:block}.tree-arrow{transition:transform .2s;display:inline-block;font-size:10px}.tree-arrow.open{transform:rotate(90deg)}
 </style>
 </head>
 <body>
@@ -79,7 +80,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
     <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
     <div class="footer-row"><button id="clrBtn" type="button" class="btn btn-secondary">Clear</button><button id="subBtn" type="submit" class="btn btn-primary">Submit</button></div>
 </form>
-<div class="resp-box" id="rBox"><div class="resp-header"><span>Response <span id="rCode" style="font-weight:400"></span></span><div style="display:flex;align-items:center;margin-left:auto"><button id="rCopy" class="copy-btn" title="Copy response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button id="rGrid" class="copy-btn" title="Table view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button><button id="rCsv" class="copy-btn" title="Download CSV"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></div></div><div class="resp-content"><table id="rTab"></table></div></div>
+<div class="resp-box" id="rBox"><div class="resp-header"><span>Response <span id="rCode" style="font-weight:400"></span></span><div style="display:flex;align-items:center;margin-left:auto"><button id="rCopy" class="copy-btn" title="Copy response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button id="rMin" class="copy-btn" title="Compress JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14l-7 7"/></svg></button><button id="rGrid" class="copy-btn" title="Table view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button><button id="rCsv" class="copy-btn" title="Download CSV"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></div></div><div class="resp-content"><table id="rTab"></table></div></div>
 <div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
 </div></div>
 
@@ -125,8 +126,12 @@ const SVG = (w, paths, stroke = 'currentColor') =>
 const ICON = {
   copy: s => SVG(s, '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
   check: s => SVG(s, '<polyline points="20 6 9 17 4 12"/>', '#22c55e'),
+  cross: s => SVG(s, '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>', '#ef4444'),
+  play: s => SVG(s, '<polygon points="5 3 19 12 5 21 5 3"/>', '#38a169'),
   trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>')
 };
+
+const getIcon = v => (v && (v.length || v === true)) ? ICON.check(16) : ICON.cross(16);
 
 /* ── Reusable helpers ── */
 const debounce = (fn, ms) => {
@@ -174,13 +179,43 @@ const arrayToCsv = arr => {
 const yn = a => a && a.length ? 'Yes' : 'No';
 const hasToken = c => c.h && c.h.some(x => x.k.toLowerCase() === 'authorization') ? 'Yes' : 'No';
 
+const generateCurl = i => {
+  const c = COMMANDS[i];
+  let path = c.p;
+  c.u.forEach(x => path = path.replace(`{${x.k}}`, x.v || 'null'));
+  let url = window.location.origin + path;
+  const h = [];
+  c.h.forEach(x => {
+    let val = x.v;
+    if (x.k.toLowerCase() === 'authorization') {
+      const lsKey = c.p.startsWith('/root') ? 'token_root' : 'token';
+      val = localStorage.getItem(lsKey) || x.v;
+      if (val) h.push(`-H "${x.k}: Bearer ${val}"`);
+    } else if (val) {
+      h.push(`-H "${x.k}: ${val}"`);
+    }
+  });
+  const q = c.q.map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v || 'null')}`).join('&');
+  if (q) url += '?' + q;
+  let body = '';
+  if (c.j.length) {
+    const b = {};
+    c.j.forEach(x => b[x.k] = x.v === '' ? null : (x.t === 'number' ? Number(x.v) : x.v));
+    body = `-d '${JSON.stringify(b)}'`;
+    h.push('-H "Content-Type: application/json"');
+  } else if (c.f.length) {
+    body = c.f.map(x => `-F "${x.k}=${x.v || 'null'}"`).join(' ');
+  }
+  return `curl -X ${c.m} "${url}" ${h.join(' ')} ${body}`.trim().replace(/\s+/g, ' ');
+};
+
 const updateLsIcon = () => {
   $('lsBtn').style.color = localStorage.length ? 'var(--accent)' : 'var(--muted)';
 };
 
 async function init() {
   try {
-    const r = await fetch('/public/info');
+    const r = await fetch('/');
     const json = await r.json();
     const meta = json.message.api_metadata || [];
     COMMANDS = meta.map(m => ({
@@ -314,16 +349,23 @@ $('apiInfoBtn').onclick = () => {
     sm = 'style="width:50px;min-width:50px;text-align:center"',
     xs = 'style="width:35px;min-width:35px;text-align:center"';
   $('apiInfoTbl').innerHTML =
-    `<thead><tr><th ${ix}>#</th><th>Path</th><th ${sm}>Method</th><th ${xs}>Token</th><th ${xs}>Query</th><th ${xs}>File</th><th ${xs}>Body</th></tr></thead>` +
+    `<thead><tr><th ${ix}>#</th><th>Path</th><th ${sm}>Method</th><th ${xs}>Token</th><th ${xs}>Query</th><th ${xs}>File</th><th ${xs}>Body</th><th ${xs}>Run</th><th ${xs}>Curl</th></tr></thead>` +
     `<tbody>${COMMANDS.map((c, i) =>
-      `<tr style="cursor:pointer" data-i="${i}"><td ${ix}>${i + 1}</td><td style="white-space:nowrap;min-width:auto">${c.p}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td ${xs}>${hasToken(c)}</td><td ${xs}>${yn(c.q)}</td><td ${xs}>${yn(c.f)}</td><td ${xs}>${yn(c.j)}</td></tr>`
+      `<tr style="cursor:pointer" data-i="${i}"><td ${ix}>${i + 1}</td><td style="white-space:nowrap;min-width:auto">${c.p}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td ${xs}>${getIcon(c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c.f)}</td><td ${xs}>${getIcon(c.j)}</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td><td ${xs} class="curl-btn" title="Copy Curl">${ICON.copy(16)}</td></tr>`
     ).join('')}</tbody>`;
   showModal('apiInfoModal');
 };
 
 $('apiInfoTbl').onclick = e => {
-  const tr = e.target.closest('tr[data-i]');
-  if (tr) { hideModal('apiInfoModal'); load(tr.dataset.i) }
+  const tr = e.target.closest('tr[data-i]'), i = tr?.dataset.i;
+  if (!tr) return;
+  if (e.target.closest('.run-btn')) {
+    hideModal('apiInfoModal'); load(i);
+  } else if (e.target.closest('.curl-btn')) {
+    copyWithFeedback(e.target.closest('.curl-btn'), generateCurl(i), 16, 'Curl copied');
+  } else {
+    hideModal('apiInfoModal'); load(i);
+  }
 };
 
 $('apiInfoCsv').onclick = () => {
@@ -402,27 +444,64 @@ const fmtGrid = v => {
     `</table></div>`;
 };
 
-let lastRawResponse = '', lastMsgVal = null, gridMode = false;
+let lastRawResponse = '', lastMsgVal = null, gridMode = 0, treeMode = 0, lastFullJson = null;
 
 const showResponse = (json, httpCode, ms) => {
+  lastFullJson = json;
   lastRawResponse = JSON.stringify(json, null, 2);
-  lastMsgVal = json.message ?? null;
-  gridMode = false;
-  $('rCode').textContent = (httpCode != null ? httpCode : '') + (ms != null ? ' ' + ms + 'ms' : '');
-  $('rTab').innerHTML = Object.entries(json)
-    .map(([k, v]) => `<tr><td class="key">${k}</td><td class="val">${fmtVal(v)}</td></tr>`)
-    .join('');
+  lastMsgVal = json.message || json.data || json;
+  gridMode = 0;
+  treeMode = 0;
+  $('rMin').style.color = 'var(--muted)';
+  $('rGrid').style.color = 'var(--muted)';
+  const codeColor = httpCode >= 200 && httpCode < 300 ? 'var(--primary)' : (httpCode >= 400 ? 'var(--delete)' : 'var(--accent)');
+  $('rCode').innerHTML = (httpCode != null ? `<span style="color:${codeColor};font-weight:600">${httpCode}</span>` : '') + 
+                         (ms != null ? ` <span style="color:var(--muted);font-size:11px;margin-left:8px">${ms}ms</span>` : '');
+  renderResponseTable();
   $('rBox').classList.add('show');
+};
+
+const renderResponseTable = () => {
+  $('rTab').innerHTML = Object.entries(lastFullJson)
+    .map(([k, v]) => {
+      const isMain = k === 'message' || k === 'data';
+      const useTree = treeMode && isMain && typeof v === 'object' && v !== null;
+      return `<tr><td class="key">${k}</td><td class="val">${useTree ? fmtTree(v) : fmtVal(v)}</td></tr>`;
+    })
+    .join('');
+};
+
+const fmtTree = v => {
+  if (v === null || typeof v !== 'object') return fmtVal(v);
+  const isArr = Array.isArray(v), entries = Object.entries(v);
+  if (!entries.length) return isArr ? '[]' : '{}';
+  return `<div class="tree-node"><button class="tree-toggle"><span class="tree-arrow">▶</span> ${isArr ? `Array(${v.length})` : `Object(${entries.length})`}</button>` +
+    `<div class="tree-content"><table class="tree-table">${entries.map(([k,v])=>`<tr><td class="tree-key">${k}</td><td class="tree-val">${fmtTree(v)}</td></tr>`).join('')}</table></div></div>`;
 };
 
 /* ── Response action buttons ── */
 $('rGrid').onclick = () => {
   const msgTd = d.querySelector('#rTab tr:last-child .val');
   if (!msgTd || lastMsgVal == null || typeof lastMsgVal !== 'object') return;
-  gridMode = !gridMode;
+  gridMode = gridMode ? 0 : 1;
   msgTd.innerHTML = gridMode ? (fmtGrid(lastMsgVal) || fmtVal(lastMsgVal)) : fmtVal(lastMsgVal);
   $('rGrid').style.color = gridMode ? 'var(--accent)' : 'var(--muted)';
 };
+
+$('rMin').onclick = () => {
+  treeMode = treeMode ? 0 : 1;
+  renderResponseTable();
+  $('rMin').style.color = treeMode ? 'var(--accent)' : 'var(--muted)';
+};
+
+d.addEventListener('click', e => {
+  const btn = e.target.closest('.tree-toggle');
+  if (btn) {
+    const content = btn.nextElementSibling, arrow = btn.querySelector('.tree-arrow');
+    content.classList.toggle('show');
+    arrow.classList.toggle('open');
+  }
+});
 
 $('rCopy').onclick = () => copyWithFeedback($('rCopy'), lastRawResponse, 16, 'Copied to clipboard');
 

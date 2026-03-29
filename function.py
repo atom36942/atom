@@ -23,39 +23,6 @@ def func_structure_check(root_path: str, dirs: tuple = (), files: tuple = ()) ->
     except: pass
     return None
 
-async def func_check_config_api(config_api: dict, app_routes: list) -> None:
-    """Validate API configuration against FastAPI routes and allowed keys."""
-    allowed_keys = {"id", "is_token", "is_active_check", "cache_sec", "ratelimiter_times_sec", "role_allowed"}
-    route_set = {getattr(route, "path", None) for route in app_routes if getattr(route, "path", None)}
-    for path, cfg in config_api.items():
-        if not isinstance(path, str): raise Exception(f"invalid api path type: {path}")
-        if not path.startswith("/"): raise Exception(f"api path must start with slash: {path}")
-        if path not in route_set: raise Exception(f"path not in fastapi routes: {path}")
-        if not isinstance(cfg, dict): raise Exception(f"invalid config for: {path}")
-        for key in cfg:
-            if key not in allowed_keys: raise Exception(f"invalid key {key} in {path}")
-        if "id" in cfg and not isinstance(cfg["id"], int): raise Exception(f"invalid id in {path}")
-        if "is_token" in cfg and cfg["is_token"] not in (0, 1): raise Exception(f"invalid is_token in {path}")
-        if "is_active_check" in cfg and cfg["is_active_check"] not in (0, 1): raise Exception(f"invalid is_active_check in {path}")
-        if "role_allowed" in cfg:
-            if not isinstance(cfg["role_allowed"], list): raise Exception(f"role_allowed must be a list in {path}")
-            if not all(isinstance(i, int) for i in cfg["role_allowed"]): raise Exception(f"role_allowed must contain only integers in {path}")
-        if "cache_sec" in cfg:
-            cache_config = cfg["cache_sec"]
-            if not isinstance(cache_config, (list, tuple)): raise Exception(f"cache_sec must be list/tuple in {path}")
-            if len(cache_config) != 2: raise Exception(f"cache_sec must have 2 elements in {path}")
-            if cache_config[0] not in ("redis", "inmemory"): raise Exception(f"invalid cache mode in {path}")
-            if not isinstance(cache_config[1], int): raise Exception(f"cache duration must be int in {path}")
-            if cache_config[1] < 0: raise Exception(f"cache duration cannot be negative in {path}")
-        if "ratelimiter_times_sec" in cfg:
-            rate_limit_config = cfg["ratelimiter_times_sec"]
-            if not isinstance(rate_limit_config, (list, tuple)): raise Exception(f"ratelimiter must be list/tuple in {path}")
-            if len(rate_limit_config) != 3: raise Exception(f"ratelimiter must have 3 elements in {path}")
-            if rate_limit_config[0] not in ("redis", "inmemory"): raise Exception(f"invalid ratelimiter mode in {path}")
-            if not all(isinstance(i, int) for i in rate_limit_config[1:]): raise Exception(f"rate limits must be integers in {path}")
-            if rate_limit_config[1] <= 0: raise Exception(f"rate limit count must be positive in {path}")
-            if rate_limit_config[2] <= 0: raise Exception(f"rate limit window must be positive in {path}")
-    return None
 
 # utils & converters
 async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: str, filter_column: str = None, filter_value: any = None, limit_count: int = 100, page_number: int = 1) -> list:
@@ -219,6 +186,16 @@ def func_api_metadata_read(app_routes: list) -> list:
         if is_auth and not any(x["name"].lower() == "authorization" for x in h): h.append({"name": "Authorization", "type": "str", "required": req, "default": None})
         metadata.append(route_meta)
     return metadata
+
+def func_info_read(app_routes: list, cache_postgres_schema: dict, config_postgres: dict) -> dict:
+    """Construct system discovery metadata including routes, schema, and configuration settings."""
+    return {
+        "api_list": [route.path for route in app_routes],
+        "api_metadata": func_api_metadata_read(app_routes),
+        "postgres_schema": cache_postgres_schema,
+        "postgres_datatype_used": sorted({k["datatype"] for cols in config_postgres["table"].values() for k in cols}),
+        "config_postgres_column_key": sorted({k for cols in config_postgres["table"].values() for col in cols for k in col}),
+    }
 
 def func_config_override_from_env(global_dict: dict) -> None:
     """Override configuration variables starting with 'config_' from environment variables and .env file."""
