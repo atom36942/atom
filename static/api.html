@@ -44,7 +44,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
 .resp-pre{padding:0;margin:0;font-size:13px;font-family:'SF Mono',Menlo,monospace;color:#e6eef3;white-space:pre;max-height:400px;overflow:auto;background:none;border:none}
 .resp-pre .jp{color:var(--muted)}.resp-pre .jk{color:#7ec8e3}.resp-pre .js{color:#98c379}.resp-pre .jn{color:#d19a66}.resp-pre .jb{color:#c678dd}.resp-pre .jl{color:#56b6c2}
 .resp-tbl-wrap{overflow:auto;max-width:100%;max-height:400px}.resp-tbl{border-collapse:collapse;font-size:13px;margin:0;table-layout:fixed}.resp-tbl th,.resp-tbl td{min-width:120px;width:120px}.resp-tbl th{background:#1a1d23;padding:8px 12px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1}
-#apiInfoTbl th,#apiInfoTbl td{min-width:auto;width:auto}
+#apiInfoTbl th,#apiInfoTbl td{min-width:auto;width:auto;max-width:none;overflow:visible;text-overflow:clip}
 .resp-tbl td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);color:#e6eef3;vertical-align:top;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;cursor:pointer;position:relative}
 .cell-pop{display:none;position:fixed;z-index:2000;background:#1a1d23;border:1px solid var(--accent);border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-all;max-width:400px;max-height:250px;overflow:auto;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,.6);color:#e6eef3;font-family:'SF Mono',Menlo,monospace}
 .cell-pop.show{display:flex;gap:8px;align-items:flex-start}
@@ -103,7 +103,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
     <div id="lsList"></div>
 </div></div>
 
-<div id="apiInfoModal" class="modal"><div class="modal-content" style="max-width:700px">
+<div id="apiInfoModal" class="modal"><div class="modal-content" style="max-width:900px">
     <div class="modal-header">
         <h3>API Info <span id="apiTotal" style="font-size:13px;font-weight:400;color:var(--muted)"></span></h3>
         <div class="modal-actions">

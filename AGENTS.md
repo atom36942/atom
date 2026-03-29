@@ -34,12 +34,11 @@
 
 ### api workflow
 1. `router.py`: Add route with correct prefix:
-   * `root/`: Root user/Sudo access.
+   * `admin/`: RBAC via `config_api.role_allowed`.
    * `auth/`: Auth operations (Login/Signup).
    * `my/`: Auth required + access `request.state.user`.
    * `public/`: No token required (Open access).
    * `private/`: Token required.
-   * `admin/`: RBAC via `config_api.role_allowed`.
 2. `function.py`: Core logic as pure func (use local imports).
 3. `config.py`: Add required `config_` vars.
 4. `main.py`: Init `client_` in lifespan; access via `request.state`.

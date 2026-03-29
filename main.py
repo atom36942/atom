@@ -28,6 +28,7 @@ async def func_lifespan(app:FastAPI):
    client_gsheet=func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope) if config_gsheet_service_account_json_path else None
    client_sftp=await func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
    client_gemini=await func_gemini_client_read(config_gemini_key) if config_gemini_key else None
+   if client_postgres_pool: await func_postgres_init_root_user(client_postgres_pool)
    # cache init
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else {}
    cache_users_role=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("role") else {}
@@ -69,7 +70,7 @@ async def middleware(request,api_function):
    try:
       start,type,error,request.state.user=time.perf_counter(),None,None,{}
       st=request.app.state
-      request.state.user=await st.func_check_token(request.headers,request.url.path,st.config_key_root,st.config_token_secret_key,st.config_api,st.func_token_decode)
+      request.state.user=await st.func_check_token(request.headers,request.url.path,st.config_token_secret_key,st.config_api,st.func_token_decode)
       await st.func_check_admin(st.config_mode_check_admin,request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_role)
       await st.func_check_is_active(st.config_mode_check_active,request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_is_active)
       await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)

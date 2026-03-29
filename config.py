@@ -90,7 +90,6 @@ config_is_index_html=0
 config_is_profile_metadata=0
 
 # zzz
-config_key_root="123"
 config_auth_type=[1, 2, 3]
 config_expiry_sec_otp=600
 config_limit_ids_delete=1000
@@ -119,6 +118,15 @@ config_api={
 "/admin/object-update":{"role_allowed":[1]},
 "/admin/object-read":{"role_allowed":[1]},
 "/admin/ids-delete":{"role_allowed":[1]},
+"/admin/postgres-init":{"role_allowed":[1]},
+"/admin/sync":{"role_allowed":[1]},
+"/admin/postgres-runner":{"role_allowed":[1]},
+"/admin/postgres-export":{"role_allowed":[1]},
+"/admin/postgres-import":{"role_allowed":[1]},
+"/admin/redis-import":{"role_allowed":[1]},
+"/admin/mongodb-import":{"role_allowed":[1]},
+"/admin/s3-bucket-ops":{"role_allowed":[1]},
+"/admin/s3-url-delete":{"role_allowed":[1]},
 "/test":{"role_allowed":[1,2,3],"is_token":0,"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":["inmemory",10,3]},
 "/public/object-read":{"role_allowed":[1],"cache_sec":["inmemory",60]},
 "/my/profile":{"role_allowed":[1],"is_active_check":0,"cache_sec":["inmemory",10]},

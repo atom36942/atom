@@ -181,7 +181,7 @@ def func_api_metadata_read(app_routes: list) -> list:
         except: pass
         p, h = route.path, route_meta["params"]["header"]
         is_auth, req = 0, 1
-        if any(p.startswith(x) for x in ["/root/", "/my/", "/private/", "/admin/"]): is_auth = 1
+        if any(p.startswith(x) for x in ["/my/", "/private/", "/admin/"]): is_auth = 1
         elif not any(p.startswith(x) for x in ["/auth/", "/public/", "/openapi.json", "/docs", "/redoc"]) and p != "/": is_auth, req = 1, 0
         if is_auth and not any(x["name"].lower() == "authorization" for x in h): h.append({"name": "Authorization", "type": "str", "required": req, "default": None})
         metadata.append(route_meta)
@@ -507,6 +507,24 @@ async def func_postgres_stream(postgres_pool: any, sql_query: str) -> any:
                     yield ",".join([f'"{str(v).replace(chr(34), chr(34)*2)}"' if v is not None else "" for v in record.values()]) + "\n"
     return StreamingResponse(generate(), media_type="text/csv")
 
+async def func_postgres_init_root_user(postgres_pool: any) -> str:
+    """Ensure the users table, root user, and root protection triggers exist in PostgreSQL."""
+    async with postgres_pool.acquire() as conn:
+        await conn.execute("CREATE TABLE IF NOT EXISTS users (id BIGSERIAL PRIMARY KEY);")
+        for col, dtype in [("type", "INTEGER"), ("username", "TEXT"), ("password", "TEXT"), ("role", "INTEGER"), ("is_active", "INTEGER")]:
+            await conn.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {dtype};")
+        await conn.execute("""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'unique_users_username_type' AND table_name = 'users') THEN 
+                    ALTER TABLE users ADD CONSTRAINT unique_users_username_type UNIQUE (username, type); 
+                END IF; 
+            END $$;
+        """)
+        await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', 1, 1) ON CONFLICT (username, type) DO UPDATE SET password = EXCLUDED.password, role = EXCLUDED.role, is_active = EXCLUDED.is_active;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_users_root_no_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_users_root_no_delete ON users; CREATE TRIGGER trigger_users_root_no_delete BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_root_no_delete();")
+    return "users init done"
+
 async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
     if not postgres_config: raise Exception("postgres_config missing")
@@ -549,23 +567,6 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
                 for col_to_drop in set(current_cols.keys()) - ({cfg["name"] for cfg in column_configs} | {"id"}): await conn.execute(f"ALTER TABLE {table_name} DROP COLUMN IF EXISTS {col_to_drop} CASCADE;")
         db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
         db_tables = {}; [db_tables.setdefault(row[0], []).append(row[1]) for row in db_schema_rows]; users_cols = db_tables.get("users", [])
-        for sql_key, sql_stmt in postgres_config.get("sql", {}).items():
-            if not sql_stmt.startswith("0"): await conn.execute(sql_stmt)
-        if disable_drop:
-            catalog["tg"].add("trigger_drop_disable")
-            await conn.execute("CREATE OR REPLACE FUNCTION func_drop_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'DROP TABLE not allowed'; END; $$; DROP EVENT TRIGGER IF EXISTS trigger_drop_disable; CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ('DROP TABLE') EXECUTE FUNCTION func_drop_disable();")
-        else: await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable;")
-        if disable_trunc:
-            await conn.execute("CREATE OR REPLACE FUNCTION func_truncate_disable() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'TRUNCATE not allowed on %', TG_TABLE_NAME; END; $$;")
-            for table in db_tables:
-                if table != "spatial_ref_sys":
-                    trunc_tg_name = f"trigger_truncate_disable_{table}"; catalog["tg"].add(trunc_tg_name)
-                    await conn.execute(f"DROP TRIGGER IF EXISTS {trunc_tg_name} ON {table}; CREATE TRIGGER {trunc_tg_name} BEFORE TRUNCATE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION func_truncate_disable();")
-        for table_name, columns in postgres_config["table"].items():
-            users_cols = [c["name"] for c in columns]
-            if table_name == "users" and all(c in users_cols for c in ("type", "username", "password", "role")):
-                await conn.execute("INSERT INTO users (type,username,password,role) VALUES (1,'atom','a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',1) ON CONFLICT (username,type) DO UPDATE SET password=EXCLUDED.password, role=EXCLUDED.role;")
-        users_cols = db_tables.get("users", [])
         if users_cols:
             if "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_users_password_log")
@@ -872,21 +873,16 @@ async def func_api_response(request: any, api_function: callable, api_config: di
         if cache_sec: response = await func_cache("set", request.url.path, query_params, api_config, redis_client, user_id, response); resp_type = 4
     return response, resp_type
 
-async def func_check_token(headers: dict, url_path: str, root_auth_key: str, jwt_secret_key: str, api_config: dict, func_decode_token: callable) -> dict:
+async def func_check_token(headers: dict, url_path: str, jwt_secret_key: str, api_config: dict, func_decode_token: callable) -> dict:
     """Verify Authorization headers and decode JWT tokens for specific endpoints."""
     user_obj = {}
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
-    if url_path.startswith("/root"):
-        if not token: raise Exception("root token missing")
-        if token != root_auth_key: raise Exception("root token mismatch")
-    else:
-        if token: user_obj = await func_decode_token(token, jwt_secret_key)
-        is_token_mandatory = api_config.get(url_path, {}).get("is_token") == 1
-        if not token:
-            if url_path.startswith(("/my", "/private", "/admin")): raise Exception("authorization token missing")
-            if is_token_mandatory: raise Exception("authorization token missing")
-
+    if token: user_obj = await func_decode_token(token, jwt_secret_key)
+    is_token_mandatory = api_config.get(url_path, {}).get("is_token") == 1
+    if not token:
+        if url_path.startswith(("/my", "/private", "/admin")): raise Exception("authorization token missing")
+        if is_token_mandatory: raise Exception("authorization token missing")
     return user_obj
 
 async def func_token_decode(token: str, jwt_secret_key: str) -> dict:

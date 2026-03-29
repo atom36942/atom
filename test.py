@@ -5,7 +5,7 @@ input_path = "curl.txt"
 out_path = "tmp/curl_output.txt"
 fail_path = "tmp/curl_fail.log"
 baseurl = "http://127.0.0.1:8000"
-token_root = "123"
+token_root = ""
 username = uuid.uuid4().hex
 username_bigint = str(random.randint(10**15, 10**18))
 token = ""
@@ -42,10 +42,13 @@ for cmd in all_cmds:
         print(f"✅ Success ({ms}ms)"); success += 1
         if url.split("?")[0].rstrip("/").endswith("/auth/login-password-username"):
             try:
+                is_root_login = '"username":"atom"' in cmd.replace(" ", "").replace("'", '"')
                 data = json.loads(body).get("message", {})
                 if isinstance(data, dict) and (tok_obj := data.get("token")):
                     token_str = tok_obj.get("token") if isinstance(tok_obj, dict) else str(tok_obj)
-                    if token_str: token = token_str
+                    if token_str: 
+                        token = token_str
+                        if is_root_login: token_root = token_str
             except: pass
     else:
         print(f"❌ {body or res.stderr}"); fail += 1

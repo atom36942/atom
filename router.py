@@ -16,74 +16,6 @@ async def func_api_5e118e61a6c348328913f14722d76af6(request:Request):
    output=st.func_info_read(request.app.routes,st.cache_postgres_schema,st.config_postgres)
    return {"status":1,"message":output}
 
-# root
-@router.get("/root/postgres-init")
-async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
-   output=await func_postgres_init(request.app.state.client_postgres_pool,config_postgres)
-   return {"status":1,"message":output}
-
-@router.get("/root/sync")
-async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
-   await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"flush")
-   request.app.state.cache_postgres_schema=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else {}
-   request.app.state.cache_users_role=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_role")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("role") else {}
-   request.app.state.cache_users_is_active=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
-   await func_postgres_clean(request.app.state.client_postgres_pool,config_table)
-   return {"status":1,"message":"done"}
-
-
-@router.post("/root/postgres-runner")
-async def func_api_ccb985fc962349e4a2961d4bb030718c(request:Request):
-   obj_body=await func_request_param_read("body",request,[("mode","str",1,None),("query","str",1,None)])
-   output=await func_postgres_runner(request.app.state.client_postgres_pool,obj_body["mode"],obj_body["query"])
-   return {"status":1,"message":output}
-
-@router.post("/root/postgres-export")
-async def func_api_4eb43535bb05413c967fc18bfe93ac10(request:Request):
-   obj_body=await func_request_param_read("body",request,[("query","str",1,None)])
-   stream=func_postgres_stream(request.app.state.client_postgres_pool,obj_body["query"])
-   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment;filename=file.csv"})
-
-@router.post("/root/postgres-import")
-async def func_api_5f4c0fdf16244ca084cd6a07687b245f(request:Request):
-   obj_form=await func_request_param_read("form",request,[("mode","str",1,None),("table","str",1,None),("file","file",1,[])])
-   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
-   if obj_form["mode"]=="create":output=await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"now",obj_form["table"],obj_list,1,None)
-   elif obj_form["mode"]=="update":output=await func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,obj_form["table"],obj_list,1,None)
-   elif obj_form["mode"]=="delete":output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_form["table"],",".join(str(obj["id"]) for obj in obj_list),None)
-   return {"status":1,"message":output}
-
-@router.post("/root/redis-import")
-async def func_api_08d1ca28b2d54be29d9e9064a8a148a4(request:Request):
-   obj_form=await func_request_param_read("form",request,[("mode","str",1,None),("table","str",1,None),("file","file",1,[]),("expiry_sec","int",0,None)])
-   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
-   if obj_form["mode"]=="create":
-      key_list=[f"{obj_form['table']}_{item['id']}" for item in obj_list]
-      output=await func_redis_object_create(request.app.state.client_redis,key_list,obj_list,obj_form["expiry_sec"])
-   return {"status":1,"message":output}
-
-@router.post("/root/mongodb-import")
-async def func_api_4519b1151a0e428aa1b781ec61ed8fb0(request:Request):
-   obj_form=await func_request_param_read("form",request,[("mode","str",1,None),("database","str",1,None),("table","str",1,None),("file","file",1,[])])
-   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
-   if obj_form["mode"]=="create":output=await func_mongodb_object_create(request.app.state.client_mongodb,obj_form["database"],obj_form["table"],obj_list)
-   return {"status":1,"message":output}
-
-@router.get("/root/s3-bucket-ops")
-async def func_api_ca7ecbd9afdc46e39e4267bd2c33290c(request:Request):
-   obj_query=await func_request_param_read("query",request,[("mode","str",1,None),("bucket","str",1,None)])
-   if obj_query["mode"]=="create":output=await func_s3_bucket_create(request.app.state.client_s3,config_s3_region_name,obj_query["bucket"])
-   elif obj_query["mode"]=="public":output=await func_s3_bucket_public(request.app.state.client_s3,obj_query["bucket"])
-   elif obj_query["mode"]=="empty":output=await func_s3_bucket_empty(request.app.state.client_s3_resource,obj_query["bucket"])
-   elif obj_query["mode"]=="delete":output=await func_s3_bucket_delete(request.app.state.client_s3,obj_query["bucket"])
-   return {"status":1,"message":output}
-
-@router.post("/root/s3-url-delete")
-async def func_api_ece7d0b10f9b4cb29167defe3b471f71(request:Request):
-   obj_body=await func_request_param_read("body",request,[("url","list",1,[])])
-   for item in obj_body["url"]:output=await func_s3_url_delete(request.app.state.client_s3_resource,item)
-   return {"status":1,"message":output}
-
 # auth
 @router.post("/auth/signup-username-password")
 async def func_api_770160e847a341998b5b1c698e52e5c4(request:Request):
@@ -256,7 +188,6 @@ async def func_api_ad13e1541fdf4aeda4702eba872afc41(request:Request):
    return {"status":1,"message":output}
 
 # public
-
 @router.get("/public/converter-number")
 async def func_api_8759a1e7a3cd4ed882dded3920fd998a(request:Request):
    obj_query=await func_request_param_read("query",request,[("datatype","str",1,None),("mode","str",1,None),("x","str",1,None)])
@@ -364,6 +295,72 @@ async def func_api_7031e803bbc544958a91c92a89187338(request:Request):
    return {"status":1,"message":output}
 
 # admin
+@router.get("/admin/postgres-init")
+async def func_api_35ccd536b313494d9043ddee84bb7b9e(request:Request):
+   output=await func_postgres_init(request.app.state.client_postgres_pool,config_postgres)
+   return {"status":1,"message":output}
+
+@router.get("/admin/sync")
+async def func_api_f5c4a2f6e328454e84732f36743916ee(request:Request):
+   await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"flush")
+   request.app.state.cache_postgres_schema=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else {}
+   request.app.state.cache_users_role=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_role")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("role") else {}
+   request.app.state.cache_users_is_active=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool and request.app.state.cache_postgres_schema.get("users",{}).get("is_active") else {}
+   await func_postgres_clean(request.app.state.client_postgres_pool,config_table)
+   return {"status":1,"message":"done"}
+
+@router.post("/admin/postgres-runner")
+async def func_api_ccb985fc962349e4a2961d4bb030718c(request:Request):
+   obj_body=await func_request_param_read("body",request,[("mode","str",1,None),("query","str",1,None)])
+   output=await func_postgres_runner(request.app.state.client_postgres_pool,obj_body["mode"],obj_body["query"])
+   return {"status":1,"message":output}
+
+@router.post("/admin/postgres-export")
+async def func_api_4eb43535bb05413c967fc18bfe93ac10(request:Request):
+   obj_body=await func_request_param_read("body",request,[("query","str",1,None)])
+   stream=func_postgres_stream(request.app.state.client_postgres_pool,obj_body["query"])
+   return responses.StreamingResponse(stream,media_type="text/csv",headers={"Content-Disposition":"attachment;filename=file.csv"})
+
+@router.post("/admin/postgres-import")
+async def func_api_5f4c0fdf16244ca084cd6a07687b245f(request:Request):
+   obj_form=await func_request_param_read("form",request,[("mode","str",1,None),("table","str",1,None),("file","file",1,[])])
+   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
+   if obj_form["mode"]=="create":output=await func_postgres_obj_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"now",obj_form["table"],obj_list,1,None)
+   elif obj_form["mode"]=="update":output=await func_postgres_obj_update(request.app.state.client_postgres_pool,func_postgres_obj_serialize,obj_form["table"],obj_list,1,None)
+   elif obj_form["mode"]=="delete":output=await func_postgres_ids_delete(request.app.state.client_postgres_pool,obj_form["table"],",".join(str(obj["id"]) for obj in obj_list),None)
+   return {"status":1,"message":output}
+
+@router.post("/admin/redis-import")
+async def func_api_08d1ca28b2d54be29d9e9064a8a148a4(request:Request):
+   obj_form=await func_request_param_read("form",request,[("mode","str",1,None),("table","str",1,None),("file","file",1,[]),("expiry_sec","int",0,None)])
+   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
+   if obj_form["mode"]=="create":
+      key_list=[f"{obj_form['table']}_{item['id']}" for item in obj_list]
+      output=await func_redis_object_create(request.app.state.client_redis,key_list,obj_list,obj_form["expiry_sec"])
+   return {"status":1,"message":output}
+
+@router.post("/admin/mongodb-import")
+async def func_api_4519b1151a0e428aa1b781ec61ed8fb0(request:Request):
+   obj_form=await func_request_param_read("form",request,[("mode","str",1,None),("database","str",1,None),("table","str",1,None),("file","file",1,[])])
+   obj_list=await func_api_file_to_obj_list(obj_form["file"][-1])
+   if obj_form["mode"]=="create":output=await func_mongodb_object_create(request.app.state.client_mongodb,obj_form["database"],obj_form["table"],obj_list)
+   return {"status":1,"message":output}
+
+@router.get("/admin/s3-bucket-ops")
+async def func_api_ca7ecbd9afdc46e39e4267bd2c33290c(request:Request):
+   obj_query=await func_request_param_read("query",request,[("mode","str",1,None),("bucket","str",1,None)])
+   if obj_query["mode"]=="create":output=await func_s3_bucket_create(request.app.state.client_s3,config_s3_region_name,obj_query["bucket"])
+   elif obj_query["mode"]=="public":output=await func_s3_bucket_public(request.app.state.client_s3,obj_query["bucket"])
+   elif obj_query["mode"]=="empty":output=await func_s3_bucket_empty(request.app.state.client_s3_resource,obj_query["bucket"])
+   elif obj_query["mode"]=="delete":output=await func_s3_bucket_delete(request.app.state.client_s3,obj_query["bucket"])
+   return {"status":1,"message":output}
+
+@router.post("/admin/s3-url-delete")
+async def func_api_ece7d0b10f9b4cb29167defe3b471f71(request:Request):
+   obj_body=await func_request_param_read("body",request,[("url","list",1,[])])
+   for item in obj_body["url"]:output=await func_s3_url_delete(request.app.state.client_s3_resource,item)
+   return {"status":1,"message":output}
+
 @router.post("/admin/object-create")
 async def func_api_6dba580b31ff43e6824ea4292eb9c749(request:Request):
    obj_query=await func_request_param_read("query",request,[("table","str",1,None),("is_serialize","int",0,0),("mode","str",0,"now"),("queue","str",0,None)])
