@@ -7,9 +7,8 @@
 - Non-opinionated and full flexible to extend
 - Tech Stack: Python, FastAPI, Postgres, Redis, S3, Celery, RabbitMQ, Kafka, Sentry
 
-### setup
 <details>
-<summary>direct</summary>
+<summary>setup (direct)</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -24,7 +23,7 @@ rm -rf venv
 </details>
 
 <details>
-<summary>docker</summary>
+<summary>setup (docker)</summary>
 
 ```bash
 docker build -t atom .
@@ -32,9 +31,8 @@ docker run --rm -p 8000:8000 atom
 ```
 </details>
 
-### consumer
 <details>
-<summary>run</summary>
+<summary>consumer (run)</summary>
 
 ```bash
 ./venv/bin/python consumer.py celery
@@ -44,6 +42,9 @@ docker run --rm -p 8000:8000 atom
 ```
 </details>
 
-### develop
+<details>
+<summary>develop (guides)</summary>
+
 - Refer [AGENTS.md](file:///Users/atom/atom/AGENTS.md) for coding rules
 - Refer [dev.md](file:///Users/atom/atom/static/dev.md) for personal notes & snippets
+</details>
