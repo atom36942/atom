@@ -773,30 +773,48 @@ async def func_check_ratelimiter(redis_client: any, config_api: dict, url_path: 
     else: raise Exception("invalid ratelimiter mode")
     return None
 
-async def func_check_is_active(mode: str, user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, cache_map: dict) -> None:
-    """Check if the user is active, using either realtime DB check or cached state."""
+async def func_check_is_active(mode: str, user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
+    """Check if the user is active, using either realtime DB check, cached state, or Redis."""
     if not api_config.get(url_path, {}).get("is_active_check") == 1 or not user_dict: return None
     async def fetch_is_active(uid):
         async with postgres_pool.acquire() as conn: rows = await conn.fetch("select id,is_active from users where id=$1", uid)
         if not rows: raise Exception("user not found")
         return rows[0]["is_active"]
-    active_status = (await fetch_is_active(user_dict["id"]) if mode == "realtime" else cache_map.get(user_dict["id"], await fetch_is_active(user_dict["id"])) if mode == "cache" else user_dict.get("is_active", "absent"))
+    if mode == "redis":
+        if not redis_client: raise Exception("redis client missing")
+        cache_key, active_status = f"cache:user:active:{user_dict['id']}", None
+        cached_val = await redis_client.get(cache_key)
+        if cached_val is not None: active_status = int(cached_val)
+        else:
+            active_status = await fetch_is_active(user_dict["id"])
+            await redis_client.setex(cache_key, 3600, str(active_status))
+    else: active_status = (await fetch_is_active(user_dict["id"]) if mode == "realtime" else cache_map.get(user_dict["id"], await fetch_is_active(user_dict["id"])) if mode == "cache" else user_dict.get("is_active", "absent"))
     if active_status == "absent": raise Exception("missing is_active")
     if active_status == 0: raise Exception("user not active")
 
-async def func_check_admin(mode: str, user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, cache_map: dict) -> None:
-    """Ensure the user has sufficient roles to access admin endpoints."""
+async def func_check_admin(mode: str, user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
+    """Ensure the user has sufficient roles to access admin endpoints using either realtime DB check, cached state, or Redis."""
     if not url_path.startswith("/admin") or not (cfg := api_config.get(url_path)) or "role_allowed" not in cfg: return None
     roles_allowed = set(cfg["role_allowed"])
     async def fetch_role(uid):
         async with postgres_pool.acquire() as conn: rows = await conn.fetch("select role from users where id=$1", uid)
         if not rows: raise Exception("user not found")
         return rows[0]["role"]
-    user_role = (await fetch_role(user_dict["id"]) if mode == "realtime" else cache_map.get(user_dict["id"], await fetch_role(user_dict["id"])) if mode == "cache" else user_dict.get("role", "absent"))
+    if mode == "redis":
+        if not redis_client: raise Exception("redis client missing")
+        cache_key, user_role = f"cache:user:role:{user_dict['id']}", None
+        cached_val = await redis_client.get(cache_key)
+        if cached_val is not None: user_role = int(cached_val)
+        else:
+            user_role = await fetch_role(user_dict["id"])
+            await redis_client.setex(cache_key, 3600, str(user_role if user_role is not None else ""))
+    else: user_role = (await fetch_role(user_dict["id"]) if mode == "realtime" else cache_map.get(user_dict["id"], await fetch_role(user_dict["id"])) if mode == "cache" else user_dict.get("role", "absent"))
     if user_role == "absent": raise Exception("user role missing")
-    if user_role is None: raise Exception("user role is null")
+    if user_role is None or user_role == "": raise Exception("user role is null")
     if user_role == "role": raise Exception("user role is invalid")
-    if not isinstance(user_role, int): raise Exception("invalid user role type")
+    if not isinstance(user_role, int):
+        try: user_role = int(user_role)
+        except: raise Exception("invalid user role type")
     if user_role not in roles_allowed: raise Exception("access denied")
 
 async def func_check_cache(mode: str, url_path: str, query_params: dict, api_config: dict, redis_client: any, user_id: int, response_obj: any) -> any:

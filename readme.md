@@ -81,12 +81,13 @@ Example:
 <details>
 <summary>how to set user active check mode</summary>
 
-Configures how user activity status is verified on each request.
+Configures how user activity status is verified on each request to determine if they can access an API. This checks the `is_active` column in the `users` table.
 
 - **Field**: `config_mode_check_active`
 - **Modes**:
   - `token`: Read `is_active` directly from JWT payload (fastest)
   - `cache`: Check against memory-cached status (balanced)
+  - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
   - `realtime`: Query PostgreSQL on every request (most accurate)
 
 > [!NOTE]
@@ -102,6 +103,7 @@ Configures how administrative roles are verified for `/admin` routes.
 - **Modes**:
   - `token`: Read `role` directly from JWT payload (fastest)
   - `cache`: Check against memory-cached roles (balanced)
+  - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
   - `realtime`: Query PostgreSQL on every request (most accurate)
 
 > [!NOTE]
