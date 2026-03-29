@@ -1,6 +1,6 @@
 import os, sys, json, uuid, time, random, string, re, subprocess
 
-# config
+#config
 input_path = "curl.txt"
 out_path = "tmp/curl_output.txt"
 fail_path = "tmp/curl_fail.log"
@@ -10,11 +10,11 @@ username = uuid.uuid4().hex
 username_bigint = str(random.randint(10**15, 10**18))
 token = ""
 
-# init
+#init
 os.makedirs("tmp", exist_ok=True)
 with open(out_path, "w") as f: f.write("")
 
-# parse
+#parse
 with open(input_path, "r") as f: lines = f.read().splitlines()
 all_cmds, cur = [], ""
 for line in lines:
@@ -23,7 +23,7 @@ for line in lines:
         if cur.strip() and not cur.strip().startswith("#"): all_cmds.append(cur.strip())
         cur = ""
 
-# run
+#run
 count, success, fail, total_ms = 0, 0, 0, 0
 for cmd in all_cmds:
     if cmd.startswith("0"): continue
@@ -54,7 +54,7 @@ for cmd in all_cmds:
         print(f"❌ {body or res.stderr}"); fail += 1
         with open(fail_path, "a" if fail > 1 else "w") as f: f.write(f"{cmd}\n{body or res.stderr}\n\n")
 
-# summary
+#summary
 avg_ms = total_ms // count if count else 0
 print("-" * 38)
 print("📊 Curl Execution Summary")

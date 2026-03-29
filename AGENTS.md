@@ -6,12 +6,12 @@
 * **Functionality:** `function.py` strictly for pure functions; no external state dependencies.
 * **State:** `main.py` stores all integrations (DB, Redis, S3) in `request.state`.
 * **Boolean:** Use `is_active = 1` vs `0` for boolean logic. 
-* **Pattern:** `# name` (lowercase, no brackets) for `.py` logic breaks; `### name` (lowercase, no brackets) for `.md` files.
+* **Pattern:** `#name` (lowercase, no brackets) for `.py` logic breaks; `###name` (lowercase, no brackets) for `.md` files.
 * **Errors:** No combined `or` logic in error checks. Break multiple failure conditions into individual `if` blocks with specific exception messages.
 * **Config:** Single line assignment only; no chain statements (e.g. `a, b = 1, 2`).
-* **Docs:** Use `<details><summary>name</summary> ... </details>` for all sections in `readme.md`.
+* **Docs:** Use `<details><summary>name</summary> ... </details>` for all sections in `readme.md`; sync `readme.md` with new features/logic based on need (authentication guide added).
 
-### repo map
+###repo map
 * `tmp/`: Runtime dumps & temp storage (Rule 5); auto-created by `main.py`.
 * `script/`: Standalone utility scripts (non-API context).
 * `secret/`: Sensitive data; holds certs and keys.
@@ -32,9 +32,9 @@
 * `.env`: Environment-specific overrides for `config.py`.
 * `z.py`: Developer scratchpad for temporary snippets.
 
-### api workflow
+###api workflow
 1. `router.py`: Add route with correct prefix:
-   * `admin/`: RBAC via `config_api.role_allowed`.
+   * `admin/`: RBAC via `config_api.roles`.
    * `auth/`: Auth operations (Login/Signup).
    * `my/`: Auth required + access `request.state.user`.
    * `public/`: No token required (Open access).

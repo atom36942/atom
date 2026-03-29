@@ -1,16 +1,16 @@
-# import
+#import
 from function import *
 from config import *
 
-# lifespan
+#lifespan
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import httpx
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
-   # start
+  #start
    func_structure_create(["tmp","secret"], [".env","z.py"])
-   # client init
+  #client init
    client_http=httpx.AsyncClient()
    client_postgres_pool=await func_postgres_client_read({"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection}) if config_postgres_url else None
    client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
@@ -29,12 +29,12 @@ async def func_lifespan(app:FastAPI):
    client_sftp=await func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
    client_gemini=await func_gemini_client_read(config_gemini_key) if config_gemini_key else None
    if client_postgres_pool: await func_postgres_init_root_user(client_postgres_pool)
-   # cache init
+  #cache init
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else {}
-   cache_users_role=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("role") else {}
-   cache_users_is_active=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool and cache_postgres_schema.get("users",{}).get("is_active") else {}
+   cache_users_role=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool else {}
+   cache_users_is_active=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
    func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
-   # app shutdown
+  #app shutdown
    yield
    await func_postgres_obj_create(client_postgres_pool, func_postgres_obj_serialize, "flush")
    if config_is_reset_export_folder:func_folder_reset("tmp")
@@ -53,24 +53,24 @@ async def func_lifespan(app:FastAPI):
       client_sftp.close()
       await client_sftp.wait_closed()
       
-# app
+#app
 app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
 
-# app add
+#app add
 func_app_add_cors(app,config_cors_origin,config_cors_method,config_cors_headers,config_cors_allow_credentials)
 func_add_router(app)
 func_app_add_static(app,"./static","/static")
 if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
 if config_is_prometheus:func_app_add_prometheus(app)
 
-# middleware
+#middleware
 import time,json
 @app.middleware("http")
 async def middleware(request,api_function):
    try:
       start,type,error,request.state.user=time.perf_counter(),None,None,{}
       st=request.app.state
-      request.state.user=await st.func_check_token(request.headers,request.url.path,st.config_token_secret_key,st.config_api,st.func_token_decode)
+      request.state.user=await st.func_authenticate(request.headers,request.url.path,st.config_token_secret_key,st.config_api)
       await st.func_check_admin(st.config_mode_check_admin,request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_role)
       await st.func_check_is_active(st.config_mode_check_active,request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_is_active)
       await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)
@@ -79,7 +79,7 @@ async def middleware(request,api_function):
    await request.app.state.func_api_log_create(start,request.client.host,request.state.user.get("id") if getattr(request.state,"user",None) else None,request.url.path,request.method,json.dumps(dict(request.query_params)),response.status_code if response else 0,type,error,request.app.state.config_is_log_api,request.app.state.config_api.get(request.url.path,{}).get("id"),request.app.state.func_postgres_obj_create,request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.config_table.get("log_api",{}).get("buffer") if request.app.state.config_table else 10)
    return response
 
-# main
+#main
 from function import func_server_start
 import asyncio
 if __name__=="__main__":

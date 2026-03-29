@@ -1,4 +1,4 @@
-# system & structure
+#system & structure
 def func_structure_create(directories_list: list, files_list: list) -> None:
     """Create directory and file structure if it doesn't exist."""
     import os
@@ -24,7 +24,7 @@ def func_structure_check(root_path: str, dirs: tuple = (), files: tuple = ()) ->
     return None
 
 
-# utils & converters
+#utils & converters
 async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: str, filter_column: str = None, filter_value: any = None, limit_count: int = 100, page_number: int = 1) -> list:
     """Read unique tags/items from an array column with occurrence counts."""
     import re
@@ -64,7 +64,7 @@ async def func_html_serve(html_name: str) -> any:
     return responses.HTMLResponse(content=html_content)
 
 
-# api & middleware utilities
+#api & middleware utilities
 async def func_api_response_error(exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple[str, any]:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
     import traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
@@ -92,7 +92,7 @@ async def func_api_log_create(start_time: float, ip_address: str, user_id: any, 
         asyncio.create_task(func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, "buffer", "log_api", [log_obj], 0, table_buffer))
     return None
 
-# api core logic
+#api core logic
 async def func_obj_create_logic(obj_query: dict, obj_body: dict, role: str, user_id: any, table_create_my_list: list, table_create_public_list: list, column_blocked_list: list, postgres_pool: any, func_postgres_obj_serialize: callable, table_config: dict, func_producer_logic: callable, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_obj_create: callable) -> any:
     """Wrapper logic for object creation with role-based validation and optional queueing."""
     obj_list = obj_body["obj_list"] if "obj_list" in obj_body else [obj_body]
@@ -152,7 +152,7 @@ async def func_api_file_to_obj_list(upload_file: any) -> list:
     reader = csv.DictReader(io.TextIOWrapper(upload_file.file, encoding="utf-8"))
     obj_list = [row for row in reader]; await upload_file.close(); return obj_list
 
-# api metadata
+#api metadata
 def func_api_metadata_read(app_routes: list) -> list:
     """Extract API paths, methods, and parameter schemas from FastAPI routes using source inspection."""
     import inspect, re, ast
@@ -227,7 +227,7 @@ def func_config_override_from_env(global_dict: dict) -> None:
     except: pass
 
 
-# database - core operations
+#database - core operations
 async def func_postgres_runner(postgres_pool: any, execution_mode: str, sql_query: str) -> any:
     """Execute raw SQL queries in 'read' or 'write' mode with basic DDL protection."""
     if execution_mode not in ("read", "write"): raise Exception("execution_mode should be 'read' or 'write'")
@@ -277,7 +277,7 @@ async def func_sql_map_column(postgres_pool: any, sql_query: str) -> dict:
     return result_map
 
 
-# database - maintenance & schema
+#database - maintenance & schema
 async def func_postgres_clean(postgres_pool: any, table_config: dict) -> None:
     """Delete old records from tables based on retention_day configuration."""
     from datetime import datetime, timedelta
@@ -622,7 +622,7 @@ async def func_postgres_client_read(config_postgres: dict) -> any:
     return await asyncpg.create_pool(dsn=config_postgres["dsn"], min_size=config_postgres["min_size"], max_size=config_postgres["max_size"])
 
 
-# external clients - messaging & cache (redis/rabbitmq/kafka/celery)
+#external clients - messaging & cache (redis/rabbitmq/kafka/celery)
 async def func_redis_client_read(redis_url: str) -> any:
     """Initialize Redis client using connection pooling."""
     import redis.asyncio as redis
@@ -668,7 +668,7 @@ async def func_sns_client_read(aws_access_key: str, aws_secret_key: str, region:
     return boto3.client("sns", region_name=region, aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key)
 
 
-# external clients - cloud (aws/s3/sns/ses)
+#external clients - cloud (aws/s3/sns/ses)
 async def func_s3_client_read(config_s3: dict) -> any:
     """Initialize AWS S3 client and resource."""
     import aiobotocore.session, boto3
@@ -753,7 +753,7 @@ async def func_kafka_producer(kafka_producer: any, channel_name: str, payload: d
     return await kafka_producer.send_and_wait(channel_name, json.dumps(payload, indent=2).encode('utf-8'), partition=0)
 
 
-# api cache & rate limiting
+#api cache & rate limiting
 async def func_check_ratelimiter(redis_client: any, config_api: dict, url_path: str, identifier: str) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     import time
@@ -795,8 +795,8 @@ async def func_check_is_active(mode: str, user_dict: dict, url_path: str, api_co
 
 async def func_check_admin(mode: str, user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
     """Ensure the user has sufficient roles to access admin endpoints using either realtime DB check, cached state, or Redis."""
-    if not url_path.startswith("/admin") or not (cfg := api_config.get(url_path)) or "role_allowed" not in cfg: return None
-    roles_allowed = set(cfg["role_allowed"])
+    if not url_path.startswith("/admin") or not (cfg := api_config.get(url_path)) or "roles" not in cfg: return None
+    roles = set(cfg["roles"])
     async def fetch_role(uid):
         async with postgres_pool.acquire() as conn: rows = await conn.fetch("select role from users where id=$1", uid)
         if not rows: raise Exception("user not found")
@@ -816,7 +816,7 @@ async def func_check_admin(mode: str, user_dict: dict, url_path: str, api_config
     if not isinstance(user_role, int):
         try: user_role = int(user_role)
         except: raise Exception("invalid user role type")
-    if user_role not in roles_allowed: raise Exception("access denied")
+    if user_role not in roles: raise Exception("access denied")
 
 async def func_check_cache(mode: str, url_path: str, query_params: dict, api_config: dict, redis_client: any, user_id: int, response_obj: any) -> any:
     """Retrieve from or store to cache API responses based on configuration."""
@@ -873,23 +873,21 @@ async def func_api_response(request: any, api_function: callable, api_config: di
         if cache_sec: response = await func_cache("set", request.url.path, query_params, api_config, redis_client, user_id, response); resp_type = 4
     return response, resp_type
 
-async def func_check_token(headers: dict, url_path: str, jwt_secret_key: str, api_config: dict, func_decode_token: callable) -> dict:
-    """Verify Authorization headers and decode JWT tokens for specific endpoints."""
-    user_obj = {}
+async def func_authenticate(headers: dict, url_path: str, jwt_secret_key: str, api_config: dict) -> dict:
+    """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT.
+    Returns the decoded user dict or an empty dict.
+    """
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
-    if token: user_obj = await func_decode_token(token, jwt_secret_key)
-    is_token_mandatory = api_config.get(url_path, {}).get("is_token") == 1
-    if not token:
-        if url_path.startswith(("/my", "/private", "/admin")): raise Exception("authorization token missing")
-        if is_token_mandatory: raise Exception("authorization token missing")
+    if token:
+        import jwt, json
+        decoded_payload = jwt.decode(token, jwt_secret_key, algorithms="HS256")
+        user_obj = json.loads(decoded_payload["data"])
+    else:
+        user_obj = {}
+        if url_path.startswith(("/my", "/private", "/admin")):
+            raise Exception("authorization token missing")
     return user_obj
-
-async def func_token_decode(token: str, jwt_secret_key: str) -> dict:
-    """Decode and extract data from a HS256 JWT token."""
-    import jwt, json
-    decoded_payload = jwt.decode(token, jwt_secret_key, algorithms="HS256")
-    return json.loads(decoded_payload["data"])
 
 async def func_token_encode(user_obj: dict, jwt_secret_key: str, token_expiry_sec: int, token_refresh_expiry_sec: int, key_list: list = None) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
@@ -956,7 +954,7 @@ def func_add_router(fastapi_app: any) -> None:
         rel = py_file.relative_to(root_dir); ( load_router(root_dir, py_file) if (len(rel.parts) == 1 and py_file.name.startswith("router")) or ("router" in rel.parts[:-1]) else None )
 
 
-# admin & analytics
+#admin & analytics
 async def func_user_sql_read(postgres_pool: any, config_sql: dict, user_id: int) -> dict:
     """Execute pre-defined analytics queries for a specific user profile."""
     queries_metadata = config_sql.get("profile_metadata", {}); result_data = {}
@@ -975,7 +973,7 @@ async def func_account_delete(delete_mode: str, postgres_pool: any, user_id: int
     async with postgres_pool.acquire() as conn: await conn.execute(query, user_id); return "account deleted"
 
 
-# user & message operations
+#user & message operations
 async def func_user_single_read(postgres_pool: any, user_id: int) -> dict:
     """Read a single user's full record by their ID."""
     async with postgres_pool.acquire() as conn: record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", user_id)
@@ -983,7 +981,7 @@ async def func_user_single_read(postgres_pool: any, user_id: int) -> dict:
     return dict(record)
 
 
-# auth & otp
+#auth & otp
 async def func_otp_generate(postgres_pool: any, email_address: str = None, mobile_number: str = None) -> int:
     """Generate and store a numeric OTP for email or mobile verification."""
     import random
@@ -1167,7 +1165,7 @@ def func_jira_worklog_export(jira_url: str, email_address: str, api_token: str, 
             if start_date <= started_at <= end_date: log_rows.append((worklog.author.displayName, started_at, worklog.timeSpentSeconds / 3600))
     pd.DataFrame(log_rows, columns=["author", "date", "hours"]).pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(assignees, fill_value=0).round(0).astype(int).to_csv(output_path); return output_path
 
-# utils & converters
+#utils & converters
 def func_folder_reset(folder_path: str) -> str:
     """Purge all files and subdirectories within a specified directory."""
     import os, shutil

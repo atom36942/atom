@@ -1,13 +1,13 @@
-# postgres
+#postgres
 config_postgres_url="postgresql://atom@127.0.0.1/postgres?sslmode=disable"
 config_postgres_min_connection=5
 config_postgres_max_connection=20
 
-# redis
+#redis
 config_redis_url="redis://localhost:6379"
 config_redis_url_ratelimiter=config_redis_url
 
-# queue
+#queue
 config_channel_name="channel_1"
 config_redis_url_pubsub=config_redis_url
 config_rabbitmq_url="amqp://guest:guest@localhost:5672"
@@ -20,29 +20,29 @@ config_kafka_group_id="group_1"
 config_kafka_enable_auto_commit=True
 config_kafka_consumer_batch=100
 
-# token
+#token
 config_token_secret_key="123"
 config_token_expiry_sec=3*24*60*60
 config_token_refresh_expiry_sec=3*24*60*60*100
 config_token_key=['id', 'type', 'is_active', 'role']
 
-# gsheet
+#gsheet
 config_gsheet_service_account_json_path=None
 config_gsheet_scope=['https://www.googleapis.com/auth/spreadsheets']
 
-# fast2sms
+#fast2sms
 config_fast2sms_url=None
 config_fast2sms_key=None
 
-# resend
+#resend
 config_resend_url=None
 config_resend_key=None
 
-# posthog
+#posthog
 config_posthog_project_host=None
 config_posthog_project_key=None
 
-# aws
+#aws
 config_aws_access_key_id=None
 config_aws_secret_access_key=None
 config_s3_region_name=None
@@ -51,7 +51,7 @@ config_ses_region_name=None
 config_s3_limit_kb=100
 config_s3_presigned_expire_sec=60
 
-# sftp
+#sftp
 config_sftp_auth_method="password"
 config_sftp_host=None
 config_sftp_port=None
@@ -59,27 +59,27 @@ config_sftp_username=None
 config_sftp_password=None
 config_sftp_key_path=None
 
-# cors
+#cors
 config_cors_origin=['*']
 config_cors_method=['*']
 config_cors_headers=['*']
 config_cors_allow_credentials=False
 
-# table
+#table
 config_table_create_my=['test', 'post', 'support', 'rating_test']
 config_table_create_public=['test', 'support']
 config_table_read_public=['test', 'post']
 config_table_system=['spatial_ref_sys']
 
-# column
+#column
 config_column_blocked=['is_active', 'is_verified', 'role', 'created_at', 'updated_at']
 config_column_single_update=['username', 'password', 'email', 'mobile']
 
-# mode
+#mode
 config_mode_check_active="token"
 config_mode_check_admin="token"
 
-# switch
+#switch
 config_is_signup=1
 config_is_log_api=1
 config_is_traceback=1
@@ -89,7 +89,7 @@ config_is_debug_fastapi=1
 config_is_index_html=0
 config_is_profile_metadata=0
 
-# zzz
+#zzz
 config_auth_type=[1, 2, 3]
 config_expiry_sec_otp=600
 config_limit_ids_delete=1000
@@ -99,7 +99,7 @@ config_openai_key=None
 config_gemini_key=None
 config_sentry_dsn=None
 
-# dict
+#dict
 config_sql={
 "cache_users_role":"select id,role from users where role is not null limit 1000",
 "cache_users_is_active":"select id,is_active from users limit 1000",
@@ -114,25 +114,25 @@ config_table={
 }
 
 config_api={
-"/admin/object-create":{"role_allowed":[1]},
-"/admin/object-update":{"role_allowed":[1]},
-"/admin/object-read":{"role_allowed":[1]},
-"/admin/ids-delete":{"role_allowed":[1]},
-"/admin/postgres-init":{"role_allowed":[1]},
-"/admin/sync":{"role_allowed":[1]},
-"/admin/postgres-runner":{"role_allowed":[1]},
-"/admin/postgres-export":{"role_allowed":[1]},
-"/admin/postgres-import":{"role_allowed":[1]},
-"/admin/redis-import":{"role_allowed":[1]},
-"/admin/mongodb-import":{"role_allowed":[1]},
-"/admin/s3-bucket-ops":{"role_allowed":[1]},
-"/admin/s3-url-delete":{"role_allowed":[1]},
-"/test":{"role_allowed":[1,2,3],"is_token":0,"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":["inmemory",10,3]},
-"/public/object-read":{"role_allowed":[1],"cache_sec":["inmemory",60]},
-"/my/profile":{"role_allowed":[1],"is_active_check":0,"cache_sec":["inmemory",10]},
-"/my/object-read":{"role_allowed":[1],"cache_sec":["inmemory",60]},
-"/":{"role_allowed":[1],"cache_sec":["inmemory",10]},
-"/public/table-tag-read":{"role_allowed":[1],"cache_sec":["redis",10]},
+"/admin/object-create":{"roles":[1]},
+"/admin/object-update":{"roles":[1]},
+"/admin/object-read":{"roles":[1]},
+"/admin/ids-delete":{"roles":[1]},
+"/admin/postgres-init":{"roles":[1]},
+"/admin/sync":{"roles":[1]},
+"/admin/postgres-runner":{"roles":[1]},
+"/admin/postgres-export":{"roles":[1]},
+"/admin/postgres-import":{"roles":[1]},
+"/admin/redis-import":{"roles":[1]},
+"/admin/mongodb-import":{"roles":[1]},
+"/admin/s3-bucket-ops":{"roles":[1]},
+"/admin/s3-url-delete":{"roles":[1]},
+"/test":{"roles":[1,2,3],"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":["inmemory",10,3]},
+"/public/object-read":{"roles":[1],"cache_sec":["inmemory",60]},
+"/my/profile":{"roles":[1],"is_active_check":0,"cache_sec":["inmemory",10]},
+"/my/object-read":{"roles":[1],"cache_sec":["inmemory",60]},
+"/":{"roles":[1],"cache_sec":["inmemory",10]},
+"/public/table-tag-read":{"roles":[1],"cache_sec":["redis",10]},
 }
 
 config_postgres={
@@ -280,6 +280,6 @@ config_postgres={
 }
 }
 
-# override
+#override
 from function import func_config_override_from_env
 func_config_override_from_env(globals())

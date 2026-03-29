@@ -113,4 +113,59 @@ Configures how administrative roles are verified for `/admin` routes.
 > `cache` mode uses `cache_users_role` populated at application startup.
 </details>
 
+<details>
+<summary>how to configure rbac roles</summary>
 
+Access control is defined per route in `config_api` inside `config.py`.
+
+- **Field**: `roles`
+- **Format**: `[role_id_1, role_id_2, ...]`
+- **Logic**: If the user's `role` (from token/DB) is not in this list, access is denied.
+
+Example:
+```python
+"/admin/sync": {"roles": [1]} # Only Admin (Role 1)
+"/test": {"roles": [1, 2, 3]} # Admin, Manager, User
+```
+
+> [!TIP]
+> Use `roles` instead of boolean flags for more granular control over multi-tenant or multi-tier access.
+</details>
+
+
+<details>
+<summary>how to make an api authenticated</summary>
+
+```python
+@router.get("/my/secure")
+async def func_api_secure(request: Request):
+    # Ensure a user is authenticated
+    if not request.state.user:
+        raise Exception("authorization token missing")
+    return {"status": 1, "message": "you are authorized"}
+```
+
+**Optional header read example**
+
+```python
+@router.get("/test")
+async def func_api_test(request: Request):
+    # Header is optional; will raise if missing when mandatory flag is 1
+    obj_header = await func_request_param_read(
+        "header",
+        request,
+        [("authorization", "str", 0, None)]
+    )
+    token = obj_header.get("authorization")
+    # token will be raw "Bearer <jwt>" if supplied
+    return {"status": 1, "auth_provided": bool(token)}
+```
+
+> [!NOTE]
+> The middleware (`func_check_token`) runs before every request and populates `request.state.user` when a valid Bearer token is present. Public routes (`/test`, `/public/*`) will not raise an error if the token is absent.
+
+```bash
+# Example curl with token
+curl -H "Authorization: Bearer <your_jwt>" http://127.0.0.1:8000/my/secure
+```
+</details>
