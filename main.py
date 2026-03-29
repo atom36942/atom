@@ -15,19 +15,19 @@ async def func_lifespan(app:FastAPI):
    client_postgres_pool=await func_postgres_client_read({"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection}) if config_postgres_url else None
    client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
    client_redis_ratelimiter=await func_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
-   client_mongodb=await func_mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
+   client_mongodb=func_mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
    client_s3,client_s3_resource=(await func_s3_client_read({"aws_access_key_id":config_aws_access_key_id,"aws_secret_access_key":config_aws_secret_access_key,"region_name":config_s3_region_name})) if config_s3_region_name else (None, None)
-   client_sns=await func_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
-   client_ses=await func_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
+   client_sns=func_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
+   client_ses=func_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
    client_openai=func_openai_client_read(config_openai_key) if config_openai_key else None
-   client_posthog=await func_posthog_client_read(config_posthog_project_host,config_posthog_project_key)
-   client_celery_producer=await func_celery_client_read_producer(config_celery_broker_url,config_celery_backend_url) if config_celery_broker_url else None
+   client_posthog=func_posthog_client_read(config_posthog_project_host,config_posthog_project_key)
+   client_celery_producer=func_celery_client_read_producer(config_celery_broker_url,config_celery_backend_url) if config_celery_broker_url else None
    client_kafka_producer=await func_kafka_client_read_producer(config_kafka_url,config_kafka_username,config_kafka_password) if config_kafka_url else None
    client_rabbitmq,client_rabbitmq_producer=await func_rabbitmq_client_read_producer(config_rabbitmq_url) if config_rabbitmq_url else (None, None)
    client_redis_producer=await func_redis_client_read(config_redis_url_pubsub) if config_redis_url_pubsub else None
    client_gsheet=func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope) if config_gsheet_service_account_json_path else None
    client_sftp=await func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
-   client_gemini=await func_gemini_client_read(config_gemini_key) if config_gemini_key else None
+   client_gemini=func_gemini_client_read(config_gemini_key) if config_gemini_key else None
    if client_postgres_pool: await func_postgres_init_root_user(client_postgres_pool)
   #cache init
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else {}
@@ -71,8 +71,8 @@ async def middleware(request,api_function):
       start,type,error,request.state.user=time.perf_counter(),None,None,{}
       st=request.app.state
       request.state.user=await st.func_authenticate(request.headers,request.url.path,st.config_token_secret_key,st.config_api)
-      await st.func_check_admin(st.config_mode_check_admin,request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_role)
-      await st.func_check_is_active(st.config_mode_check_active,request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_is_active)
+      await st.func_check_admin(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_role)
+      await st.func_check_is_active(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_is_active)
       await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)
       response,type=await st.func_api_response(request,api_function,st.config_api,st.client_redis,request.state.user.get("id") if request.state.user else 0,st.func_api_response_background,st.func_check_cache)
    except Exception as e:error,response=await request.app.state.func_api_response_error(e,request.app.state.config_is_traceback,request.app.state.config_sentry_dsn)

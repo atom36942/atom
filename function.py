@@ -37,7 +37,7 @@ async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: 
     async with postgres_pool.acquire() as conn: rows = await conn.fetch(query, *query_args)
     return [{"tag": row['tag_item'], "count": row['count']} for row in rows]
 
-async def func_gemini_client_read(gemini_api_key: str) -> any:
+def func_gemini_client_read(gemini_api_key: str) -> any:
     """Initialize Google Gemini AI client."""
     try: from google import genai
     except: import genai
@@ -130,7 +130,7 @@ async def func_obj_update_logic(obj_query: dict, obj_body: dict, role: str, user
 
 async def func_producer_logic(payload: dict, queue_name: str, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable) -> any:
     """Route payload to the appropriate message queue producer."""
-    if queue_name == "celery": return await func_celery_producer(celery_producer, payload["func"], [v for k, v in payload.items() if k != "func"])
+    if queue_name == "celery": return func_celery_producer(celery_producer, payload["func"], [v for k, v in payload.items() if k != "func"])
     elif queue_name == "kafka": return await func_kafka_producer(kafka_producer, channel_name, payload)
     elif queue_name == "rabbitmq": return await func_rabbitmq_producer(rabbitmq_producer, channel_name, payload)
     elif queue_name == "redis": return await func_redis_producer(redis_producer, channel_name, payload)
@@ -187,14 +187,34 @@ def func_api_metadata_read(app_routes: list) -> list:
         metadata.append(route_meta)
     return metadata
 
-def func_info_read(app_routes: list, cache_postgres_schema: dict, config_postgres: dict) -> dict:
+def func_sync_routes_check(app_routes: list, current_config_api: dict) -> None:
+    """Validate config_api consistency with app routes, ensuring all admin APIs have role 1 and all config entries exist."""
+    missing, app_paths = [], {route.path for route in app_routes if hasattr(route, "path")}
+    config_missing = [p for p in current_config_api if p not in app_paths]
+    if config_missing: missing.append(f"config_api paths missing from app: {', '.join(config_missing)}")
+    for route in app_routes:
+        if hasattr(route, "path") and route.path.startswith("/admin/"):
+            path = route.path
+            if path not in current_config_api: missing.append(f"{path} missing from config_api")
+            else:
+                roles_cfg = current_config_api[path].get("roles", [])
+                allowed_roles = roles_cfg[1] if roles_cfg and isinstance(roles_cfg[0], str) else roles_cfg
+                if 1 not in (allowed_roles if isinstance(allowed_roles, (list, tuple, set)) else []): missing.append(f"{path} missing role 1")
+    if missing: raise Exception("; ".join(missing))
+
+def func_info_read(app_routes: list, cache_postgres_schema: dict, config_postgres: dict, config_table: dict, config_api: dict) -> dict:
     """Construct system discovery metadata including routes, schema, and configuration settings."""
     return {
         "api_list": [route.path for route in app_routes],
         "api_metadata": func_api_metadata_read(app_routes),
         "postgres_schema": cache_postgres_schema,
-        "postgres_datatype_used": sorted({k["datatype"] for cols in config_postgres["table"].values() for k in cols}),
-        "config_postgres_column_key": sorted({k for cols in config_postgres["table"].values() for col in cols for k in col}),
+        "config_table_key": sorted(list(set(k for v in config_table.values() for k in v))),
+        "config_api_key": sorted(list(set(k for v in config_api.values() for k in v))),
+        "config_postgres_key": {
+            "table": sorted(list(set(k for v in config_postgres.get("table", {}).values() for item in v for k in item))),
+            "sql": sorted(list(config_postgres.get("sql", {}).keys())),
+            "control": sorted(list(config_postgres.get("control", {}).keys()))
+        }
     }
 
 def func_config_override_from_env(global_dict: dict) -> None:
@@ -645,24 +665,24 @@ async def func_redis_object_create(redis_client: any, keys: list, objects: list,
         await pipe.execute()
     return None
 
-async def func_ses_client_read(aws_access_key: str, aws_secret_key: str, region: str) -> any:
+def func_ses_client_read(aws_access_key: str, aws_secret_key: str, region: str) -> any:
     """Initialize AWS SES client."""
     import boto3
     return boto3.client("ses", region_name=region, aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key)
 
-async def func_ses_send_email(ses_client: any, from_email: str, to_emails: list, subject: str, body: str) -> None:
+def func_ses_send_email(ses_client: any, from_email: str, to_emails: list, subject: str, body: str) -> None:
     """Send a transactional email via AWS SES."""
     ses_client.send_email(Source=from_email, Destination={"ToAddresses": to_emails}, Message={"Subject": {"Charset": "UTF-8", "Data": subject}, "Body": {"Text": {"Charset": "UTF-8", "Data": body}}}); return None
 
-async def func_sns_send_mobile_message(sns_client: any, mobile_number: str, message_text: str) -> None:
+def func_sns_send_mobile_message(sns_client: any, mobile_number: str, message_text: str) -> None:
     """Send a direct SMS message via AWS SNS."""
     sns_client.publish(PhoneNumber=mobile_number, Message=message_text); return None
 
-async def func_sns_send_mobile_message_template(sns_client: any, mobile_number: str, message_text: str, template_id: str, entity_id: str, sender_id: str) -> None:
+def func_sns_send_mobile_message_template(sns_client: any, mobile_number: str, message_text: str, template_id: str, entity_id: str, sender_id: str) -> None:
     """Send a templated transactional SMS message via AWS SNS with custom metadata."""
     sns_client.publish(PhoneNumber=mobile_number, Message=message_text, MessageAttributes={"AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": entity_id}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": template_id}, "AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sender_id}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}}); return None
 
-async def func_sns_client_read(aws_access_key: str, aws_secret_key: str, region: str) -> any:
+def func_sns_client_read(aws_access_key: str, aws_secret_key: str, region: str) -> any:
     """Initialize AWS SNS client."""
     import boto3
     return boto3.client("sns", region_name=region, aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key)
@@ -678,21 +698,21 @@ async def func_s3_client_read(config_s3: dict) -> any:
 
 async def func_s3_bucket_create(s3_client: any, region: str, bucket_name: str) -> any:
     """Create a new AWS S3 bucket in a specific region."""
-    return s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
+    return await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
 async def func_s3_bucket_public(s3_client: any, bucket_name: str) -> any:
     """Expose an AWS S3 bucket for public read access."""
-    s3_client.put_public_access_block(Bucket=bucket_name, PublicAccessBlockConfiguration={'BlockPublicAcls': False, 'IgnorePublicAcls': False, 'BlockPublicPolicy': False, 'RestrictPublicBuckets': False}); return s3_client.put_bucket_policy(Bucket=bucket_name, Policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''.replace("bucket_name", bucket_name))
+    await s3_client.put_public_access_block(Bucket=bucket_name, PublicAccessBlockConfiguration={'BlockPublicAcls': False, 'IgnorePublicAcls': False, 'BlockPublicPolicy': False, 'RestrictPublicBuckets': False}); return await s3_client.put_bucket_policy(Bucket=bucket_name, Policy='''{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}'''.replace("bucket_name", bucket_name))
 
-async def func_s3_bucket_empty(s3_resource: any, bucket_name: str) -> any:
+def func_s3_bucket_empty(s3_resource: any, bucket_name: str) -> any:
     """Purge all objects from an AWS S3 bucket."""
     return s3_resource.Bucket(bucket_name).objects.all().delete()
 
 async def func_s3_bucket_delete(s3_client: any, bucket_name: str) -> any:
     """Delete an AWS S3 bucket."""
-    return s3_client.delete_bucket(Bucket=bucket_name)
+    return await s3_client.delete_bucket(Bucket=bucket_name)
 
-async def func_s3_url_delete(s3_resource: any, file_url: str) -> any:
+def func_s3_url_delete(s3_resource: any, file_url: str) -> any:
     """Delete an object from AWS S3 given its public URL."""
     bucket, key = file_url.split("//", 1)[1].split(".", 1)[0], file_url.rsplit("/", 1)[1]; return s3_resource.Object(bucket, key).delete()
 
@@ -701,14 +721,14 @@ async def func_s3_upload(s3_client: any, bucket_name: str, file_obj: any, file_k
     await s3_client.put_object(Bucket=bucket_name, Key=file_key, Body=await file_obj.read())
     return f"https://{bucket_name}.s3.amazonaws.com/{file_key}"
 
-async def func_s3_upload_presigned(s3_client: any, region: str, bucket_name: str, file_key: str = None, size_limit_kb: int = 100, expiry_sec: int = 100) -> dict:
+def func_s3_upload_presigned(s3_client: any, region: str, bucket_name: str, file_key: str = None, size_limit_kb: int = 100, expiry_sec: int = 100) -> dict:
     """Generate a presigned POST URL for secure client-side binary uploads to S3."""
     import uuid
     if not file_key: file_key = f"{uuid.uuid4().hex}.bin"
     if "." not in file_key: raise Exception("missing extension")
     presigned_post = s3_client.generate_presigned_post(Bucket=bucket_name, Key=file_key, ExpiresIn=expiry_sec, Conditions=[['content-length-range', 1, size_limit_kb * 1024]]); return {**presigned_post["fields"], "url_final": f"https://{bucket_name}.s3.{region}.amazonaws.com/{file_key}"}
 
-async def func_celery_client_read_producer(broker_url: str, backend_url: str) -> any:
+def func_celery_client_read_producer(broker_url: str, backend_url: str) -> any:
     """Initialize Celery producer client."""
     from celery import Celery
     return Celery("producer", broker=broker_url, backend=backend_url)
@@ -718,7 +738,7 @@ def func_celery_client_read_consumer(broker_url: str, backend_url: str) -> any:
     from celery import Celery
     return Celery("worker", broker=broker_url, backend=backend_url)
 
-async def func_celery_producer(celery_app: any, task_name: str, payload_list: list) -> str:
+def func_celery_producer(celery_app: any, task_name: str, payload_list: list) -> str:
     """Dispatch a task to Celery worker and return task ID."""
     return celery_app.send_task(task_name, args=payload_list).id
 
@@ -774,9 +794,12 @@ async def func_check_ratelimiter(redis_client: any, config_api: dict, url_path: 
     else: raise Exception("invalid ratelimiter mode")
     return None
 
-async def func_check_is_active(mode: str, user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
-    """Check if the user is active, using either realtime DB check, cached state, or Redis."""
-    if not api_config.get(url_path, {}).get("is_active_check") == 1 or not user_dict: return None
+async def func_check_is_active(user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
+    """Check if the user is active using a strictly configured mode from api_config."""
+    cfg = api_config.get(url_path, {}).get("is_active_check")
+    if not cfg or not user_dict: return None
+    mode, active_flag = cfg
+    if active_flag == 0: return None
     async def fetch_is_active(uid):
         async with postgres_pool.acquire() as conn: rows = await conn.fetch("select id,is_active from users where id=$1", uid)
         if not rows: raise Exception("user not found")
@@ -793,10 +816,10 @@ async def func_check_is_active(mode: str, user_dict: dict, url_path: str, api_co
     if active_status == "absent": raise Exception("missing is_active")
     if active_status == 0: raise Exception("user not active")
 
-async def func_check_admin(mode: str, user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
-    """Ensure the user has sufficient roles to access admin endpoints using either realtime DB check, cached state, or Redis."""
+async def func_check_admin(user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
+    """Ensure sufficient roles to access admin endpoints using a strictly configured mode from api_config."""
     if not url_path.startswith("/admin") or not (cfg := api_config.get(url_path)) or "roles" not in cfg: return None
-    roles = set(cfg["roles"])
+    mode, roles = cfg["roles"][0], set(cfg["roles"][1])
     async def fetch_role(uid):
         async with postgres_pool.acquire() as conn: rows = await conn.fetch("select role from users where id=$1", uid)
         if not rows: raise Exception("user not found")
@@ -1105,14 +1128,14 @@ async def func_resend_send_email(endpoint_url: str, api_key: str, from_email: st
     async with httpx.AsyncClient() as client: response = await client.post(endpoint_url, json={"from": from_email, "to": to_email, "subject": email_subject, "html": email_content}, headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"})
     if response.status_code != 200: raise Exception(f"email sending failed: {response.text}")
 
-async def func_fast2sms_send_otp_mobile(api_url: str, api_key: str, mobile_number: str, otp_code: str) -> dict:
+def func_fast2sms_send_otp_mobile(api_url: str, api_key: str, mobile_number: str, otp_code: str) -> dict:
     """Send an OTP via Fast2SMS API."""
     import requests
     response = requests.get(api_url, params={"authorization": api_key, "numbers": mobile_number, "variables_values": otp_code, "route": "otp"}).json()
     if not response.get("return"): raise Exception(response.get("message"))
     return response
 
-async def func_posthog_client_read(host_url: str, api_key: str) -> any:
+def func_posthog_client_read(host_url: str, api_key: str) -> any:
     """Initialize Posthog client."""
     from posthog import Posthog
     return Posthog(api_key, host=host_url)
@@ -1142,7 +1165,7 @@ async def func_gsheet_object_read(sheet_url: str) -> list:
             csv_content = await response.text()
     data_frame = pd.read_csv(io.StringIO(csv_content)); return data_frame.where(pd.notnull(data_frame), None).to_dict(orient="records")
 
-async def func_mongodb_client_read(connection_url: str) -> any:
+def func_mongodb_client_read(connection_url: str) -> any:
     """Initialize MongoDB client."""
     import motor.motor_asyncio
     return motor.motor_asyncio.AsyncIOMotorClient(connection_url)
@@ -1220,7 +1243,7 @@ async def func_request_param_read(parsing_mode: str, request_obj: any, param_con
         output_dict[key] = val
     return output_dict
 
-async def func_converter_number(data_type: str, process_mode: str, value: any) -> any:
+def func_converter_number(data_type: str, process_mode: str, value: any) -> any:
     """Encode strings into specific-size integers or decode them back using a custom charset."""
     type_limits = {"smallint": 2, "int": 5, "bigint": 11}
     if data_type not in type_limits: raise ValueError(f"invalid data type {data_type}")

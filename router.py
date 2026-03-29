@@ -13,7 +13,7 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 @router.get("/")
 async def func_api_index(request:Request):
    st=request.app.state
-   output=st.func_info_read(request.app.routes,st.cache_postgres_schema,st.config_postgres)
+   output=st.func_info_read(request.app.routes,st.cache_postgres_schema,st.config_postgres,st.config_table,st.config_api)
    return {"status":1,"message":output}
 
 #auth
@@ -191,7 +191,7 @@ async def func_api_my_object_create_mongodb(request:Request):
 @router.get("/public/converter-number")
 async def func_api_public_converter_number(request:Request):
    obj_query=await func_request_param_read("query",request,[("datatype","str",1,None),("mode","str",1,None),("x","str",1,None)])
-   output=await func_converter_number(obj_query["datatype"],obj_query["mode"],obj_query["x"])
+   output=func_converter_number(obj_query["datatype"],obj_query["mode"],obj_query["x"])
    return {"status":1,"message":output}
 
 @router.post("/public/object-create")
@@ -218,7 +218,7 @@ async def func_api_public_otp_verify(request:Request):
 async def func_api_public_otp_send_email_ses(request:Request):
    obj_query=await func_request_param_read("query",request,[("sender","str",1,None),("email","str",1,None)])
    otp=await func_otp_generate(request.app.state.client_postgres_pool,obj_query["email"],None)
-   output=await func_ses_send_email(request.app.state.client_ses,obj_query["sender"],[obj_query["email"]],"your otp code",str(otp))
+   output=func_ses_send_email(request.app.state.client_ses,obj_query["sender"],[obj_query["email"]],"your otp code",str(otp))
    return {"status":1,"message":output}
 
 @router.post("/public/otp-send-email-resend")
@@ -232,22 +232,21 @@ async def func_api_public_otp_send_email_resend(request:Request):
 async def func_api_public_otp_send_mobile_sns(request:Request):
    obj_query=await func_request_param_read("query",request,[("mobile","str",1,None)])
    otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",obj_query["mobile"])
-   output=await func_sns_send_mobile_message(request.app.state.client_sns,obj_query["mobile"],str(otp))
+   output=func_sns_send_mobile_message(request.app.state.client_sns,obj_query["mobile"],str(otp))
    return {"status":1,"message":output}
 
 @router.post("/public/otp-send-mobile-sns-template")
 async def func_api_public_otp_send_mobile_sns_template(request:Request):
    obj_body=await func_request_param_read("body",request,[("mobile","str",1,None),("message","str",1,None),("template_id","str",1,None),("entity_id","str",1,None),("sender_id","str",1,None)])
    otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",obj_body["mobile"])
-   message=obj_body["message"].format(otp=otp)
-   output=await func_sns_send_mobile_message_template(request.app.state.client_sns,obj_body["mobile"],message,obj_body["template_id"],obj_body["entity_id"],obj_body["sender_id"])
+   output=func_sns_send_mobile_message_template(request.app.state.client_sns,obj_body["mobile"],message,obj_body["template_id"],obj_body["entity_id"],obj_body["sender_id"])
    return {"status":1,"message":output}
 
 @router.get("/public/otp-send-mobile-fast2sms")
 async def func_api_public_otp_send_mobile_fast2sms(request:Request):
    obj_query=await func_request_param_read("query",request,[("mobile","str",1,None)])
    otp=await func_otp_generate(request.app.state.client_postgres_pool,"str",obj_query["mobile"])
-   output=await func_fast2sms_send_otp_mobile(config_fast2sms_url,config_fast2sms_key,obj_query["mobile"],otp)
+   output=func_fast2sms_send_otp_mobile(config_fast2sms_url,config_fast2sms_key,obj_query["mobile"],otp)
    return {"status":1,"message":output}
 
 @router.post("/public/object-create-gsheet")
@@ -306,6 +305,7 @@ async def func_api_admin_sync(request:Request):
    request.app.state.cache_postgres_schema=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else {}
    request.app.state.cache_users_role=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_role")) if request.app.state.client_postgres_pool else {}
    request.app.state.cache_users_is_active=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool else {}
+   func_sync_routes_check(request.app.routes,request.app.state.config_api)
    await func_postgres_clean(request.app.state.client_postgres_pool,config_table)
    return {"status":1,"message":"done"}
 
@@ -351,14 +351,14 @@ async def func_api_admin_s3_bucket_ops(request:Request):
    obj_query=await func_request_param_read("query",request,[("mode","str",1,None),("bucket","str",1,None)])
    if obj_query["mode"]=="create":output=await func_s3_bucket_create(request.app.state.client_s3,config_s3_region_name,obj_query["bucket"])
    elif obj_query["mode"]=="public":output=await func_s3_bucket_public(request.app.state.client_s3,obj_query["bucket"])
-   elif obj_query["mode"]=="empty":output=await func_s3_bucket_empty(request.app.state.client_s3_resource,obj_query["bucket"])
+   elif obj_query["mode"]=="empty":output=func_s3_bucket_empty(request.app.state.client_s3_resource,obj_query["bucket"])
    elif obj_query["mode"]=="delete":output=await func_s3_bucket_delete(request.app.state.client_s3,obj_query["bucket"])
    return {"status":1,"message":output}
 
 @router.post("/admin/s3-url-delete")
 async def func_api_admin_s3_url_delete(request:Request):
    obj_body=await func_request_param_read("body",request,[("url","list",1,[])])
-   for item in obj_body["url"]:output=await func_s3_url_delete(request.app.state.client_s3_resource,item)
+   for item in obj_body["url"]:output=func_s3_url_delete(request.app.state.client_s3_resource,item)
    return {"status":1,"message":output}
 
 @router.post("/admin/object-create")

@@ -75,10 +75,6 @@ config_table_system=['spatial_ref_sys']
 config_column_blocked=['is_active', 'is_verified', 'role', 'created_at', 'updated_at']
 config_column_single_update=['username', 'password', 'email', 'mobile']
 
-#mode
-config_mode_check_active="token"
-config_mode_check_admin="token"
-
 #switch
 config_is_signup=1
 config_is_log_api=1
@@ -114,25 +110,25 @@ config_table={
 }
 
 config_api={
-"/admin/object-create":{"roles":[1]},
-"/admin/object-update":{"roles":[1]},
-"/admin/object-read":{"roles":[1]},
-"/admin/ids-delete":{"roles":[1]},
-"/admin/postgres-init":{"roles":[1]},
-"/admin/sync":{"roles":[1]},
-"/admin/postgres-runner":{"roles":[1]},
-"/admin/postgres-export":{"roles":[1]},
-"/admin/postgres-import":{"roles":[1]},
-"/admin/redis-import":{"roles":[1]},
-"/admin/mongodb-import":{"roles":[1]},
-"/admin/s3-bucket-ops":{"roles":[1]},
-"/admin/s3-url-delete":{"roles":[1]},
-"/test":{"roles":[1,2,3],"is_active_check":0,"cache_sec":["redis",0],"ratelimiter_times_sec":["inmemory",10,3]},
-"/public/object-read":{"roles":[1],"cache_sec":["inmemory",60]},
-"/my/profile":{"roles":[1],"is_active_check":0,"cache_sec":["inmemory",10]},
-"/my/object-read":{"roles":[1],"cache_sec":["inmemory",60]},
-"/":{"roles":[1],"cache_sec":["inmemory",10]},
-"/public/table-tag-read":{"roles":[1],"cache_sec":["redis",10]},
+"/admin/object-create":{"roles":["redis",[1]]},
+"/admin/object-update":{"roles":["redis",[1]]},
+"/admin/object-read":{"roles":["cache",[1]]},
+"/admin/ids-delete":{"roles":["realtime",[1]]},
+"/admin/postgres-init":{"roles":["realtime",[1]]},
+"/admin/sync":{"roles":["realtime",[1]]},
+"/admin/postgres-runner":{"roles":["realtime",[1]]},
+"/admin/postgres-export":{"roles":["cache",[1]]},
+"/admin/postgres-import":{"roles":["realtime",[1]]},
+"/admin/redis-import":{"roles":["redis",[1]]},
+"/admin/mongodb-import":{"roles":["redis",[1]]},
+"/admin/s3-bucket-ops":{"roles":["token",[1]]},
+"/admin/s3-url-delete":{"roles":["token",[1]]},
+"/test":{"is_active_check":["token", 1],"cache_sec":["redis",0],"ratelimiter_times_sec":["inmemory",10,3]},
+"/public/object-read":{"cache_sec":["inmemory",60]},
+"/my/profile":{"cache_sec":["inmemory",10]},
+"/my/object-read":{"cache_sec":["inmemory",60]},
+"/":{"cache_sec":["inmemory",10]},
+"/public/table-tag-read":{"cache_sec":["redis",10]},
 }
 
 config_postgres={
