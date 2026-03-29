@@ -176,7 +176,8 @@ def func_api_metadata_read(app_routes: list) -> list:
                         p_list = ast.literal_eval(node.args[2])
                         for p in p_list:
                             route_meta["params"][p_type] = [x for x in route_meta["params"][p_type] if x["name"] != p[0]]
-                            route_meta["params"][p_type].append({"name": p[0], "type": p[1], "required": p[2], "default": p[3]})
+                            p_meta = {"name": p[0], "type": p[1], "required": p[2], "default": p[3], "allowed": p[4]}
+                            route_meta["params"][p_type].append(p_meta)
                     except: pass
         except: pass
         p, h = route.path, route_meta["params"]["header"]
@@ -210,11 +211,7 @@ def func_info_read(app_routes: list, cache_postgres_schema: dict, config_postgre
         "postgres_schema": cache_postgres_schema,
         "config_table_key": sorted(list(set(k for v in config_table.values() for k in v))),
         "config_api_key": sorted(list(set(k for v in config_api.values() for k in v))),
-        "config_postgres_key": {
-            "table": sorted(list(set(k for v in config_postgres.get("table", {}).values() for item in v for k in item))),
-            "sql": sorted(list(config_postgres.get("sql", {}).keys())),
-            "control": sorted(list(config_postgres.get("control", {}).keys()))
-        }
+        "config_postgres_key": {k: (sorted(list(set(ck for cv in v.values() for item in cv for ck in item))) if k == "table" else sorted(list(v.keys())) if isinstance(v, dict) else []) for k, v in config_postgres.items()}
     }
 
 def func_config_override_from_env(global_dict: dict) -> None:
@@ -1226,7 +1223,7 @@ async def func_request_param_read(parsing_mode: str, request_obj: any, param_con
         "list": lambda v: ([] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]),
     }
     output_dict = {} if is_strict else params_dict
-    for key, data_type, is_mandatory, default_value in param_config:
+    for key, data_type, is_mandatory, default_value, allowed_values in param_config:
         if is_mandatory and key not in params_dict: raise Exception(f"parameter '{key}' missing")
         val = params_dict.get(key, default_value)
         if is_mandatory:
@@ -1240,6 +1237,8 @@ async def func_request_param_read(parsing_mode: str, request_obj: any, param_con
                     val = [TYPE_MAP[inner_type](x) for x in val]
                 else: val = TYPE_MAP[data_type](val)
             except: raise Exception(f"parameter '{key}' invalid type {data_type}")
+        if allowed_values:
+            if val not in allowed_values: raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
         output_dict[key] = val
     return output_dict
 

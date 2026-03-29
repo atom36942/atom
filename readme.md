@@ -154,7 +154,7 @@ async def func_api_test(request: Request):
     obj_header = await func_request_param_read(
         "header",
         request,
-        [("authorization", "str", 0, None)]
+        [("authorization", "str", 0, None, None)]
     )
     token = obj_header.get("authorization")
     # token will be raw "Bearer <jwt>" if supplied
