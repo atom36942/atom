@@ -8,7 +8,7 @@
 - Tech Stack: Python, FastAPI, Postgres, Redis, S3, Celery, RabbitMQ, Kafka, Sentry
 
 <details>
-<summary>setup direct</summary>
+<summary>how to setup directly</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -23,7 +23,7 @@ rm -rf venv
 </details>
 
 <details>
-<summary>setup docker</summary>
+<summary>how to setup with docker</summary>
 
 ```bash
 docker build -t atom .
@@ -32,7 +32,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>consumer run</summary>
+<summary>how to run consumer workers</summary>
 
 ```bash
 ./venv/bin/python consumer.py celery
@@ -43,7 +43,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>api cache set</summary>
+<summary>how to enable api caching</summary>
 
 Configured per route in `config_api` inside `config.py`.
 
@@ -61,7 +61,7 @@ Example:
 </details>
 
 <details>
-<summary>ratelimiter set</summary>
+<summary>how to configure rate limiting</summary>
 
 Configured per route in `config_api` inside `config.py`.
 
@@ -79,21 +79,7 @@ Example:
 </details>
 
 <details>
-<summary>core config toggle</summary>
-
-High-level switches and modes in `config.py`:
-
-- `config_is_signup`: (1/0) Enable/disable public signup
-- `config_is_log_api`: (1/0) Save API logs to `log_api` table
-- `config_is_traceback`: (1/0) Return full traceback on 500 error
-- `config_mode_check_active`: (`realtime`, `cache`, `token`) Mode for user status validation
-- `config_mode_check_admin`: (`realtime`, `cache`, `token`) Mode for admin role validation
-- `config_is_prometheus`: (1/0) Enable metrics endpoint at `/metrics`
-- `config_is_debug_fastapi`: (1/0) Enable FastAPI internal debug mode
-</details>
-
-<details>
-<summary>active check set</summary>
+<summary>how to set user active check mode</summary>
 
 Configures how user activity status is verified on each request.
 
@@ -108,7 +94,7 @@ Configures how user activity status is verified on each request.
 </details>
 
 <details>
-<summary>admin check set</summary>
+<summary>how to set admin role check mode</summary>
 
 Configures how administrative roles are verified for `/admin` routes.
 
