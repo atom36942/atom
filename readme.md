@@ -8,7 +8,7 @@
 - Tech Stack: Python, FastAPI, Postgres, Redis, S3, Celery, RabbitMQ, Kafka, Sentry
 
 <details>
-<summary>setup (direct)</summary>
+<summary>setup direct</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -23,7 +23,7 @@ rm -rf venv
 </details>
 
 <details>
-<summary>setup (docker)</summary>
+<summary>setup docker</summary>
 
 ```bash
 docker build -t atom .
@@ -32,7 +32,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>consumer (run)</summary>
+<summary>consumer run</summary>
 
 ```bash
 ./venv/bin/python consumer.py celery
@@ -43,7 +43,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>api cache (set)</summary>
+<summary>api cache set</summary>
 
 Configured per route in `config_api` inside `config.py`.
 
@@ -61,7 +61,7 @@ Example:
 </details>
 
 <details>
-<summary>ratelimiter (set)</summary>
+<summary>ratelimiter set</summary>
 
 Configured per route in `config_api` inside `config.py`.
 
@@ -79,7 +79,7 @@ Example:
 </details>
 
 <details>
-<summary>core config (toggle)</summary>
+<summary>core config toggle</summary>
 
 High-level switches and modes in `config.py`:
 
@@ -93,7 +93,7 @@ High-level switches and modes in `config.py`:
 </details>
 
 <details>
-<summary>active check (set)</summary>
+<summary>active check set</summary>
 
 Configures how user activity status is verified on each request.
 
@@ -108,7 +108,7 @@ Configures how user activity status is verified on each request.
 </details>
 
 <details>
-<summary>admin check (set)</summary>
+<summary>admin check set</summary>
 
 Configures how administrative roles are verified for `/admin` routes.
 
