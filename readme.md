@@ -1,4 +1,4 @@
-### atom
+### about atom
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
@@ -10,20 +10,22 @@
 ### guides
 
 <details>
-<summary>how to setup (direct)</summary>
+<summary>setup (direct)</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
-rm -rf venv/ && /opt/homebrew/bin/python3.11 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip && pip install -r requirements.txt
-python -V
+rm -rf venv
+/opt/homebrew/bin/python3.11 -m venv venv
+./venv/bin/pip install --upgrade pip
+./venv/bin/pip install -r requirements.txt
+./venv/bin/python -V
+./venv/bin/uvicorn main:app --reload
 ```
 </details>
 
 <details>
-<summary>how to setup (docker)</summary>
+<summary>setup (docker)</summary>
 
 ```bash
 docker build -t atom .
@@ -31,16 +33,9 @@ docker run --rm -p 8000:8000 atom
 ```
 </details>
 
-<details>
-<summary>how to run server</summary>
-
-```bash
-./venv/bin/uvicorn main:app --reload
-```
-</details>
 
 <details>
-<summary>how to run test</summary>
+<summary>run test</summary>
 
 ```bash
 ./venv/bin/python3.11 test.py
@@ -50,7 +45,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>how to run consumer (celery/kafka/rabbitmq/redis)</summary>
+<summary>run consumer</summary>
 
 ```bash
 venv/bin/python consumer.py celery
@@ -61,7 +56,7 @@ venv/bin/python consumer.py kafka
 </details>
 
 <details>
-<summary>how to add a new router</summary>
+<summary>add router</summary>
 
 1. `router.py`: Add route with correct prefix (`root`, `auth`, `my`, `public`, `private`, `admin`).
 2. `function.py`: Add core logic as a pure function (local imports only).
@@ -71,7 +66,7 @@ venv/bin/python consumer.py kafka
 </details>
 
 <details>
-<summary>how to enable api caching</summary>
+<summary>enable caching</summary>
 
 1. `config.py`: Add `cache_sec` to the endpoint configuration:
 ```python
@@ -85,7 +80,7 @@ config_api = {
 </details>
 
 <details>
-<summary>how to enable rate limiting</summary>
+<summary>enable rate limit</summary>
 
 1. `config.py`: Add `ratelimiter_times_sec` to the endpoint configuration:
 ```python
@@ -99,7 +94,7 @@ config_api = {
 </details>
 
 <details>
-<summary>how to add a background task</summary>
+<summary>add task</summary>
 
 1. Call `func_obj_create_logic` or `func_obj_update_logic` with `queue="celery"` (or `kafka`, `rabbitmq`, `redis`).
 2. The logic is automatically routed to producers.
@@ -107,7 +102,7 @@ config_api = {
 </details>
 
 <details>
-<summary>how to run raw sql</summary>
+<summary>run sql</summary>
 
 Use `func_postgres_runner` from `function.py`:
 ```python
@@ -120,18 +115,9 @@ await request.state.func_postgres_runner(
 </details>
 
 <details>
-<summary>how to develop with agents</summary>
+<summary>develop</summary>
 
 - Refer [AGENTS.md](file:///Users/atom/atom/AGENTS.md) for coding rules
 - Refer [dev.md](file:///Users/atom/atom/static/dev.md) for personal notes & snippets
 </details>
 
-### module guide
-- PostgreSQL: one-click setup, CSV upload, query runner
-- Auth & RBAC: auth APIs, user/admin APIs
-- Performance: Redis cache, rate limiting
-- Async & Queues: Celery, Kafka, RabbitMQ, Redis pub/sub
-- Integrations: Sentry, MongoDB, PostHog
-- Messaging: OTP (Fast2SMS, Resend), AWS S3/SNS/SES
-- Data Ops: bulk insert/update, Google Sheets, SFTP
-- Platform: HTML serving, multi-tenant support, extensible architecture
