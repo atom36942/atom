@@ -41,10 +41,3 @@ docker run --rm -p 8000:8000 atom
 ./venv/bin/python consumer.py kafka
 ```
 </details>
-
-<details>
-<summary>develop (guides)</summary>
-
-- Refer [AGENTS.md](file:///Users/atom/atom/AGENTS.md) for coding rules
-- Refer [dev.md](file:///Users/atom/atom/static/dev.md) for personal notes & snippets
-</details>
