@@ -1195,7 +1195,7 @@ async def func_client_download_file(file_path: str, delete_after: bool = True, c
             while (chunk := await f.read(chunk_size)): yield chunk
     return responses.StreamingResponse(file_iterator(), media_type=content_type, headers={"Content-Disposition": f'attachment; filename="{file_name}"'}, background=BackgroundTask(os.remove, file_path) if delete_after else None)
 
-async def func_request_param_read(parsing_mode: str, request_obj: any, param_config: list) -> dict:
+async def func_request_param_read(parsing_mode: str, request_obj: any, param_config: list, is_strict: int = 0) -> dict:
     """Extract, validate, and type-cast request parameters from query, form, or body payload."""
     if parsing_mode == "query": params_dict = dict(request_obj.query_params)
     elif parsing_mode == "form":
@@ -1205,12 +1205,15 @@ async def func_request_param_read(parsing_mode: str, request_obj: any, param_con
         try: json_payload = await request_obj.json()
         except: json_payload = None
         params_dict = json_payload if isinstance(json_payload, dict) else {"body": json_payload}
+    elif parsing_mode == "header": params_dict = {k.lower(): v for k, v in request_obj.headers.items()}
     else: raise Exception("invalid parsing mode")
+    if param_config is None: return params_dict
     TYPE_MAP = {
         "int": int, "float": float, "str": str, "any": lambda v: v, "file": lambda v: ([] if v is None else v if isinstance(v, list) else [v]),
-        "bool": lambda v: (v if isinstance(v, bool) else str(v).strip().lower() in ("1", "true", "yes", "on")),
+        "bool": lambda v: (v if isinstance(v, bool) else str(v).strip().lower() in ("1", "true", "yes", "on", "ok")),
         "list": lambda v: ([] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]),
     }
+    output_dict = {} if is_strict else params_dict
     for key, data_type, is_mandatory, default_value in param_config:
         if is_mandatory and key not in params_dict: raise Exception(f"parameter '{key}' missing")
         val = params_dict.get(key, default_value)
@@ -1218,10 +1221,15 @@ async def func_request_param_read(parsing_mode: str, request_obj: any, param_con
             if val is None: raise Exception(f"parameter '{key}' missing")
             if isinstance(val, str) and not val.strip(): raise Exception(f"parameter '{key}' cannot be empty")
         if val is not None:
-            try: val = TYPE_MAP[data_type](val)
+            try:
+                if data_type.startswith("list:") and ":" in data_type:
+                    inner_type = data_type.split(":")[1]
+                    val = TYPE_MAP["list"](val)
+                    val = [TYPE_MAP[inner_type](x) for x in val]
+                else: val = TYPE_MAP[data_type](val)
             except: raise Exception(f"parameter '{key}' invalid type {data_type}")
-        params_dict[key] = val
-    return params_dict
+        output_dict[key] = val
+    return output_dict
 
 async def func_converter_number(data_type: str, process_mode: str, value: any) -> any:
     """Encode strings into specific-size integers or decode them back using a custom charset."""
