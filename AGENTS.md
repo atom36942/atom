@@ -9,6 +9,7 @@
 * **Pattern:** `# name` (lowercase, no brackets) for `.py` logic breaks; `### name` (lowercase, no brackets) for `.md` files.
 * **Errors:** No combined `or` logic in error checks. Break multiple failure conditions into individual `if` blocks with specific exception messages.
 * **Config:** Single line assignment only; no chain statements (e.g. `a, b = 1, 2`).
+* **Docs:** Use `<details><summary>name</summary> ... </details>` for all sections in `readme.md`.
 
 ### repo map
 * `tmp/`: Runtime dumps & temp storage (Rule 5); auto-created by `main.py`.

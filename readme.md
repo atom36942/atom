@@ -1,4 +1,6 @@
-### about
+<details>
+<summary>about</summary>
+
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
 - Pure functions used to minimize side effects and improve testability  
@@ -6,6 +8,7 @@
 - Minimal boilerplate so you don’t have to reinvent the wheel each time  
 - Non-opinionated and full flexible to extend
 - Tech Stack: Python, FastAPI, Postgres, Redis, S3, Celery, RabbitMQ, Kafka, Sentry
+</details>
 
 <details>
 <summary>how to setup directly</summary>
