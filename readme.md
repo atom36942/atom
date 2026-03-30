@@ -90,12 +90,12 @@ Configures how user activity status is verified on each request to determine if 
 - **Format**: `["mode", 1]` (where 1 enables the check)
 - **Modes**:
   - `token`: Read `is_active` directly from JWT payload (fastest)
-  - `cache`: Check against memory-cached status (balanced)
+  - `inmemory`: Check against memory-cached status (balanced)
   - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
   - `realtime`: Query PostgreSQL on every request (most accurate)
 
 > [!NOTE]
-> `cache` mode uses `cache_users_is_active` populated at application startup.
+> `inmemory` mode uses `cache_users_is_active` populated at application startup.
 </details>
 
 <details>
@@ -107,12 +107,12 @@ Configures how administrative roles are verified for `/admin` routes.
 - **Format**: `["mode", [allowed_roles]]`
 - **Modes**:
   - `token`: Read `role` directly from JWT payload (fastest)
-  - `cache`: Check against memory-cached roles (balanced)
+  - `inmemory`: Check against memory-cached roles (balanced)
   - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
   - `realtime`: Query PostgreSQL on every request (most accurate)
 
 > [!NOTE]
-> `cache` mode uses `cache_users_role` populated at application startup.
+> `inmemory` mode uses `cache_users_role` populated at application startup.
 </details>
 
 <details>

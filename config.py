@@ -83,6 +83,7 @@ config_is_prometheus=0
 config_is_reset_export_folder=1
 config_is_debug_fastapi=1
 config_is_index_html=0
+config_is_otp_users_update_admin=0
 
 #zzz
 config_auth_type=[1, 2, 3]
@@ -109,25 +110,23 @@ config_table={
 }
 
 config_api={
-"/admin/object-create":{"user_role_check":["redis",[1]]},
-"/admin/object-update":{"user_role_check":["redis",[1]]},
-"/admin/object-read":{"user_role_check":["cache",[1]]},
-"/admin/ids-delete":{"user_role_check":["realtime",[1]]},
-"/admin/postgres-init":{"user_role_check":["realtime",[1]]},
+"/admin/object-create":{"user_role_check":["token",[1]]},
+"/admin/object-update":{"user_role_check":["token",[1]]},
+"/admin/object-read":{"user_role_check":["inmemory",[1]]},
+"/admin/ids-delete":{"user_role_check":["realtime",[1]],"user_is_active_check":["realtime", 1]},
+"/admin/postgres-init":{"user_role_check":["realtime",[1]],"api_ratelimiting_times_sec":["inmemory",3,10]},
 "/admin/sync":{"user_role_check":["realtime",[1]]},
 "/admin/postgres-runner":{"user_role_check":["realtime",[1]]},
-"/admin/postgres-export":{"user_role_check":["cache",[1]]},
+"/admin/postgres-export":{"user_role_check":["inmemory",[1]]},
 "/admin/postgres-import":{"user_role_check":["realtime",[1]]},
-"/admin/redis-import":{"user_role_check":["redis",[1]]},
-"/admin/mongodb-import":{"user_role_check":["redis",[1]]},
-"/admin/s3-bucket-ops":{"user_role_check":["token",[1]]},
-"/admin/s3-url-delete":{"user_role_check":["token",[1]]},
-"/test":{"user_is_active_check":["token", 1],"api_cache_sec":["redis",0],"api_ratelimiting_times_sec":["inmemory",10,3]},
+"/admin/redis-import":{"user_role_check":["token",[1]]},
+"/admin/mongodb-import":{"user_role_check":["token",[1]]},
+"/admin/s3-ops":{"user_role_check":["token",[1]]},
 "/public/object-read":{"api_cache_sec":["inmemory",60]},
 "/my/profile":{"api_cache_sec":["inmemory",10]},
 "/my/object-read":{"api_cache_sec":["inmemory",60]},
 "/":{"api_cache_sec":["inmemory",10]},
-"/public/table-tag-read":{"api_cache_sec":["redis",10]},
+"/public/table-tag-read":{"api_cache_sec":["inmemory",10]},
 }
 
 config_postgres={
