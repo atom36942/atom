@@ -40,7 +40,7 @@ def logic_celery():
             raise
     @app.task(name="func_postgres_obj_create")
     def celery_task_1(mode,table,obj_list,is_serialize,buffer):
-        return run_async(func_postgres_obj_create, mode, table, obj_list, is_serialize, buffer)
+        return run_async(func_postgres_obj_create, table, obj_list, mode, is_serialize, buffer)
     @app.task(name="func_postgres_obj_update")
     def celery_task_2(table,obj_list,is_serialize,created_by_id):
         return run_async(func_postgres_obj_update, table, obj_list, is_serialize, created_by_id)

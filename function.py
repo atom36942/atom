@@ -10,21 +10,22 @@ def func_structure_create(directories_list: list, files_list: list) -> None:
             if not os.path.exists(file_path): open(file_path, "a").close()
         except: pass
 
-def func_structure_check(root_path: str, dirs: tuple = (), files: tuple = ()) -> None:
+def func_structure_check(root_path: str, dirs: tuple = None, files: tuple = None) -> None:
     """Verify existence of required project directories and files."""
     from pathlib import Path
+    dirs_list, files_list = dirs or (), files or ()
     try:
         root = Path(root_path)
         if not root.exists(): return None
-        missing_dirs = [directory_name for directory_name in dirs if not (root / directory_name).is_dir()]
-        missing_files = [file_name for file_name in files if not (root / file_name).is_file()]
+        missing_dirs = [directory_name for directory_name in dirs_list if not (root / directory_name).is_dir()]
+        missing_files = [file_name for file_name in files_list if not (root / file_name).is_file()]
         if missing_dirs or missing_files:
             print(f"Structure verification failed. Missing Dirs: {missing_dirs}, Missing Files: {missing_files}")
     except: pass
     return None
 
 #utils & converters
-async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: str, filter_column: str = None, filter_value: any = None, limit_count: int = 100, page_number: int = 1) -> list:
+async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: str, filter_column: str = None, filter_value: any = None, limit_count: int = None, page_number: int = None) -> list:
     """Read unique tags/items from an array column with occurrence counts."""
     import re
     limit, page = min(max(int(limit_count or 100), 1), 500), max(int(page_number or 1), 1)
@@ -88,7 +89,7 @@ async def func_api_log_create(start_time: float, ip_address: str, user_id: any, 
     import asyncio, time
     if is_log_api:
         log_obj = {"ip_address": ip_address, "created_by_id": user_id, "api": api_path, "api_id": api_id, "method": http_method, "query_param": query_params, "status_code": status_code, "response_time_ms": int((time.perf_counter() - start_time) * 1000), "type": log_type, "description": error_description}
-        asyncio.create_task(func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, "buffer", "log_api", [log_obj], 0, table_buffer))
+        asyncio.create_task(func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, "log_api", [log_obj], "buffer", 0, table_buffer))
     return None
 
 #api core logic
@@ -103,7 +104,7 @@ async def func_obj_create_logic(obj_query: dict, obj_body: dict, role: str, user
         if obj_query.get("table") not in table_create_public_list: raise Exception("table not allowed")
         if any(any(key in column_blocked_list for key in item) for item in obj_list): raise Exception("key not allowed")
     if user_id: [item.__setitem__("created_by_id", user_id) for item in obj_list]
-    if not obj_query.get("queue"): return await func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, obj_query.get("mode"), obj_query.get("table"), obj_list, obj_query.get("is_serialize"), table_config.get(obj_query.get("table"), {}).get("buffer"))
+    if not obj_query.get("queue"): return await func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, obj_query.get("table"), obj_list, obj_query.get("mode"), obj_query.get("is_serialize"), table_config.get(obj_query.get("table"), {}).get("buffer"))
     payload = {"func": "func_postgres_obj_create", "mode": obj_query.get("mode"), "table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "buffer": table_config.get(obj_query.get("table"), {}).get("buffer")}
     return await func_producer_logic(payload, obj_query.get("queue"), celery_producer, kafka_producer, rabbitmq_producer, redis_producer, channel_name, func_celery_producer, func_kafka_producer, func_rabbitmq_producer, func_redis_producer)
 
@@ -140,7 +141,7 @@ async def func_consumer_logic(payload: dict, func_postgres_obj_create: callable,
     import asyncio
     from itertools import count
     if not hasattr(func_consumer_logic, "counter"): func_consumer_logic.counter = count(1)
-    if payload["func"] == "func_postgres_obj_create": output = asyncio.create_task(func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, payload["mode"], payload["table"], payload["obj_list"], payload["is_serialize"], payload["buffer"]))
+    if payload["func"] == "func_postgres_obj_create": output = asyncio.create_task(func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["mode"], payload["is_serialize"], payload["buffer"]))
     elif payload["func"] == "func_postgres_obj_update": output = asyncio.create_task(func_postgres_obj_update(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["is_serialize"], payload["created_by_id"]))
     else: raise Exception("wrong consumer func")
     print(next(func_consumer_logic.counter)); return output
@@ -152,40 +153,45 @@ async def func_api_file_to_obj_list(upload_file: any) -> list:
     obj_list = [row for row in reader]; await upload_file.close(); return obj_list
 
 #api metadata
-def func_api_metadata_read(app_routes: list) -> list:
-    """Extract API paths, methods, and parameter schemas from FastAPI routes using source inspection."""
+def func_openapi_spec_generate(app_routes: list) -> dict:
+    """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
-    metadata = []
+    spec = {"openapi": "3.0.0", "info": {"title": "API Documentation", "version": "1.0.0"}, "paths": {}, "components": {"securitySchemes": {"BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}}}}
     for route in app_routes:
         if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
-        route_meta = {"path": route.path, "methods": list(getattr(route, "methods", [])), "params": {"header": [], "query": [], "form": [], "body": [], "path": []}}
-        for p in re.findall(r"\{(\w+)\}", route.path): route_meta["params"]["path"].append({"name": p, "type": "str", "required": 1, "default": None})
-        try:
-            sig = inspect.signature(route.endpoint)
-            for name, par in sig.parameters.items():
-                p_type = par.annotation.__name__ if hasattr(par.annotation, "__name__") else str(par.annotation)
-                if name in ["request", "websocket", "req"] or "Request" in p_type or "Response" in p_type or "WebSocket" in p_type or "BackgroundTasks" in p_type or any(x["name"] == name for x in route_meta["params"]["path"]): continue
-                route_meta["params"]["query"].append({"name": name, "type": p_type, "required": 1 if par.default == inspect.Parameter.empty else 0, "default": None if par.default == inspect.Parameter.empty else par.default})
-            source = inspect.getsource(route.endpoint)
-            tree = ast.parse(source)
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Call) and (getattr(node.func, "id", None) == "func_request_param_read" or (isinstance(node.func, ast.Name) and node.func.id == "func_request_param_read")):
-                    try:
-                        p_type = node.args[0].value if hasattr(node.args[0], "value") else node.args[0].s
-                        p_list = ast.literal_eval(node.args[2])
-                        for p in p_list:
-                            route_meta["params"][p_type] = [x for x in route_meta["params"][p_type] if x["name"] != p[0]]
-                            p_meta = {"name": p[0], "type": p[1], "required": p[2], "default": p[3], "allowed": p[4]}
-                            route_meta["params"][p_type].append(p_meta)
-                    except: pass
-        except: pass
-        p, h = route.path, route_meta["params"]["header"]
-        is_auth, req = 0, 1
-        if any(p.startswith(x) for x in ["/my/", "/private/", "/admin/"]): is_auth = 1
-        elif not any(p.startswith(x) for x in ["/auth/", "/public/", "/openapi.json", "/docs", "/redoc"]) and p != "/": is_auth, req = 1, 0
-        if is_auth and not any(x["name"].lower() == "authorization" for x in h): h.append({"name": "Authorization", "type": "str", "required": req, "default": None})
-        metadata.append(route_meta)
-    return metadata
+        path = route.path
+        if path not in spec["paths"]: spec["paths"][path] = {}
+        for method in getattr(route, "methods", []):
+            m_lower = method.lower()
+            tag = path.split('/')[1] if len(path.split('/')) > 1 and path.split('/')[1] else "system"
+            op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
+            if any(path.startswith(x) for x in ["/my/", "/private/", "/admin/"]): op["security"] = [{"BearerAuth": []}]
+            for p in re.findall(r"\{(\w+)\}", path): op["parameters"].append({"name": p, "in": "path", "required": True, "schema": {"type": "string"}})
+            try:
+                sig = inspect.signature(route.endpoint)
+                for name, par in sig.parameters.items():
+                    p_type = par.annotation.__name__ if hasattr(par.annotation, "__name__") else str(par.annotation)
+                    if name in ["request", "websocket", "req"] or "Request" in p_type or "Response" in p_type or "WebSocket" in p_type or "BackgroundTasks" in p_type or any(x["name"] == name for x in op["parameters"]): continue
+                    op["parameters"].append({"name": name, "in": "query", "required": par.default == inspect.Parameter.empty, "schema": {"type": "integer" if p_type == "int" else "string", "default": None if par.default == inspect.Parameter.empty else par.default}})
+                source = inspect.getsource(route.endpoint)
+                tree = ast.parse(source)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call) and (getattr(node.func, "id", None) == "func_request_param_read" or (isinstance(node.func, ast.Name) and node.func.id == "func_request_param_read")):
+                        try:
+                            p_loc = node.args[0].value if hasattr(node.args[0], "value") else node.args[0].s
+                            p_list = ast.literal_eval(node.args[2])
+                            if p_loc in ["header", "query"]:
+                                for p in p_list:
+                                    op["parameters"] = [x for x in op["parameters"] if x["name"] != p[0]]
+                                    op["parameters"].append({"name": p[0], "in": p_loc, "required": bool(p[2]), "schema": {"type": "integer" if p[1] == "int" else "string", "default": p[3], "enum": p[4] if p[4] else None}})
+                            elif p_loc in ["body", "form"]:
+                                if "requestBody" not in op: op["requestBody"] = {"content": {("application/json" if p_loc == "body" else "multipart/form-data"): {"schema": {"type": "object", "properties": {}}}}}
+                                props = op["requestBody"]["content"][("application/json" if p_loc == "body" else "multipart/form-data")]["schema"]["properties"]
+                                for p in p_list: props[p[0]] = {"type": "integer" if p[1] == "int" else "string", "default": p[3], "enum": p[4] if p[4] else None}
+                        except: pass
+            except: pass
+            spec["paths"][path][m_lower] = op
+    return spec
 
 def func_sync_routes_check(app_routes: list, current_config_api: dict) -> None:
     """Validate config_api consistency with app routes, ensuring all admin APIs have role 1 and all config entries exist."""
@@ -197,7 +203,7 @@ def func_sync_routes_check(app_routes: list, current_config_api: dict) -> None:
             path = route.path
             if path not in current_config_api: missing.append(f"{path} missing from config_api")
             else:
-                roles_cfg = current_config_api[path].get("roles", [])
+                roles_cfg = current_config_api[path].get("user_role_check", [])
                 allowed_roles = roles_cfg[1] if roles_cfg and isinstance(roles_cfg[0], str) else roles_cfg
                 if 1 not in (allowed_roles if isinstance(allowed_roles, (list, tuple, set)) else []): missing.append(f"{path} missing role 1")
     if missing: raise Exception("; ".join(missing))
@@ -206,7 +212,7 @@ def func_info_read(app_routes: list, cache_postgres_schema: dict, config_postgre
     """Construct system discovery metadata including routes, schema, and configuration settings."""
     return {
         "api_list": [route.path for route in app_routes],
-        "api_metadata": func_api_metadata_read(app_routes),
+        "openapi_url": "/openapi.json",
         "postgres_schema": cache_postgres_schema,
         "config_table_key": sorted(list(set(k for v in config_table.values() for k in v))),
         "config_api_key": sorted(list(set(k for v in config_api.values() for k in v))),
@@ -224,7 +230,7 @@ def func_config_override_from_env(global_dict: dict) -> None:
         if key.startswith("config_") and val_env is not None:
             config_val = val_env
             if isinstance(global_dict[key], (list, tuple)): global_dict[key] = json.loads(config_val)
-            elif isinstance(value, bool): global_dict[key] = config_val.lower() == "true"
+            elif isinstance(value, bool): global_dict[key] = 1 if config_val.lower() in ("true", "1", "yes", "on", "ok") else 0
             elif isinstance(value, int): global_dict[key] = int(config_val)
             elif isinstance(value, dict):
                 try: global_dict[key] = json.loads(config_val)
@@ -260,22 +266,23 @@ async def func_postgres_ids_update(postgres_pool: any, table_name: str, record_i
     update_query = f"UPDATE {table_name} SET {set_clause} WHERE id IN ({record_ids}) AND ($3::bigint IS NULL OR created_by_id=$3);"
     async with postgres_pool.acquire() as conn: await conn.execute(update_query, target_value, updated_by_id, created_by_id)
 
-async def func_postgres_ids_delete(postgres_pool: any, table_name: str, record_ids: any, created_by_id: int = None, table_system_list: list = None, limit_ids_delete: int = 100) -> str:
+async def func_postgres_ids_delete(postgres_pool: any, table_name: str, record_ids: any, created_by_id: int = None, table_system_list: list = None, limit_ids_delete: int = None) -> str:
     """Delete records by ID with optional ownership and system table restrictions."""
+    limit = limit_ids_delete or 100
     if table_system_list and table_name in table_system_list: raise Exception("table not allowed")
     if table_name == "users" and created_by_id is not None: raise Exception("use account delete api")
     if isinstance(record_ids, str):
         id_list = [str(int(x.strip())) for x in record_ids.split(",") if x.strip()]
-        if len(id_list) > limit_ids_delete: raise Exception("ids length exceeded")
+        if len(id_list) > limit: raise Exception("ids length exceeded")
         record_ids = ",".join(id_list)
     elif isinstance(record_ids, (list, tuple)):
-        if len(record_ids) > limit_ids_delete: raise Exception("ids length exceeded")
+        if len(record_ids) > limit: raise Exception("ids length exceeded")
         record_ids = ",".join([str(int(x)) for x in record_ids])
     delete_query = f"DELETE FROM {table_name} WHERE id IN ({record_ids}) AND ($1::bigint IS NULL OR created_by_id=$1);"
     async with postgres_pool.acquire() as conn: await conn.execute(delete_query, created_by_id)
     return "ids deleted"
 
-async def func_postgres_parent_read(postgres_pool: any, table_name: str, parent_column: str, parent_table: str, created_by_id: int = None, sort_order: str = "id desc", limit_count: int = 100, page_number: int = 1) -> list:
+async def func_postgres_parent_read(postgres_pool: any, table_name: str, parent_column: str, parent_table: str, created_by_id: int = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
     """Read parent records based on child table's foreign key column."""
     limit, page = int(limit_count or 100), int(page_number or 1); order = sort_order or "id desc"
     query = f"WITH x AS (SELECT {parent_column} FROM {table_name} WHERE ($1::bigint IS NULL OR created_by_id=$1) ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit}) SELECT ct.* FROM x LEFT JOIN {parent_table} ct ON x.{parent_column}=ct.id;"
@@ -320,7 +327,9 @@ async def func_postgres_obj_read(postgres_pool: any, func_postgres_obj_serialize
     order_clause = ", ".join([f"{validate_identifier(p[0])} {(p[1].upper() if len(p)>1 and p[1].lower() in ('asc','desc') else 'ASC')}" for p in [part.strip().split() for part in query_params.get("order", "id desc").split(",")] if p])
     column_list = "*" if query_params.get("column", "*") == "*" else ",".join([validate_identifier(c.strip()) for c in query_params.get("column").split(",")])
     creator_key, action_key, filters = query_params.get("creator_key"), query_params.get("action_key"), {k: v for k, v in query_params.items() if k not in ("table", "order", "limit", "page", "column", "creator_key", "action_key")}
-    async def serialize_filter(col, val, is_base_type=False): return (None if str(val).lower() == "null" else (await func_postgres_obj_serialize(postgres_pool, table, [{col: val}], is_base=is_base_type))[0][col])
+    async def serialize_filter(col, val, is_base_type=None):
+        base_flag = is_base_type if is_base_type is not None else 0
+        return (None if str(val).lower() == "null" else (await func_postgres_obj_serialize(postgres_pool, table, [{col: val}], is_base=base_flag))[0][col])
     conditions, values, bind_idx, v_ops, s_ops = [], [], 1, {"=":"=","==":"=","!=":"!=","<>":"<>",">":">","<":"<",">=":">=","<=":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}, {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
     for filter_key, expression in filters.items():
         validate_identifier(filter_key)
@@ -346,9 +355,10 @@ async def func_postgres_obj_read(postgres_pool: any, func_postgres_obj_serialize
                 fake_schema = {**func_postgres_obj_serialize.state[table], filter_key: elem_type}
                 async def serialize_element(v):
                     orig_state = func_postgres_obj_serialize.state[table]
-                    func_postgres_obj_serialize.state[table] = fake_schema
-                    res = (await func_postgres_obj_serialize(postgres_pool, table, [{filter_key: v}], is_base=True))[0][filter_key]
-                    func_postgres_obj_serialize.state[table] = orig_state
+                    try:
+                        func_postgres_obj_serialize.state[table] = fake_schema
+                        res = (await func_postgres_obj_serialize(postgres_pool, table, [{filter_key: v}], is_base=1))[0][filter_key]
+                    finally: func_postgres_obj_serialize.state[table] = orig_state
                     return res
                 serialized_val = [ (await serialize_element(x.strip())) for x in parts ]
             else: serialized_val = await serialize_filter(filter_key, raw_val)
@@ -357,19 +367,21 @@ async def func_postgres_obj_read(postgres_pool: any, func_postgres_obj_serialize
             fake_schema = {**func_postgres_obj_serialize.state[table], filter_key: func_postgres_obj_serialize.state[table][filter_key].replace("[]", "").replace("array", "").strip()}
             async def serialize_element(v):
                 orig_state = func_postgres_obj_serialize.state[table]
-                func_postgres_obj_serialize.state[table] = fake_schema
-                res = (await func_postgres_obj_serialize(postgres_pool, table, [{filter_key: v}], is_base=True))[0][filter_key]
-                func_postgres_obj_serialize.state[table] = orig_state
+                try:
+                    func_postgres_obj_serialize.state[table] = fake_schema
+                    res = (await func_postgres_obj_serialize(postgres_pool, table, [{filter_key: v}], is_base=1))[0][filter_key]
+                finally: func_postgres_obj_serialize.state[table] = orig_state
                 return res
             serialized_val = [ (await serialize_element(x.strip())) for x in parts ]
-        elif operator in ("in", "not in", "between"): serialized_val = [await serialize_filter(filter_key, x.strip(), True if is_array else False) for x in raw_val.split("|")]
+        elif operator in ("in", "not in", "between"): serialized_val = [await serialize_filter(filter_key, x.strip(), 1 if is_array else 0) for x in raw_val.split("|")]
         elif operator == "any":
             fake_schema = {**func_postgres_obj_serialize.state[table], filter_key: func_postgres_obj_serialize.state[table][filter_key].replace("[]", "").replace("array", "").strip()}
             orig_state = func_postgres_obj_serialize.state[table]
-            func_postgres_obj_serialize.state[table] = fake_schema
-            serialized_val = (await func_postgres_obj_serialize(postgres_pool, table, [{filter_key: raw_val}], is_base=True))[0][filter_key]
-            func_postgres_obj_serialize.state[table] = orig_state
-        else: serialized_val = await serialize_filter(filter_key, raw_val, True if is_json and operator == "exists" else False)
+            try:
+                func_postgres_obj_serialize.state[table] = fake_schema
+                serialized_val = (await func_postgres_obj_serialize(postgres_pool, table, [{filter_key: raw_val}], is_base=1))[0][filter_key]
+            finally: func_postgres_obj_serialize.state[table] = orig_state
+        else: serialized_val = await serialize_filter(filter_key, raw_val, 1 if is_json and operator == "exists" else 0)
         if serialized_val is None:
             if operator not in ("is", "is not", "is distinct from", "is not distinct from"): raise Exception(f"null requires is/distinct for {filter_key}")
             conditions.append(f"{filter_key} {v_ops[operator]} NULL")
@@ -397,8 +409,9 @@ async def func_postgres_obj_read(postgres_pool: any, func_postgres_obj_serialize
             for res_row in result_list: res_row[f"{target_tbl}_{action_op}"] = action_map.get(str(res_row.get("id")), 0 if action_op == "count" else None)
         return result_list
 
-async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, obj_list: list, is_serialize: int = 0, created_by_id: int = None, batch_size: int = 5000, return_ids: bool = False) -> str:
+async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, obj_list: list, is_serialize: int = None, created_by_id: int = None, batch_size: int = None, is_return_ids: int = None) -> str:
     """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
+    serialize_flag, limit_batch, return_ids_flag = is_serialize if is_serialize is not None else 0, batch_size or 5000, is_return_ids if is_return_ids is not None else 0
     import re, json
     def validate_identifier(name):
         if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', str(name)): raise Exception(f"invalid identifier {name}")
@@ -409,11 +422,11 @@ async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_seriali
     if is_serialize: obj_list = await func_postgres_obj_serialize(postgres_pool, table_name, obj_list)
     update_cols = [validate_identifier(c) for c in obj_list[0] if c != "id"]; total_updated = 0
     if not update_cols: return "0 rows updated"
-    actual_batch_size = min(batch_size or 5000, 65535 // (len(update_cols) + (2 if created_by_id else 1)))
+    actual_batch_size = min(limit_batch, 65535 // (len(update_cols) + (2 if created_by_id else 1)))
     async with postgres_pool.acquire() as conn:
         if len(obj_list) == 1:
             obj = obj_list[0]; params = [obj[c] for c in update_cols] + [obj["id"]]; where_clause = f"id=${len(params)}" + (f" AND created_by_id=${len(params)+1}" if created_by_id else ""); (params.append(created_by_id) if created_by_id else None)
-            if return_ids:
+            if return_ids_flag == 1:
                 records = await conn.fetch(f"UPDATE {table_name} SET {','.join(f'{c}=${i+1}' for i,c in enumerate(update_cols))} WHERE {where_clause} RETURNING id;", *params)
                 return f"{len(records)} rows updated"
             else:
@@ -429,15 +442,16 @@ async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_seriali
                         batch_vals.extend([obj["id"], obj[col]]); (batch_vals.append(created_by_id) if created_by_id else None); case_statements.append(f"WHEN id=${len(batch_vals)-(1 if created_by_id else 1)} {(f'AND created_by_id=${len(batch_vals)}' if created_by_id else '')} THEN ${len(batch_vals)-(0 if created_by_id else 0)}")
                     set_clauses.append(f"{col} = CASE {' '.join(case_statements)} ELSE {col} END")
                 id_list = [obj["id"] for obj in batch]; where_clause = f"id IN ({','.join(f'${len(batch_vals)+j+1}' for j in range(len(id_list)))})" + (f" AND created_by_id=${len(batch_vals)+len(id_list)+1}" if created_by_id else ""); batch_vals.extend(id_list); (batch_vals.append(created_by_id) if created_by_id else None)
-                if return_ids: returned_ids.extend([r["id"] for r in (await conn.fetch(f"UPDATE {table_name} SET {', '.join(set_clauses)} WHERE {where_clause} RETURNING id;", *batch_vals))])
+                if return_ids_flag == 1: returned_ids.extend([r["id"] for r in (await conn.fetch(f"UPDATE {table_name} SET {', '.join(set_clauses)} WHERE {where_clause} RETURNING id;", *batch_vals))])
                 else: total_updated += int((await conn.execute(f"UPDATE {table_name} SET {', '.join(set_clauses)} WHERE {where_clause};", *batch_vals)).split()[-1])
-            return f"{len(returned_ids) if return_ids else total_updated} rows updated"
+            return f"{len(returned_ids) if return_ids_flag == 1 else total_updated} rows updated"
 
 
-async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_serialize: callable, execution_mode: str, table_name: str = None, object_list: list = None, is_serialize: int = 0, table_buffer: int = 0) -> any:
+async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, object_list: list, execution_mode: str = None, is_serialize: int = None, table_buffer: int = None) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     if not hasattr(func_postgres_obj_create, "buffer"): func_postgres_obj_create.buffer = {}
-    if execution_mode == "flush":
+    mode, serialize_flag, buffer_limit = execution_mode or "now", is_serialize or 0, table_buffer or 0
+    if mode == "flush":
         for table, items in func_postgres_obj_create.buffer.items():
             if items:
                 columns = items[0].keys(); query = f"INSERT INTO {table} ({','.join(columns)}) VALUES ({','.join([f'${i+1}' for i in range(len(columns))])})"
@@ -445,11 +459,11 @@ async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_seriali
                 func_postgres_obj_create.buffer[table] = []
         return "flushed"
     if not object_list: return None
-    serialized_list = await func_postgres_obj_serialize(postgres_pool, table_name, object_list) if is_serialize else object_list
-    if execution_mode == "buffer":
+    serialized_list = await func_postgres_obj_serialize(postgres_pool, table_name, object_list) if serialize_flag else object_list
+    if mode == "buffer":
         if table_name not in func_postgres_obj_create.buffer: func_postgres_obj_create.buffer[table_name] = []
         func_postgres_obj_create.buffer[table_name].extend(serialized_list)
-        if len(func_postgres_obj_create.buffer[table_name]) >= (table_buffer or 500):
+        if len(func_postgres_obj_create.buffer[table_name]) >= (buffer_limit or 500):
             items = func_postgres_obj_create.buffer[table_name]; columns = items[0].keys(); query = f"INSERT INTO {table_name} ({','.join(columns)}) VALUES ({','.join([f'${i+1}' for i in range(len(columns))])})"
             async with postgres_pool.acquire() as conn: await conn.executemany(query, [tuple(i.values()) for i in items])
             func_postgres_obj_create.buffer[table_name] = []
@@ -467,8 +481,9 @@ async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_seriali
             ids = await conn.fetch(f"INSERT INTO {table_name} ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id", json.dumps(serialized_list, default=str))
         return [r['id'] for r in ids] if len(ids) > 0 and isinstance(ids[0], dict) and 'id' in ids[0] else "bulk created"
 
-async def func_postgres_obj_serialize(postgres_pool: any, table_name: str, object_list: list, is_base: bool = False) -> list:
+async def func_postgres_obj_serialize(postgres_pool: any, table_name: str, object_list: list, is_base: int = None) -> list:
     """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware caching."""
+    base_flag = is_base if is_base is not None else 0
     import json
     if not hasattr(func_postgres_obj_serialize, "state"): func_postgres_obj_serialize.state = {}
     if table_name not in func_postgres_obj_serialize.state:
@@ -491,7 +506,7 @@ async def func_postgres_obj_serialize(postgres_pool: any, table_name: str, objec
                 vs = str(v).strip()
                 if not vs or vs.lower() == "null": return None
                 if any(x in t for x in ("int", "serial", "bigint")): return int(vs)
-                if "bool" in t: return vs.lower() == "true"
+                if "bool" in t: return 1 if vs.lower() == "true" else 0
                 if any(x in t for x in ("numeric", "float", "double")): return float(vs)
                 if "timestamp" in t:
                     from datetime import datetime
@@ -500,7 +515,7 @@ async def func_postgres_obj_serialize(postgres_pool: any, table_name: str, objec
                     from datetime import date
                     return date.fromisoformat(vs) if isinstance(v, str) else v
                 return v
-            if is_base:
+            if base_flag == 1:
                 if "json" in dtype: new_item[col] = json.dumps(val) if not isinstance(val, str) else val
                 elif "[]" in dtype or "array" in dtype:
                     v_arr = val_str.strip("{}")
@@ -524,9 +539,9 @@ async def func_postgres_stream(postgres_pool: any, sql_query: str) -> any:
     async def generate():
         async with postgres_pool.acquire() as conn:
             async with conn.transaction():
-                first = True
+                is_first = 1
                 async for record in conn.cursor(sql_query):
-                    if first: yield ",".join(record.keys()) + "\n"; first = False
+                    if is_first == 1: yield ",".join(record.keys()) + "\n"; is_first = 0
                     yield ",".join([f'"{str(v).replace(chr(34), chr(34)*2)}"' if v is not None else "" for v in record.values()]) + "\n"
     return StreamingResponse(generate(), media_type="text/csv")
 
@@ -724,12 +739,13 @@ async def func_s3_upload(s3_client: any, bucket_name: str, file_obj: any, file_k
     await s3_client.put_object(Bucket=bucket_name, Key=file_key, Body=await file_obj.read())
     return f"https://{bucket_name}.s3.amazonaws.com/{file_key}"
 
-def func_s3_upload_presigned(s3_client: any, region: str, bucket_name: str, file_key: str = None, size_limit_kb: int = 100, expiry_sec: int = 100) -> dict:
+def func_s3_upload_presigned(s3_client: any, region: str, bucket_name: str, file_key: str = None, size_limit_kb: int = None, expiry_sec: int = None) -> dict:
     """Generate a presigned POST URL for secure client-side binary uploads to S3."""
+    limit_kb, limit_expiry = size_limit_kb or 100, expiry_sec or 100
     import uuid
     if not file_key: file_key = f"{uuid.uuid4().hex}.bin"
     if "." not in file_key: raise Exception("missing extension")
-    presigned_post = s3_client.generate_presigned_post(Bucket=bucket_name, Key=file_key, ExpiresIn=expiry_sec, Conditions=[['content-length-range', 1, size_limit_kb * 1024]]); return {**presigned_post["fields"], "url_final": f"https://{bucket_name}.s3.{region}.amazonaws.com/{file_key}"}
+    presigned_post = s3_client.generate_presigned_post(Bucket=bucket_name, Key=file_key, ExpiresIn=limit_expiry, Conditions=[['content-length-range', 1, limit_kb * 1024]]); return {**presigned_post["fields"], "url_final": f"https://{bucket_name}.s3.{region}.amazonaws.com/{file_key}"}
 
 def func_celery_client_read_producer(broker_url: str, backend_url: str) -> any:
     """Initialize Celery producer client."""
@@ -765,10 +781,10 @@ async def func_kafka_client_read_producer(kafka_url: str, username: str, passwor
     from aiokafka import AIOKafkaProducer
     kp = AIOKafkaProducer(bootstrap_servers=kafka_url, security_protocol="SASL_PLAINTEXT", sasl_mechanism="PLAIN", sasl_plain_username=username, sasl_plain_password=password); await kp.start(); return kp
 
-async def func_kafka_client_read_consumer(kafka_url: str, username: str, password: str, channel_name: str, group_id: str, auto_commit: bool) -> any:
+async def func_kafka_client_read_consumer(kafka_url: str, username: str, password: str, channel_name: str, group_id: str, is_auto_commit: int) -> any:
     """Initialize AIOKafkaConsumer with SASL authentication and specific group ID."""
     from aiokafka import AIOKafkaConsumer
-    kc = AIOKafkaConsumer(channel_name, bootstrap_servers=kafka_url, group_id=group_id, security_protocol="SASL_PLAINTEXT", sasl_mechanism="PLAIN", sasl_plain_username=username, sasl_plain_password=password, auto_offset_reset="earliest", enable_auto_commit=auto_commit); await kc.start(); return kc
+    kc = AIOKafkaConsumer(channel_name, bootstrap_servers=kafka_url, group_id=group_id, security_protocol="SASL_PLAINTEXT", sasl_mechanism="PLAIN", sasl_plain_username=username, sasl_plain_password=password, auto_offset_reset="earliest", enable_auto_commit=bool(is_auto_commit)); await kc.start(); return kc
 
 async def func_kafka_producer(kafka_producer: any, channel_name: str, payload: dict) -> any:
     """Send a JSON-formatted payload to a Kafka topic."""
@@ -781,7 +797,7 @@ async def func_check_ratelimiter(redis_client: any, config_api: dict, url_path: 
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     import time
     if not hasattr(func_check_ratelimiter, "state"): func_check_ratelimiter.state = {}
-    if not (rl_config := config_api.get(url_path, {}).get("ratelimiter_times_sec")): return None
+    if not (rl_config := config_api.get(url_path, {}).get("api_ratelimiting_times_sec")): return None
     mode, limit, window = rl_config; cache_key = f"ratelimiter:{url_path}:{identifier}"
     if mode == "redis":
         if not redis_client: raise Exception("redis client missing")
@@ -799,7 +815,7 @@ async def func_check_ratelimiter(redis_client: any, config_api: dict, url_path: 
 
 async def func_check_is_active(user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
     """Check if the user is active using a strictly configured mode from api_config."""
-    cfg = api_config.get(url_path, {}).get("is_active_check")
+    cfg = api_config.get(url_path, {}).get("user_is_active_check")
     if not cfg or not user_dict: return None
     mode, active_flag = cfg
     if active_flag == 0: return None
@@ -821,8 +837,8 @@ async def func_check_is_active(user_dict: dict, url_path: str, api_config: dict,
 
 async def func_check_admin(user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
     """Ensure sufficient roles to access admin endpoints using a strictly configured mode from api_config."""
-    if not url_path.startswith("/admin") or not (cfg := api_config.get(url_path)) or "roles" not in cfg: return None
-    mode, roles = cfg["roles"][0], set(cfg["roles"][1])
+    if not url_path.startswith("/admin") or not (cfg := api_config.get(url_path)) or "user_role_check" not in cfg: return None
+    mode, roles = cfg["user_role_check"][0], set(cfg["user_role_check"][1])
     async def fetch_role(uid):
         async with postgres_pool.acquire() as conn: rows = await conn.fetch("select role from users where id=$1", uid)
         if not rows: raise Exception("user not found")
@@ -855,7 +871,7 @@ async def func_check_cache(mode: str, url_path: str, query_params: dict, api_con
     def decompress_data(data): return gzip.decompress(base64.b64decode(data)).decode()
     if mode not in ["get", "set"]: raise Exception("cache mode should be 'get' or 'set'")
     uid = user_id if "my/" in url_path else 0; cache_key = build_cache_key(url_path, query_params, uid)
-    cache_mode, expire_sec = api_config.get(url_path, {}).get("cache_sec", (None, None))
+    cache_mode, expire_sec = api_config.get(url_path, {}).get("api_cache_sec", (None, None))
     if not should_cache(expire_sec): return None if mode == "get" else response_obj
     if mode == "get":
         cached_data = None
@@ -887,7 +903,7 @@ async def func_api_response_background(scope: dict, body_bytes: bytes, api_funct
 async def func_api_response(request: any, api_function: callable, api_config: dict, redis_client: any, user_id: int, func_background: callable, func_cache: callable) -> tuple:
     """Orchestrate API request handling, including background task delegation and cache management."""
     from fastapi import responses
-    cache_sec = api_config.get(request.url.path, {}).get("cache_sec")
+    cache_sec = api_config.get(request.url.path, {}).get("api_cache_sec")
     response, resp_type, query_params = None, 0, dict(request.query_params)
     if query_params.get("is_background") == "1":
         body_bytes = await request.body()
@@ -926,10 +942,10 @@ async def func_token_encode(user_obj: dict, jwt_secret_key: str, token_expiry_se
     refresh_token = jwt.encode({"exp": refresh_exp, "data": serialized_payload, "type": "refresh"}, jwt_secret_key)
     return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": token_expiry_sec, "token_refresh_expiry_sec": token_refresh_expiry_sec}
 
-def func_fastapi_app_read(lifespan_handler: any, is_debug_mode: bool) -> any:
+def func_fastapi_app_read(lifespan_handler: any, is_debug_mode: int) -> any:
     """Initialize a FastAPI application with debug mode and lifespan handler."""
     from fastapi import FastAPI
-    return FastAPI(debug=is_debug_mode, lifespan=lifespan_handler)
+    return FastAPI(debug=bool(is_debug_mode), lifespan=lifespan_handler)
 
 async def func_server_start(fastapi_app: any) -> None:
     """Start the Uvicorn server for the FastAPI application."""
@@ -937,10 +953,10 @@ async def func_server_start(fastapi_app: any) -> None:
     server_config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=8000, log_level="info")
     await uvicorn.Server(server_config).serve()
 
-def func_app_add_cors(fastapi_app: any, origins: list, methods: list, headers: list, allow_credentials: bool) -> None:
+def func_app_add_cors(fastapi_app: any, origins: list, methods: list, headers: list, is_allow_credentials: int) -> None:
     """Add CORS middleware to the FastAPI application."""
     from fastapi.middleware.cors import CORSMiddleware
-    fastapi_app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=methods, allow_headers=headers, allow_credentials=allow_credentials)
+    fastapi_app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=methods, allow_headers=headers, allow_credentials=bool(is_allow_credentials))
 
 def func_app_add_prometheus(fastapi_app: any) -> None:
     """Expose Prometheus metrics for the FastAPI application."""
@@ -1021,24 +1037,25 @@ async def func_otp_generate(postgres_pool: any, email_address: str = None, mobil
     async with postgres_pool.acquire() as conn: await conn.execute(query, *values)
     return otp_code
 
-async def func_otp_verify(postgres_pool: any, otp_code: int, email_address: str = None, mobile_number: str = None, expiry_sec: int = 600) -> None:
+async def func_otp_verify(postgres_pool: any, otp_code: int, email_address: str = None, mobile_number: str = None, expiry_sec: int = None) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
+    limit_expiry = expiry_sec or 600
     if not otp_code: raise Exception("otp code missing")
     if not email_address and not mobile_number: raise Exception("email or mobile missing")
     if email_address and mobile_number: raise Exception("provide only one identifier")
-    query, identifier = ((f"SELECT otp FROM otp WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '{expiry_sec}s' AND email=$1 ORDER BY id DESC LIMIT 1", email_address.strip().lower()) if email_address else (f"SELECT otp FROM otp WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '{expiry_sec}s' AND mobile=$1 ORDER BY id DESC LIMIT 1", mobile_number.strip()))
+    query, identifier = ((f"SELECT otp FROM otp WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '{limit_expiry}s' AND email=$1 ORDER BY id DESC LIMIT 1", email_address.strip().lower()) if email_address else (f"SELECT otp FROM otp WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '{limit_expiry}s' AND mobile=$1 ORDER BY id DESC LIMIT 1", mobile_number.strip()))
     async with postgres_pool.acquire() as conn: records = await conn.fetch(query, identifier)
     if not records: raise Exception("otp expired or not found")
     if int(records[0]["otp"]) != int(otp_code): raise Exception("invalid otp code")
 
-async def func_message_inbox(postgres_pool: any, user_id: int, is_unread: int = None, sort_order: str = "id desc", limit_count: int = 100, page_number: int = 1) -> list:
+async def func_message_inbox(postgres_pool: any, user_id: int, is_unread: int = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
     """Read a conversation-summarized inbox for a user with unread filtering."""
     limit, page, order = int(limit_count or 100), int(page_number or 1), (sort_order or "id desc")
     where_clause = ('user_id=$1 AND is_read' + ('=1' if is_unread == 0 else ' IS DISTINCT FROM 1') if is_unread in (0, 1) else '1=1')
     query = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
     async with postgres_pool.acquire() as conn: return [dict(r) for r in (await conn.fetch(query, user_id))]
 
-async def func_message_received(postgres_pool: any, user_id: int, is_unread: int = None, sort_order: str = "id desc", limit_count: int = 100, page_number: int = 1, func_postgres_ids_update: callable = None) -> list:
+async def func_message_received(postgres_pool: any, user_id: int, is_unread: int = None, sort_order: str = None, limit_count: int = None, page_number: int = None, func_postgres_ids_update: callable = None) -> list:
     """Read all messages received by a specific user and optionally mark unread ones as read."""
     import asyncio
     limit, page, order = int(limit_count or 100), int(page_number or 1), (sort_order or "id desc")
@@ -1048,7 +1065,7 @@ async def func_message_received(postgres_pool: any, user_id: int, is_unread: int
     if obj_list and func_postgres_ids_update: asyncio.create_task(func_postgres_ids_update(postgres_pool, "message", ','.join(str(item['id']) for item in obj_list), "is_read", 1, None, user_id))
     return obj_list
 
-async def func_message_thread(postgres_pool: any, user_one_id: int, user_two_id: int, sort_order: str = "id desc", limit_count: int = 100, page_number: int = 1) -> list:
+async def func_message_thread(postgres_pool: any, user_one_id: int, user_two_id: int, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
     """Read the full message thread between two users."""
     limit, page, order = int(limit_count or 100), int(page_number or 1), (sort_order or "id desc")
     async with postgres_pool.acquire() as conn: return [dict(r) for r in (await conn.fetch(f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};", user_one_id, user_two_id))]
@@ -1218,18 +1235,20 @@ def func_folder_reset(folder_path: str) -> str:
     for item in os.listdir(absolute_path): (shutil.rmtree(item_path) if os.path.isdir(item_path := os.path.join(absolute_path, item)) else os.remove(item_path))
     return "folder reset done"
 
-async def func_client_download_file(file_path: str, delete_after: bool = True, chunk_size: int = 1048576) -> any:
+async def func_client_download_file(file_path: str, is_delete_after: int = None, chunk_size: int = None) -> any:
     """Stream a file for client download with optional automatic cleanup after transmission."""
     from fastapi import responses; from starlette.background import BackgroundTask
     import os, mimetypes, aiofiles
+    delete_after_flag, limit_chunk = is_delete_after if is_delete_after is not None else 1, chunk_size or 1048576
     file_name = os.path.basename(file_path); content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
     async def file_iterator():
         async with aiofiles.open(file_path, "rb") as f:
-            while (chunk := await f.read(chunk_size)): yield chunk
-    return responses.StreamingResponse(file_iterator(), media_type=content_type, headers={"Content-Disposition": f'attachment; filename="{file_name}"'}, background=BackgroundTask(os.remove, file_path) if delete_after else None)
+            while (chunk := await f.read(limit_chunk)): yield chunk
+    return responses.StreamingResponse(file_iterator(), media_type=content_type, headers={"Content-Disposition": f'attachment; filename="{file_name}"'}, background=BackgroundTask(os.remove, file_path) if delete_after_flag == 1 else None)
 
-async def func_request_param_read(parsing_mode: str, request_obj: any, param_config: list, is_strict: int = 0) -> dict:
+async def func_request_param_read(parsing_mode: str, request_obj: any, param_config: list, is_strict: int = None) -> dict:
     """Extract, validate, and type-cast request parameters from query, form, or body payload."""
+    strict_flag = is_strict if is_strict is not None else 0
     if parsing_mode == "query": params_dict = dict(request_obj.query_params)
     elif parsing_mode == "form":
         form_data = await request_obj.form(); params_dict = {key: val for key, val in form_data.items() if isinstance(val, str)}
@@ -1243,10 +1262,10 @@ async def func_request_param_read(parsing_mode: str, request_obj: any, param_con
     if param_config is None: return params_dict
     TYPE_MAP = {
         "int": int, "float": float, "str": str, "any": lambda v: v, "file": lambda v: ([] if v is None else v if isinstance(v, list) else [v]),
-        "bool": lambda v: (v if isinstance(v, bool) else str(v).strip().lower() in ("1", "true", "yes", "on", "ok")),
+        "bool": lambda v: (v if v in (0, 1) else (1 if str(v).strip().lower() in ("1", "true", "yes", "on", "ok") else 0)),
         "list": lambda v: ([] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]),
     }
-    output_dict = {} if is_strict else params_dict
+    output_dict = {} if strict_flag else params_dict
     for key, data_type, is_mandatory, default_value, allowed_values in param_config:
         if is_mandatory and key not in params_dict: raise Exception(f"parameter '{key}' missing")
         val = params_dict.get(key, default_value)

@@ -61,6 +61,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
 .icon-btn:hover{color:#fff}
 .icon-btn.delete:hover{color:var(--delete)}
 .icon-btn.save:hover{color:var(--primary)}
+.icon-btn.loading svg{animation:spin 1s linear infinite}
 .tree-table{width:100%;border-collapse:collapse;margin:4px 0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05)}.tree-key{color:#7ec8e3;font-weight:600;padding:6px 10px;width:1px;white-space:nowrap;font-size:12px;vertical-align:top;border:1px solid rgba(255,255,255,0.05);background:rgba(66,153,225,0.05)}.tree-val{padding:6px 10px;font-family:'SF Mono',Menlo,monospace;font-size:12px;position:relative;border:1px solid rgba(255,255,255,0.05);color:#e6eef3}.tree-toggle{background:none;border:none;color:var(--accent);cursor:pointer;padding:2px 6px;font-size:11px;display:flex;align-items:center;gap:6px;border-radius:4px;font-family:inherit;font-weight:600}.tree-toggle:hover{background:rgba(66,153,225,.1)}.tree-content{display:none;margin-top:4px}.tree-content.show{display:block}.tree-arrow{transition:transform .2s;display:inline-block;font-size:10px}.tree-arrow.open{transform:rotate(90deg)}.gv-s{color:#98c379}.gv-n{color:#d19a66}.gv-b{color:#c678dd}.gv-null{color:#56b6c2}
 </style>
 </head>
@@ -107,6 +108,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
     <div class="modal-header">
         <h3>API Info <span id="apiTotal" style="font-size:13px;font-weight:400;color:var(--muted)"></span></h3>
         <div class="modal-actions">
+            <button type="button" class="icon-btn" id="apiInfoRefresh" title="Refresh APIs"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg></button>
             <button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
             <button type="button" class="icon-btn" title="Close" onclick="$('apiInfoModal').style.display='none'"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
@@ -217,20 +219,39 @@ async function init() {
   try {
     const r = await fetch('/');
     const json = await r.json();
-    const meta = json.message.api_metadata || [];
-    COMMANDS = meta.map(m => ({
-      p: m.path,
-      m: m.methods[0] || 'GET',
-      h: m.params.header.map(p => ({ k: p.name, v: String(p.default || '') })),
-      q: m.params.query.map(p => ({ k: p.name, v: String(p.default || '') })),
-      f: m.params.form.map(p => ({ k: p.name, v: String(p.default || '') })),
-      u: m.params.path.map(p => ({ k: p.name, v: String(p.default || '') })),
-      j: m.params.body.map(p => ({ 
-        k: p.name, 
-        v: String(p.default || ''), 
-        t: p.type === 'int' ? 'number' : p.type === 'bool' ? 'boolean' : (p.type === 'list' ? 'array' : (p.type === 'dict' ? 'object' : 'string'))
-      }))
-    }));
+    const specUrl = json.message.openapi_url || '/openapi.json';
+    const specR = await fetch(specUrl);
+    const spec = await specR.json();
+    COMMANDS = [];
+    Object.entries(spec.paths).forEach(([path, methods]) => {
+      Object.entries(methods).forEach(([method, op]) => {
+        const cmd = {
+          p: path,
+          m: method.toUpperCase(),
+          h: [], q: [], f: [], u: [], j: [],
+          tag: op.tags ? op.tags[0] : 'system'
+        };
+        (op.parameters || []).forEach(p => {
+          const item = { k: p.name, v: String(p.schema?.default || '') };
+          if (p.in === 'header') cmd.h.push(item);
+          else if (p.in === 'query') cmd.q.push(item);
+          else if (p.in === 'path') cmd.u.push(item);
+        });
+        const bodyContent = op.requestBody?.content;
+        if (bodyContent) {
+          if (bodyContent['application/json']) {
+            Object.entries(bodyContent['application/json'].schema.properties || {}).forEach(([k, prop]) => {
+              cmd.j.push({ k: k, v: String(prop.default || ''), t: prop.type });
+            });
+          } else if (bodyContent['multipart/form-data']) {
+            Object.entries(bodyContent['multipart/form-data'].schema.properties || {}).forEach(([k, prop]) => {
+              cmd.f.push({ k: k, v: String(prop.default || '') });
+            });
+          }
+        }
+        COMMANDS.push(cmd);
+      });
+    });
     orig = COMMANDS.map((c, i) => ({ ...c, oi: i }));
     load(null);
     updateLsIcon();
@@ -343,7 +364,7 @@ const saveLs = () => {
 /* ── Event wiring ── */
 $('lsBtn').onclick = () => { showModal('lsModal'); renderLs() };
 
-$('apiInfoBtn').onclick = () => {
+const renderApiInfoTable = () => {
   $('apiTotal').textContent = `(${COMMANDS.length})`;
   const ix = 'style="width:25px;min-width:25px;text-align:center"',
     sm = 'style="width:50px;min-width:50px;text-align:center"',
@@ -353,7 +374,19 @@ $('apiInfoBtn').onclick = () => {
     `<tbody>${COMMANDS.map((c, i) =>
       `<tr style="cursor:pointer" data-i="${i}"><td ${ix}>${i + 1}</td><td style="white-space:nowrap;min-width:auto">${c.p}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td ${xs}>${getIcon(c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c.f)}</td><td ${xs}>${getIcon(c.j)}</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td><td ${xs} class="curl-btn" title="Copy Curl">${ICON.copy(16)}</td></tr>`
     ).join('')}</tbody>`;
+};
+
+$('apiInfoBtn').onclick = () => {
+  renderApiInfoTable();
   showModal('apiInfoModal');
+};
+
+$('apiInfoRefresh').onclick = async () => {
+  $('apiInfoRefresh').classList.add('loading');
+  await init();
+  renderApiInfoTable();
+  $('apiInfoRefresh').classList.remove('loading');
+  toast('APIs Refreshed');
 };
 
 $('apiInfoTbl').onclick = e => {

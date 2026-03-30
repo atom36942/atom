@@ -50,7 +50,7 @@ docker run --rm -p 8000:8000 atom
 
 Configured per route in `config_api` inside `config.py`.
 
-- **Field**: `cache_sec`
+- **Field**: `api_cache_sec`
 - **Format**: `["mode", seconds]`
 - **Modes**:
   - `inmemory`: fast, non-persistent, local node only
@@ -58,8 +58,8 @@ Configured per route in `config_api` inside `config.py`.
   
 Example:
 ```python
-"/my/profile": {"cache_sec": ["inmemory", 60]}
-"/public/posts": {"cache_sec": ["redis", 3600]}
+"/my/profile": {"api_cache_sec": ["inmemory", 60]}
+"/public/posts": {"api_cache_sec": ["redis", 3600]}
 ```
 </details>
 
@@ -68,7 +68,7 @@ Example:
 
 Configured per route in `config_api` inside `config.py`.
 
-- **Field**: `ratelimiter_times_sec`
+- **Field**: `api_ratelimiting_times_sec`
 - **Format**: `["mode", limit, window_seconds]`
 - **Modes**:
   - `inmemory`: local window per instance
@@ -76,8 +76,8 @@ Configured per route in `config_api` inside `config.py`.
 
 Example:
 ```python
-"/test": {"ratelimiter_times_sec": ["inmemory", 10, 60]} # 10 requests per 60s
-"/auth/login": {"ratelimiter_times_sec": ["redis", 5, 1]}  # 5 requests per 1s
+"/test": {"api_ratelimiting_times_sec": ["inmemory", 10, 60]} # 10 requests per 60s
+"/auth/login": {"api_ratelimiting_times_sec": ["redis", 5, 1]}  # 5 requests per 1s
 ```
 </details>
 
@@ -86,7 +86,8 @@ Example:
 
 Configures how user activity status is verified on each request to determine if they can access an API. This checks the `is_active` column in the `users` table.
 
-- **Field**: `config_mode_check_active`
+- **Field**: `user_is_active_check` (configured per route in `config_api`)
+- **Format**: `["mode", 1]` (where 1 enables the check)
 - **Modes**:
   - `token`: Read `is_active` directly from JWT payload (fastest)
   - `cache`: Check against memory-cached status (balanced)
@@ -102,7 +103,8 @@ Configures how user activity status is verified on each request to determine if 
 
 Configures how administrative roles are verified for `/admin` routes.
 
-- **Field**: `config_mode_check_admin`
+- **Field**: `user_role_check` (configured per route in `config_api`)
+- **Format**: `["mode", [allowed_roles]]`
 - **Modes**:
   - `token`: Read `role` directly from JWT payload (fastest)
   - `cache`: Check against memory-cached roles (balanced)
@@ -118,18 +120,18 @@ Configures how administrative roles are verified for `/admin` routes.
 
 Access control is defined per route in `config_api` inside `config.py`.
 
-- **Field**: `roles`
-- **Format**: `[role_id_1, role_id_2, ...]`
+- **Field**: `user_role_check`
+- **Format**: `["mode", [role_id_1, role_id_2, ...]]`
 - **Logic**: If the user's `role` (from token/DB) is not in this list, access is denied.
 
 Example:
 ```python
-"/admin/sync": {"roles": [1]} # Only Admin (Role 1)
-"/test": {"roles": [1, 2, 3]} # Admin, Manager, User
+"/admin/sync": {"user_role_check": ["realtime", [1]]} # Only Admin (Role 1), Realtime DB check
+"/test": {"user_role_check": ["token", [1, 2, 3]]} # Admin, Manager, User, JWT-based role
 ```
 
 > [!TIP]
-> Use `roles` instead of boolean flags for more granular control over multi-tenant or multi-tier access.
+> Use `user_role_check` instead of boolean flags for more granular control over multi-tenant or multi-tier access.
 </details>
 
 

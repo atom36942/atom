@@ -31,13 +31,15 @@ async def func_lifespan(app:FastAPI):
    if client_postgres_pool: await func_postgres_init_root_user(client_postgres_pool)
   #cache init
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else {}
+   cache_postgres_schema_tables=list(cache_postgres_schema.keys())
+   cache_postgres_schema_columns=sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
    cache_users_role=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool else {}
    cache_users_is_active=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
    func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
   #app shutdown
    yield
-   await func_postgres_obj_create(client_postgres_pool, func_postgres_obj_serialize, "flush")
-   if config_is_reset_export_folder:func_folder_reset("tmp")
+   await func_postgres_obj_create(client_postgres_pool, func_postgres_obj_serialize, None, None, "flush")
+   if config_is_reset_export_folder == 1:func_folder_reset("tmp")
    await client_http.aclose()
    if client_postgres_pool:await client_postgres_pool.close()
    if client_redis:await client_redis.aclose()
@@ -57,11 +59,11 @@ async def func_lifespan(app:FastAPI):
 app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
 
 #app add
-func_app_add_cors(app,config_cors_origin,config_cors_method,config_cors_headers,config_cors_allow_credentials)
+func_app_add_cors(app,config_cors_origin,config_cors_method,config_cors_headers,config_is_cors_allow_credentials)
 func_add_router(app)
 func_app_add_static(app,"./static","/static")
 if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
-if config_is_prometheus:func_app_add_prometheus(app)
+if config_is_prometheus == 1:func_app_add_prometheus(app)
 
 #middleware
 import time,json

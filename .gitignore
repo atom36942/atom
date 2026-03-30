@@ -13,8 +13,8 @@
 !main.py
 !router.py
 !consumer.py
-!curl.txt
-!test.py
+
+# misc
 !requirements.txt
 !Dockerfile
 !readme.md

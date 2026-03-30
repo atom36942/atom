@@ -17,7 +17,7 @@ config_kafka_url=None
 config_kafka_username=None
 config_kafka_password=None
 config_kafka_group_id="group_1"
-config_kafka_enable_auto_commit=True
+config_is_kafka_auto_commit=1
 config_kafka_consumer_batch=100
 
 #token
@@ -63,7 +63,7 @@ config_sftp_key_path=None
 config_cors_origin=['*']
 config_cors_method=['*']
 config_cors_headers=['*']
-config_cors_allow_credentials=False
+config_is_cors_allow_credentials=0
 
 #table
 config_table_create_my=['test', 'post', 'support', 'rating_test']
@@ -109,25 +109,25 @@ config_table={
 }
 
 config_api={
-"/admin/object-create":{"roles":["redis",[1]]},
-"/admin/object-update":{"roles":["redis",[1]]},
-"/admin/object-read":{"roles":["cache",[1]]},
-"/admin/ids-delete":{"roles":["realtime",[1]]},
-"/admin/postgres-init":{"roles":["realtime",[1]]},
-"/admin/sync":{"roles":["realtime",[1]]},
-"/admin/postgres-runner":{"roles":["realtime",[1]]},
-"/admin/postgres-export":{"roles":["cache",[1]]},
-"/admin/postgres-import":{"roles":["realtime",[1]]},
-"/admin/redis-import":{"roles":["redis",[1]]},
-"/admin/mongodb-import":{"roles":["redis",[1]]},
-"/admin/s3-bucket-ops":{"roles":["token",[1]]},
-"/admin/s3-url-delete":{"roles":["token",[1]]},
-"/test":{"is_active_check":["token", 1],"cache_sec":["redis",0],"ratelimiter_times_sec":["inmemory",10,3]},
-"/public/object-read":{"cache_sec":["inmemory",60]},
-"/my/profile":{"cache_sec":["inmemory",10]},
-"/my/object-read":{"cache_sec":["inmemory",60]},
-"/":{"cache_sec":["inmemory",10]},
-"/public/table-tag-read":{"cache_sec":["redis",10]},
+"/admin/object-create":{"user_role_check":["redis",[1]]},
+"/admin/object-update":{"user_role_check":["redis",[1]]},
+"/admin/object-read":{"user_role_check":["cache",[1]]},
+"/admin/ids-delete":{"user_role_check":["realtime",[1]]},
+"/admin/postgres-init":{"user_role_check":["realtime",[1]]},
+"/admin/sync":{"user_role_check":["realtime",[1]]},
+"/admin/postgres-runner":{"user_role_check":["realtime",[1]]},
+"/admin/postgres-export":{"user_role_check":["cache",[1]]},
+"/admin/postgres-import":{"user_role_check":["realtime",[1]]},
+"/admin/redis-import":{"user_role_check":["redis",[1]]},
+"/admin/mongodb-import":{"user_role_check":["redis",[1]]},
+"/admin/s3-bucket-ops":{"user_role_check":["token",[1]]},
+"/admin/s3-url-delete":{"user_role_check":["token",[1]]},
+"/test":{"user_is_active_check":["token", 1],"api_cache_sec":["redis",0],"api_ratelimiting_times_sec":["inmemory",10,3]},
+"/public/object-read":{"api_cache_sec":["inmemory",60]},
+"/my/profile":{"api_cache_sec":["inmemory",10]},
+"/my/object-read":{"api_cache_sec":["inmemory",60]},
+"/":{"api_cache_sec":["inmemory",10]},
+"/public/table-tag-read":{"api_cache_sec":["redis",10]},
 }
 
 config_postgres={
