@@ -211,8 +211,9 @@ def func_openapi_spec_generate(app_routes: list) -> dict:
             path_parts = path.split('/')
             tag = path_parts[1] if len(path_parts) > 1 and path_parts[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
-            if any(path.startswith(x) for x in ["/my/", "/private/", "/admin/"]):
+            if any(path.startswith(x) for x in ["/root", "/my/", "/private/", "/admin/"]):
                 op["security"] = [{"BearerAuth": []}]
+                op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
             for p in re.findall(r"\{(\w+)\}", path):
                 op["parameters"].append({"name": p, "in": "path", "required": True, "schema": {"type": "string"}})
             try:
@@ -234,39 +235,57 @@ def func_openapi_spec_generate(app_routes: list) -> dict:
                     op["parameters"].append(param_def)
                 source = inspect.getsource(route.endpoint)
                 tree = ast.parse(source)
+                def eval_node(n):
+                   if hasattr(ast, "Constant") and isinstance(n, ast.Constant): return n.value
+                   if hasattr(ast, "Str") and isinstance(n, ast.Str): return n.s
+                   if hasattr(ast, "Bytes") and isinstance(n, ast.Bytes): return n.s
+                   if hasattr(ast, "Num") and isinstance(n, ast.Num): return n.n
+                   if hasattr(ast, "NameConstant") and isinstance(n, ast.NameConstant): return n.value
+                   if isinstance(n, ast.List): return [eval_node(e) for e in n.elts]
+                   if isinstance(n, ast.Tuple): return tuple(eval_node(e) for e in n.elts)
+                   return None
                 for node in ast.walk(tree):
                     if not isinstance(node, ast.Call): continue
-                    is_func_read = (getattr(node.func, "id", None) == "func_request_param_read" or (isinstance(node.func, ast.Name) and node.func.id == "func_request_param_read"))
-                    if not is_func_read: continue
+                    func_id = getattr(node.func, "id", None)
+                    if not func_id: func_id = getattr(node.func, "attr", None)
+                    if func_id != "func_request_param_read": continue
                     try:
-                        p_loc = node.args[0].value if hasattr(node.args[0], "value") else node.args[0].s
-                        p_list = ast.literal_eval(node.args[2])
-                        if p_loc in ["header", "query"]:
+                        p_loc = eval_node(node.args[0])
+                        p_list = eval_node(node.args[2])
+                        if p_list is not None and p_loc in ["header", "query"]:
                             for p in p_list:
+                                if not p or not isinstance(p, (list, tuple)) or len(p) < 1: continue
                                 op["parameters"] = [x for x in op["parameters"] if x["name"] != p[0]]
                                 op["parameters"].append({
                                     "name": p[0],
                                     "in": p_loc,
-                                    "required": bool(p[2]),
+                                    "required": bool(p[2]) if len(p) > 2 else False,
                                     "schema": {
-                                        "type": "integer" if p[1] == "int" else "string",
-                                        "default": p[3],
-                                        "enum": p[4] if p[4] else None
+                                        "type": "integer" if len(p) > 1 and (p[1] == "int" or p[1] == "bigint" or p[1] == "smallint") else "string",
+                                        "default": p[3] if len(p) > 3 else None,
+                                        "enum": p[4] if len(p) > 4 and isinstance(p[4], (list, tuple)) else None
                                     }
                                 })
-                        elif p_loc in ["body", "form"]:
+                        elif p_list is not None and p_loc in ["body", "form"]:
                             media_type = "application/json" if p_loc == "body" else "multipart/form-data"
                             if "requestBody" not in op:
-                                op["requestBody"] = {"content": {media_type: {"schema": {"type": "object", "properties": {}}}}}
-                            props = op["requestBody"]["content"][media_type]["schema"]["properties"]
-                            for p in p_list:
-                                props[p[0]] = {
-                                    "type": "integer" if p[1] == "int" else "string",
-                                    "default": p[3],
-                                    "enum": p[4] if p[4] else None
-                                }
+                                op["requestBody"] = {"content": {media_type: {"schema": {"type": "object"}}}}
+                            if p_list:
+                                if "properties" not in op["requestBody"]["content"][media_type]["schema"]:
+                                    op["requestBody"]["content"][media_type]["schema"]["properties"] = {}
+                                props = op["requestBody"]["content"][media_type]["schema"]["properties"]
+                                for p in p_list:
+                                    if not p or not isinstance(p, (list, tuple)) or len(p) < 1: continue
+                                    props[p[0]] = {
+                                        "type": "integer" if len(p) > 1 and (p[1] == "int" or p[1] == "bigint" or p[1] == "smallint") else "string",
+                                        "default": p[3] if len(p) > 3 else None,
+                                        "enum": p[4] if len(p) > 4 and isinstance(p[4], (list, tuple)) else None
+                                    }
+                                    if len(p) > 1 and p[1] == "file":
+                                        props[p[0]]["format"] = "binary"
                     except: pass
             except: pass
+
             spec["paths"][path][m_lower] = op
     return spec
 
@@ -1229,9 +1248,9 @@ async def func_token_encode(user_obj: dict, jwt_secret_key: str, token_expiry_se
     return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": token_expiry_sec, "token_refresh_expiry_sec": token_refresh_expiry_sec}
 
 def func_fastapi_app_read(lifespan_handler: any, is_debug_mode: int) -> any:
-    """Initialize a FastAPI application with debug mode and lifespan handler."""
+    """Initialize a FastAPI application with debug mode and lifespan handler, disabling default OpenAPI routes."""
     from fastapi import FastAPI
-    return FastAPI(debug=bool(is_debug_mode), lifespan=lifespan_handler)
+    return FastAPI(debug=bool(is_debug_mode), lifespan=lifespan_handler, openapi_url=None, docs_url=None, redoc_url=None)
 
 async def func_server_start(fastapi_app: any) -> None:
     """Start the Uvicorn server for the FastAPI application."""

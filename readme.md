@@ -46,96 +46,6 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>api caching</summary>
-
-Configured per route in `config_api` inside `config.py`.
-
-- **Field**: `api_cache_sec`
-- **Format**: `["mode", seconds]`
-- **Modes**:
-  - `inmemory`: fast, non-persistent, local node only
-  - `redis`: shared across instances, requires `config_redis_url`
-  
-Example:
-```python
-"/my/profile": {"api_cache_sec": ["inmemory", 60]}
-"/public/posts": {"api_cache_sec": ["redis", 3600]}
-```
-</details>
-
-<details>
-<summary>ratelimiting</summary>
-
-Configured per route in `config_api` inside `config.py`.
-
-- **Field**: `api_ratelimiting_times_sec`
-- **Format**: `["mode", limit, window_seconds]`
-- **Modes**:
-  - `inmemory`: local window per instance
-  - `redis`: global window across instances, requires `config_redis_url_ratelimiter`
-
-Example:
-```python
-"/test": {"api_ratelimiting_times_sec": ["inmemory", 10, 60]} # 10 requests per 60s
-"/auth/login": {"api_ratelimiting_times_sec": ["redis", 5, 1]}  # 5 requests per 1s
-```
-</details>
-
-<details>
-<summary>user active check</summary>
-
-Configures how user activity status is verified on each request to determine if they can access an API. This checks the `is_active` column in the `users` table.
-
-- **Field**: `user_is_active_check` (configured per route in `config_api`)
-- **Format**: `["mode", 1]` (where 1 enables the check)
-- **Modes**:
-  - `token`: Read `is_active` directly from JWT payload (fastest)
-  - `inmemory`: Check against memory-cached status (balanced)
-  - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
-  - `realtime`: Query PostgreSQL on every request (most accurate)
-
-> [!NOTE]
-> `inmemory` mode uses `cache_users_is_active` populated at application startup.
-</details>
-
-<details>
-<summary>admin role check</summary>
-
-Configures how administrative roles are verified for `/admin` routes.
-
-- **Field**: `user_role_check` (configured per route in `config_api`)
-- **Format**: `["mode", [allowed_roles]]`
-- **Modes**:
-  - `token`: Read `role` directly from JWT payload (fastest)
-  - `inmemory`: Check against memory-cached roles (balanced)
-  - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
-  - `realtime`: Query PostgreSQL on every request (most accurate)
-
-> [!NOTE]
-> `inmemory` mode uses `cache_users_role` populated at application startup.
-</details>
-
-<details>
-<summary>rbac roles</summary>
-
-Access control is defined per route in `config_api` inside `config.py`.
-
-- **Field**: `user_role_check`
-- **Format**: `["mode", [role_id_1, role_id_2, ...]]`
-- **Logic**: If the user's `role` (from token/DB) is not in this list, access is denied.
-
-Example:
-```python
-"/admin/sync": {"user_role_check": ["realtime", [1]]} # Only Admin (Role 1), Realtime DB check
-"/test": {"user_role_check": ["token", [1, 2, 3]]} # Admin, Manager, User, JWT-based role
-```
-
-> [!TIP]
-> Use `user_role_check` instead of boolean flags for more granular control over multi-tenant or multi-tier access.
-</details>
-
-
-<details>
 <summary>authentication</summary>
 
 ```python
@@ -170,4 +80,93 @@ async def func_api_test(request: Request):
 # Example curl with token
 curl -H "Authorization: Bearer <your_jwt>" http://127.0.0.1:8000/my/secure
 ```
+</details>
+
+<details>
+<summary>ratelimiting</summary>
+
+Configured per route in `config_api` inside `config.py`.
+
+- **Field**: `api_ratelimiting_times_sec`
+- **Format**: `["mode", limit, window_seconds]`
+- **Modes**:
+  - `inmemory`: local window per instance
+  - `redis`: global window across instances, requires `config_redis_url_ratelimiter`
+
+Example:
+```python
+"/test": {"api_ratelimiting_times_sec": ["inmemory", 10, 60]} # 10 requests per 60s
+"/auth/login": {"api_ratelimiting_times_sec": ["redis", 5, 1]}  # 5 requests per 1s
+```
+</details>
+
+<details>
+<summary>api caching</summary>
+
+Configured per route in `config_api` inside `config.py`.
+
+- **Field**: `api_cache_sec`
+- **Format**: `["mode", seconds]`
+- **Modes**:
+  - `inmemory`: fast, non-persistent, local node only
+  - `redis`: shared across instances, requires `config_redis_url`
+  
+Example:
+```python
+"/my/profile": {"api_cache_sec": ["inmemory", 60]}
+"/public/posts": {"api_cache_sec": ["redis", 3600]}
+```
+</details>
+
+<details>
+<summary>rbac roles</summary>
+
+Access control is defined per route in `config_api` inside `config.py`.
+
+- **Field**: `user_role_check`
+- **Format**: `["mode", [role_id_1, role_id_2, ...]]`
+- **Logic**: If the user's `role` (from token/DB) is not in this list, access is denied.
+
+Example:
+```python
+"/admin/sync": {"user_role_check": ["realtime", [1]]} # Only Admin (Role 1), Realtime DB check
+"/test": {"user_role_check": ["token", [1, 2, 3]]} # Admin, Manager, User, JWT-based role
+```
+
+> [!TIP]
+> Use `user_role_check` instead of boolean flags for more granular control over multi-tenant or multi-tier access.
+</details>
+
+<details>
+<summary>user active check</summary>
+
+Configures how user activity status is verified on each request to determine if they can access an API. This checks the `is_active` column in the `users` table.
+
+- **Field**: `user_is_active_check` (configured per route in `config_api`)
+- **Format**: `["mode", 1]` (where 1 enables the check)
+- **Modes**:
+  - `token`: Read `is_active` directly from JWT payload (fastest)
+  - `inmemory`: Check against memory-cached status (balanced)
+  - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
+  - `realtime`: Query PostgreSQL on every request (most accurate)
+
+> [!NOTE]
+> `inmemory` mode uses `cache_users_is_active` populated at application startup.
+</details>
+
+<details>
+<summary>admin role check</summary>
+
+Configures how administrative roles are verified for `/admin` routes.
+
+- **Field**: `user_role_check` (configured per route in `config_api`)
+- **Format**: `["mode", [allowed_roles]]`
+- **Modes**:
+  - `token`: Read `role` directly from JWT payload (fastest)
+  - `inmemory`: Check against memory-cached roles (balanced)
+  - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
+  - `realtime`: Query PostgreSQL on every request (most accurate)
+
+> [!NOTE]
+> `inmemory` mode uses `cache_users_role` populated at application startup.
 </details>

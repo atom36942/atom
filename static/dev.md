@@ -55,6 +55,7 @@ psql postgres
 \x off
 psql postgres -c "\du"
 psql postgres -c "\l"
+\c snp;
 ```
 
 ### psql user setup
@@ -67,12 +68,6 @@ psql -U user_1 -d db_1
 postgresql://user_1:123@127.0.0.1/db_1
 ```
 
-### reset postgres
-```bash
-drop schema if exists public cascade;
-create schema if not exists public;
-```
-
 ### exim postgres
 ```bash
 \copy test to 'tmp/file.csv' csv header;
@@ -80,23 +75,12 @@ create schema if not exists public;
 \copy test(title,type,rating) from 'file.csv' delimiter ',' csv header;
 ```
 
-### func/trigger
+### zzz
 ```bash
-SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.proname LIKE 'func_%' ORDER BY p.proname;
-SELECT trigger_name FROM information_schema.triggers WHERE trigger_name LIKE 'trigger_%' UNION ALL SELECT evtname FROM pg_event_trigger WHERE evtname LIKE 'trigger_%' ORDER BY 1;
-```
-
-### p95
-```bash
-SELECT api, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms)) AS p95_response_time FROM log_api WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' GROUP BY api ORDER BY p95_response_time DESC;
-```
-
-### stop python
-```bash
+drop schema if exists public cascade;
+create schema if not exists public;
 lsof -ti :8000 | xargs kill -9
-```
-
-### uuid without dash
-```bash
 uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-'
+head -n 2 snp2.csv
+pgweb --url "postgresql://atom@127.0.0.1/postgres?sslmode=disable"
 ```

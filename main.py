@@ -39,7 +39,7 @@ async def func_lifespan(app:FastAPI):
   #app shutdown
    yield
    await func_postgres_obj_create(client_postgres_pool, func_postgres_obj_serialize, None, None, "flush")
-   if config_is_reset_export_folder == 1:func_folder_reset("tmp")
+   if config_is_reset_tmp == 1:func_folder_reset("tmp")
    await client_http.aclose()
    if client_postgres_pool:await client_postgres_pool.close()
    if client_redis:await client_redis.aclose()

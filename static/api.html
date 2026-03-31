@@ -113,6 +113,7 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
             <button type="button" class="icon-btn" title="Close" onclick="$('apiInfoModal').style.display='none'"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
     </div>
+    <div style="margin-bottom:16px"><input type="text" id="apiInfoSearch" placeholder="Search API Paths..." style="padding:10px;font-size:13px;background:rgba(255,255,255,0.03)"></div>
     <div class="resp-tbl-wrap" style="max-height:450px"><table class="resp-tbl" id="apiInfoTbl" style="table-layout:auto"></table></div>
 </div></div>
 
@@ -249,6 +250,8 @@ async function init() {
             });
           }
         }
+        cmd._hj = cmd.j.length > 0 || (bodyContent && bodyContent['application/json']);
+        cmd._hf = cmd.f.length > 0 || (bodyContent && bodyContent['multipart/form-data']);
         COMMANDS.push(cmd);
       });
     });
@@ -324,10 +327,10 @@ const load = i => {
       mkRow($('hCont'), x.k, val);
     });
   }
-  if(curr.q && curr.q.length) { $('qSec').classList.add('active'); curr.q.forEach(x => mkRow($('qCont'), x.k, x.v)) }
-  if (curr.f && curr.f.length) { $('fSec').classList.add('active'); curr.f.forEach(x => mkRow($('fCont'), x.k, x.v)) }
+  if (curr.q && curr.q.length) { $('qSec').classList.add('active'); curr.q.forEach(x => mkRow($('qCont'), x.k, x.v)) }
+  if (curr._hf) { $('fSec').classList.add('active'); curr.f.forEach(x => mkRow($('fCont'), x.k, x.v)) }
   if (curr.u && curr.u.length) { $('uSec').classList.add('active'); curr.u.forEach(x => mkRow($('uCont'), x.k, x.v)) }
-  if (curr.j && curr.j.length) { $('jSec').classList.add('active'); curr.j.forEach(x => mkRow($('jCont'), x.k, x.v, x.t)) }
+  if (curr._hj) { $('jSec').classList.add('active'); curr.j.forEach(x => mkRow($('jCont'), x.k, x.v, x.t )) }
   $('clrSel').style.display = 'block';
 };
 
@@ -364,17 +367,21 @@ const saveLs = () => {
 /* ── Event wiring ── */
 $('lsBtn').onclick = () => { showModal('lsModal'); renderLs() };
 
-const renderApiInfoTable = () => {
-  $('apiTotal').textContent = `(${COMMANDS.length})`;
+const renderApiInfoTable = (searchQuery = '') => {
+  const filtered = searchQuery ? COMMANDS.filter(c => c.p.toLowerCase().includes(searchQuery.toLowerCase())) : COMMANDS;
+  $('apiTotal').textContent = `(${filtered.length}/${COMMANDS.length})`;
   const ix = 'style="width:25px;min-width:25px;text-align:center"',
     sm = 'style="width:50px;min-width:50px;text-align:center"',
     xs = 'style="width:35px;min-width:35px;text-align:center"';
   $('apiInfoTbl').innerHTML =
     `<thead><tr><th ${ix}>#</th><th>Path</th><th ${sm}>Method</th><th ${xs}>Token</th><th ${xs}>Query</th><th ${xs}>File</th><th ${xs}>Body</th><th ${xs}>Run</th><th ${xs}>Curl</th></tr></thead>` +
-    `<tbody>${COMMANDS.map((c, i) =>
-      `<tr style="cursor:pointer" data-i="${i}"><td ${ix}>${i + 1}</td><td style="white-space:nowrap;min-width:auto">${c.p}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td ${xs}>${getIcon(c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c.f)}</td><td ${xs}>${getIcon(c.j)}</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td><td ${xs} class="curl-btn" title="Copy Curl">${ICON.copy(16)}</td></tr>`
-    ).join('')}</tbody>`;
+    `<tbody>${filtered.map((c, i) => {
+      const globalIndex = COMMANDS.indexOf(c);
+      return `<tr style="cursor:pointer" data-i="${globalIndex}"><td ${ix}>${globalIndex + 1}</td><td style="white-space:nowrap;min-width:auto">${c.p}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td ${xs}>${getIcon(c.h.length > 0 || c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c._hf)}</td><td ${xs}>${getIcon(c._hj)}</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td><td ${xs} class="curl-btn" title="Copy Curl">${ICON.copy(16)}</td></tr>`;
+    }).join('')}</tbody>`;
 };
+
+$('apiInfoSearch').oninput = e => renderApiInfoTable(e.target.value);
 
 $('apiInfoBtn').onclick = () => {
   renderApiInfoTable();
