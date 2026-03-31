@@ -12,7 +12,7 @@
 
 ###repo map
 * `tmp/`: Runtime dumps & temp storage (Rule 5); auto-created by `main.py`.
-* `script/`: Standalone utility scripts (non-API context).
+* `script/`: Standalone utility apps/scripts; must include app.py, Procfile, and requirements.txt if a fastapi app folder.
 * `secret/`: Sensitive data; holds certs and keys.
 * `static/`: Assets served at `/static`;
 * `venv/`: Python virtual environment.
@@ -31,12 +31,11 @@
 
 ###api workflow
 1. `router.py`: Add route with correct prefix:
-   * `admin/`: RBAC via strict `config_api.user_role_check`: `["mode", [1]]` (modes: `realtime`, `redis`, `cache`, `token`).
    * `auth/`: Auth operations (Login/Signup).
    * `my/`: Auth required + access `request.state.user`.
    * `public/`: No token required (Open access).
    * `private/`: Token required.
-   * `user_is_active_check`: Strict format `["mode", 1]` required if enabled.
+   * `admin/`: RBAC via strict `config_api.user_role_check`: `["mode", [1]]` (modes: `realtime`, `redis`, `cache`, `token`).
 2. `function.py`: Core logic as pure func (use local imports).
 3. `config.py`: Add required `config_` vars.
 4. `main.py`: Init `client_` in lifespan; access via `request.state`.
