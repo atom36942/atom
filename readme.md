@@ -11,7 +11,7 @@
 </details>
 
 <details>
-<summary>how to setup directly</summary>
+<summary>setup</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -26,7 +26,7 @@ rm -rf venv
 </details>
 
 <details>
-<summary>how to setup with docker</summary>
+<summary>setup with docker</summary>
 
 ```bash
 docker build -t atom .
@@ -35,7 +35,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>how to run consumer workers</summary>
+<summary>consumers</summary>
 
 ```bash
 ./venv/bin/python consumer.py celery
@@ -46,7 +46,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>how to enable api caching</summary>
+<summary>api caching</summary>
 
 Configured per route in `config_api` inside `config.py`.
 
@@ -64,7 +64,7 @@ Example:
 </details>
 
 <details>
-<summary>how to configure rate limiting</summary>
+<summary>ratelimiting</summary>
 
 Configured per route in `config_api` inside `config.py`.
 
@@ -82,7 +82,7 @@ Example:
 </details>
 
 <details>
-<summary>how to set user active check mode</summary>
+<summary>user active check</summary>
 
 Configures how user activity status is verified on each request to determine if they can access an API. This checks the `is_active` column in the `users` table.
 
@@ -99,7 +99,7 @@ Configures how user activity status is verified on each request to determine if 
 </details>
 
 <details>
-<summary>how to set admin role check mode</summary>
+<summary>admin role check</summary>
 
 Configures how administrative roles are verified for `/admin` routes.
 
@@ -116,7 +116,7 @@ Configures how administrative roles are verified for `/admin` routes.
 </details>
 
 <details>
-<summary>how to configure rbac roles</summary>
+<summary>rbac roles</summary>
 
 Access control is defined per route in `config_api` inside `config.py`.
 
@@ -136,7 +136,7 @@ Example:
 
 
 <details>
-<summary>how to make an api authenticated</summary>
+<summary>authentication</summary>
 
 ```python
 @router.get("/my/secure")
