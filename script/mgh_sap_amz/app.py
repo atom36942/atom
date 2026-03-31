@@ -190,4 +190,4 @@ async def api_mgh_amazon_invoice_send(request:Request):
 
 #app start
 if __name__=="__main__":
-    uvicorn.run("mgh_sap_amz:app",host="0.0.0.0",port=8001,reload=True)
+    uvicorn.run("app:app",host="0.0.0.0",port=8001,reload=True)

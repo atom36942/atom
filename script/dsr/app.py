@@ -60,6 +60,10 @@ def process_eml_bytes(eml_bytes: bytes) -> bytes:
 
     return df.to_csv(index=False).encode()
 
+@app.get("/")
+def health():
+    return {"status": "ok"}
+
 @app.post("/process")
 async def process(file: UploadFile):
     try:
