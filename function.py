@@ -1254,8 +1254,8 @@ def func_fastapi_app_read(lifespan_handler: any, is_debug_mode: int) -> any:
 
 async def func_server_start(fastapi_app: any) -> None:
     """Start the Uvicorn server for the FastAPI application."""
-    import uvicorn
-    server_config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=8000, log_level="info")
+    import uvicorn, os
+    server_config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)), log_level="info")
     await uvicorn.Server(server_config).serve()
 
 def func_app_add_cors(fastapi_app: any, origins: list, methods: list, headers: list, is_allow_credentials: int) -> None:
