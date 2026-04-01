@@ -7,7 +7,8 @@ import asyncpg
 import asyncssh
 import uvicorn
 import copy
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -25,7 +26,7 @@ config_export_prefix="tmp/mgh_amazon_"
 config_table_name="mgh_amazon_invoice"
 config_token_url="https://sendstack-prod-token.auth.us-east-1.amazoncognito.com/oauth2/token"
 config_api_url="https://prod.send.irisapi.iris.ctt.amazon.dev/sendInvoiceDocument"
-config_cert_files=("secret/mgh_amazon_cert.txt","secret/mgh_amazon_key.key")
+config_cert_files=("./amz_cert.txt","./amz_key.key")
 config_sftp_path="mgh/amazon"
 config_payload_amazon_invoice={
     "invoiceDocument":{
@@ -39,7 +40,7 @@ config_payload_amazon_invoice={
             "supplier":{"legalEntity":{"addresses":[{"addressee":"MGH LOGISTICS PRIVATE LIMITED","addressLine1":"Unit No. 1107, 11th Floor, E-Wing, Times Square","addressLine2":"CTS No. 758/759, Marol, Mittal Industrial Estate","addressLine3":"Andheri East","municipalityName":"Mumbai","cityName":"Mumbai","stateName":"MH","countryName":"India","countryCode":"IN","postalCode":"400059"}],"taxIdentities":[{"taxIdentityNumber":"27AAECM2361B1ZW","taxIdentityType":"VAT"}],"legalEntityName":"MGH LOGISTICS PRIVATE LIMITED","businessName":"MGH LOGISTICS PRIVATE LIMITED"}},
             "billTo":{"legalEntity":{"addresses":[{"addressee":"Amazon Logistics, Inc.","addressLine1":"410 Terry Ave N","addressLine2":"Floor 5","addressLine3":"South Lake Union","municipalityName":"Seattle","cityName":"Seattle","stateName":"WA","countryName":"United States","countryCode":"US","postalCode":"98109"}],"taxIdentities":[{"taxIdentityNumber":"32-0765633","taxIdentityType":"VAT"}],"legalEntityName":"Amazon.com Services LLC","businessName":"Amazon AP"}},
             "billFrom":{"legalEntity":{"addresses":[{"addressee":"MGH LOGISTICS INC","addressLine1":"67 WALNUT AVE","addressLine2":"SUITE 301","addressLine3":"NA","municipalityName":"CLARK","cityName":"CLARK","stateName":"NJ","countryName":"United States","countryCode":"US","postalCode":"07066"}],"taxIdentities":[{"taxIdentityNumber":"32-0765633","taxIdentityType":"VAT"}],"legalEntityName":"MGH LOGISTICS INC","businessName":"MGH LOGISTICS"}},
-            "documentTypeInfo":{"documentType":"INVOICE","requestForPayment":True}
+            "documentTypeInfo":{"documentType":"INVOICE","requestForPayment":1}
         },
         "invoiceLineItems":[{
             "lineItemId":"1","description":"","lineItemRequisitionIdentifierInfo":{"primaryRefId":{"extensions":[{"trackingId":""}]}},
@@ -162,10 +163,19 @@ async def func_lifespan(app:FastAPI):
     await app.state.client_http.aclose()
     await app.state.client_postgres_pool.close()
 
-#fastapi app
+#app
 app=FastAPI(lifespan=func_lifespan)
 
+#middleware
+@app.exception_handler(Exception)
+async def exception_handler(request:Request,exc:Exception):
+    return JSONResponse(status_code=500,content={"status":0,"message":str(exc)})
+
 #api
+@app.get("/")
+async def api_health(request:Request):
+    return {"status":1,"message":"mgh_amazon_invoice_processor"}
+
 @app.get("/mgh/amazon-invoice-send")
 async def api_mgh_amazon_invoice_send(request:Request):
     state=request.app.state
@@ -190,4 +200,4 @@ async def api_mgh_amazon_invoice_send(request:Request):
 
 #app start
 if __name__=="__main__":
-    uvicorn.run("app:app",host="0.0.0.0",port=8001,reload=True)
+    uvicorn.run("app:app",host="0.0.0.0",port=int(os.getenv("PORT",8001)),reload=True)
