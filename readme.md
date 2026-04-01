@@ -43,6 +43,7 @@ docker run --rm -p 8000:8000 atom
 ./venv/bin/python consumer.py redis
 ./venv/bin/python consumer.py kafka
 ```
+</details>
 
 <details>
 <summary>api controls</summary>
