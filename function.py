@@ -1112,7 +1112,7 @@ async def func_check_ratelimiter(redis_client: any, config_api: dict, url_path: 
         raise Exception("invalid ratelimiter mode")
     return None
 
-async def func_check_is_active(user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
+async def func_check_is_active(user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict, redis_cache_ttl: int) -> None:
     """Check if the user is active using a strictly configured mode from api_config."""
     cfg = api_config.get(url_path, {}).get("user_is_active_check")
     if not cfg or not user_dict: return None
@@ -1129,7 +1129,7 @@ async def func_check_is_active(user_dict: dict, url_path: str, api_config: dict,
         if cached_val is not None: active_status = int(cached_val)
         else:
             active_status = await fetch_is_active(user_dict["id"])
-            await redis_client.setex(cache_key, 3600, str(active_status))
+            await redis_client.setex(cache_key, redis_cache_ttl, str(active_status))
     elif mode == "realtime": active_status = await fetch_is_active(user_dict["id"])
     elif mode == "inmemory":
         active_status = cache_map.get(user_dict["id"])
@@ -1139,7 +1139,7 @@ async def func_check_is_active(user_dict: dict, url_path: str, api_config: dict,
     if active_status == "absent": raise Exception("missing is_active")
     if active_status == 0: raise Exception("user not active")
 
-async def func_check_admin(user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict) -> None:
+async def func_check_admin(user_dict: dict, url_path: str, api_config: dict, postgres_pool: any, redis_client: any, cache_map: dict, redis_cache_ttl: int) -> None:
     """Ensure sufficient roles to access admin endpoints using a strictly configured mode from api_config."""
     if not url_path.startswith("/admin") or not (cfg := api_config.get(url_path)) or "user_role_check" not in cfg: return None
     mode, roles = cfg["user_role_check"][0], set(cfg["user_role_check"][1])
@@ -1154,7 +1154,7 @@ async def func_check_admin(user_dict: dict, url_path: str, api_config: dict, pos
         if cached_val is not None: user_role = int(cached_val)
         else:
             user_role = await fetch_role(user_dict["id"])
-            await redis_client.setex(cache_key, 3600, str(user_role if user_role is not None else ""))
+            await redis_client.setex(cache_key, redis_cache_ttl, str(user_role if user_role is not None else ""))
     elif mode == "realtime": user_role = await fetch_role(user_dict["id"])
     elif mode == "inmemory":
         user_role = cache_map.get(user_dict["id"])
@@ -1571,19 +1571,22 @@ async def func_mongodb_object_create(mongo_client: any, db_name: str, collection
 
 def func_jira_worklog_export(jira_url: str, email_address: str, api_token: str, start_date: str = None, end_date: str = None, output_path: str = None) -> str:
     """Export Jira worklogs for a specific period to a CSV file."""
-    from jira import JIRA; from pathlib import Path; import pandas as pd, uuid, calendar; from datetime import date
-    output_path = output_path or f"tmp/{uuid.uuid4().hex}.csv"; Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    current_date = date.today(); start_date = start_date or current_date.replace(day=1).strftime("%Y-%m-%d"); end_date = end_date or current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1]).strftime("%Y-%m-%d")
-    jira_client, log_rows, assignees = JIRA(server=jira_url, basic_auth=(email_address, api_token)), [], set()
-    issues = jira_client.search_issues(f"worklogDate >= {start_date} AND worklogDate <= {end_date}", maxResults=0, expand="worklog")
-    for issue in issues:
-        if issue.fields.assignee: assignees.add(issue.fields.assignee.displayName)
-        for worklog in issue.fields.worklog.worklogs:
-            started_at = worklog.started[:10]
-            if start_date <= started_at <= end_date: log_rows.append((worklog.author.displayName, started_at, worklog.timeSpentSeconds / 3600))
-    df = pd.DataFrame(log_rows, columns=["author", "date", "hours"]); pivot = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(list(assignees), fill_value=0).round(0).astype(int); pivot.to_csv(output_path); return output_path
+    try:
+        from jira import JIRA; from pathlib import Path; import pandas as pd, uuid, calendar; from datetime import date
+        output_path = output_path or f"tmp/{uuid.uuid4().hex}.csv"; Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        current_date = date.today(); start_date = start_date or current_date.replace(day=1).strftime("%Y-%m-%d"); end_date = end_date or current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1]).strftime("%Y-%m-%d")
+        jira_client, log_rows, assignees = JIRA(server=jira_url, basic_auth=(email_address, api_token)), [], set()
+        issues = jira_client.search_issues(f"worklogDate >= {start_date} AND worklogDate <= {end_date}", maxResults=1000, expand="worklog")
+        for issue in issues:
+            if getattr(issue.fields, "assignee", None): assignees.add(issue.fields.assignee.displayName)
+            for worklog in getattr(getattr(issue.fields, "worklog", None), "worklogs", []):
+                started_at = worklog.started[:10]
+                if start_date <= started_at <= end_date: log_rows.append((worklog.author.displayName, started_at, worklog.timeSpentSeconds / 3600))
+        df = pd.DataFrame(log_rows, columns=["author", "date", "hours"]); pivot = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(list(assignees), fill_value=0).round(0).astype(int) if not df.empty else df; pivot.to_csv(output_path); return output_path
+    except Exception as e: raise Exception(f"jira config exception: {str(e)}")
 
 #utils & converters
+
 def func_folder_reset(folder_path: str) -> str:
     """Purge all files and subdirectories within a specified directory."""
     import os, shutil

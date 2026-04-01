@@ -43,130 +43,53 @@ docker run --rm -p 8000:8000 atom
 ./venv/bin/python consumer.py redis
 ./venv/bin/python consumer.py kafka
 ```
+
+<details>
+<summary>api controls</summary>
+
+### Configuring `config_api`
+API behaviors like authentication, caching, and rate limiting are controlled per-route in the `config_api` dictionary.
+
+| Setting Name | Modes Available | TTL / Parameter Source | Execution Logic |
+| :--- | :--- | :--- | :--- |
+| `user_is_active_check` | `redis`, `realtime`, `inmemory`, `token` | `config_redis_cache_ttl_sec` | Verifies `is_active=1` |
+| `user_role_check` | `redis`, `realtime`, `inmemory`, `token` | `config_redis_cache_ttl_sec` | Matches IDs in list (e.g. `[1, 2]`) |
+| `api_cache_sec` | `redis`, `inmemory` | Inbuilt (e.g. `["redis", 60]`) | Full Response Gzip/Base64 |
+| `api_ratelimiting_times_sec` | `redis`, `inmemory` | Inbuilt (e.g. `["inmemory", 3, 10]`) | Sliding Window Counter |
+
+### Mode Definitions
+- **`redis`**: Distributed state via Redis keys.
+- **`inmemory`**: Local state via `app.state` dictionaries.
+- **`realtime`**: Live PostgreSQL queries for zero stale data.
+
 </details>
 
 <details>
 <summary>authentication</summary>
 
+### Route Protection
+The framework enforces authentication automatically based on a unified path prefix system.
+
+| Prefix Path | Requirement | Behavior |
+| :--- | :--- | :--- |
+| `/auth/` | Public | Open for login, signup, and OTP flows. |
+| `/public/` | Public | Unprotected data endpoints for general access. |
+| `/` | Public | General root or marketing endpoints. |
+| `/my/` | **Protected** | Strictly requires a valid `Bearer` token. |
+| `/private/` | **Protected** | Strictly requires a valid `Bearer` token. |
+| `/admin/` | **Role-Based** | Requires token **AND** matching role in `config_api`. |
+
+### Manual Enforcement
+For any public route where you want to selectively verify a user, check the `request.state.user` dictionary:
+
 ```python
-@router.get("/my/secure")
-async def func_api_secure(request: Request):
-    # Ensure a user is authenticated
-    if not request.state.user:
-        raise Exception("authorization token missing")
-    return {"status": 1, "message": "you are authorized"}
+# Force auth in a public route
+if not request.state.user:
+    raise Exception("unauthorized access")
 ```
 
-**Optional header read example**
+### Context Injection
+The `request.state.user` object is populated by the middleware using `func_authenticate`. It contains decoded JWT data (id, type, role, is_active) for use across any API function.
 
-```python
-@router.get("/test")
-async def func_api_test(request: Request):
-    # Header is optional; will raise if missing when mandatory flag is 1
-    obj_header = await func_request_param_read(
-        "header",
-        request,
-        [("authorization", "str", 0, None, None)]
-    )
-    token = obj_header.get("authorization")
-    # token will be raw "Bearer <jwt>" if supplied
-    return {"status": 1, "auth_provided": bool(token)}
-```
-
-> [!NOTE]
-> The middleware (`func_check_token`) runs before every request and populates `request.state.user` when a valid Bearer token is present. Public routes (`/test`, `/public/*`) will not raise an error if the token is absent.
-
-```bash
-# Example curl with token
-curl -H "Authorization: Bearer <your_jwt>" http://127.0.0.1:8000/my/secure
-```
 </details>
 
-<details>
-<summary>ratelimiting</summary>
-
-Configured per route in `config_api` inside `config.py`.
-
-- **Field**: `api_ratelimiting_times_sec`
-- **Format**: `["mode", limit, window_seconds]`
-- **Modes**:
-  - `inmemory`: local window per instance
-  - `redis`: global window across instances, requires `config_redis_url_ratelimiter`
-
-Example:
-```python
-"/test": {"api_ratelimiting_times_sec": ["inmemory", 10, 60]} # 10 requests per 60s
-"/auth/login": {"api_ratelimiting_times_sec": ["redis", 5, 1]}  # 5 requests per 1s
-```
-</details>
-
-<details>
-<summary>api caching</summary>
-
-Configured per route in `config_api` inside `config.py`.
-
-- **Field**: `api_cache_sec`
-- **Format**: `["mode", seconds]`
-- **Modes**:
-  - `inmemory`: fast, non-persistent, local node only
-  - `redis`: shared across instances, requires `config_redis_url`
-  
-Example:
-```python
-"/my/profile": {"api_cache_sec": ["inmemory", 60]}
-"/public/posts": {"api_cache_sec": ["redis", 3600]}
-```
-</details>
-
-<details>
-<summary>rbac roles</summary>
-
-Access control is defined per route in `config_api` inside `config.py`.
-
-- **Field**: `user_role_check`
-- **Format**: `["mode", [role_id_1, role_id_2, ...]]`
-- **Logic**: If the user's `role` (from token/DB) is not in this list, access is denied.
-
-Example:
-```python
-"/admin/sync": {"user_role_check": ["realtime", [1]]} # Only Admin (Role 1), Realtime DB check
-"/test": {"user_role_check": ["token", [1, 2, 3]]} # Admin, Manager, User, JWT-based role
-```
-
-> [!TIP]
-> Use `user_role_check` instead of boolean flags for more granular control over multi-tenant or multi-tier access.
-</details>
-
-<details>
-<summary>user active check</summary>
-
-Configures how user activity status is verified on each request to determine if they can access an API. This checks the `is_active` column in the `users` table.
-
-- **Field**: `user_is_active_check` (configured per route in `config_api`)
-- **Format**: `["mode", 1]` (where 1 enables the check)
-- **Modes**:
-  - `token`: Read `is_active` directly from JWT payload (fastest)
-  - `inmemory`: Check against memory-cached status (balanced)
-  - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
-  - `realtime`: Query PostgreSQL on every request (most accurate)
-
-> [!NOTE]
-> `inmemory` mode uses `cache_users_is_active` populated at application startup.
-</details>
-
-<details>
-<summary>admin role check</summary>
-
-Configures how administrative roles are verified for `/admin` routes.
-
-- **Field**: `user_role_check` (configured per route in `config_api`)
-- **Format**: `["mode", [allowed_roles]]`
-- **Modes**:
-  - `token`: Read `role` directly from JWT payload (fastest)
-  - `inmemory`: Check against memory-cached roles (balanced)
-  - `redis`: Check Redis cache with PostgreSQL fallback (distributed)
-  - `realtime`: Query PostgreSQL on every request (most accurate)
-
-> [!NOTE]
-> `inmemory` mode uses `cache_users_role` populated at application startup.
-</details>

@@ -6,6 +6,7 @@ config_postgres_max_connection=20
 #redis
 config_redis_url="redis://localhost:6379"
 config_redis_url_ratelimiter=config_redis_url
+config_redis_cache_ttl_sec=3600
 
 #queue
 config_channel_name="channel_1"
@@ -127,6 +128,7 @@ config_api={
 "/my/object-read":{"api_cache_sec":["inmemory",60]},
 "/":{"api_cache_sec":["inmemory",10]},
 "/public/table-tag-read":{"api_cache_sec":["inmemory",10]},
+"/public/jira-worklog-export":{"api_ratelimiting_times_sec":["inmemory",10,60]},
 }
 
 config_postgres={

@@ -73,8 +73,8 @@ async def middleware(request,api_function):
       start,type,error,request.state.user=time.perf_counter(),None,None,{}
       st=request.app.state
       request.state.user=await st.func_authenticate(request.headers,request.url.path,st.config_token_secret_key,st.config_api)
-      await st.func_check_admin(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_role)
-      await st.func_check_is_active(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_is_active)
+      await st.func_check_admin(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_role,st.config_redis_cache_ttl_sec)
+      await st.func_check_is_active(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_is_active,st.config_redis_cache_ttl_sec)
       await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)
       response,type=await st.func_api_response(request,api_function,st.config_api,st.client_redis,request.state.user.get("id") if request.state.user else 0,st.func_api_response_background,st.func_check_cache)
    except Exception as e:error,response=await request.app.state.func_api_response_error(e,request.app.state.config_is_traceback,request.app.state.config_sentry_dsn)

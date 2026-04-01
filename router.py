@@ -228,6 +228,12 @@ async def func_api_public_otp_verify(request:Request):
    output=await func_otp_verify(request.app.state.client_postgres_pool,obj_query["otp"],obj_query["email"],obj_query["mobile"],config_expiry_sec_otp)
    return {"status":1,"message":output}
 
+@router.post("/public/jira-worklog-export")
+async def func_api_public_jira_worklog_export(request:Request):
+   obj_body=await func_request_param_read("body",request,[("jira_url","str",1,None,None),("email_address","str",1,None,None),("api_token","str",1,None,None),("start_date","str",0,None,None),("end_date","str",0,None,None)])
+   import asyncio; output_path=await asyncio.to_thread(func_jira_worklog_export,obj_body["jira_url"],obj_body["email_address"],obj_body["api_token"],obj_body["start_date"],obj_body["end_date"],None)
+   return await func_client_download_file(output_path,1,None)
+
 @router.get("/public/table-tag-read")
 async def func_api_public_table_tag_read(request:Request):
    st=request.app.state

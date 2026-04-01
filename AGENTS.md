@@ -8,7 +8,7 @@
 * **Errors:** No combined `or` logic in error checks. Break multiple failure conditions into individual `if` blocks with specific exception messages.
 * **Config:** Single line assignment only; no chain statements (e.g. `a, b = 1, 2`).
 * **Defaults:** No non-essential parameter defaults in signatures. Use `None` and handle internally (`p = p or default`) at start of function.
-* **Docs:** Use `<details><summary>` in `readme.md`; sync `readme.md` with new features/logic based on need.
+* **Docs:** Use `<details><summary>` in `readme.md`; use tables wherever possible for configurations/lists; sync `readme.md` with new features/logic.
 * **Script:** `script/*/app.py` logic breaks: 1. #import, 2. #config, 3. #pure func, 4. #lifespan, 5. #app, 6. #middleware, 7. #api, 8. #app start.
 * **Repo Map:** `tmp/`: Runtime dumps; `script/`: utility apps; `secret/`: keys; `static/`: Assets; `venv/`: python env; `config.py`: Global config; `main.py`: Entry; `router.py`: API endpoints; `function.py`: Pure functions (Rule 2); `consumer.py`: Workers; `requirements.txt`: Deps; `Dockerfile`: Container; `readme.md`: Docs; `AGENTS.md`: AI Rules; `.gitignore`: Exclusions; `.env`: Overrides; `z.py`: Scratchpad.
 * **Workflow:** `router.py`: Add route with prefix; `function.py`: Core logic (use local imports); `config.py`: Add `config_` vars; `main.py`: Init `client_`; `static/api.html`: Sync entry.
