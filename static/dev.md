@@ -18,7 +18,7 @@ brew services list
 
 ### github setup repo as dev
 ```bash
-ssh-keygen -t ed25519 -C "atom36942@gmail.com"
+ssh-keygen -t ed25519 -C "email"
 cat ~/.ssh/id_ed25519.pub
 ssh -T git@github.com
 git clone git@github.com:atom36942/atom.git

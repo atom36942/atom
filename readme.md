@@ -74,8 +74,8 @@ The framework enforces authentication automatically based on a unified path pref
 | Prefix Path | Requirement | Behavior |
 | :--- | :--- | :--- |
 | `/auth/` | Public | Open for login, signup, and OTP flows. |
-| `/public/` | Public | Unprotected data endpoints for general access. |
-| `/` | Public | General root or marketing endpoints. |
+| `/public/` | Public | Data endpoints for general access. |
+| `/` | Public | General root endpoints. |
 | `/my/` | **Protected** | Strictly requires a valid `Bearer` token. |
 | `/private/` | **Protected** | Strictly requires a valid `Bearer` token. |
 | `/admin/` | **Role-Based** | Requires token **AND** matching role in `config_api`. |
