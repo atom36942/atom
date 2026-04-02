@@ -152,4 +152,4 @@ async def process_endpoint(file: UploadFile):
 #app start
 if __name__ == "__main__":
     # Ensure this filename is named 'app.py' or update the string below
-    uvicorn.run("app:app", host="0.0.0.0", port=PORT, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=PORT)

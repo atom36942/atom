@@ -50,6 +50,7 @@ config_s3_region_name=None
 config_sns_region_name=None
 config_ses_region_name=None
 config_s3_limit_kb=100
+config_s3_upload_limit_count=10
 config_s3_presigned_expire_sec=60
 
 #sftp
@@ -66,15 +67,15 @@ config_cors_method=["*"]
 config_cors_headers=["*"]
 config_is_cors_allow_credentials=0
 
-#table
+#enum
+config_auth_type=[1, 2, 3]
 config_table_create_my=["test", "post", "support", "rating_test"]
 config_table_create_public=["test", "support"]
 config_table_read_public=["test", "post"]
 config_table_system=["spatial_ref_sys"]
-
-#column
 config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at"]
 config_column_single_update=["username", "password", "email", "mobile"]
+config_api_roles=["index", "auth", "my", "public", "private", "admin"]
 
 #switch
 config_is_signup=1
@@ -85,9 +86,9 @@ config_is_reset_tmp=1
 config_is_debug_fastapi=1
 config_is_index_html=0
 config_is_otp_users_update_admin=0
+config_is_postgres_init_startup=1
 
 #zzz
-config_auth_type=[1, 2, 3]
 config_expiry_sec_otp=600
 config_limit_ids_delete=1000
 config_limit_batch=1000
@@ -96,12 +97,11 @@ config_mongodb_url=None
 config_openai_key=None
 config_gemini_key=None
 config_sentry_dsn=None
-config_api_roles=["index", "auth", "my", "public", "private", "admin"]
 
 #dict
 config_sql={
-"cache_users_role":"select id,role from users where role is not null limit 1000",
-"cache_users_is_active":"select id,is_active from users limit 1000",
+"cache_users_role":"select id,role from users where role is not null order by id asc limit 1000",
+"cache_users_is_active":"select id,is_active from users order by id asc limit 1000",
 "profile_metadata":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
 }
 
@@ -113,18 +113,19 @@ config_table={
 }
 
 config_api={
+"/admin/sync":{"user_role_check":["realtime",[1]]},
 "/admin/object-create":{"user_role_check":["token",[1]]},
 "/admin/object-update":{"user_role_check":["token",[1]]},
 "/admin/object-read":{"user_role_check":["inmemory",[1]]},
 "/admin/ids-delete":{"user_role_check":["realtime",[1]],"user_is_active_check":["realtime", 1]},
-"/admin/postgres-init":{"user_role_check":["realtime",[1]],"api_ratelimiting_times_sec":["inmemory",3,10]},
-"/admin/sync":{"user_role_check":["realtime",[1]]},
 "/admin/postgres-runner":{"user_role_check":["realtime",[1]]},
 "/admin/postgres-export":{"user_role_check":["inmemory",[1]]},
 "/admin/postgres-import":{"user_role_check":["realtime",[1]]},
-"/admin/redis-import":{"user_role_check":["token",[1]]},
+"/admin/redis-import-create":{"user_role_check":["token",[1]]},
+"/admin/redis-import-delete":{"user_role_check":["token",[1]]},
 "/admin/mongodb-import":{"user_role_check":["token",[1]]},
-"/admin/s3-ops":{"user_role_check":["token",[1]]},
+"/admin/s3-bucket-ops":{"user_role_check":["token",[1]]},
+"/admin/s3-url-delete":{"user_role_check":["token",[1]]},
 "/public/object-read":{"api_cache_sec":["inmemory",60]},
 "/my/profile":{"api_cache_sec":["inmemory",10]},
 "/my/object-read":{"api_cache_sec":["inmemory",60]},

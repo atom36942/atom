@@ -28,7 +28,7 @@ async def func_lifespan(app:FastAPI):
    client_gsheet=func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope) if config_gsheet_service_account_json_path else None
    client_sftp=await func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
    client_gemini=func_gemini_client_read(config_gemini_key) if config_gemini_key else None
-   if client_postgres_pool: await func_postgres_init_root_user(client_postgres_pool)
+   if client_postgres_pool and config_is_postgres_init_startup == 1: await func_postgres_init(client_postgres_pool, config_postgres)
    #cache init
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else {}
    cache_postgres_schema_tables=list(cache_postgres_schema.keys())

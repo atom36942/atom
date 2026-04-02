@@ -21,7 +21,7 @@ rm -rf venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -V
-./venv/bin/uvicorn main:app --reload
+./venv/bin/python main.py
 ```
 </details>
 
@@ -131,6 +131,40 @@ To add a new API role to the system:
 
 
 <details>
+<summary>API Parameters</summary>
+
+### Standard Parameter Reading
+All API parameters (headers, query, form, or JSON body) are extracted and validated using the `func_request_param_read` pure function. This ensures strict type safety and mandatory field enforcement before core logic executes.
+
+### Usage Pattern
+```python
+obj_body = await func_request_param_read(request, "body", [
+    ("email", "str", 1, None, None),
+    ("age", "int", 0, None, 18),
+    ("tags", "list:str", 0, ["tech", "news"], None)
+])
+```
+
+### Config Structure
+Each parameter is defined by a tuple: `(name, type, is_mandatory, allowed_values, default_value)`
+
+### Allowed Datatypes
+| Type | Logic / Alias | Behavior |
+| :--- | :--- | :--- |
+| **`str`** | `str` | Standard string casting. |
+| **`int`** | `integer`, `int4`, `int8`, `bigint`, `smallint` | Casts input to integer. |
+| **`float`** | `number`, `numeric` | Casts input to floating point number. |
+| **`bool`** | `bool` | **Smart Boolean**: Returns `1` for `true`, `yes`, `on`, `ok`, or `1`. |
+| **`list`** | `list` | **Smart List**: Handles JSON arrays or splits comma-separated strings. |
+| **`list:<type>`**| `list:int`, `list:str`, etc. | Recursive casting for every element in a list. |
+| **`dict`** | `object` | Expects and returns a JSON dictionary/object. |
+| **`file`** | `file` | Handles multipart uploads; returns a `list` of file objects. |
+| **`any`** | `any` | Passes the raw value through without any type casting. |
+
+</details>
+
+
+<details>
 <summary>Database Init</summary>
 
 ### System Initialization
@@ -210,6 +244,48 @@ The `/admin/sync` endpoint is used to align the application state with the datab
 - **Map Updates**: Reloads `cache_users_role` and `cache_users_is_active` for real-time auth performance.
 - **Route Validation**: Runs `func_check` to ensure `config_api` matches actual application routes.
 - **Data Cleanup**: Executes `func_postgres_clean` to prune old logs based on `retention_day` settings.
+
+</details>
+
+<details>
+<summary>Import Tools</summary>
+
+### Bulk Data Management
+The framework provides high-performance administrative tools to import or remove data in bulk. All import APIs process files in memory-efficient chunks (5,000 rows).
+
+| Data Store | Operation | Endpoint | Parameters |
+| :--- | :--- | :--- | :--- |
+| **PostgreSQL** | Consolidated | `/admin/postgres-import` | `mode`, `table`, `file` |
+| **Redis** | **Create** | `/admin/redis-import-create` | `table`, `file`, `expiry_sec` |
+| | **Delete** | `/admin/redis-import-delete` | `table`, `file` |
+| **MongoDB** | Consolidated | `/admin/mongodb-import` | `mode`, `database`, `table`, `file` |
+
+### Mode Implementation Pattern
+We follow the **Selective Consolidation** pattern to ensure API cleanliness:
+- **Consolidated**: When all modes (`create`, `update`, `delete`) share the exact same parameter set (e.g., Postgres, MongoDB).
+- **Split**: When action-specific parameters exist (e.g., Redis `create` requires `expiry_sec` while `delete` does not).
+
+### CSV Structure Requirements
+For all delete and update operations, a column named **`id`** is mandatory in the CSV file.
+
+#### 1. PostgreSQL (Consolidated)
+- **Mode: `create`**: CSV columns must match the database table schema.
+- **Mode: `update`**: Requires `id` column + columns you wish to update.
+- **Mode: `delete`**: Only requires the `id` column.
+
+#### 2. Redis (Split)
+- **Key Pattern**: Entries are stored as `{table}_{id}`.
+- **API: `redis-import-create`**: Requires `id` column. The entire row is stored as a JSON string.
+- **API: `redis-import-delete`**: Requires `id` column to identify keys for removal.
+
+#### 3. MongoDB (Consolidated)
+- **Mode: `create`**: CSV columns are converted to document fields.
+- **Mode: `delete`**: Requires an `id` or `_id` column. Standard 24-char hex strings are automatically converted to `ObjectId`.
+
+### Cloud Operations (S3)
+We follow the **Selective Consolidation** pattern for AWS S3 management:
+- **Consolidated: `s3-bucket-ops`**: Handles all bucket-level actions (`bucket_create`, `bucket_public`, `bucket_empty`, `bucket_delete`) as they share the same `bucket` query parameter.
+- **Split: `s3-url-delete`**: Dedicated endpoint for batch URL removal, requiring a different parameter structure (`url` list in the request body).
 
 </details>
 

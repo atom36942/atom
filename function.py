@@ -276,12 +276,30 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
                             for p in p_list:
                                 if not p or not isinstance(p, (list, tuple)) or len(p) < 1: continue
                                 op["parameters"] = [x for x in op["parameters"] if x["name"] != p[0]]
+                                tp, fmt, itms = "string", None, None
+                                if len(p) > 1:
+                                    dt = p[1]
+                                    if dt in ["int", "bigint", "smallint", "integer", "int4", "int8"]: tp = "integer"
+                                    elif dt in ["float", "number", "numeric"]: tp = "number"
+                                    elif dt == "bool": tp = "boolean"
+                                    elif dt in ["dict", "object"]: tp = "object"
+                                    elif dt == "file": tp, fmt = "string", "binary"
+                                    elif dt == "list" or dt.startswith("list:"):
+                                        tp, it_tp = "array", "string"
+                                        inner = dt.split(":")[1] if ":" in dt else "string"
+                                        if inner in ["int", "bigint", "smallint", "integer", "int4", "int8"]: it_tp = "integer"
+                                        elif inner in ["float", "number", "numeric"]: it_tp = "number"
+                                        elif inner == "bool": it_tp = "boolean"
+                                        elif inner in ["dict", "object"]: it_tp = "object"
+                                        itms = {"type": it_tp}
                                 op["parameters"].append({
                                     "name": p[0],
                                     "in": p_loc,
                                     "required": bool(p[2]) if len(p) > 2 else False,
                                     "schema": {
-                                        "type": "integer" if len(p) > 1 and (p[1] == "int" or p[1] == "bigint" or p[1] == "smallint") else "string",
+                                        "type": tp,
+                                        "format": fmt,
+                                        "items": itms,
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
                                         "default": p[4] if len(p) > 4 else None
                                     }
@@ -299,14 +317,30 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
                                 props = schema_obj["properties"]
                                 for p in p_list:
                                     if not p or not isinstance(p, (list, tuple)) or len(p) < 1: continue
+                                    tp, fmt, itms = "string", None, None
+                                    if len(p) > 1:
+                                        dt = p[1]
+                                        if dt in ["int", "bigint", "smallint", "integer", "int4", "int8"]: tp = "integer"
+                                        elif dt in ["float", "number", "numeric"]: tp = "number"
+                                        elif dt == "bool": tp = "boolean"
+                                        elif dt in ["dict", "object"]: tp = "object"
+                                        elif dt == "file": tp, fmt = "string", "binary"
+                                        elif dt == "list" or dt.startswith("list:"):
+                                            tp, it_tp = "array", "string"
+                                            inner = dt.split(":")[1] if ":" in dt else "string"
+                                            if inner in ["int", "bigint", "smallint", "integer", "int4", "int8"]: it_tp = "integer"
+                                            elif inner in ["float", "number", "numeric"]: it_tp = "number"
+                                            elif inner == "bool": it_tp = "boolean"
+                                            elif inner in ["dict", "object"]: it_tp = "object"
+                                            itms = {"type": it_tp}
                                     props[p[0]] = {
-                                        "type": "integer" if len(p) > 1 and (p[1] == "int" or p[1] == "bigint" or p[1] == "smallint") else "string",
+                                        "type": tp,
+                                        "format": fmt,
+                                        "items": itms,
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
                                         "default": p[4] if len(p) > 4 else None
                                     }
                                     if len(p) > 2 and bool(p[2]): schema_obj["required"].append(p[0])
-                                    if len(p) > 1 and p[1] == "file":
-                                        props[p[0]]["format"] = "binary"
                     except: pass
             except: pass
 
@@ -742,7 +776,6 @@ async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_seriali
                     total_updated += int((await conn.execute(query, *batch_vals)).split()[-1])
             return f"{len(returned_ids) if return_ids_flag == 1 else total_updated} rows updated"
 
-
 async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, object_list: list, execution_mode: str = None, is_serialize: int = None, table_buffer: int = None) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     if not hasattr(func_postgres_obj_create, "buffer"): func_postgres_obj_create.buffer = {}
@@ -861,23 +894,6 @@ async def func_postgres_stream(postgres_pool: any, sql_query: str) -> any:
                     yield ",".join([f"\"{str(v).replace(chr(34), chr(34)*2)}\"" if v is not None else "" for v in record.values()]) + "\n"
     return StreamingResponse(generate(), media_type="text/csv")
 
-async def func_postgres_init_root_user(postgres_pool: any) -> str:
-    """Ensure the users table, root user, and root protection triggers exist in PostgreSQL."""
-    async with postgres_pool.acquire() as conn:
-        await conn.execute("CREATE TABLE IF NOT EXISTS users (id BIGSERIAL PRIMARY KEY);")
-        for col, dtype in [("type", "INTEGER"), ("username", "TEXT"), ("password", "TEXT"), ("role", "INTEGER"), ("is_active", "INTEGER")]:
-            await conn.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {dtype};")
-        await conn.execute("""
-            DO $$ 
-            BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'unique_users_username_type' AND table_name = 'users') THEN 
-                    ALTER TABLE users ADD CONSTRAINT unique_users_username_type UNIQUE (username, type); 
-                END IF; 
-            END $$;
-        """)
-        await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', 1, 1) ON CONFLICT (username, type) DO UPDATE SET password = EXCLUDED.password, role = EXCLUDED.role, is_active = EXCLUDED.is_active;")
-        await conn.execute("CREATE OR REPLACE FUNCTION func_users_root_no_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_users_root_no_delete ON users; CREATE TRIGGER trigger_users_root_no_delete BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_root_no_delete();")
-    return "users init done"
 
 async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
@@ -934,6 +950,10 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
         for row in db_schema_rows: db_tables.setdefault(row[0], []).append(row[1])
         users_cols = db_tables.get("users", [])
         if users_cols:
+            catalog["tg"].add("trigger_users_root_no_delete")
+            await conn.execute("CREATE OR REPLACE FUNCTION func_users_root_no_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_users_root_no_delete ON users; CREATE TRIGGER trigger_users_root_no_delete BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_root_no_delete();")
+            if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
+                await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', 1, 1) ON CONFLICT (username, type) DO UPDATE SET password = EXCLUDED.password, role = EXCLUDED.role, is_active = EXCLUDED.is_active;")
             if "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_users_password_log"); await conn.execute("CREATE OR REPLACE FUNCTION func_users_password_log() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;"); await conn.execute("DROP TRIGGER IF EXISTS trigger_users_password_log ON users; CREATE TRIGGER trigger_users_password_log AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_users_password_log();")
             if control.get("is_child_delete_soft", 0) and "is_deleted" in users_cols:
@@ -1008,6 +1028,14 @@ async def func_redis_object_create(redis_client: any, keys: list, objects: list,
                 pipe.setex(key, expiry_sec, val)
             else:
                 pipe.set(key, val)
+        await pipe.execute()
+    return None
+
+async def func_redis_object_delete(redis_client: any, keys: list) -> None:
+    """Batch delete objects in Redis using a pipeline transaction."""
+    async with redis_client.pipeline(transaction=True) as pipe:
+        for key in keys:
+            pipe.delete(key)
         await pipe.execute()
     return None
 
@@ -1625,6 +1653,20 @@ async def func_mongodb_object_create(mongo_client: any, db_name: str, collection
     if not mongo_client: raise Exception("mongo client missing")
     result = await mongo_client[db_name][collection_name].insert_many(object_list); return str(result)
 
+async def func_mongodb_object_delete(mongo_client: any, db_name: str, collection_name: str, object_list: list) -> str:
+    """Delete multiple records from a MongoDB collection using ID matching from a list of objects."""
+    if not mongo_client: raise Exception("mongo client missing")
+    from bson.objectid import ObjectId
+    id_list = []
+    for obj in object_list:
+        obj_id = obj.get("_id") or obj.get("id")
+        if not obj_id: continue
+        try: id_list.append(ObjectId(obj_id)) if len(str(obj_id)) == 24 else id_list.append(obj_id)
+        except: id_list.append(obj_id)
+    if not id_list: return "0 rows deleted"
+    result = await mongo_client[db_name][collection_name].delete_many({"_id": {"$in": id_list}})
+    return f"{result.deleted_count} rows deleted"
+
 def func_jira_worklog_export(jira_url: str, email_address: str, api_token: str, start_date: str = None, end_date: str = None, output_path: str = None) -> str:
     """Export Jira worklogs for a specific period to a CSV file."""
     try:
@@ -1683,7 +1725,23 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
     elif parsing_mode == "header": params_dict = {k.lower(): v for k, v in request_obj.headers.items()}
     else: raise Exception(f"invalid parsing mode: {parsing_mode}")
     if param_config is None: return params_dict
-    TYPE_MAP = {"int": int, "float": float, "str": str, "any": lambda v: v, "file": lambda v: ([] if v is None else v if isinstance(v, list) else [v]), "bool": lambda v: (v if v in (0, 1) else (1 if str(v).strip().lower() in ("1", "true", "yes", "on", "ok") else 0)), "list": lambda v: ([] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v])}
+    import json
+    def smart_bool(v): return 1 if str(v).strip().lower() in ("1", "true", "yes", "on", "ok") else 0
+    def smart_list(v): return [] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]
+    def smart_dict(v):
+        if v is None: return {}
+        if isinstance(v, dict): return v
+        if isinstance(v, str) and v.strip():
+            try: return json.loads(v)
+            except: pass
+        return {}
+    TYPE_MAP = {
+        "int": int, "bigint": int, "smallint": int, "integer": int, "int4": int, "int8": int,
+        "float": float, "number": float, "numeric": float,
+        "str": str, "any": lambda v: v, "bool": smart_bool, "dict": smart_dict, "object": smart_dict,
+        "file": lambda v: ([] if v is None else v if isinstance(v, list) else [v]),
+        "list": smart_list
+    }
     output_dict = params_dict.copy() if not strict_flag else {}
     for key, data_type, is_mandatory, allowed_values, default_value in param_config:
         if data_type not in TYPE_MAP and not data_type.startswith("list:"): raise Exception(f"parameter '{key}' has invalid data_type '{data_type}'")
