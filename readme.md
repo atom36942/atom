@@ -1,5 +1,5 @@
 <details>
-<summary>about</summary>
+<summary>About</summary>
 
 - Open-source backend framework to speed up large-scale application development  
 - Modular architecture combining functional and procedural styles  
@@ -11,7 +11,7 @@
 </details>
 
 <details>
-<summary>setup</summary>
+<summary>Setup</summary>
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -26,7 +26,7 @@ rm -rf venv
 </details>
 
 <details>
-<summary>setup with docker</summary>
+<summary>Setup with Docker</summary>
 
 ```bash
 docker build -t atom .
@@ -35,7 +35,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>consumers</summary>
+<summary>Consumers</summary>
 
 ```bash
 ./venv/bin/python consumer.py celery
@@ -46,7 +46,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>api controls</summary>
+<summary>API Controls</summary>
 
 ### Configuring `config_api`
 API behaviors like authentication, caching, and rate limiting are controlled per-route in the `config_api` dictionary.
@@ -66,7 +66,7 @@ API behaviors like authentication, caching, and rate limiting are controlled per
 </details>
 
 <details>
-<summary>authentication</summary>
+<summary>Authentication</summary>
 
 ### Route Protection
 The framework enforces authentication automatically based on a unified path prefix system.
@@ -94,3 +94,187 @@ The `request.state.user` object is populated by the middleware using `func_authe
 
 </details>
 
+<details>
+<summary>API Roles</summary>
+
+### Direct API Role Passing
+To maximize clarity and minimize side effects, the framework avoids storing the `api_role` in a global request state. Instead, roles are passed as literal strings directly to the backend functions that require them (e.g., table creation or update logic).
+
+### Implementation Pattern
+Role-aware logic is only implemented where necessary. The role is passed as a string parameter within the `router.py` endpoint:
+
+```python
+@router.post("/my/object-create")
+async def func_api_my_object_create(request:Request):
+   ...
+   return {"status":1,"message":await func_obj_create_logic("my", ...)}
+```
+
+### Core API Roles
+| Role | Category | Application Area |
+| :--- | :--- | :--- |
+| **`auth`** | Identity | Authentication, signup, and login flows. |
+| **`my`** | Private | User-specific data and account management. |
+| **`public`** | General | Unprotected data and utility converters. |
+| **`private`** | Internal | Protected utility endpoints (e.g., S3). |
+| **`admin`** | System | Administrative maintenance and database init. |
+| **`index`** | Root | Root path, OpenAPI spec, and dynamic pages. |
+
+### How to Extend Roles
+To add a new API role to the system:
+
+1. **Update Config**: Add the new role name to the `config_api_roles` list in `config.py`.
+2. **Assign in Router**: When calling role-aware functions in `router.py`, pass your new role string directly as a parameter.
+3. **Validation**: The system will automatically validate all registered routes against the `config_api_roles` whitelist during the startup lifespan.
+
+</details>
+
+
+<details>
+<summary>Database Init</summary>
+
+### System Initialization
+The database structure is managed through administrative endpoints and automated startup checks.
+
+| Feature | Endpoint / Function | Behavior |
+| :--- | :--- | :--- |
+| **Schema Init** | `/admin/postgres-init` | Triggers `func_postgres_init` to create extensions and base tables. |
+| **Root User** | `func_postgres_init_root_user` | Automatically creates the first admin user during `main.py` lifespan. |
+| **Auto-Table** | `func_postgres_obj_create` | Creates tables on-the-fly if missing during buffer flushes. |
+
+### PostgreSQL Controls
+Operational constraints for database management are defined in `config_postgres["control"]`.
+
+| Control Name | Default | Execution Logic |
+| :--- | :--- | :--- |
+| `is_extension` | 1 | Enables PostgreSQL extension creation (e.g., `pg_trgm`, `postgis`). |
+| `is_match_column` | 0 | Forces strict column matching between config and database. |
+| `is_drop_disable_table` | 1 | Prevents accidental `DROP TABLE` operations via automated tasks. |
+| `is_truncate_disable` | 1 | Prevents accidental `TRUNCATE` operations via automated tasks. |
+| `is_child_delete_soft` | 1 | Enables soft deletion for child records when a parent is deleted. |
+| `is_child_delete_hard` | 1 | Enables hard deletion for child records when a parent is deleted. |
+| `is_delete_disable_role` | 1 | Restricts delete operations based on user roles defined in config. |
+| `delete_disable_bulk` | `[["users", 1]]` | Prevents bulk deletion for specific tables and row types. |
+| `delete_disable_table` | `["users"]` | Entirely disables the delete API for the specified tables. |
+
+### Column Properties
+Each field in a `config_postgres["table"]` entry is a map defining column behavior.
+
+| Property | Default | Execution Logic |
+| :--- | :--- | :--- |
+| `name` | - | Primary database column identifier. |
+| `datatype` | - | Target PostgreSQL data type (e.g. `timestamptz`, `bigint[]`). |
+| `default` | - | SQL default value (e.g. `now()`, `0`). |
+| `index` | - | Index types to create (e.g. `btree`, `gin`, `gist`). |
+| `unique` | - | Composite or single unique groups (comma/pipe separated). |
+| `in` | - | Check constraint values (e.g. `(0, 1)`). |
+| `is_mandatory` | 0 | Enforces non-null checks in API and UI. |
+| `regex` | - | Pattern validation for browser and API inputs. |
+| `old` | - | Migration helper to rename columns during schema init. |
+
+</details>
+
+<details>
+<summary>Request Parameter Config</summary>
+
+### API Parameter Validation
+The `func_request_param_read` function uses a `param_config` list to extract and validate inputs. Each entry in the list is a tuple or list with the following structure:
+
+| Position | Property | Default | Execution Logic |
+| :--- | :--- | :--- | :--- |
+| **Index 0** | `name` | - | The key name in the request (query, body, form, header). |
+| **Index 1** | `datatype` | - | Target type: `int`, `str`, `float`, `bool`, `list`, `file`, or `any`. |
+| **Index 2** | `is_mandatory` | 0 | If 1, raises an error if the parameter is missing or empty. |
+| **Index 3** | `enum` | None | List of allowed values (e.g. `["soft", "hard"]`). |
+| **Index 4** | `default` | None | Default value if the parameter is missing and not mandatory. |
+
+### Example Usage
+```python
+obj_query = await func_request_param_read(
+    request, 
+    "query", 
+    [("mode", "str", 1, ["soft", "hard"], "soft")]
+)
+```
+
+</details>
+
+<details>
+<summary>Admin Sync</summary>
+
+### Operational Maintenance
+The `/admin/sync` endpoint is used to align the application state with the database and configuration.
+
+- **Buffer Flush**: Forces all pending `buffer` mode database operations to commit.
+- **Schema Refresh**: Re-scans PostgreSQL to update `cache_postgres_schema` and table/column lists.
+- **Map Updates**: Reloads `cache_users_role` and `cache_users_is_active` for real-time auth performance.
+- **Route Validation**: Runs `func_check` to ensure `config_api` matches actual application routes.
+- **Data Cleanup**: Executes `func_postgres_clean` to prune old logs based on `retention_day` settings.
+
+</details>
+
+<details>
+<summary>Static Assets</summary>
+
+### Serving Files
+The framework mounts a static directory to serve frontend assets and documentation.
+
+- **Storage**: Files located in the `./static` directory.
+- **Access**: Available at the `/static/` URL prefix (e.g., `http://localhost:8000/static/api.html`).
+- **Configuration**: Managed in `main.py` via `func_app_add_static(app, "./static", "/static")`.
+
+</details>
+
+<details>
+<summary>Page Rendering</summary>
+
+### Dynamic HTML Serving
+The `/page-{name}` route provides a simple way to serve HTML content from the static folder.
+
+- **Pattern**: `GET /page-dashboard` -> Searches for `static/dashboard.html`.
+- **Location**: Place your custom `.html` files anywhere inside the `static/` directory or its subdirectories.
+- **Search Logic**: Uses `func_html_serve` to recursively search the `static/` folder if the file isn't at the root.
+- **Security**: Prevents directory traversal using `..` checks and path resolution.
+- **Response**: Returns a standard `HTMLResponse` with UTF-8 encoding.
+
+</details>
+
+<details>
+<summary>Global Switches</summary>
+
+### Application State Controls
+Generic application-wide behaviors are controlled by boolean switches starting with `config_is_`.
+
+| Switch Name | Default | Behavior |
+| :--- | :--- | :--- |
+| `config_is_signup` | 1 | Enables/disables the public signup endpoint. |
+| `config_is_log_api` | 1 | Toggles automatic non-GET request logging to `log_api`. |
+| `config_is_traceback` | 1 | Shows full python errors in the API response. |
+| `config_is_prometheus` | 0 | Enables/disables the `/metrics` endpoint. |
+| `config_is_reset_tmp` | 1 | Wipes the `./tmp` folder on every application boot. |
+| `config_is_debug_fastapi` | 1 | Toggles the internal FastAPI debug flag. |
+| `config_is_index_html` | 0 | Determines if root `/` serves `static/index.html`. |
+| `config_is_otp_users_update_admin` | 0 | Strict verification for admin-led user data updates. |
+
+</details>
+
+<details>
+<summary>Adding Routers</summary>
+
+### Extensible API Architecture
+The framework automatically discovers and mounts new FastAPI routers without manually modifying `main.py`. This is powered by `func_add_router(app)`.
+
+- **Root Directory**: Create a file with a name starting with `router` (e.g., `router_billing.py`).
+- **Sub-directory**: Create a folder named `router` and place any `.py` file inside (e.g., `router/billing.py`).
+- **Declaration**: Inside the file, export a standard `APIRouter()` as a variable named `router`.
+
+```python
+from fastapi import APIRouter
+router = APIRouter()
+
+@router.get("/my-custom-endpoint")
+async def func_api_custom():
+    return {"status": 1, "message": "hello"}
+```
+
+</details>

@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Curl Requester</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>API Requester</title>
 <style>
 :root{--bg:#0b0d10;--card:#0f1114;--muted:#9aa0a6;--primary:#38a169;--primary-text:#031013;--secondary:#1f2933;--secondary-text:#e6eef3;--delete:#dc3545;--accent:#4299e1}
 body{margin:0;background:var(--bg);color:#e6eef3;font-family:Inter,system-ui;line-height:1.6}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.25)}
-.container{max-width:720px;margin:40px auto;padding:20px}
+.container{max-width:900px;margin:40px auto;padding:20px}
 .card{background:var(--card);border-radius:12px;padding:28px;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.05)}
 h1{margin:0 0 24px 0;font-size:22px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
 .custom-select-wrapper{position:relative;display:flex;align-items:center;margin-bottom:28px}
@@ -29,10 +29,13 @@ form{display:flex;flex-direction:column;gap:24px}
 .input-wrapper{position:relative;flex:1;display:flex;align-items:center}
 .clear-input-btn{position:absolute;right:8px;background:0 0;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;display:none;z-index:10}
 input,select{width:100%;padding:12px 36px 12px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:#14171c;color:#e6eef3;box-sizing:border-box}
+select.row-val{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:56px}select.row-val + .clear-input-btn{right:32px}
 input:focus,select:focus{outline:none;border-color:var(--accent)}
-.row-key{flex:0 0 140px}.row-val{flex:1}
-.json-type-selector{flex:0 0 120px;padding:12px 32px 12px 14px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:auto;cursor:pointer}
-.remove-btn{background:none;color:var(--muted);border:none;width:36px;height:36px;flex:0 0 36px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px}.remove-btn:hover{color:var(--delete);background:rgba(220,53,69,.1)}
+input[readonly]{background:rgba(255,255,255,.02);color:var(--muted);border-color:rgba(255,255,255,.04);cursor:default}
+input::placeholder{color:rgba(154,160,166,.5)}
+.row-key{flex:0 0 180px}.row-val{flex:1}
+.json-type-selector{flex:0 0 100px;padding:12px 32px 12px 14px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:auto;cursor:pointer}
+.remove-btn{background:none;color:var(--muted);border:none;width:36px;height:36px;flex:0 0 36px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px}.remove-btn:hover:not(:disabled){color:var(--delete);background:rgba(220,53,69,.1)}.remove-btn:disabled{opacity:0.3;cursor:not-allowed}
 .footer-row{display:flex;gap:16px;margin-top:12px}.btn{padding:14px 24px;flex:1;font-size:15px;font-weight:600;border-radius:8px;border:none;cursor:pointer;height:48px;display:flex;align-items:center;justify-content:center}
 .btn-primary{background:var(--primary);color:var(--primary-text)}.btn-secondary{background:var(--secondary);color:var(--secondary-text)}
 .resp-box{background:#14171c;border-radius:10px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden;max-height:500px;flex-direction:column}
@@ -55,67 +58,64 @@ td{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:14p
 .modal-content{background:var(--card);margin:5% auto;padding:24px;width:90%;max-width:600px;border-radius:12px;border:1px solid rgba(255,255,255,.1)}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
 .modal-actions{display:flex;gap:12px;align-items:center}
-#lsList{max-height:400px;overflow-y:auto;margin-bottom:20px;display:flex;flex-direction:column;gap:12px}
-#lsBtn{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;display:flex;align-items:center}.lsBtn:hover{color:#fff}
 .icon-btn{background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
 .icon-btn:hover{color:#fff}
 .icon-btn.delete:hover{color:var(--delete)}
 .icon-btn.save:hover{color:var(--primary)}
 .icon-btn.loading svg{animation:spin 1s linear infinite}
-.tree-table{width:100%;border-collapse:collapse;margin:4px 0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05)}.tree-key{color:#7ec8e3;font-weight:600;padding:6px 10px;width:1px;white-space:nowrap;font-size:12px;vertical-align:top;border:1px solid rgba(255,255,255,0.05);background:rgba(66,153,225,0.05)}.tree-val{padding:6px 10px;font-family:'SF Mono',Menlo,monospace;font-size:12px;position:relative;border:1px solid rgba(255,255,255,0.05);color:#e6eef3}.tree-toggle{background:none;border:none;color:var(--accent);cursor:pointer;padding:2px 6px;font-size:11px;display:flex;align-items:center;gap:6px;border-radius:4px;font-family:inherit;font-weight:600}.tree-toggle:hover{background:rgba(66,153,225,.1)}.tree-content{display:none;margin-top:4px}.tree-content.show{display:block}.tree-arrow{transition:transform .2s;display:inline-block;font-size:10px}.tree-arrow.open{transform:rotate(90deg)}.gv-s{color:#98c379}.gv-n{color:#d19a66}.gv-b{color:#c678dd}.gv-null{color:#56b6c2}
+.tree-table{width:100%;border-collapse:collapse;margin:4px 0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05)}.tree-key{color:#7ec8e3;font-weight:600;padding:6px 10px;width:1px;white-space:nowrap;font-size:12px;vertical-align:top;border:1px solid rgba(255,255,255,0.05);background:rgba(66,153,225,0.05)}.tree-val{padding:6px 10px;font-family:'SF Mono',Menlo,monospace;font-size:12px;position:relative;border:1px solid rgba(255,255,255,0.05);color:#e6eef3}.tree-node{margin-top:4px}.tree-toggle{background:none;border:none;color:var(--accent);cursor:pointer;padding:2px 6px;font-size:11px;display:flex;align-items:center;gap:6px;border-radius:4px;font-family:inherit;font-weight:600}.tree-toggle:hover{background:rgba(66,153,225,.1)}.tree-content{display:none;margin-top:4px}.tree-content.show{display:block}.tree-arrow{transition:transform .2s;display:inline-block;font-size:10px}.tree-arrow.open{transform:rotate(90deg)}.gv-s{color:#98c379}.gv-n{color:#d19a66}.gv-b{color:#c678dd}.gv-null{color:#56b6c2}
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px}
+.analytics-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px}
+.analytics-card h4{margin:0 0 16px 0;font-size:14px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:10px}
+.analytics-list{list-style:none;padding:0;margin:0}
+.analytics-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px}
+.analytics-item:last-child{border-bottom:none}
+.analytics-count{font-weight:700;color:var(--primary);background:rgba(56,161,105,0.1);padding:2px 8px;border-radius:4px;min-width:24px;text-align:center}
 </style>
 </head>
 <body>
 <div class="container"><div class="card">
-<h1>Curl Requester <div style="display:flex;align-items:center;gap:8px"><button type="button" id="apiInfoBtn" class="copy-btn" title="API Info"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button><button type="button" id="lsBtn" title="LocalStorage"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></button></div></h1>
-<div class="custom-select-wrapper" id="selW">
-    <input type="text" id="apiIn" placeholder="Search" autocomplete="off">
-    <button type="button" id="clrSel" class="clear-api-btn">×</button>
-    <ul id="apiDrop" class="api-dropdown"></ul>
-</div>
-<form id="apiForm">
-    <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
-    <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small">+</button></div><div id="hCont" class="dynamic-container"></div></div>
-    <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
-    <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
-    <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
-    <div class="footer-row"><button id="clrBtn" type="button" class="btn btn-secondary">Clear</button><button id="subBtn" type="submit" class="btn btn-primary">Submit</button></div>
-</form>
-<div class="resp-box" id="rBox"><div class="resp-header"><span>Response <span id="rCode" style="font-weight:400"></span></span><div style="display:flex;align-items:center;margin-left:auto"><button id="rCopy" class="copy-btn" title="Copy response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button id="rMin" class="copy-btn" title="Compress JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14l-7 7"/></svg></button><button id="rGrid" class="copy-btn" title="Table view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button><button id="rCsv" class="copy-btn" title="Download CSV"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></div></div><div class="resp-content"><table id="rTab"></table></div></div>
+<h1>API Master <span id="apiTotal" style="font-size:13px;font-weight:400;color:var(--muted);margin-left:12px"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Not Logged In</button><button type="button" class="icon-btn" id="apiInfoRefresh" title="Refresh APIs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg></button><button type="button" class="icon-btn" id="apiPageHardRefresh" title="Hard Refresh (Clear Cache & Reload)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></button><button type="button" class="icon-btn" id="apiInfoAnalytics" title="Analytics"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></div></h1>
+<div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiInfoSearch" placeholder="Search API Paths..." style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
+<div class="resp-tbl-wrap" style="max-height:600px"><table class="resp-tbl" id="apiInfoTbl" style="table-layout:auto"></table></div>
 <div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
 </div></div>
 
-<div id="lsModal" class="modal"><div class="modal-content">
+<div id="apiRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:2% auto">
     <div class="modal-header">
-        <h3>LocalStorage Manager</h3>
+        <h3 style="margin:0">API Runner</h3>
         <div class="modal-actions">
-            <button type="button" class="icon-btn save" title="Save All" onclick="if(confirm('Save all changes?')){saveLs();location.reload()}">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-            </button>
-            <button type="button" class="icon-btn delete" title="Reset All" onclick="if(confirm('Reset all?')){localStorage.clear();location.reload()}">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m-6 9 2 2 4-4"/></svg>
-            </button>
-            <button type="button" class="icon-btn" title="Close" onclick="$('lsModal').style.display='none'">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
+            <button type="button" class="icon-btn" id="runnerCopyCurl" title="Copy Curl"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            <button type="button" class="icon-btn" title="Close" onclick="$('apiRunnerModal').style.display='none'"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
     </div>
-    <div class="section-label" style="margin-bottom:12px">Add <button type="button" onclick="addLsRow()" class="add-btn-small">+</button></div>
-    <div id="lsList"></div>
+    <div style="max-height:80vh;overflow-y:auto;padding-right:8px">
+    <div class="custom-select-wrapper" id="selW" style="margin-bottom:24px">
+        <input type="text" id="apiIn" placeholder="API Path" autocomplete="off" readonly style="color:var(--accent);font-weight:600">
+    </div>
+    <form id="apiForm">
+        <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
+        <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small">+</button></div><div id="hCont" class="dynamic-container"></div></div>
+        <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
+        <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
+        <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
+        <div class="footer-row"><button id="clrBtn" type="button" class="btn btn-secondary">Clear</button><button id="subBtn" type="submit" class="btn btn-primary">Submit</button></div>
+    </form>
+    <div class="resp-box" id="rBox"><div class="resp-header"><span>Response <span id="rCode" style="font-weight:400"></span></span><div style="display:flex;align-items:center;margin-left:auto"><button id="rCopy" class="copy-btn" title="Copy response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button id="rMin" class="copy-btn" title="Compress JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14l-7 7"/></svg></button><button id="rGrid" class="copy-btn" title="Table view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button><button id="rJson" class="copy-btn" title="Download JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button><button id="rCsv" class="copy-btn" title="Download CSV"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button id="rOpen" class="copy-btn" title="Open in new tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button><button id="rClear" class="copy-btn" title="Clear response" style="color:var(--delete);margin-left:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button></div></div><div class="resp-content"><table id="rTab"></table></div></div>
+    </div>
 </div></div>
 
-<div id="apiInfoModal" class="modal"><div class="modal-content" style="max-width:900px">
-    <div class="modal-header">
-        <h3>API Info <span id="apiTotal" style="font-size:13px;font-weight:400;color:var(--muted)"></span></h3>
-        <div class="modal-actions">
-            <button type="button" class="icon-btn" id="apiInfoRefresh" title="Refresh APIs"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg></button>
-            <button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-            <button type="button" class="icon-btn" title="Close" onclick="$('apiInfoModal').style.display='none'"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+<div id="analyticsModal" class="modal" onclick="if(event.target===this)hideModal('analyticsModal')">
+    <div class="modal-content" style="max-width:600px;margin:5% auto">
+        <div class="modal-header">
+            <h3 style="margin:0">API Analytics</h3>
+            <button type="button" class="icon-btn" title="Close" onclick="hideModal('analyticsModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
+        <div class="analytics-grid" id="analyticsGrid"></div>
     </div>
-    <div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiInfoSearch" placeholder="Search API Paths..." style="padding:10px 40px 10px 10px;font-size:13px;background:rgba(255,255,255,0.03);width:100%"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:10px">×</button></div>
-    <div class="resp-tbl-wrap" style="max-height:450px"><table class="resp-tbl" id="apiInfoTbl" style="table-layout:auto"></table></div>
-</div></div>
+</div>
+
+
 
 <script>
 let COMMANDS = [];
@@ -131,7 +131,8 @@ const ICON = {
   check: s => SVG(s, '<polyline points="20 6 9 17 4 12"/>', '#22c55e'),
   cross: s => SVG(s, '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>', '#ef4444'),
   play: s => SVG(s, '<polygon points="5 3 19 12 5 21 5 3"/>', '#38a169'),
-  trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>')
+  trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>'),
+  zap: s => SVG(s, '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>')
 };
 
 const getIcon = v => (v && (v.length || v === true)) ? ICON.check(16) : ICON.cross(16);
@@ -167,6 +168,13 @@ const downloadCsv = (filename, csvStr) => {
   a.click();
 };
 
+const downloadJson = (filename, jsonStr) => {
+  const a = d.createElement('a');
+  a.href = URL.createObjectURL(new Blob([jsonStr], { type: 'application/json' }));
+  a.download = filename;
+  a.click();
+};
+
 const csvEscape = v => {
   const s = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
   return s.includes(',') || s.includes('"') || s.includes('\n')
@@ -184,44 +192,58 @@ const hasToken = c => c.h && c.h.some(x => x.k.toLowerCase() === 'authorization'
 
 const generateCurl = i => {
   const c = COMMANDS[i];
+  const isDiff = curr && COMMANDS.indexOf(curr) === parseInt(i);
+  const live = {
+    h: isDiff ? extractRows($('hCont')) : [],
+    q: isDiff ? extractRows($('qCont')) : [],
+    f: isDiff ? extractRows($('fCont')) : [],
+    u: isDiff ? extractRows($('uCont')) : [],
+    j: isDiff ? extractRows($('jCont'), true) : []
+  };
+  const merge = (specList, liveList) => specList.map(s => {
+    const l = liveList.find(x => x.k === s.k);
+    return { ...s, v: l ? l.v : s.v };
+  });
+  const hData = merge(c.h, live.h), qData = merge(c.q, live.q), fData = merge(c.f, live.f), uData = merge(c.u, live.u), jData = merge(c.j, live.j);
   let path = c.p;
-  c.u.forEach(x => path = path.replace(`{${x.k}}`, x.v || 'null'));
-  let url = window.location.origin + path;
+  uData.forEach(x => { const v = x.v !== '' ? x.v : (x.req ? `{${x.k}}` : ''); path = path.replace(`{${x.k}}`, v) });
   const h = [];
-  c.h.forEach(x => {
+  hData.forEach(x => {
     let val = x.v;
     if (x.k.toLowerCase() === 'authorization') {
       const lsKey = c.p.startsWith('/root') ? 'token_root' : 'token';
-      val = localStorage.getItem(lsKey) || x.v;
-      if (val) h.push(`-H "${x.k}: Bearer ${val}"`);
-    } else if (val) {
-      h.push(`-H "${x.k}: ${val}"`);
-    }
+      val = localStorage.getItem(lsKey) || val;
+      if (val) {
+        val = val.startsWith('Bearer ') ? val : `Bearer ${val}`;
+        h.push(`-H "${x.k}: ${val}"`);
+      }
+    } else if (val !== '') h.push(`-H "${x.k}: ${val}"`);
+    else if (x.req) h.push(`-H "${x.k}: {${x.k}}"`);
   });
-  const q = c.q.map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v || 'null')}`).join('&');
-  if (q) url += '?' + q;
+  const qParts = qData.map(x => {
+    const v = x.v !== '' ? x.v : `{${x.k}}`;
+    const ev = encodeURIComponent(v).replace(/%7B/g, '{').replace(/%7D/g, '}');
+    return `${encodeURIComponent(x.k)}=${ev}`;
+  });
+  let url = window.location.origin + path + (qParts.length ? '?' + qParts.join('&') : '');
   let body = '';
-  if (c.j.length) {
+  if (jData.length || c._hj) {
     const b = {};
-    c.j.forEach(x => b[x.k] = x.v === '' ? null : (x.t === 'number' ? Number(x.v) : x.v));
+    jData.forEach(x => { b[x.k] = x.v === '' ? `{${x.k}}` : (x.t === 'number' ? Number(x.v) : x.v) });
     body = `-d '${JSON.stringify(b)}'`;
-    h.push('-H "Content-Type: application/json"');
-  } else if (c.f.length) {
-    body = c.f.map(x => `-F "${x.k}=${x.v || 'null'}"`).join(' ');
+    if (!h.some(x => x.includes('Content-Type'))) h.push('-H "Content-Type: application/json"');
+  } else if (fData.length || c._hf) {
+    body = fData.map(x => { const v = x.v !== '' ? x.v : `{${x.k}}`; return `-F "${x.k}=${v}"` }).join(' ');
   }
   return `curl -X ${c.m} "${url}" ${h.join(' ')} ${body}`.trim().replace(/\s+/g, ' ');
 };
 
-const updateLsIcon = () => {
-  $('lsBtn').style.color = localStorage.length ? 'var(--accent)' : 'var(--muted)';
-};
-
 async function init() {
   try {
-    const r = await fetch('/');
+    const r = await fetch('/', { cache: 'no-cache' });
     const json = await r.json();
     const specUrl = json.message.openapi_url || '/openapi.json';
-    const specR = await fetch(specUrl);
+    const specR = await fetch(specUrl, { cache: 'no-cache' });
     const spec = await specR.json();
     COMMANDS = [];
     Object.entries(spec.paths).forEach(([path, methods]) => {
@@ -233,7 +255,7 @@ async function init() {
           tag: op.tags ? op.tags[0] : 'system'
         };
         (op.parameters || []).forEach(p => {
-          const item = { k: p.name, v: String(p.schema?.default || '') };
+          const item = { k: p.name, v: (p.schema?.default != null ? String(p.schema.default) : ''), e: p.schema?.enum || p.enum, req: !!p.required };
           if (p.in === 'header') cmd.h.push(item);
           else if (p.in === 'query') cmd.q.push(item);
           else if (p.in === 'path') cmd.u.push(item);
@@ -241,12 +263,20 @@ async function init() {
         const bodyContent = op.requestBody?.content;
         if (bodyContent) {
           if (bodyContent['application/json']) {
-            Object.entries(bodyContent['application/json'].schema.properties || {}).forEach(([k, prop]) => {
-              cmd.j.push({ k: k, v: String(prop.default || ''), t: prop.type });
+            const schema = bodyContent['application/json'].schema || {};
+            const reqProps = schema.required || [];
+            Object.entries(schema.properties || {}).forEach(([k, prop]) => {
+              let pt = prop.type;
+              if (!pt && prop.anyOf) pt = prop.anyOf.map(a => a.type).find(t => t && t !== 'null');
+              pt = pt || 'string';
+              if (pt === 'integer') pt = 'number';
+              cmd.j.push({ k: k, v: (prop.default != null ? String(prop.default) : ''), t: pt, e: prop.enum, req: reqProps.includes(k) });
             });
           } else if (bodyContent['multipart/form-data']) {
-            Object.entries(bodyContent['multipart/form-data'].schema.properties || {}).forEach(([k, prop]) => {
-              cmd.f.push({ k: k, v: String(prop.default || '') });
+            const schema = bodyContent['multipart/form-data'].schema || {};
+            const reqProps = schema.required || [];
+            Object.entries(schema.properties || {}).forEach(([k, prop]) => {
+              cmd.f.push({ k: k, v: (prop.default != null ? String(prop.default) : ''), e: prop.enum, req: reqProps.includes(k) });
             });
           }
         }
@@ -256,13 +286,29 @@ async function init() {
       });
     });
     orig = COMMANDS.map((c, i) => ({ ...c, oi: i }));
+    renderApiInfoTable('');
+    updateLoginIndicator();
     load(null);
-    updateLsIcon();
   } catch (err) {
     console.error('Failed to load API info', err);
     load(null);
   }
 }
+
+/* ── Auth status indicator ── */
+const updateLoginIndicator = () => {
+  const ind = $('loginIndicator');
+  if (!ind) return;
+  const tRoot = localStorage.getItem('token_root'), tUser = localStorage.getItem('token');
+  if (tRoot || tUser) {
+    let lbl = 'Logged In' + (tRoot && tUser ? ' (Root & User)' : (tRoot ? ' (Root)' : ''));
+    ind.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>${lbl}`;
+    ind.style.background = 'rgba(56,161,105,0.1)'; ind.style.color = 'var(--primary)';
+  } else {
+    ind.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Not Logged In`;
+    ind.style.background = 'rgba(220,53,69,0.1)'; ind.style.color = 'var(--delete)';
+  }
+};
 
 /* ── Input row helpers ── */
 const bindClear = r => {
@@ -272,25 +318,36 @@ const bindClear = r => {
   const upd = () => { btn.style.display = inp.value ? 'block' : 'none' };
   upd();
   inp.oninput = upd;
+  inp.onchange = upd;
   btn.onclick = e => { e.stopPropagation(); inp.value = ''; upd(); inp.focus() };
 };
 
-const valHtml = (ct, v, t) => {
+const valHtml = (ct, v, t, e) => {
   const TYPES = ['string', 'number', 'boolean', 'null', 'array', 'object'];
   const wrap = inner => `<div class="input-wrapper">${inner}<button type="button" class="clear-input-btn">×</button></div>`;
+  let inputHtml;
+  if (e && Array.isArray(e) && e.length > 0) {
+    inputHtml = `<select class="row-val"><option value="">-- select --</option>${e.map(opt => `<option value="${opt}" ${String(v) === String(opt) ? 'selected' : ''}>${opt}</option>`).join('')}</select>`;
+  } else if (ct === $('fCont') && String(v).startsWith('@')) {
+    inputHtml = `<input type="file" class="row-val">`;
+  } else {
+    inputHtml = `<input type="text" class="row-val" value="${v}">`;
+  }
   if (ct === $('jCont'))
-    return wrap(`<input type="text" class="row-val" value="${v}">`) +
+    return wrap(inputHtml) +
       `<select class="json-type-selector">${TYPES.map(x => `<option value="${x}" ${t === x ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
-  if (ct === $('fCont') && v.startsWith('@'))
-    return wrap('<input type="file" class="row-val">');
-  return wrap(`<input type="text" class="row-val" value="${v}">`);
+  return wrap(inputHtml);
 };
 
-const mkRow = (ct, k = '', v = '', t = 'string') => {
+const mkRow = (ct, k = '', v = '', t = 'string', e = null, isFixed = false, isReq = false) => {
   const r = d.createElement('div');
   r.className = 'input-row';
-  r.innerHTML = `<input type="text" class="row-key" value="${k}">${valHtml(ct, v, t)}<button type="button" class="remove-btn">${ICON.trash(16)}</button>`;
-  r.querySelector('.remove-btn').onclick = () => r.remove();
+  const rmBtn = `<button type="button" class="remove-btn"${isReq ? ' disabled' : ''}>${ICON.trash(16)}</button>`;
+  const keyHtml = isReq 
+    ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${k}"><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${k}</div><input type="hidden" class="row-key" value="${k}">` 
+    : `<input type="text" class="row-key" value="${k}" ${isFixed ? 'readonly tabindex="-1"' : ''}>`;
+  r.innerHTML = `${keyHtml}${valHtml(ct, v, t, e)}${rmBtn}`;
+  if (!isReq) r.querySelector('.remove-btn').onclick = () => r.remove();
   bindClear(r);
   ct.appendChild(r);
 };
@@ -315,69 +372,45 @@ const load = i => {
   curr = i === null ? null : COMMANDS[i];
   SECTIONS.forEach(([, sec, cont]) => { $(cont).innerHTML = ''; $(sec).classList.remove('active') });
   $('rBox').classList.remove('show');
-  if (!curr) { $('apiIn').value = ''; $('clrSel').style.display = 'none'; return }
+  if (!curr) { $('apiIn').value = ''; return; }
+  $('apiIn').value = `${curr.m} ${curr.p}`;
   if (curr.h && curr.h.length) {
     $('hSec').classList.add('active');
     curr.h.forEach(x => {
       let val = x.v;
       if (x.k.toLowerCase() === 'authorization') {
         const lsKey = curr.p.startsWith('/root') ? 'token_root' : 'token';
-        val = localStorage.getItem(lsKey) || x.v;
+        const lsVal = localStorage.getItem(lsKey);
+        if (lsVal) {
+          val = lsVal.startsWith('Bearer ') ? lsVal : `Bearer ${lsVal}`;
+        } else if (val && !val.startsWith('Bearer ')) {
+          val = `Bearer ${val}`;
+        }
       }
-      mkRow($('hCont'), x.k, val);
+      mkRow($('hCont'), x.k, val, 'string', x.e, true, x.req);
     });
   }
-  if (curr.q && curr.q.length) { $('qSec').classList.add('active'); curr.q.forEach(x => mkRow($('qCont'), x.k, x.v)) }
-  if (curr._hf) { $('fSec').classList.add('active'); if (curr.f.length) curr.f.forEach(x => mkRow($('fCont'), x.k, x.v)); else mkRow($('fCont')) }
-  if (curr.u && curr.u.length) { $('uSec').classList.add('active'); curr.u.forEach(x => mkRow($('uCont'), x.k, x.v)) }
-  if (curr._hj) { $('jSec').classList.add('active'); if (curr.j.length) curr.j.forEach(x => mkRow($('jCont'), x.k, x.v, x.t )); else mkRow($('jCont')) }
-  $('clrSel').style.display = 'block';
-};
-
-/* ── LocalStorage modal ── */
-const addLsRow = (k = '', v = '') => {
-  const r = d.createElement('div');
-  r.className = 'input-row';
-  r.innerHTML = `<input type="text" class="row-key ls-k" placeholder="Key"><div class="input-wrapper"><input type="text" class="row-val ls-v" placeholder="Value"><button type="button" class="clear-input-btn">×</button></div><button type="button" class="remove-btn" onclick="this.parentElement.remove()">${ICON.trash(16)}</button>`;
-  r.querySelector('.ls-k').value = k;
-  r.querySelector('.ls-v').value = v;
-  bindClear(r);
-  $('lsList').appendChild(r);
-};
-
-const renderLs = () => {
-  updateLsIcon();
-  $('lsList').innerHTML = '';
-  Object.keys(localStorage).forEach(k => addLsRow(k, localStorage.getItem(k)));
-};
-
-const saveLs = () => {
-  localStorage.clear();
-  d.querySelectorAll('#lsList .input-row').forEach(r => {
-    const k = r.querySelector('.ls-k').value.trim(),
-      v = r.querySelector('.ls-v').value.trim();
-    if (k) localStorage.setItem(k, v);
-  });
-  updateLsIcon();
-  hideModal('lsModal');
-  toast('LocalStorage saved');
-  if (curr) load(COMMANDS.findIndex(c => c.p === curr.p));
+  if (curr.q && curr.q.length) { $('qSec').classList.add('active'); curr.q.forEach(x => mkRow($('qCont'), x.k, x.v, 'string', x.e, true, x.req)) }
+  if (curr._hf) { $('fSec').classList.add('active'); if (curr.f.length) curr.f.forEach(x => mkRow($('fCont'), x.k, x.v, 'string', x.e, true, x.req)); else mkRow($('fCont')) }
+  if (curr.u && curr.u.length) { $('uSec').classList.add('active'); curr.u.forEach(x => mkRow($('uCont'), x.k, x.v, 'string', x.e, true, x.req)) }
+  if (curr._hj) { $('jSec').classList.add('active'); if (curr.j.length) curr.j.forEach(x => mkRow($('jCont'), x.k, x.v, x.t, x.e, true, x.req)); else mkRow($('jCont')) }
 };
 
 /* ── Event wiring ── */
-$('lsBtn').onclick = () => { showModal('lsModal'); renderLs() };
 
 const renderApiInfoTable = (searchQuery = '') => {
   const filtered = searchQuery ? COMMANDS.filter(c => c.p.toLowerCase().includes(searchQuery.toLowerCase())) : COMMANDS;
   $('apiTotal').textContent = `(${filtered.length}/${COMMANDS.length})`;
+  const maxP = filtered.length ? Math.max(...filtered.map(c => c.p.length)) : 4;
+  const pw = `width:${Math.ceil(maxP * 7.2)}px;min-width:${Math.ceil(maxP * 7.2)}px`;
   const ix = 'style="width:25px;min-width:25px;text-align:center"',
     sm = 'style="width:50px;min-width:50px;text-align:center"',
     xs = 'style="width:35px;min-width:35px;text-align:center"';
   $('apiInfoTbl').innerHTML =
-    `<thead><tr><th ${ix}>#</th><th>Path</th><th ${sm}>Method</th><th ${xs}>Token</th><th ${xs}>Query</th><th ${xs}>File</th><th ${xs}>Body</th><th ${xs}>Curl</th><th ${xs}>Run</th></tr></thead>` +
+    `<thead><tr><th ${ix}>#</th><th style="${pw}">Path</th><th ${sm}>Method</th><th ${xs}>Token</th><th ${xs}>Query</th><th ${xs}>File</th><th ${xs}>Body</th><th ${xs}>Curl</th><th ${xs}>Run</th></tr></thead>` +
     `<tbody>${filtered.map((c, i) => {
       const globalIndex = COMMANDS.indexOf(c);
-      return `<tr style="cursor:pointer" data-i="${globalIndex}"><td ${ix}>${globalIndex + 1}</td><td style="white-space:nowrap;min-width:auto">${c.p}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td ${xs}>${getIcon(c.h.length > 0 || c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c._hf)}</td><td ${xs}>${getIcon(c._hj)}</td><td ${xs} class="curl-btn" title="Copy Curl">${ICON.copy(16)}</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td></tr>`;
+      return `<tr style="cursor:pointer" data-i="${globalIndex}"><td ${ix}>${globalIndex + 1}</td><td style="${pw};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.p}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td ${xs}>${getIcon(c.h.length > 0 || c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c._hf)}</td><td ${xs}>${getIcon(c._hj)}</td><td ${xs} class="curl-btn" title="Copy Curl">${ICON.copy(16)}</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td></tr>`;
     }).join('')}</tbody>`;
 };
 
@@ -392,11 +425,6 @@ $('apiInfoSearchClear').onclick = () => {
   renderApiInfoTable('');
 };
 
-$('apiInfoBtn').onclick = () => {
-  renderApiInfoTable();
-  showModal('apiInfoModal');
-};
-
 $('apiInfoRefresh').onclick = async () => {
   $('apiInfoRefresh').classList.add('loading');
   await init();
@@ -405,15 +433,18 @@ $('apiInfoRefresh').onclick = async () => {
   toast('APIs Refreshed');
 };
 
+$('apiPageHardRefresh').onclick = () => {
+  localStorage.clear();
+  window.location.reload();
+};
+
 $('apiInfoTbl').onclick = e => {
   const tr = e.target.closest('tr[data-i]'), i = tr?.dataset.i;
   if (!tr) return;
-  if (e.target.closest('.run-btn')) {
-    hideModal('apiInfoModal'); load(i);
-  } else if (e.target.closest('.curl-btn')) {
+  if (e.target.closest('.curl-btn')) {
     copyWithFeedback(e.target.closest('.curl-btn'), generateCurl(i), 16, 'Curl copied');
   } else {
-    hideModal('apiInfoModal'); load(i);
+    showModal('apiRunnerModal'); load(i);
   }
 };
 
@@ -424,35 +455,25 @@ $('apiInfoCsv').onclick = () => {
   downloadCsv('api_info.csv', csv);
 };
 
-$('apiIn').oninput = debounce(e => {
-  const v = e.target.value.toLowerCase().trim();
-  $('clrSel').style.display = e.target.value ? 'block' : 'none';
-  if (!v) return load(null);
-  renderDropdown(orig.filter(c => c.p.toLowerCase().includes(v)));
-}, 200);
-
-$('apiIn').onfocus = () => {
-  const v = $('apiIn').value.trim();
-  $('clrSel').style.display = v ? 'block' : 'none';
-  renderDropdown(v ? orig.filter(c => c.p.toLowerCase().includes(v.toLowerCase())) : orig);
+$('clrBtn').onclick = () => { 
+  if (curr) { 
+    $('rTab').innerHTML = ''; 
+    $('rBox').classList.remove('show'); 
+    const idx = COMMANDS.indexOf(curr);
+    if (idx !== -1) load(idx); 
+  } 
 };
 
-$('apiDrop').onclick = e => {
-  if (e.target.tagName === 'LI') {
-    $('apiIn').value = e.target.textContent;
-    load(e.target.dataset.i);
-    $('apiDrop').classList.remove('show');
-  }
+window.addEventListener('click', e => {
+  if (e.target === $('apiRunnerModal')) hideModal('apiRunnerModal');
+});
+
+$('runnerCopyCurl').onclick = () => {
+  if (!curr) return;
+  const idx = COMMANDS.indexOf(curr);
+  if (idx !== -1) copyWithFeedback($('runnerCopyCurl'), generateCurl(idx), 20, 'Curl copied');
 };
 
-$('clrSel').onclick = () => load(null);
-d.onclick = e => {
-  if (!$('selW').contains(e.target)) {
-    $('apiDrop').classList.remove('show');
-    $('apiIn').value = curr ? curr.p : '';
-  }
-};
-$('clrBtn').onclick = () => { $('apiForm').reset(); $('rTab').innerHTML = ''; load(null) };
 
 /* ── Response rendering ── */
 const highlight = s => s
@@ -568,6 +589,28 @@ d.addEventListener('click', e => {
 
 $('rCopy').onclick = () => copyWithFeedback($('rCopy'), lastRawResponse, 16, 'Copied to clipboard');
 
+$('rOpen').onclick = () => {
+  if (!lastRawResponse) return toast('No response to open');
+  const blob = new Blob([lastRawResponse], { type: 'application/json' });
+  window.open(URL.createObjectURL(blob), '_blank');
+};
+
+$('rClear').onclick = () => {
+  $('rTab').innerHTML = '';
+  $('rBox').classList.remove('show');
+  lastRawResponse = '';
+  lastMsgVal = null;
+  lastFullJson = null;
+};
+
+$('rJson').onclick = () => {
+  if (lastMsgVal == null) {
+    toast('No JSON response to export');
+    return;
+  }
+  downloadJson('response.json', JSON.stringify(lastMsgVal, null, 2));
+};
+
 $('rCsv').onclick = () => {
   if (lastMsgVal == null || typeof lastMsgVal !== 'object') {
     toast('CSV export requires JSON object or array');
@@ -656,21 +699,24 @@ $('apiForm').onsubmit = async e => {
     pathParams = extractRows($('uCont')),
     jsonData = extractRows($('jCont'), true);
   let urlPath = curr.p;
-  pathParams.forEach(x => { if (x.k) urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(x.v || 'null')) });
+  pathParams.forEach(x => { if (x.k) urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(x.v !== '' ? x.v : 'null')) });
   let url = window.location.origin + urlPath;
-  const qs = queryParams
-    .filter(x => x.k)
-    .map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v === '' ? 'null' : x.v)}`)
-    .join('&');
+  const qs = queryParams.filter(x => x.k && x.v !== '').map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v)}`).join('&');
   if (qs) url += '?' + qs;
   const h = {};
   headers.forEach(x => {
-    if (x.k && x.v) h[x.k] = x.k.toLowerCase() === 'authorization' ? `Bearer ${x.v}` : x.v;
+    if (x.k && x.v !== '') {
+      if (x.k.toLowerCase() === 'authorization') {
+        h[x.k] = x.v.startsWith('Bearer ') ? x.v : `Bearer ${x.v}`;
+      } else {
+        h[x.k] = x.v;
+      }
+    }
   });
   const opts = { method: curr.m, headers: h };
   if (formData.length) {
     const fd = new FormData();
-    formData.forEach(x => { if (x.f) fd.append(x.k, x.f); else if (x.k) fd.append(x.k, x.v === '' ? 'null' : x.v) });
+    formData.forEach(x => { if (x.f) fd.append(x.k, x.f); else if (x.k && x.v !== '') fd.append(x.k, x.v) });
     opts.body = fd;
   } else if (jsonData.length) {
     const body = {};
@@ -692,6 +738,14 @@ $('apiForm').onsubmit = async e => {
       text = await r.text();
     let json;
     try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || 'Raw' } }
+    if (r.ok && json && curr.p.includes('login')) {
+      if (json.status === 1 && json.message && json.message.token && json.message.token.token) {
+        const lsKey = curr.p.startsWith('/root') ? 'token_root' : 'token';
+        localStorage.setItem(lsKey, json.message.token.token);
+        toast(`Saved ${lsKey} to LocalStorage`);
+        updateLoginIndicator();
+      }
+    }
     showResponse(json, r.status, ms);
   } catch (err) {
     showResponse({ status: 0, message: err.message }, 0, Math.round(performance.now() - t0));
@@ -709,14 +763,46 @@ d.addEventListener('keydown', e => {
     $('apiForm').requestSubmit();
   }
   if (e.key === 'Escape') {
-    hideModal('lsModal');
-    hideModal('apiInfoModal');
+    hideModal('apiRunnerModal');
     $('cellPop').classList.remove('show');
   }
 });
 
+if ($('loginIndicator')) {
+  $('loginIndicator').onclick = () => {
+    if (localStorage.getItem('token') || localStorage.getItem('token_root')) {
+      if (confirm('Clear all login tokens?')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('token_root');
+        updateLoginIndicator();
+        toast('Logged out');
+      }
+    } else {
+      toast('You are not logged in');
+    }
+  };
+}
+
+const showAnalytics = () => {
+  const roles = {}, methods = {};
+  COMMANDS.forEach(c => {
+    let r = c.p.split("/").length > 2 ? c.p.split("/")[1] : 'index';
+    roles[r] = (roles[r] || 0) + 1;
+    methods[c.m] = (methods[c.m] || 0) + 1;
+  });
+  const renderCard = (title, data) => {
+    const items = Object.entries(data)
+      .sort((a,b) => b[1] - a[1])
+      .map(([k, v]) => `<div class="analytics-item"><span>${k}</span><span class="analytics-count">${v}</span></div>`)
+      .join('');
+    return `<div class="analytics-card"><h4>${title}</h4><div class="analytics-list">${items}</div></div>`;
+  };
+  $('analyticsGrid').innerHTML = renderCard('API Roles', roles) + renderCard('HTTP Methods', methods);
+  showModal('analyticsModal');
+};
+$('apiInfoAnalytics').onclick = showAnalytics;
+
 init();
-updateLsIcon();
 </script>
 </body>
 </html>

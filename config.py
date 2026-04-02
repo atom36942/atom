@@ -25,11 +25,11 @@ config_kafka_consumer_batch=100
 config_token_secret_key="123"
 config_token_expiry_sec=3*24*60*60
 config_token_refresh_expiry_sec=3*24*60*60*100
-config_token_key=['id', 'type', 'is_active', 'role']
+config_token_key=["id", "type", "is_active", "role"]
 
 #gsheet
 config_gsheet_service_account_json_path=None
-config_gsheet_scope=['https://www.googleapis.com/auth/spreadsheets']
+config_gsheet_scope=["https://www.googleapis.com/auth/spreadsheets"]
 
 #fast2sms
 config_fast2sms_url=None
@@ -61,20 +61,20 @@ config_sftp_password=None
 config_sftp_key_path=None
 
 #cors
-config_cors_origin=['*']
-config_cors_method=['*']
-config_cors_headers=['*']
+config_cors_origin=["*"]
+config_cors_method=["*"]
+config_cors_headers=["*"]
 config_is_cors_allow_credentials=0
 
 #table
-config_table_create_my=['test', 'post', 'support', 'rating_test']
-config_table_create_public=['test', 'support']
-config_table_read_public=['test', 'post']
-config_table_system=['spatial_ref_sys']
+config_table_create_my=["test", "post", "support", "rating_test"]
+config_table_create_public=["test", "support"]
+config_table_read_public=["test", "post"]
+config_table_system=["spatial_ref_sys"]
 
 #column
-config_column_blocked=['is_active', 'is_verified', 'role', 'created_at', 'updated_at']
-config_column_single_update=['username', 'password', 'email', 'mobile']
+config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at"]
+config_column_single_update=["username", "password", "email", "mobile"]
 
 #switch
 config_is_signup=1
@@ -90,11 +90,13 @@ config_is_otp_users_update_admin=0
 config_auth_type=[1, 2, 3]
 config_expiry_sec_otp=600
 config_limit_ids_delete=1000
+config_limit_batch=1000
 config_google_login_client_id=None
 config_mongodb_url=None
 config_openai_key=None
 config_gemini_key=None
 config_sentry_dsn=None
+config_api_roles=["index", "auth", "my", "public", "private", "admin"]
 
 #dict
 config_sql={

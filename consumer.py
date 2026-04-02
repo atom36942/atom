@@ -55,14 +55,14 @@ async def logic_redis():
         print("redis consumer started")
         async for message in client_redis_consumer.listen():
             if message["type"]=="message" and message["channel"]==config_channel_name.encode():
-                payload=json.loads(message['data'])
+                payload=json.loads(message["data"])
                 await func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool)
                 print("redis message processed")
     except asyncio.CancelledError:pass
     except Exception as e:print(f"redis error: {str(e)}")
     finally:
-        if 'client_redis' in locals():await client_redis.aclose()
-        if 'client_postgres_pool' in locals() and client_postgres_pool:await client_postgres_pool.close()
+        if "client_redis" in locals():await client_redis.aclose()
+        if "client_postgres_pool" in locals() and client_postgres_pool:await client_postgres_pool.close()
 
 #rabbitmq
 async def logic_rabbitmq():
@@ -81,9 +81,9 @@ async def logic_rabbitmq():
     except asyncio.CancelledError:pass
     except Exception as e:print(f"rabbitmq error: {str(e)}")
     finally:
-        if 'client_rabbitmq_consumer' in locals():await client_rabbitmq_consumer.channel.close()
-        if 'client_rabbitmq' in locals() and not client_rabbitmq.is_closed:await client_rabbitmq.close()
-        if 'client_postgres_pool' in locals() and client_postgres_pool:await client_postgres_pool.close()
+        if "client_rabbitmq_consumer" in locals():await client_rabbitmq_consumer.channel.close()
+        if "client_rabbitmq" in locals() and not client_rabbitmq.is_closed:await client_rabbitmq.close()
+        if "client_postgres_pool" in locals() and client_postgres_pool:await client_postgres_pool.close()
 
 #kafka
 async def logic_kafka():
@@ -96,15 +96,15 @@ async def logic_kafka():
             if not batch:continue
             for tp, messages in batch.items():
                 for message in messages:
-                    payload=json.loads(message.value.decode('utf-8'))
+                    payload=json.loads(message.value.decode("utf-8"))
                     await func_consumer_logic(payload,func_postgres_obj_create,func_postgres_obj_update,func_postgres_obj_serialize,client_postgres_pool)
                 if not config_kafka_enable_auto_commit:await client_kafka_consumer.commit(tp)
                 print(f"kafka batch processed: {len(messages)} msgs")
     except asyncio.CancelledError:pass
     except Exception as e:print(f"kafka error: {str(e)}")
     finally:
-        if 'client_kafka_consumer' in locals():await client_kafka_consumer.stop()
-        if 'client_postgres_pool' in locals() and client_postgres_pool:await client_postgres_pool.close()
+        if "client_kafka_consumer" in locals():await client_kafka_consumer.stop()
+        if "client_postgres_pool" in locals() and client_postgres_pool:await client_postgres_pool.close()
 
 #celery init
 celery=None
@@ -120,7 +120,7 @@ if __name__ == "__main__":
         if mode=="redis":asyncio.run(logic_redis())
         elif mode=="rabbitmq":asyncio.run(logic_rabbitmq())
         elif mode=="kafka":asyncio.run(logic_kafka())
-        elif mode=="celery":(celery.worker_main(argv=['worker','--loglevel=info']) if celery else None)
+        elif mode=="celery":(celery.worker_main(argv=["worker","--loglevel=info"]) if celery else None)
         else:print(f"unknown mode: {mode}")
     except KeyboardInterrupt:sys.exit(0)
     except Exception as e:

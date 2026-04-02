@@ -8,9 +8,9 @@ from contextlib import asynccontextmanager
 import httpx
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
-  #start
+   #start
    func_structure_create(["tmp","secret"], [".env","z.py"])
-  #client init
+   #client init
    client_http=httpx.AsyncClient()
    client_postgres_pool=await func_postgres_client_read({"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection}) if config_postgres_url else None
    client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
@@ -29,14 +29,17 @@ async def func_lifespan(app:FastAPI):
    client_sftp=await func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
    client_gemini=func_gemini_client_read(config_gemini_key) if config_gemini_key else None
    if client_postgres_pool: await func_postgres_init_root_user(client_postgres_pool)
-  #cache init
+   #cache init
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else {}
    cache_postgres_schema_tables=list(cache_postgres_schema.keys())
    cache_postgres_schema_columns=sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
    cache_users_role=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool else {}
    cache_users_is_active=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
+   #app state add
    func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
-  #app shutdown
+   #check
+   func_check(app.routes, config_api, config_api_roles)
+   #app shutdown
    yield
    await func_postgres_obj_create(client_postgres_pool, func_postgres_obj_serialize, None, None, "flush")
    if config_is_reset_tmp == 1:func_folder_reset("tmp")

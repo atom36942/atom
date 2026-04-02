@@ -74,7 +74,7 @@ async def func_sftp_read_files(host,port,username,password,remote_dir,local_pref
         async with conn.start_sftp_client() as sftp:
             files=await sftp.listdir(remote_dir)
             for f in files:
-                if f not in ('.','..') and f.lower().endswith('.csv'):
+                if f not in (".","..") and f.lower().endswith(".csv"):
                     local_path=f"{local_prefix}{f}"
                     await sftp.get(f"{remote_dir}/{f}",local_path)
                     list_files.append((f,local_path))
