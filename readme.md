@@ -22,6 +22,7 @@ rm -rf venv
 ./venv/bin/pip install -r requirements.txt
 ./venv/bin/python -V
 ./venv/bin/python main.py
+./venv/bin/uvicorn main:app --reload
 ```
 </details>
 
@@ -174,7 +175,7 @@ The database structure is managed through administrative endpoints and automated
 | :--- | :--- | :--- |
 | **Schema Init** | `/admin/postgres-init` | Triggers `func_postgres_init` to create extensions and base tables. |
 | **Root User** | `func_postgres_init_root_user` | Automatically creates the first admin user during `main.py` lifespan. |
-| **Auto-Table** | `func_postgres_obj_create` | Creates tables on-the-fly if missing during buffer flushes. |
+| **Auto-Table** | `func_postgres_create` | Creates tables on-the-fly if missing during buffer flushes. |
 
 ### PostgreSQL Controls
 Operational constraints for database management are defined in `config_postgres["control"]`.
@@ -205,6 +206,65 @@ Each field in a `config_postgres["table"]` entry is a map defining column behavi
 | `is_mandatory` | 0 | Enforces non-null checks in API and UI. |
 | `regex` | - | Pattern validation for browser and API inputs. |
 | `old` | - | Migration helper to rename columns during schema init. |
+
+</details>
+
+<details>
+<summary>Postgres Create</summary>
+
+### `func_postgres_create`
+High-performance record insertion with support for in-memory buffering and batching.
+
+| Parameter | Type | Default | Execution Logic |
+| :--- | :--- | :--- | :--- |
+| `object_list` | `list` | - | List of dictionaries to insert. |
+| `execution_mode` | `str` | `now` | `now`: immediate insert, `buffer`: in-memory batching, `flush`: clear buffer. |
+| `is_serialize` | `int` | `0` | If `1`, runs `func_postgres_obj_serialize` before insertion. |
+| `table_buffer` | `int` | `0` (500) | Threshold count for the in-memory buffer before flushing. |
+
+#### Features
+- **Buffer Mode**: Reduces database I/O for high-frequency logs.
+- **Protocol Safety**: Uses `jsonb_to_recordset` for bulk inserts with a single bind parameter.
+
+</details>
+
+<details>
+<summary>Postgres Update</summary>
+
+### `func_postgres_update`
+Batch updating with owner validation and parameter overflow protection.
+
+| Parameter | Type | Default | Execution Logic |
+| :--- | :--- | :--- | :--- |
+| `obj_list` | `list` | - | List containing `id` and columns to update. |
+| `created_by_id` | `int` | `None` | If provided, enforces `WHERE created_by_id = X` ownership. |
+| `batch_size` | `int` | `5000` | Target rows per query (dynamically capped for safety). |
+| `is_return_ids` | `int` | `0` | If `1`, returns list of modified record IDs. |
+
+#### Features
+- **Protocol Safety**: Automatically calculates batch size to never exceed the **65,535** parameter limit.
+- **Ownership Check**: Built-in verification to prevent cross-user updates.
+
+</details>
+
+<details>
+<summary>Postgres Read</summary>
+
+### `func_postgres_read`
+Generic object reader with advanced filtering, sorting, and pagination.
+
+| Setting | Usage | Execution Logic |
+| :--- | :--- | :--- |
+| **Filters** | `field,op,val` | `contains`, `exists`, `overlap`, `any`, `in`, `between`, `point`. |
+| **Sorting** | `order=id desc` | Comma-separated list for complex ordering. |
+| **Columns** | `column=id,name` | Select specific fields to reduce payload. |
+| **Relations** | `creator_key=name` | Automatically fetches creator details from `users`. |
+| **Aggregates** | `action_key=...` | Cross-table count/sum relations without extra queries. |
+
+#### Filter Examples
+- **Spatial**: `location,point,lon|lat|min|max`
+- **JSONB**: `data,contains,key|value|type`
+- **Arrays**: `tags,overlap,tagA|tagB`
 
 </details>
 

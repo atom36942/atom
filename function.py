@@ -102,16 +102,16 @@ async def func_api_response_error(exception: Exception, is_traceback: int, sentr
     if sentry_dsn: import sentry_sdk; sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
 
-async def func_api_log_create(start_time: float, ip_address: str, user_id: any, api_path: str, http_method: str, query_params: str, status_code: int, log_type: int, error_description: str, is_log_api: int, api_id: int, func_postgres_obj_create: callable, postgres_pool: any, func_postgres_obj_serialize: callable, table_buffer: int) -> None:
+async def func_api_log_create(start_time: float, ip_address: str, user_id: any, api_path: str, http_method: str, query_params: str, status_code: int, log_type: int, error_description: str, is_log_api: int, api_id: int, func_postgres_create: callable, postgres_pool: any, func_postgres_obj_serialize: callable, table_buffer: int) -> None:
     """Create an API execution log entry asynchronously."""
     import asyncio, time
     if is_log_api:
         log_obj = {"ip_address": ip_address, "created_by_id": user_id, "api": api_path, "api_id": api_id, "method": http_method, "query_param": query_params, "status_code": status_code, "response_time_ms": int((time.perf_counter() - start_time) * 1000), "type": log_type, "description": error_description}
-        asyncio.create_task(func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, "log_api", [log_obj], "buffer", 0, table_buffer))
+        asyncio.create_task(func_postgres_create(postgres_pool, func_postgres_obj_serialize, "log_api", [log_obj], "buffer", 0, table_buffer))
     return None
 
 #api core logic
-async def func_obj_create_logic(api_role: str, obj_query: dict, obj_body: dict, user_id: any, table_create_my_list: list, table_create_public_list: list, column_blocked_list: list, postgres_pool: any, func_postgres_obj_serialize: callable, table_config: dict, func_producer_logic: callable, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_obj_create: callable, limit_batch: int = None) -> any:
+async def func_obj_create_logic(api_role: str, obj_query: dict, obj_body: dict, user_id: any, table_create_my_list: list, table_create_public_list: list, column_blocked_list: list, postgres_pool: any, func_postgres_obj_serialize: callable, table_config: dict, func_producer_logic: callable, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_create: callable, limit_batch: int = None) -> any:
     """Wrapper logic for object creation with role-based validation and optional queueing."""
     obj_list = obj_body.get("obj_list", [obj_body])
     limit = limit_batch or 1000
@@ -133,11 +133,11 @@ async def func_obj_create_logic(api_role: str, obj_query: dict, obj_body: dict, 
     else: raise Exception(f"invalid role: {api_role}")
     if user_id:
         for item in obj_list: item["created_by_id"] = user_id
-    if not obj_query.get("queue"): return await func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, obj_query.get("table"), obj_list, obj_query.get("mode"), obj_query.get("is_serialize"), table_config.get(obj_query.get("table"), {}).get("buffer"))
-    payload = {"func": "func_postgres_obj_create", "mode": obj_query.get("mode"), "table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "buffer": table_config.get(obj_query.get("table"), {}).get("buffer")}
+    if not obj_query.get("queue"): return await func_postgres_create(postgres_pool, func_postgres_obj_serialize, obj_query.get("table"), obj_list, obj_query.get("mode"), obj_query.get("is_serialize"), table_config.get(obj_query.get("table"), {}).get("buffer"))
+    payload = {"func": "func_postgres_create", "mode": obj_query.get("mode"), "table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "buffer": table_config.get(obj_query.get("table"), {}).get("buffer")}
     return await func_producer_logic(payload, obj_query.get("queue"), celery_producer, kafka_producer, rabbitmq_producer, redis_producer, channel_name, func_celery_producer, func_kafka_producer, func_rabbitmq_producer, func_redis_producer)
 
-async def func_obj_update_logic(api_role: str, obj_query: dict, obj_body: dict, user_id: any, column_blocked_list: list, column_single_update_list: list, postgres_pool: any, func_postgres_obj_serialize: callable, func_producer_logic: callable, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_obj_update: callable, func_otp_verify: callable, expiry_sec_otp: int, is_otp_users_update_admin: int = None, limit_batch: int = None) -> any:
+async def func_obj_update_logic(api_role: str, obj_query: dict, obj_body: dict, user_id: any, column_blocked_list: list, column_single_update_list: list, postgres_pool: any, func_postgres_obj_serialize: callable, func_producer_logic: callable, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_update: callable, func_otp_verify: callable, expiry_sec_otp: int, is_otp_users_update_admin: int = None, limit_batch: int = None) -> any:
     """Wrapper logic for object updates with owner validation, OTP checks, and optional queueing."""
     obj_list, created_by_id = obj_body.get("obj_list", [obj_body]), user_id
     limit = limit_batch or 1000
@@ -150,6 +150,7 @@ async def func_obj_update_logic(api_role: str, obj_query: dict, obj_body: dict, 
         if obj_query.get("table") == "users":
             if len(obj_list) != 1: raise Exception("multi-object update not allowed")
             if obj_list[0].get("id") != user_id: raise Exception("ownership issue")
+            if "is_deleted" in obj_list[0]: raise Exception("blocked key not allowed: is_deleted")
             csu = column_single_update_list.split(",") if isinstance(column_single_update_list, str) else column_single_update_list
             if any(key in obj_list[0] and len(obj_list[0]) != 2 for key in csu): raise Exception("obj length should be 2")
             if any(key in obj_list[0] for key in ("email", "mobile")): await func_otp_verify(postgres_pool, obj_query.get("otp"), obj_list[0].get("email"), obj_list[0].get("mobile"), expiry_sec_otp)
@@ -162,11 +163,11 @@ async def func_obj_update_logic(api_role: str, obj_query: dict, obj_body: dict, 
     elif api_role == "auth": raise Exception("role not allowed")
     elif api_role == "private": raise Exception("role not allowed")
     else: raise Exception(f"invalid role: {api_role}")
-    if any(any(k in ("created_at", "is_deleted") for k in item) for item in obj_list): raise Exception("immutable fields cannot be modified")
+    if any(any(k == "created_at" for k in item) for item in obj_list): raise Exception("immutable fields cannot be modified: created_at")
     if user_id:
         for item in obj_list: item["updated_by_id"] = user_id
-    if not obj_query.get("queue"): return await func_postgres_obj_update(postgres_pool, func_postgres_obj_serialize, obj_query.get("table"), obj_list, obj_query.get("is_serialize"), created_by_id)
-    payload = {"func": "func_postgres_obj_update", "table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "created_by_id": created_by_id}
+    if not obj_query.get("queue"): return await func_postgres_update(postgres_pool, func_postgres_obj_serialize, obj_query.get("table"), obj_list, obj_query.get("is_serialize"), created_by_id)
+    payload = {"func": "func_postgres_update", "table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "created_by_id": created_by_id}
     return await func_producer_logic(payload, obj_query.get("queue"), celery_producer, kafka_producer, rabbitmq_producer, redis_producer, channel_name, func_celery_producer, func_kafka_producer, func_rabbitmq_producer, func_redis_producer)
 
 async def func_producer_logic(payload: dict, queue_name: str, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable) -> any:
@@ -177,17 +178,17 @@ async def func_producer_logic(payload: dict, queue_name: str, celery_producer: a
     elif queue_name == "redis": return await func_redis_producer(redis_producer, channel_name, payload)
     raise Exception(f"invalid queue: {queue_name}, allowed: celery, kafka, rabbitmq, redis")
 
-async def func_consumer_logic(payload: dict, func_postgres_obj_create: callable, func_postgres_obj_update: callable, func_postgres_obj_serialize: callable, postgres_pool: any) -> any:
+async def func_consumer_logic(payload: dict, func_postgres_create: callable, func_postgres_update: callable, func_postgres_obj_serialize: callable, postgres_pool: any) -> any:
     """Execute background tasks received from message queues."""
     import asyncio
     from itertools import count
     if not hasattr(func_consumer_logic, "counter"): func_consumer_logic.counter = count(1)
     func_name = payload.get("func")
-    if func_name == "func_postgres_obj_create":
-        output = asyncio.create_task(func_postgres_obj_create(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["mode"], payload["is_serialize"], payload["buffer"]))
-    elif func_name == "func_postgres_obj_update":
-        output = asyncio.create_task(func_postgres_obj_update(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["is_serialize"], payload["created_by_id"]))
-    else: raise Exception(f"unsupported consumer function: {func_name}, allowed: func_postgres_obj_create, func_postgres_obj_update")
+    if func_name == "func_postgres_create":
+        output = asyncio.create_task(func_postgres_create(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["mode"], payload["is_serialize"], payload["buffer"]))
+    elif func_name == "func_postgres_update":
+        output = asyncio.create_task(func_postgres_update(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["is_serialize"], payload["created_by_id"]))
+    else: raise Exception(f"unsupported consumer function: {func_name}, allowed: func_postgres_create, func_postgres_update")
     print(next(func_consumer_logic.counter))
     return output
 
@@ -385,7 +386,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
     errors = get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles)
     if errors: raise Exception("; ".join(errors))
 
-def func_info_read(app_routes: list, cache_postgres_schema: dict, config_postgres: dict, config_table: dict, config_api: dict) -> dict:
+def func_repo_info(app_routes: list, cache_postgres_schema: dict, config_postgres: dict, config_table: dict, config_api: dict) -> dict:
     """Construct system discovery metadata including routes, schema, and configuration settings."""
     import inspect, ast
     def get_postgres_keys(config_pg):
@@ -419,7 +420,6 @@ def func_info_read(app_routes: list, cache_postgres_schema: dict, config_postgre
     return {
         "api_list": [route.path for route in app_routes if hasattr(route, "path")],
         "api_param_count": get_api_param_count(app_routes),
-        "openapi_url": "/openapi.json",
         "postgres_schema": cache_postgres_schema,
         "config_table_key": get_config_keys(config_table),
         "config_api_key": get_config_keys(config_api),
@@ -540,7 +540,7 @@ async def func_postgres_clean(postgres_pool: any, table_config: dict) -> None:
             if (retention_days := cfg.get("retention_day")) is not None: await conn.execute(f"DELETE FROM {table} WHERE created_at < $1", datetime.utcnow() - timedelta(days=retention_days))
     return None
 
-async def func_postgres_obj_read(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, query_params: dict) -> list:
+async def func_postgres_read(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, query_params: dict) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re, json
     from datetime import datetime
@@ -714,7 +714,7 @@ async def func_postgres_obj_read(postgres_pool: any, func_postgres_obj_serialize
                 res_row[f"{target_tbl}_{action_op}"] = action_map.get(obj_id, default_val)
         return result_list
 
-async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, obj_list: list, is_serialize: int = None, created_by_id: int = None, batch_size: int = None, is_return_ids: int = None) -> str:
+async def func_postgres_update(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, obj_list: list, is_serialize: int = None, created_by_id: int = None, batch_size: int = None, is_return_ids: int = None) -> any:
     """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
     serialize_flag = is_serialize if is_serialize is not None else 0
     limit_batch = batch_size or 5000
@@ -741,7 +741,7 @@ async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_seriali
             if return_ids_flag == 1:
                 query = f"""UPDATE {table_name} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause} RETURNING id;"""
                 records = await conn.fetch(query, *params)
-                return f"{len(records)} rows updated"
+                return [r["id"] for r in records]
             else:
                 query = f"""UPDATE {table_name} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause};"""
                 status = await conn.execute(query, *params)
@@ -774,34 +774,34 @@ async def func_postgres_obj_update(postgres_pool: any, func_postgres_obj_seriali
                 else:
                     query = f"""UPDATE {table_name} SET {", ".join(set_clauses)} WHERE {where_clause};"""
                     total_updated += int((await conn.execute(query, *batch_vals)).split()[-1])
-            return f"{len(returned_ids) if return_ids_flag == 1 else total_updated} rows updated"
+            return returned_ids if return_ids_flag == 1 else f"{total_updated} rows updated"
 
-async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, object_list: list, execution_mode: str = None, is_serialize: int = None, table_buffer: int = None) -> any:
+async def func_postgres_create(postgres_pool: any, func_postgres_obj_serialize: callable, table_name: str, object_list: list, execution_mode: str = None, is_serialize: int = None, table_buffer: int = None) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
-    if not hasattr(func_postgres_obj_create, "buffer"): func_postgres_obj_create.buffer = {}
+    if not hasattr(func_postgres_create, "buffer"): func_postgres_create.buffer = {}
     mode, serialize_flag, buffer_limit = execution_mode or "now", is_serialize or 0, table_buffer or 0
     if mode == "flush":
-        for table, items in func_postgres_obj_create.buffer.items():
+        for table, items in func_postgres_create.buffer.items():
             if items:
                 columns = items[0].keys()
                 placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
                 query = f"""INSERT INTO {table} ({",".join(columns)}) VALUES ({placeholders})"""
                 async with postgres_pool.acquire() as conn: await conn.executemany(query, [tuple(i.values()) for i in items])
-                func_postgres_obj_create.buffer[table] = []
+                func_postgres_create.buffer[table] = []
         return "flushed"
     if not object_list: return None
     serialized_list = object_list
     if serialize_flag: serialized_list = await func_postgres_obj_serialize(postgres_pool, table_name, object_list)
     if mode == "buffer":
-        if table_name not in func_postgres_obj_create.buffer: func_postgres_obj_create.buffer[table_name] = []
-        func_postgres_obj_create.buffer[table_name].extend(serialized_list)
-        if len(func_postgres_obj_create.buffer[table_name]) >= (buffer_limit or 500):
-            items = func_postgres_obj_create.buffer[table_name]
+        if table_name not in func_postgres_create.buffer: func_postgres_create.buffer[table_name] = []
+        func_postgres_create.buffer[table_name].extend(serialized_list)
+        if len(func_postgres_create.buffer[table_name]) >= (buffer_limit or 500):
+            items = func_postgres_create.buffer[table_name]
             columns = items[0].keys()
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
             query = f"""INSERT INTO {table_name} ({",".join(columns)}) VALUES ({placeholders})"""
             async with postgres_pool.acquire() as conn: await conn.executemany(query, [tuple(i.values()) for i in items])
-            func_postgres_obj_create.buffer[table_name] = []
+            func_postgres_create.buffer[table_name] = []
         return "buffered"
     columns = serialized_list[0].keys()
     if len(serialized_list) == 1:
@@ -821,7 +821,7 @@ async def func_postgres_obj_create(postgres_pool: any, func_postgres_obj_seriali
         async with postgres_pool.acquire() as conn:
             query = f"INSERT INTO {table_name} ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id"
             ids = await conn.fetch(query, json.dumps(serialized_list, default=str))
-    return [r["id"] for r in ids] if len(ids) > 0 and isinstance(ids[0], dict) and "id" in ids[0] else "bulk created"
+    return [r["id"] for r in ids] if ids and "id" in ids[0] else "bulk created"
 
 async def func_postgres_obj_serialize(postgres_pool: any, table_name: str, object_list: list, is_base: int = None) -> list:
     """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware caching."""
@@ -953,7 +953,8 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
             catalog["tg"].add("trigger_users_root_no_delete")
             await conn.execute("CREATE OR REPLACE FUNCTION func_users_root_no_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_users_root_no_delete ON users; CREATE TRIGGER trigger_users_root_no_delete BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_root_no_delete();")
             if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
-                await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', 1, 1) ON CONFLICT (username, type) DO UPDATE SET password = EXCLUDED.password, role = EXCLUDED.role, is_active = EXCLUDED.is_active;")
+                root_user_password = control.get("root_user_password", "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3")
+                await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', $1, 1, 1) ON CONFLICT (username, type) DO UPDATE SET password = EXCLUDED.password, role = EXCLUDED.role, is_active = EXCLUDED.is_active;", root_user_password)
             if "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_users_password_log"); await conn.execute("CREATE OR REPLACE FUNCTION func_users_password_log() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;"); await conn.execute("DROP TRIGGER IF EXISTS trigger_users_password_log ON users; CREATE TRIGGER trigger_users_password_log AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_users_password_log();")
             if control.get("is_child_delete_soft", 0) and "is_deleted" in users_cols:
@@ -1389,12 +1390,15 @@ async def func_api_usage_read(postgres_pool: any, days_limit: int, user_id: int 
 
 async def func_account_delete(delete_mode: str, postgres_pool: any, user_id: int) -> str:
     """Delete a user account either softly (flag) or hardly (row removal)."""
-    if delete_mode == "soft": query = "UPDATE users SET is_deleted=1 WHERE id=$1"
-    elif delete_mode == "hard": query = "DELETE FROM users WHERE id=$1"
-    else: raise Exception(f"invalid delete mode: {delete_mode}, allowed: soft, hard")
-    async with postgres_pool.acquire() as conn: await conn.execute(query, user_id)
+    async with postgres_pool.acquire() as conn:
+        user=await conn.fetchrow("SELECT role FROM users WHERE id=$1", user_id)
+        if not user: raise Exception("user not found")
+        if user["role"] is not None: raise Exception("account with role cannot be deleted")
+        if delete_mode == "soft": query = "UPDATE users SET is_deleted=1 WHERE id=$1"
+        elif delete_mode == "hard": query = "DELETE FROM users WHERE id=$1"
+        else: raise Exception(f"invalid delete mode: {delete_mode}, allowed: soft, hard")
+        await conn.execute(query, user_id)
     return "account deleted"
-
 
 #user & message operations
 async def func_user_single_read(postgres_pool: any, user_id: int) -> dict:
@@ -1589,7 +1593,7 @@ async def func_postgres_obj_read_public(postgres_pool, func_postgres_obj_seriali
     if table_read_public_list:
         if table_name not in table_read_public_list:
             raise Exception(f"table not allowed: {table_name}, allowed: {table_read_public_list}")
-    return await func_postgres_obj_read(postgres_pool, func_postgres_obj_serialize, table_name, obj_query)
+    return await func_postgres_read(postgres_pool, func_postgres_obj_serialize, table_name, obj_query)
 
 def func_openai_client_read(api_key: str) -> any:
     """Initialize OpenAI client."""

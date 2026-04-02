@@ -42,7 +42,7 @@
 
 ### Defaults
 * No non-essential parameter defaults in signatures.
-* Use `None` and handle internally (`p = p or default`) at start of function (e.g. `func_postgres_obj_create`).
+* Use `None` and handle internally (`p = p or default`) at start of function (e.g. `func_postgres_create`).
 
 ### Docs
 * Use `<details><summary>` in `readme.md`.

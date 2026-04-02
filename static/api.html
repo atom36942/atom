@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>API Requester</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>API Master</title>
 <style>
 :root{--bg:#0b0d10;--card:#0f1114;--muted:#9aa0a6;--primary:#38a169;--primary-text:#031013;--secondary:#1f2933;--secondary-text:#e6eef3;--delete:#dc3545;--accent:#4299e1}
 body{margin:0;background:var(--bg);color:#e6eef3;font-family:Inter,system-ui;line-height:1.6}
@@ -48,6 +48,7 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .resp-pre{padding:0;margin:0;font-size:13px;font-family:'SF Mono',Menlo,monospace;color:#e6eef3;white-space:pre;max-height:400px;overflow:auto;background:none;border:none}
 .resp-pre .jp{color:var(--muted)}.resp-pre .jk{color:#7ec8e3}.resp-pre .js{color:#98c379}.resp-pre .jn{color:#d19a66}.resp-pre .jb{color:#c678dd}.resp-pre .jl{color:#56b6c2}
 .resp-tbl-wrap{overflow:auto;max-width:100%;max-height:400px}
+.resp-tbl tbody tr:first-child td{padding-top:12px}
 .resp-tbl{border-collapse:collapse;font-size:13px;margin:0;table-layout:auto;width:100%}
 .resp-tbl th{background:#1a1d23;padding:8px 12px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1;text-transform:uppercase;letter-spacing:0.5px}
 .resp-tbl td{color:#e6eef3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;position:relative}
@@ -80,19 +81,31 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .test-progress-fill{height:100%;background:var(--primary);border-radius:2px;transition:width 0.3s ease}
 .test-results-wrap{max-height:60vh;overflow-y:auto}
 .test-results-tbl{width:100%;border-collapse:collapse;font-size:13px;table-layout:auto}
-.test-results-tbl th{background:#1a1d23;padding:8px 12px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;white-space:nowrap;text-transform:uppercase;letter-spacing:0.5px;position:sticky;top:0;z-index:1}
-.test-results-tbl td{color:#e6eef3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.test-results-tbl th{background:#1a1d23;padding:8px 10px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;white-space:nowrap;text-transform:uppercase;letter-spacing:0.5px;position:sticky;top:0;z-index:1}
+.test-results-tbl td{color:#e6eef3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:8px 10px}
 .test-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px}
 .test-badge.pass{background:rgba(56,161,105,0.15);color:#38a169}
 .test-badge.fail{background:rgba(220,53,69,0.15);color:#dc3545}
 .test-badge.skip{background:rgba(237,137,54,0.15);color:#ed8936}
 .test-badge.run{background:rgba(66,153,225,0.15);color:#4299e1;animation:pulse 1s infinite}
+.test-summary span.clickable{cursor:pointer;padding:4px 8px;border-radius:6px;transition:all 0.2s;border:1px solid transparent}
+.test-summary span.clickable:hover{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)}
+.test-summary span.clickable.active{background:rgba(56,161,105,0.1);border-color:var(--primary);color:#fff}
+.test-summary span.clickable.active[data-type="fail"]{background:rgba(220,53,69,0.1);border-color:var(--delete)}
+.test-summary span.clickable.active[data-type="skip"]{background:rgba(237,137,54,0.1);border-color:#ed8936}
+.param-badge{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;text-transform:uppercase;cursor:help;opacity:0.7;display:inline-block;min-width:10px;text-align:center}
+.param-badge:hover{opacity:1;background:rgba(255,255,255,0.1)}
+.param-badge.a{background:rgba(56,161,105,0.15);color:#38a169}
+.param-badge.p{background:rgba(66,153,225,0.15);color:#4299e1}
+.param-badge.q{background:rgba(0,188,212,0.15);color:#00bcd4}
+.param-badge.f{background:rgba(237,137,54,0.15);color:#ed8936}
+.param-badge.b{background:rgba(159,122,234,0.15);color:#9f7aea}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 </style>
 </head>
 <body>
 <div class="container"><div class="card">
-<h1>API Master <span id="apiTotal" style="font-size:13px;font-weight:400;color:var(--muted);margin-left:12px"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="apiTestAll" title="Test All APIs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="m9 14 2 2 4-4"/></svg></button><button type="button" class="icon-btn" id="apiInfoRefresh" title="Refresh APIs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button><button type="button" class="icon-btn" id="apiPageHardRefresh" title="Hard Refresh (Clear Cache & Reload)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></button><button type="button" class="icon-btn" id="apiInfoAnalytics" title="Analytics"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></div></h1>
+<h1>API Master <span id="apiTotal" style="font-size:13px;font-weight:400;color:var(--muted);margin-left:12px"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="apiTestAll" title="Test All APIs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="m9 14 2 2 4-4"/></svg></button><button type="button" class="icon-btn" id="apiInfoAnalytics" title="Analytics"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button type="button" class="icon-btn" id="apiStorageBtn" title="Local Storage"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></button></div></h1>
 <div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiInfoSearch" placeholder="Search API Paths..." style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
 <div class="resp-tbl-wrap" style="max-height:600px"><table class="resp-tbl" id="apiInfoTbl" style="table-layout:auto"></table></div>
 <div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
@@ -111,14 +124,14 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
         <input type="text" id="apiIn" placeholder="API Path" autocomplete="off" readonly style="color:var(--accent);font-weight:600">
     </div>
     <form id="apiForm">
-        <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
         <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small">+</button></div><div id="hCont" class="dynamic-container"></div></div>
+        <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
         <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
         <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
         <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
         <div class="footer-row"><button id="clrBtn" type="button" class="btn btn-secondary">Clear</button><button id="subBtn" type="submit" class="btn btn-primary">Submit</button></div>
     </form>
-    <div class="resp-box" id="rBox"><div class="resp-header"><span>Response <span id="rCode" style="font-weight:400"></span></span><div style="display:flex;align-items:center;margin-left:auto"><button id="rCopy" class="copy-btn" title="Copy response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button id="rMin" class="copy-btn" title="Compress JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14l-7 7"/></svg></button><button id="rGrid" class="copy-btn" title="Table view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button><button id="rJson" class="copy-btn" title="Download JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button><button id="rCsv" class="copy-btn" title="Download CSV"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button id="rOpen" class="copy-btn" title="Open in new tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button><button id="rClear" class="copy-btn" title="Clear response" style="color:var(--delete);margin-left:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button></div></div><div class="resp-content"><table id="rTab"></table></div></div>
+    <div class="resp-box" id="rBox"><div class="resp-header"><span>Response <span id="rCode" style="font-weight:400"></span></span><div style="display:flex;align-items:center;margin-left:auto"><button id="rCopy" class="copy-btn" title="Copy response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button id="rMin" class="copy-btn" title="Compress JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14l-7 7"/></svg></button><button id="rGrid" class="copy-btn" title="Table view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button><button id="rJson" class="copy-btn" title="Download JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button><button id="rCsv" class="copy-btn" title="Download CSV"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button id="rOpen" class="copy-btn" title="Open in new tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button></div></div><div class="resp-content"><table id="rTab"></table></div></div>
     </div>
 </div></div>
 
@@ -135,14 +148,16 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 <div id="testAllModal" class="modal" onclick="if(event.target===this)hideModal('testAllModal')">
     <div class="modal-content" style="max-width:900px;margin:3% auto">
         <div class="modal-header">
-            <h3 style="margin:0">API Test Runner</h3>
+            <h3 style="margin:0">API Tester</h3>
             <div class="modal-actions">
                 <button type="button" id="testRunBtn" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 16px;border-radius:8px;background:var(--primary);color:var(--primary-text);border:none;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Run Tests</button>
+                <button type="button" class="icon-btn" id="testAllClearCache" title="Clear Test Cache"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
                 <button type="button" class="icon-btn" id="testAllExportCsv" title="Export CSV"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
                 <button type="button" class="icon-btn" title="Close" onclick="hideModal('testAllModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
         </div>
         <div class="test-summary" id="testSummary" style="display:none"></div>
+        <div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiTestSearch" placeholder="Search API Paths..." style="padding:12px 40px 12px 16px;font-size:14px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiTestSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
         <div class="test-progress" id="testProgress" style="display:none"><span id="testProgressText">0/0</span><div class="test-progress-bar"><div class="test-progress-fill" id="testProgressFill" style="width:0%"></div></div></div>
         <div class="test-results-wrap"><table class="test-results-tbl" id="testResultsTbl"><thead id="testResultsHead"></thead><tbody id="testResultsBody"></tbody></table></div>
     </div>
@@ -151,7 +166,7 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 <div id="testResponseModal" class="modal" onclick="if(event.target===this)hideModal('testResponseModal')">
     <div class="modal-content" style="max-width:700px;margin:5% auto">
         <div class="modal-header">
-            <h3 style="margin:0" id="testResponseTitle">Response</h3>
+            <h3 style="margin:0" id="testResponseTitle">API Response</h3>
             <div class="modal-actions">
                 <button type="button" class="icon-btn" id="testResponseCopy" title="Copy Response"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
                 <button type="button" class="icon-btn" title="Close" onclick="hideModal('testResponseModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -161,11 +176,83 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     </div>
 </div>
 
+<div id="testParamsModal" class="modal" onclick="if(event.target===this)hideModal('testParamsModal')">
+    <div class="modal-content" style="max-width:700px;margin:5% auto">
+        <div class="modal-header">
+            <h3 style="margin:0" id="testParamsTitle">API Params Preview</h3>
+            <div class="modal-actions">
+                <button type="button" class="icon-btn" id="testParamsCopyCurl" title="Copy Curl"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button type="button" class="icon-btn" title="Close" onclick="hideModal('testParamsModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+        </div>
+        <div id="testParamsContent" style="max-height:70vh;overflow-y:auto;background:#14171c;border-radius:8px;border:1px solid rgba(255,255,255,.08)"></div>
+    </div>
+</div>
+
+<div id="storageModal" class="modal" onclick="if(event.target===this)hideModal('storageModal')">
+    <div class="modal-content" style="max-width:700px;margin:5% auto">
+        <div class="modal-header">
+            <h3 style="margin:0">Local Storage</h3>
+            <div class="modal-actions">
+                <button type="button" class="icon-btn delete" id="storageResetAll" title="Reset All"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                <button type="button" class="icon-btn" title="Close" onclick="hideModal('storageModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+        </div>
+        <div id="storageContent" style="max-height:70vh;overflow-y:auto"></div>
+    </div>
+</div>
+
+<div id="curlViewModal" class="modal" onclick="if(event.target===this)hideModal('curlViewModal')">
+    <div class="modal-content" style="max-width:700px;margin:5% auto">
+        <div class="modal-header">
+            <h3 style="margin:0" id="curlViewTitle">Curl</h3>
+            <div class="modal-actions">
+                <button type="button" class="icon-btn" id="curlViewCopy" title="Copy Curl"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button type="button" class="icon-btn" title="Close" onclick="hideModal('curlViewModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+        </div>
+        <div id="curlViewContent" style="max-height:70vh;overflow-y:auto"></div>
+    </div>
+</div>
+
 <script>
 let COMMANDS = [];
 const d = document,
   $ = id => d.getElementById(id);
 let curr = null, orig = [];
+
+/* ── Storage helper ── */
+const ls = {
+  data: JSON.parse(localStorage.getItem('api_master') || '{}'),
+  save() { localStorage.setItem('api_master', JSON.stringify(this.data)); },
+  get(p) { return p.split('.').reduce((a, k) => a?.[k], this.data); },
+  set(p, v) {
+    const keys = p.split('.');
+    const last = keys.pop();
+    const obj = keys.reduce((a, k) => a[k] = a[k] || {}, this.data);
+    obj[last] = v;
+    this.save();
+  },
+  rm(p) {
+    const keys = p.split('.');
+    const last = keys.pop();
+    const obj = keys.reduce((a, k) => a?.[k], this.data);
+    if (obj) { delete obj[last]; this.save(); }
+  },
+  clear() { this.data = {}; this.save(); },
+  keys() { return Object.keys(this.data); }
+};
+// Auto-migrate old keys to flat structure
+if (ls.get('auth')) {
+  const t = ls.get('auth.token');
+  if (t) ls.set('token', t);
+  ls.rm('auth');
+}
+if (ls.get('settings')) {
+  const s = ls.get('settings.selections');
+  if (s) ls.set('selections', s);
+  ls.rm('settings');
+}
 
 /* ── SVG icon templates ── */
 const SVG = (w, paths, stroke = 'currentColor') =>
@@ -175,10 +262,7 @@ const ICON = {
   check: s => SVG(s, '<polyline points="20 6 9 17 4 12"/>', '#22c55e'),
   cross: s => SVG(s, '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>', '#ef4444'),
   play: s => SVG(s, '<polygon points="5 3 19 12 5 21 5 3"/>', '#38a169'),
-  trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>'),
-  zap: s => SVG(s, '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>'),
-  refresh: s => SVG(s, '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>'),
-  beaker: s => SVG(s, '<path d="M9 3h6"/><path d="M10 3v4.4a1 1 0 0 1-.3.7L5 13.5V17a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5l-4.7-5.4a1 1 0 0 1-.3-.7V3"/>')
+  trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>')
 };
 
 const getIcon = v => (v && (v.length || v === true)) ? ICON.check(16) : ICON.cross(16);
@@ -246,28 +330,31 @@ const generateCurl = i => {
     u: isDiff ? extractRows($('uCont')) : [],
     j: isDiff ? extractRows($('jCont'), true) : []
   };
-  const merge = (specList, liveList) => specList.map(s => {
-    const l = liveList.find(x => x.k === s.k);
-    return { ...s, v: l ? l.v : s.v };
-  });
+  const merge = (specList, liveList) => {
+    const res = specList.map(s => {
+      const l = liveList.find(x => x.k === s.k);
+      return { ...s, v: l ? l.v : s.v };
+    });
+    liveList.forEach(l => { if (l.k && !res.find(x => x.k === l.k)) res.push(l); });
+    return res;
+  };
   const hData = merge(c.h, live.h), qData = merge(c.q, live.q), fData = merge(c.f, live.f), uData = merge(c.u, live.u), jData = merge(c.j, live.j);
   let path = c.p;
-  uData.forEach(x => { const v = x.v !== '' ? x.v : (x.req ? `{${x.k}}` : ''); path = path.replace(`{${x.k}}`, v) });
+  uData.forEach(x => { const v = x.v !== '' ? x.v : 'null'; path = path.replace(`{${x.k}}`, v) });
+  const sanitize = v => (v === '' || (typeof v === 'string' && v.includes('{') && v.includes('}'))) ? 'null' : v;
+  const isShow = x => x.req || x.v !== '' || x.k.toLowerCase() === 'authorization';
   const h = [];
-  hData.forEach(x => {
+  hData.filter(isShow).forEach(x => {
     let val = x.v;
     if (x.k.toLowerCase() === 'authorization') {
-      const lsKey = c.p.startsWith('/root') ? 'token_root' : 'token';
-      val = localStorage.getItem(lsKey) || val;
-      if (val) {
-        val = val.startsWith('Bearer ') ? val : `Bearer ${val}`;
-        h.push(`-H "${x.k}: ${val}"`);
-      }
-    } else if (val !== '') h.push(`-H "${x.k}: ${val}"`);
-    else if (x.req) h.push(`-H "${x.k}: {${x.k}}"`);
+      val = ls.get('token') || val;
+      const sVal = sanitize(val);
+      val = sVal !== 'null' ? (sVal.startsWith('Bearer ') ? sVal : `Bearer ${sVal}`) : 'Bearer null';
+      h.push(`-H "${x.k}: ${val}"`);
+    } else h.push(`-H "${x.k}: ${sanitize(val)}"`);
   });
-  const qParts = qData.map(x => {
-    const v = x.v !== '' ? x.v : `{${x.k}}`;
+  const qParts = qData.filter(isShow).map(x => {
+    const v = sanitize(x.v);
     const ev = encodeURIComponent(v).replace(/%7B/g, '{').replace(/%7D/g, '}');
     return `${encodeURIComponent(x.k)}=${ev}`;
   });
@@ -275,22 +362,23 @@ const generateCurl = i => {
   let body = '';
   if (jData.length || c._hj) {
     const b = {};
-    jData.forEach(x => { b[x.k] = x.v === '' ? `{${x.k}}` : ((x.t === 'int' || x.t === 'float') ? Number(x.v) : x.v) });
-    body = `-d '${JSON.stringify(b)}'`;
-    if (!h.some(x => x.includes('Content-Type'))) h.push('-H "Content-Type: application/json"');
+    jData.filter(isShow).forEach(x => { 
+      const sv = sanitize(x.v);
+      b[x.k] = sv === 'null' ? null : ((x.t === 'int' || x.t === 'float') ? Number(sv) : sv) 
+    });
+    body = Object.keys(b).length ? `-d '${JSON.stringify(b)}'` : '';
+    if (body && !h.some(x => x.includes('Content-Type'))) h.push('-H "Content-Type: application/json"');
   } else if (fData.length || c._hf) {
-    body = fData.map(x => { const v = x.v !== '' ? x.v : `{${x.k}}`; return `-F "${x.k}=${v}"` }).join(' ');
+    body = fData.filter(isShow).map(x => `-F "${x.k}=${sanitize(x.v)}"`).join(' ');
   }
   return `curl -X ${c.m} "${url}" ${h.join(' ')} ${body}`.trim().replace(/\s+/g, ' ');
 };
 
 async function init() {
   try {
-    const r = await fetch('/', { cache: 'no-cache' });
-    const json = await r.json();
-    const specUrl = json.message.openapi_url || '/openapi.json';
-    const specR = await fetch(specUrl, { cache: 'no-cache' });
+    const specR = await fetch('/openapi.json', { cache: 'no-cache' });
     const spec = await specR.json();
+    if (!spec || !spec.paths) throw new Error("Invalid OpenAPI spec returned");
     COMMANDS = [];
     Object.entries(spec.paths).forEach(([path, methods]) => {
       Object.entries(methods).forEach(([method, op]) => {
@@ -340,18 +428,53 @@ async function init() {
     renderApiInfoTable('');
     updateLoginIndicator();
     load(null);
+    restoreTests();
   } catch (err) {
     console.error('Failed to load API info', err);
+    d.getElementById('apiInfoTbl').innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--delete);padding:20px">Failed to load API info: ${err.message}. Click Refresh to try again.</td></tr>`;
     load(null);
+    restoreTests();
   }
 }
+const saveTests = () => {
+  ls.set('tests', { results: testResults, responses: testResponsesData });
+};
+const restoreTests = () => {
+  const cache = ls.get('tests');
+  if (!cache) return;
+  testResults = cache.results || [];
+  testResponsesData = cache.responses || {};
+  if (testResults.length) {
+    if (!$('testResultsBody')?.children?.length) renderTestTable();
+    updateTestSummary();
+  }
+};
+const updateTestSummary = () => {
+  if (!testResults.length) return;
+  const total = COMMANDS.length;
+  const passed = testResults.filter(r => r.result === 'PASS').length;
+  const failed = testResults.filter(r => r.result === 'FAIL').length;
+  const skipped = testResults.filter(r => r.result === 'SKIP' && r.reason === 'unselected').length;
+  const auto = testResults.filter(r => r.result === 'SKIP' && r.reason === 'incompatible').length;
+  const totalMs = testResults.reduce((a, b) => a + (b.time || 0), 0);
+  const totalSec = (totalMs / 1000).toFixed(1);
+  $('testSummary').style.display = 'flex';
+  $('testSummary').innerHTML = `
+    <span class="clickable active" data-type="all" onclick="filterTestResults('all')">Total: <strong style="color:#e6eef3">${total}</strong></span>
+    <span class="clickable" data-type="pass" onclick="filterTestResults('pass')">✅ Passed: <strong>${passed}</strong></span>
+    <span class="clickable" data-type="fail" onclick="filterTestResults('fail')">❌ Failed: <strong>${failed}</strong></span>
+    <span class="clickable" data-type="skip" onclick="filterTestResults('skip')">⏭ Skipped: <strong>${skipped}</strong></span>
+    <span class="clickable" data-type="auto" onclick="filterTestResults('auto')">🚫 Auto-Skip: <strong>${auto}</strong></span>
+    <span style="color:var(--muted);margin-left:auto">⏱ ${totalSec}s</span>
+  `;
+};
 
 /* ── Auth status indicator ── */
 const updateLoginIndicator = () => {
   const ind = $('loginIndicator');
   if (!ind) return;
-  const tRoot = localStorage.getItem('token_root'), tUser = localStorage.getItem('token');
-  if (tRoot || tUser) {
+  const tUser = ls.get('token');
+  if (tUser) {
     ind.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Logout`;
     ind.style.background = 'rgba(56,161,105,0.1)'; ind.style.color = 'var(--primary)';
   } else {
@@ -397,7 +520,7 @@ const mkRow = (ct, k = '', v = '', t = 'string', e = null, isFixed = false, isRe
     ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${k}"><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${k}</div><input type="hidden" class="row-key" value="${k}">` 
     : `<input type="text" class="row-key" value="${k}" ${isFixed ? 'readonly tabindex="-1"' : ''}>`;
   r.innerHTML = `${keyHtml}${valHtml(ct, v, t, e)}${rmBtn}`;
-  if (!isReq) r.querySelector('.remove-btn').onclick = () => r.remove();
+  if (!isReq) r.querySelector('.remove-btn').onclick = () => { if(confirm('REMOVE FIELD:\nDelete this parameter from the current request?')) r.remove(); };
   bindClear(r);
   ct.appendChild(r);
 };
@@ -408,13 +531,18 @@ SECTIONS.forEach(([btn, sec, cont]) => {
   $(btn).onclick = () => { $(sec).classList.add('active'); mkRow($(cont)) };
 });
 
-/* ── Dropdown ── */
-const renderDropdown = cs => {
-  if (!cs.length) return $('apiDrop').classList.remove('show');
-  $('apiDrop').innerHTML = cs.map(c =>
-    `<li data-i="${c.oi}"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span>${c.p}</li>`
-  ).join('');
-  $('apiDrop').classList.add('show');
+
+
+const saveState = () => {
+  if (!curr) return;
+  const state = {
+    h: extractRows($('hCont')),
+    q: extractRows($('qCont')),
+    f: extractRows($('fCont')),
+    u: extractRows($('uCont')),
+    j: extractRows($('jCont'), true)
+  };
+  ls.set(`forms.${curr.m}:${curr.p}`, state);
 };
 
 /* ── Load a command into form ── */
@@ -423,27 +551,30 @@ const load = i => {
   SECTIONS.forEach(([, sec, cont]) => { $(cont).innerHTML = ''; $(sec).classList.remove('active') });
   $('rBox').classList.remove('show');
   if (!curr) { $('apiIn').value = ''; return; }
+  const cache = ls.get(`forms.${curr.m}:${curr.p}`);
   $('apiIn').value = `${curr.m} ${curr.p}`;
-  if (curr.h && curr.h.length) {
-    $('hSec').classList.add('active');
-    curr.h.forEach(x => {
+  const populate = (cont, sec, spec, cacheList, isJson = false) => {
+    const list = cacheList || spec;
+    if (list.length) $(sec).classList.add('active');
+    list.forEach(x => {
       let val = x.v;
-      if (x.k.toLowerCase() === 'authorization') {
-        const lsKey = curr.p.startsWith('/root') ? 'token_root' : 'token';
-        const lsVal = localStorage.getItem(lsKey);
-        if (lsVal) {
-          val = lsVal.startsWith('Bearer ') ? lsVal : `Bearer ${lsVal}`;
-        } else if (val && !val.startsWith('Bearer ')) {
-          val = `Bearer ${val}`;
-        }
+      if (x.k.toLowerCase() === 'authorization' && !cacheList) {
+        const lsVal = ls.get('token');
+        if (lsVal) val = lsVal.startsWith('Bearer ') ? lsVal : `Bearer ${lsVal}`;
+        else if (val && !val.startsWith('Bearer ')) val = `Bearer ${val}`;
       }
-      mkRow($('hCont'), x.k, val, 'string', x.e, true, x.req);
+      mkRow($(cont), x.k, val, x.t || 'string', x.e, !!spec.find(s => s.k === x.k), !!spec.find(s => s.k === x.k && s.req));
     });
-  }
-  if (curr.q && curr.q.length) { $('qSec').classList.add('active'); curr.q.forEach(x => mkRow($('qCont'), x.k, x.v, 'string', x.e, true, x.req)) }
-  if (curr._hf) { $('fSec').classList.add('active'); if (curr.f.length) curr.f.forEach(x => mkRow($('fCont'), x.k, x.v, x.t || 'string', x.e, true, x.req)); else mkRow($('fCont')) }
-  if (curr.u && curr.u.length) { $('uSec').classList.add('active'); curr.u.forEach(x => mkRow($('uCont'), x.k, x.v, 'string', x.e, true, x.req)) }
-  if (curr._hj) { $('jSec').classList.add('active'); if (curr.j.length) curr.j.forEach(x => mkRow($('jCont'), x.k, x.v, x.t, x.e, true, x.req)); else mkRow($('jCont')) }
+  };
+
+  populate('hCont', 'hSec', curr.h, cache?.h);
+  populate('uCont', 'uSec', curr.u, cache?.u);
+  populate('qCont', 'qSec', curr.q, cache?.q);
+  populate('fCont', 'fSec', (curr._hf ? curr.f : []), cache?.f);
+  populate('jCont', 'jSec', (curr._hj ? curr.j : []), cache?.j, true);
+  
+  if (curr._hf && !$('fCont').children.length) { $('fSec').classList.add('active'); mkRow($('fCont')); }
+  if (curr._hj && !$('jCont').children.length) { $('jSec').classList.add('active'); mkRow($('jCont')); }
 };
 
 /* ── Event wiring ── */
@@ -460,7 +591,7 @@ const renderApiInfoTable = (searchQuery = '') => {
     `<thead><tr><th ${ix}>#</th><th ${sm}>Method</th><th style="${pw}">Path</th><th ${xs}>Token</th><th ${xs}>Query</th><th ${xs}>Form</th><th ${xs}>Body</th><th ${xs}>Curl</th><th ${xs}>Run</th></tr></thead>` +
     `<tbody>${filtered.map((c, i) => {
       const globalIndex = COMMANDS.indexOf(c);
-      return `<tr style="cursor:pointer" data-i="${globalIndex}"><td ${ix}>${globalIndex + 1}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td style="${pw};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.p}">${c.p}</td><td ${xs}>${getIcon(c.h.length > 0 || c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c._hf)}</td><td ${xs}>${getIcon(c._hj)}</td><td ${xs} class="curl-btn" title="Copy Curl">${ICON.copy(16)}</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td></tr>`;
+      return `<tr style="cursor:pointer" data-i="${globalIndex}"><td ${ix}>${globalIndex + 1}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td style="${pw};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.p}">${c.p}</td><td ${xs}>${getIcon(c.h.length > 0 || c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c._hf)}</td><td ${xs}>${getIcon(c._hj)}</td><td ${xs} class="curl-btn" title="View Curl" style="cursor:pointer;color:var(--accent);font-size:12px;font-weight:600">View</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td></tr>`;
     }).join('')}</tbody>`;
 };
 
@@ -475,26 +606,60 @@ $('apiInfoSearchClear').onclick = () => {
   renderApiInfoTable('');
 };
 
-$('apiInfoRefresh').onclick = async () => {
-  $('apiInfoRefresh').classList.add('loading');
-  await init();
-  renderApiInfoTable($('apiInfoSearch').value);
-  $('apiInfoRefresh').classList.remove('loading');
-  toast('APIs Refreshed');
-};
 
-$('apiPageHardRefresh').onclick = () => {
-  if (confirm('Clear Cache & Reload?')) {
-    localStorage.clear();
-    window.location.reload();
+
+/* ── Storage viewer ── */
+const renderStorageModal = () => {
+  const keys = ls.keys();
+  if (!keys.length) {
+    $('storageContent').innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">No data stored</div>';
+    showModal('storageModal');
+    return;
+  }
+  const truncate = (v, n) => { const s = typeof v === 'object' ? JSON.stringify(v) : String(v); return s.length > n ? s.slice(0, n) + '...' : s; };
+  const sizeStr = v => { const b = new Blob([typeof v === 'object' ? JSON.stringify(v) : String(v)]).size; return b > 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B'; };
+  const rows = keys.sort().map(k => {
+    const v = ls.get(k);
+    const enc = truncate(v, 120).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<tr><td style="padding:10px 12px;font-weight:600;color:var(--accent);white-space:nowrap;vertical-align:top;border-bottom:1px solid rgba(255,255,255,.05)">${k}</td><td style="padding:10px 12px;font-family:'SF Mono',Menlo,monospace;font-size:12px;color:var(--muted);max-width:350px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.05)" title="${enc}">${enc}</td><td style="padding:10px 12px;font-size:12px;color:var(--muted);white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.05)">${sizeStr(v)}</td><td style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,.05)"><button class="icon-btn delete storage-del-btn" data-key="${k}" title="Delete ${k}">${ICON.trash(14)}</button></td></tr>`;
+  }).join('');
+  $('storageContent').innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,.1)">Key</th><th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,.1)">Value</th><th style="padding:10px 12px;text-align:left;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,.1)">Size</th><th style="padding:10px 4px;border-bottom:1px solid rgba(255,255,255,.1)"></th></tr></thead><tbody>${rows}</tbody></table>`;
+  showModal('storageModal');
+};
+$('apiStorageBtn').onclick = renderStorageModal;
+$('storageResetAll').onclick = () => {
+  if (confirm('RESET ALL:\nThis will permanently delete ALL keys from api_master localStorage. Continue?')) {
+    ls.clear();
+    renderStorageModal();
+    updateLoginIndicator();
+    toast('All storage cleared');
   }
 };
+$('storageContent').addEventListener('click', e => {
+  const btn = e.target.closest('.storage-del-btn');
+  if (!btn) return;
+  const key = btn.dataset.key;
+  if (confirm(`DELETE KEY:\nRemove "${key}" from localStorage?`)) {
+    ls.rm(key);
+    renderStorageModal();
+    if (key === 'token') updateLoginIndicator();
+    toast(`Deleted: ${key}`);
+  }
+});
 
 $('apiInfoTbl').onclick = e => {
   const tr = e.target.closest('tr[data-i]'), i = tr?.dataset.i;
   if (!tr) return;
   if (e.target.closest('.curl-btn')) {
-    copyWithFeedback(e.target.closest('.curl-btn'), generateCurl(i), 16, 'Curl copied');
+    const curlStr = generateCurl(i);
+    const c = COMMANDS[i];
+    const formatted = curlStr.replace(/ -H /g, ' \\\n  -H ').replace(/ -d /g, ' \\\n  -d ').replace(/ -F /g, ' \\\n  -F ');
+    $('curlViewTitle').innerHTML = `<span class="method-badge ${c.m.toLowerCase()}" style="margin-right:8px">${c.m}</span>${c.p}`;
+    $('curlViewContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0;white-space:pre-wrap;word-break:break-all">${formatted}</pre>`;
+    let curlCopyRef = curlStr;
+    $('curlViewCopy').onclick = () => copyWithFeedback($('curlViewCopy'), curlCopyRef, 20, 'Curl copied');
+    $('curlViewCopy').innerHTML = ICON.copy(20);
+    showModal('curlViewModal');
   } else {
     showModal('apiRunnerModal'); load(i);
   }
@@ -508,11 +673,12 @@ $('apiInfoCsv').onclick = () => {
 };
 
 $('clrBtn').onclick = () => { 
-  if (curr) { 
+  if (curr && confirm(`DELETE KEY:\nRemove "forms.${curr.m}:${curr.p}" from localStorage?`)) { 
+    ls.rm(`forms.${curr.m}:${curr.p}`);
     $('rTab').innerHTML = ''; 
     $('rBox').classList.remove('show'); 
     const idx = COMMANDS.indexOf(curr);
-    if (idx !== -1) load(idx); 
+    if (idx !== -1) load(idx);
   } 
 };
 
@@ -647,13 +813,7 @@ $('rOpen').onclick = () => {
   window.open(URL.createObjectURL(blob), '_blank');
 };
 
-$('rClear').onclick = () => {
-  $('rTab').innerHTML = '';
-  $('rBox').classList.remove('show');
-  lastRawResponse = '';
-  lastMsgVal = null;
-  lastFullJson = null;
-};
+
 
 $('rJson').onclick = () => {
   if (lastMsgVal == null) {
@@ -753,15 +913,16 @@ $('apiForm').onsubmit = async e => {
   let urlPath = curr.p;
   pathParams.forEach(x => { if (x.k) urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(x.v !== '' ? x.v : 'null')) });
   let url = window.location.origin + urlPath;
-  const qs = queryParams.filter(x => x.k && x.v !== '').map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v)}`).join('&');
+  const qs = queryParams.filter(x => x.k).map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v !== '' ? x.v : 'null')}`).join('&');
   if (qs) url += '?' + qs;
   const h = {};
   headers.forEach(x => {
-    if (x.k && x.v !== '') {
+    if (x.k) {
+      const val = x.v !== '' ? x.v : 'null';
       if (x.k.toLowerCase() === 'authorization') {
-        h[x.k] = x.v.startsWith('Bearer ') ? x.v : `Bearer ${x.v}`;
+        h[x.k] = val.startsWith('Bearer ') ? val : `Bearer ${val}`;
       } else {
-        h[x.k] = x.v;
+        h[x.k] = val;
       }
     }
   });
@@ -772,8 +933,8 @@ $('apiForm').onsubmit = async e => {
       if (x.f) { 
         if (Array.isArray(x.f)) x.f.forEach(file => fd.append(x.k, file)); 
         else fd.append(x.k, x.f); 
-      } else if (x.k && x.v !== '') {
-        fd.append(x.k, x.v);
+      } else if (x.k) {
+        fd.append(x.k, x.v !== '' ? x.v : 'null');
       }
     });
     opts.body = fd;
@@ -799,9 +960,8 @@ $('apiForm').onsubmit = async e => {
     try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || 'Raw' } }
     if (r.ok && json && curr.p.includes('login')) {
       if (json.status === 1 && json.message && json.message.token && json.message.token.token) {
-        const lsKey = curr.p.startsWith('/root') ? 'token_root' : 'token';
-        localStorage.setItem(lsKey, json.message.token.token);
-        toast(`Saved ${lsKey} to LocalStorage`);
+        ls.set('token', json.message.token.token);
+        toast(`Saved token to API Master Storage`);
         updateLoginIndicator();
       }
     }
@@ -814,6 +974,9 @@ $('apiForm').onsubmit = async e => {
     btn.textContent = 'Submit';
   }
 };
+const debouncedSave = debounce(saveState, 500);
+$('apiForm').addEventListener('input', debouncedSave);
+$('apiForm').addEventListener('change', debouncedSave);
 
 /* ── Keyboard shortcuts ── */
 d.addEventListener('keydown', e => {
@@ -823,17 +986,18 @@ d.addEventListener('keydown', e => {
   }
   if (e.key === 'Escape') {
     hideModal('apiRunnerModal');
+    hideModal('storageModal');
     $('cellPop').classList.remove('show');
   }
 });
 
 if ($('loginIndicator')) {
   $('loginIndicator').onclick = () => {
-    if (localStorage.getItem('token') || localStorage.getItem('token_root')) {
-      if (confirm('Reset LocalStorage?')) {
-        localStorage.clear();
+    if (ls.get('token')) {
+      if (confirm('LOGOUT:\nThis will delete key: "token" from localStorage. Continue?')) {
+        ls.rm('token');
         updateLoginIndicator();
-        toast('LocalStorage Reset');
+        toast('Logged Out');
       }
     } else {
       const idx = COMMANDS.findIndex(c => c.p === '/auth/login-password-username' && c.m === 'POST');
@@ -923,8 +1087,9 @@ const TEST_DATA = {
   rating: '5',
   test_id: '1'
 };
-const TEST_SKIP_PATHS = ['/websocket', '/my/account-delete'];
+const TEST_SKIP_PATHS = ['/websocket'];
 const TEST_PATH_OVERRIDES = {
+  '/my/account-delete': { mode: 'soft' },
   '/admin/postgres-runner': { mode: 'read' },
   '/admin/s3-bucket-ops': { mode: 'bucket_create' },
   '/public/converter-number': { mode: 'encode' },
@@ -951,116 +1116,149 @@ const testGetVal = (key, path) => {
 let testRunning = 0;
 let testResults = [];
 let testResponsesData = {};
+const saveTestSelections = () => {
+  const selections = {};
+  d.querySelectorAll('.test-row-select').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx), c = COMMANDS[idx];
+    selections[`${c.m}:${c.p}`] = cb.checked ? 1 : 0;
+  });
+  ls.set('selections', selections);
+};
 const renderTestTable = () => {
   const maxP = COMMANDS.length ? Math.max(...COMMANDS.map(c => c.p.length)) : 4;
-  const tpw = `width:${Math.ceil(maxP * 7.2)}px;min-width:${Math.ceil(maxP * 7.2)}px`;
-  const ix = 'style="width:25px;min-width:25px;text-align:center"';
-  const sm = 'style="width:50px;min-width:50px;text-align:center"';
-  const xs = 'style="width:35px;min-width:35px;text-align:center"';
-  $('testResultsHead').innerHTML = `<tr><th ${ix}>#</th><th ${sm}>Method</th><th style="${tpw}">Path</th><th ${xs}>Status</th><th ${xs}>Time</th><th ${xs}>Result</th><th ${xs}>Response</th></tr>`;
+  const tpw = `width:${Math.ceil(maxP * 7.5)}px;min-width:${Math.ceil(maxP * 7.5)}px`;
+  const ix = 'style="width:30px;min-width:30px;text-align:center"';
+  const sm = 'style="width:60px;min-width:60px;text-align:center"';
+  const xs = 'style="width:50px;min-width:50px;text-align:center"';
+  const sel_w = 'style="width:35px;min-width:35px;text-align:center"';
+  const cw = 'style="width:95px;min-width:95px;text-align:center"';
+  const savedSelections = ls.get('selections') || {};
+  $('testResultsHead').innerHTML = `<tr><th ${ix}>#</th><th ${sel_w}><input type="checkbox" id="testSelectAll" checked style="cursor:pointer"></th><th ${sm}>Method</th><th style="${tpw}">Path</th><th ${cw}>Params</th><th ${xs}>Status</th><th ${xs}>Time</th><th ${xs}>Response</th></tr>`;
   $('testResultsBody').innerHTML = '';
   COMMANDS.forEach((c, i) => {
-    const is_skip = TEST_SKIP_PATHS.includes(c.p) || testHasFileParam(c) || c.p.startsWith('/page-');
-    const badge = is_skip ? 'skip' : '';
-    const label = is_skip ? (TEST_SKIP_PATHS.includes(c.p) ? 'Skip' : (testHasFileParam(c) ? 'File' : 'Page')) : '—';
     const sc = 'var(--muted)';
+    const data = getTestData(i);
     const tr = testResults.find(r => r.idx === i + 1);
     let statusTd = `<td ${xs} style="color:${sc}">—</td>`;
     let timeTd = `<td ${xs} style="color:${sc}">—</td>`;
-    let resultTd = `<td ${xs}>${badge ? `<span class="test-badge ${badge}">${label}</span>` : '<span style="color:var(--muted)">—</span>'}</td>`;
     let respTd = `<td ${xs}><span style="color:var(--muted)">—</span></td>`;
     if (tr && tr.result !== 'SKIP') {
-      const rsc = typeof tr.status === 'number' ? (tr.status >= 200 && tr.status < 300 ? 'var(--primary)' : 'var(--delete)') : 'var(--muted)';
-      statusTd = `<td ${xs} style="color:${rsc};font-weight:600">${tr.status}</td>`;
+      const is_pass = tr.result === 'PASS';
+      const rsc = is_pass ? 'var(--primary)' : 'var(--delete)';
+      statusTd = `<td ${xs} style="color:${rsc};font-weight:700">${tr.status}</td>`;
       timeTd = `<td ${xs} style="color:var(--muted)">${tr.time}ms</td>`;
-      const rb = tr.result === 'PASS' ? 'pass' : 'fail';
-      const rl = tr.result === 'PASS' ? 'Pass' : 'Fail';
-      resultTd = `<td ${xs}><span class="test-badge ${rb}">${rl}</span></td>`;
       respTd = `<td ${xs}><button class="test-resp-btn icon-btn" data-idx="${i}" title="View Response" style="margin:0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></td>`;
-    } else if (tr && tr.result === 'SKIP') {
-      resultTd = `<td ${xs}><span class="test-badge skip">${label}</span></td>`;
     }
-    const row = `<tr id="test-row-${i}"><td ${ix}>${i + 1}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td style="${tpw};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.p}">${c.p}</td>${statusTd}${timeTd}${resultTd}${respTd}</tr>`;
+    const key = `${c.m}:${c.p}`;
+    const isChecked = savedSelections[key] !== undefined ? (savedSelections[key] === 1) : true;
+    const badges = renderTestBadges(data.sent, c);
+    const paramsTd = `<td ${cw}><div style="display:flex;align-items:center;justify-content:center;gap:4px">${badges}<button class="test-params-btn icon-btn" data-idx="${i}" title="View Params" style="margin:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></td>`;
+    const row = `<tr id="test-row-${i}"><td ${ix}>${i + 1}</td><td ${sel_w}><input type="checkbox" class="test-row-select" data-idx="${i}" ${isChecked ? 'checked' : ''} style="cursor:pointer"></td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td style="${tpw};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.p}">${c.p}</td>${paramsTd}${statusTd}${timeTd}${respTd}</tr>`;
     $('testResultsBody').insertAdjacentHTML('beforeend', row);
   });
+  const allCbs = Array.from(d.querySelectorAll('.test-row-select'));
+  if (allCbs.length && !allCbs.every(cb => cb.checked)) $('testSelectAll').checked = false;
 };
 const showTestModal = () => {
-  const token = localStorage.getItem('token');
-  if (!token) return alert('Please login first. Use the Login button to authenticate, then run tests.');
   if (!$('testResultsBody').children.length) renderTestTable();
+  if ($('apiTestSearch')) {
+    $('apiTestSearch').value = '';
+    $('apiTestSearchClear').style.display = 'none';
+  }
+  testFilterType = 'all';
+  const spans = Array.from($('testSummary').querySelectorAll('.clickable'));
+  spans.forEach(s => s.classList.toggle('active', s.dataset.type === 'all'));
+  applyTestFilters();
   $('testRunBtn').disabled = false;
   $('testRunBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Run Tests';
   showModal('testAllModal');
 };
 const testRunApis = async () => {
   if (testRunning) return toast('Test already running');
-  const token = localStorage.getItem('token');
-  if (!token) return alert('Please login first.');
+  const allCbs = Array.from(d.querySelectorAll('.test-row-select'));
+  if (!allCbs.some(cb => cb.checked)) return toast('Select at least one test to run');
+  const token = ls.get('token');
+  ls.rm('tests');
   testRunning = 1;
   testResults = [];
   testResponsesData = {};
-  renderTestTable();
+  COMMANDS.forEach((_, i) => testUpdateRow(i, '—', '-', '...', '—', 0));
   $('testRunBtn').disabled = true;
   $('testRunBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin .6s linear infinite"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Running...';
   $('testSummary').style.display = 'none';
   $('testProgress').style.display = 'flex';
   $('testProgressFill').style.width = '0%';
-  let passed = 0, failed = 0, skipped = 0, totalMs = 0;
+  let passed = 0, failed = 0, totalMs = 0;
+  const isShow = x => x.req || x.v !== '' || x.k.toLowerCase() === 'authorization';
   const total = COMMANDS.length;
   for (let i = 0; i < total; i++) {
     const c = COMMANDS[i];
+    const isSelected = d.querySelector(`.test-row-select[data-idx="${i}"]`)?.checked;
     const pct = Math.round(((i + 1) / total) * 100);
     $('testProgressText').textContent = `${i + 1}/${total}`;
     $('testProgressFill').style.width = pct + '%';
-    if (TEST_SKIP_PATHS.includes(c.p)) {
-      skipped++;
-      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: '-', time: '-', result: 'SKIP', reason: 'Skipped (unsafe/websocket)' });
-      testUpdateRow(i, '-', '-', 'skip', 'Skip');
+    
+    if (!isSelected) {
+      testUpdateRow(i, 'SKIP', '-', 'skip', 'Skip');
+      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: '-', time: 0, result: 'SKIP', reason: 'unselected' });
       continue;
     }
-    if (testHasFileParam(c)) {
-      skipped++;
-      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: '-', time: '-', result: 'SKIP', reason: 'File upload required' });
-      testUpdateRow(i, '-', '-', 'skip', 'File');
-      continue;
-    }
-    if (c.p.startsWith('/page-')) {
-      skipped++;
-      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: '-', time: '-', result: 'SKIP', reason: 'HTML page' });
-      testUpdateRow(i, '-', '-', 'skip', 'Page');
-      continue;
-    }
+    
     testUpdateRow(i, '...', '...', 'run', 'Running');
+    if (TEST_SKIP_PATHS.includes(c.p) || testHasFileParam(c)) {
+      testUpdateRow(i, 'SKIP', '-', 'skip', 'Skip');
+      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: '-', time: 0, result: 'SKIP', reason: 'incompatible' });
+      continue;
+    }
     try {
       let urlPath = c.p;
-      if (c.u && c.u.length) c.u.forEach(x => { urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(testGetVal(x.k, c.p) || 'test')); });
+      const uParams = {};
+      if (c.u && c.u.length) c.u.forEach(x => { 
+        const v = testGetVal(x.k, c.p) || 'test';
+        uParams[x.k] = v;
+        urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(v)); 
+      });
       let url = window.location.origin + urlPath;
-      const qParts = [];
-      if (c.q && c.q.length) c.q.forEach(x => { const v = testGetVal(x.k, c.p); if (v !== '') qParts.push(`${encodeURIComponent(x.k)}=${encodeURIComponent(v)}`); });
+      const qParts = [], qData = {};
+      if (c.q && c.q.length) c.q.filter(isShow).forEach(x => { 
+        const v = testGetVal(x.k, c.p); 
+        qData[x.k] = v !== '' ? v : 'null';
+        qParts.push(`${encodeURIComponent(x.k)}=${encodeURIComponent(qData[x.k])}`); 
+      });
       if (qParts.length) url += '?' + qParts.join('&');
       const h = {};
-      if (testNeedsToken(c)) h['Authorization'] = `Bearer ${token}`;
+      if (testNeedsToken(c)) h['Authorization'] = token ? `Bearer ${token}` : 'Bearer null';
       const opts = { method: c.m, headers: h };
       let bodyStr = '';
+      const sent = { a: testNeedsToken(c), u: uParams, q: qData, f: null, j: null };
       if (c._hj && c.j && c.j.length) {
         const body = {};
-        c.j.forEach(x => {
+        c.j.filter(isShow).forEach(x => {
           const v = testGetVal(x.k, c.p);
           if (x.t === 'int' || x.t === 'float') body[x.k] = v !== '' ? Number(v) : null;
           else if (x.t === 'bool') body[x.k] = v === 'true';
           else if (x.t === 'list') { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = []; } }
           else if (x.t === 'object') { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = {}; } }
-          else body[x.k] = v;
+          else body[x.k] = v || null;
         });
         bodyStr = JSON.stringify(body);
         opts.body = bodyStr;
         h['Content-Type'] = 'application/json';
+        sent.j = body;
       } else if (c._hf && c.f && c.f.length) {
         const fd = new FormData();
-        const fp = [];
-        c.f.forEach(x => { if (x.t !== 'file') { const v = testGetVal(x.k, c.p); if (v !== '') { fd.append(x.k, v); fp.push(`-F "${x.k}=${v}"`); } } });
+        const fp = [], fData = {};
+        c.f.filter(isShow).forEach(x => { 
+          if (x.t !== 'file') { 
+            const v = testGetVal(x.k, c.p) || 'null'; 
+            fd.append(x.k, v); 
+            fData[x.k] = v;
+            fp.push(`-F "${x.k}=${v}"`); 
+          } 
+        });
         opts.body = fd;
         bodyStr = fp.join(' ');
+        sent.f = fData;
       }
       const curlParts = [`curl -X ${c.m} "${url}"`];
       Object.entries(h).forEach(([hk, hv]) => curlParts.push(`-H "${hk}: ${hv}"`));
@@ -1078,40 +1276,113 @@ const testRunApis = async () => {
       const is_pass = r.status >= 200 && r.status < 300 ? 1 : 0;
       if (is_pass) passed++;
       else failed++;
-      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: r.status, time: ms, result: is_pass ? 'PASS' : 'FAIL', curl: testCurl, response: respJson });
+      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: r.status, time: ms, result: is_pass ? 'PASS' : 'FAIL', response: respJson });
       testUpdateRow(i, r.status, ms, is_pass ? 'pass' : 'fail', is_pass ? 'Pass' : 'Fail', 1);
+      saveTests();
     } catch (err) {
       failed++;
       const errResp = { error: err.message };
       testResponsesData[i] = errResp;
-      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: 0, time: 0, result: 'FAIL', curl: '', response: errResp });
+      testResults.push({ idx: i + 1, path: c.p, method: c.m, status: 0, time: 0, result: 'FAIL', response: errResp });
       testUpdateRow(i, 'ERR', 0, 'fail', 'Error', 1);
+      saveTests();
     }
     const wrap = $('testResultsBody').closest('.test-results-wrap');
     if (wrap) { const row = $(`test-row-${i}`); if (row) row.scrollIntoView({ block: 'nearest' }); }
   }
   $('testProgress').style.display = 'none';
-  const totalSec = (totalMs / 1000).toFixed(1);
-  $('testSummary').style.display = 'flex';
-  $('testSummary').innerHTML = `<span style="color:var(--muted)">Total: <strong style="color:#e6eef3">${total}</strong></span><span style="color:var(--primary)">✅ Passed: <strong>${passed}</strong></span><span style="color:var(--delete)">❌ Failed: <strong>${failed}</strong></span><span style="color:#ed8936">⏭ Skipped: <strong>${skipped}</strong></span><span style="color:var(--muted)">⏱ ${totalSec}s</span>`;
+  updateTestSummary();
   testRunning = 0;
   $('testRunBtn').disabled = false;
   $('testRunBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Run Tests';
 };
-const testUpdateRow = (idx, status, time, badge, label, hasResp = 0) => {
+const getTestData = (idx) => {
+  const c = COMMANDS[idx], token = ls.get('token');
+  const isShow = x => x.req || x.v !== '' || x.k.toLowerCase() === 'authorization';
+  let urlPath = c.p;
+  const uParams = {};
+  if (c.u && c.u.length) c.u.forEach(x => { 
+    const v = testGetVal(x.k, c.p) || 'test';
+    uParams[x.k] = v;
+    urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(v)); 
+  });
+  let url = window.location.origin + urlPath;
+  const qParts = [], qData = {};
+  if (c.q && c.q.length) c.q.filter(isShow).forEach(x => { 
+    const v = testGetVal(x.k, c.p); 
+    qData[x.k] = v !== '' ? v : 'null';
+    qParts.push(`${encodeURIComponent(x.k)}=${encodeURIComponent(qData[x.k])}`); 
+  });
+  const h = {};
+  if (testNeedsToken(c)) h['Authorization'] = token ? `Bearer ${token}` : 'Bearer null';
+  const sent = { a: testNeedsToken(c), u: uParams, q: qData, f: null, j: null };
+  let bodyStr = '', method = c.m;
+  if (c._hj && c.j && c.j.length) {
+    const body = {};
+    c.j.filter(isShow).forEach(x => {
+      const v = testGetVal(x.k, c.p);
+      if (x.t === 'int' || x.t === 'float') body[x.k] = v !== '' ? Number(v) : null;
+      else if (x.t === 'bool') body[x.k] = v === 'true';
+      else if (x.t === 'list') { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = []; } }
+      else if (x.t === 'object') { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = {}; } }
+      else body[x.k] = v || null;
+    });
+    bodyStr = JSON.stringify(body);
+    h['Content-Type'] = 'application/json';
+    sent.j = body;
+  } else if (c._hf && c.f && c.f.length) {
+    const fp = [], fData = {};
+    c.f.filter(isShow).forEach(x => { 
+      if (x.t !== 'file') { 
+        const v = testGetVal(x.k, c.p) || 'null'; 
+        fData[x.k] = v;
+        fp.push(`-F "${x.k}=${v}"`); 
+      } 
+    });
+    bodyStr = fp.join(' ');
+    sent.f = fData;
+  }
+  const curlParts = [`curl -X ${c.m} "${url + (qParts.length ? '?' + qParts.join('&') : '')}"`];
+  Object.entries(h).forEach(([hk, hv]) => curlParts.push(`-H "${hk}: ${hv}"`));
+  if (bodyStr && h['Content-Type'] === 'application/json') curlParts.push(`-d '${bodyStr}'`);
+  else if (bodyStr) curlParts.push(bodyStr);
+  return { sent, curl: curlParts.join(' '), url: url + (qParts.length ? '?' + qParts.join('&') : '') };
+};
+const testUpdateRow = (idx, status, time, badge, label, hasResp = 0, sent = null) => {
   const row = $(`test-row-${idx}`);
   if (!row) return;
-  const sc = status === '...' ? 'var(--muted)' : (typeof status === 'number' ? (status >= 200 && status < 300 ? 'var(--primary)' : 'var(--delete)') : 'var(--muted)');
-  row.children[3].style.color = sc;
-  row.children[3].style.fontWeight = '600';
-  row.children[3].textContent = typeof status === 'number' ? status : status;
-  row.children[4].style.color = 'var(--muted)';
-  row.children[4].textContent = (time === '-' || time === '...') ? time : time + 'ms';
-  row.children[5].innerHTML = badge ? `<span class="test-badge ${badge}">${label}</span>` : `<span style="color:var(--muted)">—</span>`;
-  if (hasResp) row.children[6].innerHTML = `<button class="test-resp-btn icon-btn" data-idx="${idx}" title="View Response" style="margin:0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>`;
+  const is_pass = label === 'Pass';
+  const sc = status === '...' ? 'var(--muted)' : (is_pass ? 'var(--primary)' : (status === 'ERR' || status === 'FAIL' ? 'var(--delete)' : (typeof status === 'number' && status >= 200 && status < 300 ? 'var(--primary)' : 'var(--delete)')));
+  row.children[5].style.color = sc;
+  row.children[5].style.fontWeight = '700';
+  row.children[5].textContent = typeof status === 'number' ? status : status;
+  row.children[6].style.color = 'var(--muted)';
+  row.children[6].textContent = (time === '-' || time === '...') ? time : time + 'ms';
+  if (hasResp) {
+    row.children[7].innerHTML = `<button class="test-resp-btn icon-btn" data-idx="${idx}" title="View Response" style="margin:0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>`;
+  } else {
+    row.children[7].innerHTML = `<span style="color:var(--muted)">—</span>`;
+  }
+};
+const renderTestBadges = (sent, cmd) => {
+  if (!sent) return '';
+  const h = (k, v) => v && Object.keys(v).length ? ` <span class="param-badge ${k}" title="${k.toUpperCase() === 'P' ? 'PATH' : (k.toUpperCase() === 'B' ? 'BODY' : k.toUpperCase())}: ${csvEscape(v)}">${k.toUpperCase()}</span>` : '';
+  const hasFile = cmd && cmd.f && cmd.f.some(x => x.t === 'file') ? 1 : 0;
+  return (sent.a ? ` <span class="param-badge a" title="AUTH: Token Sent">A</span>` : '') +
+         h('p', sent.u) + h('q', sent.q) + h('f', sent.f) + (hasFile ? ' <span class="param-badge f" title="FILE: Upload Required">F</span>' : '') + h('b', sent.j);
 };
 $('apiTestAll').onclick = showTestModal;
 $('testRunBtn').onclick = testRunApis;
+$('testAllClearCache').onclick = () => {
+  if (confirm('DELETE KEY:\nThis will remove key: "tests" from localStorage (Pass/Fail results).\nYour API selections will be kept. Continue?')) {
+    ls.rm('tests');
+    testResults = [];
+    testResponsesData = {};
+    $('testSummary').style.display = 'none';
+    renderTestTable();
+    toast('Test cache cleared');
+  }
+};
 $('testAllExportCsv').onclick = () => {
   if (!testResults.length) return toast('No test results to export');
   const csv = ['#,Method,Path,Status,Time(ms),Result,Curl,Response',
@@ -1130,10 +1401,73 @@ const showTestResponse = idx => {
   $('testResponseCopy').innerHTML = ICON.copy(20);
   showModal('testResponseModal');
 };
+const showTestParams = idx => {
+  const data = getTestData(idx), c = COMMANDS[idx];
+  $('testParamsTitle').innerHTML = `<span class="method-badge ${c.m.toLowerCase()}" style="margin-right:8px">${c.m}</span>${c.p}`;
+  const rows = [];
+  const add = (k, v) => v && Object.keys(v).length ? rows.push(`<tr><td class="key" style="color:var(--accent)">${k}</td><td class="val">${fmtVal(v)}</td></tr>`) : null;
+  if(data.sent.a) {
+    const token = ls.get('token');
+    const displayToken = token ? (token.length > 40 ? token.slice(0, 40) + '...' : token) : 'null';
+    rows.push(`<tr><td class="key" style="color:var(--accent)">AUTH</td><td class="val" style="font-family:'SF Mono',Menlo,monospace;font-size:12px">Bearer ${displayToken}</td></tr>`);
+  }
+  add('PATH', data.sent.u); add('QUERY', data.sent.q);
+  if (data.sent.f && Object.keys(data.sent.f).length) add('FORM', data.sent.f);
+  const fileKeys = c.f ? c.f.filter(x => x.t === 'file').map(x => x.k) : [];
+  if (fileKeys.length) rows.push(`<tr><td class="key" style="color:var(--accent)">FILE</td><td class="val" style="color:var(--muted);font-style:italic">${fileKeys.join(', ')} (upload required)</td></tr>`);
+  add('BODY', data.sent.j);
+  $('testParamsContent').innerHTML = `<table style="width:100%">${rows.join('')}</table>`;
+  $('testParamsCopyCurl').onclick = () => copyWithFeedback($('testParamsCopyCurl'), data.curl, 20, 'Curl copied');
+  $('testParamsCopyCurl').innerHTML = ICON.copy(20);
+  showModal('testParamsModal');
+};
+let testFilterType = 'all';
+const applyTestFilters = () => {
+  const query = $('apiTestSearch').value.toLowerCase();
+  const rows = $('testResultsBody').querySelectorAll('tr');
+  rows.forEach((row, i) => {
+    const c = COMMANDS[i], tr = testResults.find(r => r.idx === i + 1);
+    let typeMatch = 1;
+    if (testFilterType === 'pass') typeMatch = (tr && tr.result === 'PASS') ? 1 : 0;
+    else if (testFilterType === 'fail') typeMatch = (tr && tr.result === 'FAIL') ? 1 : 0;
+    else if (testFilterType === 'skip') typeMatch = (tr && tr.result === 'SKIP' && tr.reason === 'unselected') ? 1 : 0;
+    else if (testFilterType === 'auto') typeMatch = (tr && tr.result === 'SKIP' && tr.reason === 'incompatible') ? 1 : 0;
+    let searchMatch = c.p.toLowerCase().includes(query);
+    row.style.display = (typeMatch && searchMatch) ? '' : 'none';
+  });
+  $('apiTestSearchClear').style.display = query ? 'block' : 'none';
+};
+const filterTestResults = type => {
+  const spans = Array.from($('testSummary').querySelectorAll('.clickable'));
+  const clicked = spans.find(s => s.dataset.type === type);
+  const is_active = clicked.classList.contains('active') ? 1 : 0;
+  testFilterType = (is_active && type !== 'all') ? 'all' : type;
+  spans.forEach(s => s.classList.toggle('active', s.dataset.type === testFilterType));
+  applyTestFilters();
+};
+$('apiTestSearch').oninput = applyTestFilters;
+$('apiTestSearchClear').onclick = () => {
+  $('apiTestSearch').value = '';
+  applyTestFilters();
+};
 $('testResultsTbl').addEventListener('click', e => {
-  const btn = e.target.closest('.test-resp-btn');
-  if (!btn) return;
-  showTestResponse(parseInt(btn.dataset.idx));
+  const btn = e.target.closest('.test-resp-btn'), pBtn = e.target.closest('.test-params-btn');
+  if (pBtn) showTestParams(parseInt(pBtn.dataset.idx));
+  if (btn) showTestResponse(parseInt(btn.dataset.idx));
+});
+d.addEventListener('change', e => {
+  if (e.target.id === 'testSelectAll') {
+    const is_checked = e.target.checked;
+    d.querySelectorAll('.test-row-select').forEach(cb => {
+      cb.checked = is_checked;
+    });
+    saveTestSelections();
+  }
+  if (e.target.classList.contains('test-row-select')) {
+    saveTestSelections();
+    const allCbs = Array.from(d.querySelectorAll('.test-row-select'));
+    $('testSelectAll').checked = allCbs.every(cb => cb.checked);
+  }
 });
 
 init();
