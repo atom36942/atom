@@ -169,7 +169,7 @@ async def func_api_my_parent_read(request:Request):
 async def func_api_my_ids_delete(request:Request):
    st=request.app.state
    obj_body=await func_request_param_read(request,"body",[("table","str",1,st.cache_postgres_schema_tables,None),("ids","str",1,None,None)])
-   output=await func_postgres_ids_delete(st.client_postgres_pool,obj_body["table"],obj_body["ids"],request.state.user["id"],config_table_system,config_limit_ids_delete)
+   output=await func_postgres_ids_delete(st.client_postgres_pool,obj_body["table"],obj_body["ids"],request.state.user.get("id",0),config_table_system,config_limit_ids_delete)
    return {"status":1,"message":output}
 
 @router.post("/my/object-create")
@@ -278,8 +278,8 @@ async def func_api_public_otp_send_mobile_fast2sms(request:Request):
 
 @router.post("/public/jira-worklog-export")
 async def func_api_public_jira_worklog_export(request:Request):
-   obj_body=await func_request_param_read(request,"body",[("jira_url","str",1,None,None),("email_address","str",1,None,None),("api_token","str",1,None,None),("start_date","str",0,None,None),("end_date","str",0,None,None)])
-   import asyncio; output_path=await asyncio.to_thread(func_jira_worklog_export,obj_body["jira_url"],obj_body["email_address"],obj_body["api_token"],obj_body["start_date"],obj_body["end_date"],None)
+   obj_body=await func_request_param_read(request,"body",[("jira_url","str",1,None,None),("email","str",1,None,None),("api_token","str",1,None,None),("start_date","str",0,None,None),("end_date","str",0,None,None)])
+   import asyncio; output_path=await asyncio.to_thread(func_jira_worklog_export,obj_body["jira_url"],obj_body["email"],obj_body["api_token"],obj_body["start_date"],obj_body["end_date"],None)
    return await func_client_download_file(output_path,1,None)
 
 @router.get("/public/table-tag-read")
@@ -406,15 +406,15 @@ async def func_api_admin_mongodb_import(request:Request):
 
 @router.post("/admin/s3-bucket-ops")
 async def func_api_admin_s3_bucket_ops(request:Request):
-   obj_query=await func_request_param_read(request,"query",[("mode","str",1,["bucket_create","bucket_public","bucket_empty","bucket_delete"],None),("bucket","str",1,None,None)])
+   obj_query=await func_request_param_read(request,"query",[("mode","str",1,["create","public","empty","delete"],None),("bucket","str",1,None,None)])
    st=request.app.state
-   if obj_query["mode"]=="bucket_create":
+   if obj_query["mode"]=="create":
       output=await func_s3_bucket_create(st.client_s3,config_s3_region_name,obj_query["bucket"])
-   elif obj_query["mode"]=="bucket_public":
+   elif obj_query["mode"]=="public":
       output=await func_s3_bucket_public(st.client_s3,obj_query["bucket"])
-   elif obj_query["mode"]=="bucket_empty":
+   elif obj_query["mode"]=="empty":
       output=func_s3_bucket_empty(st.client_s3_resource,obj_query["bucket"])
-   elif obj_query["mode"]=="bucket_delete":
+   elif obj_query["mode"]=="delete":
       output=await func_s3_bucket_delete(st.client_s3,obj_query["bucket"])
    return {"status":1,"message":output}
 

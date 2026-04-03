@@ -18,7 +18,7 @@ h1{margin:0 0 24px 0;font-size:22px;font-weight:600;display:flex;justify-content
 .api-dropdown.show{display:block}.api-dropdown li{padding:10px 16px;font-size:14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .api-dropdown li:hover{background:#2a3642;color:#fff}
 .method-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:6px;min-width:32px;text-align:center}
-.method-badge.get{background:rgba(56,161,105,.2);color:#38a169}.method-badge.post{background:rgba(66,153,225,.2);color:#4299e1}.method-badge.put{background:rgba(237,137,54,.2);color:#ed8936}.method-badge.delete{background:rgba(220,53,69,.2);color:#dc3545}.method-badge.patch{background:rgba(159,122,234,.2);color:#9f7aea}
+.method-badge.get{background:rgba(56,161,105,.2);color:#38a169}.method-badge.post{background:rgba(66,153,225,.2);color:#4299e1}.method-badge.put{background:rgba(237,137,54,.2);color:#ed8936}.method-badge.delete{background:rgba(220,53,69,.2);color:#dc3545}.method-badge.patch{background:rgba(159,122,234,.2);color:#9f7aea}.method-badge.ws{background:rgba(159,122,234,.2);color:#9f7aea}
 .btn-primary .spinner{display:none;width:16px;height:16px;border:2px solid rgba(0,0,0,.2);border-top-color:var(--primary-text);border-radius:50%;animation:spin .6s linear infinite;margin-right:6px}.btn-primary.loading .spinner{display:inline-block}@keyframes spin{to{transform:rotate(360deg)}}
 form{display:flex;flex-direction:column;gap:24px}
 .section-label{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
@@ -38,27 +38,47 @@ input::placeholder{color:rgba(154,160,166,.5)}
 .remove-btn{background:none;color:var(--muted);border:none;width:36px;height:36px;flex:0 0 36px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px}.remove-btn:hover:not(:disabled){color:var(--delete);background:rgba(220,53,69,.1)}.remove-btn:disabled{opacity:0.3;cursor:not-allowed}
 .footer-row{display:flex;gap:16px;margin-top:12px}.btn{padding:14px 24px;flex:1;font-size:15px;font-weight:600;border-radius:8px;border:none;cursor:pointer;height:48px;display:flex;align-items:center;justify-content:center}
 .btn-primary{background:var(--primary);color:var(--primary-text)}.btn-secondary{background:var(--secondary);color:var(--secondary-text)}
-.resp-box{background:#14171c;border-radius:10px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden;max-height:500px;flex-direction:column}
-.resp-box.show{display:flex}.resp-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;font-size:13px;color:var(--accent);text-transform:uppercase}
-.resp-content{overflow-y:auto}table{width:100%;border-collapse:collapse}
-td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;vertical-align:top}
-.key{color:var(--muted);font-weight:600;white-space:nowrap;padding-right:24px!important}
+.resp-box {background:#0f1114;border-radius:12px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden;max-height:600px;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.resp-box.show {display:flex}
+.resp-header {display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;font-size:13px;color:var(--accent);text-transform:uppercase}
+.resp-tabs {display:flex;background:#14171c;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.05);gap:4px}
+.resp-tab {padding:10px 16px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;user-select:none;display:flex;align-items:center;gap:6px}
+.resp-tab:hover {color:#fff;background:rgba(255,255,255,0.03)}
+.resp-tab.active {color:var(--accent);border-bottom-color:var(--accent);background:rgba(66,153,225,0.05)}
+.resp-content {overflow-y:auto;flex:1;position:relative}
+.resp-tbl th {background:#1a1d23;padding:8px 12px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1;text-transform:uppercase;letter-spacing:0.5px}
+.resp-tbl td {padding:8px 12px;color:#e6eef3;border-bottom:1px solid rgba(255,255,255,.05);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;position:relative}
+.resp-tbl td:hover {background:rgba(255,255,255,0.02)}
+.resp-view {display:none}.resp-view.active {display:block}
+table{width:100%;border-collapse:collapse}
+td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;vertical-align:top}
+.key{color:var(--muted);font-weight:600;white-space:nowrap;padding-right:16px!important}
 .val{font-family:Inter,system-ui;overflow-x:auto;white-space:nowrap;vertical-align:top}
 .copy-btn{background:none;color:var(--muted);border:none;padding:4px;border-radius:4px;cursor:pointer;display:flex;align-items:center;margin-left:8px}.copy-btn:hover{color:#fff}
-.resp-pre{padding:0;margin:0;font-size:13px;font-family:'SF Mono',Menlo,monospace;color:#e6eef3;white-space:pre;max-height:400px;overflow:auto;background:none;border:none}
-.resp-pre .jp{color:var(--muted)}.resp-pre .jk{color:#7ec8e3}.resp-pre .js{color:#98c379}.resp-pre .jn{color:#d19a66}.resp-pre .jb{color:#c678dd}.resp-pre .jl{color:#56b6c2}
-.resp-tbl-wrap{overflow:auto;max-width:100%;max-height:400px}
-.resp-tbl tbody tr:first-child td{padding-top:12px}
-.resp-tbl{border-collapse:collapse;font-size:13px;margin:0;table-layout:auto;width:100%}
-.resp-tbl th{background:#1a1d23;padding:8px 12px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1;text-transform:uppercase;letter-spacing:0.5px}
-.resp-tbl td{color:#e6eef3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;position:relative}
-.cell-pop{display:none;position:fixed;z-index:2000;background:#1a1d23;border:1px solid var(--accent);border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-all;max-width:400px;max-height:250px;overflow:auto;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,.6);color:#e6eef3;font-family:'SF Mono',Menlo,monospace}
-.cell-pop.show{display:flex;gap:8px;align-items:flex-start}
-.cell-pop-copy{background:none;border:none;color:var(--accent);cursor:pointer;padding:4px;flex-shrink:0;font-size:14px}.cell-pop-copy:hover{color:#fff}
+.resp-pre {padding:20px;margin:0;font-size:13px;font-family:'SF Mono',Menlo,monospace;color:#e6eef3;white-space:pre-wrap;word-break:break-all;background:none;border:none;line-height:1.5}
+.jk {color:#7ec8e3}.js {color:#98c379}.jn {color:#d19a66}.jb {color:#c678dd}.jl {color:#56b6c2}.jp {color:var(--muted)}
+.tree-node {padding-left:20px;position:relative;border-left:1px solid rgba(255,255,255,0.05);margin-left:8px}
+.tree-node:first-child {margin-top:4px}
+.tree-toggle {display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 8px;border-radius:4px;color:var(--muted);font-size:13px;font-family:'SF Mono',Menlo,monospace;transition:0.2s;user-select:none;margin-left:-24px}
+.tree-toggle:hover {background:rgba(255,255,255,0.05);color:#fff}
+.tree-arrow {font-size:10px;transition:transform 0.2s;opacity:0.6}
+.tree-arrow.open {transform:rotate(90deg)}
+.tree-key {color:#7ec8e3;font-weight:600}
+.tree-val {color:#e6eef3}
+.tree-content {display:none}.tree-content.show {display:block}
+.tree-row {display:flex;align-items:flex-start;padding:2px 0}
+.tree-colon {color:var(--muted);margin-right:8px}
+.tree-summary {font-size:11px;color:var(--muted);font-style:italic;margin-left:8px}
+.resp-tbl-wrap {overflow:auto;max-width:100%;max-height:500px}
+.resp-tbl {border-collapse:collapse;font-size:13px;margin:0;table-layout:auto;width:100%}
+.resp-tbl th {background:#1a1d23;padding:10px 12px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1;text-transform:uppercase;letter-spacing:0.5px}
+.resp-tbl td {padding:10px 12px;color:#e6eef3;border-bottom:1px solid rgba(255,255,255,.05);overflow:hidden;white-space:nowrap;cursor:pointer;position:relative}
+.resp-tbl td:hover {background:rgba(255,255,255,0.02)}
+.resp-view {display:none}.resp-view.active {display:block}
 .toast{position:fixed;bottom:20px;right:20px;background:#1a1d23;border:1px solid var(--accent);color:#e6eef3;padding:10px 20px;border-radius:8px;font-size:13px;z-index:3000;animation:fadeIn .3s}@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .section-group{display:none}.section-group.active{display:block}
 .modal{display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(4px)}
-.modal-content{background:var(--card);margin:5% auto;padding:24px;width:90%;max-width:600px;border-radius:12px;border:1px solid rgba(255,255,255,.1)}
+.modal-content{background:var(--card);margin:5% auto;padding:24px;width:95%;max-width:1000px;border-radius:12px;border:1px solid rgba(255,255,255,.1)}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
 .modal-actions{display:flex;gap:12px;align-items:center}
 .icon-btn{background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
@@ -66,14 +86,19 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .icon-btn.delete:hover{color:var(--delete)}
 .icon-btn.save:hover{color:var(--primary)}
 .icon-btn.loading svg{animation:spin 1s linear infinite}
-.tree-table{width:100%;border-collapse:collapse;margin:4px 0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05)}.tree-key{color:#7ec8e3;font-weight:600;padding:6px 10px;width:1px;white-space:nowrap;font-size:12px;vertical-align:top;border:1px solid rgba(255,255,255,0.05);background:rgba(66,153,225,0.05)}.tree-val{padding:6px 10px;font-family:'SF Mono',Menlo,monospace;font-size:12px;position:relative;border:1px solid rgba(255,255,255,0.05);color:#e6eef3}.tree-node{margin-top:4px}.tree-toggle{background:none;border:none;color:var(--accent);cursor:pointer;padding:2px 6px;font-size:11px;display:flex;align-items:center;gap:6px;border-radius:4px;font-family:inherit;font-weight:600}.tree-toggle:hover{background:rgba(66,153,225,.1)}.tree-content{display:none;margin-top:4px}.tree-content.show{display:block}.tree-arrow{transition:transform .2s;display:inline-block;font-size:10px}.tree-arrow.open{transform:rotate(90deg)}.gv-s{color:#98c379}.gv-n{color:#d19a66}.gv-b{color:#c678dd}.gv-null{color:#56b6c2}
+.cell-pop{display:none;position:fixed;z-index:2000;background:#1a1d23;border:1px solid var(--accent);border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-all;max-width:400px;max-height:250px;overflow:auto;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,.6);color:#e6eef3;font-family:'SF Mono',Menlo,monospace}
+.cell-pop.show{display:flex;gap:8px;align-items:flex-start}
+.cell-pop-copy{background:none;border:none;color:var(--accent);cursor:pointer;padding:4px;flex-shrink:0;font-size:14px}.cell-pop-copy:hover{color:#fff}
+
 .analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px}
 .analytics-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px}
 .analytics-card h4{margin:0 0 16px 0;font-size:14px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:10px;display:flex;justify-content:space-between;align-items:center}
 .analytics-list{list-style:none;padding:0;margin:0}
 .analytics-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px}
 .analytics-item:last-child{border-bottom:none}
-.analytics-count{font-weight:700;color:var(--primary);background:rgba(56,161,105,0.1);padding:2px 8px;border-radius:4px;min-width:24px;text-align:center}
+.modal-card-grid{display:flex;flex-direction:column;gap:20px;margin-top:10px}
+.modal-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;display:flex;flex-direction:column;min-width:0}
+.modal-card h4{margin:0 0 16px 0;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:10px;display:flex;justify-content:space-between;align-items:center}
 .test-summary{display:flex;gap:16px;flex-wrap:wrap;padding:14px 20px;background:#1a1d23;border-radius:8px;margin-bottom:16px;font-size:13px;font-weight:600;align-items:center}
 .test-summary span{display:flex;align-items:center;gap:4px}
 .test-progress{font-size:12px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
@@ -100,6 +125,15 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .param-badge.q{background:rgba(0,188,212,0.15);color:#00bcd4}
 .param-badge.f{background:rgba(237,137,54,0.15);color:#ed8936}
 .param-badge.b{background:rgba(159,122,234,0.15);color:#9f7aea}
+.col-id {width:32px;min-width:32px;text-align:center!important}
+.col-method {width:78px;min-width:78px;text-align:center!important}
+.col-path {width:auto;text-align:left!important;white-space:nowrap!important}
+.col-token {width:40px;min-width:40px;text-align:center!important}
+.col-query {width:40px;min-width:40px;text-align:center!important}
+.col-form {width:40px;min-width:40px;text-align:center!important}
+.col-body {width:40px;min-width:40px;text-align:center!important}
+.col-curl {width:40px;min-width:40px;text-align:center!important}
+.col-run {width:40px;min-width:40px;text-align:center!important}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 </style>
 </head>
@@ -107,7 +141,11 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 <div class="container"><div class="card">
 <h1>API Master <span id="apiTotal" style="font-size:13px;font-weight:400;color:var(--muted);margin-left:12px"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="apiTestAll" title="Test All APIs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="m9 14 2 2 4-4"/></svg></button><button type="button" class="icon-btn" id="apiInfoAnalytics" title="Analytics"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button type="button" class="icon-btn" id="apiStorageBtn" title="Local Storage"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></button></div></h1>
 <div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiInfoSearch" placeholder="Search API Paths..." style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
-<div class="resp-tbl-wrap" style="max-height:600px"><table class="resp-tbl" id="apiInfoTbl" style="table-layout:auto"></table></div>
+<div class="card" style="margin-top:16px;padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
+    <div class="resp-tbl-wrap" style="max-height:600px;overflow-x:hidden">
+        <table class="resp-tbl" id="apiInfoTbl" style="table-layout:fixed;width:100%"></table>
+    </div>
+</div>
 <div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
 </div></div>
 
@@ -129,9 +167,54 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
         <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
         <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
         <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
-        <div class="footer-row"><button id="clrBtn" type="button" class="btn btn-secondary">Clear</button><button id="subBtn" type="submit" class="btn btn-primary">Submit</button></div>
+        <div class="footer-row"><button id="subBtn" type="submit" class="btn btn-primary">Submit</button></div>
     </form>
-    <div class="resp-box" id="rBox"><div class="resp-header"><span>Response <span id="rCode" style="font-weight:400"></span></span><div style="display:flex;align-items:center;margin-left:auto"><button id="rCopy" class="copy-btn" title="Copy response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button id="rMin" class="copy-btn" title="Compress JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14l-7 7"/></svg></button><button id="rGrid" class="copy-btn" title="Table view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button><button id="rJson" class="copy-btn" title="Download JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button><button id="rCsv" class="copy-btn" title="Download CSV"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button id="rOpen" class="copy-btn" title="Open in new tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button></div></div><div class="resp-content"><table id="rTab"></table></div></div>
+    <div class="resp-box" id="rBox">
+        <div class="resp-header">
+            <span>Response <span id="rCode" style="font-weight:400"></span></span>
+            <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+                <button id="rCopy" class="icon-btn" title="Copy Response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                <button id="rExpandAll" class="icon-btn" title="Expand All"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+                <button id="rCollapseAll" class="icon-btn" title="Collapse All"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="10" y1="14" x2="3" y2="21"/></svg></button>
+                <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                <button id="rJson" class="icon-btn" title="Download JSON"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+            </div>
+        </div>
+        <div class="resp-tabs">
+            <div class="resp-tab active" data-view="pretty">Pretty</div>
+            <div class="resp-tab" data-view="raw">Raw</div>
+            <div class="resp-tab" data-view="table">Table</div>
+        </div>
+        <div class="resp-content">
+            <div id="viewPretty" class="resp-view active"></div>
+            <div id="viewRaw" class="resp-view"><pre class="resp-pre" id="rawPre"></pre></div>
+            <div id="viewTable" class="resp-view"></div>
+        </div>
+    </div>
+    </div>
+</div></div>
+<div id="wsRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:2% auto">
+    <div class="modal-header">
+        <h3 style="margin:0">WebSocket Runner</h3>
+        <button type="button" class="icon-btn" title="Close" onclick="wsDisconnect();hideModal('wsRunnerModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div style="max-height:80vh;overflow-y:auto;padding-right:8px">
+        <div style="display:flex;gap:12px;margin-bottom:20px">
+            <input type="text" id="wsUrlIn" readonly style="flex:1;background:rgba(255,255,255,0.02);color:var(--accent);font-weight:600">
+            <button id="wsConnBtn" type="button" class="btn btn-primary" style="flex:0 0 120px" onclick="wsToggleConnect()">Connect</button>
+        </div>
+        <div style="margin-bottom:20px">
+            <div class="section-label">Send Message</div>
+            <div style="display:flex;gap:8px">
+                <input type="text" id="wsMsgIn" placeholder="Type a message..." onkeypress="if(event.key==='Enter')wsSend()" style="flex:1">
+                <button type="button" class="btn btn-primary" style="flex:0 0 80px" onclick="wsSend()">Send</button>
+            </div>
+        </div>
+        <div class="resp-box show" style="display:flex;max-height:400px">
+            <div class="resp-header"><span>Connection Logs</span><button class="copy-btn" onclick="$('wsLogs').innerHTML=''" title="Clear Logs"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button></div>
+            <div class="resp-content" id="wsLogs" style="padding:16px;font-family:'SF Mono',Menlo,monospace;font-size:12px;color:var(--muted)"></div>
+        </div>
     </div>
 </div></div>
 
@@ -151,7 +234,6 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
             <h3 style="margin:0">API Tester</h3>
             <div class="modal-actions">
                 <button type="button" id="testRunBtn" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 16px;border-radius:8px;background:var(--primary);color:var(--primary-text);border:none;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Run Tests</button>
-                <button type="button" class="icon-btn" id="testAllClearCache" title="Clear Test Cache"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
                 <button type="button" class="icon-btn" id="testAllExportCsv" title="Export CSV"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
                 <button type="button" class="icon-btn" title="Close" onclick="hideModal('testAllModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
@@ -159,7 +241,14 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
         <div class="test-summary" id="testSummary" style="display:none"></div>
         <div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiTestSearch" placeholder="Search API Paths..." style="padding:12px 40px 12px 16px;font-size:14px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiTestSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
         <div class="test-progress" id="testProgress" style="display:none"><span id="testProgressText">0/0</span><div class="test-progress-bar"><div class="test-progress-fill" id="testProgressFill" style="width:0%"></div></div></div>
-        <div class="test-results-wrap"><table class="test-results-tbl" id="testResultsTbl"><thead id="testResultsHead"></thead><tbody id="testResultsBody"></tbody></table></div>
+        <div class="card" style="padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
+            <div class="test-results-wrap" style="max-height:60vh;overflow-y:auto;overflow-x:hidden">
+                <table class="test-results-tbl" id="testResultsTbl" style="table-layout:fixed;width:100%">
+                    <thead id="testResultsHead"></thead>
+                    <tbody id="testResultsBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -203,20 +292,26 @@ td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 </div>
 
 <div id="curlViewModal" class="modal" onclick="if(event.target===this)hideModal('curlViewModal')">
-    <div class="modal-content" style="max-width:700px;margin:5% auto">
+    <div class="modal-content" style="max-width:800px;margin:5% auto">
         <div class="modal-header">
             <h3 style="margin:0" id="curlViewTitle">Curl</h3>
-            <div class="modal-actions">
-                <button type="button" class="icon-btn" id="curlViewCopy" title="Copy Curl"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                <button type="button" class="icon-btn" title="Close" onclick="hideModal('curlViewModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            <button type="button" class="icon-btn" title="Close" onclick="hideModal('curlViewModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="modal-card-grid" id="curlViewGrid">
+            <div class="modal-card" id="curlViewCard">
+                <h4><span>CURL COMMAND</span><button type="button" class="icon-btn" id="curlViewCopy" title="Copy Curl"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></h4>
+                <div id="curlViewContent" style="max-height:60vh;overflow-y:auto"></div>
+            </div>
+            <div class="modal-card" id="curlViewResCard" style="display:none">
+                <h4><span>EXPECTED RESPONSE (200)</span><button type="button" class="icon-btn" id="curlViewResCopy" title="Copy Expected Response"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></h4>
+                <div id="curlViewResContent" style="max-height:60vh;overflow-y:auto"></div>
             </div>
         </div>
-        <div id="curlViewContent" style="max-height:70vh;overflow-y:auto"></div>
     </div>
 </div>
 
 <script>
-let COMMANDS = [];
+let COMMANDS = [], SPEC = null;
 const d = document,
   $ = id => d.getElementById(id);
 let curr = null, orig = [];
@@ -254,6 +349,71 @@ if (ls.get('settings')) {
   ls.rm('settings');
 }
 
+const BIGINT_DEFAULT = 987654321012345;
+const PATH_DEFAULTS = {
+  // Auth & Signup
+  '/auth/signup-username-password': { username: self.crypto.randomUUID().replace(/-/g, ''), password: '123', type: 1 },
+  '/auth/signup-username-password-bigint': { username_bigint: BIGINT_DEFAULT, password_bigint: 123, type: 1 },
+  '/auth/login-password-username': { type: 1, username: 'atom', password: '123' },
+  '/auth/login-password-username-bigint': { username_bigint: BIGINT_DEFAULT, password_bigint: 123, type: 1 },
+  '/auth/login-password-email': { type: 1, email: 'test@test.com', password: '123' },
+  '/auth/login-password-mobile': { type: 1, mobile: '9999999999', password: '123' },
+  '/auth/login-otp-email': { type: 1, email: 'test@test.com', otp: 123456 },
+  '/auth/login-otp-mobile': { type: 1, mobile: '9999999999', otp: 123456 },
+  '/auth/login-google': { type: 1, google_token: 'test' },
+
+  // My & Account
+  '/my/profile': {},
+  '/my/api-usage': { days: 7 },
+  '/my/account-delete': { mode: 'soft' },
+  '/my/parent-read': { table: 'test', parent_table: 'users', parent_column: 'created_by_id', order: 'id desc', limit: 10, page: 1 },
+  '/my/ids-delete': { table: 'test', ids: '1,2,3,4,5' },
+  '/my/object-create': { table: 'test', type: 1, title: 'test', is_serialize: 1, tag: ["java","python","sql"], location: 'POINT(17.794387 -83.032150)', metadata: { "id": 1, "name": "test", "active": true } },
+  '/my/object-update': { id: 1, name: 'test', table: 'users' },
+  '/my/object-read': { table: 'test', order: 'id desc', limit: 10, page: 1 },
+  '/my/object-create-mongodb': { database: 'test', table: 'test', type: 1, title: 'test' },
+
+  // Messaging
+  '/my/message-received': { mode: 'all', order: 'id desc', limit: 10, page: 1 },
+  '/my/message-inbox': { mode: 'all', order: 'id desc', limit: 10, page: 1 },
+  '/my/message-thread': { user_id: 1, order: 'id desc', limit: 10, page: 1 },
+  '/my/message-delete-single': { id: 1 },
+  '/my/message-delete-bulk': { mode: 'all' },
+
+  // Public
+  '/public/converter-number': { datatype: 'int', mode: 'encode', x: '123' },
+  '/public/object-create': { table: 'test', type: 1, title: 'test' },
+  '/public/object-read': { table: 'test', order: 'id desc', limit: 10, page: 1 },
+  '/public/otp-verify-email': { email: 'test@test.com', otp: 123456 },
+  '/public/otp-verify-mobile': { mobile: '9999999999', otp: 123456 },
+  '/public/otp-send-email-ses': { sender: 'test@test.com', email: 'test@test.com' },
+  '/public/otp-send-email-resend': { sender: 'test@test.com', email: 'test@test.com' },
+  '/public/otp-send-mobile-sns': { mobile: '9999999999' },
+  '/public/otp-send-mobile-sns-template': { mobile: '9999999999', message: 'test {otp}', template_id: 'test', entity_id: 'test', sender_id: 'test' },
+  '/public/otp-send-mobile-fast2sms': { mobile: '9999999999' },
+  '/public/jira-worklog-export': { jira_url: 'https://test.atlassian.net', email: 'test@test.com', api_token: 'test' },
+  '/public/table-tag-read': { table: 'test', column: 'tag' },
+
+  // Private & Admin
+  '/private/s3-upload-file': { bucket: 'test' },
+  '/private/s3-upload-presigned': { bucket: 'test', count: 1 },
+  '/admin/postgres-runner': { mode: 'read', query: 'SELECT 1' },
+  '/admin/postgres-export': { query: 'SELECT * FROM test' },
+  '/admin/postgres-import': { mode: 'create', table: 'test' },
+  '/admin/object-create': { table: 'test', type: 1, title: 'test' },
+  '/admin/object-update': { id: 1, name: 'test', table: 'users' },
+  '/admin/object-read': { table: 'test', order: 'id desc', limit: 10, page: 1 },
+  '/admin/ids-delete': { table: 'test', ids: '1,2,3,4,5' },
+  '/admin/redis-import-create': { table: 'test', expiry_sec: '60' },
+  '/admin/redis-import-delete': { table: 'test' },
+  '/admin/mongodb-import': { mode: 'create', database: 'test', table: 'test' },
+  '/admin/s3-bucket-ops': { mode: 'create', bucket: 'test' },
+  '/admin/s3-url-delete': { url: '[]' },
+
+  // Pages
+  '/page-{name}': { name: 'api' }
+};
+
 /* ── SVG icon templates ── */
 const SVG = (w, paths, stroke = 'currentColor') =>
   `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
@@ -262,10 +422,11 @@ const ICON = {
   check: s => SVG(s, '<polyline points="20 6 9 17 4 12"/>', '#22c55e'),
   cross: s => SVG(s, '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>', '#ef4444'),
   play: s => SVG(s, '<polygon points="5 3 19 12 5 21 5 3"/>', '#38a169'),
-  trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>')
+  trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>'),
+  terminal: s => SVG(s, '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>')
 };
 
-const getIcon = v => (v && (v.length || v === true)) ? ICON.check(16) : ICON.cross(16);
+const getIcon = v => v ? ICON.check(16) : ICON.cross(16);
 
 /* ── Reusable helpers ── */
 const debounce = (fn, ms) => {
@@ -291,25 +452,28 @@ const copyWithFeedback = (btn, text, size = 16, msg) => {
   setTimeout(() => btn.innerHTML = ICON.copy(size), 1500);
 };
 
-const downloadCsv = (filename, csvStr) => {
+const downloadBlob = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob);
   const a = d.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csvStr], { type: 'text/csv' }));
+  a.style.display = 'none';
+  a.href = url;
   a.download = filename;
+  d.body.appendChild(a);
   a.click();
+  window.URL.revokeObjectURL(url);
+  a.remove();
 };
 
-const downloadJson = (filename, jsonStr) => {
-  const a = d.createElement('a');
-  a.href = URL.createObjectURL(new Blob([jsonStr], { type: 'application/json' }));
-  a.download = filename;
-  a.click();
-};
+const downloadCsv = (filename, csvStr) => downloadBlob(new Blob([csvStr], { type: 'text/csv' }), filename);
+const downloadJson = (filename, jsonStr) => downloadBlob(new Blob([jsonStr], { type: 'application/json' }), filename);
 
 const csvEscape = v => {
   const s = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
   return s.includes(',') || s.includes('"') || s.includes('\n')
     ? '"' + s.replace(/"/g, '""') + '"' : s;
 };
+
+const he = v => v == null ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 const arrayToCsv = arr => {
   if(!arr.length) return '';
@@ -320,15 +484,34 @@ const arrayToCsv = arr => {
 const yn = a => a && a.length ? 'Yes' : 'No';
 const hasToken = c => c.h && c.h.some(x => x.k.toLowerCase() === 'authorization') ? 'Yes' : 'No';
 
+const resolveSchema = (s) => {
+  if (!s) return s;
+  if (s.$ref) {
+    const path = s.$ref.split('/');
+    let curr = SPEC;
+    for (let i = 1; i < path.length; i++) curr = curr[path[i]];
+    return resolveSchema(curr);
+  }
+  if (s.allOf) {
+    const merged = {};
+    s.allOf.forEach(sub => {
+      const resolved = resolveSchema(sub);
+      if (resolved.properties) Object.assign(merged, resolved.properties);
+    });
+    return { ...s, properties: merged };
+  }
+  return s;
+};
+
 const generateCurl = i => {
   const c = COMMANDS[i];
-  const isDiff = curr && COMMANDS.indexOf(curr) === parseInt(i);
+  const is_diff = (curr && COMMANDS.indexOf(curr) === parseInt(i)) ? 1 : 0;
   const live = {
-    h: isDiff ? extractRows($('hCont')) : [],
-    q: isDiff ? extractRows($('qCont')) : [],
-    f: isDiff ? extractRows($('fCont')) : [],
-    u: isDiff ? extractRows($('uCont')) : [],
-    j: isDiff ? extractRows($('jCont'), true) : []
+    h: is_diff ? extractRows($('hCont')) : [],
+    q: is_diff ? extractRows($('qCont')) : [],
+    f: is_diff ? extractRows($('fCont')) : [],
+    u: is_diff ? extractRows($('uCont')) : [],
+    j: is_diff ? extractRows($('jCont'), true) : []
   };
   const merge = (specList, liveList) => {
     const res = specList.map(s => {
@@ -342,9 +525,9 @@ const generateCurl = i => {
   let path = c.p;
   uData.forEach(x => { const v = x.v !== '' ? x.v : 'null'; path = path.replace(`{${x.k}}`, v) });
   const sanitize = v => (v === '' || (typeof v === 'string' && v.includes('{') && v.includes('}'))) ? 'null' : v;
-  const isShow = x => x.req || x.v !== '' || x.k.toLowerCase() === 'authorization';
+  const is_show = x => 1;
   const h = [];
-  hData.filter(isShow).forEach(x => {
+  hData.filter(is_show).forEach(x => {
     let val = x.v;
     if (x.k.toLowerCase() === 'authorization') {
       val = ls.get('token') || val;
@@ -353,7 +536,7 @@ const generateCurl = i => {
       h.push(`-H "${x.k}: ${val}"`);
     } else h.push(`-H "${x.k}: ${sanitize(val)}"`);
   });
-  const qParts = qData.filter(isShow).map(x => {
+  const qParts = qData.filter(is_show).map(x => {
     const v = sanitize(x.v);
     const ev = encodeURIComponent(v).replace(/%7B/g, '{').replace(/%7D/g, '}');
     return `${encodeURIComponent(x.k)}=${ev}`;
@@ -362,14 +545,22 @@ const generateCurl = i => {
   let body = '';
   if (jData.length || c._hj) {
     const b = {};
-    jData.filter(isShow).forEach(x => { 
+    jData.filter(is_show).forEach(x => { 
       const sv = sanitize(x.v);
-      b[x.k] = sv === 'null' ? null : ((x.t === 'int' || x.t === 'float') ? Number(sv) : sv) 
+      let val = sv;
+      if (sv !== 'null') {
+        if (x.t === 'int' || x.t === 'float') val = Number(sv);
+        else if (x.t === 'bool') val = (sv === 'true');
+        else if (x.t === 'list' || x.t === 'object') {
+          try { val = JSON.parse(sv); } catch (e) { val = sv; }
+        }
+      } else val = null;
+      b[x.k] = val;
     });
-    body = Object.keys(b).length ? `-d '${JSON.stringify(b)}'` : '';
+    body = (Object.keys(b).length || c._hj) ? `-d '${JSON.stringify(b)}'` : '';
     if (body && !h.some(x => x.includes('Content-Type'))) h.push('-H "Content-Type: application/json"');
   } else if (fData.length || c._hf) {
-    body = fData.filter(isShow).map(x => `-F "${x.k}=${sanitize(x.v)}"`).join(' ');
+    body = fData.filter(is_show).map(x => `-F "${x.k}=${sanitize(x.v)}"`).join(' ');
   }
   return `curl -X ${c.m} "${url}" ${h.join(' ')} ${body}`.trim().replace(/\s+/g, ' ');
 };
@@ -378,6 +569,7 @@ async function init() {
   try {
     const specR = await fetch('/openapi.json', { cache: 'no-cache' });
     const spec = await specR.json();
+    SPEC = spec;
     if (!spec || !spec.paths) throw new Error("Invalid OpenAPI spec returned");
     COMMANDS = [];
     Object.entries(spec.paths).forEach(([path, methods]) => {
@@ -421,6 +613,39 @@ async function init() {
         }
         cmd._hj = cmd.j.length > 0 || !!(bodyContent && bodyContent['application/json']);
         cmd._hf = cmd.f.length > 0 || !!(bodyContent && bodyContent['multipart/form-data']);
+        const r200 = op.responses?.['200']?.content?.['application/json']?.schema;
+        if (r200) cmd.res = r200;
+        const p = cmd.p, m = cmd.m;
+        const ov = PATH_DEFAULTS[p];
+        if (ov) {
+          const up = (l, isJ = false) => l.forEach(x => {
+            if (ov[x.k] !== undefined) {
+              const val = ov[x.k];
+              if (isJ) {
+                  if (val === null) x.t = 'null';
+                  else if (Array.isArray(val)) x.t = 'list';
+                  else if (typeof val === 'number') x.t = 'int';
+                  else if (typeof val === 'boolean') x.t = 'bool';
+                  else if (typeof val === 'object') x.t = 'object';
+              }
+              x.v = (typeof val === 'object' && val !== null) ? JSON.stringify(val) : String(val);
+            }
+          });
+          up(cmd.h); up(cmd.q); up(cmd.u); up(cmd.f); up(cmd.j, true);
+          if ((p.includes('object-create') || p.includes('object-update') || p.includes('ids-delete') || p.includes('-signup-')) && (m === 'POST' || m === 'PUT')) {
+            Object.entries(ov).forEach(([k, v]) => {
+              if (!cmd.j.find(x => x.k === k) && !cmd.q.find(x => x.k === k) && !cmd.u.find(x => x.k === k)) {
+                let t = 'str';
+                if (v === null) t = 'null';
+                else if (Array.isArray(v)) t = 'list';
+                else if (typeof v === 'number') t = 'int';
+                else if (typeof v === 'boolean') t = 'bool';
+                else if (typeof v === 'object') t = 'object';
+                cmd.j.push({ k, v: (typeof v === 'object' && v !== null) ? JSON.stringify(v) : String(v), t, req: false });
+              }
+            });
+          }
+        }
         COMMANDS.push(cmd);
       });
     });
@@ -500,11 +725,11 @@ const valHtml = (ct, v, t, e) => {
   const wrap = inner => `<div class="input-wrapper">${inner}<button type="button" class="clear-input-btn">×</button></div>`;
   let inputHtml;
   if (e && Array.isArray(e) && e.length > 0) {
-    inputHtml = `<select class="row-val"><option value="">-- select --</option>${e.map(opt => `<option value="${opt}" ${String(v) === String(opt) ? 'selected' : ''}>${opt}</option>`).join('')}</select>`;
+    inputHtml = `<select class="row-val"><option value="">-- select --</option>${e.map(opt => `<option value="${he(opt)}" ${String(v) === String(opt) ? 'selected' : ''}>${he(opt)}</option>`).join('')}</select>`;
   } else if (t === 'file') {
     inputHtml = `<input type="file" class="row-val" multiple>`;
   } else {
-    inputHtml = `<input type="text" class="row-val" value="${v}">`;
+    inputHtml = `<input type="text" class="row-val" value="${he(v)}">`;
   }
   if (ct === $('jCont'))
     return wrap(inputHtml) +
@@ -517,10 +742,10 @@ const mkRow = (ct, k = '', v = '', t = 'string', e = null, isFixed = false, isRe
   r.className = 'input-row';
   const rmBtn = `<button type="button" class="remove-btn"${isReq ? ' disabled' : ''}>${ICON.trash(16)}</button>`;
   const keyHtml = isReq 
-    ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${k}"><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${k}</div><input type="hidden" class="row-key" value="${k}">` 
-    : `<input type="text" class="row-key" value="${k}" ${isFixed ? 'readonly tabindex="-1"' : ''}>`;
+    ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${he(k)}"><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${he(k)}</div><input type="hidden" class="row-key" value="${he(k)}">` 
+    : `<input type="text" class="row-key" value="${he(k)}" ${isFixed ? 'readonly tabindex="-1"' : ''}>`;
   r.innerHTML = `${keyHtml}${valHtml(ct, v, t, e)}${rmBtn}`;
-  if (!isReq) r.querySelector('.remove-btn').onclick = () => { if(confirm('REMOVE FIELD:\nDelete this parameter from the current request?')) r.remove(); };
+  if (!isReq) r.querySelector('.remove-btn').onclick = () => r.remove();
   bindClear(r);
   ct.appendChild(r);
 };
@@ -533,32 +758,20 @@ SECTIONS.forEach(([btn, sec, cont]) => {
 
 
 
-const saveState = () => {
-  if (!curr) return;
-  const state = {
-    h: extractRows($('hCont')),
-    q: extractRows($('qCont')),
-    f: extractRows($('fCont')),
-    u: extractRows($('uCont')),
-    j: extractRows($('jCont'), true)
-  };
-  ls.set(`forms.${curr.m}:${curr.p}`, state);
-};
-
-/* ── Load a command into form ── */
 const load = i => {
   curr = i === null ? null : COMMANDS[i];
   SECTIONS.forEach(([, sec, cont]) => { $(cont).innerHTML = ''; $(sec).classList.remove('active') });
   $('rBox').classList.remove('show');
   if (!curr) { $('apiIn').value = ''; return; }
-  const cache = ls.get(`forms.${curr.m}:${curr.p}`);
   $('apiIn').value = `${curr.m} ${curr.p}`;
-  const populate = (cont, sec, spec, cacheList, isJson = false) => {
-    const list = cacheList || spec;
-    if (list.length) $(sec).classList.add('active');
-    list.forEach(x => {
+  const populate = (cont, sec, spec, isJson = false) => {
+    if (spec && spec.length) $(sec).classList.add('active');
+    (spec || []).forEach(x => {
       let val = x.v;
-      if (x.k.toLowerCase() === 'authorization' && !cacheList) {
+      if (val === 'users' && x.v === 'test') val = 'test';
+      if (x.k === 'username' && x.v === 'atom' && (String(val).length > 20)) val = 'atom';
+
+      if (x.k.toLowerCase() === 'authorization') {
         const lsVal = ls.get('token');
         if (lsVal) val = lsVal.startsWith('Bearer ') ? lsVal : `Bearer ${lsVal}`;
         else if (val && !val.startsWith('Bearer ')) val = `Bearer ${val}`;
@@ -567,11 +780,11 @@ const load = i => {
     });
   };
 
-  populate('hCont', 'hSec', curr.h, cache?.h);
-  populate('uCont', 'uSec', curr.u, cache?.u);
-  populate('qCont', 'qSec', curr.q, cache?.q);
-  populate('fCont', 'fSec', (curr._hf ? curr.f : []), cache?.f);
-  populate('jCont', 'jSec', (curr._hj ? curr.j : []), cache?.j, true);
+  populate('hCont', 'hSec', curr.h);
+  populate('uCont', 'uSec', curr.u);
+  populate('qCont', 'qSec', curr.q);
+  populate('fCont', 'fSec', (curr._hf ? curr.f : []));
+  populate('jCont', 'jSec', (curr._hj ? curr.j : []), true);
   
   if (curr._hf && !$('fCont').children.length) { $('fSec').classList.add('active'); mkRow($('fCont')); }
   if (curr._hj && !$('jCont').children.length) { $('jSec').classList.add('active'); mkRow($('jCont')); }
@@ -582,16 +795,37 @@ const load = i => {
 const renderApiInfoTable = (searchQuery = '') => {
   const filtered = searchQuery ? COMMANDS.filter(c => c.p.toLowerCase().includes(searchQuery.toLowerCase())) : COMMANDS;
   $('apiTotal').textContent = `(${filtered.length}/${COMMANDS.length})`;
-  const maxP = filtered.length ? Math.max(...filtered.map(c => c.p.length)) : 4;
-  const pw = `width:${Math.ceil(maxP * 7.2)}px;min-width:${Math.ceil(maxP * 7.2)}px`;
-  const ix = 'style="width:25px;min-width:25px;text-align:center"',
-    sm = 'style="width:50px;min-width:50px;text-align:center"',
-    xs = 'style="width:35px;min-width:35px;text-align:center"';
+  
   $('apiInfoTbl').innerHTML =
-    `<thead><tr><th ${ix}>#</th><th ${sm}>Method</th><th style="${pw}">Path</th><th ${xs}>Token</th><th ${xs}>Query</th><th ${xs}>Form</th><th ${xs}>Body</th><th ${xs}>Curl</th><th ${xs}>Run</th></tr></thead>` +
+    `<thead><tr>
+        <th class="col-id">#</th>
+        <th class="col-method">Method</th>
+        <th class="col-path">Path</th>
+        <th class="col-token">Token</th>
+        <th class="col-query">Query</th>
+        <th class="col-form">Form</th>
+        <th class="col-body">Body</th>
+        <th class="col-curl">Curl</th>
+        <th class="col-run">Run</th>
+    </tr></thead>` +
     `<tbody>${filtered.map((c, i) => {
       const globalIndex = COMMANDS.indexOf(c);
-      return `<tr style="cursor:pointer" data-i="${globalIndex}"><td ${ix}>${globalIndex + 1}</td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td style="${pw};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.p}">${c.p}</td><td ${xs}>${getIcon(c.h.length > 0 || c.h.some(x => x.k.toLowerCase() === 'authorization'))}</td><td ${xs}>${getIcon(c.q)}</td><td ${xs}>${getIcon(c._hf)}</td><td ${xs}>${getIcon(c._hj)}</td><td ${xs} class="curl-btn" title="View Curl" style="cursor:pointer;color:var(--accent);font-size:12px;font-weight:600">View</td><td ${xs} class="run-btn" title="Run">${ICON.play(16)}</td></tr>`;
+      const isWs = c.m === 'WS';
+      const isAuthRoute = c.p.startsWith('/my/') || c.p.startsWith('/admin/') || c.p.startsWith('/private/');
+      const hasToken = isAuthRoute || c.h.some(x => x.k.toLowerCase() === 'authorization');
+      
+      return `
+        <tr style="cursor:pointer" data-i="${globalIndex}">
+          <td class="col-id">${globalIndex + 1}</td>
+          <td class="col-method"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td>
+          <td class="col-path" title="${c.p}">${c.p}</td>
+          <td class="col-token">${getIcon(hasToken)}</td>
+          <td class="col-query">${isWs ? '-' : getIcon(c.q.length)}</td>
+          <td class="col-form">${isWs ? '-' : getIcon(c._hf)}</td>
+          <td class="col-body">${isWs ? '-' : getIcon(c._hj)}</td>
+          <td class="col-curl curl-btn" style="color:var(--accent)" title="View cURL">${isWs ? '-' : ICON.terminal(16)}</td>
+          <td class="col-run run-btn" title="Run">${ICON.play(16)}</td>
+        </tr>`;
     }).join('')}</tbody>`;
 };
 
@@ -648,20 +882,31 @@ $('storageContent').addEventListener('click', e => {
 });
 
 $('apiInfoTbl').onclick = e => {
-  const tr = e.target.closest('tr[data-i]'), i = tr?.dataset.i;
+  const tr = e.target.closest('tr[data-i]'), i = tr?.dataset.i, c = COMMANDS[i];
   if (!tr) return;
   if (e.target.closest('.curl-btn')) {
     const curlStr = generateCurl(i);
-    const c = COMMANDS[i];
     const formatted = curlStr.replace(/ -H /g, ' \\\n  -H ').replace(/ -d /g, ' \\\n  -d ').replace(/ -F /g, ' \\\n  -F ');
     $('curlViewTitle').innerHTML = `<span class="method-badge ${c.m.toLowerCase()}" style="margin-right:8px">${c.m}</span>${c.p}`;
-    $('curlViewContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0;white-space:pre-wrap;word-break:break-all">${formatted}</pre>`;
+    $('curlViewContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0;white-space:pre;overflow-x:auto">${highlightCurl(formatted)}</pre>`;
+    
+    if (c.res) {
+        $('curlViewResCard').style.display = 'flex';
+        const exVal = schemaToExample(c.res, SPEC);
+        const exStr = JSON.stringify(exVal || { message: "No schema provided" }, null, 2);
+        $('curlViewResContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(compactArrays(exStr))}</pre>`;
+        $('curlViewResCopy').onclick = () => copyWithFeedback($('curlViewResCopy'), exStr, 16, 'Expected response copied');
+    } else {
+        $('curlViewResCard').style.display = 'none';
+    }
+
     let curlCopyRef = curlStr;
-    $('curlViewCopy').onclick = () => copyWithFeedback($('curlViewCopy'), curlCopyRef, 20, 'Curl copied');
-    $('curlViewCopy').innerHTML = ICON.copy(20);
+    $('curlViewCopy').onclick = () => copyWithFeedback($('curlViewCopy'), curlCopyRef, 16, 'Curl copied');
+    $('curlViewCopy').innerHTML = ICON.copy(16);
     showModal('curlViewModal');
   } else {
-    showModal('apiRunnerModal'); load(i);
+    if (c.m === 'WS') { showModal('wsRunnerModal'); loadWs(i); }
+    else { showModal('apiRunnerModal'); load(i); }
   }
 };
 
@@ -672,15 +917,7 @@ $('apiInfoCsv').onclick = () => {
   downloadCsv('api_info.csv', csv);
 };
 
-$('clrBtn').onclick = () => { 
-  if (curr && confirm(`DELETE KEY:\nRemove "forms.${curr.m}:${curr.p}" from localStorage?`)) { 
-    ls.rm(`forms.${curr.m}:${curr.p}`);
-    $('rTab').innerHTML = ''; 
-    $('rBox').classList.remove('show'); 
-    const idx = COMMANDS.indexOf(curr);
-    if (idx !== -1) load(idx);
-  } 
-};
+// Persistence removed: parameters reset every run
 
 window.addEventListener('click', e => {
   if (e.target === $('apiRunnerModal')) hideModal('apiRunnerModal');
@@ -692,6 +929,52 @@ $('runnerCopyCurl').onclick = () => {
   if (idx !== -1) copyWithFeedback($('runnerCopyCurl'), generateCurl(idx), 20, 'Curl copied');
 };
 
+/* ── WebSocket Runner logic ── */
+let ws = null;
+const loadWs = i => {
+  curr = COMMANDS[i];
+  const prot = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  $('wsUrlIn').value = `${prot}//${window.location.host}${curr.p}`;
+  $('wsLogs').innerHTML = '<div style="color:var(--accent)">Waiting to connect...</div>';
+  $('wsConnBtn').textContent = 'Connect';
+  $('wsConnBtn').style.background = 'var(--primary)';
+};
+const wsLog = (msg, type='info') => {
+  const time = new Date().toLocaleTimeString();
+  const color = type === 'error' ? 'var(--delete)' : (type === 'sent' ? 'var(--accent)' : (type === 'received' ? 'var(--primary)' : 'var(--muted)'));
+  const html = `<div style="margin-bottom:4px"><span style="opacity:0.5">[${time}]</span> <span style="color:${color}">${msg}</span></div>`;
+  const box = $('wsLogs');
+  box.innerHTML += html;
+  box.scrollTop = box.scrollHeight;
+};
+const wsToggleConnect = () => {
+  if (ws && ws.readyState < 2) return wsDisconnect();
+  const url = $('wsUrlIn').value;
+  wsLog(`Connecting to ${url}...`);
+  ws = new WebSocket(url);
+  ws.onopen = () => {
+    wsLog('Connection established', 'received');
+    $('wsConnBtn').textContent = 'Disconnect';
+    $('wsConnBtn').style.background = 'var(--delete)';
+  };
+  ws.onmessage = e => wsLog(`Received: ${e.data}`, 'received');
+  ws.onerror = e => wsLog('Connection error', 'error');
+  ws.onclose = () => {
+    wsLog('Connection closed');
+    $('wsConnBtn').textContent = 'Connect';
+    $('wsConnBtn').style.background = 'var(--primary)';
+  };
+};
+const wsDisconnect = () => { if (ws) ws.close(); };
+const wsSend = () => {
+  if (!ws || ws.readyState !== 1) return toast('Not connected');
+  const val = $('wsMsgIn').value;
+  if (!val) return;
+  ws.send(val);
+  wsLog(`Sent: ${val}`, 'sent');
+  $('wsMsgIn').value = '';
+};
+
 
 /* ── Response rendering ── */
 const highlight = s => s
@@ -701,23 +984,157 @@ const highlight = s => s
   .replace(/:\s*(true|false)/g, ': <span class="jb">$1</span>')
   .replace(/:\s*(null)/g, ': <span class="jl">$1</span>');
 
+const highlightCurl = s => {
+  const lines = s.split(' \\\n');
+  return lines.map((l, i) => {
+    let line = l.trim();
+    if (i === 0) {
+      line = line.replace(/^curl/, '<span class="ck">curl</span>')
+                 .replace(/-X\s+(\w+)/, '<span class="cf">-X</span> <span class="cm">$1</span>')
+                 .replace(/"(https?:\/\/[^"]+)"/, '<span class="cs">"$1"</span>');
+    } else {
+      line = line.replace(/^(-[HdF])\s+(.*)$/, (m, p1, p2) => {
+        let val = p2;
+        if (p1 === '-d' && val.startsWith("'") && val.endsWith("'")) {
+          const inner = val.slice(1, -1);
+          try { 
+            const parsed = JSON.parse(inner);
+            val = `'${highlight(JSON.stringify(parsed, null, 2))}'`;
+          } catch(e) {}
+        }
+        return `<span class="cf">${p1}</span> <span class="cs">${val}</span>`;
+      });
+    }
+    return (i > 0 ? '  ' : '') + line;
+  }).join(' \\\n');
+};
+
+const resolveRef = (r, s) => {
+  if (!r || !r.startsWith('#/')) return null;
+  const parts = r.split('/').slice(1);
+  return parts.reduce((o, i) => o?.[i], s);
+};
+
+const schemaToExample = (s, spec) => {
+  if (!s) return null;
+  if (s.$ref) return schemaToExample(resolveRef(s.$ref, spec), spec);
+  if (s.allOf) {
+    const combined = { type: 'object', properties: {} };
+    s.allOf.forEach(p => {
+      const res = resolveRef(p.$ref, spec) || p;
+      if (res.properties) Object.assign(combined.properties, res.properties);
+    });
+    return schemaToExample(combined, spec);
+  }
+  if (s.anyOf || s.oneOf) {
+    const a = (s.anyOf || s.oneOf).find(x => x.type !== 'null') || (s.anyOf || s.oneOf)[0];
+    return schemaToExample(a, spec);
+  }
+  if (s.type === 'object') {
+    const res = {};
+    for (const [k, p] of Object.entries(s.properties || {})) { res[k] = schemaToExample(p, spec); }
+    return res;
+  }
+  if (s.type === 'array') return [schemaToExample(s.items, spec)];
+  if (s.type === 'string') return s.default || 'str';
+  if (s.type === 'integer' || s.type === 'number') return s.default || 0;
+  if (s.type === 'boolean') return s.default || false;
+  return null;
+};
+
 const compactArrays = s => s.replace(
   /\[\n((\s+("(?:[^"\\]|\\.)*"|[\d.eE+-]+|true|false|null),?\n)+\s*)\]/g,
   m => m.replace(/\n\s*/g, ' ').replace(/,\s*/g, ', ')
 );
 
-const fmtVal = v => {
-  if (v == null) return 'null';
-  if (typeof v !== 'object') return `<div style="overflow-x:auto">${String(v)}</div>`;
-  return `<pre class="resp-pre">${highlight(compactArrays(JSON.stringify(v, null, 2)))}</pre>`;
+
+let lastRawResponse = '', lastFullJson = null, currentView = 'pretty';
+
+const switchView = (view) => {
+    currentView = view;
+    d.querySelectorAll('.resp-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+    d.querySelectorAll('.resp-view').forEach(v => v.classList.toggle('active', v.id === `view${view.charAt(0).toUpperCase() + view.slice(1)}`));
 };
 
-const cellVal = c => c == null ? '' : (typeof c === 'object' ? JSON.stringify(c) : String(c));
+d.querySelectorAll('.resp-tab').forEach(tab => {
+    tab.onclick = () => switchView(tab.dataset.view);
+});
 
-const cellHtml = c => {
-  const raw = cellVal(c);
-  const enc = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  return `<span data-raw="${encodeURIComponent(raw)}">${enc}</span>`;
+const showResponse = (json, httpCode, ms) => {
+    lastFullJson = json;
+    lastRawResponse = JSON.stringify(json, null, 2);
+    
+    const codeColor = httpCode >= 200 && httpCode < 300 ? 'var(--primary)' : (httpCode >= 400 ? 'var(--delete)' : 'var(--accent)');
+    $('rCode').innerHTML = (httpCode != null ? `<span style="color:${codeColor};font-weight:600">${httpCode}</span>` : '') + 
+                           (ms != null ? ` <span style="color:var(--muted);font-size:11px;margin-left:8px">${ms}ms</span>` : '');
+    
+    // Render Pretty View
+    $('viewPretty').innerHTML = renderTree(json);
+    
+    // Render Raw View
+    $('rawPre').innerHTML = highlight(lastRawResponse);
+    
+    // Render Table View
+    const tableData = json.data || json.message || json;
+    const tableHtml = fmtGrid(tableData);
+    $('viewTable').innerHTML = tableHtml || `<div style="padding:20px;text-align:center;color:var(--muted)">Table view not available for this response format</div>`;
+    
+    switchView('pretty');
+    $('rBox').classList.add('show');
+};
+
+const renderTree = (val, key = null) => {
+    if (val === null || typeof val !== 'object') {
+        const valHtml = gvVal(val);
+        if (key === null) return valHtml;
+        return `<div class="tree-row"><span class="tree-key">${key}</span><span class="tree-colon">:</span><span class="tree-val">${valHtml}</span></div>`;
+    }
+    
+    const isArr = Array.isArray(val);
+    const entries = Object.entries(val);
+    const size = entries.length;
+    if (size === 0) {
+        const empty = isArr ? '[]' : '{}';
+        if (key === null) return empty;
+        return `<div class="tree-row"><span class="tree-key">${key}</span><span class="tree-colon">:</span><span class="tree-val">${empty}</span></div>`;
+    }
+    
+    const label = isArr ? `Array(${size})` : `Object(${size})`;
+    const rows = entries.map(([k, v]) => renderTree(v, k)).join('');
+    
+    return `
+        <div class="tree-node">
+            <div class="tree-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.tree-arrow').classList.toggle('open')">
+                <span class="tree-arrow open">▶</span>
+                <span class="tree-key">${key || ''}</span>
+                ${key ? '<span class="tree-colon">:</span>' : ''}
+                <span class="tree-val" style="color:var(--muted)">${isArr ? '[' : '{'}</span>
+                <span class="tree-summary">${label}</span>
+            </div>
+            <div class="tree-content show">
+                ${rows}
+                <div class="tree-row" style="margin-left:-20px"><span style="color:var(--muted)">${isArr ? ']' : '}'}</span></div>
+            </div>
+        </div>
+    `;
+};
+
+const gvVal = v => {
+    if (v === null) return '<span class="jl">null</span>';
+    if (typeof v === 'string') return `<span class="js">"${v}"</span>`;
+    if (typeof v === 'number') return `<span class="jn">${v}</span>`;
+    if (typeof v === 'boolean') return `<span class="jb">${v}</span>`;
+    return String(v);
+};
+
+$('rExpandAll').onclick = () => {
+    d.querySelectorAll('#viewPretty .tree-content').forEach(c => c.classList.add('show'));
+    d.querySelectorAll('#viewPretty .tree-arrow').forEach(a => a.classList.add('open'));
+};
+
+$('rCollapseAll').onclick = () => {
+    d.querySelectorAll('#viewPretty .tree-content').forEach(c => c.classList.remove('show'));
+    d.querySelectorAll('#viewPretty .tree-arrow').forEach(a => a.classList.remove('open'));
 };
 
 const fmtGrid = v => {
@@ -725,132 +1142,37 @@ const fmtGrid = v => {
   const arr = Array.isArray(v) ? v : [v];
   if (!arr.length || typeof arr[0] !== 'object' || arr[0] === null) return null;
   const keys = [...new Set(arr.flatMap(Object.keys))];
-  const colW = k => Math.max(80, k.length * 9 + 24);
+  const colW = k => Math.max(90, k.length * 9 + 24);
   return `<div class="resp-tbl-wrap"><table class="resp-tbl">` +
     `<thead><tr>${keys.map(k => `<th style="width:${colW(k)}px;min-width:${colW(k)}px">${k}</th>`).join('')}</tr></thead>` +
-    `<tbody>${arr.map(row => `<tr>${keys.map(k => `<td style="max-width:${colW(k)}px">${cellHtml(row[k])}</td>`).join('')}</tr>`).join('')}</tbody>` +
+    `<tbody>${arr.map(row => `<tr>${keys.map(k => {
+        const cv = row[k];
+        const val = cv == null ? '' : (typeof cv === 'object' ? JSON.stringify(cv) : String(cv));
+        const enc = val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return `<td title="${enc}" data-raw="${encodeURIComponent(val)}">${enc}</td>`;
+    }).join('')}</tr>`).join('')}</tbody>` +
     `</table></div>`;
 };
 
-let lastRawResponse = '', lastMsgVal = null, gridMode = 0, treeMode = 0, lastFullJson = null;
-
-const showResponse = (json, httpCode, ms) => {
-  lastFullJson = json;
-  lastRawResponse = JSON.stringify(json, null, 2);
-  lastMsgVal = json.message || json.data || json;
-  gridMode = 0;
-  treeMode = 0;
-  $('rMin').style.color = 'var(--muted)';
-  $('rGrid').style.color = 'var(--muted)';
-  const codeColor = httpCode >= 200 && httpCode < 300 ? 'var(--primary)' : (httpCode >= 400 ? 'var(--delete)' : 'var(--accent)');
-  $('rCode').innerHTML = (httpCode != null ? `<span style="color:${codeColor};font-weight:600">${httpCode}</span>` : '') + 
-                         (ms != null ? ` <span style="color:var(--muted);font-size:11px;margin-left:8px">${ms}ms</span>` : '');
-  renderResponseTable();
-  $('rBox').classList.add('show');
-};
-
-const renderResponseTable = () => {
-  $('rTab').innerHTML = Object.entries(lastFullJson)
-    .map(([k, v]) => {
-      const isMain = k === 'message' || k === 'data';
-      const useTree = treeMode && isMain && typeof v === 'object' && v !== null;
-      return `<tr><td class="key">${k}</td><td class="val">${useTree ? fmtTree(v) : fmtVal(v)}</td></tr>`;
-    })
-    .join('');
-};
-
-const gvVal = v => {
-  if (v === null) return '<span class="gv-null">null</span>';
-  if (typeof v === 'string') return `<span class="gv-s">"${v}"</span>`;
-  if (typeof v === 'number') return `<span class="gv-n">${v}</span>`;
-  if (typeof v === 'boolean') return `<span class="gv-b">${v}</span>`;
-  return fmtTree(v);
-};
-
-const fmtTree = v => {
-  if (v === null || typeof v !== 'object') return gvVal(v);
-  const isArr = Array.isArray(v);
-  const entries = Object.entries(v);
-  if (!entries.length) return isArr ? '[]' : '{}';
-  const label = isArr ? `Array(${v.length})` : `Object(${entries.length})`;
-  const rows = entries.map(([k, val]) => {
-    const displayKey = isArr ? parseInt(k) + 1 : k;
-    return `<tr><td class="tree-key">${displayKey}</td><td class="tree-val">${fmtTree(val)}</td></tr>`;
-  }).join('');
-  return `<div class="tree-node"><button class="tree-toggle"><span class="tree-arrow">▶</span> ${label}</button>` +
-    `<div class="tree-content"><table class="tree-table">${rows}</table></div></div>`;
-};
-
-/* ── Response action buttons ── */
-$('rGrid').onclick = () => {
-  const msgTd = d.querySelector('#rTab tr:last-child .val');
-  if (!msgTd || lastMsgVal == null || typeof lastMsgVal !== 'object') return;
-  gridMode = gridMode ? 0 : 1;
-  msgTd.innerHTML = gridMode ? (fmtGrid(lastMsgVal) || fmtVal(lastMsgVal)) : fmtVal(lastMsgVal);
-  $('rGrid').style.color = gridMode ? 'var(--accent)' : 'var(--muted)';
-};
-
-$('rMin').onclick = () => {
-  treeMode = treeMode ? 0 : 1;
-  renderResponseTable();
-  $('rMin').style.color = treeMode ? 'var(--accent)' : 'var(--muted)';
-};
-
 d.addEventListener('click', e => {
-  const btn = e.target.closest('.tree-toggle');
-  if (btn) {
-    const content = btn.nextElementSibling, arrow = btn.querySelector('.tree-arrow');
-    content.classList.toggle('show');
-    arrow.classList.toggle('open');
-  }
+    const td = e.target.closest('.resp-tbl td[data-raw]');
+    if (!td) return;
+    const raw = decodeURIComponent(td.dataset.raw);
+    const pop = $('cellPop');
+    $('cellPopTxt').textContent = raw;
+    cellPopRaw = raw;
+    const r = td.getBoundingClientRect();
+    pop.style.left = Math.min(r.left, window.innerWidth - 420) + 'px';
+    pop.style.top = (r.bottom + 4) + 'px';
+    pop.classList.add('show');
 });
 
 $('rCopy').onclick = () => copyWithFeedback($('rCopy'), lastRawResponse, 16, 'Copied to clipboard');
-
-$('rOpen').onclick = () => {
-  if (!lastRawResponse) return toast('No response to open');
-  const blob = new Blob([lastRawResponse], { type: 'application/json' });
-  window.open(URL.createObjectURL(blob), '_blank');
-};
-
-
-
 $('rJson').onclick = () => {
-  if (lastMsgVal == null) {
-    toast('No JSON response to export');
-    return;
-  }
-  downloadJson('response.json', JSON.stringify(lastMsgVal, null, 2));
+    if (!lastRawResponse) return toast('No response to download');
+    downloadJson('response.json', lastRawResponse);
 };
 
-$('rCsv').onclick = () => {
-  if (lastMsgVal == null || typeof lastMsgVal !== 'object') {
-    toast('CSV export requires JSON object or array');
-    return;
-  }
-  const arr = Array.isArray(lastMsgVal) ? lastMsgVal : [lastMsgVal];
-  if (!arr.length || typeof arr[0] !== 'object') {
-    toast('CSV export requires JSON object or array');
-    return;
-  }
-  downloadCsv('response.csv', arrayToCsv(arr));
-};
-
-/* ── Cell popover ── */
-let cellPopRaw = '';
-d.addEventListener('click', e => {
-  const pop = $('cellPop'),
-    span = e.target.closest('.resp-tbl td span[data-raw]');
-  if (e.target.closest('#cellPop')) return;
-  pop.classList.remove('show');
-  if (!span) return;
-  cellPopRaw = decodeURIComponent(span.dataset.raw);
-  $('cellPopTxt').textContent = cellPopRaw;
-  const r = span.getBoundingClientRect();
-  pop.style.left = Math.min(r.left, window.innerWidth - 420) + 'px';
-  pop.style.top = (r.bottom + 4) + 'px';
-  pop.classList.add('show');
-});
 
 $('cellPopCopy').onclick = e => {
   e.stopPropagation();
@@ -863,7 +1185,8 @@ const extractRows = (container, isJson = false) => {
   container.querySelectorAll('.input-row').forEach(r => {
     const k = r.querySelector('.row-key').value.trim(),
       v = r.querySelector('.row-val'),
-      t = isJson ? r.querySelector('select').value : null;
+      ts = r.querySelector('.json-type-selector'),
+      t = isJson && ts ? ts.value : null;
     if (k || v.value) rows.push({ k, v: v.value, t, f: v.files?.length ? Array.from(v.files) : null });
   });
   return rows;
@@ -954,18 +1277,29 @@ $('apiForm').onsubmit = async e => {
   }
   try {
     const r = await fetch(url, opts),
-      ms = Math.round(performance.now() - t0),
-      text = await r.text();
-    let json;
-    try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || 'Raw' } }
-    if (r.ok && json && curr.p.includes('login')) {
-      if (json.status === 1 && json.message && json.message.token && json.message.token.token) {
-        ls.set('token', json.message.token.token);
-        toast(`Saved token to API Master Storage`);
-        updateLoginIndicator();
+      ms = Math.round(performance.now() - t0);
+
+    const cd = r.headers.get('Content-Disposition');
+    if (cd && cd.includes('attachment')) {
+      const blob = await r.blob();
+      let filename = 'download';
+      const m = cd.match(/filename="?([^"]+)"?/);
+      if (m) filename = m[1];
+      downloadBlob(blob, filename);
+      showResponse({ status: 1, message: `File downloaded: ${filename}` }, r.status, ms);
+    } else {
+      const text = await r.text();
+      let json;
+      try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || 'Raw' } }
+      if (r.ok && json && curr.p === '/auth/login-password-username') {
+        if (json.status === 1 && json.message?.token?.token) {
+          ls.set('token', json.message.token.token);
+          toast(`Session Token Saved`);
+          updateLoginIndicator();
+        }
       }
+      showResponse(json, r.status, ms);
     }
-    showResponse(json, r.status, ms);
   } catch (err) {
     showResponse({ status: 0, message: err.message }, 0, Math.round(performance.now() - t0));
   } finally {
@@ -974,9 +1308,7 @@ $('apiForm').onsubmit = async e => {
     btn.textContent = 'Submit';
   }
 };
-const debouncedSave = debounce(saveState, 500);
-$('apiForm').addEventListener('input', debouncedSave);
-$('apiForm').addEventListener('change', debouncedSave);
+// Auto-save removed: parameters reset every run
 
 /* ── Keyboard shortcuts ── */
 d.addEventListener('keydown', e => {
@@ -1039,66 +1371,10 @@ const showAnalytics = () => {
 $('apiInfoAnalytics').onclick = showAnalytics;
 
 /* ── Test All APIs ── */
-const TEST_DATA = {
-  table: 'test',
-  title: 'api_test',
-  description: 'test description',
-  is_serialize: '0',
-  mode: 'now',
-  ids: '999999',
-  type: '1',
-  username: 'atom',
-  password: '123',
-  username_bigint: '100',
-  password_bigint: '100',
-  datatype: 'int',
-  x: '123',
-  days: '7',
-  order: 'id desc',
-  limit: '1',
-  page: '1',
-  column: 'tag',
-  parent_table: 'test',
-  parent_column: 'created_by_id',
-  otp: '0',
-  email: 'test@test.com',
-  mobile: '0000000000',
-  bucket: 'test-bucket',
-  query: 'select 1',
-  sender: 'test@test.com',
-  user_id: '1',
-  id: '999999',
-  database: 'test',
-  url: '[]',
-  count: '1',
-  filter_col: '',
-  filter_val: '',
-  google_token: 'test',
-  jira_url: 'https://test.atlassian.net',
-  email_address: 'test@test.com',
-  api_token: 'test',
-  start_date: '2026-01-01',
-  end_date: '2026-01-02',
-  message: 'test {otp}',
-  template_id: 'test',
-  entity_id: 'test',
-  sender_id: 'test',
-  name: 'api',
-  rating: '5',
-  test_id: '1'
-};
 const TEST_SKIP_PATHS = ['/websocket'];
-const TEST_PATH_OVERRIDES = {
-  '/my/account-delete': { mode: 'soft' },
-  '/admin/postgres-runner': { mode: 'read' },
-  '/admin/s3-bucket-ops': { mode: 'bucket_create' },
-  '/public/converter-number': { mode: 'encode' },
-  '/my/message-delete-bulk': { mode: 'all' },
-  '/my/message-received': { mode: 'all' },
-  '/my/message-inbox': { mode: 'all' },
-  '/admin/postgres-import': { mode: 'create' },
-  '/admin/mongodb-import': { mode: 'create' },
-  '/admin/redis-import-create': { expiry_sec: '60' },
+const testGetVal = (key, path, def = '') => {
+  if (PATH_DEFAULTS[path] && PATH_DEFAULTS[path][key] !== undefined) return PATH_DEFAULTS[path][key];
+  return def;
 };
 const testNeedsToken = c => {
   if (c.h && c.h.some(x => x.k.toLowerCase() === 'authorization')) return 1;
@@ -1107,11 +1383,6 @@ const testNeedsToken = c => {
 const testHasFileParam = c => {
   if (c.f && c.f.some(x => x.t === 'file')) return 1;
   return 0;
-};
-const testGetVal = (key, path) => {
-  if (TEST_PATH_OVERRIDES[path] && TEST_PATH_OVERRIDES[path][key] !== undefined) return TEST_PATH_OVERRIDES[path][key];
-  if (TEST_DATA[key] !== undefined) return TEST_DATA[key];
-  return '';
 };
 let testRunning = 0;
 let testResults = [];
@@ -1125,35 +1396,51 @@ const saveTestSelections = () => {
   ls.set('selections', selections);
 };
 const renderTestTable = () => {
-  const maxP = COMMANDS.length ? Math.max(...COMMANDS.map(c => c.p.length)) : 4;
-  const tpw = `width:${Math.ceil(maxP * 7.5)}px;min-width:${Math.ceil(maxP * 7.5)}px`;
-  const ix = 'style="width:30px;min-width:30px;text-align:center"';
-  const sm = 'style="width:60px;min-width:60px;text-align:center"';
-  const xs = 'style="width:50px;min-width:50px;text-align:center"';
-  const sel_w = 'style="width:35px;min-width:35px;text-align:center"';
-  const cw = 'style="width:95px;min-width:95px;text-align:center"';
   const savedSelections = ls.get('selections') || {};
-  $('testResultsHead').innerHTML = `<tr><th ${ix}>#</th><th ${sel_w}><input type="checkbox" id="testSelectAll" checked style="cursor:pointer"></th><th ${sm}>Method</th><th style="${tpw}">Path</th><th ${cw}>Params</th><th ${xs}>Status</th><th ${xs}>Time</th><th ${xs}>Response</th></tr>`;
+  $('testResultsHead').innerHTML = `
+    <tr>
+      <th class="col-id">#</th>
+      <th class="col-id" style="padding:0!important"><input type="checkbox" id="testSelectAll" checked style="cursor:pointer"></th>
+      <th class="col-method">Method</th>
+      <th class="col-path">Path</th>
+      <th style="width:80px;text-align:center">Params</th>
+      <th class="col-token">Status</th>
+      <th class="col-query">Time</th>
+      <th class="col-run">View</th>
+    </tr>`;
   $('testResultsBody').innerHTML = '';
   COMMANDS.forEach((c, i) => {
     const sc = 'var(--muted)';
     const data = getTestData(i);
     const tr = testResults.find(r => r.idx === i + 1);
-    let statusTd = `<td ${xs} style="color:${sc}">—</td>`;
-    let timeTd = `<td ${xs} style="color:${sc}">—</td>`;
-    let respTd = `<td ${xs}><span style="color:var(--muted)">—</span></td>`;
+    let statusTd = `<td class="col-token" style="color:${sc}">—</td>`;
+    let timeTd = `<td class="col-query" style="color:${sc}">—</td>`;
+    let respTd = `<td class="col-run"><span style="color:var(--muted)">—</span></td>`;
+    
     if (tr && tr.result !== 'SKIP') {
       const is_pass = tr.result === 'PASS';
       const rsc = is_pass ? 'var(--primary)' : 'var(--delete)';
-      statusTd = `<td ${xs} style="color:${rsc};font-weight:700">${tr.status}</td>`;
-      timeTd = `<td ${xs} style="color:var(--muted)">${tr.time}ms</td>`;
-      respTd = `<td ${xs}><button class="test-resp-btn icon-btn" data-idx="${i}" title="View Response" style="margin:0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></td>`;
+      statusTd = `<td class="col-token" style="color:${rsc};font-weight:700">${tr.status}</td>`;
+      timeTd = `<td class="col-query" style="color:var(--muted)">${tr.time}ms</td>`;
+      respTd = `<td class="col-run"><button class="test-resp-btn icon-btn" data-idx="${i}" title="View Response" style="margin:0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></td>`;
     }
+    
     const key = `${c.m}:${c.p}`;
     const isChecked = savedSelections[key] !== undefined ? (savedSelections[key] === 1) : true;
     const badges = renderTestBadges(data.sent, c);
-    const paramsTd = `<td ${cw}><div style="display:flex;align-items:center;justify-content:center;gap:4px">${badges}<button class="test-params-btn icon-btn" data-idx="${i}" title="View Params" style="margin:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></td>`;
-    const row = `<tr id="test-row-${i}"><td ${ix}>${i + 1}</td><td ${sel_w}><input type="checkbox" class="test-row-select" data-idx="${i}" ${isChecked ? 'checked' : ''} style="cursor:pointer"></td><td ${sm}><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td style="${tpw};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.p}">${c.p}</td>${paramsTd}${statusTd}${timeTd}${respTd}</tr>`;
+    const paramsTd = `<td style="width:80px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:4px">${badges}<button class="test-params-btn icon-btn" data-idx="${i}" title="View Params" style="margin:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></td>`;
+    
+    const row = `
+      <tr id="test-row-${i}">
+        <td class="col-id">${i + 1}</td>
+        <td class="col-id" style="padding:0!important"><input type="checkbox" class="test-row-select" data-idx="${i}" ${isChecked ? 'checked' : ''} style="cursor:pointer"></td>
+        <td class="col-method"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td>
+        <td class="col-path" title="${c.p}">${c.p}</td>
+        ${paramsTd}
+        ${statusTd}
+        ${timeTd}
+        ${respTd}
+      </tr>`;
     $('testResultsBody').insertAdjacentHTML('beforeend', row);
   });
   const allCbs = Array.from(d.querySelectorAll('.test-row-select'));
@@ -1182,6 +1469,11 @@ const testRunApis = async () => {
   testRunning = 1;
   testResults = [];
   testResponsesData = {};
+  
+  // Refresh random values for each run to avoid "already exists" errors
+  if (PATH_DEFAULTS['/auth/signup-username-password']?.username) PATH_DEFAULTS['/auth/signup-username-password'].username = self.crypto.randomUUID().replace(/-/g, '');
+  if (PATH_DEFAULTS['/auth/signup-username-password-bigint']?.username_bigint) PATH_DEFAULTS['/auth/signup-username-password-bigint'].username_bigint = Math.floor(Math.random() * 1000000000);
+
   COMMANDS.forEach((_, i) => testUpdateRow(i, '—', '-', '...', '—', 0));
   $('testRunBtn').disabled = true;
   $('testRunBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin .6s linear infinite"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Running...';
@@ -1221,7 +1513,7 @@ const testRunApis = async () => {
       let url = window.location.origin + urlPath;
       const qParts = [], qData = {};
       if (c.q && c.q.length) c.q.filter(isShow).forEach(x => { 
-        const v = testGetVal(x.k, c.p); 
+        const v = testGetVal(x.k, c.p, x.v); 
         qData[x.k] = v !== '' ? v : 'null';
         qParts.push(`${encodeURIComponent(x.k)}=${encodeURIComponent(qData[x.k])}`); 
       });
@@ -1231,16 +1523,24 @@ const testRunApis = async () => {
       const opts = { method: c.m, headers: h };
       let bodyStr = '';
       const sent = { a: testNeedsToken(c), u: uParams, q: qData, f: null, j: null };
-      if (c._hj && c.j && c.j.length) {
+      if (c._hj) {
         const body = {};
-        c.j.filter(isShow).forEach(x => {
-          const v = testGetVal(x.k, c.p);
-          if (x.t === 'int' || x.t === 'float') body[x.k] = v !== '' ? Number(v) : null;
-          else if (x.t === 'bool') body[x.k] = v === 'true';
-          else if (x.t === 'list') { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = []; } }
-          else if (x.t === 'object') { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = {}; } }
-          else body[x.k] = v || null;
-        });
+        if (c.j && c.j.length) {
+          c.j.filter(isShow).forEach(x => {
+            const v = testGetVal(x.k, c.p);
+            if (x.t === 'int' || x.t === 'float') body[x.k] = v !== '' ? Number(v) : null;
+            else if (x.t === 'bool') body[x.k] = v === 'true';
+            else if (x.t === 'list') { 
+              if (Array.isArray(v)) body[x.k] = v;
+              else { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = []; } }
+            }
+            else if (x.t === 'object') { 
+              if (typeof v === 'object' && v !== null && !Array.isArray(v)) body[x.k] = v;
+              else { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = {}; } }
+            }
+            else body[x.k] = v || null;
+          });
+        }
         bodyStr = JSON.stringify(body);
         opts.body = bodyStr;
         h['Content-Type'] = 'application/json';
@@ -1250,7 +1550,7 @@ const testRunApis = async () => {
         const fp = [], fData = {};
         c.f.filter(isShow).forEach(x => { 
           if (x.t !== 'file') { 
-            const v = testGetVal(x.k, c.p) || 'null'; 
+            const v = testGetVal(x.k, c.p, x.v) || 'null'; 
             fd.append(x.k, v); 
             fData[x.k] = v;
             fp.push(`-F "${x.k}=${v}"`); 
@@ -1302,31 +1602,39 @@ const getTestData = (idx) => {
   let urlPath = c.p;
   const uParams = {};
   if (c.u && c.u.length) c.u.forEach(x => { 
-    const v = testGetVal(x.k, c.p) || 'test';
+    const v = testGetVal(x.k, c.p, x.v) || 'test';
     uParams[x.k] = v;
     urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(v)); 
   });
   let url = window.location.origin + urlPath;
   const qParts = [], qData = {};
   if (c.q && c.q.length) c.q.filter(isShow).forEach(x => { 
-    const v = testGetVal(x.k, c.p); 
+    const v = testGetVal(x.k, c.p, x.v); 
     qData[x.k] = v !== '' ? v : 'null';
     qParts.push(`${encodeURIComponent(x.k)}=${encodeURIComponent(qData[x.k])}`); 
   });
   const h = {};
   if (testNeedsToken(c)) h['Authorization'] = token ? `Bearer ${token}` : 'Bearer null';
-  const sent = { a: testNeedsToken(c), u: uParams, q: qData, f: null, j: null };
+  const sent = { h, u: uParams, q: qData, f: null, j: null };
   let bodyStr = '', method = c.m;
-  if (c._hj && c.j && c.j.length) {
+  if (c._hj) {
     const body = {};
-    c.j.filter(isShow).forEach(x => {
-      const v = testGetVal(x.k, c.p);
-      if (x.t === 'int' || x.t === 'float') body[x.k] = v !== '' ? Number(v) : null;
-      else if (x.t === 'bool') body[x.k] = v === 'true';
-      else if (x.t === 'list') { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = []; } }
-      else if (x.t === 'object') { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = {}; } }
-      else body[x.k] = v || null;
-    });
+    if (c.j && c.j.length) {
+      c.j.filter(isShow).forEach(x => {
+        const v = testGetVal(x.k, c.p, x.v);
+        if (x.t === 'int' || x.t === 'float') body[x.k] = v !== '' ? Number(v) : null;
+        else if (x.t === 'bool') body[x.k] = v === 'true';
+        else if (x.t === 'list') { 
+          if (Array.isArray(v)) body[x.k] = v;
+          else { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = []; } }
+        }
+        else if (x.t === 'object') { 
+          if (typeof v === 'object' && v !== null && !Array.isArray(v)) body[x.k] = v;
+          else { try { body[x.k] = JSON.parse(v); } catch { body[x.k] = {}; } }
+        }
+        else body[x.k] = v || null;
+      });
+    }
     bodyStr = JSON.stringify(body);
     h['Content-Type'] = 'application/json';
     sent.j = body;
@@ -1334,7 +1642,7 @@ const getTestData = (idx) => {
     const fp = [], fData = {};
     c.f.filter(isShow).forEach(x => { 
       if (x.t !== 'file') { 
-        const v = testGetVal(x.k, c.p) || 'null'; 
+        const v = testGetVal(x.k, c.p, x.v) || 'null'; 
         fData[x.k] = v;
         fp.push(`-F "${x.k}=${v}"`); 
       } 
@@ -1366,23 +1674,12 @@ const testUpdateRow = (idx, status, time, badge, label, hasResp = 0, sent = null
 };
 const renderTestBadges = (sent, cmd) => {
   if (!sent) return '';
-  const h = (k, v) => v && Object.keys(v).length ? ` <span class="param-badge ${k}" title="${k.toUpperCase() === 'P' ? 'PATH' : (k.toUpperCase() === 'B' ? 'BODY' : k.toUpperCase())}: ${csvEscape(v)}">${k.toUpperCase()}</span>` : '';
+  const h = (k, v) => v && Object.keys(v).length ? ` <span class="param-badge ${k}" title="${k.toUpperCase() === 'P' ? 'PATH' : (k.toUpperCase() === 'B' ? 'BODY' : (k.toUpperCase() === 'F' ? 'FORM' : k.toUpperCase()))}: ${csvEscape(v)}">${k.toUpperCase()}</span>` : '';
   const hasFile = cmd && cmd.f && cmd.f.some(x => x.t === 'file') ? 1 : 0;
-  return (sent.a ? ` <span class="param-badge a" title="AUTH: Token Sent">A</span>` : '') +
-         h('p', sent.u) + h('q', sent.q) + h('f', sent.f) + (hasFile ? ' <span class="param-badge f" title="FILE: Upload Required">F</span>' : '') + h('b', sent.j);
+  return h('h', sent.h) + h('p', sent.u) + h('q', sent.q) + h('f', sent.f) + (hasFile ? ' <span class="param-badge f" title="FILE: Upload Required">F</span>' : '') + h('b', sent.j);
 };
 $('apiTestAll').onclick = showTestModal;
 $('testRunBtn').onclick = testRunApis;
-$('testAllClearCache').onclick = () => {
-  if (confirm('DELETE KEY:\nThis will remove key: "tests" from localStorage (Pass/Fail results).\nYour API selections will be kept. Continue?')) {
-    ls.rm('tests');
-    testResults = [];
-    testResponsesData = {};
-    $('testSummary').style.display = 'none';
-    renderTestTable();
-    toast('Test cache cleared');
-  }
-};
 $('testAllExportCsv').onclick = () => {
   if (!testResults.length) return toast('No test results to export');
   const csv = ['#,Method,Path,Status,Time(ms),Result,Curl,Response',
@@ -1405,18 +1702,34 @@ const showTestParams = idx => {
   const data = getTestData(idx), c = COMMANDS[idx];
   $('testParamsTitle').innerHTML = `<span class="method-badge ${c.m.toLowerCase()}" style="margin-right:8px">${c.m}</span>${c.p}`;
   const rows = [];
-  const add = (k, v) => v && Object.keys(v).length ? rows.push(`<tr><td class="key" style="color:var(--accent)">${k}</td><td class="val">${fmtVal(v)}</td></tr>`) : null;
-  if(data.sent.a) {
-    const token = ls.get('token');
-    const displayToken = token ? (token.length > 40 ? token.slice(0, 40) + '...' : token) : 'null';
-    rows.push(`<tr><td class="key" style="color:var(--accent)">AUTH</td><td class="val" style="font-family:'SF Mono',Menlo,monospace;font-size:12px">Bearer ${displayToken}</td></tr>`);
-  }
-  add('PATH', data.sent.u); add('QUERY', data.sent.q);
-  if (data.sent.f && Object.keys(data.sent.f).length) add('FORM', data.sent.f);
   const fileKeys = c.f ? c.f.filter(x => x.t === 'file').map(x => x.k) : [];
-  if (fileKeys.length) rows.push(`<tr><td class="key" style="color:var(--accent)">FILE</td><td class="val" style="color:var(--muted);font-style:italic">${fileKeys.join(', ')} (upload required)</td></tr>`);
-  add('BODY', data.sent.j);
-  $('testParamsContent').innerHTML = `<table style="width:100%">${rows.join('')}</table>`;
+  
+  const renderList = (obj, fKeys = []) => {
+    if (!obj || !Object.keys(obj).length) return null;
+    return Object.entries(obj).map(([k, v]) => {
+      const isF = fKeys.includes(k);
+      const val = isF ? `<span style="color:var(--muted);font-style:italic">[FILE]</span>` : (String(v).length > 60 ? String(v).slice(0, 60) + '...' : String(v));
+      return `<div style="display:flex;gap:8px;margin-bottom:4px"><span style="color:var(--muted);font-weight:600;min-width:110px">${k}:</span><span style="font-family:'SF Mono',Menlo,monospace;font-size:11px">${val}</span></div>`;
+    }).join('');
+  }
+
+  const addRow = (label, content) => {
+    if (content) rows.push(`<tr><td class="key" style="color:var(--accent)">${label}</td><td class="val">${content}</td></tr>`);
+  };
+
+  addRow('HEADERS', renderList(data.sent.h));
+  addRow('PATH', renderList(data.sent.u));
+  addRow('QUERY', renderList(data.sent.q));
+  
+  const formData = { ...(data.sent.f || {}) };
+  fileKeys.forEach(k => { if (!formData[k]) formData[k] = ''; });
+  addRow('FORM', renderList(formData, fileKeys));
+
+  if (data.sent.j && Object.keys(data.sent.j).length) {
+    addRow('BODY', `<pre class="resp-pre" style="background:none;padding:0">${highlight(compactArrays(JSON.stringify(data.sent.j, null, 2)))}</pre>`);
+  }
+
+  $('testParamsContent').innerHTML = `<table style="width:100%">${rows.length ? rows.join('') : '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:20px">No parameters sent</td></tr>'}</table>`;
   $('testParamsCopyCurl').onclick = () => copyWithFeedback($('testParamsCopyCurl'), data.curl, 20, 'Curl copied');
   $('testParamsCopyCurl').innerHTML = ICON.copy(20);
   showModal('testParamsModal');

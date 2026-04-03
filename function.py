@@ -113,7 +113,10 @@ async def func_api_log_create(start_time: float, ip_address: str, user_id: any, 
 #api core logic
 async def func_obj_create_logic(api_role: str, obj_query: dict, obj_body: dict, user_id: any, table_create_my_list: list, table_create_public_list: list, column_blocked_list: list, postgres_pool: any, func_postgres_obj_serialize: callable, table_config: dict, func_producer_logic: callable, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_create: callable, limit_batch: int = None) -> any:
     """Wrapper logic for object creation with role-based validation and optional queueing."""
+    if not obj_body: raise Exception("body required")
     obj_list = obj_body.get("obj_list", [obj_body])
+    if not obj_list: raise Exception("object list required")
+    if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
     limit = limit_batch or 1000
     if len(obj_list) > limit: raise Exception("batch size exceeded")
     if obj_query.get("table") == "users": obj_query["is_serialize"] = 1
@@ -139,7 +142,10 @@ async def func_obj_create_logic(api_role: str, obj_query: dict, obj_body: dict, 
 
 async def func_obj_update_logic(api_role: str, obj_query: dict, obj_body: dict, user_id: any, column_blocked_list: list, column_single_update_list: list, postgres_pool: any, func_postgres_obj_serialize: callable, func_producer_logic: callable, celery_producer: any, kafka_producer: any, rabbitmq_producer: any, redis_producer: any, channel_name: str, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_update: callable, func_otp_verify: callable, expiry_sec_otp: int, is_otp_users_update_admin: int = None, limit_batch: int = None) -> any:
     """Wrapper logic for object updates with owner validation, OTP checks, and optional queueing."""
+    if not obj_body: raise Exception("body required")
     obj_list, created_by_id = obj_body.get("obj_list", [obj_body]), user_id
+    if not obj_list: raise Exception("object list required")
+    if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
     limit = limit_batch or 1000
     if len(obj_list) > limit: raise Exception("batch size exceeded")
     if obj_query.get("table") == "users": obj_query["is_serialize"], created_by_id = 1, None
@@ -224,7 +230,9 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
         if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
         path = route.path
         if path not in spec["paths"]: spec["paths"][path] = {}
-        for method in getattr(route, "methods", []):
+        methods = list(getattr(route, "methods", []))
+        if not methods and "WebSocket" in type(route).__name__: methods = ["WS"]
+        for method in methods:
             m_lower = method.lower()
             path_parts = path.split("/")
             tag = path_parts[1] if len(path_parts) > 1 and path_parts[1] else "system"
@@ -265,7 +273,32 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
                        if hasattr(n.value, "id") and n.value.id == "st" and app_state:
                            return getattr(app_state, n.attr, None)
                    return None
+                def ast_to_schema(n):
+                    if isinstance(n, ast.Dict):
+                        props = {}
+                        for k, v in zip(n.keys, n.values):
+                            k_name = eval_node(k)
+                            if k_name: props[k_name] = ast_to_schema(v)
+                        return {"type": "object", "properties": props}
+                    if isinstance(n, ast.List) or isinstance(n, ast.Tuple):
+                        return {"type": "array", "items": ast_to_schema(n.elts[0]) if n.elts else {"type": "string"}}
+                    if isinstance(n, ast.BinOp) and isinstance(n.op, ast.BitOr):
+                        s1, s2 = ast_to_schema(n.left), ast_to_schema(n.right)
+                        p = {**(s1.get("properties", {})), **(s2.get("properties", {}))}
+                        return {"type": "object", "properties": p}
+                    if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "dict":
+                         return {"type": "object"}
+                    v = eval_node(n)
+                    if isinstance(v, int): return {"type": "integer", "default": v}
+                    if isinstance(v, float): return {"type": "number", "default": v}
+                    if isinstance(v, bool): return {"type": "boolean", "default": v}
+                    if isinstance(v, list): return {"type": "array", "items": {"type": "string"}}
+                    if isinstance(v, dict): return {"type": "object", "properties": {k: {"type": "string", "default": str(val)} for k, val in v.items()}}
+                    return {"type": "string", "default": str(v) if v is not None else "str"}
                 for node in ast.walk(tree):
+                    if isinstance(node, ast.Return):
+                        try: op["responses"]["200"]["content"] = {"application/json": {"schema": ast_to_schema(node.value)}}
+                        except: pass
                     if not isinstance(node, ast.Call): continue
                     func_id = getattr(node.func, "id", None)
                     if not func_id: func_id = getattr(node.func, "attr", None)
@@ -486,8 +519,7 @@ async def func_postgres_ids_update(postgres_pool: any, table_name: str, record_i
 async def func_postgres_ids_delete(postgres_pool: any, table_name: str, record_ids: any, created_by_id: int = None, table_system_list: list = None, limit_ids_delete: int = None) -> str:
     """Delete records by ID with optional ownership and system table restrictions."""
     limit = limit_ids_delete or 100
-    if table_system_list and table_name in table_system_list: raise Exception("table not allowed")
-    if table_name == "users" and created_by_id is not None: raise Exception("use account delete api")
+    if table_name == "users": raise Exception("users table not allowed")
     ids_str = ""
     if isinstance(record_ids, str):
         id_list = [str(int(x.strip())) for x in record_ids.split(",") if x.strip()]
@@ -802,6 +834,7 @@ async def func_postgres_create(postgres_pool: any, func_postgres_obj_serialize: 
             query = f"""INSERT INTO {table_name} ({",".join(columns)}) VALUES ({placeholders})"""
             async with postgres_pool.acquire() as conn: await conn.executemany(query, [tuple(i.values()) for i in items])
             func_postgres_create.buffer[table_name] = []
+            return "buffered released"
         return "buffered"
     columns = serialized_list[0].keys()
     if len(serialized_list) == 1:
