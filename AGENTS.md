@@ -8,6 +8,7 @@
 | **Safety** | Error Isolation | No `or` logic in checks; individual `if` blocks for specific exceptions. |
 | **IO** | Path Security | `tmp/` for temporary files only. No exceptions. |
 | **Defaults** | INTERNAL HANDLING| No parameter defaults in signatures; use `None` and handle at function start. |
+| **Frontend** | Single-File | `static/` HTML files must contain all JS/CSS/HTML logic. No external local assets. |
 
 ### Naming Conventions
 | Category | Variable Prefix | Behavior |
@@ -46,3 +47,8 @@
 | **4. Init** | `main.py` | Initialize new `client_` singletons if required. |
 | **5. Entry** | `static/api.html` | Sync OpenAPI and Test Runner entries. |
 | **6. Audit** | - | Verify system-wide alignment and update documentation. |
+
+### Protected Resources
+| Resource | Constraint | Rationale |
+| :--- | :--- | :--- |
+| `static/dev.md` | **IMMUTABLE** | Reserved for USER personal use. |

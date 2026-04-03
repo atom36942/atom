@@ -1621,12 +1621,6 @@ async def func_auth_login_google(postgres_pool: any, google_client_id: str, user
         new_row = await conn.fetch("INSERT INTO users (type, email, google_login_id, google_login_metadata) VALUES ($1, $2, $3, $4::jsonb) RETURNING *", user_type, email_address, google_metadata["sub"], json.dumps(google_metadata))
         return dict(new_row[0])
 
-async def func_postgres_obj_read_public(postgres_pool, func_postgres_obj_serialize, table_name, obj_query, table_read_public_list: list) -> list:
-    """Read records from public tables with access restriction check."""
-    if table_read_public_list:
-        if table_name not in table_read_public_list:
-            raise Exception(f"table not allowed: {table_name}, allowed: {table_read_public_list}")
-    return await func_postgres_read(postgres_pool, func_postgres_obj_serialize, table_name, obj_query)
 
 def func_openai_client_read(api_key: str) -> any:
     """Initialize OpenAI client."""

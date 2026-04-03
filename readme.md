@@ -168,7 +168,27 @@ The generic reader support complex query logic via URL parameters.
 | :--- | :--- | :--- |
 | **Spatial** | `location,point,lon\|lat\|min\|max` | Performs bounding box or point radius searches. |
 | **JSONB** | `data,contains,key\|value\|type` | Deep-checks JSONB fields for keys or value matches. |
-| **Arrays** | `tags,overlap,tagA\|tagB` | Matches if any elements overlap shared arrays. |
+| **Arrays** | `tags,overlap,tagA|tagB` | Matches if any elements overlap shared arrays. |
+
+### Extended Read Features (Joins & Aggregations)
+These parameters allow for powerful data enrichment and relational fetching without writing custom SQL.
+
+| Parameter | Function | Example |
+| :--- | :--- | :--- |
+| **`creator_key`** | Injects metadata from the `users` table for the row's `created_by_id`. | `?creator_key=username,email` |
+| **`action_key`** | Performs a grouped subquery aggregation (count/sum/min/max) on a target table. | `?action_key=comments,post_id,count,id` |
+
+#### Using `creator_key`
+When you provide `creator_key`, the system automatically fetches the specified columns from the `users` table and prefixes them with `creator_` in the response.
+- **Query**: `/public/object-read?table=posts&creator_key=username,avatar`
+- **Result Object**: `{ "id": 1, "title": "Hello", ..., "creator_username": "atom", "creator_avatar": "url" }`
+
+#### Using `action_key`
+The `action_key` is used for 1:N relationship summaries. The syntax is: `{target_table},{target_column},{operation},{source_id_column}`.
+- **Scenario**: You want to see how many comments each post has.
+- **Query**: `/public/object-read?table=posts&action_key=comments,post_id,count,id`
+- **Logic**: It counts rows in the `comments` table where `post_id` matches the post's `id`.
+- **Result Object**: `{ "id": 1, "title": "Hello", ..., "comments_count": 5 }`
 
 </details>
 
@@ -257,5 +277,55 @@ Application-wide behaviors controlled by `config_is_` boolean flags.
 | **`config_is_traceback`** | 1 | Displays full Python errors in API JSON responses. |
 | **`config_is_prometheus`** | 0 | Mounts the `/metrics` endpoint for monitoring. |
 | **`config_is_reset_tmp`** | 1 | Wipes the `./tmp` folder on every application boot. |
+
+</details>
+
+<details>
+<summary>API Tester: How HTML Parameters Work</summary>
+
+### 1. Automatic API Discovery
+The `api.html` dashboard is **fully dynamic**. There is no need to manually register new APIs in the frontend.
+- **Spec-Driven**: On every load, the app fetches the latest `openapi.json` from the backend.
+- **Zero Maintenance**: New routes added to `router.py` appear automatically with their respective parameters (Headers, Query, Form, Body) rendered based on the Pydantic schema.
+- **Custom Defaults**: While discovery is automatic, you can optionally add "premium" defaults (like random UUIDs or specific test IDs) in the `PATH_DEFAULTS` object inside `static/api.html`.
+
+### 2. Lifecycle of an API Parameter (PATH_DEFAULTS)
+The dashboard uses a deterministic, stateless multi-stage population logic to ensure the Bulk Tester always inherits the current UI state. Hardcoded overrides are managed via the `PATH_DEFAULTS` object in `api.html`.
+
+#### Automatic Mapping Logic
+The tool intelligently maps these defaults based on the backend's OpenAPI specification:
+- **Spec Recognition**: If a key (e.g., `table`) exists as a Query or Path parameter in the backend spec, it is mapped there.
+- **Body Fallback**: For `POST`/`PUT` requests, any key not found in the spec (e.g., `id`, `name`) is automatically moved to the **JSON Body**.
+
+#### Configuration Samples
+```javascript
+const PATH_DEFAULTS = {
+  // Auth: Static credentials for common test users
+  '/auth/login-password-username': { type: 1, username: 'atom', password: '123' },
+  
+  // Data: Table-specific query parameters
+  '/public/object-read': { table: 'test' },
+  
+  // Custom: Complex objects and GIS data
+  '/my/object-create': { 
+    table: 'test', 
+    location: 'POINT(17.79 -83.03)', 
+    metadata: { "active": true } 
+  }
+};
+```
+
+| Phase | Component | Behavior |
+| :--- | :--- | :--- |
+| **1. Baseline** | `openapi.json` | Fetched on load to define keys and backend-default values. |
+| **2. Defaults** | `PATH_DEFAULTS` | Frontend overrides for specific test cases (Login, Table names, etc). |
+| **3. Session State**| `COMMANDS` Array | Live, in-memory array holding the "Ready-to-Ship" data for all APIs. |
+| **4. Inheritance** | Bulk API Tester | Iterates through `COMMANDS` and executes requests using the current state. |
+| **5. Reset** | Page Refresh | Wipes the `COMMANDS` array—no state is persisted across reloads. |
+
+### 3. Operational Flow
+- **Direct Sync**: Any edit made in the Manual Runner form is instantly synced to the global `COMMANDS` array.
+- **Pure Execution**: The Bulk Tester is a "dumb" runner; it does not generate values but strictly mirrors what is currently in the `COMMANDS` state.
+- **Statelessness**: The system is designed to be purely deterministic per-session—if you want to change a test value, edit it in the Manual Runner first.
 
 </details>

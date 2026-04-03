@@ -189,7 +189,7 @@ async def func_api_my_object_update(request:Request):
 @router.get("/my/object-read")
 async def func_api_my_object_read(request:Request):
    st=request.app.state
-   obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None)])
+   obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None),("limit","int",0,None,100),("page","int",0,None,1),("order","str",0,None,"id desc"),("column","str",0,None,"*"),("creator_key","str",0,None,None),("action_key","str",0,None,None)])
    obj_query["created_by_id"]=f"""=,{request.state.user["id"]}"""
    obj_list=await func_postgres_read(st.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
@@ -219,8 +219,10 @@ async def func_api_public_object_create(request:Request):
 @router.get("/public/object-read")
 async def func_api_public_object_read(request:Request):
    st=request.app.state
-   obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None)])
-   obj_list=await func_postgres_obj_read_public(st.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query,config_table_read_public)
+   obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None),("limit","int",0,None,100),("page","int",0,None,1),("order","str",0,None,"id desc"),("column","str",0,None,"*"),("creator_key","str",0,None,None),("action_key","str",0,None,None)])
+   if config_table_read_public and obj_query["table"] not in config_table_read_public:
+      raise Exception(f"table not allowed: {obj_query['table']}, allowed: {config_table_read_public}")
+   obj_list=await func_postgres_read(st.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
 @router.get("/public/otp-verify-email")
@@ -363,7 +365,7 @@ async def func_api_admin_object_update(request:Request):
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(request:Request):
    st=request.app.state
-   obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None)])
+   obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None),("limit","int",0,None,100),("page","int",0,None,1),("order","str",0,None,"id desc"),("column","str",0,None,"*"),("creator_key","str",0,None,None),("action_key","str",0,None,None)])
    obj_list=await func_postgres_read(st.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
