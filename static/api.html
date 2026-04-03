@@ -132,19 +132,68 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .col-body {width:40px;min-width:40px;text-align:center!important}
 .col-curl {width:40px;min-width:40px;text-align:center!important}
 .col-run {width:70px;min-width:70px;text-align:center!important}
+.tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px}
+.tab-btn{padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted);background:none;border:none;cursor:pointer;border-radius:8px;transition:all 0.2s;display:flex;align-items:center;gap:8px}
+.tab-btn:hover{background:rgba(255,255,255,0.05);color:#fff}
+.tab-btn.active{background:rgba(66,153,225,0.1);color:var(--accent)}
+.tab-pane{display:none}.tab-pane.active{display:block}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 </style>
 </head>
 <body>
 <div class="container"><div class="card">
-<h1>API Master <span id="apiTotal" style="font-size:12px;font-weight:400;color:var(--muted);margin-left:12px"></span><span id="baseUrl" style="font-size:11px;font-weight:500;color:var(--accent);margin-left:12px;padding:2px 8px;background:rgba(66,153,225,0.08);border-radius:12px;letter-spacing:0.5px;text-transform:lowercase;opacity:0.8"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="apiTestAll" title="Test All APIs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="m9 14 2 2 4-4"/></svg></button><button type="button" class="icon-btn" id="apiInfoAnalytics" title="Analytics"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button type="button" class="icon-btn" id="apiStorageBtn" title="Local Storage"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></button></div></h1>
-<div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiInfoSearch" placeholder="Search API Paths..." style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
-<div class="card" style="margin-top:16px;padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
-    <div class="resp-tbl-wrap" style="max-height:600px;overflow-x:hidden">
-        <table class="resp-tbl" id="apiInfoTbl" style="table-layout:fixed;width:100%"></table>
+<h1>API Master <span id="apiTotal" style="font-size:12px;font-weight:400;color:var(--muted);margin-left:12px"></span><span id="baseUrl" style="font-size:11px;font-weight:500;color:var(--accent);margin-left:12px;padding:2px 8px;background:rgba(66,153,225,0.08);border-radius:12px;letter-spacing:0.5px;text-transform:lowercase;opacity:0.8"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV catalog"></button></div></h1>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('master')" id="tab-master">Master</button>
+    <button class="tab-btn" onclick="switchTab('test')" id="tab-test">Test</button>
+    <button class="tab-btn" onclick="switchTab('analytics')" id="tab-analytics">Analytics</button>
+    <button class="tab-btn" onclick="switchTab('storage')" id="tab-storage">Storage</button>
+</div>
+
+<div id="masterPane" class="tab-pane active">
+    <div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiInfoSearch" placeholder="Search API Paths..." style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
+    <div class="card" style="margin-top:16px;padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
+        <div class="resp-tbl-wrap" style="max-height:600px;overflow-x:hidden">
+            <table class="resp-tbl" id="apiInfoTbl" style="table-layout:fixed;width:100%"></table>
+        </div>
     </div>
 </div>
-<div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+
+<div id="testPane" class="tab-pane">
+    <div class="test-summary" id="testSummary" style="display:flex"></div>
+    <div class="test-progress" id="testProgress" style="display:none;margin-top:-8px;margin-bottom:16px"><span id="testProgressText">0/0</span><div class="test-progress-bar"><div class="test-progress-fill" id="testProgressFill" style="width:0%"></div></div></div>
+    <div class="card" style="padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
+        <div class="test-results-wrap" style="max-height:60vh;overflow-y:auto;overflow-x:hidden">
+            <table class="test-results-tbl" id="testResultsTbl" style="table-layout:fixed;width:100%">
+                <thead id="testResultsHead"></thead>
+                <tbody id="testResultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="analyticsPane" class="tab-pane">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 style="margin:0;font-size:16px;color:var(--accent)">API Insights</h3>
+    </div>
+    <div class="analytics-grid" id="analyticsGrid"></div>
+</div>
+
+<div id="storagePane" class="tab-pane">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 style="margin:0;font-size:16px;color:var(--accent)">Local Storage Explorer</h3>
+        <div style="display:flex;gap:12px;align-items:center">
+            <button type="button" id="storageCopyAll" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 16px;border-radius:8px;background:var(--secondary);color:var(--secondary-text);border:none;cursor:pointer">Copy All State</button>
+            <button type="button" class="icon-btn delete" id="storageResetAll" title="Reset All State"></button>
+        </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
+        <div id="storageContent" style="max-height:60vh;overflow-y:auto"></div>
+    </div>
+</div>
+
+<div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"></button></div>
 </div></div>
 
 <div id="apiRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:2% auto">
@@ -212,39 +261,6 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     </div>
 </div></div>
 
-<div id="analyticsModal" class="modal" onclick="if(event.target===this)hideModal('analyticsModal')">
-    <div class="modal-content" style="max-width:600px;margin:5% auto">
-        <div class="modal-header">
-            <h3 style="margin:0">API Analytics</h3>
-            <button type="button" class="icon-btn" title="Close" onclick="hideModal('analyticsModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-        </div>
-        <div class="analytics-grid" id="analyticsGrid"></div>
-    </div>
-</div>
-
-<div id="testAllModal" class="modal" onclick="if(event.target===this)hideModal('testAllModal')">
-    <div class="modal-content" style="max-width:900px;margin:3% auto">
-        <div class="modal-header">
-            <h3 style="margin:0">API Tester</h3>
-            <div class="modal-actions">
-                <button type="button" id="testRunBtn" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 16px;border-radius:8px;background:var(--primary);color:var(--primary-text);border:none;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Run Tests</button>
-                <button type="button" class="icon-btn" id="testAllExportCsv" title="Export CSV"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-                <button type="button" class="icon-btn" title="Close" onclick="hideModal('testAllModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
-        </div>
-        <div class="test-summary" id="testSummary" style="display:none"></div>
-        <div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiTestSearch" placeholder="Search API Paths..." style="padding:12px 40px 12px 16px;font-size:14px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiTestSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
-        <div class="test-progress" id="testProgress" style="display:none"><span id="testProgressText">0/0</span><div class="test-progress-bar"><div class="test-progress-fill" id="testProgressFill" style="width:0%"></div></div></div>
-        <div class="card" style="padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
-            <div class="test-results-wrap" style="max-height:60vh;overflow-y:auto;overflow-x:hidden">
-                <table class="test-results-tbl" id="testResultsTbl" style="table-layout:fixed;width:100%">
-                    <thead id="testResultsHead"></thead>
-                    <tbody id="testResultsBody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div id="testResponseModal" class="modal" onclick="if(event.target===this)hideModal('testResponseModal')">
     <div class="modal-content" style="max-width:700px;margin:5% auto">
@@ -272,19 +288,6 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     </div>
 </div>
 
-<div id="storageModal" class="modal" onclick="if(event.target===this)hideModal('storageModal')">
-    <div class="modal-content" style="max-width:700px;margin:5% auto">
-        <div class="modal-header">
-            <h3 style="margin:0">Local Storage</h3>
-            <div class="modal-actions">
-                <button type="button" class="icon-btn" id="storageCopyAll" title="Copy All State"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                <button type="button" class="icon-btn delete" id="storageResetAll" title="Reset All"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
-                <button type="button" class="icon-btn" title="Close" onclick="hideModal('storageModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
-        </div>
-        <div id="storageContent" style="max-height:70vh;overflow-y:auto"></div>
-    </div>
-</div>
 
 <div id="curlViewModal" class="modal" onclick="if(event.target===this)hideModal('curlViewModal')">
     <div class="modal-content" style="max-width:800px;margin:5% auto">
@@ -310,6 +313,19 @@ let COMMANDS = [], SPEC = null;
 const d = document,
   $ = id => d.getElementById(id);
 let curr = null, orig = [];
+
+const switchTab = id => {
+    d.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.id === `tab-${id}`));
+    d.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === `${id}Pane`));
+    if (id === 'test') {
+        if (!$('testResultsBody').children.length) renderTestTable();
+        updateTestSummary();
+    } else if (id === 'analytics') {
+        renderAnalytics();
+    } else if (id === 'storage') {
+        renderStorage();
+    }
+};
 
 /* ── Storage helper ── */
 const ls = {
@@ -655,32 +671,44 @@ const saveTests = () => {
 };
 const restoreTests = () => {
   const cache = ls.get('tests');
-  if (!cache) return;
+  if (!cache) {
+    updateTestSummary();
+    return;
+  }
   testResults = cache.results || [];
   testResponsesData = cache.responses || {};
   if (testResults.length) {
     if (!$('testResultsBody')?.children?.length) renderTestTable();
-    updateTestSummary();
   }
+  updateTestSummary();
 };
 const updateTestSummary = () => {
-  if (!testResults.length) return;
   const total = COMMANDS.length;
   const passed = testResults.filter(r => r.result === 'PASS').length;
   const failed = testResults.filter(r => r.result === 'FAIL').length;
   const skipped = testResults.filter(r => r.result === 'SKIP' && r.reason === 'unselected').length;
   const auto = testResults.filter(r => r.result === 'SKIP' && r.reason === 'incompatible').length;
+  const count = passed + failed;
   const totalMs = testResults.reduce((a, b) => a + (b.time || 0), 0);
-  const totalSec = (totalMs / 1000).toFixed(1);
-  $('testSummary').style.display = 'flex';
+  const avg = count > 0 ? (totalMs / count).toFixed(1) : 0;
+  
   $('testSummary').innerHTML = `
-    <span class="clickable active" data-type="all" onclick="filterTestResults('all')">Total: <strong style="color:#e6eef3">${total}</strong></span>
-    <span class="clickable" data-type="pass" onclick="filterTestResults('pass')">✅ Passed: <strong>${passed}</strong></span>
-    <span class="clickable" data-type="fail" onclick="filterTestResults('fail')">❌ Failed: <strong>${failed}</strong></span>
-    <span class="clickable" data-type="skip" onclick="filterTestResults('skip')">⏭ Skipped: <strong>${skipped}</strong></span>
-    <span class="clickable" data-type="auto" onclick="filterTestResults('auto')">🚫 Auto-Skip: <strong>${auto}</strong></span>
-    <span style="color:var(--muted);margin-left:auto">⏱ ${totalSec}s</span>
+    <span class="clickable ${testFilterType === 'all' ? 'active' : ''}" data-type="all" onclick="filterTestResults('all')">Total: <strong style="color:#e6eef3">${total}</strong></span>
+    <span class="clickable ${testFilterType === 'pass' ? 'active' : ''}" data-type="pass" onclick="filterTestResults('pass')">✅ Passed: <strong>${passed}</strong></span>
+    <span class="clickable ${testFilterType === 'fail' ? 'active' : ''}" data-type="fail" onclick="filterTestResults('fail')">❌ Failed: <strong>${failed}</strong></span>
+    <span class="clickable ${testFilterType === 'skip' ? 'active' : ''}" data-type="skip" onclick="filterTestResults('skip')">⏭ Skipped: <strong>${skipped}</strong></span>
+    <span class="clickable ${testFilterType === 'auto' ? 'active' : ''}" data-type="auto" onclick="filterTestResults('auto')">🚫 Auto: <strong>${auto}</strong></span>
+    <div style="display:flex;align-items:center;gap:16px;margin-left:auto">
+        <span style="color:var(--muted);font-size:12px;background:rgba(255,255,255,0.03);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05)">Avg: <strong style="color:var(--primary)">${avg}ms</strong></span>
+        <div style="display:flex;align-items:center;gap:4px">
+            <button type="button" class="icon-btn save" id="testRunBtn" title="Run Tests" style="padding:8px">${ICON.play(18)}</button>
+            <button type="button" class="icon-btn" id="testAllExportCsv" title="Export Results CSV" style="padding:8px">${ICON.download(18)}</button>
+        </div>
+    </div>
   `;
+  // Re-bind events since we replaced innerHTML
+  $('testRunBtn').onclick = testRunApis;
+  $('testAllExportCsv').onclick = exportTestCsv;
 };
 
 /* ── Auth status indicator ── */
@@ -846,11 +874,10 @@ $('apiInfoSearchClear').onclick = () => {
 
 
 /* ── Storage viewer ── */
-const renderStorageModal = () => {
+const renderStorage = () => {
   const keys = ls.keys();
   if (!keys.length) {
     $('storageContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No data stored in localStorage</div>';
-    showModal('storageModal');
     return;
   }
   const rows = keys.sort().map(k => {
@@ -872,16 +899,14 @@ const renderStorageModal = () => {
       </div>`;
   }).join('');
   $('storageContent').innerHTML = `<div style="display:flex;flex-direction:column">${rows}</div>`;
-  showModal('storageModal');
 };
-$('apiStorageBtn').onclick = renderStorageModal;
 $('storageCopyAll').onclick = () => {
   copyWithFeedback($('storageCopyAll'), JSON.stringify(ls.data, null, 2), 18, 'Full storage state copied');
 };
-$('storageResetAll').onclick = () => {
+  $('storageResetAll').onclick = () => {
   if (confirm('RESET ALL:\nThis will permanently delete ALL keys from api_master localStorage. Continue?')) {
     ls.clear();
-    renderStorageModal();
+    renderStorage();
     updateLoginIndicator();
     toast('All storage cleared');
   }
@@ -893,7 +918,7 @@ $('storageContent').onclick = e => {
     const key = delBtn.dataset.key;
     if (confirm(`DELETE KEY:\nRemove "${key}" from localStorage?`)) {
       ls.rm(key);
-      renderStorageModal();
+      renderStorage();
       if (key === 'token') updateLoginIndicator();
       toast(`Deleted: ${key}`);
     }
@@ -1374,7 +1399,7 @@ if ($('loginIndicator')) {
   };
 }
 
-const showAnalytics = () => {
+const renderAnalytics = () => {
   const roles = {}, methods = {};
   COMMANDS.forEach(c => {
     let r = c.p.split("/").length > 2 ? c.p.split("/")[1] : 'index';
@@ -1390,9 +1415,7 @@ const showAnalytics = () => {
     return `<div class="analytics-card"><h4><span>${title}</span><span style="font-size:11px;font-weight:400;color:var(--muted);background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:10px">Total: ${total}</span></h4><div class="analytics-list">${items}</div></div>`;
   };
   $('analyticsGrid').innerHTML = renderCard('API Roles', roles) + renderCard('HTTP Methods', methods);
-  showModal('analyticsModal');
 };
-$('apiInfoAnalytics').onclick = showAnalytics;
 
 /* ── Test All APIs ── */
 const TEST_SKIP_PATHS = ['/websocket'];
@@ -1465,20 +1488,6 @@ const renderTestTable = () => {
   const allCbs = Array.from(d.querySelectorAll('.test-row-select'));
   if (allCbs.length && !allCbs.every(cb => cb.checked)) $('testSelectAll').checked = false;
 };
-const showTestModal = () => {
-  if (!$('testResultsBody').children.length) renderTestTable();
-  if ($('apiTestSearch')) {
-    $('apiTestSearch').value = '';
-    $('apiTestSearchClear').style.display = 'none';
-  }
-  testFilterType = 'all';
-  const spans = Array.from($('testSummary').querySelectorAll('.clickable'));
-  spans.forEach(s => s.classList.toggle('active', s.dataset.type === 'all'));
-  applyTestFilters();
-  $('testRunBtn').disabled = false;
-  $('testRunBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Run Tests';
-  showModal('testAllModal');
-};
 const testRunApis = async () => {
   if (testRunning) return toast('Test already running');
   const allCbs = Array.from(d.querySelectorAll('.test-row-select'));
@@ -1490,9 +1499,11 @@ const testRunApis = async () => {
   testResponsesData = {};
   
   COMMANDS.forEach((_, i) => testUpdateRow(i, '—', '-', '...', '—', 0));
-  $('testRunBtn').disabled = true;
-  $('testRunBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin .6s linear infinite"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Running...';
-  $('testSummary').style.display = 'none';
+  const runBtn = $('testRunBtn');
+  runBtn.disabled = true;
+  runBtn.innerHTML = ICON.tester(18); // Use generic tester icon for loading state
+  runBtn.style.opacity = '0.5';
+  $('testSummary').style.display = 'flex'; // Ensure visible
   $('testProgress').style.display = 'flex';
   $('testProgressFill').style.width = '0%';
   let passed = 0, failed = 0, totalMs = 0;
@@ -1605,8 +1616,6 @@ const testRunApis = async () => {
   $('testProgress').style.display = 'none';
   updateTestSummary();
   testRunning = 0;
-  $('testRunBtn').disabled = false;
-  $('testRunBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Run Tests';
 };
 const getTestData = (idx) => {
   const c = COMMANDS[idx], token = ls.get('token');
@@ -1690,9 +1699,7 @@ const renderTestBadges = (sent, cmd) => {
   const hasFile = cmd && cmd.f && cmd.f.some(x => x.t === 'file') ? 1 : 0;
   return h('h', sent.h) + h('p', sent.u) + h('q', sent.q) + h('f', sent.f) + (hasFile ? ' <span class="param-badge f" title="FILE: Upload Required">F</span>' : '') + h('b', sent.j);
 };
-$('apiTestAll').onclick = showTestModal;
-$('testRunBtn').onclick = testRunApis;
-$('testAllExportCsv').onclick = () => {
+const exportTestCsv = () => {
   if (!testResults.length) return toast('No test results to export');
   const csv = ['#,Method,Path,Status,Time(ms),Result,Curl,Response',
     ...testResults.map(r => `${r.idx},${r.method},${csvEscape(r.path)},${r.status},${r.time},${r.result},${csvEscape(r.curl || '')},${csvEscape(r.response ? JSON.stringify(r.response) : '')}`)
@@ -1721,7 +1728,7 @@ const showTestParams = idx => {
 };
 let testFilterType = 'all';
 const applyTestFilters = () => {
-  const query = $('apiTestSearch').value.toLowerCase();
+  const query = ''; // Search removed
   const rows = $('testResultsBody').querySelectorAll('tr');
   rows.forEach((row, i) => {
     const c = COMMANDS[i], tr = testResults.find(r => r.idx === i + 1);
@@ -1731,9 +1738,8 @@ const applyTestFilters = () => {
     else if (testFilterType === 'skip') typeMatch = (tr && tr.result === 'SKIP' && tr.reason === 'unselected') ? 1 : 0;
     else if (testFilterType === 'auto') typeMatch = (tr && tr.result === 'SKIP' && tr.reason === 'incompatible') ? 1 : 0;
     let searchMatch = c.p.toLowerCase().includes(query);
-    row.style.display = (typeMatch && searchMatch) ? '' : 'none';
+    row.style.display = (typeMatch) ? '' : 'none';
   });
-  $('apiTestSearchClear').style.display = query ? 'block' : 'none';
   const vCbs = Array.from($('testResultsBody').querySelectorAll('tr')).filter(r => r.style.display !== 'none').map(r => r.querySelector('.test-row-select')).filter(Boolean);
   $('testSelectAll').checked = vCbs.length > 0 && vCbs.every(cb => cb.checked);
 };
@@ -1743,11 +1749,6 @@ const filterTestResults = type => {
   const is_active = clicked.classList.contains('active') ? 1 : 0;
   testFilterType = (is_active && type !== 'all') ? 'all' : type;
   spans.forEach(s => s.classList.toggle('active', s.dataset.type === testFilterType));
-  applyTestFilters();
-};
-$('apiTestSearch').oninput = applyTestFilters;
-$('apiTestSearchClear').onclick = () => {
-  $('apiTestSearch').value = '';
   applyTestFilters();
 };
 $('testResultsTbl').addEventListener('click', e => {
@@ -1776,10 +1777,7 @@ d.addEventListener('change', e => {
 
 const setupIcons = () => {
     const iconMap = {
-        'apiTestAll': ICON.tester(18),
-        'apiInfoAnalytics': ICON.chart(18),
         'apiInfoCsv': ICON.download(18),
-        'apiStorageBtn': ICON.database(18),
         'runnerCopyCurl': ICON.copy(20),
         'btnRaw': ICON.code(16),
         'btnPretty': ICON.list(16),
@@ -1787,7 +1785,7 @@ const setupIcons = () => {
         'rCopy': ICON.copy(16),
         'rCsv': ICON.fileCsv(16),
         'rJson': ICON.fileJson(16),
-        'testAllExportCsv': ICON.download(18),
+        'testAllExportCsv': ICON.download(16),
         'testResponseCopy': ICON.copy(20),
         'testParamsCopyCurl': ICON.copy(20),
         'storageResetAll': ICON.trash(18),
