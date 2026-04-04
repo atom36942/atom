@@ -36,25 +36,6 @@ git push origin main
 </details>
 
 <details>
-<summary>Setup: Local Deployment</summary>
-<div style="padding-top: 10px;">
-
-```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
-rm -rf venv
-/opt/homebrew/bin/python3.11 -m venv venv
-./venv/bin/pip install --upgrade pip
-./venv/bin/pip install -r requirements.txt
-./venv/bin/python -V
-./venv/bin/python main.py
-./venv/bin/uvicorn main:app --reload
-```
-
-</div>
-</details>
-
-<details>
 <summary>Setup: Brew</summary>
 <div style="padding-top: 10px;">
 
@@ -72,6 +53,25 @@ brew update && brew upgrade postgresql && brew upgrade redis && brew upgrade rab
 brew services stop --all && brew uninstall --force postgresql && brew uninstall --force redis && brew uninstall --force rabbitmq && rm -rf /opt/homebrew/var/postgres /opt/homebrew/var/db/redis /opt/homebrew/var/lib/rabbitmq && brew cleanup
 psql --version && redis-cli --version && rabbitmqctl version
 brew services list
+```
+
+</div>
+</details>
+
+<details>
+<summary>Setup: Local Deployment</summary>
+<div style="padding-top: 10px;">
+
+```bash
+git clone https://github.com/atom36942/atom.git
+cd atom
+rm -rf venv
+/opt/homebrew/bin/python3.11 -m venv venv
+./venv/bin/pip install --upgrade pip
+./venv/bin/pip install -r requirements.txt
+./venv/bin/python -V
+./venv/bin/python main.py
+./venv/bin/uvicorn main:app --reload
 ```
 
 </div>
@@ -103,59 +103,85 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 </details>
 
 <details>
-<summary>Package Management</summary>
+<summary>PostgreSQL: Database Initialization</summary>
 <div style="padding-top: 10px;">
 
-```bash
-./venv/bin/pip install fastapi
-./venv/bin/pip uninstall fastapi
-./venv/bin/pip install --upgrade fastapi
-./venv/bin/pip install -r requirements.txt
-./venv/bin/pip freeze > requirements.txt
-```
+The schema and initial data are managed through an automated startup sequence and dedicated administrative endpoints.
+
+| Feature | Logic Source | Behavior |
+| :--- | :--- | :--- |
+| **Lifecycle Init** | `Lifespan` (main.py) | Triggers `func_postgres_init` on startup if `config_is_postgres_init_startup=1`. |
+| **System Sync** | `/admin/sync` | Orchestrates a full system refresh: DB init, schema caching, and temporary data cleaning. |
+| **Data Seeding** | `func_postgres_init` | Automatically creates the root admin user (`atom`) and required extensions (e.g., `uuid-ossp`, `pg_trgm`). |
 
 </div>
 </details>
 
 <details>
+<summary>Administrative Control: System Management</summary>
+<div style="padding-top: 10px;">
+
+A suite of protected endpoints under the `/admin/` prefix provides direct control over the database, cache, and cloud infrastructure.
+
+| Command / Endpoint | Responsibility | Behavior |
+| :--- | :--- | :--- |
+| **`/admin/postgres-runner`** | Raw Execution | Executes arbitrary SQL queries (Read/Write mode) directly on the Postgres pool. |
+| **`/admin/postgres-export`** | Data Portability | Streams any SQL query result as a downloadable CSV file. |
+| **`/admin/postgres-import`** | Bulk Ingestion | Processes CSV uploads for high-speed `create`, `update`, or `delete` operations. |
+| **`/admin/sync`** | System Refresh | Re-initializes schema, updates local caches, and flushes persistent buffers. |
+| **`/admin/object-read/update`**| Master CRUD | Provides unrestricted access to all tables, bypassing standard `creator_id` filters. |
+| **`/admin/s3-bucket-ops`** | Cloud Infra | Direct control over bucket creation, permission toggles (public/private), and deletion. |
+
+> [!IMPORTANT]
+> Access to the `/admin/` prefix is strictly restricted to users with `role=1`. This is enforced by the centralized middleware pipeline and cannot be bypassed.
+
+</div>
+</details>
+
+
+<details>
 <summary>Environment Variables</summary>
 <div style="padding-top: 10px;">
 
-- **Dynamic Overrides**: Any variable in `config.py` starting with `config_` can be overridden by a matching environment variable or an entry in a `.env` file.
-- **Logic Provider**: Handled by `func_config_override_from_env` in `function.py`.
-- **Type Conversion**: Automatically manages conversion for booleans (0/1), integers, and JSON objects (for lists or dictionaries).
+Environment variables can be defined in a `.env` file at the root of the project or exported directly in your shell. The framework automatically detects and applies these configurations on startup.
+
+| Feature | Logic Source | Behavior |
+| :--- | :--- | :--- |
+| **Dynamic Overrides** | `config.py` | Any variable starting with `config_` can be overridden via `.env` or shell. |
+| **Logic Provider** | `func_config_override_from_env` | Automated detection and application of environment configurations on startup. |
+| **Type Conversion** | `function.py` | Automatic management of booleans (0/1), integers, and JSON objects. |
 
 
-| Category | Environment Variable | Type | Description |
-| :--- | :--- | :--- | :--- |
-| **PostgreSQL** | `config_postgres_url` | `str` | Connection URL (e.g., `postgresql://user:pass@host/db`). |
-| | `config_postgres_min_connection` | `int` | Minimum pool size (Default: 5). |
-| | `config_postgres_max_connection` | `int` | Maximum pool size (Default: 20). |
-| **Redis / Cache**| `config_redis_url` | `str` | Primary Redis connection string. |
-| | `config_redis_url_ratelimiter`| `str` | Redis instance for rate limiting. |
-| | `config_redis_cache_ttl_sec` | `int` | TTL for cached API responses in seconds. |
-| **Queues** | `config_rabbitmq_url` | `str` | RabbitMQ connection URL. |
-| | `config_kafka_url` | `str` | Kafka broker URL. |
-| | `config_celery_broker_url`| `str` | Celery broker URL (Defaults to Redis URL). |
-| | `config_celery_backend_url`| `str` | Celery result backend URL. |
-| **Security** | `config_token_secret_key` | `str` | JWT signing secret. |
-| | `config_token_expiry_sec` | `int` | JWT token validity duration in seconds. |
-| | `config_cors_origin` | `list` | Allowed CORS origins (JSON array: `["*"]`). |
-| **AI Providers** | `config_openai_key` | `str` | OpenAI API key for GPT integrations. |
-| | `config_gemini_key` | `str` | Google Gemini API key. |
-| **Cloud** | `config_aws_access_key_id` | `str` | AWS access key for S3, SNS, SES. |
-| | `config_aws_secret_access_key`| `str` | AWS secret key. |
-| | `config_s3_region_name` | `str` | S3 bucket region. |
-| | `config_sftp_host` | `str` | SFTP server hostname. |
-| | `config_sftp_password` | `str` | SFTP password or key path. |
-| **Integrations**| `config_sentry_dsn` | `str` | Sentry DSN for error tracking. |
-| | `config_posthog_project_key`| `str` | Posthog project key for analytics. |
-| | `config_gsheet_service_account_json_path` | `str` | Path to Google Service Account JSON. |
-| **Switches** | `config_is_signup` | `int` | Toggle user signup (1: Enabled, 0: Disabled).|
-| | `config_is_log_api` | `int` | Toggle API logging (1: Enabled, 0: Disabled). |
-| | `config_is_traceback` | `int` | Toggle Python traceback in responses (1/0). |
-| | `config_is_prometheus` | `int` | Toggle `/metrics` prometheus endpoint (1/0). |
-| | `config_is_reset_tmp` | `int` | Wipe `./tmp` folder on boot (1/0). |
+| Category | Environment Variable | Type | Sample Value | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **PostgreSQL** | `config_postgres_url` | `str` | `postgresql://atom@127.0.0.1/postgres` | Connection URL for the primary database. |
+| | `config_postgres_min_connection` | `int` | `5` | Minimum pool size (Default: 5). |
+| | `config_postgres_max_connection` | `int` | `20` | Maximum pool size (Default: 20). |
+| **Redis / Cache**| `config_redis_url` | `str` | `redis://localhost:6379` | Primary Redis connection string. |
+| | `config_redis_url_ratelimiter`| `str` | `redis://localhost:6379` | Redis instance for rate limiting. |
+| | `config_redis_cache_ttl_sec` | `int` | `3600` | TTL for cached API responses in seconds. |
+| **Queues** | `config_rabbitmq_url` | `str` | `amqp://guest:guest@localhost:5672` | RabbitMQ connection URL. |
+| | `config_kafka_url` | `str` | `localhost:9092` | Kafka broker URL. |
+| | `config_celery_broker_url`| `str` | `-` | Celery broker URL (Defaults to Redis URL). |
+| | `config_celery_backend_url`| `str` | `-` | Celery result backend URL. |
+| **Security** | `config_token_secret_key` | `str` | `super-secret-key` | JWT signing secret. |
+| | `config_token_expiry_sec` | `int` | `86400` | JWT token validity duration in seconds. |
+| | `config_cors_origin` | `list` | `["*"]` | Allowed CORS origins (JSON array: `["*"]`). |
+| **AI Providers** | `config_openai_key` | `str` | `sk-proj-...` | OpenAI API key for GPT integrations. |
+| | `config_gemini_key` | `str` | `AIzaSy...` | Google Gemini API key. |
+| **Cloud** | `config_aws_access_key_id` | `str` | `AKIA...` | AWS access key for S3, SNS, SES. |
+| | `config_aws_secret_access_key`| `str` | `secret` | AWS secret key. |
+| | `config_s3_region_name` | `str` | `us-east-1` | S3 bucket region. |
+| | `config_sftp_host` | `str` | `localhost` | SFTP server hostname. |
+| | `config_sftp_password` | `str` | `password` | SFTP password or key path. |
+| **Integrations**| `config_sentry_dsn` | `str` | `https://...@sentry.io/...` | Sentry DSN for error tracking. |
+| | `config_posthog_project_key`| `str` | `phc_...` | Posthog project key for analytics. |
+| | `config_gsheet_service_account_json_path` | `str` | `./creds.json` | Path to Google Service Account JSON. |
+| **Switches** | `config_is_signup` | `int` | `1` | Toggle user signup (1: Enabled, 0: Disabled).|
+| | `config_is_log_api` | `int` | `1` | Toggle API logging (1: Enabled, 0: Disabled). |
+| | `config_is_traceback` | `int` | `0` | Toggle Python traceback in responses (1/0). |
+| | `config_is_prometheus` | `int` | `1` | Toggle `/metrics` prometheus endpoint (1/0). |
+| | `config_is_reset_tmp` | `int` | `1` | Wipe `./tmp` folder on boot (1/0). |
 
 </div>
 </details>
@@ -253,18 +279,6 @@ Authorized user context and global clients are injected into every request.
 </div>
 </details>
 
-<details>
-<summary>PostgreSQL: Database Initialization</summary>
-<div style="padding-top: 10px;">
-
-The schema is managed through administrative endpoints and automated startup checks.
-
-| Feature | Logic Source | Behavior |
-| :--- | :--- | :--- |
-| **Schema Init** | `Lifespan` / `/admin/sync` | Triggers `func_postgres_init` to setup extensions, tables, and the root admin user (`atom`). |
-
-</div>
-</details>
 
 <details>
 <summary>Queues & Consumer Workers</summary>
@@ -310,3 +324,57 @@ The `api.html` dashboard is **fully dynamic** and automated. New routes added to
 </details>
 
 
+
+<details>
+<summary>Package Management</summary>
+<div style="padding-top: 10px;">
+
+The Atom framework primarily utilizes `pip` with `venv`, but is fully compatible with modern dependency managers.
+
+<details>
+<summary>pip</summary>
+<div style="padding-top: 10px;">
+
+```bash
+./venv/bin/pip install fastapi
+./venv/bin/pip uninstall fastapi
+./venv/bin/pip install --upgrade fastapi
+./venv/bin/pip install -r requirements.txt
+./venv/bin/pip freeze > requirements.txt
+```
+
+</div>
+</details>
+
+<details>
+<summary>poetry</summary>
+<div style="padding-top: 10px;">
+
+```bash
+poetry add fastapi
+poetry remove fastapi
+poetry update fastapi
+poetry install
+poetry lock
+```
+
+</div>
+</details>
+
+<details>
+<summary>conda</summary>
+<div style="padding-top: 10px;">
+
+```bash
+conda install fastapi
+conda remove fastapi
+conda update fastapi
+conda env create -f environment.yml
+conda list --export > environment.yml
+```
+
+</div>
+</details>
+
+</div>
+</details>
