@@ -419,7 +419,7 @@ const PATH_OVERRIDES = {
   '/my/account-delete': { mode: 'soft' },
   '/my/parent-read': { table: 'test', parent_table: 'users', parent_column: 'created_by_id' },
   '/my/ids-delete': { table: 'test', ids: '1,2,3,4,5' },
-  '/my/object-create': { table: 'test', type: 1, title: 'test', is_serialize: 1, tag: ["java","python","sql"], location: 'POINT(17.794387 -83.032150)', metadata: { "id": 1, "name": "test", "active": true } },
+  '/my/object-create': { table: 'test', type: 1, title: 'test' },
   '/my/object-update': { id: 1, name: 'test', table: 'users' },
   '/my/object-read': { table: 'test' },
 
@@ -439,26 +439,7 @@ const PATH_OVERRIDES = {
   // Private & Admin
   '/admin/postgres-runner': { mode: 'read', query: 'SELECT 1' },
   '/admin/postgres-export': { query: 'SELECT * FROM test' },
-  '/admin/object-create': {
-    table: 'test',
-    obj_list: [
-      { type: 1, title: 'test' },
-      { type: 2, title: 'test' },
-      { type: 3, title: 'test' },
-      { type: 1, title: 'test' },
-      { type: 2, title: 'test' },
-      { type: 3, title: 'test' },
-      { type: 1, title: 'test' },
-      { type: 2, title: 'test' },
-      { type: 3, title: 'test' },
-      { type: 1, title: 'test' },
-      { type: 2, title: 'test' },
-      { type: 3, title: 'test' },
-      { type: 1, title: 'test' },
-      { type: 2, title: 'test' },
-      { type: 3, title: 'test' }
-    ]
-  },
+  '/admin/object-create': { table: 'test', type: 1, title: 'test' },
   '/admin/object-update': { id: 1, name: 'test', table: 'users' },
   '/admin/object-read': { table: 'test' },
   '/admin/ids-delete': { table: 'test', ids: '1,2,3,4,5' },
