@@ -106,26 +106,6 @@ docker run --rm -p 8000:8000 atom
 
 
 <details>
-<summary>Service Integrations</summary>
-<div style="padding-top: 10px;">
-
-The framework provides pre-configured async clients for a wide range of production services.
-
-| Category | Service | Client / Source |
-| :--- | :--- | :--- |
-| **Databases** | Postgres, Redis | `client_postgres_pool`, `client_redis` |
-| **AI** | OpenAI, Gemini | `client_openai`, `client_gemini` |
-| **Cloud** | S3, SNS, SES | `client_s3`, `client_sns`, `client_ses` |
-| **Queues** | Celery, Kafka | `client_*_producer` |
-| **Analytics** | Posthog, Sentry | `client_posthog`, `func_app_add_sentry` |
-| **Utils** | SFTP, GSheets | `client_sftp`, `client_gsheet` |
-
-
-</div>
-</details>
-
-
-<details>
 <summary>Middleware Pipeline</summary>
 <div style="padding-top: 10px;">
 
