@@ -141,6 +141,15 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .tab-btn.active{background:rgba(66,153,225,0.1);color:var(--accent)}
 .tab-pane{display:none}.tab-pane.active{display:block}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.tag-filter{display:inline-block;padding:4px 10px;font-size:11px;font-weight:600;border-radius:12px;background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;transition:all .2s;border:1px solid transparent;margin-bottom:8px}.tag-filter:hover{background:rgba(255,255,255,.1);color:#fff}.tag-filter.active{background:rgba(66,153,225,.15);color:var(--accent);border-color:rgba(66,153,225,.2)}
+.tag-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:12px;margin-bottom:16px;overflow:hidden}
+.tag-card-header{padding:10px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+.tag-card-header:hover{background:rgba(255,255,255,.05)}
+.tag-card-title{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+.tag-card-body{padding:16px 16px 8px 16px;display:flex;flex-wrap:wrap;gap:8px;transition:max-height .3s ease-out,opacity .2s;max-height:500px;opacity:1}
+.tag-card-body.collapsed{max-height:0;padding-top:0;padding-bottom:0;opacity:0;overflow:hidden}
+.tag-toggle-icon{transition:transform .3s;color:var(--muted);display:flex;align-items:center}
+.tag-toggle-icon.collapsed{transform:rotate(-90deg)}
 </style>
 </head>
 <body>
@@ -157,7 +166,16 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 
 <div id="masterPane" class="tab-pane active">
     <div style="margin-bottom:16px;position:relative;display:flex;align-items:center"><input type="text" id="apiInfoSearch" placeholder="Search..." style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
-    <div class="card" style="margin-top:16px;padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
+    <div class="tag-card">
+        <div class="tag-card-header" onclick="toggleTagCard()">
+            <span class="tag-card-title">Path Filters</span>
+            <span class="tag-toggle-icon" id="tagToggleIcon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </span>
+        </div>
+        <div id="apiInfoTags" class="tag-card-body"></div>
+    </div>
+    <div class="card" style="margin-top:0;padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
         <div class="resp-tbl-wrap" style="max-height:600px;overflow-x:hidden">
             <table class="resp-tbl" id="apiInfoTbl" style="table-layout:fixed;width:100%"></table>
         </div>
@@ -311,10 +329,37 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 </div>
 
 <script>
-let COMMANDS = [], SPEC = null;
+let COMMANDS = [], SPEC = null, activeApiTag = null;
 const d = document,
   $ = id => d.getElementById(id);
 let curr = null, orig = [];
+
+const getPathTags = p => p.split(/[\/-]/).filter(x => x.length > 1 && !x.startsWith('{'));
+
+const renderApiInfoTags = () => {
+    const counts = {};
+    COMMANDS.forEach(c => {
+        getPathTags(c.p).forEach(t => {
+            counts[t] = (counts[t] || 0) + 1;
+        });
+    });
+    const tags = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    $('apiInfoTags').innerHTML = tags.map(([t, count]) => {
+        const active = activeApiTag === t ? 'active' : '';
+        return `<span class="tag-filter ${active}" onclick="toggleApiTag('${t}')">${t} (${count})</span>`;
+    }).join('');
+};
+
+const toggleApiTag = t => {
+    activeApiTag = activeApiTag === t ? null : t;
+    renderApiInfoTags();
+    renderApiInfoTable($('apiInfoSearch').value);
+};
+
+const toggleTagCard = () => {
+    $('apiInfoTags').classList.toggle('collapsed');
+    $('tagToggleIcon').classList.toggle('collapsed');
+};
 
 const switchTab = id => {
     d.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.id === `tab-${id}`));
@@ -673,6 +718,7 @@ async function init() {
     });
     orig = COMMANDS.map((c, i) => ({ ...c, oi: i }));
     $('baseUrl').textContent = window.location.origin;
+    renderApiInfoTags();
     renderApiInfoTable('');
     updateLoginIndicator();
     load(null);
@@ -840,7 +886,11 @@ const load = i => {
 /* ── Event wiring ── */
 
 const renderApiInfoTable = (searchQuery = '') => {
-  const filtered = searchQuery ? COMMANDS.filter(c => c.p.toLowerCase().includes(searchQuery.toLowerCase())) : COMMANDS;
+  const filtered = COMMANDS.filter(c => {
+    const matchesSearch = !searchQuery || c.p.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTag = !activeApiTag || getPathTags(c.p).includes(activeApiTag);
+    return matchesSearch && matchesTag;
+  });
   $('apiTotal').textContent = `(${filtered.length}/${COMMANDS.length})`;
   
   $('apiInfoTbl').innerHTML =
