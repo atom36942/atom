@@ -51,4 +51,3 @@
 ### Protected Resources
 | Resource | Constraint | Rationale |
 | :--- | :--- | :--- |
-| `static/dev.md` | **IMMUTABLE** | Reserved for USER personal use. |

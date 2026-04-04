@@ -14,6 +14,24 @@
 </details>
 
 <details>
+<summary>Setup: GitHub SSH & Repository Sync</summary>
+
+```bash
+ssh-keygen -t ed25519 -C "email"
+cat ~/.ssh/id_ed25519.pub
+ssh -T git@github.com
+git clone git@github.com:atom36942/atom.git
+cd atom
+git remote set-url origin git@github.com:atom36942/atom.git
+git pull origin main
+git add .
+git commit -m "sync"
+git push origin main
+```
+
+</details>
+
+<details>
 <summary>Setup: Local Deployment</summary>
 
 ```bash
@@ -31,6 +49,19 @@ rm -rf venv
 </details>
 
 <details>
+<summary>Package Management</summary>
+
+```bash
+./venv/bin/pip install fastapi
+./venv/bin/pip uninstall fastapi
+./venv/bin/pip install --upgrade fastapi
+./venv/bin/pip install -r requirements.txt
+./venv/bin/pip freeze > requirements.txt
+```
+
+</details>
+
+<details>
 <summary>Setup: Docker Deployment</summary>
 
 ```bash
@@ -39,6 +70,53 @@ docker run --rm -p 8000:8000 atom
 ```
 
 </details>
+
+<details>
+<summary>Setup: Consumer Workers</summary>
+
+```bash
+venv/bin/python consumer.py celery
+venv/bin/python consumer.py rabbitmq
+venv/bin/python consumer.py redis
+venv/bin/python consumer.py kafka
+```
+
+</details>
+
+<details>
+<summary>Brew Setup</summary>
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+brew install python@3.11
+brew install postgis
+brew install postgresql && brew install redis && brew install rabbitmq && brew tap mongodb/brew && brew install mongodb-community && echo 'export PATH="/opt/homebrew/sbin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+brew services start postgresql && brew services start redis && brew services start rabbitmq && brew services start mongodb-community
+brew services restart postgresql && brew services restart redis && brew services start rabbitmq && brew services start mongodb-community
+brew services stop postgresql && brew services stop redis && brew services stop rabbitmq && brew services stop mongodb-community
+brew update && brew upgrade postgresql && brew upgrade redis && brew upgrade rabbitmq && brew upgrade mongodb-community && brew services restart --all
+brew services stop --all && brew uninstall --force postgresql && brew uninstall --force redis && brew uninstall --force rabbitmq && brew uninstall --force mongodb-community && rm -rf /opt/homebrew/var/postgres /opt/homebrew/var/db/redis /opt/homebrew/var/lib/rabbitmq /opt/homebrew/var/mongodb && brew cleanup
+psql --version && redis-cli --version && rabbitmqctl version && mongosh --version && mongod --version
+brew services list
+```
+
+</details>
+
+
+<details>
+<summary>Minimum Environmental Variable Needed</summary>
+
+```bash
+config_postgres_url=postgresql://atom@127.0.0.1/postgres
+config_redis_url=redis://localhost:6379
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_mongodb_url=mongodb://localhost:27017
+```
+
+</details>
+
 
 <details>
 <summary>Environment Variables</summary>
