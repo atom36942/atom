@@ -127,18 +127,18 @@ The schema and initial data are managed through an automated startup sequence an
 
 | Path | Service |
 | :--- | :--- |
-| `main.py` | **Entry** |
-| `router.py` | **API** |
-| `function.py` | **Core** |
-| `config.py` | **Settings** |
-| `consumer.py` | **Workers** |
 | `static/` | **Assets** |
 | `script/` | **Shell** |
+| `function.py` | **Core** |
+| `config.py` | **Settings** |
+| `main.py` | **Entry** |
+| `router.py` | **API** |
+| `consumer.py` | **Workers** |
 | `requirements.txt` | **Configs** |
 | `Dockerfile` | **Infra** |
-| `.gitignore` | **Git** |
 | `readme.md` | **Docs** |
 | `AGENTS.md` | **Rules** |
+| `.gitignore` | **Git** |
 
 </div>
 </details>
@@ -231,36 +231,9 @@ Authorized user context and global clients are injected into every request.
 </div>
 </details>
 
-<details>
-<summary>Assets: Content Delivery</summary>
-<div style="padding-top: 10px;">
-
-| Feature | Details | Logic |
-| :--- | :--- | :--- |
-| **Static** | `./static` | Served via `/static/` prefix. |
-| **Dynamic** | `/page-{name}` | HTML search via `func_html_serve`. |
 
 
-</div>
-</details>
 
-<details>
-<summary>API Tester: Discovery</summary>
-<div style="padding-top: 10px;">
-
-The `api.html` dashboard is **fully dynamic** and automated. New routes added to `router.py` appear automatically with their respective parameters rendered based on the Pydantic schema.
-
-| Tab | Description |
-| :--- | :--- |
-| **Master** | Central discovery hub with real-time search and filters. |
-| **Test** | Bulk testing suite with latency tracking and inspection. |
-| **Analytics** | Visual insights, role charts, and performance stats. |
-| **Storage** | session manager for JWT and persistent UI state. |
-| **Overrides** | Preview of `PATH_OVERRIDES` for test scenarios. |
-
-
-</div>
-</details>
 
 <details>
 <summary>FAQ</summary>
@@ -268,7 +241,9 @@ The `api.html` dashboard is **fully dynamic** and automated. New routes added to
 
 | What | Description/Remark |
 | :--- | :--- |
-| **API Collection** | `static/api.html` or `page-api` |
+| **API Master** | Interactive tester at `static/api.html` or `/page-api`. |
+| **How to serve static content?** | Served via the `static/` directory prefix. |
+| **How to serve dynamic pages?** | Served via `/page-{name}` (e.g. `/page-login`). |
 
 </div>
 </details>

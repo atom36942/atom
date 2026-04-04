@@ -1072,13 +1072,13 @@ const renderScenarios = (searchQuery = '') => {
     return;
   }
   const rows = filtered.map((s, idx) => `
-      <tr>
+      <tr style="cursor:pointer" onclick="runScenario('${s.id}')">
         <td class="col-id">${idx + 1}</td>
-        <td style="width:100px;color:rgba(255,255,255,0.4);font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:700">${s.group}</td>
-        <td style="color:var(--accent);font-weight:600;width:240px">${s.name}</td>
-        <td style="color:var(--muted);font-size:12px">${s.desc}</td>
+        <td class="col-method"><span class="method-badge ${s.method.toLowerCase()}">${s.method}</span></td>
+        <td class="col-path" title="${s.path}">${s.path}</td>
+        <td style="color:var(--muted);font-size:12px">${s.name}</td>
         <td class="col-run">
-            <button class="icon-btn scenario-run-btn" data-id="${s.id}" title="Run Scenario" style="color:var(--primary)">${ICON.play(16)}</button>
+            <button class="icon-btn scenario-run-btn" data-id="${s.id}" title="Run" style="color:var(--primary);margin:0 auto">${ICON.play(16)}</button>
         </td>
       </tr>`).join('');
   $('scenariosContent').innerHTML = `
@@ -1086,8 +1086,8 @@ const renderScenarios = (searchQuery = '') => {
         <thead>
             <tr>
                 <th class="col-id">#</th>
-                <th style="width:100px">Group</th>
-                <th style="width:240px">Scenario Name</th>
+                <th class="col-method">Method</th>
+                <th class="col-path">Path</th>
                 <th>Description</th>
                 <th class="col-run">Run</th>
             </tr>

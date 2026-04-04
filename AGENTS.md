@@ -22,13 +22,13 @@
 ### Repository Map
 | Path | Service | Responsibility |
 | :--- | :--- | :--- |
-| `main.py` | **Entry** | Lifespan, Middleware, App Initialization. |
-| `router.py` | **API** | Definition of all endpoints and role assignments. |
-| `function.py` | **Core** | Primary functional logic and database drivers. |
-| `config.py` | **Settings** | Global configuration and schema definitions. |
-| `consumer.py` | **Workers** | Background task processing (Celery, Kafka, etc.). |
 | `static/` | **Assets** | Frontend files and documentation pages. |
 | `tmp/` | **Runtime** | Workspace for temporary runtime operations. |
+| `function.py` | **Core** | Primary functional logic and database drivers. |
+| `config.py` | **Settings** | Global configuration and schema definitions. |
+| `main.py` | **Entry** | Lifespan, Middleware, App Initialization. |
+| `router.py` | **API** | Definition of all endpoints and role assignments. |
+| `consumer.py` | **Workers** | Background task processing (Celery, Kafka, etc.). |
 
 ### Standardized Routing Logic
 | Rule | Pattern | Behavior |
