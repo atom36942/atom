@@ -1,5 +1,5 @@
 <details>
-<summary>About</summary>
+<summary>Core Principles</summary>
 
 | Core Principle | Description |
 | :--- | :--- |
@@ -14,9 +14,8 @@
 </details>
 
 <details>
-<summary>Setup</summary>
+<summary>Setup: Local Deployment</summary>
 
-### Local Development
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -32,9 +31,8 @@ rm -rf venv
 </details>
 
 <details>
-<summary>Setup with Docker</summary>
+<summary>Setup: Docker Deployment</summary>
 
-### Docker Deployment
 ```bash
 docker build -t atom .
 docker run --rm -p 8000:8000 atom
@@ -81,9 +79,8 @@ The application uses a dynamic override system where any variable in `config.py`
 </details>
 
 <details>
-<summary>Project Structure</summary>
+<summary>Repository Map</summary>
 
-### Repository Map
 A high-level overview of the project architecture and file responsibilities.
 
 | Path | Responsibility | Logic / Pattern |
@@ -99,9 +96,8 @@ A high-level overview of the project architecture and file responsibilities.
 </details>
 
 <details>
-<summary>Client Integrations</summary>
+<summary>Service Integrations</summary>
 
-### Built-in Service Gallery
 The framework provides pre-configured async clients for a wide range of production services.
 
 | Category | Service Integration | Client / Function Source |
@@ -116,9 +112,8 @@ The framework provides pre-configured async clients for a wide range of producti
 </details>
 
 <details>
-<summary>Request Lifecycle</summary>
+<summary>Middleware Pipeline</summary>
 
-### Middleware Pipeline
 Every incoming request passes through a strictly ordered validation and processing sequence.
 
 | Order | Pipeline Stage | Behavior |
@@ -134,9 +129,8 @@ Every incoming request passes through a strictly ordered validation and processi
 </details>
 
 <details>
-<summary>Authentication & Security</summary>
+<summary>Security: Route Protection</summary>
 
-### Route Protection
 Path-based security is enforced automatically by the unified middleware pipeline.
 
 | Prefix Path | Requirement | Behavior |
@@ -148,7 +142,11 @@ Path-based security is enforced automatically by the unified middleware pipeline
 | `/private/` | **Protected** | Strictly requires a valid `Bearer` token. |
 | `/admin/` | **Role-Based** | Requires token **AND** matching role in `config_api`. |
 
-### State Injection
+</details>
+
+<details>
+<summary>Security: User State Injection</summary>
+
 Authorized user context and global clients are injected into every request.
 
 | Variable | Key Source | Properties |
@@ -159,9 +157,8 @@ Authorized user context and global clients are injected into every request.
 </details>
 
 <details>
-<summary>Database: PostgreSQL</summary>
+<summary>PostgreSQL: System Initialization</summary>
 
-### System Initialization
 The schema is managed through administrative endpoints and automated startup checks.
 
 | Feature | Logic Source | Behavior |
@@ -170,7 +167,11 @@ The schema is managed through administrative endpoints and automated startup che
 | **Root User** | `func_postgres_init_root_user` | Automatically creates the first admin user on boot. |
 | **Auto-Migration** | `func_postgres_create` | Creates tables on-the-fly if missing during buffer flushes. |
 
-### Advanced Read Filters
+</details>
+
+<details>
+<summary>PostgreSQL: Advanced Read Filters</summary>
+
 The generic reader support complex query logic via URL parameters.
 
 | Category | Filter Pattern | Behavior |
@@ -179,7 +180,11 @@ The generic reader support complex query logic via URL parameters.
 | **JSONB** | `data,contains,key\|value\|type` | Deep-checks JSONB fields for keys or value matches. |
 | **Arrays** | `tags,overlap,tagA|tagB` | Matches if any elements overlap shared arrays. |
 
-### Extended Read Features (Joins & Aggregations)
+</details>
+
+<details>
+<summary>PostgreSQL: Joins & Aggregations</summary>
+
 These parameters allow for powerful data enrichment and relational fetching without writing custom SQL.
 
 | Parameter | Function | Example |
@@ -187,12 +192,12 @@ These parameters allow for powerful data enrichment and relational fetching with
 | **`creator_key`** | Injects metadata from the `users` table for the row's `created_by_id`. | `?creator_key=username,email` |
 | **`action_key`** | Performs a grouped subquery aggregation (count/sum/min/max) on a target table. | `?action_key=comments,post_id,count,id` |
 
-#### Using `creator_key`
+**Using `creator_key`**
 When you provide `creator_key`, the system automatically fetches the specified columns from the `users` table and prefixes them with `creator_` in the response.
 - **Query**: `/public/object-read?table=posts&creator_key=username,avatar`
 - **Result Object**: `{ "id": 1, "title": "Hello", ..., "creator_username": "atom", "creator_avatar": "url" }`
 
-#### Using `action_key`
+**Using `action_key`**
 The `action_key` is used for 1:N relationship summaries. The syntax is: `{target_table},{target_column},{operation},{source_id_column}`.
 - **Scenario**: You want to see how many comments each post has.
 - **Query**: `/public/object-read?table=posts&action_key=comments,post_id,count,id`
@@ -202,9 +207,8 @@ The `action_key` is used for 1:N relationship summaries. The syntax is: `{target
 </details>
 
 <details>
-<summary>Database: Redis</summary>
+<summary>Redis: Distributed State</summary>
 
-### Distributed State Management
 Use Redis for high-performance distributed caching and session state.
 
 | Data Store | Purpose | API / Pattern |
@@ -214,9 +218,8 @@ Use Redis for high-performance distributed caching and session state.
 </details>
 
 <details>
-<summary>Database: MongoDB</summary>
+<summary>MongoDB: Document Storage</summary>
 
-### Document Storage
 Use MongoDB for semi-structured document storage and complex JSON objects.
 
 | Data Store | Purpose | API / Pattern |
@@ -226,9 +229,8 @@ Use MongoDB for semi-structured document storage and complex JSON objects.
 </details>
 
 <details>
-<summary>Database: In-Memory</summary>
+<summary>In-Memory: Local State</summary>
 
-### Local State
 Use the built-in in-memory state for temporary, per-node storage.
 
 | Data Store | Purpose | API / Pattern |
@@ -238,9 +240,8 @@ Use the built-in in-memory state for temporary, per-node storage.
 </details>
 
 <details>
-<summary>Message Queues & Producers</summary>
+<summary>Queues: Async Task Dispatch</summary>
 
-### Async Task Dispatch
 Route high-frequency operations to background queues using a unified producer logic.
 
 | Protocol | Backend | Driver / Client |
@@ -253,9 +254,8 @@ Route high-frequency operations to background queues using a unified producer lo
 </details>
 
 <details>
-<summary>Admin Sync & Tools</summary>
+<summary>Admin: Operational Maintenance</summary>
 
-### Operational Maintenance
 The `/admin/sync` endpoint aligns application state with infrastructure.
 
 | Operation | Logic / Function | Behavior |
@@ -268,9 +268,8 @@ The `/admin/sync` endpoint aligns application state with infrastructure.
 </details>
 
 <details>
-<summary>Background Workers</summary>
+<summary>Workers: Consumer Infrastructure</summary>
 
-### Consumer Infrastructure
 Dedicated workers for processing long-running or distributed tasks.
 
 | Service | Worker Command | Core Logic |
@@ -283,9 +282,8 @@ Dedicated workers for processing long-running or distributed tasks.
 </details>
 
 <details>
-<summary>Frontend & Static Assets</summary>
+<summary>Assets: Content Delivery</summary>
 
-### Content Delivery
 Static and dynamic HTML files are served with recursive search and security checks.
 
 | Feature | Details | Logic |
@@ -297,9 +295,8 @@ Static and dynamic HTML files are served with recursive search and security chec
 </details>
 
 <details>
-<summary>API Controls & Config</summary>
+<summary>Switches: Global Flags</summary>
 
-### Global Switches
 Application-wide behaviors controlled by `config_is_` boolean flags.
 
 | Switch Name | Default | Execution Logic |
@@ -314,7 +311,6 @@ Application-wide behaviors controlled by `config_is_` boolean flags.
 <details>
 <summary>API Tester: Discovery</summary>
 
-### Automatic API Discovery
 The `api.html` dashboard is **fully dynamic**. There is no need to manually register new APIs in the frontend.
 - **Spec-Driven**: On every load, the app fetches the latest `openapi.json` from the backend.
 - **Zero Maintenance**: New routes added to `router.py` appear automatically with their respective parameters (Headers, Query, Form, Body) rendered based on the Pydantic schema.
@@ -325,15 +321,14 @@ The `api.html` dashboard is **fully dynamic**. There is no need to manually regi
 <details>
 <summary>API Tester: Parameter Lifecycle</summary>
 
-### Lifecycle of an API Parameter (PATH_DEFAULTS)
 The dashboard uses a deterministic, stateless multi-stage population logic to ensure the Bulk Tester always inherits the current UI state. Hardcoded overrides are managed via the `PATH_DEFAULTS` object in `api.html`.
 
-#### Automatic Mapping Logic (Two-Layer)
+**Automatic Mapping Logic (Two-Layer)**
 The dashboard uses a deterministic two-layer logic to map `PATH_DEFAULTS` to the active API runner state:
 - **Layer 1: Specification-First**: The system first checks the backend's OpenAPI spec. If a key (e.g., `table`) is explicitly defined as a **Header**, **Query**, **Path**, or **Form** parameter, the default value is mapped directly to that location.
 - **Layer 2: Body-Injection**: For `POST`/`PUT` requests related to `object-create`, `object-update`, `ids-delete`, or `signup`, the system performs a fail-safe check. Any key in `PATH_DEFAULTS` that is **not** found in the backend spec is automatically injected into the **JSON Body** to ensure a premium, zero-config testing experience.
 
-#### Configuration Samples
+**Configuration Samples**
 ```javascript
 const PATH_DEFAULTS = {
   // Auth: Static credentials for common test users
@@ -364,7 +359,6 @@ const PATH_DEFAULTS = {
 <details>
 <summary>API Tester: Operational Flow</summary>
 
-### Operational Flow
 - **Direct Sync**: Any edit made in the Manual Runner form is instantly synced to the global `COMMANDS` array.
 - **Pure Execution**: The Bulk Tester is a "dumb" runner; it does not generate values but strictly mirrors what is currently in the `COMMANDS` state.
 - **Statelessness**: The system is designed to be purely deterministic per-session—if you want to change a test value, edit it in the Manual Runner first.
