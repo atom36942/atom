@@ -462,8 +462,8 @@ const SCENARIOS = [
     {
         id: 'public-object-create-bg',
         group: 'Public',
-        name: 'Public Object Create (Background)',
-        desc: 'Creates a public object with is_background=1 query parameter to run the task asynchronously.',
+        name: 'Background Create',
+        desc: 'Add API in the background',
         path: '/public/object-create',
         method: 'POST',
         params: { is_background: '1' },
@@ -1076,7 +1076,7 @@ const renderScenarios = (searchQuery = '') => {
         <td class="col-id">${idx + 1}</td>
         <td class="col-method"><span class="method-badge ${s.method.toLowerCase()}">${s.method}</span></td>
         <td class="col-path" title="${s.path}">${s.path}</td>
-        <td style="color:var(--muted);font-size:12px">${s.name}</td>
+        <td style="color:var(--muted);font-size:12px">${s.desc}</td>
         <td class="col-run">
             <button class="icon-btn scenario-run-btn" data-id="${s.id}" title="Run" style="color:var(--primary);margin:0 auto">${ICON.play(16)}</button>
         </td>

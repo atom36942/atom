@@ -99,27 +99,10 @@ docker run --rm -p 8000:8000 atom
 | `config_postgres` | `postgresql://user:pass@host/db` |
 | `config_redis_url` | `redis://localhost:6379` |
 | `config_rabbitmq_url` | `amqp://guest:guest@localhost:5672` |
+| `config_mongodb_uri` | `mongodb://localhost:27017` |
 
 </div>
 </details>
-
-
-<details>
-<summary>PostgreSQL: Database Initialization</summary>
-<div style="padding-top: 10px;">
-
-The schema and initial data are managed through an automated startup sequence and dedicated administrative endpoints.
-
-| Feature | Logic Source | Behavior |
-| :--- | :--- | :--- |
-| **Lifecycle Init** | `Lifespan` | Runs `func_postgres_init` on startup. |
-| **System Sync** | `/admin/sync` | Full system refresh: DB, schema, and cleaning. |
-
-
-</div>
-</details>
-
-
 
 <details>
 <summary>Repository Map</summary>
@@ -143,6 +126,7 @@ The schema and initial data are managed through an automated startup sequence an
 </div>
 </details>
 
+
 <details>
 <summary>Service Integrations</summary>
 <div style="padding-top: 10px;">
@@ -161,6 +145,7 @@ The framework provides pre-configured async clients for a wide range of producti
 
 </div>
 </details>
+
 
 <details>
 <summary>Middleware Pipeline</summary>
@@ -231,10 +216,6 @@ Authorized user context and global clients are injected into every request.
 </div>
 </details>
 
-
-
-
-
 <details>
 <summary>FAQ</summary>
 <div style="padding-top: 10px;">
@@ -244,6 +225,8 @@ Authorized user context and global clients are injected into every request.
 | **API Master** | Interactive tester at `static/api.html` or `/page-api`. |
 | **How to serve static content?** | Served via the `static/` directory prefix. |
 | **How to serve dynamic pages?** | Served via `/page-{name}` (e.g. `/page-login`). |
+| **Lifecycle Init** | Runs `func_postgres_init` on startup. |
+| **Manual Init** | Full system refresh via `/admin/sync` API. |
 
 </div>
 </details>

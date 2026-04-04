@@ -15,7 +15,7 @@ async def func_lifespan(app:FastAPI):
    client_postgres_pool=await func_postgres_client_read({"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection}) if config_postgres_url else None
    client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
    client_redis_ratelimiter=await func_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
-   client_mongodb=func_mongodb_client_read(config_mongodb_url) if config_mongodb_url else None
+   client_mongodb=func_mongodb_client_read(config_mongodb_uri) if config_mongodb_uri else None
    client_s3,client_s3_resource=(await func_s3_client_read({"aws_access_key_id":config_aws_access_key_id,"aws_secret_access_key":config_aws_secret_access_key,"region_name":config_s3_region_name})) if config_s3_region_name else (None, None)
    client_sns=func_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
    client_ses=func_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
