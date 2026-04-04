@@ -105,8 +105,25 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 
+
 <details>
-<summary>Middleware Pipeline</summary>
+<summary>Consumers</summary>
+<div style="padding-top: 10px;">
+
+| Protocol | Backend | Driver | Run Consumer |
+| :--- | :--- | :--- | :--- |
+| **Celery** | Redis | `func_celery_producer` | `python consumer.py celery` |
+| **Kafka** | Event Stream | `func_kafka_producer` | `python consumer.py kafka` |
+| **RabbitMQ** | AMQP | `func_rabbitmq_producer` | `python consumer.py rabbitmq` |
+| **Redis** | Pub/Sub | `func_redis_producer` | `python consumer.py redis` |
+
+
+</div>
+</details>
+
+
+<details>
+<summary>Middleware</summary>
 <div style="padding-top: 10px;">
 
 Every incoming request passes through a strictly ordered validation and processing sequence.
@@ -138,23 +155,6 @@ Path-based security is enforced automatically by the unified middleware pipeline
 | `/my/` | **Protected** | Requires valid Bearer token. |
 | `/private/` | **Protected** | Requires valid Bearer token. |
 | `/admin/` | **Role-Based** | Requires token and admin role. |
-
-
-</div>
-</details>
-
-
-
-<details>
-<summary>Queues & Consumer Workers</summary>
-<div style="padding-top: 10px;">
-
-| Protocol | Backend | Driver | Run Consumer |
-| :--- | :--- | :--- | :--- |
-| **Celery** | Redis | `func_celery_producer` | `python consumer.py celery` |
-| **Kafka** | Event Stream | `func_kafka_producer` | `python consumer.py kafka` |
-| **RabbitMQ** | AMQP | `func_rabbitmq_producer` | `python consumer.py rabbitmq` |
-| **Redis** | Pub/Sub | `func_redis_producer` | `python consumer.py redis` |
 
 
 </div>

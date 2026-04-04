@@ -468,6 +468,17 @@ const SCENARIOS = [
         method: 'POST',
         params: { is_background: '1' },
         param_type: 'query'
+    },
+    {
+        id: 'admin-object-create-bulk',
+        group: 'Admin',
+        name: 'Bulk Creation',
+        desc: "Create bulk object. Run API in background.",
+        path: '/admin/object-create',
+        method: 'POST',
+        params: { obj_list: '[{}, {}, {}, {}, {}, {}, {}, {}, {}, {}]' },
+        params_types: { obj_list: 'list' },
+        param_type: 'json'
     }
 ];
 
@@ -1115,8 +1126,9 @@ const runScenario = (id) => {
                     existing.querySelector('.row-val').value = v;
                     existing.querySelector('.row-val').dispatchEvent(new Event('input', { bubbles: true }));
                 } else {
+                    const pType = (s.params_types && s.params_types[k]) || 'string';
                     $(s.param_type === 'query' ? 'qSec' : (s.param_type === 'json' ? 'jSec' : 'fSec')).classList.add('active');
-                    mkRow(cont, k, v, 'string', null, false, false);
+                    mkRow(cont, k, v, pType, null, false, false);
                 }
             }
         });
