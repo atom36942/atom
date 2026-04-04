@@ -356,6 +356,14 @@
         .ai-feed::-webkit-scrollbar { width: 4px; }
         .ai-feed::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
 
+        .scenario-item.active { 
+            background: rgba(45, 140, 240, 0.15); 
+            border-left-color: var(--accent-cyan); 
+            border-right: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-sm);
+        }
+        .scenario-item { cursor: pointer; transition: all 0.2s; }
+
         /* Charts */
         .chart-visual { 
             height: 180px; 
@@ -633,19 +641,19 @@
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
                     <div style="display: flex; flex-direction: column; gap: 0.8rem;">
-                        <div class="feed-item" style="cursor: pointer;" onclick="runPlanner('cfs_jam')">
+                        <div class="feed-item scenario-item" id="btn-cfs_jam" onclick="runPlanner('cfs_jam')">
                             <div class="feed-meta"><span>SCENARIO</span><span>HIGH</span></div>
                             <div class="feed-content">CFS Colombo queue > 48 hrs</div>
                         </div>
-                        <div class="feed-item" style="cursor: pointer;" onclick="runPlanner('red_sea')">
+                        <div class="feed-item scenario-item" id="btn-red_sea" onclick="runPlanner('red_sea')">
                             <div class="feed-meta"><span>SCENARIO</span><span>CRITICAL</span></div>
                             <div class="feed-content">Red Sea Reroute (Cape of Good Hope)</div>
                         </div>
-                        <div class="feed-item" style="cursor: pointer;" onclick="runPlanner('valencia_strike')">
+                        <div class="feed-item scenario-item" id="btn-valencia_strike" onclick="runPlanner('valencia_strike')">
                             <div class="feed-meta"><span>SCENARIO</span><span>MEDIUM</span></div>
                             <div class="feed-content">Valencia Port Strike Reroute</div>
                         </div>
-                        <div class="feed-item" style="cursor: pointer;" onclick="runPlanner('early_factory')">
+                        <div class="feed-item scenario-item" id="btn-early_factory" onclick="runPlanner('early_factory')">
                             <div class="feed-meta"><span>SCENARIO</span><span>PROACTIVE</span></div>
                             <div class="feed-content">Factory Early Dispatch (D-3)</div>
                         </div>
@@ -840,10 +848,16 @@
         document.getElementById('plannerSavings').innerText = s.savings;
         document.getElementById('plannerRec').innerText = s.rec;
         document.getElementById('liveAgentMsg').innerText = `"Simulation Run: ${s.title}. Protective strategy deployed."`;
+        
+        // Visual indicator
+        document.querySelectorAll('.scenario-item').forEach(item => item.classList.remove('active'));
+        const activeBtn = document.getElementById(`btn-${key}`);
+        if (activeBtn) activeBtn.classList.add('active');
     }
 
     // Initialize
     document.body.style.overflow = 'hidden';
+    runPlanner('red_sea');
 </script>
 
 </body>
