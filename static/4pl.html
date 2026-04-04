@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inditex Buyer Portal | MGH 4PL Control Tower</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #060a14;
+            --bg-card: rgba(16, 24, 40, 0.7);
+            --accent-cyan: #00f2ff;
+            --accent-blue: #2d8cf0;
+            --text-primary: #f0f4f8;
+            --text-dim: #94a3b8;
+            --success: #00ff88;
+            --warning: #ffb700;
+            --danger: #ff4d4d;
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glow-cyan: 0 0 15px rgba(0, 242, 255, 0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-primary);
+            overflow: hidden;
+            line-height: 1.6;
+        }
+
+        /* Login Screen */
+        #loginPage {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: url('/Users/atom/.gemini/antigravity/brain/61f86aed-e4e9-4506-87ff-ac75ebda8398/inditex_login_bg_1775285139503.png') center/cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.8s ease-out, visibility 0.8s;
+        }
+        #loginPage::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(6, 10, 20, 0.85);
+            backdrop-filter: blur(5px);
+        }
+        .login-card {
+            position: relative;
+            z-index: 1;
+            background: rgba(16, 24, 40, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            animation: cardIn 1s cubic-bezier(0.2, 0, 0.2, 1);
+        }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        .inditex-logo {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+        .portal-label {
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 2.5rem;
+            display: block;
+        }
+
+        .input-group { text-align: left; margin-bottom: 1.5rem; }
+        .input-group label { display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; }
+        .input-group input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px;
+            color: #fff;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus { border-color: var(--accent-cyan); }
+
+        .login-btn {
+            width: 100%;
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 1rem;
+        }
+        .login-btn:hover { background: var(--accent-cyan); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0, 242, 255, 0.3); }
+
+        /* Dashboard Container */
+        .dashboard-container {
+            height: 100vh;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(45, 140, 240, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 242, 255, 0.1) 0%, transparent 50%);
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: 260px 1fr 320px;
+            gap: 1.5rem;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.8s ease-in;
+        }
+        .dashboard-container.visible { visibility: visible; opacity: 1; }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column; gap: 2rem;
+        }
+
+        .mgh-brand {
+            font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.6rem; letter-spacing: -0.5px;
+            color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; padding-left: 0.5rem;
+        }
+        .mgh-brand span { color: var(--accent-cyan); }
+        .mgh-brand .badge { font-size: 0.6rem; background: var(--accent-cyan); color: var(--bg-deep); padding: 2px 6px; border-radius: 4px; vertical-align: middle; }
+
+        .nav-menu { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+        .nav-item {
+            padding: 12px 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s;
+            color: var(--text-dim); display: flex; align-items: center; gap: 12px; font-size: 0.85rem; font-weight: 500;
+        }
+        .nav-item.active { background: rgba(45, 140, 240, 0.1); color: var(--accent-cyan); border-left: 3px solid var(--accent-cyan); }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
+
+        /* Main Content */
+        .main-content { overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; padding-right: 8px; }
+        .main-content::-webkit-scrollbar { width: 4px; }
+        .main-content::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+
+        .tab-content { display: none; flex-direction: column; gap: 1.5rem; animation: slideUp 0.3s ease-out; }
+        .tab-content.active { display: flex; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; position: sticky; top: 0; background: transparent; z-index: 10; }
+        .vision-title h1 { font-family: 'Outfit', sans-serif; font-size: 1.8rem; margin-bottom: 0.2rem; }
+        .vision-title p { color: var(--text-dim); font-size: 0.85rem; }
+
+        .glass-card { background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 1.5rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; }
+        .section-header h2 { font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+
+        /* KPI Grid */
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+        .kpi-card { padding: 1.2rem; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 16px; transition: transform 0.3s; }
+        .kpi-card:hover { transform: translateY(-3px); background: rgba(255, 255, 255, 0.05); }
+        .kpi-value { font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; margin-bottom: 4px; }
+        .kpi-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* D-Day Tracker */
+        .d-day-timeline { 
+            display: flex; 
+            justify-content: space-between; 
+            position: relative; 
+            margin-top: 3rem; 
+            padding: 0 10px 2rem 10px; 
+            min-height: 100px;
+        }
+        .d-day-timeline::before { 
+            content: ''; 
+            position: absolute; 
+            top: 21px; 
+            left: 0; 
+            right: 0; 
+            height: 4px; 
+            background: rgba(255, 255, 255, 0.05); 
+            z-index: 0; 
+            border-radius: 10px;
+        }
+        .timeline-progress { 
+            position: absolute; 
+            top: 21px; 
+            left: 0; 
+            height: 4px; 
+            background: linear-gradient(90deg, var(--success), var(--accent-cyan)); 
+            z-index: 1; 
+            width: 35%; 
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); 
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+        }
+        .milestone { 
+            position: relative; 
+            z-index: 2; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            width: 80px;
+        }
+        .milestone-dot { 
+            width: 44px; 
+            height: 44px; 
+            background: var(--bg-deep); 
+            border: 2px solid var(--glass-border); 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin-bottom: 1rem; 
+            transition: all 0.4s; 
+            font-size: 0.85rem; 
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .milestone.active .milestone-dot { 
+            border-color: var(--accent-cyan); 
+            box-shadow: var(--glow-cyan); 
+            color: var(--accent-cyan);
+            transform: scale(1.1);
+        }
+        .milestone.completed .milestone-dot { 
+            border-color: var(--success); 
+            color: var(--success); 
+            background: rgba(0, 255, 136, 0.05);
+        }
+        .milestone-label { 
+            font-size: 0.6rem; 
+            font-weight: 700; 
+            color: var(--text-dim); 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            margin-bottom: 4px;
+        }
+        .milestone-day { 
+            font-size: 0.75rem; 
+            font-weight: 800; 
+            color: var(--text-primary);
+        }
+
+        /* Charts */
+        .chart-box { margin-bottom: 2rem; }
+        .chart-visual { height: 180px; display: flex; align-items: flex-end; gap: 1.5rem; padding: 1rem 0; border-bottom: 1px solid var(--glass-border); position: relative; margin-top: 1rem; }
+        .bar { flex: 1; background: var(--accent-blue); border-radius: 6px 6px 0 0; position: relative; min-width: 30px; transition: height 1s; }
+        .bar:hover { filter: brightness(1.2); }
+        .bar-label { position: absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 0.65rem; color: var(--text-dim); width: 100%; text-align: center; white-space: nowrap; }
+        .bar-value { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 0.7rem; font-weight: 700; color: var(--text-primary); }
+
+        .transit-distribution { display: flex; gap: 10px; height: 30px; background: rgba(255,255,255,0.05); border-radius: 100px; overflow: hidden; margin-top: 1rem; }
+        .transit-part { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 800; color: #000; }
+
+        /* Shipment Visibility */
+        .data-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .data-table th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); padding: 12px; border-bottom: 1px solid var(--glass-border); font-weight: 600; }
+        .data-table td { padding: 12px; font-size: 0.8rem; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
+        .data-table tr:hover { background: rgba(255, 255, 255, 0.02); }
+        .status-badge { padding: 4px 10px; border-radius: 100px; font-size: 0.7rem; font-weight: 700; display: inline-block; }
+        .status-on-time { background: rgba(0, 255, 136, 0.1); color: var(--success); }
+        .status-delayed { background: rgba(255, 77, 77, 0.1); color: var(--danger); }
+        .status-warning { background: rgba(255, 183, 0, 0.1); color: var(--warning); }
+
+        /* Right Panel */
+        .right-panel { display: flex; flex-direction: column; gap: 1.5rem; }
+        .ai-agent-card { background: linear-gradient(135deg, rgba(45, 140, 240, 0.1), rgba(0, 242, 255, 0.05)); border: 1px solid rgba(0, 242, 255, 0.2); }
+        .ai-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(45deg, var(--accent-blue), var(--accent-cyan)); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--bg-deep); margin-bottom: 1rem; }
+        .ai-message { background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 12px; border-left: 3px solid var(--accent-cyan); font-size: 0.8rem; margin-bottom: 1rem; }
+        
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(0, 242, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0); } }
+
+        .shave-off-counter { font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800; color: var(--success); border-left: 4px solid var(--success); padding-left: 1rem; margin: 1rem 0; }
+        
+        .hub-stat { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginPage">
+    <div class="login-card">
+        <h1 class="inditex-logo">INDITEX</h1>
+        <span class="portal-label">Buyer Advisory Portal</span>
+        
+        <div class="input-group">
+            <label>Buyer Identifier</label>
+            <input type="text" value="inditex.global" readonly>
+        </div>
+        <div class="input-group">
+            <label>Access Token</label>
+            <input type="password" value="********" readonly>
+        </div>
+        
+        <button class="login-btn" onclick="login()">Enter Control Tower</button>
+        
+        <p style="font-size: 0.65rem; color: var(--text-dim); margin-top: 1.5rem;">Secure 4PL Gateway | MGH Group Intelligence</p>
+    </div>
+</div>
+
+<div class="dashboard-container" id="dashboard">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="mgh-brand">MGH <span>4PL</span> <span class="badge">VISION</span></div>
+        
+        <nav class="nav-menu">
+            <li class="nav-item active" data-tab="overview">● Buyer Overview</li>
+            <li class="nav-item" data-tab="visibility">○ Inditex PO Visibility</li>
+            <li class="nav-item" data-tab="planner">○ Strategy Simulator</li>
+            <li class="nav-item" data-tab="ai-feed">○ Intel Activity</li>
+            <li class="nav-item" data-tab="analytics">○ Performance Matrix</li>
+        </nav>
+
+        <div style="margin-top: auto;">
+            <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 15px; border: 1px solid var(--glass-border);">
+                <p style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 8px;">MGH AI CORE</p>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="ai-avatar" style="width: 32px; height: 32px; margin-bottom: 0; font-size: 0.7rem;">AI</div>
+                    <div>
+                        <h3 style="font-size: 0.8rem; font-weight: 700;">KAM AGENTIC</h3>
+                        <p style="font-size: 0.6rem; color: var(--text-dim);">Live Intelligence</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Controller -->
+    <main class="main-content">
+        <!-- Dashboard Header -->
+        <header class="header-section">
+            <div class="vision-title">
+                <h1 id="tabTitle">Inditex Buyer Portal</h1>
+                <p id="tabSub">MGH 4PL Control Tower | Unified Supply Chain Advocacy</p>
+            </div>
+            <div class="glass-card" style="padding: 0.5rem 1rem; border-radius: 100px; display: flex; align-items: center; gap: 12px;">
+                <span style="color: var(--success); font-size: 0.65rem; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                    <span style="width: 8px; height: 8px; background: var(--success); border-radius: 50%;" class="pulse"></span>
+                    SECURE CONNECTION
+                </span>
+            </div>
+        </header>
+
+        <!-- OVERVIEW TAB -->
+        <section id="tab-overview" class="tab-content active">
+            <!-- New KPI Grid -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-value">142</div>
+                    <div class="kpi-label">Active Inditex POs</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-value" style="color: var(--success);">96h</div>
+                    <div class="kpi-label">Avg. D-Day Saving</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-value" style="color: var(--accent-cyan);">94.2%</div>
+                    <div class="kpi-label">SLA Compliance</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-value" style="color: var(--warning);">HIGH</div>
+                    <div class="kpi-label">Risk Multiplier</div>
+                </div>
+            </div>
+
+            <!-- Existing Tracker Card -->
+            <div class="glass-card">
+                <div class="section-header">
+                    <h2><span style="color: var(--accent-cyan);">D-DAY</span> TRACKER Matrix</h2>
+                </div>
+                <div class="d-day-timeline">
+                    <div class="timeline-progress"></div>
+                    <div class="milestone completed">
+                        <div class="milestone-dot">✓</div>
+                        <div class="milestone-label">Factory QC</div>
+                        <div class="milestone-day">D0</div>
+                    </div>
+                    <div class="milestone completed">
+                        <div class="milestone-dot">✓</div>
+                        <div class="milestone-label">BOE Comp</div>
+                        <div class="milestone-day">D0</div>
+                    </div>
+                    <div class="milestone active">
+                        <div class="milestone-dot">T</div>
+                        <div class="milestone-label">Trucking</div>
+                        <div class="milestone-day">D1</div>
+                    </div>
+                    <div class="milestone">
+                        <div class="milestone-dot">2</div>
+                        <div class="milestone-label">CFS Arrival</div>
+                        <div class="milestone-day">D2</div>
+                    </div>
+                    <div class="milestone">
+                        <div class="milestone-dot">4</div>
+                        <div class="milestone-label">SOB FV</div>
+                        <div class="milestone-day">D4</div>
+                    </div>
+                    <div class="milestone">
+                        <div class="milestone-dot">9</div>
+                        <div class="milestone-label">T/S Port</div>
+                        <div class="milestone-day">D9</div>
+                    </div>
+                    <div class="milestone">
+                        <div class="milestone-dot">42</div>
+                        <div class="milestone-label">POD Arrival</div>
+                        <div class="milestone-day">D42</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VISIBILITY TAB -->
+        <section id="tab-visibility" class="tab-content">
+            <div class="glass-card">
+                <div class="section-header">
+                    <h2>Inditex/Zara Core Supply Chain PoS</h2>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>PO ID</th><th>Carrier</th><th>Vessel Name</th><th>Last Known Hub</th><th>ETA POD</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>IND-00124</td><td>Maersk</td><td>Maersk Mc-Kinney</td><td>Colombo Hub</td><td>2026-04-18</td><td><span class="status-badge status-on-time">ON TRACK</span></td></tr>
+                        <tr><td>IND-00145</td><td>Hapag</td><td>Al Nefud</td><td>Colombo Hub</td><td>2026-04-15</td><td><span class="status-badge status-delayed">BOE PENDING</span></td></tr>
+                        <tr><td>ZARA-X221</td><td>Cosco</td><td>Cosco Scorpio</td><td>Colombo Hub</td><td>2026-04-20</td><td><span class="status-badge status-warning">BYPASS ENABLED</span></td></tr>
+                        <tr><td>IND-00201</td><td>Maersk</td><td>Marseille Maersk</td><td>Mundra</td><td>2026-04-24</td><td><span class="status-badge status-on-time">IN TRANSIT</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- PLANNER TAB -->
+        <section id="tab-planner" class="tab-content">
+            <div class="glass-card">
+                <div class="section-header">
+                    <h2>Strategy Simulator</h2>
+                    <p style="font-size: 0.7rem; color: var(--text-dim);">SELECT CRISIS TO RECALCULATE D-DAY IMPACT</p>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                        <div class="feed-item" style="cursor: pointer; opacity: 0.7;" onclick="runPlanner('cfs_jam')">
+                            <div class="feed-meta"><span>SCENARIO</span><span>PRIORITY: HIGH</span></div>
+                            <div class="feed-content">CFS Colombo queue > 48 hrs - Vessel cut-off missed</div>
+                        </div>
+                        <div class="feed-item" style="cursor: pointer; opacity: 0.7;" onclick="runPlanner('early_factory')">
+                            <div class="feed-meta"><span>SCENARIO</span><span>PRIORITY: LOW</span></div>
+                            <div class="feed-content">Factory dispatches Cargo 3 days EARLY (D-3)</div>
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); border-radius: 20px; padding: 1.5rem; border: 1px dashed var(--glass-border);">
+                        <h3 id="plannerTitle">Select a scenario</h3>
+                        <div class="shave-off-counter" id="plannerSavings">-</div>
+                        <p id="plannerRec" style="font-size: 0.85rem; font-weight: 600; color: var(--accent-cyan);"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI FEED TAB -->
+        <section id="tab-ai-feed" class="tab-content">
+            <div class="ai-feed">
+                <div class="feed-item">
+                    <div class="feed-meta"><span>KAM AGENT #721</span><span>02 MINS AGO</span></div>
+                    <div class="feed-content">Detected early dispatch for PO IND-00124. Re-booking for earlier Maersk connection. Potential D-Day saving: 48 hours.</div>
+                </div>
+                <div class="feed-item" style="border-left-color: var(--warning);">
+                    <div class="feed-meta"><span>SYSTEM ALERT</span><span>15 MINS AGO</span></div>
+                    <div class="feed-content">Colombo Hub reporting queue delay. Switching 4 containers for Inditex to Sea-Air Hybrid via DXB.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ANALYTICS TAB -->
+        <section id="tab-analytics" class="tab-content">
+            <div class="glass-card chart-box">
+                <div class="section-header">
+                    <h2>Carrier Reliability Matrix</h2>
+                    <p style="font-size: 0.7rem; color: var(--text-dim);">SLA COMPLIANCE BY CARRIER HUB TRANSIT</p>
+                </div>
+                <div class="chart-visual">
+                    <div class="bar" style="height: 94%;"><span class="bar-value">94%</span><span class="bar-label">Maersk</span></div>
+                    <div class="bar" style="height: 91%; background: var(--accent-cyan);"><span class="bar-value">91%</span><span class="bar-label">Hapag</span></div>
+                    <div class="bar" style="height: 78%; background: var(--warning);"><span class="bar-value">78%</span><span class="bar-label">COSCO</span></div>
+                    <div class="bar" style="height: 85%; background: var(--success);"><span class="bar-value">85%</span><span class="bar-label">CMA CGM</span></div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="glass-card">
+                    <h2>Transit Mode Distribution</h2>
+                    <div class="transit-distribution">
+                        <div class="transit-part" style="width: 70%; background: var(--accent-blue);">70% SEA</div>
+                        <div class="transit-part" style="width: 20%; background: var(--accent-cyan);">20% S-AIR</div>
+                        <div class="transit-part" style="width: 10%; background: var(--warning);">10% AIR</div>
+                    </div>
+                    <p style="font-size: 0.65rem; color: var(--text-dim); margin-top: 10px;">Inditex optimized: 30% Hybrid routing.</p>
+                </div>
+                <div class="glass-card">
+                    <h2>Regional Hub Latency</h2>
+                    <div class="hub-stat"><span>Colombo Hub</span><span style="color: var(--danger);">+42h</span></div>
+                    <div class="hub-stat"><span>Mundra Port</span><span style="color: var(--success);">+12h</span></div>
+                    <div class="hub-stat"><span>Rotterdam</span><span style="color: var(--success);">+24h</span></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Right Panel -->
+    <aside class="right-panel">
+        <div class="glass-card ai-agent-card">
+            <div class="ai-avatar">AI</div>
+            <h3>ADVISORY INTEL</h3>
+            <div class="ai-message" id="liveAgentMsg">
+                "Buyer Portal Active. Analyzing Inditex transshipment bottlenecks in Colombo Hub."
+            </div>
+            <div style="background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.2); border-radius: 12px; padding: 0.8rem;">
+                <p style="font-size: 0.6rem; color: var(--success); font-weight: 800;">LIVE ADVISORY</p>
+                <p id="activeRec" style="font-size: 0.75rem; font-weight: 600; margin-top: 4px;">Advise Inditex Logistics to activate Sea-Air (DXB) for PO IND-00145.</p>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h2>MGH Governance</h2>
+            <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
+                "Direct advocacy for destination consignees. All shipping options readily available."
+            </p>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // Login Controller
+    function login() {
+        const loginPage = document.getElementById('loginPage');
+        const dashboard = document.getElementById('dashboard');
+        
+        loginPage.style.opacity = '0';
+        setTimeout(() => {
+            loginPage.style.visibility = 'hidden';
+            dashboard.classList.add('visible');
+        }, 800);
+    }
+
+    // Tab Controller
+    const navItems = document.querySelectorAll('.nav-item[data-tab]');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const tabTitle = document.getElementById('tabTitle');
+
+    const tabMeta = {
+        'overview': { title: 'Inditex Buyer Portal' },
+        'visibility': { title: 'Inditex PO Visibility' },
+        'planner': { title: 'Strategy Simulator' },
+        'ai-feed': { title: 'Intel Activity' },
+        'analytics': { title: 'Performance Matrix' }
+    };
+
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const target = item.getAttribute('data-tab');
+            navItems.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === `tab-${target}`) content.classList.add('active');
+            });
+            tabTitle.innerText = tabMeta[target].title;
+        });
+    });
+
+    // Scenario Planner Logic
+    const scenarios = {
+        'cfs_jam': { title: 'CFS Jam Recovery', savings: '96 Hours', rec: 'SEA-AIR (DXB) BYPASS' },
+        'early_factory': { title: 'Proactive Shift', savings: '72 Hours', rec: 'RE-BOOK EARLIER VESSEL' }
+    };
+
+    function runPlanner(key) {
+        const s = scenarios[key];
+        document.getElementById('plannerTitle').innerText = s.title;
+        document.getElementById('plannerSavings').innerText = s.savings;
+        document.getElementById('plannerRec').innerText = s.rec;
+        document.getElementById('liveAgentMsg').innerText = `"Simulation Run: ${s.title}. Protective strategy deployed."`;
+    }
+</script>
+
+</body>
+</html>

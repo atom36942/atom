@@ -174,7 +174,7 @@ async def exception_handler(request:Request,exc:Exception):
 #api
 @app.get("/")
 async def api_health(request:Request):
-    return {"status":1,"message":"mgh_amazon_invoice_processor"}
+    return {"status":1,"message":"welcome to atom"}
 
 @app.get("/mgh/amazon-invoice-send")
 async def api_mgh_amazon_invoice_send(request:Request):

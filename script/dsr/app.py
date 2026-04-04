@@ -134,7 +134,7 @@ async def exception_handler(request: Request, exc: Exception):
 #api
 @app.get("/")
 async def api_health(request: Request):
-    return {"status": 1, "message": "dsr_email_processor_active"}
+    return {"status": 1, "message": "welcome to atom"}
 
 @app.post("/process")
 async def process_endpoint(file: UploadFile):

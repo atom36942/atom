@@ -80,5 +80,4 @@ create schema if not exists public;
 lsof -ti :8000 | xargs kill -9
 uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-'
 head -n 2 snp2.csv
-pgweb --url "postgresql://atom@127.0.0.1/tradelane?sslmode=disable"
 ```
