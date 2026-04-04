@@ -91,7 +91,7 @@ docker run --rm -p 8000:8000 atom
 </details>
 
 <details>
-<summary>Environment Variables</summary>
+<summary>Setup: Environment Variables</summary>
 <div style="padding-top: 10px;">
 
 Environment variables can be defined in a `.env` file at the root of the project or exported directly in your shell. The framework automatically detects and applies these configurations on startup.
@@ -295,62 +295,6 @@ The `api.html` dashboard is **fully dynamic** and automated. New routes added to
 | **Storage** | session manager for JWT and persistent UI state. |
 | **Overrides** | Preview of `PATH_OVERRIDES` for test scenarios. |
 
-
-</div>
-</details>
-
-
-
-<details>
-<summary>Package Management</summary>
-<div style="padding-top: 10px;">
-
-The Atom framework primarily utilizes `pip` with `venv`, but is fully compatible with modern dependency managers.
-
-<details>
-<summary>pip</summary>
-<div style="padding-top: 10px;">
-
-```bash
-./venv/bin/pip install fastapi
-./venv/bin/pip uninstall fastapi
-./venv/bin/pip install --upgrade fastapi
-./venv/bin/pip install -r requirements.txt
-./venv/bin/pip freeze > requirements.txt
-```
-
-</div>
-</details>
-
-<details>
-<summary>poetry</summary>
-<div style="padding-top: 10px;">
-
-```bash
-poetry add fastapi
-poetry remove fastapi
-poetry update fastapi
-poetry install
-poetry lock
-```
-
-</div>
-</details>
-
-<details>
-<summary>conda</summary>
-<div style="padding-top: 10px;">
-
-```bash
-conda install fastapi
-conda remove fastapi
-conda update fastapi
-conda env create -f environment.yml
-conda list --export > environment.yml
-```
-
-</div>
-</details>
 
 </div>
 </details>

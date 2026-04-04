@@ -12,13 +12,17 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 #index
 @router.get("/")
 async def func_api_index(request:Request):
-   st=request.app.state
-   output=st.func_repo_info(request.app.routes,st.cache_postgres_schema,st.config_postgres,st.config_table,st.config_api)
-   return {"status":1,"message":output}
+   return {"status":1,"message":"welcome to atom"}
 
 @router.get("/openapi.json")
 async def func_api_openapi_json(request:Request):
    return request.app.state.func_openapi_spec_generate(request.app.routes, request.app.state)
+
+@router.get("/info")
+async def func_api_index(request:Request):
+   st=request.app.state
+   output=st.func_repo_info(request.app.routes,st.cache_postgres_schema,st.config_postgres,st.config_table,st.config_api)
+   return {"status":1,"message":output}
 
 @router.get("/page-{name}")
 async def func_api_page_serve(request:Request,name:str):

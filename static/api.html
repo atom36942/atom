@@ -170,11 +170,11 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     <div class="tag-card">
         <div class="tag-card-header" onclick="toggleTagCard()">
             <span class="tag-card-title">Path Filters</span>
-            <span class="tag-toggle-icon" id="tagToggleIcon">
+            <span class="tag-toggle-icon collapsed" id="tagToggleIcon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </span>
         </div>
-        <div id="apiInfoTags" class="tag-card-body"></div>
+        <div id="apiInfoTags" class="tag-card-body collapsed"></div>
     </div>
     <div class="card" style="margin-top:0;padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
         <div class="resp-tbl-wrap" style="max-height:600px;overflow-x:hidden">
@@ -206,7 +206,8 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
         <div id="storageContent" style="max-height:60vh;overflow-y:auto"></div>
     </div>
 </div>
-
+<div id="overridesPane" class="tab-pane">
+    <div style="margin-bottom:12px;position:relative;display:flex;align-items:center"><input type="text" id="overridesSearch" placeholder="Search..." style="padding:10px 40px 10px 16px;font-size:14px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.08);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="overridesSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
     <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
         <div id="overridesContent" style="max-height:60vh;overflow-y:auto"></div>
     </div>
