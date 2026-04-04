@@ -126,7 +126,7 @@ Every incoming request passes through a strictly ordered validation and processi
 </details>
 
 <details>
-<summary>Security: API Roles</summary>
+<summary>API Roles</summary>
 <div style="padding-top: 10px;">
 
 Path-based security is enforced automatically by the unified middleware pipeline.
@@ -143,20 +143,6 @@ Path-based security is enforced automatically by the unified middleware pipeline
 </div>
 </details>
 
-<details>
-<summary>Security: User State Injection</summary>
-<div style="padding-top: 10px;">
-
-Authorized user context and global clients are injected into every request.
-
-| Variable | Key Source | Properties |
-| :--- | :--- | :--- |
-| **`request.state.user`** | JWT Decoder | `id`, `type`, `role`, `is_active` |
-| **`request.app.state`** | Lifespan Hooks | All `client_` and `config_` singletons. |
-
-
-</div>
-</details>
 
 
 <details>
@@ -181,10 +167,12 @@ Authorized user context and global clients are injected into every request.
 | What | Description/Remark |
 | :--- | :--- |
 | **API Master** | Interactive tester at `static/api.html` or `/page-api`. |
-| **How to serve static content?** | Served via the `static/` directory prefix. |
-| **How to serve dynamic pages?** | Served via `/page-{name}` (e.g. `/page-login`). |
-| **Lifecycle Init** | Runs `func_postgres_init` on startup. |
-| **Manual Init** | Full system refresh via `/admin/sync` API. |
+| **Serve static content** | Served via the `static/` directory prefix. |
+| **Serve html pages** | Served via `/page-{name}` (e.g. `/page-login`). |
+| **Database Lifecycle Init** | Runs `func_postgres_init` on startup. |
+| **Database Manual Init** | Full system refresh via `/admin/sync` API. |
+| **Access App State** | Global clients and config singletons via `request.app.state`. |
+| **Access Request User State** | Authorized user context (id, role, etc.) via `request.state.user`. |
 
 </div>
 </details>
