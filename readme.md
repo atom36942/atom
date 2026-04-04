@@ -119,45 +119,26 @@ The schema and initial data are managed through an automated startup sequence an
 </div>
 </details>
 
-<details>
-<summary>Administrative Control: System Management</summary>
-<div style="padding-top: 10px;">
 
-A suite of protected endpoints under the `/admin/` prefix provides direct control over the database, cache, and cloud infrastructure.
-
-| Endpoint | Responsibility | Behavior |
-| :--- | :--- | :--- |
-| **`/admin/postgres-runner`** | Raw Execution | Executes arbitrary SQL directly on the pool. |
-| **`/admin/postgres-export`** | Portability | Streams SQL results to downloadable CSV. |
-| **`/admin/postgres-import`** | Bulk Ingestion | High-speed CSV ingestion for CRUD ops. |
-| **`/admin/sync`** | System Refresh | Syncs schema, caches, and persistent buffers. |
-| **`/admin/object-read/update`**| Master CRUD | Unrestricted table access (no creator filters). |
-| **`/admin/s3-bucket-ops`** | Cloud Infra | Direct bucket creation and permission control. |
-
-
-> [!IMPORTANT]
-> Access to the `/admin/` prefix is strictly restricted to users with `role=1`. This is enforced by the centralized middleware pipeline and cannot be bypassed.
-
-</div>
-</details>
 
 <details>
 <summary>Repository Map</summary>
 <div style="padding-top: 10px;">
 
-A high-level overview of the project architecture and file responsibilities.
-
-| Path | Service | Responsibility |
-| :--- | :--- | :--- |
-| `main.py` | **Entry** | App initialization and middleware handling. |
-| `router.py` | **API** | Endpoint mapping and role assignments. |
-| `function.py` | **Core** | Functional logic and database drivers. |
-| `config.py` | **Settings** | Global settings and schema definitions. |
-| `consumer.py` | **Workers** | Background task processing (Celery, Kafka). |
-| `static/` | **Assets** | Frontend files and documentation pages. |
-| `readme.md` | **Docs** | Project documentation and developer reference. |
-| `AGENTS.md`| **Rules** | AI behavior standards and dev protocols. |
-
+| Path | Service |
+| :--- | :--- |
+| `main.py` | **Entry** |
+| `router.py` | **API** |
+| `function.py` | **Core** |
+| `config.py` | **Settings** |
+| `consumer.py` | **Workers** |
+| `static/` | **Assets** |
+| `script/` | **Shell** |
+| `requirements.txt` | **Configs** |
+| `Dockerfile` | **Infra** |
+| `.gitignore` | **Git** |
+| `readme.md` | **Docs** |
+| `AGENTS.md` | **Rules** |
 
 </div>
 </details>
@@ -277,6 +258,17 @@ The `api.html` dashboard is **fully dynamic** and automated. New routes added to
 | **Storage** | session manager for JWT and persistent UI state. |
 | **Overrides** | Preview of `PATH_OVERRIDES` for test scenarios. |
 
+
+</div>
+</details>
+
+<details>
+<summary>FAQ</summary>
+<div style="padding-top: 10px;">
+
+| What | Description/Remark |
+| :--- | :--- |
+| **API Collection** | `static/api.html` or `page-api` |
 
 </div>
 </details>
