@@ -2,17 +2,15 @@
 <summary>About</summary>
 <div style="padding-top: 10px;">
 
-<div style="overflow-x: auto;">
-| Core&nbsp;Principle | Description |
+| Core Principle | Description |
 | :--- | :--- |
-| **Speed** | Open-source backend framework to speed up large-scale application development. |
-| **Architecture** | Modular architecture combining functional and procedural styles. |
-| **Reliability** | Pure functions used to minimize side effects and improve testability. |
-| **Production** | Ready to build APIs, background jobs, and integrations quickly. |
-| **Efficiency** | Minimal boilerplate so you don’t have to reinvent the wheel each time. |
-| **Flexibility** | Non-opinionated and fully flexible to extend. |
-| **Tech Stack** | Python, FastAPI, Postgres, Redis, S3, Celery, RabbitMQ, Kafka, Sentry. |
-</div>
+| **Speed** | Open-source backend for rapid large-scale development. |
+| **Architecture** | Modular setup combining functional and procedural styles. |
+| **Reliability** | Pure functions to minimize side effects and improve testing. |
+| **Production** | Rapidly build APIs, background jobs, and integrations. |
+| **Efficiency** | Minimal boilerplate to avoid reinventing the wheel. |
+| **Flexibility** | Non-opinionated and fully extensible framework. |
+| **Tech Stack** | FastAPI, Postgres, Redis, RabbitMQ, Kafka, Celery, S3. |
 
 </div>
 </details>
@@ -98,38 +96,26 @@ docker run --rm -p 8000:8000 atom
 
 Environment variables can be defined in a `.env` file at the root of the project or exported directly in your shell. The framework automatically detects and applies these configurations on startup.
 
-<div style="overflow-x: auto;">
-| Category | Environment&nbsp;Variable | Type | Sample Value |
+| Category | Environment Variable | Type | Sample Value |
 | :--- | :--- | :--- | :--- |
-| **PostgreSQL** | `config_postgres_url` | `str` | `postgresql://atom@127.0.0.1/postgres` |
+| **Postgres** | `config_postgres_url` | `str` | `postgresql://user:pass@host/db` |
 | | `config_postgres_min_connection` | `int` | `5` |
 | | `config_postgres_max_connection` | `int` | `20` |
-| **Redis&nbsp;/&nbsp;Cache** | `config_redis_url` | `str` | `redis://localhost:6379` |
-| | `config_redis_url_ratelimiter` | `str` | `redis://localhost:6379` |
+| **Redis** | `config_redis_url` | `str` | `redis://localhost:6379` |
 | | `config_redis_cache_ttl_sec` | `int` | `3600` |
 | **Queues** | `config_rabbitmq_url` | `str` | `amqp://guest:guest@localhost:5672` |
 | | `config_kafka_url` | `str` | `localhost:9092` |
-| | `config_celery_broker_url` | `str` | `-` |
-| | `config_celery_backend_url` | `str` | `-` |
 | **Security** | `config_token_secret_key` | `str` | `super-secret-key` |
 | | `config_token_expiry_sec` | `int` | `86400` |
-| | `config_cors_origin` | `list` | `["*"]` |
-| **AI&nbsp;Providers** | `config_openai_key` | `str` | `sk-proj-...` |
+| **AI** | `config_openai_key` | `str` | `sk-proj-...` |
 | | `config_gemini_key` | `str` | `AIzaSy...` |
 | **Cloud** | `config_aws_access_key_id` | `str` | `AKIA...` |
-| | `config_aws_secret_access_key` | `str` | `secret` |
 | | `config_s3_region_name` | `str` | `us-east-1` |
-| | `config_sftp_host` | `str` | `localhost` |
-| | `config_sftp_password` | `str` | `password` |
 | **Integrations** | `config_sentry_dsn` | `str` | `https://...@sentry.io/...` |
 | | `config_posthog_project_key` | `str` | `phc_...` |
-| | `config_gsheet_service_account_json_path` | `str` | `./creds.json` |
 | **Switches** | `config_is_signup` | `int` | `1` |
 | | `config_is_log_api` | `int` | `1` |
-| | `config_is_traceback` | `int` | `0` |
 | | `config_is_prometheus` | `int` | `1` |
-| | `config_is_reset_tmp` | `int` | `1` |
-</div>
 
 
 </div>
@@ -142,12 +128,10 @@ Environment variables can be defined in a `.env` file at the root of the project
 
 The schema and initial data are managed through an automated startup sequence and dedicated administrative endpoints.
 
-<div style="overflow-x: auto;">
-| Feature | Logic&nbsp;Source | Behavior |
+| Feature | Logic Source | Behavior |
 | :--- | :--- | :--- |
-| **Lifecycle&nbsp;Init** | `Lifespan`&nbsp;(main.py) | Triggers `func_postgres_init` on startup<br>if `config_is_postgres_init_startup=1`. |
-| **System&nbsp;Sync** | `/admin/sync` | Orchestrates a full system refresh:<br>DB init, schema caching, and cleaning. |
-</div>
+| **Lifecycle Init** | `Lifespan` | Runs `func_postgres_init` on startup. |
+| **System Sync** | `/admin/sync` | Full system refresh: DB, schema, and cleaning. |
 
 
 </div>
@@ -159,16 +143,14 @@ The schema and initial data are managed through an automated startup sequence an
 
 A suite of protected endpoints under the `/admin/` prefix provides direct control over the database, cache, and cloud infrastructure.
 
-<div style="overflow-x: auto;">
-| Command&nbsp;/&nbsp;Endpoint | Responsibility | Behavior |
+| Endpoint | Responsibility | Behavior |
 | :--- | :--- | :--- |
-| **`/admin/postgres-runner`** | Raw&nbsp;Execution | Executes arbitrary SQL queries (Read/Write mode)<br>directly on the Postgres pool. |
-| **`/admin/postgres-export`** | Data&nbsp;Portability | Streams any SQL query result as a<br>downloadable CSV file. |
-| **`/admin/postgres-import`** | Bulk&nbsp;Ingestion | Processes CSV uploads for high-speed<br>`create`, `update`, or `delete` operations. |
-| **`/admin/sync`** | System&nbsp;Refresh | Re-initializes schema, updates local caches,<br>and flushes persistent buffers. |
-| **`/admin/object-read/update`**| Master&nbsp;CRUD | Provides unrestricted access to all tables,<br>bypassing standard `creator_id` filters. |
-| **`/admin/s3-bucket-ops`** | Cloud&nbsp;Infra | Direct control over bucket creation, permission<br>toggles (public/private), and deletion. |
-</div>
+| **`/admin/postgres-runner`** | Raw Execution | Executes arbitrary SQL directly on the pool. |
+| **`/admin/postgres-export`** | Portability | Streams SQL results to downloadable CSV. |
+| **`/admin/postgres-import`** | Bulk Ingestion | High-speed CSV ingestion for CRUD ops. |
+| **`/admin/sync`** | System Refresh | Syncs schema, caches, and persistent buffers. |
+| **`/admin/object-read/update`**| Master CRUD | Unrestricted table access (no creator filters). |
+| **`/admin/s3-bucket-ops`** | Cloud Infra | Direct bucket creation and permission control. |
 
 
 > [!IMPORTANT]
@@ -183,22 +165,16 @@ A suite of protected endpoints under the `/admin/` prefix provides direct contro
 
 A high-level overview of the project architecture and file responsibilities.
 
-<div style="overflow-x: auto;">
 | Path | Service | Responsibility |
 | :--- | :--- | :--- |
-| `main.py` | **Entry** | Lifespan, Middleware, App&nbsp;Initialization. |
-| `router.py` | **API** | Definition of all endpoints and role&nbsp;assignments. |
-| `function.py` | **Core** | Primary functional logic and database&nbsp;drivers. |
-| `config.py` | **Settings** | Global configuration and schema&nbsp;definitions. |
-| `consumer.py` | **Workers** | Background task processing (Celery, Kafka,&nbsp;etc.). |
-| `static/` | **Assets** | Frontend files and documentation&nbsp;pages. |
-| `script/` | **Shell** | Administrative scripts and maintenance&nbsp;utilities. |
-| `requirements.txt`| **Deps** | Python package dependencies and environment&nbsp;requirements. |
-| `Dockerfile` | **Infra** | Containerization logic for reproducible&nbsp;deployments. |
-| `readme.md` | **Docs** | Primary project documentation and developer&nbsp;reference. |
-| `AGENTS.md`| **Rules** | Agentic AI behavior standards and development&nbsp;protocols. |
-| `.gitignore` | **Version** | Git tracking rules and repository exclusion&nbsp;settings. |
-</div>
+| `main.py` | **Entry** | App initialization and middleware handling. |
+| `router.py` | **API** | Endpoint mapping and role assignments. |
+| `function.py` | **Core** | Functional logic and database drivers. |
+| `config.py` | **Settings** | Global settings and schema definitions. |
+| `consumer.py` | **Workers** | Background task processing (Celery, Kafka). |
+| `static/` | **Assets** | Frontend files and documentation pages. |
+| `readme.md` | **Docs** | Project documentation and developer reference. |
+| `AGENTS.md`| **Rules** | AI behavior standards and dev protocols. |
 
 
 </div>
@@ -210,16 +186,14 @@ A high-level overview of the project architecture and file responsibilities.
 
 The framework provides pre-configured async clients for a wide range of production services.
 
-<div style="overflow-x: auto;">
-| Category | Service&nbsp;Integration | Client&nbsp;/&nbsp;Function&nbsp;Source |
+| Category | Service | Client / Source |
 | :--- | :--- | :--- |
-| **Databases** | PostgreSQL, Redis | `client_postgres_pool`, `client_redis` |
-| **AI&nbsp;/&nbsp;ML** | OpenAI, Google&nbsp;Gemini | `client_openai`, `client_gemini` |
-| **Cloud&nbsp;/&nbsp;S3** | Amazon S3, SNS, SES | `client_s3`, `client_sns`, `client_ses` |
-| **Messaging** | Celery, Kafka, RabbitMQ | `client_*_producer` |
+| **Databases** | Postgres, Redis | `client_postgres_pool`, `client_redis` |
+| **AI** | OpenAI, Gemini | `client_openai`, `client_gemini` |
+| **Cloud** | S3, SNS, SES | `client_s3`, `client_sns`, `client_ses` |
+| **Queues** | Celery, Kafka | `client_*_producer` |
 | **Analytics** | Posthog, Sentry | `client_posthog`, `func_app_add_sentry` |
-| **Utilities** | SFTP, GSheets, HTTP | `client_sftp`, `client_gsheet`, `client_http` |
-</div>
+| **Utils** | SFTP, GSheets | `client_sftp`, `client_gsheet` |
 
 
 </div>
@@ -231,17 +205,15 @@ The framework provides pre-configured async clients for a wide range of producti
 
 Every incoming request passes through a strictly ordered validation and processing sequence.
 
-<div style="overflow-x: auto;">
-| Order | Pipeline&nbsp;Stage | Behavior |
+| Order | Pipeline Stage | Behavior |
 | :--- | :--- | :--- |
-| **1** | **Authentication** | Decodes JWT and verifies identity<br>via `func_authenticate`. |
-| **2** | **Admin&nbsp;Check** | Ensures user has role `1`<br>for all `/admin/` paths. |
-| **3** | **Active&nbsp;Check** | Verifies `is_active=1` status<br>from Redis/Postgres cache. |
-| **4** | **Rate&nbsp;Limiting** | Enforces sliding window constraints<br>per IP or User ID. |
-| **5** | **Response&nbsp;Cache** | Returns pre-rendered Gzip/B64 responses<br>if valid TTL exists. |
-| **6** | **API&nbsp;Execution** | Processes the route-specific<br>functional logic. |
-| **7** | **API&nbsp;Logging** | Background log creation for<br>all non-GET requests. |
-</div>
+| **1** | **Authentication** | JWT decoding and identity verification. |
+| **2** | **Admin Check** | Enforces admin role for `/admin/` paths. |
+| **3** | **Active Check** | Checks `is_active=1` status from cache. |
+| **4** | **Rate Limiting** | Enforces IP/User sliding window constraints. |
+| **5** | **Response Cache** | Returns Gzip/B64 cache if TTL is valid. |
+| **6** | **API Execution** | Processes main functional logic. |
+| **7** | **API Logging** | Logs non-GET requests in background. |
 
 
 </div>
@@ -253,16 +225,13 @@ Every incoming request passes through a strictly ordered validation and processi
 
 Path-based security is enforced automatically by the unified middleware pipeline.
 
-<div style="overflow-x: auto;">
-| Prefix&nbsp;Path | Requirement | Behavior |
+| Prefix Path | Requirement | Behavior |
 | :--- | :--- | :--- |
-| `/auth/` | Public | Identity flows (login, signup, OTP). |
-| `/public/` | Public | General data access for non-registered users. |
-| `/` | Public | Root indices and documentation. |
-| `/my/` | **Protected** | Strictly requires a valid `Bearer` token. |
-| `/private/` | **Protected** | Strictly requires a valid `Bearer` token. |
-| `/admin/` | **Role-Based** | Requires token **AND** matching<br>role in `config_api`. |
-</div>
+| `/auth/` | Public | Auth flows (login, signup, OTP). |
+| `/public/` | Public | Data access for non-registered users. |
+| `/my/` | **Protected** | Requires valid Bearer token. |
+| `/private/` | **Protected** | Requires valid Bearer token. |
+| `/admin/` | **Role-Based** | Requires token and admin role. |
 
 
 </div>
@@ -274,12 +243,10 @@ Path-based security is enforced automatically by the unified middleware pipeline
 
 Authorized user context and global clients are injected into every request.
 
-<div style="overflow-x: auto;">
-| Variable | Key&nbsp;Source | Properties |
+| Variable | Key Source | Properties |
 | :--- | :--- | :--- |
 | **`request.state.user`** | JWT Decoder | `id`, `type`, `role`, `is_active` |
-| **`request.app.state`** | Lifespan Hooks | All `client_`, `config_`, and `func_` singletons. |
-</div>
+| **`request.app.state`** | Lifespan Hooks | All `client_` and `config_` singletons. |
 
 
 </div>
@@ -290,14 +257,12 @@ Authorized user context and global clients are injected into every request.
 <summary>Queues & Consumer Workers</summary>
 <div style="padding-top: 10px;">
 
-<div style="overflow-x: auto;">
-| Protocol | Backend | Driver&nbsp;/&nbsp;Client | Run&nbsp;Consumer&nbsp;Command |
+| Protocol | Backend | Driver | Run Consumer |
 | :--- | :--- | :--- | :--- |
-| **Celery** | Redis | `func_celery_producer` | `venv/bin/python consumer.py celery` |
-| **Kafka** | Event&nbsp;Stream | `func_kafka_producer` | `venv/bin/python consumer.py kafka` |
-| **RabbitMQ** | AMQP | `func_rabbitmq_producer` | `venv/bin/python consumer.py rabbitmq` |
-| **Redis** | Pub/Sub | `func_redis_producer` | `venv/bin/python consumer.py redis` |
-</div>
+| **Celery** | Redis | `func_celery_producer` | `python consumer.py celery` |
+| **Kafka** | Event Stream | `func_kafka_producer` | `python consumer.py kafka` |
+| **RabbitMQ** | AMQP | `func_rabbitmq_producer` | `python consumer.py rabbitmq` |
+| **Redis** | Pub/Sub | `func_redis_producer` | `python consumer.py redis` |
 
 
 </div>
@@ -307,12 +272,10 @@ Authorized user context and global clients are injected into every request.
 <summary>Assets: Content Delivery</summary>
 <div style="padding-top: 10px;">
 
-<div style="overflow-x: auto;">
 | Feature | Details | Logic |
 | :--- | :--- | :--- |
-| **Static** | `./static` | Served via the `/static/` URL prefix. |
-| **Dynamic** | `/page-{name}` | Recursive HTML search via `func_html_serve`. |
-</div>
+| **Static** | `./static` | Served via `/static/` prefix. |
+| **Dynamic** | `/page-{name}` | HTML search via `func_html_serve`. |
 
 
 </div>
@@ -324,15 +287,13 @@ Authorized user context and global clients are injected into every request.
 
 The `api.html` dashboard is **fully dynamic** and automated. New routes added to `router.py` appear automatically with their respective parameters rendered based on the Pydantic schema.
 
-<div style="overflow-x: auto;">
 | Tab | Description |
 | :--- | :--- |
-| **Master** | Central discovery hub: real-time search, tag-based<br>filtering, and interactive path list. |
-| **Test** | Bulk testing suite: selective execution,<br>live tracking, and latency metrics. |
-| **Analytics** | Visual insights: bar charts for roles, methods,<br>and detailed performance statistics. |
-| **Storage** | Session state: direct view and management of<br>JWT tokens and persistent UI selections. |
-| **Overrides** | Config preview: displays active `PATH_OVERRIDES`<br>for premium default testing scenarios. |
-</div>
+| **Master** | Central discovery hub with real-time search and filters. |
+| **Test** | Bulk testing suite with latency tracking and inspection. |
+| **Analytics** | Visual insights, role charts, and performance stats. |
+| **Storage** | session manager for JWT and persistent UI state. |
+| **Overrides** | Preview of `PATH_OVERRIDES` for test scenarios. |
 
 
 </div>

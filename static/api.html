@@ -162,6 +162,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     <button class="tab-btn" onclick="switchTab('analytics')" id="tab-analytics">Analytics</button>
     <button class="tab-btn" onclick="switchTab('storage')" id="tab-storage">Storage</button>
     <button class="tab-btn" onclick="switchTab('overrides')" id="tab-overrides">Overrides</button>
+    <button class="tab-btn" onclick="switchTab('scenarios')" id="tab-scenarios">Scenarios</button>
 </div>
 
 <div id="masterPane" class="tab-pane active">
@@ -206,10 +207,15 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     </div>
 </div>
 
-<div id="overridesPane" class="tab-pane">
-    <div style="margin-bottom:12px;position:relative;display:flex;align-items:center"><input type="text" id="overridesSearch" placeholder="Search..." style="padding:10px 40px 10px 16px;font-size:14px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.08);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="overridesSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
     <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
         <div id="overridesContent" style="max-height:60vh;overflow-y:auto"></div>
+    </div>
+</div>
+
+<div id="scenariosPane" class="tab-pane">
+    <div style="margin-bottom:12px;position:relative;display:flex;align-items:center"><input type="text" id="scenariosSearch" placeholder="Search..." style="padding:10px 40px 10px 16px;font-size:14px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.08);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="scenariosSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
+    <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
+        <div id="scenariosContent" style="max-height:60vh;overflow-y:auto"></div>
     </div>
 </div>
 
@@ -374,6 +380,8 @@ const switchTab = id => {
         renderStorage();
     } else if (id === 'overrides') {
         renderOverrides();
+    } else if (id === 'scenarios') {
+        renderScenarios();
     }
 };
 
@@ -448,6 +456,19 @@ const PATH_OVERRIDES = {
   // Pages
   '/page-{name}': { name: 'api' }
 };
+
+const SCENARIOS = [
+    {
+        id: 'public-object-create-bg',
+        group: 'Public',
+        name: 'Public Object Create (Background)',
+        desc: 'Creates a public object with is_background=1 query parameter to run the task asynchronously.',
+        path: '/public/object-create',
+        method: 'POST',
+        params: { is_background: '1' },
+        param_type: 'query'
+    }
+];
 
 /* ── SVG icon templates ── */
 const SVG = (w, paths, stroke = 'currentColor') =>
@@ -1043,6 +1064,65 @@ const renderOverrides = (searchQuery = '') => {
   };
 };
 
+const renderScenarios = (searchQuery = '') => {
+  const filtered = searchQuery ? SCENARIOS.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.group.toLowerCase().includes(searchQuery.toLowerCase())) : SCENARIOS;
+  if (!filtered.length) {
+    $('scenariosContent').innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)">${searchQuery ? 'No scenarios match your search' : 'No scenarios defined'}</div>`;
+    return;
+  }
+  const rows = filtered.map((s, idx) => `
+      <tr>
+        <td class="col-id">${idx + 1}</td>
+        <td style="width:100px;color:rgba(255,255,255,0.4);font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:700">${s.group}</td>
+        <td style="color:var(--accent);font-weight:600;width:240px">${s.name}</td>
+        <td style="color:var(--muted);font-size:12px">${s.desc}</td>
+        <td class="col-run">
+            <button class="icon-btn scenario-run-btn" data-id="${s.id}" title="Run Scenario" style="color:var(--primary)">${ICON.play(16)}</button>
+        </td>
+      </tr>`).join('');
+  $('scenariosContent').innerHTML = `
+    <table class="resp-tbl" style="table-layout:fixed;width:100%">
+        <thead>
+            <tr>
+                <th class="col-id">#</th>
+                <th style="width:100px">Group</th>
+                <th style="width:240px">Scenario Name</th>
+                <th>Description</th>
+                <th class="col-run">Run</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>`;
+};
+
+const runScenario = (id) => {
+    const s = SCENARIOS.find(x => x.id === id);
+    if (!s) return;
+    const idx = COMMANDS.findIndex(c => c.p === s.path && c.m === s.method);
+    if (idx === -1) return toast(`Base API not found: ${s.method} ${s.path}`);
+    
+    showModal('apiRunnerModal');
+    load(idx);
+    
+    // Inject scenario params
+    if (s.params) {
+        Object.entries(s.params).forEach(([k, v]) => {
+            const cont = s.param_type === 'query' ? $('qCont') : (s.param_type === 'json' ? $('jCont') : (s.param_type === 'form' ? $('fCont') : null));
+            if (cont) {
+                const existing = Array.from(cont.querySelectorAll('.input-row')).find(r => r.querySelector('.row-key').value === k);
+                if (existing) {
+                    existing.querySelector('.row-val').value = v;
+                    existing.querySelector('.row-val').dispatchEvent(new Event('input', { bubbles: true }));
+                } else {
+                    $(s.param_type === 'query' ? 'qSec' : (s.param_type === 'json' ? 'jSec' : 'fSec')).classList.add('active');
+                    mkRow(cont, k, v, 'string', null, false, false);
+                }
+            }
+        });
+        syncParams();
+    }
+};
+
 $('storageContent').onclick = e => {
     const viewBtn = e.target.closest('.storage-view-btn');
     const copyBtn = e.target.closest('.storage-copy-btn');
@@ -1087,6 +1167,21 @@ $('overridesContent').onclick = e => {
         $('testResponseCopy').onclick = () => copyWithFeedback($('testResponseCopy'), valStr, 16, 'Copied params');
         showModal('testResponseModal');
     }
+};
+
+$('scenariosPane').onclick = e => {
+    const runBtn = e.target.closest('.scenario-run-btn');
+    if (runBtn) runScenario(runBtn.dataset.id);
+};
+
+$('scenariosSearch').oninput = e => {
+    $('scenariosSearchClear').style.display = e.target.value ? 'block' : 'none';
+    renderScenarios(e.target.value);
+};
+$('scenariosSearchClear').onclick = () => {
+    $('scenariosSearch').value = '';
+    $('scenariosSearchClear').style.display = 'none';
+    renderScenarios('');
 };
 
 $('apiInfoTbl').onclick = e => {
