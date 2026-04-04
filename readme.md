@@ -104,28 +104,6 @@ docker run --rm -p 8000:8000 atom
 </div>
 </details>
 
-<details>
-<summary>Repository Map</summary>
-<div style="padding-top: 10px;">
-
-| Path | Service |
-| :--- | :--- |
-| `static/` | **Assets** |
-| `script/` | **Shell** |
-| `function.py` | **Core** |
-| `config.py` | **Settings** |
-| `main.py` | **Entry** |
-| `router.py` | **API** |
-| `consumer.py` | **Workers** |
-| `requirements.txt` | **Configs** |
-| `Dockerfile` | **Infra** |
-| `readme.md` | **Docs** |
-| `AGENTS.md` | **Rules** |
-| `.gitignore` | **Git** |
-
-</div>
-</details>
-
 
 <details>
 <summary>Service Integrations</summary>
