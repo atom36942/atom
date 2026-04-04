@@ -843,6 +843,7 @@ async def func_postgres_create(postgres_pool: any, func_postgres_obj_serialize: 
         async with postgres_pool.acquire() as conn: ids = await conn.fetch(query, *serialized_list[0].values())
     else:
         import json
+        if not hasattr(func_postgres_obj_serialize, "state") or table_name not in func_postgres_obj_serialize.state: await func_postgres_obj_serialize(postgres_pool, table_name, [])
         schema, col_list, def_list = func_postgres_obj_serialize.state.get(table_name, {}), ",".join(columns), ",".join([f"{c} jsonb" for c in columns])
         cast_parts = []
         for c in columns:

@@ -29,13 +29,22 @@ rm -rf venv
 ./venv/bin/uvicorn main:app --reload
 ```
 
+</details>
+
+<details>
+<summary>Setup with Docker</summary>
+
 ### Docker Deployment
 ```bash
 docker build -t atom .
 docker run --rm -p 8000:8000 atom
 ```
 
-### Environment Variables
+</details>
+
+<details>
+<summary>Environment Variables</summary>
+
 The application uses a dynamic override system where any variable in `config.py` starting with `config_` can be overridden by a matching environment variable or an entry in a `.env` file. This is handled by `func_config_override_from_env` in `function.py`, which also manages type conversion for booleans (0/1), integers, and JSON objects (for lists or dictionaries).
 
 | Category | Environment Variable | Type | Description |
@@ -193,15 +202,37 @@ The `action_key` is used for 1:N relationship summaries. The syntax is: `{target
 </details>
 
 <details>
-<summary>Database: Redis & MongoDB</summary>
+<summary>Database: Redis</summary>
 
-### Hybrid State Management
-Use Redis for distributed caching and MongoDB for semi-structured document storage.
+### Distributed State Management
+Use Redis for high-performance distributed caching and session state.
 
 | Data Store | Purpose | API / Pattern |
 | :--- | :--- | :--- |
 | **Redis** | Distributed State | `redis-import-create` / `redis-import-delete`. |
+
+</details>
+
+<details>
+<summary>Database: MongoDB</summary>
+
+### Document Storage
+Use MongoDB for semi-structured document storage and complex JSON objects.
+
+| Data Store | Purpose | API / Pattern |
+| :--- | :--- | :--- |
 | **MongoDB** | Document Store | `mongodb-import` with hex-to-ObjectId conversion. |
+
+</details>
+
+<details>
+<summary>Database: In-Memory</summary>
+
+### Local State
+Use the built-in in-memory state for temporary, per-node storage.
+
+| Data Store | Purpose | API / Pattern |
+| :--- | :--- | :--- |
 | **In-Memory** | Local State | `inmemory` mode using `app.state` dictionaries. |
 
 </details>
@@ -281,15 +312,20 @@ Application-wide behaviors controlled by `config_is_` boolean flags.
 </details>
 
 <details>
-<summary>API Tester: How HTML Parameters Work</summary>
+<summary>API Tester: Discovery</summary>
 
-### 1. Automatic API Discovery
+### Automatic API Discovery
 The `api.html` dashboard is **fully dynamic**. There is no need to manually register new APIs in the frontend.
 - **Spec-Driven**: On every load, the app fetches the latest `openapi.json` from the backend.
 - **Zero Maintenance**: New routes added to `router.py` appear automatically with their respective parameters (Headers, Query, Form, Body) rendered based on the Pydantic schema.
 - **Custom Defaults**: While discovery is automatic, you can optionally add "premium" defaults (like random UUIDs or specific test IDs) in the `PATH_DEFAULTS` object inside `static/api.html`.
 
-### 2. Lifecycle of an API Parameter (PATH_DEFAULTS)
+</details>
+
+<details>
+<summary>API Tester: Parameter Lifecycle</summary>
+
+### Lifecycle of an API Parameter (PATH_DEFAULTS)
 The dashboard uses a deterministic, stateless multi-stage population logic to ensure the Bulk Tester always inherits the current UI state. Hardcoded overrides are managed via the `PATH_DEFAULTS` object in `api.html`.
 
 #### Automatic Mapping Logic (Two-Layer)
@@ -323,7 +359,12 @@ const PATH_DEFAULTS = {
 | **4. Inheritance** | Bulk API Tester | Iterates through `COMMANDS` and executes requests using the current state. |
 | **5. Reset** | Page Refresh | Wipes the `COMMANDS` array—no state is persisted across reloads. |
 
-### 3. Operational Flow
+</details>
+
+<details>
+<summary>API Tester: Operational Flow</summary>
+
+### Operational Flow
 - **Direct Sync**: Any edit made in the Manual Runner form is instantly synced to the global `COMMANDS` array.
 - **Pure Execution**: The Bulk Tester is a "dumb" runner; it does not generate values but strictly mirrors what is currently in the `COMMANDS` state.
 - **Statelessness**: The system is designed to be purely deterministic per-session—if you want to change a test value, edit it in the Manual Runner first.

@@ -81,3 +81,11 @@ lsof -ti :8000 | xargs kill -9
 uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-'
 head -n 2 snp2.csv
 ```
+
+### Consumer
+```bash
+venv/bin/python consumer.py celery
+venv/bin/python consumer.py rabbitmq
+venv/bin/python consumer.py redis
+venv/bin/python consumer.py kafka
+```

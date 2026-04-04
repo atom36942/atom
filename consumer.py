@@ -6,17 +6,17 @@ import asyncio,sys,orjson as json
 #celery
 client_postgres_pool=None
 worker_loop=None
+async def _init_pool():
+    global client_postgres_pool
+    if client_postgres_pool is None:
+        client_postgres_pool=await func_postgres_client_read({"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection})
+        print("postgres pool initialized")
 def logic_celery():
     from celery import signals
     from itertools import count
     app=func_celery_client_read_consumer(config_celery_broker_url,config_celery_backend_url)
     app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
     _run_counter=count(1)
-    async def _init_pool():
-        global client_postgres_pool
-        if client_postgres_pool is None:
-            client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection)
-            print("postgres pool initialized")
     @signals.worker_process_init.connect
     def init_worker(**kwargs):
         global worker_loop
@@ -49,9 +49,10 @@ def logic_celery():
 #redis
 async def logic_redis():
     try:
+        global client_postgres_pool
         client_redis=await func_redis_client_read(config_redis_url_pubsub)
         client_redis_consumer=await func_redis_client_read_consumer(client_redis,config_channel_name)
-        client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
+        if config_postgres_url:await _init_pool()
         print("redis consumer started")
         async for message in client_redis_consumer.listen():
             if message["type"]=="message" and message["channel"]==config_channel_name.encode():
@@ -62,14 +63,15 @@ async def logic_redis():
     except Exception as e:print(f"redis error: {str(e)}")
     finally:
         if "client_redis" in locals():await client_redis.aclose()
-        if "client_postgres_pool" in locals() and client_postgres_pool:await client_postgres_pool.close()
+        if client_postgres_pool:await client_postgres_pool.close();client_postgres_pool=None
 
 #rabbitmq
 async def logic_rabbitmq():
     import aio_pika
     try:
+        global client_postgres_pool
         client_rabbitmq,client_rabbitmq_consumer=await func_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
-        client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
+        if config_postgres_url:await _init_pool()
         async def aqmp_callback(message:aio_pika.IncomingMessage):
             async with message.process():
                 payload=json.loads(message.body)
@@ -83,28 +85,29 @@ async def logic_rabbitmq():
     finally:
         if "client_rabbitmq_consumer" in locals():await client_rabbitmq_consumer.channel.close()
         if "client_rabbitmq" in locals() and not client_rabbitmq.is_closed:await client_rabbitmq.close()
-        if "client_postgres_pool" in locals() and client_postgres_pool:await client_postgres_pool.close()
+        if client_postgres_pool:await client_postgres_pool.close();client_postgres_pool=None
 
 #kafka
 async def logic_kafka():
     try:
-        client_kafka_consumer=await func_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_kafka_group_id,config_kafka_enable_auto_commit)
-        client_postgres_pool=await func_postgres_client_read(config_postgres_url,config_postgres_min_connection,config_postgres_max_connection) if config_postgres_url else None
+        global client_postgres_pool
+        client_kafka_consumer=await func_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_kafka_group_id,config_is_kafka_auto_commit)
+        if config_postgres_url:await _init_pool()
         print("kafka consumer started")
         while True:
             batch=await client_kafka_consumer.getmany(timeout_ms=1000, max_records=config_kafka_consumer_batch)
             if not batch:continue
             for tp, messages in batch.items():
                 for message in messages:
-                    payload=json.loads(message.value.decode("utf-8"))
+                    payload=json.loads(message.value)
                     await func_consumer_logic(payload,func_postgres_create,func_postgres_update,func_postgres_obj_serialize,client_postgres_pool)
-                if not config_kafka_enable_auto_commit:await client_kafka_consumer.commit(tp)
+                if not config_is_kafka_auto_commit:await client_kafka_consumer.commit(tp)
                 print(f"kafka batch processed: {len(messages)} msgs")
     except asyncio.CancelledError:pass
     except Exception as e:print(f"kafka error: {str(e)}")
     finally:
         if "client_kafka_consumer" in locals():await client_kafka_consumer.stop()
-        if "client_postgres_pool" in locals() and client_postgres_pool:await client_postgres_pool.close()
+        if client_postgres_pool:await client_postgres_pool.close();client_postgres_pool=None
 
 #celery init
 celery=None

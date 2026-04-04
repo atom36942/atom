@@ -152,7 +152,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     <button class="tab-btn" onclick="switchTab('test')" id="tab-test">Test</button>
     <button class="tab-btn" onclick="switchTab('analytics')" id="tab-analytics">Analytics</button>
     <button class="tab-btn" onclick="switchTab('storage')" id="tab-storage">Storage</button>
-    <button class="tab-btn" onclick="switchTab('paths')" id="tab-paths">Paths</button>
+    <button class="tab-btn" onclick="switchTab('overrides')" id="tab-overrides">Overrides</button>
 </div>
 
 <div id="masterPane" class="tab-pane active">
@@ -188,9 +188,9 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     </div>
 </div>
 
-<div id="pathsPane" class="tab-pane">
+<div id="overridesPane" class="tab-pane">
     <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
-        <div id="pathsContent" style="max-height:60vh;overflow-y:auto"></div>
+        <div id="overridesContent" style="max-height:60vh;overflow-y:auto"></div>
     </div>
 </div>
 
@@ -326,8 +326,8 @@ const switchTab = id => {
         renderAnalytics();
     } else if (id === 'storage') {
         renderStorage();
-    } else if (id === 'paths') {
-        renderPaths();
+    } else if (id === 'overrides') {
+        renderOverrides();
     }
 };
 
@@ -364,7 +364,7 @@ if (ls.get('settings')) {
   ls.rm('settings');
 }
 
-const PATH_DEFAULTS = {
+const PATH_OVERRIDES = {
   // Auth & Signup
   '/auth/login-password-username': { type: 1, username: 'atom', password: '123' },
 
@@ -393,7 +393,26 @@ const PATH_DEFAULTS = {
   // Private & Admin
   '/admin/postgres-runner': { mode: 'read', query: 'SELECT 1' },
   '/admin/postgres-export': { query: 'SELECT * FROM test' },
-  '/admin/object-create': { table: 'test', type: 1, title: 'test' },
+  '/admin/object-create': {
+    table: 'test',
+    obj_list: [
+      { type: 1, title: 'test' },
+      { type: 2, title: 'test' },
+      { type: 3, title: 'test' },
+      { type: 1, title: 'test' },
+      { type: 2, title: 'test' },
+      { type: 3, title: 'test' },
+      { type: 1, title: 'test' },
+      { type: 2, title: 'test' },
+      { type: 3, title: 'test' },
+      { type: 1, title: 'test' },
+      { type: 2, title: 'test' },
+      { type: 3, title: 'test' },
+      { type: 1, title: 'test' },
+      { type: 2, title: 'test' },
+      { type: 3, title: 'test' }
+    ]
+  },
   '/admin/object-update': { id: 1, name: 'test', table: 'users' },
   '/admin/object-read': { table: 'test' },
   '/admin/ids-delete': { table: 'test', ids: '1,2,3,4,5' },
@@ -618,7 +637,7 @@ async function init() {
         const r200 = op.responses?.['200']?.content?.['application/json']?.schema;
         if (r200) cmd.res = r200;
         const p = cmd.p, m = cmd.m;
-        const ov = PATH_DEFAULTS[p];
+        const ov = PATH_OVERRIDES[p];
         if (ov) {
           const up = (l, isJ = false) => l.forEach(x => {
             if (ov[x.k] !== undefined) {
@@ -938,14 +957,14 @@ const renderStorage = () => {
     }
   };
 };
-const renderPaths = () => {
-  const keys = Object.keys(PATH_DEFAULTS).sort();
+const renderOverrides = () => {
+  const keys = Object.keys(PATH_OVERRIDES).sort();
   if (!keys.length) {
-    $('pathsContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No path defaults defined</div>';
+    $('overridesContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No overrides defined</div>';
     return;
   }
   const rows = keys.map((k, idx) => {
-    const v = PATH_DEFAULTS[k];
+    const v = PATH_OVERRIDES[k];
     const valStr = JSON.stringify(v, null, 2);
     return `
       <tr>
@@ -959,7 +978,7 @@ const renderPaths = () => {
         </td>
       </tr>`;
   }).join('');
-  $('pathsContent').innerHTML = `
+  $('overridesContent').innerHTML = `
     <table class="resp-tbl" style="table-layout:fixed;width:100%">
         <thead>
             <tr>
@@ -968,7 +987,7 @@ const renderPaths = () => {
                 <th>
                     <div style="display:flex;justify-content:space-between;align-items:center">
                         <span>Parameters</span>
-                        <button type="button" class="icon-btn" id="pathsCopyAll" title="Copy All Defaults" style="padding:4px;height:auto">${ICON.copy(14)}</button>
+                        <button type="button" class="icon-btn" id="overridesCopyAll" title="Copy All Overrides" style="padding:4px;height:auto">${ICON.copy(14)}</button>
                     </div>
                 </th>
             </tr>
@@ -976,8 +995,8 @@ const renderPaths = () => {
         <tbody>${rows}</tbody>
     </table>`;
   
-  $('pathsCopyAll').onclick = () => {
-    copyWithFeedback($('pathsCopyAll'), JSON.stringify(PATH_DEFAULTS, null, 2), 14, 'All path defaults copied');
+  $('overridesCopyAll').onclick = () => {
+    copyWithFeedback($('overridesCopyAll'), JSON.stringify(PATH_OVERRIDES, null, 2), 14, 'All overrides copied');
   };
 };
 
@@ -1009,18 +1028,18 @@ $('storageContent').onclick = e => {
     }
 };
 
-$('pathsContent').onclick = e => {
+$('overridesContent').onclick = e => {
     const copyBtn = e.target.closest('.path-copy-btn');
     const viewBtn = e.target.closest('.path-view-btn');
     if (copyBtn) {
         const path = copyBtn.dataset.path;
-        const v = PATH_DEFAULTS[path];
+        const v = PATH_OVERRIDES[path];
         copyWithFeedback(copyBtn, JSON.stringify(v, null, 2), 14, `Copied params for: ${path}`);
     } else if (viewBtn) {
         const path = viewBtn.dataset.path;
-        const v = PATH_DEFAULTS[path];
+        const v = PATH_OVERRIDES[path];
         const valStr = JSON.stringify(v, null, 2);
-        $('testResponseTitle').textContent = `Path Params: ${path}`;
+        $('testResponseTitle').textContent = `Overrides: ${path}`;
         $('testResponseContent').innerHTML = `<pre class="resp-pre" style="padding:20px;margin:0">${highlight(valStr)}</pre>`;
         $('testResponseCopy').onclick = () => copyWithFeedback($('testResponseCopy'), valStr, 16, 'Copied params');
         showModal('testResponseModal');
@@ -1964,7 +1983,7 @@ const setupIcons = () => {
         'testParamsCopyCurl': ICON.copy(20),
         'storageCopyAll': ICON.copy(18),
         'storageResetAll': ICON.trash(18),
-        'pathsCopyAll': ICON.copy(18),
+        'overridesCopyAll': ICON.copy(18),
         'cellPopCopy': ICON.copy(14),
         'curlViewCopy': ICON.copy(16),
         'curlViewResCopy': ICON.copy(16)
