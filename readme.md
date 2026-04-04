@@ -94,29 +94,11 @@ docker run --rm -p 8000:8000 atom
 <summary>Setup: Environment Variables</summary>
 <div style="padding-top: 10px;">
 
-Environment variables can be defined in a `.env` file at the root of the project or exported directly in your shell. The framework automatically detects and applies these configurations on startup.
-
-| Category | Environment Variable | Type | Sample Value |
-| :--- | :--- | :--- | :--- |
-| **Postgres** | `config_postgres_url` | `str` | `postgresql://user:pass@host/db` |
-| | `config_postgres_min_connection` | `int` | `5` |
-| | `config_postgres_max_connection` | `int` | `20` |
-| **Redis** | `config_redis_url` | `str` | `redis://localhost:6379` |
-| | `config_redis_cache_ttl_sec` | `int` | `3600` |
-| **Queues** | `config_rabbitmq_url` | `str` | `amqp://guest:guest@localhost:5672` |
-| | `config_kafka_url` | `str` | `localhost:9092` |
-| **Security** | `config_token_secret_key` | `str` | `super-secret-key` |
-| | `config_token_expiry_sec` | `int` | `86400` |
-| **AI** | `config_openai_key` | `str` | `sk-proj-...` |
-| | `config_gemini_key` | `str` | `AIzaSy...` |
-| **Cloud** | `config_aws_access_key_id` | `str` | `AKIA...` |
-| | `config_s3_region_name` | `str` | `us-east-1` |
-| **Integrations** | `config_sentry_dsn` | `str` | `https://...@sentry.io/...` |
-| | `config_posthog_project_key` | `str` | `phc_...` |
-| **Switches** | `config_is_signup` | `int` | `1` |
-| | `config_is_log_api` | `int` | `1` |
-| | `config_is_prometheus` | `int` | `1` |
-
+| Environment Variable | Sample Value |
+| :--- | :--- |
+| `config_postgres` | `postgresql://user:pass@host/db` |
+| `config_redis_url` | `redis://localhost:6379` |
+| `config_rabbitmq_url` | `amqp://guest:guest@localhost:5672` |
 
 </div>
 </details>
