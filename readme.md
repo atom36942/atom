@@ -1,5 +1,5 @@
 <details>
-<summary>Core Principles</summary>
+<summary>About</summary>
 
 | Core Principle | Description |
 | :--- | :--- |
@@ -106,7 +106,7 @@ brew services list
 
 
 <details>
-<summary>Minimum Environmental Variable Needed</summary>
+<summary>Sample Local Env Variable</summary>
 
 ```bash
 config_postgres_url=postgresql://atom@127.0.0.1/postgres
