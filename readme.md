@@ -55,34 +55,7 @@ rm -rf venv
 </details>
 
 <details>
-<summary>Package Management</summary>
-<div style="padding-top: 10px;">
-
-```bash
-./venv/bin/pip install fastapi
-./venv/bin/pip uninstall fastapi
-./venv/bin/pip install --upgrade fastapi
-./venv/bin/pip install -r requirements.txt
-./venv/bin/pip freeze > requirements.txt
-```
-
-</div>
-</details>
-
-<details>
-<summary>Setup: Docker Deployment</summary>
-<div style="padding-top: 10px;">
-
-```bash
-docker build -t atom .
-docker run --rm -p 8000:8000 atom
-```
-
-</div>
-</details>
-
-<details>
-<summary>Brew Setup</summary>
+<summary>Setup: Brew</summary>
 <div style="padding-top: 10px;">
 
 ```bash
@@ -105,7 +78,19 @@ brew services list
 </details>
 
 <details>
-<summary>Sample Local Env Variable</summary>
+<summary>Setup: Docker Deployment</summary>
+<div style="padding-top: 10px;">
+
+```bash
+docker build -t atom .
+docker run --rm -p 8000:8000 atom
+```
+
+</div>
+</details>
+
+<details>
+<summary>Setup: Env Variable</summary>
 <div style="padding-top: 10px;">
 
 ```bash
@@ -117,6 +102,20 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 </div>
 </details>
 
+<details>
+<summary>Package Management</summary>
+<div style="padding-top: 10px;">
+
+```bash
+./venv/bin/pip install fastapi
+./venv/bin/pip uninstall fastapi
+./venv/bin/pip install --upgrade fastapi
+./venv/bin/pip install -r requirements.txt
+./venv/bin/pip freeze > requirements.txt
+```
+
+</div>
+</details>
 
 <details>
 <summary>Environment Variables</summary>
@@ -310,13 +309,4 @@ The `api.html` dashboard is **fully dynamic** and automated. New routes added to
 </div>
 </details>
 
-<details>
-<summary>API Tester: Operational Flow</summary>
-<div style="padding-top: 10px;">
 
-- **Direct Sync**: Any edit made in the Manual Runner form is instantly synced to the global `COMMANDS` array.
-- **Pure Execution**: The Bulk Tester is a "dumb" runner; it does not generate values but strictly mirrors what is currently in the `COMMANDS` state.
-- **Statelessness**: The system is designed to be purely deterministic per-session—if you want to change a test value, edit it in the Manual Runner first.
-
-</div>
-</details>
