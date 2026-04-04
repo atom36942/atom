@@ -237,7 +237,7 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
             path_parts = path.split("/")
             tag = path_parts[1] if len(path_parts) > 1 and path_parts[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
-            if any(path.startswith(x) for x in ["/root", "/my/", "/private/", "/admin/"]):
+            if any(path.startswith(x) for x in ["/my/", "/private/", "/admin/"]):
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
             for p in re.findall(r"\{(\w+)\}", path):

@@ -292,10 +292,10 @@ The `api.html` dashboard is **fully dynamic**. There is no need to manually regi
 ### 2. Lifecycle of an API Parameter (PATH_DEFAULTS)
 The dashboard uses a deterministic, stateless multi-stage population logic to ensure the Bulk Tester always inherits the current UI state. Hardcoded overrides are managed via the `PATH_DEFAULTS` object in `api.html`.
 
-#### Automatic Mapping Logic
-The tool intelligently maps these defaults based on the backend's OpenAPI specification:
-- **Spec Recognition**: If a key (e.g., `table`) exists as a Query or Path parameter in the backend spec, it is mapped there.
-- **Body Fallback**: For `POST`/`PUT` requests, any key not found in the spec (e.g., `id`, `name`) is automatically moved to the **JSON Body**.
+#### Automatic Mapping Logic (Two-Layer)
+The dashboard uses a deterministic two-layer logic to map `PATH_DEFAULTS` to the active API runner state:
+- **Layer 1: Specification-First**: The system first checks the backend's OpenAPI spec. If a key (e.g., `table`) is explicitly defined as a **Header**, **Query**, **Path**, or **Form** parameter, the default value is mapped directly to that location.
+- **Layer 2: Body-Injection**: For `POST`/`PUT` requests related to `object-create`, `object-update`, `ids-delete`, or `signup`, the system performs a fail-safe check. Any key in `PATH_DEFAULTS` that is **not** found in the backend spec is automatically injected into the **JSON Body** to ensure a premium, zero-config testing experience.
 
 #### Configuration Samples
 ```javascript
