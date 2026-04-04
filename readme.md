@@ -94,12 +94,12 @@ docker run --rm -p 8000:8000 atom
 <summary>Setup: Environment Variables</summary>
 <div style="padding-top: 10px;">
 
-| Environment Variable | Sample Value |
-| :--- | :--- |
-| `config_postgres` | `postgresql://user:pass@host/db` |
-| `config_redis_url` | `redis://localhost:6379` |
-| `config_rabbitmq_url` | `amqp://guest:guest@localhost:5672` |
-| `config_mongodb_uri` | `mongodb://localhost:27017` |
+```bash
+export config_postgres="postgresql://atom@127.0.0.1/postgres"
+export config_redis_url="redis://localhost:6379"
+export config_rabbitmq_url="amqp://guest:guest@localhost:5672"
+export config_mongodb_uri="mongodb://localhost:27017"
+```
 
 </div>
 </details>

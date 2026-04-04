@@ -473,12 +473,13 @@ const SCENARIOS = [
         id: 'admin-object-create-bulk',
         group: 'Admin',
         name: 'Bulk Creation',
-        desc: "Create bulk object. Run API in background.",
+        desc: "Create Bulk Object",
         path: '/admin/object-create',
         method: 'POST',
-        params: { obj_list: '[{}, {}, {}, {}, {}, {}, {}, {}, {}, {}]' },
+        params: { obj_list: '[{"type": 1, "title": "Bulk Obj 1"}, {"type": 1, "title": "Bulk Obj 2"}, {"type": 1, "title": "Bulk Obj 3"}, {"type": 1, "title": "Bulk Obj 4"}, {"type": 1, "title": "Bulk Obj 5"}, {"type": 1, "title": "Bulk Obj 6"}, {"type": 1, "title": "Bulk Obj 7"}, {"type": 1, "title": "Bulk Obj 8"}, {"type": 1, "title": "Bulk Obj 9"}, {"type": 1, "title": "Bulk Obj 10"}]' },
         params_types: { obj_list: 'list' },
-        param_type: 'json'
+        param_type: 'json',
+        remove: ['type', 'title']
     }
 ];
 
@@ -1115,6 +1116,18 @@ const runScenario = (id) => {
     
     showModal('apiRunnerModal');
     load(idx);
+    
+    // Remove specified parameters
+    if (s.remove) {
+        const cont = s.param_type === 'query' ? $('qCont') : (s.param_type === 'json' ? $('jCont') : (s.param_type === 'form' ? $('fCont') : null));
+        if (cont) {
+            s.remove.forEach(k => {
+                const rows = Array.from(cont.querySelectorAll('.input-row'));
+                const target = rows.find(r => r.querySelector('.row-key').value === k);
+                if (target) { target.remove(); syncParams(); }
+            });
+        }
+    }
     
     // Inject scenario params
     if (s.params) {
