@@ -14,7 +14,7 @@
 </details>
 
 <details>
-<summary>Setup: GitHub SSH & Repository Sync</summary>
+<summary>Setup: GitHub SSH</summary>
 
 ```bash
 ssh-keygen -t ed25519 -C "email"
