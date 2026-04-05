@@ -202,7 +202,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 </head>
 <body>
 <div class="container"><div class="card">
-<h1>API Master <span id="apiTotal" style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="infoToggleBtn" title="View API Master Info"></button><button type="button" class="icon-btn" id="storageToggleBtn" title="View Local Storage"></button><button type="button" class="icon-btn" id="analyticsToggleBtn" title="View Analytics"></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV catalog"></button></div></h1>
+<h1>API Master <div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="infoToggleBtn" title="View API Master Info"></button><button type="button" class="icon-btn" id="storageToggleBtn" title="View Local Storage"></button><button type="button" class="icon-btn" id="analyticsToggleBtn" title="View Analytics"></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV catalog"></button></div></h1>
 <div class="toolbar-search"><input type="text" id="apiInfoSearch" placeholder="Search" style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
 <div class="tag-card">
     <div class="tag-card-header" onclick="toggleTagCard()">
@@ -1351,7 +1351,6 @@ const runMasterApiByIndex = async (i, isShowResponse = 1, isAllowDownload = 1) =
 
 const renderApiInfoTable = (searchQuery = '') => {
   const filteredIndexes = getVisibleMasterIndexes();
-  $('apiTotal').textContent = `(${filteredIndexes.length})`;
   
   $('apiInfoTbl').innerHTML =
     `<thead><tr>
