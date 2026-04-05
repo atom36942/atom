@@ -42,12 +42,12 @@ config_mongodb_uri="mongodb://localhost:27017"
 
 ## FAQ
 
-| Scenario | Description |
-| :--- | :--- |
-| **API Master** | Interactive tester at `static/api.html` or `/page-api`. |
-| **Serve static content** | Served via the `static/` directory prefix. |
-| **Serve html pages** | Served via `/page-{name}` (e.g. `/page-login`). |
-| **Database Lifecycle Init** | Runs `func_postgres_init` on startup. |
-| **Database Manual Init** | Full system refresh via `/admin/sync` API. |
-| **Access App State** | Global clients and config singletons via `request.app.state`. |
-| **Access Request User State** | Authorized user context (id, role, etc.) via `request.state.user`. |
+| # | Scenario | Description |
+| :--- | :--- | :--- |
+| 1 | **API Master** | Interactive tester at `static/api.html` or `/page-api`. |
+| 2 | **Serve static content** | Served via the `static/` directory prefix. |
+| 3 | **Serve html pages** | Served via `/page-{name}` (e.g. `/page-login`). |
+| 4 | **Database Lifecycle Init** | Runs `func_postgres_init` on startup. |
+| 5 | **Database Manual Init** | Full system refresh via `/admin/sync` API. |
+| 6 | **Access App State** | Global clients and config singletons via `request.app.state`. |
+| 7 | **Access Request User State** | Authorized user context (id, role, etc.) via `request.state.user`. |
