@@ -154,14 +154,12 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 </head>
 <body>
 <div class="container"><div class="card">
-<h1>API Master <span id="apiTotal" style="font-size:12px;font-weight:400;color:var(--muted);margin-left:12px"></span><span id="baseUrl" style="font-size:11px;font-weight:500;color:var(--accent);margin-left:12px;padding:2px 8px;background:rgba(66,153,225,0.08);border-radius:12px;letter-spacing:0.5px;text-transform:lowercase;opacity:0.8"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV catalog"></button></div></h1>
+<h1>API Master <span id="apiTotal" style="font-size:12px;font-weight:400;color:var(--muted);margin-left:12px"></span><span id="baseUrl" style="font-size:11px;font-weight:500;color:var(--accent);margin-left:12px;padding:2px 8px;background:rgba(66,153,225,0.08);border-radius:12px;letter-spacing:0.5px;text-transform:lowercase;opacity:0.8"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="storageToggleBtn" title="View Local Storage"></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV catalog"></button></div></h1>
 
 <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('master')" id="tab-master">Master</button>
     <button class="tab-btn" onclick="switchTab('test')" id="tab-test">Test</button>
     <button class="tab-btn" onclick="switchTab('analytics')" id="tab-analytics">Analytics</button>
-    <button class="tab-btn" onclick="switchTab('storage')" id="tab-storage">Storage</button>
-    <button class="tab-btn" onclick="switchTab('overrides')" id="tab-overrides">Overrides</button>
     <button class="tab-btn" onclick="switchTab('scenarios')" id="tab-scenarios">Scenarios</button>
 </div>
 
@@ -170,11 +168,11 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     <div class="tag-card">
         <div class="tag-card-header" onclick="toggleTagCard()">
             <span class="tag-card-title">Path Filters</span>
-            <span class="tag-toggle-icon collapsed" id="tagToggleIcon">
+            <span class="tag-toggle-icon" id="tagToggleIcon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </span>
         </div>
-        <div id="apiInfoTags" class="tag-card-body collapsed"></div>
+        <div id="apiInfoTags" class="tag-card-body"></div>
     </div>
     <div class="card" style="margin-top:0;padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)">
         <div class="resp-tbl-wrap" style="max-height:600px;overflow-x:hidden">
@@ -201,17 +199,6 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     <div class="analytics-grid" id="analyticsGrid"></div>
 </div>
 
-<div id="storagePane" class="tab-pane">
-    <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
-        <div id="storageContent" style="max-height:60vh;overflow-y:auto"></div>
-    </div>
-</div>
-<div id="overridesPane" class="tab-pane">
-    <div style="margin-bottom:12px;position:relative;display:flex;align-items:center"><input type="text" id="overridesSearch" placeholder="Search..." style="padding:10px 40px 10px 16px;font-size:14px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.08);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="overridesSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
-    <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
-        <div id="overridesContent" style="max-height:60vh;overflow-y:auto"></div>
-    </div>
-</div>
 
 <div id="scenariosPane" class="tab-pane">
     <div style="margin-bottom:12px;position:relative;display:flex;align-items:center"><input type="text" id="scenariosSearch" placeholder="Search..." style="padding:10px 40px 10px 16px;font-size:14px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.08);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="scenariosSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
@@ -334,6 +321,19 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
         </div>
     </div>
 </div>
+<div id="storageModal" class="modal"><div class="modal-content" style="max-width:540px;margin:2% auto">
+    <div class="modal-header">
+        <h3 style="margin:0">Local Storage</h3>
+        <div class="modal-actions">
+            <button type="button" class="icon-btn" id="storageCopyAll" title="Copy All State"></button>
+            <button type="button" class="icon-btn delete" id="storageResetAll" title="Reset All State"></button>
+            <button type="button" class="icon-btn" title="Close" onclick="hideModal('storageModal')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+    </div>
+    <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
+        <div id="storageContent" style="max-height:70vh;overflow-y:auto"></div>
+    </div>
+</div></div>
 
 <script>
 let COMMANDS = [], SPEC = null, activeApiTag = null;
@@ -377,10 +377,6 @@ const switchTab = id => {
         updateTestSummary();
     } else if (id === 'analytics') {
         renderAnalytics();
-    } else if (id === 'storage') {
-        renderStorage();
-    } else if (id === 'overrides') {
-        renderOverrides();
     } else if (id === 'scenarios') {
         renderScenarios();
     }
@@ -750,6 +746,19 @@ async function init() {
     updateLoginIndicator();
     load(null);
     restoreTests();
+    $('storageToggleBtn').onclick = () => { showModal('storageModal'); renderStorage(); };
+    $('storageToggleBtn').innerHTML = ICON.database(20);
+    $('storageCopyAll').innerHTML = ICON.copy(18);
+    $('storageResetAll').innerHTML = ICON.trash(18);
+    $('storageCopyAll').onclick = () => copyWithFeedback($('storageCopyAll'), JSON.stringify(ls.data, null, 2), 18, 'Full storage state copied');
+    $('storageResetAll').onclick = () => {
+        if (confirm('RESET ALL:\nThis will permanently delete ALL keys from api_master localStorage. Continue?')) {
+            ls.clear();
+            renderStorage();
+            updateLoginIndicator();
+            toast('All storage cleared');
+        }
+    };
     setupIcons();
   } catch (err) {
     console.error('Failed to load API info', err);
@@ -930,6 +939,7 @@ const renderApiInfoTable = (searchQuery = '') => {
         <th class="col-icon">Frm</th>
         <th class="col-icon">Bdy</th>
         <th class="col-icon">Crl</th>
+        <th class="col-icon">OVR</th>
         <th class="col-run">Run</th>
     </tr></thead>` +
     `<tbody>${filtered.map((c, i) => {
@@ -948,6 +958,7 @@ const renderApiInfoTable = (searchQuery = '') => {
           <td class="col-icon">${isWs ? '-' : getIcon(c._hf)}</td>
           <td class="col-icon">${isWs ? '-' : getIcon(c._hj)}</td>
           <td class="col-icon curl-btn" style="color:var(--accent)" title="View cURL">${isWs ? '-' : ICON.terminal(16)}</td>
+          <td class="col-icon ovr-btn" style="color:var(--accent)" title="View Overrides">${isWs ? '-' : (PATH_OVERRIDES[c.p] ? ICON.eye(16) : '-')}</td>
           <td class="col-run run-btn" title="Run">${ICON.play(16)}</td>
         </tr>`;
     }).join('')}</tbody>`;
@@ -974,15 +985,6 @@ $('testSearchClear').onclick = () => {
   applyTestFilters();
 };
 
-$('overridesSearch').oninput = e => {
-  $('overridesSearchClear').style.display = e.target.value ? 'block' : 'none';
-  renderOverrides(e.target.value);
-};
-$('overridesSearchClear').onclick = () => {
-  $('overridesSearch').value = '';
-  $('overridesSearchClear').style.display = 'none';
-  renderOverrides('');
-};
 
 
 
@@ -1000,12 +1002,12 @@ const renderStorage = () => {
     const sizeStr = size > 1024 ? (size / 1024).toFixed(1) + ' KB' : size + ' B';
     return `
       <tr>
-        <td class="col-id">${idx + 1}</td>
-        <td style="color:var(--accent);font-weight:600;width:200px">${k}</td>
-        <td style="color:var(--muted);width:80px">${sizeStr}</td>
+        <td class="col-id" style="text-align:left!important">${idx + 1}</td>
+        <td style="color:var(--accent);font-weight:600;width:auto;text-align:left">${k}</td>
+        <td style="color:var(--muted);width:80px;text-align:right">${sizeStr}</td>
         <td>
           <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="icon-btn storage-view-btn" data-key="${k}" title="View JSON">${ICON.expand(14)}</button>
+            <button class="icon-btn storage-view-btn" data-key="${k}" title="View JSON">${ICON.eye(14)}</button>
             <button class="icon-btn storage-copy-btn" data-key="${k}" title="Copy Value">${ICON.copy(14)}</button>
             <button class="icon-btn delete storage-del-btn" data-key="${k}" title="Delete Key">${ICON.trash(14)}</button>
           </div>
@@ -1016,77 +1018,15 @@ const renderStorage = () => {
     <table class="resp-tbl" style="table-layout:fixed;width:100%">
         <thead>
             <tr>
-                <th class="col-id">#</th>
-                <th style="width:200px">Key</th>
-                <th style="width:80px">Size</th>
-                <th>
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                        <span>Actions</span>
-                        <div style="display:flex;gap:4px">
-                            <button type="button" class="icon-btn" id="storageCopyAll" title="Copy All State" style="padding:4px;height:auto">${ICON.copy(14)}</button>
-                            <button type="button" class="icon-btn delete" id="storageResetAll" title="Reset All State" style="padding:4px;height:auto">${ICON.trash(14)}</button>
-                        </div>
-                    </div>
-                </th>
+                <th class="col-id" style="text-align:left!important">#</th>
+                <th style="width:auto;text-align:left">Key</th>
+                <th style="width:80px;text-align:right">Size</th>
+                <th style="width:100px;text-align:right">Action</th>
             </tr>
         </thead>
         <tbody>${rows}</tbody>
     </table>`;
 
-  $('storageCopyAll').onclick = () => {
-    copyWithFeedback($('storageCopyAll'), JSON.stringify(ls.data, null, 2), 14, 'Full storage state copied');
-  };
-  $('storageResetAll').onclick = () => {
-    if (confirm('RESET ALL:\nThis will permanently delete ALL keys from api_master localStorage. Continue?')) {
-      ls.clear();
-      renderStorage();
-      updateLoginIndicator();
-      toast('All storage cleared');
-    }
-  };
-};
-const renderOverrides = (searchQuery = '') => {
-  const allKeys = Object.keys(PATH_OVERRIDES).sort();
-  const keys = searchQuery ? allKeys.filter(k => k.toLowerCase().includes(searchQuery.toLowerCase())) : allKeys;
-  if (!keys.length) {
-    $('overridesContent').innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)">${searchQuery ? 'No overrides match your search' : 'No overrides defined'}</div>`;
-    return;
-  }
-  const rows = keys.map((k, idx) => {
-    const v = PATH_OVERRIDES[k];
-    const valStr = JSON.stringify(v, null, 2);
-    return `
-      <tr>
-        <td class="col-id">${idx + 1}</td>
-        <td class="col-path" title="${k}">${k}</td>
-        <td style="color:var(--muted);font-family:'SF Mono',monospace;font-size:12px;vertical-align:middle;overflow:hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${compactArrays(valStr)}</span>
-                <button class="icon-btn path-view-btn" data-path="${k}" title="View JSON" style="flex-shrink:0">${ICON.eye(14)}</button>
-            </div>
-        </td>
-      </tr>`;
-  }).join('');
-  $('overridesContent').innerHTML = `
-    <table class="resp-tbl" style="table-layout:fixed;width:100%">
-        <thead>
-            <tr>
-                <th class="col-id">#</th>
-                <th class="col-path" style="width:280px">Path</th>
-                <th>
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                        <span>Parameters</span>
-                        <button type="button" class="icon-btn" id="overridesCopyAll" title="Copy All Overrides" style="padding:4px;height:auto">${ICON.copy(14)}</button>
-                    </div>
-                </th>
-            </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-    </table>`;
-  
-  $('overridesCopyAll').onclick = () => {
-    copyWithFeedback($('overridesCopyAll'), JSON.stringify(PATH_OVERRIDES, null, 2), 14, 'All overrides copied');
-  };
 };
 
 const renderScenarios = (searchQuery = '') => {
@@ -1192,23 +1132,6 @@ $('storageContent').onclick = e => {
     }
 };
 
-$('overridesContent').onclick = e => {
-    const copyBtn = e.target.closest('.path-copy-btn');
-    const viewBtn = e.target.closest('.path-view-btn');
-    if (copyBtn) {
-        const path = copyBtn.dataset.path;
-        const v = PATH_OVERRIDES[path];
-        copyWithFeedback(copyBtn, JSON.stringify(v, null, 2), 14, `Copied params for: ${path}`);
-    } else if (viewBtn) {
-        const path = viewBtn.dataset.path;
-        const v = PATH_OVERRIDES[path];
-        const valStr = JSON.stringify(v, null, 2);
-        $('testResponseTitle').textContent = `Overrides: ${path}`;
-        $('testResponseContent').innerHTML = `<pre class="resp-pre" style="padding:20px;margin:0">${highlight(valStr)}</pre>`;
-        $('testResponseCopy').onclick = () => copyWithFeedback($('testResponseCopy'), valStr, 16, 'Copied params');
-        showModal('testResponseModal');
-    }
-};
 
 $('scenariosPane').onclick = e => {
     const runBtn = e.target.closest('.scenario-run-btn');
@@ -1228,6 +1151,16 @@ $('scenariosSearchClear').onclick = () => {
 $('apiInfoTbl').onclick = e => {
   const tr = e.target.closest('tr[data-i]'), i = tr?.dataset.i, c = COMMANDS[i];
   if (!tr) return;
+  if (e.target.closest('.ovr-btn')) {
+    const v = PATH_OVERRIDES[c.p];
+    if (!v) return;
+    const valStr = JSON.stringify(v, null, 2);
+    $('testResponseTitle').textContent = `Overrides: ${c.p}`;
+    $('testResponseContent').innerHTML = `<pre class="resp-pre" style="padding:20px;margin:0">${highlight(valStr)}</pre>`;
+    $('testResponseCopy').onclick = () => copyWithFeedback($('testResponseCopy'), valStr, 16, 'Copied params');
+    showModal('testResponseModal');
+    return;
+  }
   if (e.target.closest('.curl-btn')) {
     const curlStr = generateCurl(i);
     const formatted = curlStr.replace(/ -H /g, ' \\\n  -H ').replace(/ -d /g, ' \\\n  -d ').replace(/ -F /g, ' \\\n  -F ');
