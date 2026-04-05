@@ -43,12 +43,12 @@ config_mongodb_uri="mongodb://localhost:27017"
 ## FAQ
 
 | # | Scenario | Description |
-| :--- | :--- | :--- |
+| :-----| :--- | :--- |
 | 1 | **API Master** | Interactive tester at `static/api.html` or `/page-api` |
 | 2 | **Serve static content** | Served via the `static/` directory prefix. |
 | 3 | **Serve html pages** | `/page-{name}` or `/s/{name}` for `static/` HTML files. |
 | 4 | **PostgreSQL Init Auto** | Runs `func_postgres_init` on startup. |
-| 5 | **PostgreSQL Manual Init** | Full system refresh via `/admin/sync` API. |
+| 5 | **PostgreSQL Init Manual** | Full system refresh via `/admin/sync` API. |
 | 6 | **PostgreSQL Config** | Check `config_postgres` in `config.py` for all schema and control settings. |
 | 7 | **User Profile Keys** | Use `profile_metadata` in `config_sql` for dynamic SQL-based keys. |
 | 8 | **Access App State** | Global clients and config singletons via `request.app.state`. |
