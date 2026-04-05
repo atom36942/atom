@@ -674,7 +674,7 @@ async function init() {
         };
         (op.parameters || []).forEach(p => {
           const s = p.schema || {};
-          const item = { k: p.name, v: (s.default != null ? String(s.default) : ''), e: s.enum || p.enum, req: !!p.required };
+          const item = { k: p.name, v: (s.default != null ? String(s.default) : ''), e: s.enum || p.enum || (s.items && s.items.enum) || null, req: !!p.required };
           if (p.in === 'header') cmd.h.push(item);
           else if (p.in === 'query') cmd.q.push(item);
           else if (p.in === 'path') cmd.u.push(item);
@@ -695,7 +695,7 @@ async function init() {
               if (pt === 'array') pt = 'list';
               if (pt === 'object') pt = 'object';
               const s = prop.schema || prop;
-              cmd.j.push({ k: k, v: (s.default != null ? String(s.default) : ''), t: pt, e: s.enum || prop.enum, req: reqProps.includes(k) });
+              cmd.j.push({ k: k, v: (s.default != null ? String(s.default) : ''), t: pt, e: s.enum || prop.enum || (s.items && s.items.enum) || null, req: reqProps.includes(k) });
             });
           } else if (bodyContent['multipart/form-data']) {
             const schema = bodyContent['multipart/form-data'].schema || {};
@@ -1153,7 +1153,8 @@ const runScenario = (id) => {
                 } else {
                     const pType = (s.params_types && s.params_types[k]) || 'string';
                     $(s.param_type === 'query' ? 'qSec' : (s.param_type === 'json' ? 'jSec' : 'fSec')).classList.add('active');
-                    const base_param = (s.param_type === 'query' ? curr.q : (s.param_type === 'json' ? curr.j : (s.param_type === 'form' ? curr.f : []))).find(x => x.k === k);
+                    // Global metadata search across all parameter collections
+                    const base_param = [...(curr.h||[]), ...(curr.q||[]), ...(curr.u||[]), ...(curr.f||[]), ...(curr.j||[])].find(x => x.k === k);
                     const enum_list = base_param ? base_param.e : null;
                     mkRow(cont, k, v, pType, enum_list, false, false);
                 }
