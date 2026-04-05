@@ -170,6 +170,12 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     <div class="tag-card">
         <div class="tag-card-header" onclick="toggleTagCard()">
             <span class="tag-card-title">Path Filters</span>
+            <div style="display:flex;align-items:center;gap:8px;margin-right:12px" onclick="event.stopPropagation()">
+                <label style="font-size:12px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px">
+                    <input type="checkbox" id="unthrottledOnlyCb" ${is_un_throttled_only ? 'checked' : ''} onchange="toggleUnthrottledOnly(event)" style="cursor:pointer;accent-color:var(--accent)">
+                    Un-throttled only
+                </label>
+            </div>
             <span class="tag-toggle-icon collapsed" id="tagToggleIcon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </span>
@@ -336,7 +342,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 </div>
 
 <script>
-let COMMANDS = [], SPEC = null, activeApiTag = null;
+let COMMANDS = [], SPEC = null, activeApiTag = null, is_un_throttled_only = 1;
 const d = document,
   $ = id => d.getElementById(id);
 let curr = null, orig = [];
@@ -360,6 +366,11 @@ const renderApiInfoTags = () => {
 const toggleApiTag = t => {
     activeApiTag = activeApiTag === t ? null : t;
     renderApiInfoTags();
+    renderApiInfoTable($('apiInfoSearch').value);
+};
+
+const toggleUnthrottledOnly = e => {
+    is_un_throttled_only = e.target.checked ? 1 : 0;
     renderApiInfoTable($('apiInfoSearch').value);
 };
 
@@ -914,6 +925,10 @@ const load = i => {
 
 const renderApiInfoTable = (searchQuery = '') => {
   const filtered = COMMANDS.filter(c => {
+    if (is_un_throttled_only) {
+        const hasQ = c.q.some(x => x.k === 'queue'), hasJ = c.j.some(x => x.k === 'queue');
+        if (hasQ || hasJ) return false;
+    }
     const matchesSearch = !searchQuery || c.p.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTag = !activeApiTag || getPathTags(c.p).includes(activeApiTag);
     return matchesSearch && matchesTag;

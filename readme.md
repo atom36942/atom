@@ -28,23 +28,17 @@ docker build -t atom .
 docker run --rm -p 8000:8000 atom
 
 # Sample .env
-cat <<EOF > .env
 config_postgres="postgresql://atom@127.0.0.1/postgres"
 config_redis_url="redis://localhost:6379"
 config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 config_mongodb_uri="mongodb://localhost:27017"
-EOF
+
+# Consumers
+/venv/bin/python consumer.py redis
+./venv/bin/python consumer.py celery
+./venv/bin/python consumer.py rabbitmq
+./venv/bin/python consumer.py kafka
 ```
-
-
-## Consumers
-
-| Protocol | Backend | Run Consumer |
-| :--- | :--- | :--- |
-| **Celery** | Redis | `./venv/bin/python consumer.py celery` |
-| **Kafka** | Event Stream | `./venv/bin/python consumer.py kafka` |
-| **RabbitMQ** | AMQP | `./venv/bin/python consumer.py rabbitmq` |
-| **Redis** | Pub/Sub | `./venv/bin/python consumer.py redis` |
 
 ## FAQ
 
