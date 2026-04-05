@@ -186,8 +186,8 @@ config_postgres={
 {"name":"country","datatype":"text"},
 {"name":"state","datatype":"text"},
 {"name":"city","datatype":"text"},
-{"name":"email_communication","datatype":"text"},
-{"name":"mobile_communication","datatype":"text"},
+{"name":"email_comm","datatype":"text"},
+{"name":"mobile_comm","datatype":"text"},
 ],
 "log_api":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
@@ -269,7 +269,7 @@ config_postgres={
 "control":{
 "root_user_password":"a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
 "is_extension":1,
-"is_match_column":0,
+"is_match_column":1,
 "is_drop_disable_table":1,
 "is_truncate_disable":1,
 "is_child_delete_soft":1,

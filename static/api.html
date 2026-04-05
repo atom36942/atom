@@ -480,6 +480,16 @@ const SCENARIOS = [
         params_types: { obj_list: 'list' },
         param_type: 'json',
         remove: ['type', 'title']
+    },
+    {
+        id: 'my-object-create-queue',
+        group: 'My',
+        name: 'Queue Creation',
+        desc: 'Add API in queue',
+        path: '/my/object-create',
+        method: 'POST',
+        params: { queue: 'redis' },
+        param_type: 'query'
     }
 ];
 
@@ -663,7 +673,8 @@ async function init() {
           tag: op.tags ? op.tags[0] : 'system'
         };
         (op.parameters || []).forEach(p => {
-          const item = { k: p.name, v: (p.schema?.default != null ? String(p.schema.default) : ''), e: p.schema?.enum || p.enum, req: !!p.required };
+          const s = p.schema || {};
+          const item = { k: p.name, v: (s.default != null ? String(s.default) : ''), e: s.enum || p.enum, req: !!p.required };
           if (p.in === 'header') cmd.h.push(item);
           else if (p.in === 'query') cmd.q.push(item);
           else if (p.in === 'path') cmd.u.push(item);
@@ -683,7 +694,8 @@ async function init() {
               if (pt === 'boolean') pt = 'bool';
               if (pt === 'array') pt = 'list';
               if (pt === 'object') pt = 'object';
-              cmd.j.push({ k: k, v: (prop.default != null ? String(prop.default) : ''), t: pt, e: prop.enum, req: reqProps.includes(k) });
+              const s = prop.schema || prop;
+              cmd.j.push({ k: k, v: (s.default != null ? String(s.default) : ''), t: pt, e: s.enum || prop.enum, req: reqProps.includes(k) });
             });
           } else if (bodyContent['multipart/form-data']) {
             const schema = bodyContent['multipart/form-data'].schema || {};
@@ -1141,7 +1153,9 @@ const runScenario = (id) => {
                 } else {
                     const pType = (s.params_types && s.params_types[k]) || 'string';
                     $(s.param_type === 'query' ? 'qSec' : (s.param_type === 'json' ? 'jSec' : 'fSec')).classList.add('active');
-                    mkRow(cont, k, v, pType, null, false, false);
+                    const base_param = (s.param_type === 'query' ? curr.q : (s.param_type === 'json' ? curr.j : (s.param_type === 'form' ? curr.f : []))).find(x => x.k === k);
+                    const enum_list = base_param ? base_param.e : null;
+                    mkRow(cont, k, v, pType, enum_list, false, false);
                 }
             }
         });
