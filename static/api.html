@@ -144,6 +144,9 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .col-action{width:66px;min-width:66px;text-align:center!important}
 .col-time {width:56px;min-width:56px;text-align:center!important}
 .col-run {width:36px;min-width:36px;text-align:center!important}
+.master-status-cell, .master-time-cell {cursor:pointer!important}
+.master-status-cell:hover, .master-time-cell:hover {background:rgba(255,255,255,0.02)}
+
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 .tag-group{display:flex;flex-wrap:wrap;gap:8px;width:100%}
 .tag-filter{display:inline-block;padding:4px 10px;font-size:11px;font-weight:600;border-radius:12px;background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;transition:all .2s;border:1px solid transparent}
@@ -316,6 +319,43 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
         <div id="testParamsContent" style="max-height:70vh;overflow-y:auto;background:#14171c;border-radius:8px;border:1px solid rgba(255,255,255,.08)"></div>
     </div>
 </div>
+
+<div id="masterResponseModal" class="modal" onclick="if(event.target===this)hideModal('masterResponseModal')">
+    <div class="modal-content" style="max-width:760px;margin:2% auto">
+        <div class="modal-header">
+            <h3 style="margin:0">API Response</h3>
+            <div class="modal-actions">
+                <button type="button" class="icon-btn" title="Close" onclick="hideModal('masterResponseModal')"></button>
+            </div>
+        </div>
+        <div class="runner-scroll">
+            <div class="runner-section">
+                <div class="runner-endpoint" id="masterRespIn"></div>
+                <div class="resp-box show" id="masterRespBox" style="display:flex">
+                    <div class="resp-header">
+                        <span>Response <span id="masterRespCode" style="font-weight:400"></span></span>
+                        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+                            <button class="view-btn master-view-btn" data-view="raw" title="Raw View" id="masterBtnRaw"></button>
+                            <button class="view-btn master-view-btn" data-view="pretty" title="Tree View" id="masterBtnPretty"></button>
+                            <button class="view-btn master-view-btn" data-view="table" title="Table View" id="masterBtnTable"></button>
+                            <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                            <button id="masterRespCopy" class="icon-btn" title="Copy Response"></button>
+                            <button id="masterRespCopyFull" class="icon-btn" title="Copy Curl & Response"></button>
+                            <button id="masterRespCsv" class="icon-btn" title="Download CSV"></button>
+                            <button id="masterRespJson" class="icon-btn" title="Download JSON"></button>
+                        </div>
+                    </div>
+                    <div class="resp-content">
+                        <div id="masterViewPretty" class="resp-view active"></div>
+                        <div id="masterViewRaw" class="resp-view"><pre class="resp-pre" id="masterRawPre"></pre></div>
+                        <div id="masterViewTable" class="resp-view"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 
 <div id="infoModal" class="modal" onclick="if(event.target===this)hideModal('infoModal')"><div class="modal-content" style="max-width:600px;margin:2% auto">
@@ -1322,9 +1362,9 @@ const renderApiInfoTable = (searchQuery = '') => {
         <th class="col-action">Override</th>
         <th class="col-time">Status</th>
         <th class="col-time">Time</th>
-        <th class="col-action">Response</th>
         <th class="col-run">Run</th>
     </tr></thead>` +
+
     `<tbody>${filteredIndexes.map(globalIndex => {
       const c = COMMANDS[globalIndex];
       const isWs = c.m === 'WS';
@@ -1338,11 +1378,11 @@ const renderApiInfoTable = (searchQuery = '') => {
           <td class="col-path" title="${c.p}">${c.p}</td>
           <td class="col-param">${isWs ? '-' : renderParamBadges(c)}</td>
           <td class="col-action ovr-btn" style="color:var(--accent)" title="View Overrides">${isWs ? '-' : (PATH_OVERRIDES[c.p] ? ICON.eye(16) : '-')}</td>
-          <td class="col-time master-static-cell" title="${responseState ? `HTTP ${responseState.status}` : 'No response yet'}">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
-          <td class="col-time master-static-cell" title="${responseState ? `${responseState.time}ms` : 'No response yet'}">${isWs ? '-' : (responseState ? `${responseState.time}ms` : '-')}</td>
-          <td class="col-action master-response-cell" title="${responseTitle}">${isWs ? '-' : `<button type="button" class="master-response-btn master-response-view-btn" data-i="${globalIndex}" ${responseState ? '' : 'disabled'}>${ICON.eye(16)}</button>`}</td>
+          <td class="col-time master-status-cell" title="${responseState ? `HTTP ${responseState.status}` : 'No response yet'}">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
+          <td class="col-time master-time-cell" title="${responseState ? `${responseState.time}ms` : 'No response yet'}">${isWs ? '-' : (responseState ? `${responseState.time}ms` : '-')}</td>
           <td class="col-run run-btn" title="Run">${ICON.play(16)}</td>
         </tr>`;
+
     }).join('')}</tbody>`;
   updateTestSummary();
 };
@@ -1450,13 +1490,13 @@ $('storageContent').onclick = e => {
 $('apiInfoTbl').onclick = e => {
   const tr = e.target.closest('tr[data-i]'), i = tr?.dataset.i, c = COMMANDS[i];
   if (!tr) return;
-  if (e.target.closest('.master-static-cell')) return;
-  if (e.target.closest('.master-response-cell')) {
+  if (e.target.closest('.master-status-cell') || e.target.closest('.master-time-cell')) {
     const responseState = responseStore.get(i);
-    if (responseState) openJsonResponseModal(`Response: ${c.p}`, responseState.data);
+    if (responseState) openMasterResponse(i);
     return;
   }
   if (e.target.closest('.ovr-btn')) {
+
     const v = PATH_OVERRIDES[c.p];
     if (!v) return;
     openJsonResponseModal(`Overrides: ${c.p}`, v);
@@ -1624,9 +1664,13 @@ const switchView = (view) => {
     d.querySelectorAll('.resp-view').forEach(v => v.classList.toggle('active', v.id === `view${view.charAt(0).toUpperCase() + view.slice(1)}`));
 };
 
-d.querySelectorAll('.view-btn').forEach(btn => {
+d.querySelectorAll('.view-btn:not(.master-view-btn)').forEach(btn => {
     btn.onclick = () => switchView(btn.dataset.view);
 });
+d.querySelectorAll('.master-view-btn').forEach(btn => {
+    btn.onclick = () => switchMasterView(btn.dataset.view);
+});
+
 
 const showResponse = (json, httpCode, ms) => {
     lastFullJson = json;
@@ -1660,6 +1704,55 @@ const showResponse = (json, httpCode, ms) => {
     switchView('raw');
     $('rBox').classList.add('show');
 };
+
+let lastMasterRawResponse = '', lastMasterFullJson = null, masterCurrentView = 'pretty';
+const switchMasterView = (view) => {
+    masterCurrentView = view;
+    d.querySelectorAll('.master-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    d.querySelectorAll('#masterResponseModal .resp-view').forEach(v => v.classList.toggle('active', v.id === `masterView${view.charAt(0).toUpperCase() + view.slice(1)}`));
+};
+
+const openMasterResponse = (i) => {
+    const responseState = responseStore.get(i);
+    if (!responseState) return;
+    const c = COMMANDS[i];
+    const json = responseState.data;
+    const httpCode = responseState.status;
+    const ms = responseState.time;
+    lastMasterFullJson = json;
+    lastMasterRawResponse = JSON.stringify(json, null, 2);
+    $('masterRespIn').innerHTML = renderRunnerEndpoint(c);
+    const codeColor = httpCode >= 200 && httpCode < 300 ? 'var(--primary)' : (httpCode >= 400 ? 'var(--delete)' : 'var(--accent)');
+    $('masterRespCode').innerHTML = (httpCode != null ? `<span style="color:${codeColor};font-weight:600">${httpCode}</span>` : '') + 
+                           (ms != null ? ` <span style="color:var(--muted);font-size:11px;margin-left:8px">${ms}ms</span>` : '');
+    $('masterViewPretty').innerHTML = renderTree(json);
+    $('masterRawPre').innerHTML = highlight(lastMasterRawResponse);
+    const tableData = json.data || json.message || json;
+    const tableHtml = fmtGrid(tableData);
+    $('masterViewTable').innerHTML = tableHtml || `<div style="padding:20px;text-align:center;color:var(--muted)">Table view not available for this response format</div>`;
+    const csvData = json.message;
+    const can_csv = csvData != null && typeof csvData === 'object' && (Array.isArray(csvData) ? (csvData.length > 0 && typeof csvData[0] === 'object') : true);
+    const rCsv = $('masterRespCsv'), btnT = $('masterBtnTable');
+    if (rCsv) {
+        rCsv.style.opacity = can_csv ? '1' : '0.4';
+        rCsv.style.pointerEvents = can_csv ? 'auto' : 'none';
+        rCsv.onclick = can_csv ? () => downloadCsv('response.csv', arrayToCsv(Array.isArray(csvData) ? csvData : [csvData])) : null;
+    }
+    if (btnT) {
+        btnT.style.opacity = tableHtml ? '1' : '0.4';
+        btnT.style.pointerEvents = tableHtml ? 'auto' : 'none';
+    }
+    $('masterRespCopy').onclick = () => copyWithFeedback($('masterRespCopy'), lastMasterRawResponse, 16, 'Copied to clipboard');
+    $('masterRespCopyFull').onclick = () => {
+        const curl = generateCurl(i);
+        const fullText = `CURL:\n${curl}\n\nRESPONSE:\n${lastMasterRawResponse}`;
+        copyWithFeedback($('masterRespCopyFull'), fullText, 16, 'Curl & Response copied');
+    };
+    $('masterRespJson').onclick = () => downloadJson('response.json', lastMasterRawResponse);
+    switchMasterView('raw');
+    showModal('masterResponseModal');
+};
+
 
 const renderTree = (val, key = null) => {
     if (val === null || typeof val !== 'object') {
@@ -2114,8 +2207,16 @@ const setupIcons = () => {
         'storageResetAll': ICON.trash(18),
         'cellPopCopy': ICON.copy(14),
         'curlViewCopy': ICON.copy(16),
-        'curlViewResCopy': ICON.copy(16)
+        'curlViewResCopy': ICON.copy(16),
+        'masterBtnRaw': ICON.code(16),
+        'masterBtnPretty': ICON.list(16),
+        'masterBtnTable': ICON.table(16),
+        'masterRespCopy': ICON.copy(16),
+        'masterRespCopyFull': ICON.copyCurl(16),
+        'masterRespCsv': ICON.fileCsv(16),
+        'masterRespJson': ICON.fileJson(16)
     };
+
     Object.entries(iconMap).forEach(([id, svg]) => {
         const el = $(id);
         if (el) el.innerHTML = svg;
