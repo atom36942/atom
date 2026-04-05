@@ -30,7 +30,8 @@ async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: 
     import re
     limit, page = min(max(int(limit_count or 100), 1), 500), max(int(page_number or 1), 1)
     regex_identifier = re.compile(r"^[a-z_][a-z0-9_]*$")
-    if not all(regex_identifier.match(x) for x in (table_name, column_name) if x): raise Exception("bad table or column identifier")
+    if not regex_identifier.match(table_name): raise Exception("table identifier invalid")
+    if not regex_identifier.match(column_name): raise Exception("column identifier invalid")
     if filter_column and not regex_identifier.match(filter_column): raise Exception("bad filter column identifier")
     where_clause, query_args = "", []
     if filter_column and filter_value is not None:
@@ -155,7 +156,10 @@ async def func_obj_update_logic(api_role: str, obj_query: dict, obj_body: dict, 
                 if key in column_blocked_list: raise Exception(f"blocked key not allowed: {key}")
         if obj_query.get("table") == "users":
             if len(obj_list) != 1: raise Exception("multi-object update not allowed")
-            if obj_list[0].get("id") != user_id: raise Exception("ownership issue")
+            if (bid := obj_list[0].get("id")) != user_id:
+                if str(bid) == str(user_id): raise Exception("id type mismatch: integer required")
+                raise Exception("ownership issue")
+
             if "is_deleted" in obj_list[0]: raise Exception("blocked key not allowed: is_deleted")
             csu = column_single_update_list.split(",") if isinstance(column_single_update_list, str) else column_single_update_list
             if any(key in obj_list[0] and len(obj_list[0]) != 2 for key in csu): raise Exception("obj length should be 2")
@@ -191,12 +195,32 @@ async def func_consumer_logic(payload: dict, func_postgres_create: callable, fun
     if not hasattr(func_consumer_logic, "counter"): func_consumer_logic.counter = count(1)
     func_name = payload.get("func")
     if func_name == "func_postgres_create":
-        output = asyncio.create_task(func_postgres_create(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["mode"], payload["is_serialize"], payload["buffer"]))
+        output = await func_postgres_create(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["mode"], payload["is_serialize"], payload["buffer"])
     elif func_name == "func_postgres_update":
-        output = asyncio.create_task(func_postgres_update(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["is_serialize"], payload["created_by_id"]))
+        output = await func_postgres_update(postgres_pool, func_postgres_obj_serialize, payload["table"], payload["obj_list"], payload["is_serialize"], payload["created_by_id"])
     else: raise Exception(f"unsupported consumer function: {func_name}, allowed: func_postgres_create, func_postgres_update")
-    print(next(func_consumer_logic.counter))
+    print(next(func_consumer_logic.counter), flush=True)
     return output
+
+async def func_consumer_batch_logic(payload_list: list, func_postgres_create: callable, func_postgres_update: callable, func_postgres_obj_serialize: callable, postgres_pool: any) -> any:
+    """Group and execute a list of background tasks in bulk for improved performance."""
+    if not payload_list: return None
+    by_func = {}
+    for payload in payload_list:
+        f_name, t_name = payload.get("func"), payload.get("table")
+        if not f_name or not t_name: continue
+        by_func.setdefault(f_name, {}).setdefault(t_name, []).append(payload)
+    results = []
+    for func_name, tables in by_func.items():
+        if func_name == "func_postgres_create":
+            for table, payloads in tables.items():
+                obj_list = [obj for p in payloads for obj in p.get("obj_list", [])]
+                results.append(await func_postgres_create(postgres_pool, func_postgres_obj_serialize, table, obj_list, payloads[0].get("mode"), payloads[0].get("is_serialize"), payloads[0].get("buffer")))
+        elif func_name == "func_postgres_update":
+            for table, payloads in tables.items():
+                obj_list = [obj for p in payloads for obj in p.get("obj_list", [])]
+                results.append(await func_postgres_update(postgres_pool, func_postgres_obj_serialize, table, obj_list, payloads[0].get("is_serialize"), payloads[0].get("created_by_id")))
+    return results
 
 async def func_api_file_to_obj_list(upload_file: any) -> list:
     """Convert an uploaded CSV file into a list of dictionaries (all at once)."""
@@ -382,7 +406,25 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
     return spec
 
 def func_check(app_routes: list, current_config_api: dict, allowed_roles: list = None) -> None:
-    """Validate config_api consistency with app routes, admin roles, valid modes, and strict api roles."""
+    """Validate config_api consistency with app routes, admin roles, valid modes, duplicate keys, and strict api roles."""
+    import ast
+    def get_duplicate_errors(file_path, var_name):
+        try:
+            with open(file_path, "r") as f:
+                tree = ast.parse(f.read())
+            for node in tree.body:
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name) and target.id == var_name:
+                            if isinstance(node.value, ast.Dict):
+                                keys = []
+                                for k in node.value.keys:
+                                    if isinstance(k, ast.Constant): keys.append(k.value)
+                                    elif isinstance(k, ast.Str): keys.append(k.s)
+                                duplicates = [str(k) for k in set(keys) if keys.count(k) > 1]
+                                return [f"duplicate keys in {var_name}: {', '.join(duplicates)}"] if duplicates else []
+        except: pass
+        return []
     app_paths = {route.path for route in app_routes if hasattr(route, "path")}
     def get_route_errors(paths, config):
         missing = [p for p in config if p not in paths]
@@ -416,7 +458,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
                 if role not in allowed: errs.append(f"invalid api role in path {route.path}: {role}")
         return errs
 
-    errors = get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles)
+    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles)
     if errors: raise Exception("; ".join(errors))
 
 def func_repo_info(app_routes: list, cache_postgres_schema: dict, config_postgres: dict, config_table: dict, config_api: dict) -> dict:
@@ -493,7 +535,7 @@ def func_config_override_from_env(global_dict: dict) -> None:
 async def func_postgres_runner(postgres_pool: any, execution_mode: str, sql_query: str) -> any:
     """Execute raw SQL queries in 'read' or 'write' mode with basic DDL and DELETE protection."""
     import re
-    if execution_mode != "read" and execution_mode != "write": raise Exception("execution mode must be 'read' or 'write'")
+    if execution_mode != "read" and execution_mode != "write": raise Exception(f"invalid execution mode: {execution_mode}")
     ql = sql_query.lower().strip()
     if re.search(r"\bdrop\b", ql): raise Exception("keyword drop forbidden")
     if re.search(r"\btruncate\b", ql): raise Exception("keyword truncate forbidden")
@@ -1292,7 +1334,7 @@ async def func_check_cache(mode: str, url_path: str, query_params: dict, api_con
     def build_cache_key(path, qp, uid): return f"""cache:{path}?{"&".join(f"{k}={v}" for k, v in sorted(qp.items()))}:{uid}"""
     def compress_data(body): return base64.b64encode(gzip.compress(body)).decode()
     def decompress_data(data): return gzip.decompress(base64.b64decode(data)).decode()
-    if mode not in ["get", "set"]: raise Exception("cache mode should be 'get' or 'set'")
+    if mode not in ["get", "set"]: raise Exception(f"invalid cache mode: {mode}")
     uid = user_id if "my/" in url_path else 0
     cache_key, api_cfg = build_cache_key(url_path, query_params, uid), api_config.get(url_path, {})
     cache_mode, expire_sec = api_cfg.get("api_cache_sec", (None, None))
@@ -1458,7 +1500,8 @@ async def func_my_profile_read(postgres_pool: any, user_id: int, config_sql: dic
 async def func_otp_generate(postgres_pool: any, email_address: str = None, mobile_number: str = None) -> int:
     """Generate and store a numeric OTP for email or mobile verification."""
     import random
-    if not email_address and not mobile_number: raise Exception("email or mobile missing")
+    if not email_address and not mobile_number: raise Exception("missing both email and mobile")
+
     if email_address and mobile_number: raise Exception("provide only one identifier")
     otp_code = random.randint(100000, 999999)
     query, values = ("INSERT INTO otp (otp, email) VALUES ($1, $2)", (otp_code, email_address.strip().lower())) if email_address else ("INSERT INTO otp (otp, mobile) VALUES ($1, $2)", (otp_code, mobile_number.strip()))
@@ -1469,12 +1512,13 @@ async def func_otp_verify(postgres_pool: any, otp_code: int, email_address: str 
     """Verify an OTP for email or mobile within its expiration window."""
     limit_expiry = expiry_sec or 600
     if not otp_code: raise Exception("otp code missing")
-    if not email_address and not mobile_number: raise Exception("email or mobile missing")
+    if not email_address and not mobile_number: raise Exception("missing both email and mobile")
     if email_address and mobile_number: raise Exception("provide only one identifier")
-    query, identifier = (f"SELECT otp FROM otp WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '{limit_expiry}s' AND email=$1 ORDER BY id DESC LIMIT 1", email_address.strip().lower()) if email_address else (f"SELECT otp FROM otp WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '{limit_expiry}s' AND mobile=$1 ORDER BY id DESC LIMIT 1", mobile_number.strip())
+    query, identifier = (f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{limit_expiry}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1", email_address.strip().lower()) if email_address else (f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{limit_expiry}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1", mobile_number.strip())
     async with postgres_pool.acquire() as conn:
         records = await conn.fetch(query, identifier)
-        if not records: raise Exception("otp expired or not found")
+        if not records: raise Exception("otp not found")
+        if not records[0]["is_active"]: raise Exception("otp expired")
         if int(records[0]["otp"]) != int(otp_code): raise Exception("invalid otp code")
 
 async def func_message_inbox(postgres_pool: any, user_id: int, mode: str = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
@@ -1548,17 +1592,18 @@ async def func_auth_login_password_username(postgres_pool: any, user_type: int, 
     import hashlib
     hashed_pwd = hashlib.sha256(str(password_raw).encode()).hexdigest()
     async with postgres_pool.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username=$2 AND password=$3 ORDER BY id DESC LIMIT 1;", user_type, username, hashed_pwd)
-        if not records: raise Exception("invalid username or password")
+        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username=$2 ORDER BY id DESC LIMIT 1;", user_type, username)
+        if not records: raise Exception("username not found")
+        if records[0]["password"] != hashed_pwd: raise Exception("invalid password")
         return dict(records[0])
 
 async def func_auth_login_password_username_bigint(postgres_pool: any, user_type: int, password_bigint: int, username_bigint: int) -> dict:
     """Authenticate a user using bigint identifier and bigint password."""
     query = "SELECT * FROM users WHERE type=$1 AND username_bigint=$2 AND password_bigint=$3 ORDER BY id DESC LIMIT 1;"
     async with postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_type, username_bigint, password_bigint)
-    if not records:
-        raise Exception("invalid credentials")
+        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username_bigint=$2 ORDER BY id DESC LIMIT 1;", user_type, username_bigint)
+        if not records: raise Exception("username not found")
+        if int(records[0]["password_bigint"]) != int(password_bigint): raise Exception("invalid password")
     return dict(records[0])
 
 async def func_auth_login_password_email(postgres_pool: any, user_type: int, password_raw: str, email_address: str) -> dict:
@@ -1567,9 +1612,9 @@ async def func_auth_login_password_email(postgres_pool: any, user_type: int, pas
     hashed_pwd = hashlib.sha256(str(password_raw).encode()).hexdigest()
     query = "SELECT * FROM users WHERE type=$1 AND email=$2 AND password=$3 ORDER BY id DESC LIMIT 1;"
     async with postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_type, email_address, hashed_pwd)
-    if not records:
-        raise Exception("invalid email or password")
+        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", user_type, email_address)
+        if not records: raise Exception("email not found")
+        if records[0]["password"] != hashed_pwd: raise Exception("invalid password")
     return dict(records[0])
 
 async def func_auth_login_password_mobile(postgres_pool: any, user_type: int, password_raw: str, mobile_number: str) -> dict:
@@ -1578,9 +1623,9 @@ async def func_auth_login_password_mobile(postgres_pool: any, user_type: int, pa
     hashed_pwd = hashlib.sha256(str(password_raw).encode()).hexdigest()
     query = "SELECT * FROM users WHERE type=$1 AND mobile=$2 AND password=$3 ORDER BY id DESC LIMIT 1;"
     async with postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_type, mobile_number, hashed_pwd)
-    if not records:
-        raise Exception("invalid mobile or password")
+        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", user_type, mobile_number)
+        if not records: raise Exception("mobile not found")
+        if records[0]["password"] != hashed_pwd: raise Exception("invalid password")
     return dict(records[0])
 
 async def func_auth_login_otp_email(postgres_pool: any, user_type: int, email_address: str, auth_type_list: list) -> dict:

@@ -5,10 +5,11 @@
 | :--- | :--- | :--- |
 | **Style** | Senior, Compact | 1 blank line before headers; no breaks between comments/logic inside functions. |
 | **Logic** | Pure Functional | `function.py` for stateless logic; no external dependencies; SOLID compliant. |
-| **Safety** | Error Isolation | No `or` logic in checks; individual `if` blocks for specific exceptions. |
+| **Safety** | Error Isolation | No `or` logic in checks; individual `if` blocks for specific exceptions. No clubbed error messages (e.g., "A or B missing"). |
 | **IO** | Path Security | `tmp/` for temporary files only. No exceptions. |
 | **Defaults** | INTERNAL HANDLING| No parameter defaults in signatures; use `None` and handle at function start. |
 | **Frontend** | Single-File | `static/` HTML files must contain all JS/CSS/HTML logic. No external local assets. |
+| **Validation** | Centralized | All app-start validation checks must reside within `func_check` in `function.py`. |
 
 ### Naming Conventions
 | Category | Variable Prefix | Behavior |
@@ -18,6 +19,7 @@
 | **Functions** | `func_` | Standard prefix for all functional logic. |
 | **Clients** | `client_` | Persistent singletons (HTTP, DB, Redis, etc.). |
 | **Cache** | `cache_` | Dictionary-based local or distributed state maps. |
+| **Explicit** | N/A | Configuration variables MUST include the service/feature name (e.g., `config_postgres_batch_limit`). |
 
 ### Repository Map
 | Path | Service | Responsibility |

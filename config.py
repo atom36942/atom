@@ -18,8 +18,13 @@ config_kafka_url=None
 config_kafka_username=None
 config_kafka_password=None
 config_kafka_group_id="group_1"
-config_is_kafka_auto_commit=1
-config_kafka_consumer_batch=100
+config_kafka_is_auto_commit=1
+config_kafka_batch_limit=100
+config_kafka_batch_timeout_ms=1000
+config_rabbitmq_batch_limit=1000
+config_rabbitmq_batch_timeout_ms=1000
+config_redis_batch_limit=1000
+config_redis_batch_timeout_ms=1000
 
 #token
 config_token_secret_key="123"
@@ -90,8 +95,8 @@ config_is_postgres_init_startup=1
 
 #zzz
 config_expiry_sec_otp=600
-config_limit_ids_delete=1000
-config_limit_batch=1000
+config_postgres_ids_delete_limit=1000
+config_postgres_batch_limit=1000
 config_google_login_client_id=None
 config_mongodb_uri=None
 config_openai_key=None
@@ -126,10 +131,10 @@ config_api={
 "/admin/mongodb-import":{"user_role_check":["token",[1]]},
 "/admin/s3-bucket-ops":{"user_role_check":["token",[1]]},
 "/admin/s3-url-delete":{"user_role_check":["token",[1]]},
-"/public/object-read":{"api_cache_sec":["inmemory",60]},
+"/public/object-read":{"api_cache_sec":["inmemory",1]},
 "/my/profile":{"api_cache_sec":["inmemory",10]},
-"/my/object-read":{"api_cache_sec":["inmemory",60]},
-"/":{"api_cache_sec":["inmemory",10]},
+"/my/object-read":{"api_cache_sec":["inmemory",1]},
+"/info":{"api_cache_sec":["inmemory",100]},
 "/public/table-tag-read":{"api_cache_sec":["inmemory",10]},
 "/public/jira-worklog-export":{"api_ratelimiting_times_sec":["inmemory",10,60]},
 }
