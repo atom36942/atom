@@ -12,10 +12,7 @@
 
 ## Setup
 
-<div>
-<details>
-<summary>Local Deployment</summary>
-
+### Local Deployment
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -27,23 +24,14 @@ rm -rf venv
 ./venv/bin/python main.py
 ./venv/bin/uvicorn main:app --reload
 ```
-</details>
-</div>
 
-<div>
-<details>
-<summary>Docker Deployment</summary>
-
+### Docker Deployment
 ```bash
 docker build -t atom .
-docker run --rm -p 8000:8000 atom```
-</details>
-</div>
+docker run --rm -p 8000:8000 atom
+```
 
-<div>
-<details>
-<summary>Sample .env</summary>
-
+### Sample .env
 ```bash
 cat <<EOF > .env
 config_postgres="postgresql://atom@127.0.0.1/postgres"
@@ -52,8 +40,7 @@ config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 config_mongodb_uri="mongodb://localhost:27017"
 EOF
 ```
-</details>
-</div>
+
 
 ## Consumers
 
