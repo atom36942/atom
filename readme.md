@@ -11,9 +11,8 @@
 | **Tech Stack** | FastAPI, Postgres, Redis, RabbitMQ, Kafka, Celery, S3. |
 
 ## Setup
-
-### Local Deployment
 ```bash
+# Local Deployment
 git clone https://github.com/atom36942/atom.git
 cd atom
 rm -rf venv
@@ -23,16 +22,12 @@ rm -rf venv
 ./venv/bin/python -V
 ./venv/bin/python main.py
 ./venv/bin/uvicorn main:app --reload
-```
 
-### Docker Deployment
-```bash
+# Docker Deployment
 docker build -t atom .
 docker run --rm -p 8000:8000 atom
-```
 
-### Sample .env
-```bash
+# Sample .env
 cat <<EOF > .env
 config_postgres="postgresql://atom@127.0.0.1/postgres"
 config_redis_url="redis://localhost:6379"
