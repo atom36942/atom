@@ -43,7 +43,7 @@ config_mongodb_uri="mongodb://localhost:27017"
 ## FAQ
 
 | # | Scenario | Description |
-| :-----| :--- | :--- |
+| :---| :--- | :--- |
 | 1 | **API Master** | Interactive tester at `static/api.html` or `/page-api` |
 | 2 | **Serve static content** | Served via the `static/` directory prefix. |
 | 3 | **Serve html pages** | `/page-{name}` or `/s/{name}` for `static/` HTML files. |
@@ -59,7 +59,6 @@ config_mongodb_uri="mongodb://localhost:27017"
 | 13 | **API Caching** | Use `api_cache_sec: ["mode", seconds]` in `config_api` (e.g. `["inmemory", 60]`). |
 | 14 | **API Rate Limiting** | Use `api_ratelimiting_times_sec: ["mode", count, seconds]` in `config_api`. |
 | 15 | **Manual Auth Check** | Use `if request.state.user is None: raise Exception("Unauthorized")` in logic. |
-| 16 | **Background API** | Pass query parameter `is_background=1` to run the API in the background. |
 
 
 

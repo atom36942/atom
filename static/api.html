@@ -17,7 +17,9 @@ h1{margin:0 0 24px 0;font-size:22px;font-weight:600;display:flex;justify-content
 .api-dropdown li:hover{background:#2a3642;color:#fff}
 .method-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:6px;min-width:32px;text-align:center}
 .method-badge.get{background:rgba(56,161,105,.2);color:#38a169}.method-badge.post{background:rgba(66,153,225,.2);color:#4299e1}.method-badge.put{background:rgba(237,137,54,.2);color:#ed8936}.method-badge.delete{background:rgba(220,53,69,.2);color:#dc3545}.method-badge.patch{background:rgba(159,122,234,.2);color:#9f7aea}.method-badge.ws{background:rgba(159,122,234,.2);color:#9f7aea}
-.btn-primary .spinner{display:none;width:16px;height:16px;border:2px solid rgba(0,0,0,.2);border-top-color:var(--primary-text);border-radius:50%;animation:spin .6s linear infinite;margin-right:6px}.btn-primary.loading .spinner{display:inline-block}@keyframes spin{to{transform:rotate(360deg)}}
+.btn-primary .spinner {display:none;width:16px;height:16px;border:2px solid rgba(56,161,105,.2);border-top-color:#38a169;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px}
+.btn-primary.loading .spinner {display:inline-block}
+@keyframes spin {to{transform:rotate(360deg)}}
 form{display:flex;flex-direction:column;gap:24px}
 .section-label{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
 .add-btn-small{background:var(--accent);color:#fff;border:none;border-radius:5px;cursor:pointer;height:22px;width:22px;display:flex;align-items:center;justify-content:center}
@@ -35,7 +37,8 @@ input::placeholder{color:rgba(154,160,166,.5)}
 .json-type-selector{flex:0 0 auto;min-width:90px;padding:12px 32px 12px 14px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;width:auto;cursor:pointer}
 .remove-btn{background:none;color:var(--muted);border:none;width:36px;height:36px;flex:0 0 36px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px}.remove-btn:hover:not(:disabled){color:var(--delete);background:rgba(220,53,69,.1)}.remove-btn:disabled{opacity:0.3;cursor:not-allowed}
 .footer-row{display:flex;gap:16px;margin-top:12px}.btn{padding:14px 24px;flex:1;font-size:15px;font-weight:600;border-radius:8px;border:none;cursor:pointer;height:48px;display:flex;align-items:center;justify-content:center}
-.btn-primary{background:var(--primary);color:var(--primary-text)}.btn-secondary{background:var(--secondary);color:var(--secondary-text)}
+.btn-primary{background:rgba(56,161,105,0.1);color:#38a169;border:1px solid rgba(56,161,105,0.2);transition:all 0.2s}.btn-primary:hover{background:rgba(56,161,105,0.2);border-color:#38a169;color:#fff}
+.btn-secondary{background:var(--secondary);color:var(--secondary-text)}
 .resp-box {background:#0f1114;border-radius:12px;margin-top:28px;display:none;border:1px solid rgba(255,255,255,.08);overflow:hidden;max-height:600px;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.4)}
 .resp-box.show {display:flex}
 .resp-header {display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
@@ -197,7 +200,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 <body>
 <div class="container"><div class="card">
 <h1>API Master <span id="apiTotal" style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px"></span><div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="infoToggleBtn" title="View API Master Info"></button><button type="button" class="icon-btn" id="storageToggleBtn" title="View Local Storage"></button><button type="button" class="icon-btn" id="analyticsToggleBtn" title="View Analytics"></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV catalog"></button></div></h1>
-<div class="toolbar-search"><input type="text" id="apiInfoSearch" placeholder="Search API" style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
+<div class="toolbar-search"><input type="text" id="apiInfoSearch" placeholder="Search" style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
 <div class="tag-card">
     <div class="tag-card-header" onclick="toggleTagCard()">
         <span class="tag-card-title">Path Filters <span id="pathFilterTotal" style="font-weight:500;color:var(--muted)"></span></span>
@@ -237,7 +240,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
         <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
         <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
         <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
-        <div class="footer-row"><button id="subBtn" type="submit" class="btn btn-primary">Submit</button></div>
+        <div class="footer-row"><button id="subBtn" type="submit" class="btn btn-primary"><div class="spinner"></div>Run</button></div>
     </form>
     <div class="resp-box" id="rBox">
         <div class="resp-header">
@@ -248,6 +251,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
                 <button class="view-btn" data-view="table" title="Table View" id="btnTable"></button>
                 <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
                 <button id="rCopy" class="icon-btn" title="Copy Response"></button>
+                <button id="rCopyFull" class="icon-btn" title="Copy Curl & Response"></button>
                 <button id="rCsv" class="icon-btn" title="Download CSV"></button>
                 <button id="rJson" class="icon-btn" title="Download JSON"></button>
             </div>
@@ -338,17 +342,18 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
             <div style="font-size:13px;color:var(--muted);line-height:1.5">4. Unknown override keys are added to <b>Query for GET</b> and <b>Body for non-GET</b> methods.</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
-            <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">Query Operators (GET /object-read)</div>
+            <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">Query Examples (GET /object-read)</div>
             <div style="display:flex;flex-direction:column;gap:6px">
-                <div style="font-size:12px;color:var(--muted)">• <b>Comparison:</b> <code>=,val</code>, <code>==,val</code>, <code>&gt;,5</code>, <code>&gt;=,2024-01-01</code></div>
-                <div style="font-size:12px;color:var(--muted)">• <b>List:</b> <code>in,val1|val2</code>, <code>not in,val1|val2</code>, <code>between,val1|val2</code></div>
-                <div style="font-size:12px;color:var(--muted)">• <b>Pattern:</b> <code>like,%val%</code>, <code>ilike,%Python%</code>, <code>~,^admin</code> (regex)</div>
-                <div style="font-size:12px;color:var(--muted)">• <b>Nulls:</b> <code>is,null</code>, <code>is not,null</code>, <code>is distinct from,0</code></div>
-                <div style="font-size:12px;color:var(--muted)">• <b>Arrays:</b> <code>contains,val1|val2</code>, <code>overlap,val1|val2</code>, <code>any,val</code></div>
-                <div style="font-size:12px;color:var(--muted)">• <b>JSONB:</b> <code>contains,key|val|str</code> (or int/bool), <code>exists,key</code></div>
-                <div style="font-size:12px;color:var(--muted)">• <b>Spatial:</b> <code>point,lon|lat|min_dist|max_dist</code></div>
+                <div style="font-size:12px;color:var(--muted)">• <b>Comparison:</b> <code>id==,5</code>, <code>id=&gt;,100</code>, <code>created_at=&gt;=,2024-01-01</code></div>
+                <div style="font-size:12px;color:var(--muted)">• <b>List & Null:</b> <code>id=in,1|2|3|4</code>, <code>title=is,null</code>, <code>is_active=is distinct from,0</code></div>
+                <div style="font-size:12px;color:var(--muted)">• <b>Pattern & Range:</b> <code>title=ilike,%python%</code>, <code>rating=between,4.0|5.0</code></div>
+                <div style="font-size:12px;color:var(--muted)">• <b>Spatial (PostGIS):</b> <code>location=point,80.0|15.0|0|1000</code> <small style="opacity:.6">(lon|lat|min_meter|max_meter)</small></div>
+                <div style="font-size:12px;color:var(--muted)">• <b>Array:</b> <code>tag=contains,python</code>, <code>tag=overlap,python|sql</code>, <code>tag=any,python</code></div>
+                <div style="font-size:12px;color:var(--muted)">• <b>Array (Int/Bigint):</b> <code>tag_int=contains,1|2</code>, <code>tag_bigint=overlap,1|2</code></div>
+                <div style="font-size:12px;color:var(--muted)">• <b>JSONB:</b> <code>metadata=contains,role|admin|str</code>, <code>metadata=exists,is_verified</code></div>
             </div>
         </div>
+
     </div>
 </div></div>
 
@@ -605,6 +610,7 @@ const PATH_OVERRIDES = {
   '/my/message-delete-bulk': { mode: 'all' },
 
   // Public
+  '/admin/sync': { is_background: 1 },
   '/public/converter-number': { datatype: 'int', mode: 'encode', x: '123' },
   '/public/object-create': {
     table: 'test',
@@ -633,9 +639,10 @@ const PATH_OVERRIDES = {
   '/public/object-read': {
     table: 'test',
     id: '>=,1',
-    title: 'ilike,%Obj%',
     type: '=,1',
-    is_active: '=,1',
+    tag: 'contains,tag0',
+    location: 'point,80.0|15.0|0|5000',
+    metadata: 'contains,role|user|str',
     creator_key: 'username,name,email',
     action_key: 'report_test,test_id,count,id'
   },
@@ -680,7 +687,8 @@ const ICON = {
   fileJson: s => SVG(s, '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 12h1m3 0h1m-4 3h1m3 0h1"/>', '#4299e1'),
   fileCsv: s => SVG(s, '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 12h8m-8 3h8"/>', '#38a169'),
   eye: s => SVG(s, '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
-  info: s => SVG(s, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>')
+  info: s => SVG(s, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
+  copyCurl: s => SVG(s, '<rect x="9" y="9" width="11" height="11" rx="2" ry="2" stroke="var(--accent)"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><polyline points="11 16 14 13 11 10" stroke="var(--accent)"/><line x1="16" y1="17" x2="19" y2="17" stroke="var(--accent)"/>')
 };
 
 const getIcon = v => v ? ICON.check(16) : ICON.cross(16);
@@ -1101,7 +1109,12 @@ async function init() {
 
 const getMasterBaseIndexes = () => COMMANDS.reduce((acc, c, i) => {
   const searchQuery = $('apiInfoSearch')?.value?.toLowerCase() || '';
-  const matchesSearch = !searchQuery || c.p.toLowerCase().includes(searchQuery);
+  const matchesPath = !searchQuery || c.p.toLowerCase().includes(searchQuery);
+  const matchesMethod = searchQuery && c.m.toLowerCase().includes(searchQuery);
+  const allParams = [...c.h, ...c.q, ...c.u, ...c.j, ...c.f];
+  const matchesParam = searchQuery && allParams.some(p => p.k.toLowerCase().includes(searchQuery));
+  
+  const matchesSearch = matchesPath || matchesMethod || matchesParam;
   const matchesTag = !activeApiTag || getPathTags(c.p).includes(activeApiTag);
   if (matchesSearch && matchesTag) acc.push(i);
   return acc;
@@ -1725,6 +1738,14 @@ d.addEventListener('click', e => {
 });
 
 $('rCopy').onclick = () => copyWithFeedback($('rCopy'), lastRawResponse, 16, 'Copied to clipboard');
+$('rCopyFull').onclick = () => {
+    if (!curr || !lastRawResponse) return toast('No data to copy');
+    const idx = COMMANDS.indexOf(curr);
+    if (idx === -1) return toast('Command context lost');
+    const curl = generateCurl(idx);
+    const fullText = `CURL:\n${curl}\n\nRESPONSE:\n${lastRawResponse}`;
+    copyWithFeedback($('rCopyFull'), fullText, 16, 'Curl & Response copied');
+};
 $('rJson').onclick = () => {
     if (!lastRawResponse) return toast('No response to download');
     downloadJson('response.json', lastRawResponse);
@@ -2084,6 +2105,7 @@ const setupIcons = () => {
         'btnPretty': ICON.list(16),
         'btnTable': ICON.table(16),
         'rCopy': ICON.copy(16),
+        'rCopyFull': ICON.copyCurl(16),
         'rCsv': ICON.fileCsv(16),
         'rJson': ICON.fileJson(16),
         'testAllExportCsv': ICON.download(16),

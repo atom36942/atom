@@ -650,9 +650,9 @@ async def func_postgres_read(postgres_pool: any, func_postgres_obj_serialize: ca
         # Spatial filter shortcut
         if expression.lower().startswith("point,"):
             _, coords = expression.split(",", 1)
-            lon, lat, min_dist, max_dist = [float(x) for x in coords.split("|")]
+            lon, lat, min_meter, max_meter = [float(x) for x in coords.split("|")]
             conditions.append(f"ST_Distance({filter_key}, ST_Point(${bind_idx}, ${bind_idx+1})::geography) BETWEEN ${bind_idx+2} AND ${bind_idx+3}")
-            values.extend([lon, lat, min_dist, max_dist])
+            values.extend([lon, lat, min_meter, max_meter])
             bind_idx += 4
             continue
         # Ensure schema metadata is available
