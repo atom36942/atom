@@ -10,6 +10,7 @@
 | **Defaults** | INTERNAL HANDLING| No parameter defaults in signatures; use `None` and handle at function start. |
 | **Frontend** | Single-File | `static/` HTML files must contain all JS/CSS/HTML logic. No external local assets. |
 | **Validation** | Centralized | All app-start validation checks must reside within `func_check` in `function.py`. |
+| **Philosophy** | **Explicitness** | Explicitness > Implicitness. Always be explicit. |
 
 ### Naming Conventions
 | Category | Variable Prefix | Behavior |
