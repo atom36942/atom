@@ -131,7 +131,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .test-summary span.clickable.disabled:hover{background:transparent;border-color:transparent;color:inherit}
 .param-badge{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;text-transform:uppercase;cursor:help;opacity:0.7;display:inline-block;min-width:10px;text-align:center}
 .param-badge:hover{opacity:1;background:rgba(255,255,255,0.1)}
-.param-badge.t{background:rgba(56,161,105,0.15);color:#38a169}
+.param-badge.h{background:rgba(56,161,105,0.15);color:#38a169}
 .param-badge.p{background:rgba(66,153,225,0.15);color:#4299e1}
 .param-badge.q{background:rgba(0,188,212,0.15);color:#00bcd4}
 .param-badge.f{background:rgba(237,137,54,0.15);color:#ed8936}
@@ -704,12 +704,10 @@ const renderStatusBadge = status => {
 };
 const renderParamBadges = command => {
   const badgeList = [];
-  const isAuthRoute = command.p.startsWith('/my/') || command.p.startsWith('/admin/') || command.p.startsWith('/private/');
-  const isToken = isAuthRoute || command.h.some(item => item.k.toLowerCase() === 'authorization');
-  if (isToken) badgeList.push('<span class="param-badge t" title="Authorization token or auth header">T</span>');
-  if (command.q.length) badgeList.push('<span class="param-badge q" title="Query params">Q</span>');
-  if (command._hf) badgeList.push('<span class="param-badge f" title="Form data">F</span>');
-  if (command._hj) badgeList.push('<span class="param-badge b" title="JSON body">B</span>');
+  if (command._paramBadgeH) badgeList.push('<span class="param-badge h" title="Header parameters (OpenAPI)">H</span>');
+  if (command._paramBadgeQ) badgeList.push('<span class="param-badge q" title="Query parameters (OpenAPI)">Q</span>');
+  if (command._paramBadgeF) badgeList.push('<span class="param-badge f" title="Form data (OpenAPI)">F</span>');
+  if (command._paramBadgeB) badgeList.push('<span class="param-badge b" title="JSON body (OpenAPI)">B</span>');
   if (!badgeList.length) return '-';
   return `<div class="param-badge-list">${badgeList.join('')}</div>`;
 };
@@ -834,9 +832,6 @@ const arrayToCsv = arr => {
   const keys = [...new Set(arr.flatMap(Object.keys))];
   return [keys.join(','), ...arr.map(r => keys.map(k => csvEscape(r[k])).join(','))].join('\n');
 };
-
-const yn = a => a && a.length ? 'Yes' : 'No';
-const hasToken = c => c.h && c.h.some(x => x.k.toLowerCase() === 'authorization') ? 'Yes' : 'No';
 
 const resolveSchema = (s) => {
   if (!s) return s;
@@ -992,6 +987,10 @@ const createCommandFromOperation = (path, method, op) => {
   command.f = getRequestFormRows(bodyContent);
   command._hj = command.j.length > 0 || !!bodyContent?.['application/json'];
   command._hf = command.f.length > 0 || !!bodyContent?.['multipart/form-data'];
+  command._paramBadgeH = command.h.length > 0;
+  command._paramBadgeQ = command.q.length > 0;
+  command._paramBadgeF = command._hf;
+  command._paramBadgeB = command._hj;
   const responseSchema = resolveSchema(op.responses?.['200']?.content?.['application/json']?.schema);
   if (responseSchema) command.res = responseSchema;
   applyPathOverrides(command);
@@ -1341,7 +1340,7 @@ const renderApiInfoTable = (searchQuery = '') => {
           <td class="col-action ovr-btn" style="color:var(--accent)" title="View Overrides">${isWs ? '-' : (PATH_OVERRIDES[c.p] ? ICON.eye(16) : '-')}</td>
           <td class="col-time master-static-cell" title="${responseState ? `HTTP ${responseState.status}` : 'No response yet'}">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
           <td class="col-time master-static-cell" title="${responseState ? `${responseState.time}ms` : 'No response yet'}">${isWs ? '-' : (responseState ? `${responseState.time}ms` : '-')}</td>
-          <td class="col-action" title="${responseTitle}">${isWs ? '-' : `<button type="button" class="master-response-btn master-response-view-btn" data-i="${globalIndex}" ${responseState ? '' : 'disabled'}>${ICON.eye(16)}</button>`}</td>
+          <td class="col-action master-response-cell" title="${responseTitle}">${isWs ? '-' : `<button type="button" class="master-response-btn master-response-view-btn" data-i="${globalIndex}" ${responseState ? '' : 'disabled'}>${ICON.eye(16)}</button>`}</td>
           <td class="col-run run-btn" title="Run">${ICON.play(16)}</td>
         </tr>`;
     }).join('')}</tbody>`;
@@ -1452,10 +1451,9 @@ $('apiInfoTbl').onclick = e => {
   const tr = e.target.closest('tr[data-i]'), i = tr?.dataset.i, c = COMMANDS[i];
   if (!tr) return;
   if (e.target.closest('.master-static-cell')) return;
-  if (e.target.closest('.master-response-view-btn')) {
+  if (e.target.closest('.master-response-cell')) {
     const responseState = responseStore.get(i);
-    if (!responseState) return;
-    openJsonResponseModal(`Response: ${c.p}`, responseState.data);
+    if (responseState) openJsonResponseModal(`Response: ${c.p}`, responseState.data);
     return;
   }
   if (e.target.closest('.ovr-btn')) {
@@ -1474,10 +1472,10 @@ $('apiInfoTbl').onclick = e => {
 $('apiInfoCsv').onclick = () => {
   const getParamSummary = c => {
     const valueList = [];
-    if (hasToken(c) === 'Yes') valueList.push('T');
-    if (yn(c.q) === 'Yes') valueList.push('Q');
-    if (c._hf) valueList.push('F');
-    if (c._hj) valueList.push('B');
+    if (c._paramBadgeH) valueList.push('H');
+    if (c._paramBadgeQ) valueList.push('Q');
+    if (c._paramBadgeF) valueList.push('F');
+    if (c._paramBadgeB) valueList.push('B');
     if (!valueList.length) return '-';
     return valueList.join(' ');
   };
