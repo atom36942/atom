@@ -1,5 +1,3 @@
-# Atom Framework
-
 ## About Us
 
 | Core Principle | Description |
@@ -14,38 +12,48 @@
 
 ## Setup
 
+<div>
+<details>
+<summary>Local Deployment</summary>
+
 ```bash
-# Clone the repository
 git clone https://github.com/atom36942/atom.git
 cd atom
-
-# Local Environment Setup
 rm -rf venv
 /opt/homebrew/bin/python3.11 -m venv venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
+./venv/bin/python -V
+./venv/bin/python main.py
+./venv/bin/uvicorn main:app --reload
+```
+</details>
+</div>
 
-# Docker Setup
+<div>
+<details>
+<summary>Docker Deployment</summary>
+
+```bash
 docker build -t atom .
+docker run --rm -p 8000:8000 atom```
+</details>
+</div>
 
-# Environment Variables Setup
-export config_postgres="postgresql://atom@127.0.0.1/postgres"
-export config_redis_url="redis://localhost:6379"
-export config_rabbitmq_url="amqp://guest:guest@localhost:5672"
-export config_mongodb_uri="mongodb://localhost:27017"
+<div>
+<details>
+<summary>Sample .env</summary>
 
-# Sample .env creation
+```bash
 cat <<EOF > .env
 config_postgres="postgresql://atom@127.0.0.1/postgres"
 config_redis_url="redis://localhost:6379"
 config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 config_mongodb_uri="mongodb://localhost:27017"
 EOF
-
-# Run the application
-# ./venv/bin/python main.py
-# ./venv/bin/uvicorn main:app --reload
 ```
+</details>
+</div>
 
 ## Consumers
 
