@@ -1,6 +1,6 @@
-<details>
-<summary>About</summary>
-<div style="padding-top: 10px;">
+# Atom Framework
+
+## About Us
 
 | Core Principle | Description |
 | :--- | :--- |
@@ -12,77 +12,53 @@
 | **Flexibility** | Non-opinionated and fully extensible framework. |
 | **Tech Stack** | FastAPI, Postgres, Redis, RabbitMQ, Kafka, Celery, S3. |
 
-</div>
-</details>
-
-<details>
-<summary>Setup: Local Deployment</summary>
-<div style="padding-top: 10px;">
+## Setup
 
 ```bash
+# Clone the repository
 git clone https://github.com/atom36942/atom.git
 cd atom
+
+# Local Environment Setup
 rm -rf venv
 /opt/homebrew/bin/python3.11 -m venv venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
-./venv/bin/python -V
-./venv/bin/python main.py
-./venv/bin/uvicorn main:app --reload
-```
 
-</div>
-</details>
-
-<details>
-<summary>Setup: Docker Deployment</summary>
-<div style="padding-top: 10px;">
-
-```bash
+# Docker Setup
 docker build -t atom .
-docker run --rm -p 8000:8000 atom
-```
 
-</div>
-</details>
-
-<details>
-<summary>Setup: Environment Variables</summary>
-<div style="padding-top: 10px;">
-
-```bash
+# Environment Variables Setup
 export config_postgres="postgresql://atom@127.0.0.1/postgres"
 export config_redis_url="redis://localhost:6379"
 export config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 export config_mongodb_uri="mongodb://localhost:27017"
+
+# Sample .env creation
+cat <<EOF > .env
+config_postgres="postgresql://atom@127.0.0.1/postgres"
+config_redis_url="redis://localhost:6379"
+config_rabbitmq_url="amqp://guest:guest@localhost:5672"
+config_mongodb_uri="mongodb://localhost:27017"
+EOF
+
+# Run the application
+# ./venv/bin/python main.py
+# ./venv/bin/uvicorn main:app --reload
 ```
 
-</div>
-</details>
-
-
-
-<details>
-<summary>Consumers</summary>
-<div style="padding-top: 10px;">
+## Consumers
 
 | Protocol | Backend | Run Consumer |
 | :--- | :--- | :--- |
-| **Celery** | Redis | `python consumer.py celery` |
-| **Kafka** | Event Stream | `python consumer.py kafka` |
-| **RabbitMQ** | AMQP | `python consumer.py rabbitmq` |
-| **Redis** | Pub/Sub | `python consumer.py redis` |
+| **Celery** | Redis | `./venv/bin/python consumer.py celery` |
+| **Kafka** | Event Stream | `./venv/bin/python consumer.py kafka` |
+| **RabbitMQ** | AMQP | `./venv/bin/python consumer.py rabbitmq` |
+| **Redis** | Pub/Sub | `./venv/bin/python consumer.py redis` |
 
+## FAQ
 
-</div>
-</details>
-
-
-<details>
-<summary>FAQ</summary>
-<div style="padding-top: 10px;">
-
-| What | Description/Remark |
+| Scenario | Description |
 | :--- | :--- |
 | **API Master** | Interactive tester at `static/api.html` or `/page-api`. |
 | **Serve static content** | Served via the `static/` directory prefix. |
@@ -91,6 +67,3 @@ export config_mongodb_uri="mongodb://localhost:27017"
 | **Database Manual Init** | Full system refresh via `/admin/sync` API. |
 | **Access App State** | Global clients and config singletons via `request.app.state`. |
 | **Access Request User State** | Authorized user context (id, role, etc.) via `request.state.user`. |
-
-</div>
-</details>
