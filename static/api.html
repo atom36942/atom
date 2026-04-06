@@ -6,7 +6,7 @@
 :root{--bg:#0b0d10;--card:#0f1114;--muted:#9aa0a6;--primary:#38a169;--primary-text:#031013;--secondary:#1f2933;--secondary-text:#e6eef3;--delete:#dc3545;--accent:#4299e1}
 body{margin:0;background:var(--bg);color:#e6eef3;font-family:Inter,system-ui;line-height:1.6}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.25)}
-.container{max-width:var(--master-shell-width,1180px);margin:24px auto;padding:14px}
+.container{max-width:var(--master-shell-width,960px);margin:24px auto;padding:14px}
 .card{background:var(--card);border-radius:12px;padding:22px;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.05)}
 h1{margin:0 0 24px 0;font-size:22px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
 .custom-select-wrapper{position:relative;display:flex;align-items:center;margin-bottom:28px}
@@ -140,7 +140,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .param-badge.b{background:rgba(159,122,234,0.15);color:#9f7aea}
 .col-id {width:32px;min-width:32px;text-align:center!important}
 .col-method {width:52px;min-width:52px;text-align:center!important}
-.col-path {width:var(--master-path-col,260px);min-width:0;text-align:left!important;white-space:nowrap!important}
+.col-path {width:var(--master-path-col,220px);min-width:0;text-align:left!important;white-space:nowrap!important}
 .col-param{width:74px;min-width:74px;text-align:center!important}
 .col-icon {width:36px;min-width:36px;text-align:center!important}
 .col-action{width:66px;min-width:66px;text-align:center!important}
@@ -176,7 +176,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .status-text.neutral{color:var(--muted)}
 .master-response-btn{background:none;border:none;color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;width:100%;padding:0}
 .master-response-btn:disabled{color:var(--muted);cursor:default;opacity:.4}
-.master-table-wrap{max-height:600px;overflow:auto}
+.master-table-wrap{max-height:600px;overflow:auto;opacity:0;transition:opacity 0.2s ease-in-out}
 #apiInfoTbl{table-layout:fixed!important;width:100%!important;min-width:0!important}
 #apiInfoTbl .col-path{overflow:hidden;text-overflow:ellipsis}
 #apiInfoTbl td.col-icon,#apiInfoTbl td.col-run,#apiInfoTbl th.col-icon,#apiInfoTbl th.col-run{padding-left:4px;padding-right:4px}
@@ -695,6 +695,7 @@ const applyMasterTableLayout = () => {
   const shellWidth = Math.min(1180, Math.max(920, pathWidth + fixedWidth + 48));
   root.style.setProperty('--master-path-col', `${pathWidth}px`);
   root.style.setProperty('--master-shell-width', `${shellWidth}px`);
+  UI('apiInfoTbl').closest('.master-table-wrap').style.opacity = '1';
 };
 
 /* ── Reusable helpers ── */
