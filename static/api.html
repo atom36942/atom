@@ -645,8 +645,10 @@ const openCurlViewModal = (indexValue, viewType) => {
   const command = COMMANDS[indexValue];
   if (!command || command.m === 'WS') return;
 
-  const showAll = viewType === 'all';
   const ovr = PATH_OVERRIDES[command.p];
+  if (viewType === 'ovr' && !ovr) return;
+
+  const showAll = viewType === 'all';
 
   // Title & Mode Handling
   const badge = `<span class="method-badge ${command.m.toLowerCase()}" style="margin-right:8px">${command.m}</span>`;
@@ -1345,8 +1347,6 @@ const load = i => {
     if (spec && spec.length) UI(sec).classList.add('active');
     (spec || []).forEach(x => {
       let val = x.v;
-      if (val === 'users' && x.v === 'test') val = 'test';
-      if (x.k === 'username' && x.v === 'atom' && (String(val).length > 20)) val = 'atom';
 
       if (x.k.toLowerCase() === 'authorization') {
         const lsVal = Store.token;
@@ -1929,13 +1929,6 @@ const setupEventListeners = () => {
                 activeMasterRunIndex = null;
                 showModal('apiRunnerModal');
                 load(idx);
-                UI('jCont').querySelectorAll('.input-row').forEach(r => {
-                    const k = r.querySelector('.row-key').value, v = r.querySelector('.row-val');
-                    if (k === 'type') v.value = '1';
-                    if (k === 'username') v.value = 'atom';
-                    if (k === 'password') v.value = '123';
-                    v.dispatchEvent(new Event('input', { bubbles: true }));
-                });
             } else {
                 toast('Login API not found');
             }
@@ -2013,14 +2006,16 @@ const setupEventListeners = () => {
         }
 
         // 2. View Override from Master Row
-        if (e.target.closest('.ovr-btn')) {
-            openCurlViewModal(idx, 'ovr');
+        const ovrBtn = e.target.closest('.ovr-btn');
+        if (ovrBtn) {
+            if (ovrBtn.classList.contains('clickable')) openCurlViewModal(idx, 'ovr');
             return;
         }
 
         // 3. View cURL from Master Row
-        if (e.target.closest('.curl-btn')) {
-            openCurlViewModal(idx);
+        const curlBtn = e.target.closest('.curl-btn');
+        if (curlBtn) {
+            if (curlBtn.classList.contains('clickable')) openCurlViewModal(idx);
             return;
         }
 
@@ -2212,9 +2207,6 @@ const setupIcons = () => {
 };
 
 const PATH_OVERRIDES = {
-  // Auth & Signup
-  '/auth/login-password-username': { type: 1, username: 'atom', password: '123' },
-
   // My & Account
   '/my/api-usage': { days: 7 },
   '/my/account-delete': { mode: 'soft' },
