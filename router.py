@@ -14,6 +14,10 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 async def func_api_index(request:Request):
    return {"status":1,"message":"welcome to atom"} if not config_index_html else await func_html_serve(config_index_html)
 
+@router.get("/health")
+async def func_api_index(request:Request):
+   return {"status":1,"message":"welcome to atom"}
+
 @router.get("/openapi.json")
 async def func_api_openapi_json(request:Request):
    return request.app.state.func_openapi_spec_generate(request.app.routes, request.app.state)
