@@ -50,7 +50,3 @@
 | **4. Init** | `main.py` | Initialize new `client_` singletons if required. |
 | **5. Entry** | `static/api.html` | Sync OpenAPI and Test Runner entries. |
 | **6. Audit** | - | Verify system-wide alignment and update documentation. |
-
-### Protected Resources
-| Resource | Constraint | Rationale |
-| :--- | :--- | :--- |

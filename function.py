@@ -984,7 +984,8 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
     if not postgres_config: raise Exception("postgres_config missing")
     if "table" not in postgres_config: raise Exception("postgres_config.table missing")
     control = postgres_config.get("control", {})
-    is_ext, is_match, bulk_blocked, table_blocked = control.get("is_extension", 0), control.get("is_match_column", 0), control.get("delete_disable_bulk", []), control.get("delete_disable_table", [])
+    is_ext, is_match, bulk_blocked, table_blocked = control.get("is_extension", 0), control.get("is_column_match", 0), control.get("table_delete_disable_bulk", []), control.get("table_delete_disable", [])
+    is_autovacuum, is_analyze = control.get("is_autovacuum_optimize", 0), control.get("is_analyze_init", 0)
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
     for table_name, column_configs in postgres_config["table"].items():
         column_names = [col["name"] for col in column_configs]
@@ -994,7 +995,8 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
             for extension in ("postgis", "pg_trgm", "btree_gin"): await conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension};")
         for table_name, column_configs in postgres_config["table"].items():
             await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id BIGSERIAL PRIMARY KEY);")
-            await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
+            if is_autovacuum:
+                await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
             current_cols = {row[0]: row[1] for row in await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)}
             for col_cfg in column_configs:
                 col_name, col_type = col_cfg["name"], col_cfg["datatype"]
@@ -1041,11 +1043,11 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
                 await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', $1, 1, 1) ON CONFLICT (username, type) DO UPDATE SET password = EXCLUDED.password, role = EXCLUDED.role, is_active = EXCLUDED.is_active;", root_user_password)
             if "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_users_password_log"); await conn.execute("CREATE OR REPLACE FUNCTION func_users_password_log() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;"); await conn.execute("DROP TRIGGER IF EXISTS trigger_users_password_log ON users; CREATE TRIGGER trigger_users_password_log AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_users_password_log();")
-            if control.get("is_child_delete_soft", 0) and "is_deleted" in users_cols:
+            if control.get("is_users_child_delete_soft", 0) and "is_deleted" in users_cols:
                 catalog["tg"].add("trigger_users_soft_delete"); await conn.execute("CREATE OR REPLACE FUNCTION func_users_soft_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; v INTEGER; BEGIN v := (CASE WHEN NEW.is_deleted=1 THEN 1 ELSE NULL END); FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'is_deleted') THEN EXECUTE format('UPDATE %I.%I SET is_deleted = $1 WHERE %I = $2', r.table_schema, r.table_name, r.column_name) USING v, NEW.id; END IF; END LOOP; RETURN NEW; END; $$;"); await conn.execute("DROP TRIGGER IF EXISTS trigger_users_soft_delete ON users; CREATE TRIGGER trigger_users_soft_delete AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.is_deleted IS DISTINCT FROM NEW.is_deleted) EXECUTE FUNCTION func_users_soft_delete();")
-            if control.get("is_child_delete_hard", 0):
+            if control.get("is_users_child_delete_hard", 0):
                 catalog["tg"].add("trigger_users_hard_delete"); await conn.execute("CREATE OR REPLACE FUNCTION func_users_hard_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; BEGIN FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP EXECUTE format('DELETE FROM %I.%I WHERE %I = $1', r.table_schema, r.table_name, r.column_name) USING OLD.id; END LOOP; RETURN OLD; END; $$;"); await conn.execute("DROP TRIGGER IF EXISTS trigger_users_hard_delete ON users; CREATE TRIGGER trigger_users_hard_delete AFTER DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_hard_delete();")
-            if control.get("is_delete_disable_role", 0) and "role" in users_cols:
+            if control.get("is_users_delete_disable_role", 0) and "role" in users_cols:
                 catalog["tg"].add("trigger_delete_disable_users_role"); await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_users_role() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;"); await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_users_role ON users; CREATE TRIGGER trigger_delete_disable_users_role BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_users_role();")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected=1 THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;"); await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;"); await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;"); await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'delete not allowed on %', TG_TABLE_NAME; END; $$;")
         for table, cols in db_tables.items():
@@ -1054,6 +1056,12 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
                 prot_tg_name = f"trigger_delete_disable_is_protected_{table}"; catalog["tg"].add(prot_tg_name); await conn.execute(f"DROP TRIGGER IF EXISTS {prot_tg_name} ON {table}"); await conn.execute(f"CREATE TRIGGER {prot_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();")
             if "updated_at" in cols:
                 upd_tg_name = f"trigger_set_updated_at_{table}"; catalog["tg"].add(upd_tg_name); await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}"); await conn.execute(f"CREATE TRIGGER {upd_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();")
+        # Expand Wildcards
+        if table_blocked == "*" or table_blocked == ["*"]:
+            table_blocked = [t for t in db_tables if t != "spatial_ref_sys"]
+        if isinstance(bulk_blocked, (list, tuple)) and len(bulk_blocked) == 1 and bulk_blocked[0] and bulk_blocked[0][0] == "*":
+            limit = bulk_blocked[0][1] if len(bulk_blocked[0]) > 1 else 1000
+            bulk_blocked = [[t, limit] for t in db_tables if t != "spatial_ref_sys"]
         for table, limit in bulk_blocked:
             if table in db_tables:
                 bulk_tg_name = f"trigger_delete_disable_bulk_{table}"; catalog["tg"].add(bulk_tg_name); await conn.execute(f"DROP TRIGGER IF EXISTS {bulk_tg_name} ON {table}"); await conn.execute(f"CREATE TRIGGER {bulk_tg_name} AFTER DELETE ON {table} REFERENCING OLD TABLE AS deleted_rows FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_bulk({limit});")
@@ -1067,7 +1075,8 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
             elif prefix == "tg": selection, info_tbl, join_clause, drop_fmt, drop_vars, like_filter = "tgname, relname", "pg_trigger", "JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid", "DROP TRIGGER IF EXISTS %I ON %I", "record.tgname, record.relname", "tgname LIKE 'trigger_%%'"
             else: selection, info_tbl, join_clause, drop_fmt, drop_vars, like_filter = "conname, relname", "pg_constraint", "JOIN pg_class ON pg_constraint.conrelid = pg_class.oid", "ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I", "record.relname, record.conname", "(conname LIKE 'unique_%%' OR conname LIKE 'check_%%')"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-        await conn.execute("ANALYZE;")
+        if is_analyze:
+            await conn.execute("ANALYZE;")
     return "database init done"
 
 async def func_postgres_schema_read(postgres_pool: any) -> dict:

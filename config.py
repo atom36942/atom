@@ -275,14 +275,16 @@ config_postgres={
 "control":{
 "root_user_password":"57628ad8592242cbd02129a2ac94bb8ac3e16ac91fa240b812c6176415f04f92",
 "is_extension":1,
-"is_match_column":0,
-"is_drop_disable_table":1,
-"is_truncate_disable":1,
-"is_child_delete_soft":1,
-"is_child_delete_hard":1,
-"is_delete_disable_role":1,
-"delete_disable_bulk":[["users", 1]],
-"delete_disable_table":["users"]
+"is_column_match":0,
+"is_table_drop_disable":1,
+"is_table_truncate_disable":1,
+"is_users_child_delete_soft":1,
+"is_users_child_delete_hard":1,
+"is_users_delete_disable_role":1,
+"table_delete_disable":["*"],
+"table_delete_disable_bulk":[["*", 1000]],
+"is_autovacuum_optimize":1,
+"is_analyze_init":1
 }
 }
 

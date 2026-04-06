@@ -54,11 +54,13 @@ config_mongodb_uri="mongodb://localhost:27017"
 | 8 | **Access App State** | Global clients and config singletons via `request.app.state`. |
 | 9 | **Access Request User State** | Authorized user context (id, role, etc.) via `request.state.user`. |
 | 10 | **Override config.py** | Add the same key with your value in the `.env` file. |
-| 11 | **Admin API Access** | Use `user_role_check: ["mode", [roles]]` in `config_api` (e.g. `["realtime", [1,2,3]]`). |
-| 12 | **User Active Check** | Use `user_is_active_check: ["mode", 1]` in `config_api` (1=Enable, 0=Disable). |
-| 13 | **API Caching** | Use `api_cache_sec: ["mode", seconds]` in `config_api` (e.g. `["inmemory", 60]`). |
-| 14 | **API Rate Limiting** | Use `api_ratelimiting_times_sec: ["mode", count, seconds]` in `config_api`. |
+| 11 | **Admin API Access** | Use `user_role_check: ["mode", [roles]]` in `config_api`. Modes: `realtime`, `inmemory`, `token`, `redis`. |
+| 12 | **User Active Check** | Use `user_is_active_check: ["mode", 1]` in `config_api` (1=Enable, 0=Disable). Modes: `realtime`, `inmemory`, `token`, `redis`. |
+| 13 | **API Caching** | Use `api_cache_sec: ["mode", seconds]` in `config_api`. Modes: `inmemory`, `redis`. |
+| 14 | **API Rate Limiting** | Use `api_ratelimiting_times_sec: ["mode", count, seconds]` in `config_api`. Modes: `inmemory`, `redis`. |
 | 15 | **Manual Auth Check** | Use `if request.state.user is None: raise Exception("Unauthorized")` in logic. |
+| 16 | **Postgres Bulk Delete disable** | Use `table_delete_disable_bulk: [["*", 1000]]` (all) or `[["users", 1]]` (specific) in `config_postgres["control"]`. |
+| 17 | **Postgres Table Delete disable** | Use `table_delete_disable: ["*"]` (all) or `["users"]` (specific) in `config_postgres["control"]`. |
 
 
 
