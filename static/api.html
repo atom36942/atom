@@ -1692,7 +1692,8 @@ UI('cellPopCopy').onclick = e => {
 };
 
 
-const executeCurrentApi = async (isShowResponse = 1, isAllowDownload = 1) => {
+const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
+  isShowResponse = isShowResponse ?? 1; isAllowDownload = isAllowDownload ?? 1;
   if (!curr) return alert('Select API');
   const btn = UI('subBtn'), t0 = performance.now();
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sending...'; btn.classList.add('loading');
@@ -1782,10 +1783,6 @@ const executeCurrentApi = async (isShowResponse = 1, isAllowDownload = 1) => {
 };
 
 /* ── Form submit ── */
-UI('apiForm').onsubmit = async e => {
-  e.preventDefault();
-  await executeCurrentApi(1, 1);
-};
 // Auto-save removed: parameters reset every run
 
 /* ── Keyboard shortcuts ── */
