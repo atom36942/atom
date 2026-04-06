@@ -288,8 +288,8 @@ async def func_api_public_otp_send_mobile_fast2sms(request:Request):
 
 @router.post("/public/jira-worklog-export")
 async def func_api_public_jira_worklog_export(request:Request):
-   obj_body=await func_request_param_read(request,"body",[("jira_url","str",1,None,None),("email","str",1,None,None),("api_token","str",1,None,None),("start_date","str",0,None,None),("end_date","str",0,None,None)])
-   import asyncio; output_path=await asyncio.to_thread(func_jira_worklog_export,obj_body["jira_url"],obj_body["email"],obj_body["api_token"],obj_body["start_date"],obj_body["end_date"],None)
+   obj_body=await func_request_param_read(request,"body",[("url","str",1,None,None),("email","str",1,None,None),("api_token","str",1,None,None),("start_date","str",0,None,None),("end_date","str",0,None,None)])
+   import asyncio; output_path=await asyncio.to_thread(func_jira_worklog_export,obj_body["url"],obj_body["email"],obj_body["api_token"],obj_body["start_date"],obj_body["end_date"],None)
    return await func_client_download_file(output_path,1,None)
 
 @router.get("/public/table-tag-read")

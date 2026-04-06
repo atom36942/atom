@@ -1752,13 +1752,13 @@ async def func_mongodb_object_delete(mongo_client: any, db_name: str, collection
     result = await mongo_client[db_name][collection_name].delete_many({"_id": {"$in": id_list}})
     return f"{result.deleted_count} rows deleted"
 
-def func_jira_worklog_export(jira_url: str, email_address: str, api_token: str, start_date: str = None, end_date: str = None, output_path: str = None) -> str:
+def func_jira_worklog_export(url: str, email_address: str, api_token: str, start_date: str = None, end_date: str = None, output_path: str = None) -> str:
     """Export Jira worklogs for a specific period to a CSV file."""
     try:
         from jira import JIRA; from pathlib import Path; import pandas as pd, uuid, calendar; from datetime import date
         output_path = output_path or f"tmp/{uuid.uuid4().hex}.csv"; Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         current_date = date.today(); start_date = start_date or current_date.replace(day=1).strftime("%Y-%m-%d"); end_date = end_date or current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1]).strftime("%Y-%m-%d")
-        jira_client, log_rows, assignees = JIRA(server=jira_url, basic_auth=(email_address, api_token)), [], set()
+        jira_client, log_rows, assignees = JIRA(server=url, basic_auth=(email_address, api_token)), [], set()
         issues = jira_client.search_issues(f"worklogDate >= {start_date} AND worklogDate <= {end_date}", maxResults=1000, expand="worklog")
         for issue in issues:
             if getattr(issue.fields, "assignee", None): assignees.add(issue.fields.assignee.displayName)
