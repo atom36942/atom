@@ -405,7 +405,7 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
             spec["paths"][path][m_lower] = op
     return spec
 
-def func_check(app_routes: list, current_config_api: dict, allowed_roles: list = None) -> None:
+def func_check(app_routes: list, current_config_api: dict, allowed_roles: list = None, config_postgres: dict = None) -> None:
     """Validate config_api consistency with app routes, admin roles, valid modes, duplicate keys, and strict api roles."""
     import ast
     def get_duplicate_errors(file_path, var_name):
@@ -457,6 +457,31 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
                 role = route.path.split("/")[1] if len(route.path.split("/")) > 2 else "index"
                 if role not in allowed: errs.append(f"invalid api role in path {route.path}: {role}")
         return errs
+    def get_control_errors(config_pg):
+        if not config_pg or "control" not in config_pg: return []
+        errs, ctrl = [], config_pg["control"]
+        for k, v in ctrl.items():
+            if k.startswith("is_") and v not in (None, 0, 1): errs.append(f"invalid value for {k}: {v} (allowed: 0, 1, None)")
+        tdd = ctrl.get("table_row_delete_disable")
+        if not isinstance(tdd, list): errs.append("table_row_delete_disable must be a list")
+        elif "*" in tdd and len(tdd) > 1: errs.append("exclusive wildcard violation: table_row_delete_disable cannot contain other tables if '*' is present")
+        tddb = ctrl.get("table_row_delete_disable_bulk")
+        if not isinstance(tddb, list): errs.append("table_row_delete_disable_bulk must be a list")
+        else:
+            is_star = any(isinstance(x, (list, tuple)) and x and x[0] == "*" for x in tddb)
+            if is_star and len(tddb) > 1: errs.append("exclusive wildcard violation: table_row_delete_disable_bulk cannot contain other tables if '*' is present")
+            for x in tddb:
+                if not isinstance(x, (list, tuple)) or len(x) < 2: errs.append(f"invalid bulk delete format: {x} (expected [table, limit])")
+        return errs
+    def get_cors_errors():
+        import config
+        errs = []
+        for k in ("config_cors_origin", "config_cors_method", "config_cors_headers"):
+            v = getattr(config, k, None)
+            if not isinstance(v, list): errs.append(f"{k} must be a list")
+            elif "*" in v and len(v) > 1: errs.append(f"exclusive wildcard violation: {k} cannot contain other values if '*' is present")
+        return errs
+
     def get_switch_errors():
         import config
         errs = []
@@ -465,8 +490,32 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
                 if value not in (None, 0, 1):
                     errs.append(f"invalid value for {key}: {value} (allowed: 0, 1, None)")
         return errs
-
-    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles) + get_switch_errors()
+    def get_table_integrity_errors(config_pg):
+        import config
+        if not config_pg or "table" not in config_pg: return []
+        errs, db_tables = [], set(config_pg["table"].keys())
+        for k in ("config_table_create_my", "config_table_create_public", "config_table_read_public", "config_table"):
+            v = getattr(config, k, [] if k != "config_table" else {})
+            v_list = v.keys() if k == "config_table" else v
+            for table in v_list:
+                if table not in db_tables: errs.append(f"table reference integrity violation: {table} (referenced in {k}) does not exist in config_postgres")
+        return errs
+    def get_api_id_errors(config_api):
+        missing = [p for p, v in config_api.items() if not isinstance(v, dict) or "id" not in v]
+        if missing: return [f"missing mandatory API ID for: {', '.join(missing)}"]
+        ids = [v["id"] for v in config_api.values()]
+        dupes = [str(i) for i in set(ids) if ids.count(i) > 1]
+        return [f"duplicate API IDs in config_api: {', '.join(dupes)}"] if dupes else []
+    def get_enum_type_errors():
+        import config
+        errs = []
+        checks = {"config_auth_type": int, "config_token_key": str, "config_api_roles": str}
+        for k, t in checks.items():
+            v = getattr(config, k, None)
+            if not isinstance(v, list): errs.append(f"{k} must be a list")
+            elif not all(isinstance(x, t) for x in v): errs.append(f"{k} must be a list of {t.__name__}s")
+        return errs
+    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles) + get_switch_errors() + get_control_errors(config_postgres) + get_cors_errors() + get_table_integrity_errors(config_postgres) + get_api_id_errors(current_config_api) + get_enum_type_errors()
     if errors: raise Exception("; ".join(errors))
 
 def func_repo_info(app_routes: list, cache_postgres_schema: dict, config_postgres: dict, config_table: dict, config_api: dict) -> dict:
@@ -984,7 +1033,7 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
     if not postgres_config: raise Exception("postgres_config missing")
     if "table" not in postgres_config: raise Exception("postgres_config.table missing")
     control = postgres_config.get("control", {})
-    is_ext, is_match, bulk_blocked, table_blocked = control.get("is_extension", 0), control.get("is_column_match", 0), control.get("table_delete_disable_bulk", []), control.get("table_delete_disable", [])
+    is_ext, is_match, bulk_blocked, table_blocked = control.get("is_extension", 0), control.get("is_column_match", 0), control.get("table_row_delete_disable_bulk", []), control.get("table_row_delete_disable", [])
     is_autovacuum, is_analyze = control.get("is_autovacuum_optimize", 0), control.get("is_analyze_init", 0)
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
     for table_name, column_configs in postgres_config["table"].items():
@@ -1057,10 +1106,10 @@ async def func_postgres_init(postgres_pool: any, postgres_config: dict) -> str:
             if "updated_at" in cols:
                 upd_tg_name = f"trigger_set_updated_at_{table}"; catalog["tg"].add(upd_tg_name); await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}"); await conn.execute(f"CREATE TRIGGER {upd_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();")
         # Expand Wildcards
-        if table_blocked == "*" or table_blocked == ["*"]:
+        if table_blocked == ["*"]:
             table_blocked = [t for t in db_tables if t != "spatial_ref_sys"]
-        if isinstance(bulk_blocked, (list, tuple)) and len(bulk_blocked) == 1 and bulk_blocked[0] and bulk_blocked[0][0] == "*":
-            limit = bulk_blocked[0][1] if len(bulk_blocked[0]) > 1 else 1000
+        if bulk_blocked and bulk_blocked[0][0] == "*":
+            limit = bulk_blocked[0][1]
             bulk_blocked = [[t, limit] for t in db_tables if t != "spatial_ref_sys"]
         for table, limit in bulk_blocked:
             if table in db_tables:

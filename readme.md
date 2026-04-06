@@ -59,8 +59,7 @@ config_mongodb_uri="mongodb://localhost:27017"
 | 13 | **API Caching** | Use `api_cache_sec: ["mode", seconds]` in `config_api`. Modes: `inmemory`, `redis`. |
 | 14 | **API Rate Limiting** | Use `api_ratelimiting_times_sec: ["mode", count, seconds]` in `config_api`. Modes: `inmemory`, `redis`. |
 | 15 | **Manual Auth Check** | Use `if request.state.user is None: raise Exception("Unauthorized")` in logic. |
-| 16 | **Postgres Bulk Delete disable** | Use `table_delete_disable_bulk: [["*", 1000]]` (all) or `[["users", 1]]` (specific) in `config_postgres["control"]`. |
-| 17 | **Postgres Table Delete disable** | Use `table_delete_disable: ["*"]` (all) or `["users"]` (specific) in `config_postgres["control"]`. |
-
+| 16 | **Postgres Table Delete disable** | Use `table_row_delete_disable: ["*"]` (all) or `["users"]` (specific) in `config_postgres["control"]`. |
+| 17 | **Postgres Bulk Delete disable** | Use `table_row_delete_disable_bulk: [["*", 1000]]` (all) or `[["users", 1]]` (specific) in `config_postgres["control"]`. |
 
 

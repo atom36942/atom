@@ -38,7 +38,7 @@ async def func_lifespan(app:FastAPI):
    #app state add
    func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
    #check
-   func_check(app.routes, config_api, config_api_roles)
+   func_check(app.routes, config_api, config_api_roles, config_postgres)
    #app shutdown
    yield
    await func_postgres_create(client_postgres_pool, func_postgres_obj_serialize, None, None, "flush")
