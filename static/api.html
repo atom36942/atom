@@ -234,7 +234,6 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
             <h3 style="margin:0">API Runner</h3>
         </div>
         <div class="modal-actions">
-            <button type="button" class="icon-btn" id="runnerViewCurl" title="View Curl & Expected Response"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg></button>
             <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
     </div>
@@ -651,38 +650,32 @@ const openCurlViewModal = (indexValue, viewType) => {
 
   // Title & Mode Handling
   const badge = `<span class="method-badge ${command.m.toLowerCase()}" style="margin-right:8px">${command.m}</span>`;
-  UI('curlViewTitle').innerHTML = showAll ? `${badge}${command.p}` : 'Path Overrides';
+  UI('curlViewTitle').innerHTML = showAll ? `${badge}${command.p}` : `API Overrides: ${command.p}`;
+  UI('curlViewOvrCard').style.display = (ovr && viewType === 'ovr') ? 'flex' : 'none';
+  UI('curlViewCard').style.display = showAll ? 'flex' : 'none';
+  UI('curlViewResCard').style.display = showAll ? 'flex' : 'none';
 
-  // Curl Section
+  if (viewType === 'ovr' && ovr) {
+    const ovrText = JSON.stringify(ovr, null, 2);
+    UI('curlViewOvrContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(ovrText)}</pre>`;
+    UI('curlViewOvrCopy').onclick = () => copyWithFeedback(UI('curlViewOvrCopy'), ovrText, 16, 'Overrides copied');
+  }
+
   if (showAll) {
     const curve = generateCurl(indexValue);
     const formatted = curve.replace(/ -H /g, ' \\\n  -H ').replace(/ -d /g, ' \\\n  -d ').replace(/ -F /g, ' \\\n  -F ');
     UI('curlViewContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0;white-space:pre;overflow-x:auto">${highlightCurl(formatted)}</pre>`;
-    UI('curlViewCard').style.display = 'flex';
     UI('curlViewCopy').onclick = () => copyWithFeedback(UI('curlViewCopy'), curve, 16, 'Curl copied');
-  } else {
-    UI('curlViewCard').style.display = 'none';
-  }
 
-  // Overrides section
-  if (ovr) {
-    UI('curlViewOvrCard').style.display = 'flex';
-    const ovrText = JSON.stringify(ovr, null, 2);
-    UI('curlViewOvrContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(ovrText)}</pre>`;
-    UI('curlViewOvrCopy').onclick = () => copyWithFeedback(UI('curlViewOvrCopy'), ovrText, 16, 'Overrides copied');
-  } else {
-    UI('curlViewOvrCard').style.display = 'none';
-  }
-
-  // Expected Response Section
-  if (showAll && command.res) {
-    UI('curlViewResCard').style.display = 'flex';
-    const exampleValue = schemaToExample(command.res, SPEC);
-    const exampleText = JSON.stringify(exampleValue || { message: 'No schema provided' }, null, 2);
-    UI('curlViewResContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(compactArrays(exampleText))}</pre>`;
-    UI('curlViewResCopy').onclick = () => copyWithFeedback(UI('curlViewResCopy'), exampleText, 16, 'Expected response copied');
-  } else {
-    UI('curlViewResCard').style.display = 'none';
+    if (command.res) {
+      const exampleValue = schemaToExample(command.res, SPEC);
+      const exampleText = JSON.stringify(exampleValue || { message: 'No schema provided' }, null, 2);
+      UI('curlViewResContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(compactArrays(exampleText))}</pre>`;
+      UI('curlViewResCopy').onclick = () => copyWithFeedback(UI('curlViewResCopy'), exampleText, 16, 'Expected response copied');
+    } else {
+      UI('curlViewResContent').innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted);font-style:italic">No expected response schema provided in OpenAPI.</div>`;
+      UI('curlViewResCopy').onclick = () => toast('No schema to copy');
+    }
   }
   showModal('curlViewModal');
 };
@@ -696,8 +689,8 @@ const applyMasterTableLayout = () => {
   const pathLengths = COMMANDS.map(c => c.p.length);
   const maxPathLength = pathLengths.length ? Math.max(...pathLengths) : 32;
   const pathWidth = Math.min(340, Math.max(220, maxPathLength * 6 + 18));
-  const fixedWidth = 32 + 52 + (36 * 7) + 36 + (56 * 2);
-  const shellWidth = Math.min(1140, Math.max(920, pathWidth + fixedWidth + 48));
+  const fixedWidth = 32 + 52 + 74 + (66 * 2) + (56 * 2) + 36;
+  const shellWidth = Math.min(1180, Math.max(920, pathWidth + fixedWidth + 48));
   root.style.setProperty('--master-path-col', `${pathWidth}px`);
   root.style.setProperty('--master-shell-width', `${shellWidth}px`);
 };
@@ -1390,6 +1383,7 @@ const renderApiInfoTable = (searchQuery = '') => {
         <th class="col-path">Path</th>
         <th class="col-param">Param</th>
         <th class="col-action">Override</th>
+        <th class="col-action">Curl</th>
         <th class="col-time">Status</th>
         <th class="col-time">Time</th>
         <th class="col-run">Run</th>
@@ -1409,6 +1403,7 @@ const renderApiInfoTable = (searchQuery = '') => {
           <td class="col-path master-static-cell" title="${c.p}">${c.p}</td>
           <td class="col-param master-static-cell">${isWs ? '-' : renderParamBadges(c)}</td>
           <td class="col-action ovr-btn ${!isWs && isOvr ? 'clickable' : ''}" style="color:var(--accent)" title="${isOvr ? 'View Overrides' : ''}">${isWs ? '-' : (isOvr ? ICON.eye(16) : '-')}</td>
+          <td class="col-action curl-btn ${!isWs ? 'clickable' : ''}" style="color:var(--accent)" title="${!isWs ? 'View Curl & Expected Response' : ''}">${isWs ? '-' : ICON.terminal(16)}</td>
           <td class="col-time master-status-cell ${hasRes ? 'clickable' : ''}" title="${hasRes ? `HTTP ${responseState.status}` : 'No response yet'}">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
           <td class="col-time master-time-cell">${isWs ? '-' : (responseState ? `${responseState.time}ms` : '-')}</td>
           <td class="col-run run-btn clickable" title="Run">${ICON.play(16)}</td>
@@ -1838,7 +1833,6 @@ const setupEventListeners = () => {
     const closeMapping = {
         'runnerCloseBtn': 'apiRunnerModal',
         'wsRunnerCloseBtn': 'wsRunnerModal',
-        'testResponseCloseBtn': 'testResponseModal',
         'testParamsCloseBtn': 'testParamsModal',
         'masterResponseCloseBtn': 'masterResponseModal',
         'infoCloseBtn': 'infoModal',
@@ -1876,11 +1870,6 @@ const setupEventListeners = () => {
         UI(cont)?.addEventListener('click', e => { 
             if (e.target.closest('.remove-btn')) setTimeout(syncParams, 0); 
         });
-    });
-
-    UI('runnerViewCurl')?.addEventListener('click', () => {
-        const i = COMMANDS.indexOf(curr);
-        if (i >= 0) openCurlViewModal(i);
     });
 
     // Response View Switching (Delegation)
@@ -2029,7 +2018,13 @@ const setupEventListeners = () => {
             return;
         }
 
-        // 3. Status Column
+        // 3. View cURL from Master Row
+        if (e.target.closest('.curl-btn')) {
+            openCurlViewModal(idx);
+            return;
+        }
+
+        // 4. Status Column
         if (e.target.closest('.master-status-cell.clickable')) {
             openMasterResponse(idx);
             return;
@@ -2181,7 +2176,6 @@ const setupIcons = () => {
         'storageToggleBtn': ICON.database(18),
         'analyticsToggleBtn': ICON.chart(18),
         'apiInfoCsv': ICON.download(18),
-        'runnerViewCurl': ICON.terminal(20),
         'btnRaw': ICON.code(16),
         'btnPretty': ICON.list(16),
         'btnTable': ICON.table(16),

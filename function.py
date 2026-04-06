@@ -457,8 +457,16 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
                 role = route.path.split("/")[1] if len(route.path.split("/")) > 2 else "index"
                 if role not in allowed: errs.append(f"invalid api role in path {route.path}: {role}")
         return errs
+    def get_switch_errors():
+        import config
+        errs = []
+        for key, value in vars(config).items():
+            if key.startswith("config_is_"):
+                if value not in (None, 0, 1):
+                    errs.append(f"invalid value for {key}: {value} (allowed: 0, 1, None)")
+        return errs
 
-    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles)
+    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles) + get_switch_errors()
     if errors: raise Exception("; ".join(errors))
 
 def func_repo_info(app_routes: list, cache_postgres_schema: dict, config_postgres: dict, config_table: dict, config_api: dict) -> dict:
