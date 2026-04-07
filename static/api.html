@@ -138,6 +138,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .param-badge.q{background:rgba(0,188,212,0.15);color:#00bcd4}
 .param-badge.f{background:rgba(237,137,54,0.15);color:#ed8936}
 .param-badge.b{background:rgba(159,122,234,0.15);color:#9f7aea}
+.param-badge.o{background:rgba(66,153,225,0.15);color:var(--accent)}
 .col-id {width:32px;min-width:32px;text-align:center!important}
 .col-method {width:52px;min-width:52px;text-align:center!important}
 .col-path {width:var(--master-path-col,220px);min-width:0;text-align:left!important;white-space:nowrap!important}
@@ -236,6 +237,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
             <h3 style="margin:0">API Runner</h3>
         </div>
         <div class="modal-actions">
+            <button type="button" class="icon-btn" id="runnerOvrBtn" title="View Overrides"></button>
             <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response"></button>
             <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
@@ -408,7 +410,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
     <div class="modal-content" style="max-width:800px;margin:5% auto">
         <div class="modal-header">
             <h3 style="margin:0" id="curlViewTitle">Curl</h3>
-            <button type="button" class="icon-btn" id="curlViewCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            <button type="button" class="icon-btn" id="curlViewCloseBtn" title="Close"></button>
         </div>
         <div class="modal-card-grid" id="curlViewGrid">
             <div class="modal-card" id="curlViewOvrCard" style="display:none">
@@ -633,9 +635,11 @@ const renderStatusBadge = status => {
 const renderParamBadges = command => {
   const badgeList = [];
   if (command._paramBadgeH) badgeList.push('<span class="param-badge h" title="Header parameters (OpenAPI)">H</span>');
+  if (command._paramBadgeP) badgeList.push('<span class="param-badge p" title="Path parameters (OpenAPI)">P</span>');
   if (command._paramBadgeQ) badgeList.push('<span class="param-badge q" title="Query parameters (OpenAPI)">Q</span>');
   if (command._paramBadgeF) badgeList.push('<span class="param-badge f" title="Form data (OpenAPI)">F</span>');
   if (command._paramBadgeB) badgeList.push('<span class="param-badge b" title="JSON body (OpenAPI)">B</span>');
+  if (PATH_OVERRIDES[command.p]) badgeList.push('<span class="param-badge o" title="Path overrides (Local)">O</span>');
   if (!badgeList.length) return '-';
   return `<div class="param-badge-list">${badgeList.join('')}</div>`;
 };
@@ -649,18 +653,19 @@ const openCurlViewModal = (indexValue, viewType) => {
   if (!command || command.m === 'WS') return;
 
   const ovr = PATH_OVERRIDES[command.p];
-  if (viewType === 'ovr' && !ovr) return;
-
   const showAll = viewType === 'all';
+  const showOvr = viewType === 'ovr';
 
   // Title & Mode Handling
   const badge = `<span class="method-badge ${command.m.toLowerCase()}" style="margin-right:8px">${command.m}</span>`;
-  UI('curlViewTitle').innerHTML = showAll ? `${badge}${command.p}` : `API Overrides: ${command.p}`;
-  UI('curlViewOvrCard').style.display = (ovr && viewType === 'ovr') ? 'flex' : 'none';
+  UI('curlViewTitle').innerHTML = (showOvr && !showAll) ? `API Overrides: ${command.p}` : `${badge}${command.p}`;
+  
+  // Visibility
+  UI('curlViewOvrCard').style.display = (ovr && showOvr) ? 'flex' : 'none';
   UI('curlViewCard').style.display = showAll ? 'flex' : 'none';
   UI('curlViewResCard').style.display = showAll ? 'flex' : 'none';
 
-  if (viewType === 'ovr' && ovr) {
+  if (ovr && showOvr) {
     const ovrText = JSON.stringify(ovr, null, 2);
     UI('curlViewOvrContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(ovrText)}</pre>`;
     UI('curlViewOvrCopy').onclick = () => copyWithFeedback(UI('curlViewOvrCopy'), ovrText, 16, 'Overrides copied');
@@ -1095,6 +1100,7 @@ const createCommandFromOperation = (path, method, op) => {
   command._hj = command.j.length > 0 || !!bodyContent?.['application/json'];
   command._hf = command.f.length > 0 || !!bodyContent?.['multipart/form-data'];
   command._paramBadgeH = command.h.length > 0;
+  command._paramBadgeP = command.u.length > 0;
   command._paramBadgeQ = command.q.length > 0;
   command._paramBadgeF = command._hf;
   command._paramBadgeB = command._hj;
@@ -1362,6 +1368,13 @@ const load = i => {
   populate('jCont', 'jSec', (curr._hj ? curr.j : []), true);
   if (curr._hf && !UI('fCont').children.length) { UI('fSec').classList.add('active'); mkRow(UI('fCont')); }
   if (curr._hj && !UI('jCont').children.length) { UI('jSec').classList.add('active'); mkRow(UI('jCont')); }
+  const hasOvr = !!PATH_OVERRIDES[curr.p];
+  const btnOvr = UI('runnerOvrBtn');
+  if (btnOvr) {
+      btnOvr.disabled = !hasOvr;
+      btnOvr.style.opacity = hasOvr ? '1' : '0.4';
+      btnOvr.style.cursor = hasOvr ? 'pointer' : 'not-allowed';
+  }
 };
 
 const populate = (cont, sec, spec, isJson = false) => {
@@ -1393,7 +1406,6 @@ const renderApiInfoTable = (searchQuery = '') => {
         <th class="col-method">Method</th>
         <th class="col-path">Path</th>
         <th class="col-param">Param</th>
-        <th class="col-action">Override</th>
         <th class="col-time">Status</th>
         <th class="col-time">Time</th>
         <th class="col-run">Run</th>
@@ -1412,7 +1424,6 @@ const renderApiInfoTable = (searchQuery = '') => {
           <td class="col-method master-static-cell"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td>
           <td class="col-path master-static-cell" title="${c.p}">${c.p}</td>
           <td class="col-param master-static-cell">${isWs ? '-' : renderParamBadges(c)}</td>
-          <td class="col-action ovr-btn ${!isWs && isOvr ? 'clickable' : ''}" style="color:var(--accent)" title="${isOvr ? 'View Overrides' : ''}">${isWs ? '-' : (isOvr ? ICON.eye(16) : '-')}</td>
           <td class="col-time master-status-cell ${hasRes ? 'clickable' : ''}" title="${hasRes ? `HTTP ${responseState.status}` : 'No response yet'}">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
           <td class="col-time master-time-cell">${isWs ? '-' : (responseState ? `${responseState.time}ms` : '-')}</td>
           <td class="col-run run-btn clickable" title="Run">${ICON.play(16)}</td>
@@ -1863,6 +1874,9 @@ const setupEventListeners = () => {
         e.preventDefault();
         executeCurrentApi();
     });
+    UI('runnerOvrBtn')?.addEventListener('click', () => {
+        if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'ovr');
+    });
     UI('runnerCurlBtn')?.addEventListener('click', () => {
         if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'all');
     });
@@ -2204,7 +2218,8 @@ const setupIcons = () => {
         'masterRespCopy': ICON.copy(16),
         'masterRespCopyFull': ICON.copyCurl(16),
         'masterRespCsv': ICON.fileCsv(16),
-        'masterRespJson': ICON.fileJson(16)
+        'masterRespJson': ICON.fileJson(16),
+        'runnerOvrBtn': ICON.ovr(20)
     };
 
     Object.entries(iconMap).forEach(([id, svg]) => {
@@ -2334,7 +2349,8 @@ const ICON = {
   fileCsv: s => SVG(s, '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 12h8m-8 3h8"/>', '#38a169'),
   eye: s => SVG(s, '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
   info: s => SVG(s, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
-  copyCurl: s => SVG(s, '<rect x="9" y="9" width="11" height="11" rx="2" ry="2" stroke="var(--accent)"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><polyline points="11 16 14 13 11 10" stroke="var(--accent)"/><line x1="16" y1="17" x2="19" y2="17" stroke="var(--accent)"/>')
+  copyCurl: s => SVG(s, '<rect x="9" y="9" width="11" height="11" rx="2" ry="2" stroke="var(--accent)"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><polyline points="11 16 14 13 11 10" stroke="var(--accent)"/><line x1="16" y1="17" x2="19" y2="17" stroke="var(--accent)"/>'),
+  ovr: s => SVG(s, '<circle cx="12" cy="12" r="7" stroke-width="3"/>')
 };
 
 init();
