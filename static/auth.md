@@ -1,6 +1,6 @@
 # AI Prompt: Atom Framework Frontend Auth & Profile Implementation
 
-**Task**: Generate a complete, production-ready frontend authentication and profile management module (e.g., React, Vue, or Vanilla JS) integrated with the Atom Framework backend.
+**Task**: Generate a complete, production-ready frontend authentication and profile management module integrated with the OSS Atom Framework backend - https://github.com/atom36942/atom.
 
 ---
 
