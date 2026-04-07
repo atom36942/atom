@@ -131,8 +131,9 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .test-summary span.clickable.active[data-type="fail"]{background:rgba(220,53,69,0.1);border-color:var(--delete)}
 .test-summary span.clickable.disabled{cursor:default;opacity:.55}
 .test-summary span.clickable.disabled:hover{background:transparent;border-color:transparent;color:inherit}
-.param-badge{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;text-transform:uppercase;cursor:help;opacity:0.7;display:inline-block;min-width:10px;text-align:center}
-.param-badge:hover{opacity:1;background:rgba(255,255,255,0.1)}
+.param-badge{font-size:9px;font-weight:700;padding:1px 0;border-radius:3px;text-transform:uppercase;cursor:help;opacity:0.7;display:inline-flex;align-items:center;justify-content:center;width:12px;height:14px;text-align:center}
+.param-badge:not(.off):hover{opacity:1;background:rgba(255,255,255,0.1)}
+.param-badge.off{opacity:0.08!important;filter:grayscale(1);background:transparent!important;color:var(--muted)!important;cursor:default!important}
 .param-badge.h{background:rgba(56,161,105,0.15);color:#38a169}
 .param-badge.p{background:rgba(66,153,225,0.15);color:#4299e1}
 .param-badge.q{background:rgba(0,188,212,0.15);color:#00bcd4}
@@ -193,7 +194,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .api-overview-subline-small{display:block;font-size:11px;opacity:.78}
 .toolbar-search{margin-bottom:16px;position:relative;display:flex;align-items:center}
 .panel-shell{margin-top:0;padding:0;overflow:hidden;border-color:rgba(255,255,255,0.08)}
-.param-badge-list{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;min-height:18px}
+.param-badge-list{display:grid;grid-template-columns:repeat(6,12px);gap:2px;justify-content:center;align-items:center;min-height:18px}
 .runner-scroll{max-height:80vh;overflow-y:auto;padding-right:8px}
 .runner-endpoint{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:10px 14px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:rgba(255,255,255,.03)}
 .runner-endpoint-path{font-size:14px;font-weight:600;color:#e6eef3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;min-width:0}
@@ -633,15 +634,18 @@ const renderStatusBadge = status => {
   return `<span class="status-text ${getStatusClass(status)}">${status}</span>`;
 };
 const renderParamBadges = command => {
-  const badgeList = [];
-  if (command._paramBadgeH) badgeList.push('<span class="param-badge h" title="Header parameters (OpenAPI)">H</span>');
-  if (command._paramBadgeP) badgeList.push('<span class="param-badge p" title="Path parameters (OpenAPI)">P</span>');
-  if (command._paramBadgeQ) badgeList.push('<span class="param-badge q" title="Query parameters (OpenAPI)">Q</span>');
-  if (command._paramBadgeF) badgeList.push('<span class="param-badge f" title="Form data (OpenAPI)">F</span>');
-  if (command._paramBadgeB) badgeList.push('<span class="param-badge b" title="JSON body (OpenAPI)">B</span>');
-  if (PATH_OVERRIDES[command.p]) badgeList.push('<span class="param-badge o" title="Path overrides (Local)">O</span>');
-  if (!badgeList.length) return '-';
-  return `<div class="param-badge-list">${badgeList.join('')}</div>`;
+  const mapping = [
+    { k: 'p', l: 'P', t: 'Path parameters (OpenAPI)', f: c => !!c._paramBadgeP },
+    { k: 'h', l: 'H', t: 'Header parameters (OpenAPI)', f: c => !!c._paramBadgeH },
+    { k: 'q', l: 'Q', t: 'Query parameters (OpenAPI)', f: c => !!c._paramBadgeQ },
+    { k: 'f', l: 'F', t: 'Form data (OpenAPI)', f: c => !!c._paramBadgeF },
+    { k: 'b', l: 'B', t: 'JSON body (OpenAPI)', f: c => !!c._paramBadgeB },
+    { k: 'o', l: 'O', t: 'Path overrides (Local)', f: c => !!PATH_OVERRIDES[c.p] }
+  ];
+  return `<div class="param-badge-list">${mapping.map(m => {
+    const isOff = !m.f(command);
+    return `<span class="param-badge ${m.k} ${isOff ? 'off' : ''}" title="${isOff ? 'Not present' : m.t}">${m.l}</span>`;
+  }).join('')}</div>`;
 };
 const renderRunnerEndpoint = command => {
   if (!command) return '';
