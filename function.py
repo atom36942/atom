@@ -1886,7 +1886,9 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
         "list": smart_list
     }
     output_dict = params_dict.copy() if not strict_flag else {}
-    for key, data_type, is_mandatory, allowed_values, default_value in param_config:
+    for param in param_config:
+        key, data_type, is_mandatory, allowed_values, default_value = param[:5]
+        regex_pattern = param[5] if len(param) > 5 else None
         if data_type not in TYPE_MAP and not data_type.startswith("list:"): raise Exception(f"parameter '{key}' has invalid data_type '{data_type}'")
         if is_mandatory == 1 and default_value is not None: raise Exception(f"parameter '{key}' is mandatory, default_value must be None")
         if default_value is not None and allowed_values and default_value not in allowed_values: raise Exception(f"parameter '{key}' default '{default_value}' violating allowed_values: {allowed_values}")
@@ -1904,6 +1906,9 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
                 else: val = TYPE_MAP[data_type](val)
             except: raise Exception(f"parameter '{key}' invalid type {data_type}")
         if val is not None and allowed_values and val not in allowed_values: raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
+        if val is not None and regex_pattern:
+            import re
+            if not re.match(regex_pattern, str(val)): raise Exception(f"parameter '{key}' format invalid")
         output_dict[key] = val
     return output_dict
 

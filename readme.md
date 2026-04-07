@@ -42,24 +42,46 @@ config_mongodb_uri="mongodb://localhost:27017"
 
 ## FAQ
 
-| # | Scenario | Description |
-| :---| :--- | :--- |
-| 1 | **API Master** | Interactive tester at `static/api.html` or `/page-api` |
-| 2 | **Serve static content** | Served via the `static/` directory prefix. |
-| 3 | **Serve html pages** | `/page-{name}` or `/s/{name}` for `static/` HTML files. |
-| 4 | **PostgreSQL Init Auto** | Runs `func_postgres_init` on startup. |
-| 5 | **PostgreSQL Init Manual** | Full system refresh via `/admin/sync` API. |
-| 6 | **PostgreSQL Config** | Check `config_postgres` in `config.py` for all schema and control settings. |
-| 7 | **User Profile Keys** | Use `profile_metadata` in `config_sql` for dynamic SQL-based keys. |
-| 8 | **Access App State** | Global clients and config singletons via `request.app.state`. |
-| 9 | **Access Request User State** | Authorized user context (id, role, etc.) via `request.state.user`. |
-| 10 | **Override config.py** | Add the same key with your value in the `.env` file. |
-| 11 | **Admin API Access** | Use `user_role_check: ["mode", [roles]]` in `config_api`. Modes: `realtime`, `inmemory`, `token`, `redis`. |
-| 12 | **User Active Check** | Use `user_is_active_check: ["mode", 1]` in `config_api` (1=Enable, 0=Disable). Modes: `realtime`, `inmemory`, `token`, `redis`. |
-| 13 | **API Caching** | Use `api_cache_sec: ["mode", seconds]` in `config_api`. Modes: `inmemory`, `redis`. |
-| 14 | **API Rate Limiting** | Use `api_ratelimiting_times_sec: ["mode", count, seconds]` in `config_api`. Modes: `inmemory`, `redis`. |
-| 15 | **Manual Auth Check** | Use `if request.state.user is None: raise Exception("Unauthorized")` in logic. |
-| 16 | **Postgres Table Delete disable** | Use `table_row_delete_disable: ["*"]` (all) or `["users"]` (specific) in `config_postgres["control"]`. |
-| 17 | **Postgres Bulk Delete disable** | Use `table_row_delete_disable_bulk: [["*", 1000]]` (all) or `[["users", 1]]` (specific) in `config_postgres["control"]`. |
+### API Master & Static Assets
+- **API Master**: Access the interactive API tester at `static/api.html` or the `/page-api` route.
+- **Static Content**: All files in the `static/` directory are served automatically.
+- **HTML Pages**: Serve HTML files from the `static/` directory using `/page-{name}` or `/s/{name}` routes.
+
+### Postgres Database
+- **Auto Initialization**: The system automatically runs `func_postgres_init` on application startup.
+- **Manual Sync**: Perform a full system refresh or schema update via the `/admin/sync` API.
+- **Configuration**: All schema, table, and data control settings are managed via `config_postgres` in `config.py`.
+- **Deletion Protection**: 
+  - **Single Row**: Use `table_row_delete_disable` (e.g., `["*"]` for all or `["users"]` for specific tables).
+  - **Bulk Deletion**: Use `table_row_delete_disable_bulk` (e.g., `[["*", 1000]]` or `[["users", 1]]`).
+
+### App & User State
+- **Access App State**: Access global clients (DB, Redis, etc.) and configuration singletons via `request.app.state`.
+- **User Context**: Access the current authorized user's state (id, role, etc.) via `request.state.user`.
+- **Dynamic Profile Keys**: Use the `profile_metadata` field in `config_sql` to define dynamic, SQL-based profile keys.
+
+### API Policies
+- **Access Control**: Roles are managed via `user_role_check` in `config_api`. Available modes: `realtime`, `inmemory`, `token`, `redis`.
+- **User Status Check**: Enforce active status via `user_is_active_check` in `config_api`.
+- **Caching**: Configure response caching using `api_cache_sec` in `config_api`.
+- **Rate Limiting**: Set limits using `api_ratelimiting_times_sec` in `config_api`.
+
+### Auth Patterns
+- **Manual Auth Check**: Use `if request.state.user is None: raise Exception("Unauthorized")` within your functional logic.
+- **Route Prefixes**:
+  - `index/` (or `/`): Public system metadata, health checks, and landing pages.
+  - `auth/`: Endpoints for signing up, logging in, and OTP verification.
+  - `my/`: User-restricted actions. Access is automatically scoped to `request.state.user["id"]`.
+  - `public/`: Data accessible without an authentication token (subject to `config_api` overrides).
+  - `private/`: General authenticated access (any valid token).
+  - `admin/`: Management-level routes restricted to administrative roles.
+
+### Validation
+- **Username Regex**: `^(?=.{3,20}$)[a-z][a-z0-9_@-]*$`
+  - **Pass**: `john_doe`, `admin@atom`, `user-123`
+  - **Fail**: `Jo` (too short), `User 123` (uppercase/space)
+- **Password Regex**: `^\\S{8,32}$`
+  - **Pass**: `SecurePass12!`, `atom_dev_2026`
+  - **Fail**: `short` (< 8), `Pass word` (contains space)
 
 
