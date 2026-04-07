@@ -5,7 +5,6 @@ import csv
 import httpx
 import asyncpg
 import asyncssh
-import uvicorn
 import copy
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -199,5 +198,6 @@ async def api_mgh_amazon_invoice_send(request:Request):
     return {"status":1,"message":process_results}
 
 #app start
-if __name__=="__main__":
-    uvicorn.run("app:app",host="0.0.0.0",port=int(os.getenv("PORT",8000)))
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

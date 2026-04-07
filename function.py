@@ -1475,12 +1475,6 @@ def func_fastapi_app_read(lifespan_handler: any, is_debug_mode: int) -> any:
     from fastapi import FastAPI
     return FastAPI(debug=bool(is_debug_mode), lifespan=lifespan_handler, openapi_url=None, docs_url=None, redoc_url=None)
 
-async def func_server_start(fastapi_app: any) -> None:
-    """Start the Uvicorn server for the FastAPI application."""
-    import uvicorn, os
-    server_config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)), log_level="info")
-    await uvicorn.Server(server_config).serve()
-
 def func_app_add_cors(fastapi_app: any, origins: list, methods: list, headers: list, is_allow_credentials: int) -> None:
     """Add CORS middleware to the FastAPI application."""
     from fastapi.middleware.cors import CORSMiddleware

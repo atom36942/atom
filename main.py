@@ -86,9 +86,7 @@ async def middleware(request,api_function):
    return response
 
 #main
-from function import func_server_start
-import asyncio
-if __name__=="__main__":
-   try:asyncio.run(func_server_start(app))
-   except KeyboardInterrupt:print("exit")
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
    

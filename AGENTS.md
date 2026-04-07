@@ -33,6 +33,7 @@
 | `main.py` | **Entry** | Lifespan, Middleware, App Initialization. |
 | `router.py` | **API** | Definition of all endpoints and role assignments. |
 | `consumer.py` | **Workers** | Background task processing (Celery, Kafka, etc.). |
+| `script/` | **Isolated** | Independent scripts with standalone Docker/Main logic. |
 
 ### Standardized Routing Logic
 | Rule | Pattern | Behavior |
@@ -51,3 +52,11 @@
 | **4. Init** | `main.py` | Initialize new `client_` singletons if required. |
 | **5. Entry** | `static/api.html` | Sync OpenAPI and Test Runner entries. |
 | **6. Audit** | - | Verify system-wide alignment and update documentation. |
+
+### Independent Scripts
+| Rule | Format | Description |
+| :--- | :--- | :--- |
+| **Directory** | `script/{name}/` | All independent scripts must reside in a named subfolder within `script/`. |
+| **Entry Point**| `main.py` | Primary execution script; must include a minimalist `uvicorn.run(app, ...)` block. |
+| **Container** | `Dockerfile` | Standard container configuration mirroring the root repository's structure. |
+| **Deps** | `requirements.txt`| Explicitly defined Python dependencies for the specific script. |

@@ -3,12 +3,8 @@ from fastapi import FastAPI, UploadFile, HTTPException, Request
 from fastapi.responses import Response, JSONResponse
 import re, io, mailparser, pandas as pd
 from bs4 import BeautifulSoup
-import uvicorn, os
+import os
 from contextlib import asynccontextmanager
-
-#config
-# Ensure 'pip install openpyxl' is run for Excel processing
-PORT = int(os.getenv("PORT", 8000))
 
 #pure func
 def process_eml_bytes(eml_bytes: bytes) -> bytes:
@@ -151,5 +147,5 @@ async def process_endpoint(file: UploadFile):
 
 #app start
 if __name__ == "__main__":
-    # Ensure this filename is named 'app.py' or update the string below
-    uvicorn.run("app:app", host="0.0.0.0", port=PORT)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
