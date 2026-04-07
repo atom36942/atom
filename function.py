@@ -359,7 +359,8 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
                                         "format": fmt,
                                         "items": itms,
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
-                                        "default": p[4] if len(p) > 4 else None
+                                        "default": p[4] if len(p) > 4 else None,
+                                        "pattern": p[5] if len(p) > 5 else None
                                     }
                                 })
                         elif p_list is not None and p_loc in ["body", "form"]:
@@ -396,7 +397,8 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
                                         "format": fmt,
                                         "items": itms,
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
-                                        "default": p[4] if len(p) > 4 else None
+                                        "default": p[4] if len(p) > 4 else None,
+                                        "pattern": p[5] if len(p) > 5 else None
                                     }
                                     if len(p) > 2 and bool(p[2]): schema_obj["required"].append(p[0])
                     except: pass

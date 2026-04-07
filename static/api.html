@@ -165,6 +165,8 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
 .tag-card-body.collapsed{max-height:0;padding-top:0;padding-bottom:0;opacity:0;overflow:hidden}
 .tag-toggle-icon{transition:transform .3s;color:var(--muted);display:flex;align-items:center}
 .tag-toggle-icon.collapsed{transform:rotate(-90deg)}
+[data-tooltip]{position:relative;cursor:help;overflow:visible !important}[data-tooltip]:after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);padding:8px 12px;background:#1a1d23;color:#e6eef3;font-size:11px;font-weight:600;white-space:normal;max-width:240px;border-radius:6px;border:1px solid var(--accent);box-shadow:0 4px 12px rgba(0,0,0,.5);opacity:0;visibility:hidden;transition:all .15s ease-out;z-index:3000;pointer-events:none}[data-tooltip]:hover:after{opacity:1;visibility:visible;bottom:calc(100% + 6px)}
+.info-icon-btn{transition:all 0.2s;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;padding:2px}.info-icon-btn:hover{background:rgba(66,153,225,0.1);transform:scale(1.1);color:#fff}
 .storage-key-cell{color:var(--accent);font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .storage-scope-cell{color:var(--muted);text-align:left;white-space:nowrap;text-transform:uppercase;font-size:10px;letter-spacing:.7px}
 .storage-size-cell{color:var(--muted);text-align:right;white-space:nowrap}
@@ -234,6 +236,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
             <h3 style="margin:0">API Runner</h3>
         </div>
         <div class="modal-actions">
+            <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response"></button>
             <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
     </div>
@@ -691,7 +694,7 @@ const applyMasterTableLayout = () => {
   const pathLengths = COMMANDS.map(c => c.p.length);
   const maxPathLength = pathLengths.length ? Math.max(...pathLengths) : 32;
   const pathWidth = Math.min(340, Math.max(220, maxPathLength * 6 + 18));
-  const fixedWidth = 32 + 52 + 74 + (66 * 2) + (56 * 2) + 36;
+  const fixedWidth = 32 + 52 + 74 + 66 + (56 * 2) + 36;
   const shellWidth = Math.min(1180, Math.max(920, pathWidth + fixedWidth + 48));
   root.style.setProperty('--master-path-col', `${pathWidth}px`);
   root.style.setProperty('--master-shell-width', `${shellWidth}px`);
@@ -990,6 +993,7 @@ const getRequestJsonRows = bodyContent => {
       v: defaultValue != null ? (typeof defaultValue === 'object' ? JSON.stringify(defaultValue) : String(defaultValue)) : '',
       t: mapSchemaType(nextSchema),
       e: getSchemaEnum(nextSchema),
+      r: nextSchema.pattern || null,
       req: requiredList.includes(key)
     };
   });
@@ -1007,6 +1011,7 @@ const getRequestFormRows = bodyContent => {
       v: defaultValue != null ? String(defaultValue) : '',
       t: nextSchema.format === 'binary' || nextSchema.type === 'file' ? 'file' : 'string',
       e: getSchemaEnum(nextSchema),
+      r: nextSchema.pattern || null,
       req: requiredList.includes(key)
     };
   });
@@ -1077,6 +1082,7 @@ const createCommandFromOperation = (path, method, op) => {
       k: param.name,
       v: schema.default != null ? String(schema.default) : '',
       e: getSchemaEnum(schema) || param.enum || null,
+      r: schema.pattern || null,
       req: !!param.required
     };
     if (param.in === 'header') command.h.push(item);
@@ -1094,6 +1100,7 @@ const createCommandFromOperation = (path, method, op) => {
   command._paramBadgeB = command._hj;
   const responseSchema = resolveSchema(op.responses?.['200']?.content?.['application/json']?.schema);
   if (responseSchema) command.res = responseSchema;
+  command.r = op.pattern || null;
   applyPathOverrides(command);
   return command;
 };
@@ -1174,6 +1181,7 @@ async function init() {
     load(null);
     updateTestSummary();
     setupIcons();
+    UI('runnerCurlBtn').innerHTML = ICON.terminal(20);
     setupEventListeners();
   } catch (err) {
     console.error('Failed to load API info', err);
@@ -1315,13 +1323,16 @@ const valHtml = (ct, v, t, e) => {
   return wrap(inputHtml);
 };
 
-const mkRow = (ct, k = '', v = '', t = 'string', e = null, isFixed = false, isReq = false) => {
+const mkRow = (ct, k = '', v = '', t = 'string', e = null, r_pat = null, isFixed = false, isReq = false) => {
   const r = d.createElement('div');
   r.className = 'input-row';
   const rmBtn = `<button type="button" class="remove-btn"${isReq ? ' disabled' : ''}>${ICON.trash(16)}</button>`;
+  const keyTitle = (r_pat ? `[REGEX: ${r_pat}] (Click to copy) ` : '') + k;
+  const tip = r_pat ? ` data-tooltip="${he(keyTitle)}"` : '';
+  const infoIconHtml = r_pat ? `<span class="info-icon-btn" data-regex="${he(r_pat)}">${ICON.info(13)}</span>` : '';
   const keyHtml = isReq 
-    ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${he(k)}"><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${he(k)}</div><input type="hidden" class="row-key" value="${he(k)}">` 
-    : `<input type="text" class="row-key" value="${he(k)}" ${isFixed ? 'readonly tabindex="-1"' : ''}>`;
+    ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap" ${tip}><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${he(k)}${infoIconHtml ? `<span style="margin-left:6px">${infoIconHtml}</span>` : ''}</div><input type="hidden" class="row-key" value="${he(k)}">` 
+    : `<div style="flex:0 0 180px;position:relative;display:flex;align-items:center"><input type="text" class="row-key" value="${he(k)}" ${isFixed ? 'readonly tabindex="-1"' : ''} ${tip}>${infoIconHtml ? `<div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;z-index:11">${infoIconHtml}</div>` : ''}</div>`;
   r.innerHTML = `${keyHtml}${valHtml(ct, v, t, e)}${rmBtn}`;
   if (!isReq) r.querySelector('.remove-btn').onclick = () => r.remove();
   bindClear(r);
@@ -1344,20 +1355,6 @@ const load = i => {
   UI('rBox').classList.remove('show');
   UI('apiIn').innerHTML = curr ? renderRunnerEndpoint(curr) : '';
   if (!curr) return;
-  const populate = (cont, sec, spec, isJson = false) => {
-    if (spec && spec.length) UI(sec).classList.add('active');
-    (spec || []).forEach(x => {
-      let val = x.v;
-
-      if (x.k.toLowerCase() === 'authorization') {
-        const lsVal = Store.token;
-        if (lsVal) val = lsVal.startsWith('Bearer ') ? lsVal : `Bearer ${lsVal}`;
-        else if (val && !val.startsWith('Bearer ')) val = `Bearer ${val}`;
-      }
-      mkRow(UI(cont), x.k, val, x.t || 'string', x.e, !!spec.find(s => s.k === x.k), !!spec.find(s => s.k === x.k && s.req));
-    });
-  };
-
   populate('hCont', 'hSec', curr.h);
   populate('uCont', 'uSec', curr.u);
   populate('qCont', 'qSec', curr.q);
@@ -1365,6 +1362,19 @@ const load = i => {
   populate('jCont', 'jSec', (curr._hj ? curr.j : []), true);
   if (curr._hf && !UI('fCont').children.length) { UI('fSec').classList.add('active'); mkRow(UI('fCont')); }
   if (curr._hj && !UI('jCont').children.length) { UI('jSec').classList.add('active'); mkRow(UI('jCont')); }
+};
+
+const populate = (cont, sec, spec, isJson = false) => {
+  if (spec && spec.length) UI(sec).classList.add('active');
+  (spec || []).forEach(x => {
+    let val = x.v;
+    if (x.k.toLowerCase() === 'authorization') {
+      const lsVal = Store.token;
+      if (lsVal) val = lsVal.startsWith('Bearer ') ? lsVal : `Bearer ${lsVal}`;
+      else if (val && !val.startsWith('Bearer ')) val = `Bearer ${val}`;
+    }
+    mkRow(UI(cont), x.k, val, x.t || 'string', x.e, x.r || null, !!spec.find(s => s.k === x.k), !!spec.find(s => s.k === x.k && s.req));
+  });
 };
 
 const runMasterApiByIndex = async (i, isShowResponse = 1, isAllowDownload = 1) => {
@@ -1384,7 +1394,6 @@ const renderApiInfoTable = (searchQuery = '') => {
         <th class="col-path">Path</th>
         <th class="col-param">Param</th>
         <th class="col-action">Override</th>
-        <th class="col-action">Curl</th>
         <th class="col-time">Status</th>
         <th class="col-time">Time</th>
         <th class="col-run">Run</th>
@@ -1404,7 +1413,6 @@ const renderApiInfoTable = (searchQuery = '') => {
           <td class="col-path master-static-cell" title="${c.p}">${c.p}</td>
           <td class="col-param master-static-cell">${isWs ? '-' : renderParamBadges(c)}</td>
           <td class="col-action ovr-btn ${!isWs && isOvr ? 'clickable' : ''}" style="color:var(--accent)" title="${isOvr ? 'View Overrides' : ''}">${isWs ? '-' : (isOvr ? ICON.eye(16) : '-')}</td>
-          <td class="col-action curl-btn ${!isWs ? 'clickable' : ''}" style="color:var(--accent)" title="${!isWs ? 'View Curl & Expected Response' : ''}">${isWs ? '-' : ICON.terminal(16)}</td>
           <td class="col-time master-status-cell ${hasRes ? 'clickable' : ''}" title="${hasRes ? `HTTP ${responseState.status}` : 'No response yet'}">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
           <td class="col-time master-time-cell">${isWs ? '-' : (responseState ? `${responseState.time}ms` : '-')}</td>
           <td class="col-run run-btn clickable" title="Run">${ICON.play(16)}</td>
@@ -1851,10 +1859,21 @@ const setupEventListeners = () => {
     UI('wsLogsClearBtn')?.addEventListener('click', () => { UI('wsLogs').innerHTML = ''; });
     UI('wsMsgIn')?.addEventListener('keydown', e => { if (e.key === 'Enter') wsSend(); });
 
-    // API Runner Modal
     UI('apiForm')?.addEventListener('submit', e => {
         e.preventDefault();
         executeCurrentApi();
+    });
+    UI('runnerCurlBtn')?.addEventListener('click', () => {
+        if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'all');
+    });
+
+    // Info Icon Regex Copy (Delegation)
+    d.addEventListener('click', e => {
+        const btn = e.target.closest('.info-icon-btn');
+        if (btn && btn.dataset.regex) {
+            e.stopPropagation();
+            copyWithFeedback(btn, btn.dataset.regex, 14, 'Regex copied');
+        }
     });
     // API Runner Sections
     SECTIONS.forEach(([btn, sec, cont]) => {
@@ -2010,14 +2029,7 @@ const setupEventListeners = () => {
             return;
         }
 
-        // 3. View cURL from Master Row
-        const curlBtn = e.target.closest('.curl-btn');
-        if (curlBtn) {
-            if (curlBtn.classList.contains('clickable')) openCurlViewModal(idx);
-            return;
-        }
-
-        // 4. Status Column
+        // 3. Status Column
         if (e.target.closest('.master-status-cell.clickable')) {
             openMasterResponse(idx);
             return;
