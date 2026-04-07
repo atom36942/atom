@@ -82,6 +82,7 @@ config_table_system=["spatial_ref_sys"]
 config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at"]
 config_column_single_update=["username", "password", "email", "mobile"]
 config_api_roles=["index", "auth", "my", "public", "private", "admin"]
+config_api_roles_auth=["/my/", "/private/", "/admin/"]
 
 #switch
 config_is_signup=1

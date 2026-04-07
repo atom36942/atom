@@ -241,7 +241,7 @@ async def func_api_file_to_chunks(upload_file: any, chunk_size: int = 5000) -> a
     await upload_file.close(); return
 
 #api metadata
-def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
+def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = None, app_state: any = None) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
     spec = {
@@ -261,7 +261,7 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
             path_parts = path.split("/")
             tag = path_parts[1] if len(path_parts) > 1 and path_parts[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
-            if any(path.startswith(x) for x in ["/my/", "/private/", "/admin/"]):
+            if any(path.startswith(x) for x in (config_api_roles_auth if config_api_roles_auth else [])):
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
             for p in re.findall(r"\{(\w+)\}", path):
@@ -407,7 +407,7 @@ def func_openapi_spec_generate(app_routes: list, app_state: any = None) -> dict:
             spec["paths"][path][m_lower] = op
     return spec
 
-def func_check(app_routes: list, current_config_api: dict, allowed_roles: list = None, config_postgres: dict = None) -> None:
+def func_check(app_routes: list, current_config_api: dict, allowed_roles: list = None, config_postgres: dict = None, api_roles_auth: list = None) -> None:
     """Validate config_api consistency with app routes, admin roles, valid modes, duplicate keys, and strict api roles."""
     import ast
     def get_duplicate_errors(file_path, var_name):
@@ -517,6 +517,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
             if not isinstance(v, list): errs.append(f"{k} must be a list")
             elif not all(isinstance(x, t) for x in v): errs.append(f"{k} must be a list of {t.__name__}s")
         return errs
+    if api_roles_auth is not None and not isinstance(api_roles_auth, (list, tuple)): raise Exception("config_api_roles_auth must be a list")
     errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles) + get_switch_errors() + get_control_errors(config_postgres) + get_cors_errors() + get_table_integrity_errors(config_postgres) + get_api_id_errors(current_config_api) + get_enum_type_errors()
     if errors: raise Exception("; ".join(errors))
 
@@ -604,6 +605,12 @@ async def func_postgres_runner(postgres_pool: any, execution_mode: str, sql_quer
         if "returning" in ql: return await conn.fetch(sql_query, timeout=15)
         return await conn.execute(sql_query, timeout=15)
 
+def func_validate_identifier(name: str) -> str:
+    """Validate that a string is a safe SQL identifier (table/column name)."""
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(name)): raise Exception(f"invalid identifier {name}")
+    return name
+
 async def func_postgres_ids_update(postgres_pool: any, table_name: str, record_ids: any, column_name: str, target_value: any, created_by_id: int = None, updated_by_id: int = None) -> None:
     """Update a specific column for a list of record IDs with ownership check."""
     ids_str = ""
@@ -677,24 +684,21 @@ async def func_postgres_read(postgres_pool: any, func_postgres_obj_serialize: ca
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re, json
     from datetime import datetime
-    def validate_identifier(name):
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(name)): raise Exception(f"invalid identifier {name}")
-        return name
-    table = validate_identifier(table_name)
+    table = func_validate_identifier(table_name)
     limit = min(max(int(query_params.get("limit") or 100), 1), 500)
     page = max(int(query_params.get("page") or 1), 1)
     order_list = []
     for part in query_params.get("order", "id desc").split(","):
         p = part.strip().split()
         if p:
-            col = validate_identifier(p[0])
+            col = func_validate_identifier(p[0])
             dir = "ASC"
             if len(p) > 1 and p[1].lower() in ("asc", "desc"): dir = p[1].upper()
             order_list.append(f"{col} {dir}")
     order_clause = ", ".join(order_list)
     column_list = "*"
     if query_params.get("column", "*") != "*":
-        column_list = ",".join([validate_identifier(c.strip()) for c in query_params.get("column").split(",")])
+        column_list = ",".join([func_validate_identifier(c.strip()) for c in query_params.get("column").split(",")])
     creator_key = query_params.get("creator_key")
     action_key = query_params.get("action_key")
     filters = {k: v for k, v in query_params.items() if k not in ("table", "order", "limit", "page", "column", "creator_key", "action_key")}
@@ -705,7 +709,7 @@ async def func_postgres_read(postgres_pool: any, func_postgres_obj_serialize: ca
         return serialized[0][col]
     conditions, values, bind_idx, v_ops, s_ops = [], [], 1, {"=":"=","==":"=","!=":"!=","<>":"<>",">":">","<":"<",">=":">=","<=":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}, {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
     for filter_key, expression in filters.items():
-        validate_identifier(filter_key)
+        func_validate_identifier(filter_key)
         # Spatial filter shortcut
         if expression.lower().startswith("point,"):
             _, coords = expression.split(",", 1)
@@ -853,14 +857,8 @@ async def func_postgres_update(postgres_pool: any, func_postgres_obj_serialize: 
     limit_batch = batch_size or 5000
     return_ids_flag = is_return_ids if is_return_ids is not None else 0
     import re, json
-    def validate_identifier(name):
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(name)): raise Exception(f"invalid identifier {name}")
-        return name
-    if not obj_list: return "0 rows updated"
-    if not all("id" in obj for obj in obj_list): raise Exception("id field required")
-    validate_identifier(table_name)
     if serialize_flag: obj_list = await func_postgres_obj_serialize(postgres_pool, table_name, obj_list)
-    update_cols = [validate_identifier(c) for c in obj_list[0] if c != "id"]
+    update_cols = [func_validate_identifier(c) for c in obj_list[0] if c != "id"]
     if not update_cols: return "0 rows updated"
     actual_batch_size = min(limit_batch, 65535 // (len(update_cols) + (2 if created_by_id else 1)))
     async with postgres_pool.acquire() as conn:
@@ -937,7 +935,7 @@ async def func_postgres_create(postgres_pool: any, func_postgres_obj_serialize: 
             func_postgres_create.buffer[table_name] = []
             return "buffered released"
         return "buffered"
-    columns = serialized_list[0].keys()
+    columns = [func_validate_identifier(c) for c in serialized_list[0].keys()]
     if len(serialized_list) == 1:
         placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
         query = f"""INSERT INTO {table_name} ({",".join(columns)}) VALUES ({placeholders}) RETURNING id"""
@@ -976,7 +974,8 @@ async def func_postgres_obj_serialize(postgres_pool: any, table_name: str, objec
                 async with postgres_pool.acquire() as conn:
                     rows = await conn.fetch("SELECT column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_name = $1", table_name)
                     func_postgres_obj_serialize.state[table_name] = {r["column_name"]: r["data_type"] for r in rows}; schema = func_postgres_obj_serialize.state[table_name]
-            if col not in schema or val is None: new_item[col] = val; continue
+            if col not in schema: continue
+            if val is None: new_item[col] = val; continue
             dtype, val_str, base_dtype = schema[col].lower(), str(val).strip(), schema[col].lower().replace("[]", "").replace("array", "").strip()
             def cast_val(v, t):
                 vs = str(v).strip()
@@ -1450,7 +1449,7 @@ async def func_api_response(request: any, api_function: callable, api_config: di
         if cache_sec_config: response, resp_type = await func_cache("set", path, query_params, api_config, redis_client, user_id, response), 4
     return response, resp_type
 
-async def func_authenticate(headers: dict, url_path: str, jwt_secret_key: str, api_config: dict) -> dict:
+async def func_authenticate(headers: dict, url_path: str, jwt_secret_key: str, api_roles_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization"); token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
     if token:
@@ -1458,7 +1457,7 @@ async def func_authenticate(headers: dict, url_path: str, jwt_secret_key: str, a
         decoded_payload = jwt.decode(token, jwt_secret_key, algorithms="HS256"); user_obj = json.loads(decoded_payload["data"])
     else:
         user_obj = {}
-        if url_path.startswith(("/my", "/private", "/admin")): raise Exception("authorization token missing")
+        if url_path.startswith(tuple(api_roles_auth)): raise Exception("authorization token missing")
     return user_obj
 
 async def func_token_encode(user_obj: dict, jwt_secret_key: str, token_expiry_sec: int, token_refresh_expiry_sec: int, key_list: list = None) -> dict:
@@ -1818,14 +1817,28 @@ def func_jira_worklog_export(url: str, email_address: str, api_token: str, start
         from jira import JIRA; from pathlib import Path; import pandas as pd, uuid, calendar; from datetime import date
         output_path = output_path or f"tmp/{uuid.uuid4().hex}.csv"; Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         current_date = date.today(); start_date = start_date or current_date.replace(day=1).strftime("%Y-%m-%d"); end_date = end_date or current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1]).strftime("%Y-%m-%d")
-        jira_client, log_rows, assignees = JIRA(server=url, basic_auth=(email_address, api_token)), [], set()
-        issues = jira_client.search_issues(f"worklogDate >= {start_date} AND worklogDate <= {end_date}", maxResults=1000, expand="worklog")
-        for issue in issues:
-            if getattr(issue.fields, "assignee", None): assignees.add(issue.fields.assignee.displayName)
-            for worklog in getattr(getattr(issue.fields, "worklog", None), "worklogs", []):
+        jira_client, log_rows, people = JIRA(server=url, basic_auth=(email_address, api_token)), [], set()
+        jql = f"worklogDate >= '{start_date}' AND worklogDate <= '{end_date}'"
+        all_issues, block_size = [], 100
+        while True:
+            issues = jira_client.search_issues(jql, startAt=len(all_issues), maxResults=block_size)
+            if not issues: break
+            all_issues.extend(issues)
+            if len(issues) < block_size: break
+        for issue in all_issues:
+            if getattr(issue.fields, "assignee", None): people.add(issue.fields.assignee.displayName)
+            for worklog in jira_client.worklogs(issue.id):
                 started_at = worklog.started[:10]
-                if start_date <= started_at <= end_date: log_rows.append((worklog.author.displayName, started_at, worklog.timeSpentSeconds / 3600))
-        df = pd.DataFrame(log_rows, columns=["author", "date", "hours"]); pivot = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(list(assignees), fill_value=0).round(0).astype(int) if not df.empty else df; pivot.to_csv(output_path); return output_path
+                if start_date <= started_at <= end_date:
+                    author_name = worklog.author.displayName
+                    people.add(author_name); log_rows.append((author_name, started_at, worklog.timeSpentSeconds / 3600))
+        date_range = pd.date_range(start=start_date, end=end_date).strftime("%Y-%m-%d").tolist()
+        if not log_rows:
+            if people: pd.DataFrame(index=sorted(list(people)), columns=date_range).fillna(0).astype(int).to_csv(output_path); return output_path
+            pd.DataFrame(columns=date_range).to_csv(output_path); return output_path
+        df = pd.DataFrame(log_rows, columns=["author", "date", "hours"])
+        pivot = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(index=sorted(list(people)), columns=date_range, fill_value=0).round(0).astype(int)
+        pivot.to_csv(output_path); return output_path
     except Exception as e: raise Exception(f"jira config exception: {str(e)}")
 
 #utils & converters
@@ -1855,8 +1868,9 @@ async def func_client_download_file(file_path: str, is_delete_after: int = None,
     return responses.StreamingResponse(file_iterator(), media_type=content_type, headers={"Content-Disposition": f"attachment; filename=\"{file_name}\""}, background=BackgroundTask(os.remove, file_path) if delete_after_flag == 1 else None)
 
 async def func_request_param_read(request_obj: any, parsing_mode: str, param_config: list, is_strict: int = None) -> dict:
-    """Extract, validate, and type-cast request parameters from query, form, or body payload."""
+    """Extract, validate, and type-cast request parameters from query, form, body or headers."""
     strict_flag, params_dict = is_strict or 0, {}
+    header_params = {k.lower(): v for k, v in request_obj.headers.items()}
     if parsing_mode == "query": params_dict = dict(request_obj.query_params)
     elif parsing_mode == "form":
         form_data = await request_obj.form(); params_dict = {key: val for key, val in form_data.items() if isinstance(val, str)}
@@ -1867,7 +1881,7 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
         try: json_payload = await request_obj.json()
         except: json_payload = None
         params_dict = json_payload if isinstance(json_payload, dict) else {"body": json_payload}
-    elif parsing_mode == "header": params_dict = {k.lower(): v for k, v in request_obj.headers.items()}
+    elif parsing_mode == "header": params_dict = header_params
     else: raise Exception(f"invalid parsing mode: {parsing_mode}")
     if param_config is None: return params_dict
     import json
@@ -1896,7 +1910,9 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
         if default_value is not None and allowed_values and default_value not in allowed_values: raise Exception(f"parameter '{key}' default '{default_value}' violating allowed_values: {allowed_values}")
         if allowed_values is not None and not isinstance(allowed_values, (list, tuple)): raise Exception(f"parameter '{key}' allowed_values must be a list or tuple")
         if is_mandatory and key not in params_dict: raise Exception(f"parameter '{key}' missing")
-        val = params_dict.get(key, default_value)
+        val = params_dict.get(key)
+        if val is None: val = header_params.get(key.lower())
+        if val is None: val = default_value
         if isinstance(val, str) and val.lower() in ("null", "undefined"): val = default_value
         if is_mandatory:
             if val is None: raise Exception(f"parameter '{key}' missing")

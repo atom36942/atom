@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 #config
 # Ensure 'pip install openpyxl' is run for Excel processing
-PORT = int(os.getenv("PORT", 8002))
+PORT = int(os.getenv("PORT", 8000))
 
 #pure func
 def process_eml_bytes(eml_bytes: bytes) -> bytes:

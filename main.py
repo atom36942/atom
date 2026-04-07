@@ -37,8 +37,9 @@ async def func_lifespan(app:FastAPI):
    cache_users_is_active=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
    #app state add
    func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
+   app.state.cache_openapi=func_openapi_spec_generate(app.routes, config_api_roles_auth, app.state)
    #check
-   func_check(app.routes, config_api, config_api_roles, config_postgres)
+   func_check(app.routes, config_api, config_api_roles, config_postgres, config_api_roles_auth)
    #app shutdown
    yield
    await func_postgres_create(client_postgres_pool, func_postgres_obj_serialize, None, None, "flush")
@@ -75,7 +76,7 @@ async def middleware(request,api_function):
    try:
       start,type,error,request.state.user=time.perf_counter(),None,None,{}
       st=request.app.state
-      request.state.user=await st.func_authenticate(request.headers,request.url.path,st.config_token_secret_key,st.config_api)
+      request.state.user=await st.func_authenticate(request.headers,request.url.path,st.config_token_secret_key,st.config_api_roles_auth)
       await st.func_check_admin(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_role,st.config_redis_cache_ttl_sec)
       await st.func_check_is_active(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_is_active,st.config_redis_cache_ttl_sec)
       await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)

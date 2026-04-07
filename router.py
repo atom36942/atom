@@ -20,7 +20,7 @@ async def func_api_index(request:Request):
 
 @router.get("/openapi.json")
 async def func_api_openapi_json(request:Request):
-   return request.app.state.func_openapi_spec_generate(request.app.routes, request.app.state)
+   return request.app.state.cache_openapi
 
 @router.get("/info")
 async def func_api_index(request:Request):
@@ -331,6 +331,7 @@ async def func_api_admin_sync(request:Request):
    request.app.state.cache_users_role=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_role")) if request.app.state.client_postgres_pool else {}
    request.app.state.cache_users_is_active=await func_sql_map_column(request.app.state.client_postgres_pool,config_sql.get("cache_users_is_active")) if request.app.state.client_postgres_pool else {}
    await func_postgres_clean(request.app.state.client_postgres_pool,config_table)
+   request.app.state.cache_openapi=request.app.state.func_openapi_spec_generate(request.app.routes, request.app.state.config_api_roles_auth, request.app.state)
    return {"status":1,"message":"done"}
    
 @router.post("/admin/postgres-runner")
