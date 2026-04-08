@@ -32,13 +32,8 @@ config_postgres="postgresql://atom@127.0.0.1/postgres"
 config_redis_url="redis://localhost:6379"
 config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 config_mongodb_uri="mongodb://localhost:27017"
-
-# Consumers
-/venv/bin/python consumer.py redis
-./venv/bin/python consumer.py celery
-./venv/bin/python consumer.py rabbitmq
-./venv/bin/python consumer.py kafka
 ```
+
 
 ## FAQ
 
@@ -64,7 +59,7 @@ config_mongodb_uri="mongodb://localhost:27017"
 - **Access Control**: Roles are managed via `user_role_check` in `config_api`. Available modes: `realtime`, `inmemory`, `token`, `redis`.
 - **User Status Check**: Enforce active status via `user_is_active_check` in `config_api`.
 - **Caching**: Configure response caching using `api_cache_sec` in `config_api`.
-- **Rate Limiting**: Set limits using `api_ratelimiting_times_sec` in `config_api`.
+- **Rate Limiting**: Set limits using `api_ratelimiting_times_sec" in `config_api`.
 
 ### Auth Patterns
 - **Manual Auth Check**: Use `if request.state.user is None: raise Exception("Unauthorized")` within your functional logic.
@@ -84,4 +79,26 @@ config_mongodb_uri="mongodb://localhost:27017"
   - **Pass**: `SecurePass12!`, `atom_dev_2026`
   - **Fail**: `short` (< 8), `Pass word` (contains space)
 
+### Consumers
+
+The background worker system uses a minimalist, top-down linear architecture for maximum performance and surgical execution. Start a worker by specifying the technology and the target channel:
+
+```bash
+# General Signature: ./venv/bin/python consumer.py [tech] [channel]
+./venv/bin/python consumer.py redis default
+./venv/bin/python consumer.py rabbitmq default
+./venv/bin/python consumer.py kafka default
+./venv/bin/python consumer.py celery default
+```
+
+The infrastructure is built on **Dynamic Task Discovery**, requiring zero configuration to add new workers:
+- **Add a Task**: Simply define an `async` function in `function.py`.
+- **Resource Aware**: If your task needs the database, ensure it accepts `postgres_pool`. The consumer will intelligently inject the pool only if your signature requests it.
+- **Trigger**: Tasks are queued using the `tech_channel` format (e.g., `redis_default`).
+
+```python
+# Create a task object and dispatch via the universal producer logic
+task_obj = {"task_name": "func_your_custom_function", "params": {"id": 123}}
+await func_producer_logic("redis_your_channel", task_obj, producer_obj)
+```
 

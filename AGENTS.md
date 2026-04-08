@@ -10,18 +10,18 @@
 | **Defaults** | INTERNAL HANDLING| No parameter defaults in signatures; use `None` and handle at function start. |
 | **Frontend** | Single-File | `static/` HTML files must contain all JS/CSS/HTML logic. No external local assets. |
 | **Validation** | Centralized | All app-start validation checks must reside within `func_check` in `function.py`. |
-| **Params** | **Explicit Naming** | Always use explicit parameter names. Avoid passing generic objects/modules (e.g. `config`, `app.state`) if specific variables can be used instead. |
-| **Philosophy** | **Explicitness** | Explicitness > Implicitness. Always be explicit. |
+| **Params** | **Explicit Naming** | Always use explicit parameter names that match their source identifier (e.g. `config_`, `client_`). Avoid generic objects/modules. |
+| **Philosophy** | **Explicitness** | Explicitness > Implicitness. 1:1 mapping between parameters and global state. |
 
 ### Naming Conventions
 | Category | Variable Prefix | Behavior |
 | :--- | :--- | :--- |
 | **Boolean** | `is_[name]` | Strictly `int` (1/0). NEVER use Python `True`/`False`. |
-| **Config** | `config_` | Reserved for variables in `config.py`. Single line assignment. |
+| **Config** | `config_` | Global settings in `config.py` and matching function parameters. |
 | **Functions** | `func_` | Standard prefix for all functional logic. |
-| **Clients** | `client_` | Persistent singletons (HTTP, DB, Redis, etc.). |
+| **Clients** | `client_` | Persistent singletons and matching function parameters (e.g. `client_postgres_pool`). |
 | **Cache** | `cache_` | Dictionary-based local or distributed state maps. |
-| **Explicit** | N/A | Configuration variables MUST include the service/feature name (e.g., `config_postgres_batch_limit`). |
+| **Explicit** | N/A | Variable names MUST include the service/feature name (e.g., `config_postgres_batch_limit`). |
 
 ### Repository Map
 | Path | Service | Responsibility |

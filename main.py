@@ -16,7 +16,7 @@ async def func_lifespan(app:FastAPI):
    client_redis=await func_redis_client_read(config_redis_url) if config_redis_url else None
    client_redis_ratelimiter=await func_redis_client_read(config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
    client_mongodb=func_mongodb_client_read(config_mongodb_uri) if config_mongodb_uri else None
-   client_s3,client_s3_resource=(await func_s3_client_read({"aws_access_key_id":config_aws_access_key_id,"aws_secret_access_key":config_aws_secret_access_key,"region_name":config_s3_region_name})) if config_s3_region_name else (None, None)
+   client_s3,client_s3_resource=(await func_s3_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_s3_region_name)) if config_s3_region_name else (None, None)
    client_sns=func_sns_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_sns_region_name) if config_sns_region_name else None
    client_ses=func_ses_client_read(config_aws_access_key_id,config_aws_secret_access_key,config_ses_region_name) if config_ses_region_name else None
    client_openai=func_openai_client_read(config_openai_key) if config_openai_key else None
@@ -42,7 +42,7 @@ async def func_lifespan(app:FastAPI):
    func_check(app.routes, config_api, config_api_roles, config_postgres, config_api_roles_auth)
    #app shutdown
    yield
-   await func_postgres_create(client_postgres_pool, func_postgres_obj_serialize, None, None, "flush")
+   await func_postgres_create(client_postgres_pool, func_postgres_obj_serialize, "flush", None, None)
    if config_is_reset_tmp == 1:func_folder_reset("tmp")
    await client_http.aclose()
    if client_postgres_pool:await client_postgres_pool.close()
@@ -82,7 +82,7 @@ async def middleware(request,api_function):
       await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)
       response,type=await st.func_api_response(request,api_function,st.config_api,st.client_redis,request.state.user.get("id") if request.state.user else 0,st.func_api_response_background,st.func_check_cache)
    except Exception as e:error,response=await request.app.state.func_api_response_error(e,request.app.state.config_is_traceback,request.app.state.config_sentry_dsn)
-   await request.app.state.func_api_log_create(start,request.client.host,request.state.user.get("id") if getattr(request.state,"user",None) else None,request.url.path,request.method,json.dumps(dict(request.query_params)),response.status_code if response else 0,type,error,request.app.state.config_is_log_api,request.app.state.config_api.get(request.url.path,{}).get("id"),request.app.state.func_postgres_create,request.app.state.client_postgres_pool,request.app.state.func_postgres_obj_serialize,request.app.state.config_table.get("log_api",{}).get("buffer") if request.app.state.config_table else 10)
+   await request.app.state.func_api_log_create(request.app.state.config_is_log_api, request.app.state.config_api.get(request.url.path, {}).get("id"), request, response, int((time.perf_counter() - start) * 1000), request.state.user.get("id") if getattr(request.state, "user", None) else None, request.app.state.func_postgres_create, request.app.state.client_postgres_pool, request.app.state.func_postgres_obj_serialize, request.app.state.config_table)
    return response
 
 #main

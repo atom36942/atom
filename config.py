@@ -9,7 +9,7 @@ config_redis_url_ratelimiter=config_redis_url
 config_redis_cache_ttl_sec=3600
 
 #queue
-config_channel_name="channel_1"
+config_channel_allowed = ["default", "pcreate", "pupdate", "auditlog", "notifications"]
 config_redis_url_pubsub=config_redis_url
 config_rabbitmq_url=None
 config_celery_broker_url=config_redis_url
@@ -28,8 +28,8 @@ config_redis_batch_timeout_ms=1000
 
 #token
 config_token_secret_key="123"
-config_token_expiry_sec=3*24*60*60
-config_token_refresh_expiry_sec=3*24*60*60*100
+config_token_expiry_sec=10*365*24*24
+config_token_refresh_expiry_sec=100*365*24*24
 config_token_key=["id", "type", "is_active", "role"]
 
 #gsheet

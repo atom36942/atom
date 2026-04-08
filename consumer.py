@@ -1,161 +1,142 @@
 #import
 from function import *
 from config import *
-import asyncio,sys,orjson as json
+import sys
+import asyncio
+from itertools import groupby, count
 
-#celery
-client_postgres_pool=None
-worker_loop=None
-async def _init_pool():
-    global client_postgres_pool
-    if client_postgres_pool is None:
-        client_postgres_pool=await func_postgres_client_read({"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection})
-        print("postgres pool initialized", flush=True)
-def logic_celery():
-    from celery import signals
-    from itertools import count
-    app=func_celery_client_read_consumer(config_celery_broker_url,config_celery_backend_url)
-    app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
-    _run_counter=count(1)
-    @signals.worker_process_init.connect
-    def init_worker(**kwargs):
-        global worker_loop
-        worker_loop=asyncio.new_event_loop()
-        asyncio.set_event_loop(worker_loop)
-        if config_postgres_url:
-            worker_loop.run_until_complete(_init_pool())
-        print("celery worker initialized", flush=True)
-    def run_async(coro_func, *args):
-        n=next(_run_counter)
-        global worker_loop, client_postgres_pool
-        if not worker_loop:
-            worker_loop=asyncio.new_event_loop()
-            asyncio.set_event_loop(worker_loop)
-        if client_postgres_pool is None and config_postgres_url:
-            worker_loop.run_until_complete(_init_pool())
-        try:
-            worker_loop.run_until_complete(coro_func(client_postgres_pool, func_postgres_obj_serialize, *args))
-            print(f"task completed #{n}", flush=True)
-            return None
-        except Exception as e:
-            print(f"task failed #{n}: {str(e)}", flush=True)
-            raise
-    @app.task(name="func_postgres_create")
-    def celery_task_1(mode,table,obj_list,is_serialize,buffer):
-        return run_async(func_postgres_create, table, obj_list, mode, is_serialize, buffer)
-    @app.task(name="func_postgres_update")
-    def celery_task_2(table,obj_list,is_serialize,created_by_id):
-        return run_async(func_postgres_update, table, obj_list, is_serialize, created_by_id)
-    return app
+import orjson
 
-#redis
-async def logic_redis():
-    import asyncio
-    while True:
-        try:
-            try:
-                global client_postgres_pool
-                client_redis=await func_redis_client_read(config_redis_url_pubsub)
-                client_redis_consumer=await func_redis_client_read_consumer(client_redis,config_channel_name)
-                if config_postgres_url:await _init_pool()
-                print("redis consumer started", flush=True)
-                local_queue = asyncio.Queue()
-                async def redis_listener():
-                    async for message in client_redis_consumer.listen():
-                        if message["type"]=="message" and message["channel"]==config_channel_name.encode():
-                            await local_queue.put(message["data"])
-                async def redis_processor():
-                    while True:
-                        payloads = []
-                        for _ in range(config_redis_batch_limit):
-                            try:
-                                data = await asyncio.wait_for(local_queue.get(), timeout=config_redis_batch_timeout_ms/1000.0 if not payloads else 0.1)
-                                payloads.append(json.loads(data))
-                            except asyncio.TimeoutError: break
-                        if payloads:
-                            await func_consumer_batch_logic(payloads,func_postgres_create,func_postgres_update,func_postgres_obj_serialize,client_postgres_pool)
-                            print(f"redis batch processed: {len(payloads)} msgs", flush=True)
-                async with asyncio.TaskGroup() as tg:
-                    tg.create_task(redis_listener())
-                    tg.create_task(redis_processor())
-            except* Exception as e:print(f"redis error: {str(e)}", flush=True); await asyncio.sleep(5)
-        except asyncio.CancelledError:break
-        finally:
-            if "client_redis" in locals():await client_redis.aclose()
-            if client_postgres_pool:await client_postgres_pool.close();client_postgres_pool=None
+#available tasks (for celery registration only)
+task_registry = ["func_postgres_create", "func_postgres_update"]
 
-#rabbitmq
-async def logic_rabbitmq():
-    import aio_pika, asyncio
+#global counter
+_run_counter = count(1)
+
+#dynamic task executor
+async def logic_task_exec(pool: any, payload: any) -> any:
+    """Dynamically lookup and execute a task function with signature-aware parameter injection."""
+    import inspect
+    task_name, params = payload.get("task_name"), payload.get("params", {})
+    n = next(_run_counter)
+    print(f"task started #{n}: {task_name}", flush=True)
+    func = globals().get(task_name)
+    if not func: return print(f"skipping unknown task: {task_name}", flush=True)
     try:
-        global client_postgres_pool
-        client_rabbitmq,client_rabbitmq_consumer=await func_rabbitmq_client_read_consumer(config_rabbitmq_url,config_channel_name)
-        if config_postgres_url:await _init_pool()
-        print("rabbitmq consumer started", flush=True)
-        local_queue = asyncio.Queue()
-        async def aqmp_callback(message:aio_pika.IncomingMessage): await local_queue.put(message)
-        await client_rabbitmq_consumer.consume(aqmp_callback)
-        while True:
-            payloads, messages = [], []
-            for _ in range(config_rabbitmq_batch_limit):
-                try:
-                    msg = await asyncio.wait_for(local_queue.get(), timeout=config_rabbitmq_batch_timeout_ms/1000.0 if not payloads else 0.1)
-                    messages.append(msg); payloads.append(json.loads(msg.body))
-                except asyncio.TimeoutError: break
-            if payloads:
-                try:
-                    await func_consumer_batch_logic(payloads,func_postgres_create,func_postgres_update,func_postgres_obj_serialize,client_postgres_pool)
-                    for m in messages: await m.ack()
-                    print(f"rabbitmq batch processed: {len(payloads)} msgs", flush=True)
-                except Exception as e:
-                    for m in messages: await m.nack(requeue=True)
-                    raise e
-    except asyncio.CancelledError:pass
-    except Exception as e:print(f"rabbitmq error: {str(e)}", flush=True); await asyncio.sleep(5)
-    finally:
-        if "client_rabbitmq_consumer" in locals():await client_rabbitmq_consumer.channel.close()
-        if "client_rabbitmq" in locals() and not client_rabbitmq.is_closed:await client_rabbitmq.close()
-        if client_postgres_pool:await client_postgres_pool.close();client_postgres_pool=None
-
-#kafka
-async def logic_kafka():
-    try:
-        global client_postgres_pool
-        client_kafka_consumer=await func_kafka_client_read_consumer(config_kafka_url,config_kafka_username,config_kafka_password,config_channel_name,config_kafka_group_id,config_kafka_is_auto_commit)
-        if config_postgres_url:await _init_pool()
-        print("kafka consumer started", flush=True)
-        while True:
-            batch=await client_kafka_consumer.getmany(timeout_ms=config_kafka_batch_timeout_ms, max_records=config_kafka_batch_limit)
-            if not batch:continue
-            payloads = []
-            for tp, messages in batch.items():
-                for message in messages: payloads.append(json.loads(message.value))
-                if not config_kafka_is_auto_commit:await client_kafka_consumer.commit(tp)
-            await func_consumer_batch_logic(payloads,func_postgres_create,func_postgres_update,func_postgres_obj_serialize,client_postgres_pool)
-            print(f"kafka batch processed: {len(payloads)} msgs", flush=True)
-    except asyncio.CancelledError:pass
-    except Exception as e:print(f"kafka error: {str(e)}", flush=True)
-    finally:
-        if "client_kafka_consumer" in locals():await client_kafka_consumer.stop()
-        if client_postgres_pool:await client_postgres_pool.close();client_postgres_pool=None
+        sig = inspect.signature(func)
+        ctx = {"client_postgres_pool": pool, "func_postgres_obj_serialize": func_postgres_obj_serialize}
+        call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
+        call_args.update({k: v for k, v in params.items() if k in sig.parameters})
+        res = await func(**call_args)
+        print(f"task completed #{n}: {task_name}", flush=True); return res
+    except Exception as e:
+        print(f"task failed #{n}: {task_name} error: {str(e)}", flush=True); raise
 
 #celery init
-celery=None
-if "celery" in sys.argv[0] or (len(sys.argv) > 1 and sys.argv[1] == "celery"):celery=logic_celery()
+def func_consumer_celery_init(consumer_name: str, broker_url: str, backend_url: str, postgres_url: str, postgres_min_conn: int, postgres_max_conn: int, func_postgres_client_read: callable, func_postgres_create: callable, func_postgres_update: callable, func_postgres_obj_serialize: callable) -> any:
+    """Initialize Celery with signature-aware dynamic task registration."""
+    from celery import signals
+    import inspect
+    app = func_celery_client_read_consumer(broker_url, backend_url)
+    app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
+    client_postgres_pool, worker_loop = None, None
+    async def _init_pool():
+        nonlocal client_postgres_pool
+        if client_postgres_pool is None:
+            client_postgres_pool = await func_postgres_client_read({"dsn": postgres_url, "min_size": postgres_min_conn, "max_size": postgres_max_conn})
+    @signals.worker_process_init.connect
+    def init_worker(**kwargs):
+        nonlocal worker_loop; worker_loop = asyncio.new_event_loop(); asyncio.set_event_loop(worker_loop)
+        if postgres_url: worker_loop.run_until_complete(_init_pool())
+    def run_async(coro_func, *args, **kwargs):
+        n = next(_run_counter)
+        task_name = coro_func.__name__
+        print(f"task started #{n}: {task_name}", flush=True)
+        nonlocal worker_loop, client_postgres_pool
+        if not worker_loop: worker_loop = asyncio.new_event_loop(); asyncio.set_event_loop(worker_loop)
+        if client_postgres_pool is None and postgres_url: worker_loop.run_until_complete(_init_pool())
+        try:
+            sig = inspect.signature(coro_func)
+            ctx = {"client_postgres_pool": client_postgres_pool, "func_postgres_obj_serialize": func_postgres_obj_serialize}
+            # 1. Start with injected context parameters
+            call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
+            # 2. Map positional args to parameters that are NOT in the injected context
+            remaining_keys = [p.name for p in sig.parameters.values() if p.name not in call_args]
+            call_args.update(dict(zip(remaining_keys, args)))
+            # 3. Apply keyword arguments (these take final precedence)
+            call_args.update({k: v for k, v in kwargs.items() if k in sig.parameters})
+            worker_loop.run_until_complete(coro_func(**call_args))
+            print(f"task completed #{n}: {task_name}", flush=True); return None
+        except Exception as e: print(f"task failed #{n}: {task_name} error: {str(e)}", flush=True); raise
+    for task_name in task_registry:
+        func = globals().get(task_name)
+        if not func: continue
+        @app.task(name=task_name)
+        def celery_task(*args, f=func, **kwargs): return run_async(f, *args, **kwargs)
+    return app
+
+#technological logic handlers
+def logic_celery(channel=None):
+    if not channel: raise Exception("channel name required")
+    name = f"celery_{channel}"
+    return func_consumer_celery_init(name, config_celery_broker_url, config_celery_backend_url, config_postgres_url, config_postgres_min_connection, config_postgres_max_connection, func_postgres_client_read, func_postgres_create, func_postgres_update, func_postgres_obj_serialize)
+
+async def logic_redis(channel=None):
+    if not channel: raise Exception("channel name required")
+    pool = await func_postgres_client_read({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    client = await func_redis_client_read(config_redis_url_pubsub)
+    reader = await func_redis_client_read_consumer(client, channel)
+    print(f"redis consumer started on {channel}", flush=True)
+    try:
+        async for msg in reader.listen():
+            if msg["type"] == "message":
+                await logic_task_exec(pool, orjson.loads(msg["data"]))
+    finally:
+        await client.aclose(); await pool.close()
+
+async def logic_rabbitmq(channel=None):
+    if not channel: raise Exception("channel name required")
+    pool = await func_postgres_client_read({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    conn, queue = await func_rabbitmq_client_read_consumer(config_rabbitmq_url, channel)
+    print(f"rabbitmq consumer started on {channel}", flush=True)
+    try:
+        async with queue.iterator() as queue_iter:
+            async for msg in queue_iter:
+                async with msg.process():
+                    await logic_task_exec(pool, orjson.loads(msg.body))
+    finally:
+        await conn.close(); await pool.close()
+
+async def logic_kafka(channel=None):
+    if not channel: raise Exception("channel name required")
+    pool = await func_postgres_client_read({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    consumer = await func_kafka_client_read_consumer(config_kafka_url, config_kafka_username, config_kafka_password, channel, config_kafka_group_id, config_kafka_is_auto_commit)
+    print(f"kafka consumer started on {channel}", flush=True)
+    try:
+        while True:
+            batch = await consumer.getmany(timeout_ms=config_kafka_batch_timeout_ms, max_records=config_kafka_batch_limit)
+            if not batch: continue
+            for tp, messages in batch.items():
+                for msg in messages:
+                    await logic_task_exec(pool, orjson.loads(msg.value))
+                if not config_kafka_is_auto_commit: await consumer.commit(tp)
+    finally:
+        await consumer.stop(); await pool.close()
 
 #main
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("usage: venv/bin/python consumer.py [redis|rabbitmq|kafka|celery]")
+    if len(sys.argv) < 3:
+        print("usage: venv/bin/python consumer.py [redis|rabbitmq|kafka|celery] [channel]")
         sys.exit(1)
-    mode=sys.argv[1]
+    mode, channel, celery = sys.argv[1], sys.argv[2], None
+    if mode == "celery": celery = logic_celery(channel)
     try:
-        if mode=="redis":asyncio.run(logic_redis())
-        elif mode=="rabbitmq":asyncio.run(logic_rabbitmq())
-        elif mode=="kafka":asyncio.run(logic_kafka())
-        elif mode=="celery":(celery.worker_main(argv=["worker","--loglevel=info"]) if celery else None)
-        else:print(f"unknown mode: {mode}")
-    except KeyboardInterrupt:sys.exit(0)
+        if mode == "redis": asyncio.run(logic_redis(channel))
+        elif mode == "rabbitmq": asyncio.run(logic_rabbitmq(channel))
+        elif mode == "kafka": asyncio.run(logic_kafka(channel))
+        elif mode == "celery":
+            celery.worker_main(argv=["worker", "--loglevel=info", "-Q", channel, "-n", f"celery_{channel}@%h"])
+        else: print(f"unknown mode: {mode}")
+    except KeyboardInterrupt: sys.exit(0)
     except Exception as e:
-        print(f"critical error: {str(e)}")
-        sys.exit(1)
+        print(f"critical error: {str(e)}"); sys.exit(1)
