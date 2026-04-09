@@ -17,7 +17,8 @@ def func_structure_create(directories_list: list, files_list: list) -> None:
 def func_structure_check(root_path: str, dirs: tuple = None, files: tuple = None) -> None:
     """Verify existence of required project directories and files."""
     from pathlib import Path
-    dirs_list, files_list = dirs or (), files or ()
+    dirs_list = dirs or ()
+    files_list = files or ()
     try:
         root = Path(root_path)
         if not root.exists():
@@ -36,7 +37,8 @@ def func_structure_check(root_path: str, dirs: tuple = None, files: tuple = None
 async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: str, filter_column: str = None, filter_value: any = None, limit_count: int = None, page_number: int = None) -> list:
     """Read unique tags/items from an array column with occurrence counts."""
     import re
-    limit, page = min(max(int(limit_count or 100), 1), 500), max(int(page_number or 1), 1)
+    limit = min(max(int(limit_count or 100), 1), 500)
+    page = max(int(page_number or 1), 1)
     regex_identifier = re.compile(r"^[a-z_][a-z0-9_]*$")
     if not regex_identifier.match(table_name):
         raise Exception("table identifier invalid")
@@ -44,9 +46,11 @@ async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: 
         raise Exception("column identifier invalid")
     if filter_column and not regex_identifier.match(filter_column):
         raise Exception("bad filter column identifier")
-    where_clause, query_args = "", []
+    where_clause = ""
+    query_args = []
     if filter_column and filter_value is not None:
-        where_clause, query_args = f"WHERE x.{filter_column}=$1", [filter_value]
+        where_clause = f"WHERE x.{filter_column}=$1"
+        query_args = [filter_value]
     query = f"SELECT tag_item, count(*) FROM {table_name} x CROSS JOIN LATERAL unnest(x.{column_name}) tag_item {where_clause} GROUP BY tag_item ORDER BY count(*) DESC LIMIT {limit} OFFSET {(page-1)*limit}"
     async with postgres_pool.acquire() as conn:
         rows = await conn.fetch(query, *query_args)
@@ -66,7 +70,8 @@ async def func_html_serve(html_name: str) -> any:
     file_name = html_name
     if not html_name.endswith(".html"):
         file_name = f"{html_name}.html"
-    static_root, file_path = Path("static"), Path("static") / file_name
+    static_root = Path("static")
+    file_path = Path("static") / file_name
     if not file_path.is_file():
         for found_path in static_root.rglob(file_name):
             if found_path.is_file():
@@ -202,7 +207,8 @@ async def func_logic_obj_update(api_role: str, obj_query: dict, obj_body: dict, 
     """Wrapper logic for object updates with owner validation, OTP checks, and optional queueing."""
     if not obj_body:
         raise Exception("body required")
-    obj_list, created_by_id = obj_body.get("obj_list", [obj_body]), user_id
+    obj_list = obj_body.get("obj_list", [obj_body])
+    created_by_id = user_id
     if not obj_list:
         raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]:
@@ -211,31 +217,19 @@ async def func_logic_obj_update(api_role: str, obj_query: dict, obj_body: dict, 
     if len(obj_list) > config_postgres_batch_limit:
         raise Exception("batch size exceeded")
     if obj_query.get("table") == "users":
-        obj_query["is_serialize"], created_by_id = 1, None
+        obj_query["is_serialize"] = 1
+        created_by_id = None
     if api_role == "my":
-        for item in obj_list:
-            for key in item:
-                if key in config_column_blocked:
-                    raise Exception(f"blocked key not allowed: {key}")
-                if key == "created_by_id":
-                    raise Exception("blocked key not allowed: created_by_id")
-            if obj_query.get("table") == "users":
-                if len(obj_list) != 1:
-                    raise Exception("multi-object update not allowed")
-                if str(item.get("id")) != str(user_id):
-                    raise Exception("ownership issue")
-            else:
-                async with client_postgres_pool.acquire() as conn:
-                    rows = await conn.fetch(f"select created_by_id from {obj_query.get('table')} where id=$1", item.get("id"))
-                if not rows:
-                    raise Exception("object not found")
-                bid = rows[0]["created_by_id"]
-                if str(bid) != str(user_id):
-                    raise Exception("ownership issue")
-            if "is_deleted" in item:
-                raise Exception("blocked key not allowed: is_deleted")
-            csu = config_column_single_update.split(",") if isinstance(config_column_single_update, str) else config_column_single_update
-            if any(key in item and len(item) != 2 for key in csu):
+        item = obj_list[0]
+        for key in item:
+            if key in config_column_blocked:
+                raise Exception(f"blocked key not allowed: {key}")
+        if obj_query.get("table") == "users":
+            if len(obj_list) > 1:
+                raise Exception("multi-object update not allowed")
+            if str(item.get("id")) != str(user_id):
+                raise Exception("ownership issue")
+            if any(key in item and len(item) != 2 for key in config_column_single_update):
                 raise Exception("obj length should be 2")
             if any(key in item for key in ("email", "mobile")):
                 await func_otp_verify(client_postgres_pool, obj_query.get("otp"), item.get("email"), item.get("mobile"), config_expiry_sec_otp)
@@ -243,10 +237,14 @@ async def func_logic_obj_update(api_role: str, obj_query: dict, obj_body: dict, 
         raise Exception("not allowed")
     elif api_role == "admin": 
         created_by_id = None
-        config_is_otp_users_update_admin = config_is_otp_users_update_admin or 0
-        if config_is_otp_users_update_admin == 1 and obj_query.get("table") == "users":
-            if any(key in obj_list[0] for key in ("email", "mobile")):
-                await func_otp_verify(client_postgres_pool, obj_query.get("otp"), obj_list[0].get("email"), obj_list[0].get("mobile"), config_expiry_sec_otp)
+        if obj_query.get("table") == "users" and (config_is_otp_users_update_admin or 0) == 1:
+            item = obj_list[0]
+            if any(key in item for key in ("email", "mobile")):
+                if len(obj_list) > 1:
+                    raise Exception("multi-object update not allowed")
+                if len(item) != 2:
+                    raise Exception("obj length should be 2")
+                await func_otp_verify(client_postgres_pool, obj_query.get("otp"), item.get("email"), item.get("mobile"), config_expiry_sec_otp)
     elif api_role == "auth":
         raise Exception("role not allowed")
     elif api_role == "private":
@@ -406,7 +404,8 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                     if isinstance(n, ast.Tuple):
                         return {"type": "array", "items": ast_to_schema(n.elts[0]) if n.elts else {"type": "string"}}
                     if isinstance(n, ast.BinOp) and isinstance(n.op, ast.BitOr):
-                        s1, s2 = ast_to_schema(n.left), ast_to_schema(n.right)
+                        s1 = ast_to_schema(n.left)
+                        s2 = ast_to_schema(n.right)
                         p = {**(s1.get("properties", {})), **(s2.get("properties", {}))}
                         return {"type": "object", "properties": p}
                     if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "dict":
@@ -444,7 +443,9 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                                 if not p or not isinstance(p, (list, tuple)) or len(p) < 1:
                                     continue
                                 op["parameters"] = [x for x in op["parameters"] if x["name"] != p[0]]
-                                tp, fmt, itms = "string", None, None
+                                tp = "string"
+                                fmt = None
+                                itms = None
                                 if len(p) > 1:
                                     dt = p[1]
                                     if dt in ["int", "bigint", "smallint", "integer", "int4", "int8"]:
@@ -456,9 +457,11 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                                     elif dt in ["dict", "object"]:
                                         tp = "object"
                                     elif dt == "file":
-                                        tp, fmt = "string", "binary"
+                                        tp = "string"
+                                        fmt = "binary"
                                     elif dt == "list" or dt.startswith("list:"):
-                                        tp, it_tp = "array", "string"
+                                        tp = "array"
+                                        it_tp = "string"
                                         inner = dt.split(":")[1] if ":" in dt else "string"
                                         if inner in ["int", "bigint", "smallint", "integer", "int4", "int8"]:
                                             it_tp = "integer"
@@ -496,7 +499,9 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                                 for p in p_list:
                                     if not p or not isinstance(p, (list, tuple)) or len(p) < 1:
                                         continue
-                                    tp, fmt, itms = "string", None, None
+                                    tp = "string"
+                                    fmt = None
+                                    itms = None
                                     if len(p) > 1:
                                         dt = p[1]
                                         if dt in ["int", "bigint", "smallint", "integer", "int4", "int8"]:
@@ -508,9 +513,11 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                                         elif dt in ["dict", "object"]:
                                             tp = "object"
                                         elif dt == "file":
-                                            tp, fmt = "string", "binary"
+                                            tp = "string"
+                                            fmt = "binary"
                                         elif dt == "list" or dt.startswith("list:"):
-                                            tp, it_tp = "array", "string"
+                                            tp = "array"
+                                            it_tp = "string"
                                             inner = dt.split(":")[1] if ":" in dt else "string"
                                             if inner in ["int", "bigint", "smallint", "integer", "int4", "int8"]:
                                                 it_tp = "integer"
@@ -603,7 +610,8 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
             return []
         if "control" not in config_pg:
             return []
-        errs, ctrl = [], config_pg["control"]
+        errs = []
+        ctrl = config_pg["control"]
         for k, v in ctrl.items():
             if k.startswith("is_") and v not in (None, 0, 1):
                 errs.append(f"invalid value for {k}: {v} (allowed: 0, 1, None)")
@@ -651,7 +659,8 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
             return []
         if "table" not in config_pg:
             return []
-        errs, db_tables = [], set(config_pg["table"].keys())
+        errs = []
+        db_tables = set(config_pg["table"].keys())
         for k in ("config_table_create_my", "config_table_create_public", "config_table_read_public", "config_table"):
             v = getattr(config, k, [] if k != "config_table" else {})
             v_list = v.keys() if k == "config_table" else v
@@ -847,7 +856,9 @@ async def func_sql_map_column(client_postgres_pool: any, sql_query: str) -> dict
         return {}
     match = re.search(r"select\s+(.*?)\s+from\s", sql_query, flags=re.I | re.S)
     columns = [c.strip() for c in match.group(1).split(",")]
-    key_col, other_cols, result_map = columns[0], columns[1:], {}
+    key_col = columns[0]
+    other_cols = columns[1:]
+    result_map = {}
     async with client_postgres_pool.acquire() as conn:
         async with conn.transaction():
             async for record in conn.cursor(sql_query, prefetch=5000):
@@ -914,7 +925,11 @@ async def func_postgres_read(client_postgres_pool: any, func_postgres_obj_serial
             return None
         serialized = await func_postgres_obj_serialize(client_postgres_pool, table, [{col: val}], is_base=is_base_type)
         return serialized[0][col]
-    conditions, values, bind_idx, v_ops, s_ops = [], [], 1, {"=":"=","==":"=","!=":"!=","<>":"<>",">":">","<":"<",">=":">=","<=":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}, {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
+    conditions = []
+    values = []
+    bind_idx = 1
+    v_ops = {"=":"=","==":"=","!=":"!=","<>":"<>",">":">","<":"<",">=":">=","<=":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
+    s_ops = {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
     for filter_key, expression in filters.items():
         func_validate_identifier(filter_key)
         # Spatial filter shortcut
@@ -950,7 +965,8 @@ async def func_postgres_read(client_postgres_pool: any, func_postgres_obj_serial
             if is_json:
                 if "|" in raw_val and not (raw_val.startswith("{") or raw_val.startswith("[")):
                     parts = raw_val.split("|")
-                    k, vr = parts[0], parts[1]
+                    k = parts[0]
+                    vr = parts[1]
                     t = parts[2].lower() if len(parts) > 2 else "str"
                     v = int(vr) if t == "int" else (vr.lower() == "true" if t == "bool" else float(vr) if t == "float" else vr)
                     serialized_val = orjson.dumps({k: v}).decode('utf-8')
@@ -1103,7 +1119,8 @@ async def func_postgres_update(client_postgres_pool: any, func_postgres_obj_seri
             total_updated = 0
             for i in range(0, len(obj_list), actual_batch_size):
                 batch = obj_list[i:i+actual_batch_size]
-                batch_vals, set_clauses = [], []
+                batch_vals = []
+                set_clauses = []
                 for col in update_cols:
                     case_statements = []
                     for obj in batch:
@@ -1168,7 +1185,9 @@ async def func_postgres_create(client_postgres_pool: any, func_postgres_obj_seri
         import orjson
         if not hasattr(func_postgres_obj_serialize, "state") or table_name not in func_postgres_obj_serialize.state:
             await func_postgres_obj_serialize(client_postgres_pool, table_name, [])
-        schema, col_list, def_list = func_postgres_obj_serialize.state.get(table_name, {}), ",".join(columns), ",".join([f"{c} jsonb" for c in columns])
+        schema = func_postgres_obj_serialize.state.get(table_name, {})
+        col_list = ",".join(columns)
+        def_list = ",".join([f"{c} jsonb" for c in columns])
         cast_parts = []
         for c in columns:
             col_dtype = schema.get(c, "text")
@@ -1178,7 +1197,8 @@ async def func_postgres_create(client_postgres_pool: any, func_postgres_obj_seri
                 cast_parts.append(f"{c}::{col_dtype}")
             else:
                 cast_parts.append(f"({c}->>0)::{col_dtype}")
-        cast_list, all_ids = ",".join(cast_parts), []
+        cast_list = ",".join(cast_parts)
+        all_ids = []
         limit_chunk = 5000
         async with client_postgres_pool.acquire() as conn:
             for i in range(0, len(serialized_list), limit_chunk):
@@ -1191,7 +1211,8 @@ async def func_postgres_create(client_postgres_pool: any, func_postgres_obj_seri
     
 async def func_postgres_obj_serialize(client_postgres_pool: any, table_name: str, obj_list: list, is_base: int = None) -> list:
     """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware caching."""
-    is_base, output_list = is_base or 0, []
+    is_base = is_base or 0
+    output_list = []
     import orjson
     if not hasattr(func_postgres_obj_serialize, "state"):
         func_postgres_obj_serialize.state = {}
@@ -1219,7 +1240,9 @@ async def func_postgres_obj_serialize(client_postgres_pool: any, table_name: str
             if val is None:
                 new_item[col] = val
                 continue
-            dtype, val_str, base_dtype = schema[col].lower(), str(val).strip(), schema[col].lower().replace("[]", "").replace("array", "").strip()
+            dtype = schema[col].lower()
+            val_str = str(val).strip()
+            base_dtype = schema[col].lower().replace("[]", "").replace("array", "").strip()
             def cast_val(v, t):
                 vs = str(v).strip()
                 if not vs or vs.lower() == "null":
@@ -1299,8 +1322,12 @@ async def func_postgres_init(client_postgres_pool: any, config_postgres: dict) -
     if "table" not in config_postgres:
         raise Exception("config_postgres.table missing")
     control = config_postgres.get("control", {})
-    is_ext, is_match, bulk_blocked, table_blocked = control.get("is_extension", 0), control.get("is_column_match", 0), control.get("table_row_delete_disable_bulk", []), control.get("table_row_delete_disable", [])
-    is_autovacuum, is_analyze = control.get("is_autovacuum_optimize", 0), control.get("is_analyze_init", 0)
+    is_ext = control.get("is_extension", 0)
+    is_match = control.get("is_column_match", 0)
+    bulk_blocked = control.get("table_row_delete_disable_bulk", [])
+    table_blocked = control.get("table_row_delete_disable", [])
+    is_autovacuum = control.get("is_autovacuum_optimize", 0)
+    is_analyze = control.get("is_analyze_init", 0)
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
     for table_name, column_configs in config_postgres["table"].items():
         column_names = [col["name"] for col in column_configs]
@@ -1316,7 +1343,8 @@ async def func_postgres_init(client_postgres_pool: any, config_postgres: dict) -
                 await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
             current_cols = {row[0]: row[1] for row in await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)}
             for col_cfg in column_configs:
-                col_name, col_type = col_cfg["name"], col_cfg["datatype"]
+                col_name = col_cfg["name"]
+                col_type = col_cfg["datatype"]
                 if col_name not in current_cols:
                     old_name = col_cfg.get("old")
                     if old_name and old_name in current_cols:
@@ -1328,14 +1356,16 @@ async def func_postgres_init(client_postgres_pool: any, config_postgres: dict) -
                         current_cols[col_name] = col_type.split("(")[0].lower()
                 else:
                     type_mapping = {"timestamp with time zone": "timestamptz", "character varying": "varchar", "integer": "int", "boolean": "bool"}
-                    current_type, target_type = type_mapping.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0]), type_mapping.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0])
+                    current_type = type_mapping.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0])
+                    target_type = type_mapping.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0])
                     if current_type != target_type:
                         if is_match:
                             await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {col_type} USING {col_name}::{col_type}")
                         else:
                             raise Exception(f"Type mismatch {table_name}.{col_name}: {current_cols[col_name]} vs {col_type}")
             for col_cfg in column_configs:
-                col_name, col_type = col_cfg["name"], col_cfg["datatype"]
+                col_name = col_cfg["name"]
+                col_type = col_cfg["datatype"]
                 if col_cfg.get("index"):
                     for index_type in (x.strip() for x in col_cfg["index"].split(",")):
                         idx_name = f"idx_{table_name}_{col_name}_{index_type}"
@@ -1425,11 +1455,26 @@ async def func_postgres_init(client_postgres_pool: any, config_postgres: dict) -
             wants = catalog["tg"] if prefix == "tg" else catalog["uni"] | catalog["chk"] if prefix == "uni_chk" else catalog["idx"] | catalog["uni"] | catalog["chk"]
             wants_str = ",".join(f"'{i}'" for i in wants) if wants else "NULL"
             if prefix == "idx":
-                selection, info_tbl, join_clause, drop_fmt, drop_vars, like_filter = "indexname", "pg_indexes", "", "DROP INDEX IF EXISTS %I", "record.indexname", "(indexname LIKE 'idx_%%' OR indexname LIKE 'unique_%%' OR indexname LIKE 'check_%%')"
+                selection = "indexname"
+                info_tbl = "pg_indexes"
+                join_clause = ""
+                drop_fmt = "DROP INDEX IF EXISTS %I"
+                drop_vars = "record.indexname"
+                like_filter = "(indexname LIKE 'idx_%%' OR indexname LIKE 'unique_%%' OR indexname LIKE 'check_%%')"
             elif prefix == "tg":
-                selection, info_tbl, join_clause, drop_fmt, drop_vars, like_filter = "tgname, relname", "pg_trigger", "JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid", "DROP TRIGGER IF EXISTS %I ON %I", "record.tgname, record.relname", "tgname LIKE 'trigger_%%'"
+                selection = "tgname, relname"
+                info_tbl = "pg_trigger"
+                join_clause = "JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid"
+                drop_fmt = "DROP TRIGGER IF EXISTS %I ON %I"
+                drop_vars = "record.tgname, record.relname"
+                like_filter = "tgname LIKE 'trigger_%%'"
             else:
-                selection, info_tbl, join_clause, drop_fmt, drop_vars, like_filter = "conname, relname", "pg_constraint", "JOIN pg_class ON pg_constraint.conrelid = pg_class.oid", "ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I", "record.relname, record.conname", "(conname LIKE 'unique_%%' OR conname LIKE 'check_%%')"
+                selection = "conname, relname"
+                info_tbl = "pg_constraint"
+                join_clause = "JOIN pg_class ON pg_constraint.conrelid = pg_class.oid"
+                drop_fmt = "ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I"
+                drop_vars = "record.relname, record.conname"
+                like_filter = "(conname LIKE 'unique_%%' OR conname LIKE 'check_%%')"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
         if is_analyze:
             await conn.execute("ANALYZE;")
@@ -1546,7 +1591,8 @@ async def func_s3_bucket_delete(client_s3: any, bucket_name: str) -> any:
 def func_s3_url_delete(client_s3_resource: any, url_list: list) -> any:
     """Delete multiple objects from AWS S3 in bulk given their public URLs."""
     for file_url in url_list:
-        bucket, key = file_url.split("//", 1)[1].split(".", 1)[0], file_url.rsplit("/", 1)[1]
+        bucket = file_url.split("//", 1)[1].split(".", 1)[0]
+        key = file_url.rsplit("/", 1)[1]
         client_s3_resource.Object(bucket, key).delete()
     return "urls deleted"
 
@@ -1565,7 +1611,8 @@ async def func_s3_upload(client_s3: any, bucket_name: str, file_obj: any, config
 def func_s3_upload_presigned(client_s3: any, config_s3_region_name: str, bucket_name: str, config_s3_limit_kb: int = None, config_s3_presigned_expire_sec: int = None) -> dict:
     """Generate a presigned POST URL for secure client-side binary uploads to S3 with unique key generation."""
     import uuid
-    config_s3_limit_kb, config_s3_presigned_expire_sec = config_s3_limit_kb or 100, config_s3_presigned_expire_sec or 100
+    config_s3_limit_kb = config_s3_limit_kb or 100
+    config_s3_presigned_expire_sec = config_s3_presigned_expire_sec or 100
     file_key = f"{uuid.uuid4().hex}.bin"
     presigned_post = client_s3.generate_presigned_post(Bucket=bucket_name, Key=file_key, ExpiresIn=config_s3_presigned_expire_sec, Conditions=[["content-length-range", 1, config_s3_limit_kb * 1024]])
     return {**presigned_post["fields"], "url_final": f"https://{bucket_name}.s3.{config_s3_region_name}.amazonaws.com/{file_key}"}
@@ -1680,7 +1727,8 @@ async def func_check_is_active(user_dict: dict, url_path: str, config_api: dict,
     if mode == "redis":
         if not client_redis:
             raise Exception("redis client missing")
-        cache_key, active_status = f"""cache:user:active:{user_dict["id"]}""", None
+        cache_key = f"""cache:user:active:{user_dict["id"]}"""
+        active_status = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
             active_status = int(cached_val)
@@ -1706,7 +1754,8 @@ async def func_check_admin(user_dict: dict, url_path: str, config_api: dict, cli
     """Ensure sufficient roles to access admin endpoints using a strictly configured mode from config_api."""
     if not url_path.startswith("/admin") or not (cfg := config_api.get(url_path)) or "user_role_check" not in cfg:
         return None
-    mode, roles = cfg["user_role_check"][0], set(cfg["user_role_check"][1])
+    mode = cfg["user_role_check"][0]
+    roles = set(cfg["user_role_check"][1])
     async def fetch_role(uid):
         async with client_postgres_pool.acquire() as conn:
             rows = await conn.fetch("select role from users where id=$1", uid)
@@ -1716,7 +1765,8 @@ async def func_check_admin(user_dict: dict, url_path: str, config_api: dict, cli
     if mode == "redis":
         if not client_redis:
             raise Exception("redis client missing")
-        cache_key, user_role = f"""cache:user:role:{user_dict["id"]}""", None
+        cache_key = f"""cache:user:role:{user_dict["id"]}"""
+        user_role = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
             user_role = int(cached_val)
@@ -1798,10 +1848,12 @@ async def func_api_response_background(scope: dict, body_bytes: bytes, api_funct
 async def func_api_response(request: any, api_function: callable, config_api: dict, client_redis: any, user_id: int, func_background: callable, func_cache: callable) -> tuple:
     """Orchestrate API request handling, including background task delegation and cache management."""
     from fastapi import responses
-    path, query_params = request.url.path, dict(request.query_params)
+    path = request.url.path
+    query_params = dict(request.query_params)
     api_cfg = config_api.get(path, {})
     cache_sec_config = api_cfg.get("api_cache_sec")
-    response, resp_type = None, 0
+    response = None
+    resp_type = 0
     if query_params.get("is_background") == "1":
         body_bytes = await request.body()
         response = await func_background(request.scope, body_bytes, api_function)
@@ -1811,9 +1863,11 @@ async def func_api_response(request: any, api_function: callable, config_api: di
         if response:
             resp_type = 2
     if not response:
-        response, resp_type = await api_function(request), 3
+        response = await api_function(request)
+        resp_type = 3
         if cache_sec_config:
-            response, resp_type = await func_cache("set", path, query_params, config_api, client_redis, user_id, response), 4
+            response = await func_cache("set", path, query_params, config_api, client_redis, user_id, response)
+            resp_type = 4
     return response, resp_type
 
 async def func_authenticate(headers: dict, url_path: str, config_token_secret_key: str, config_api_roles_auth: list) -> dict:
@@ -1836,7 +1890,8 @@ async def func_token_encode(user_obj: dict, config_token_secret_key: str, config
     if user_obj is None:
         return None
     payload_dict = {k: user_obj.get(k) for k in config_token_key} if config_token_key else dict(user_obj) if isinstance(user_obj, dict) else user_obj
-    serialized_payload, now_ts = orjson.dumps(payload_dict, default=str).decode('utf-8'), int(time.time())
+    serialized_payload = orjson.dumps(payload_dict, default=str).decode('utf-8')
+    now_ts = int(time.time())
     access_token = jwt.encode({"exp": now_ts + config_token_expiry_sec, "data": serialized_payload, "type": "access"}, config_token_secret_key)
     refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, config_token_secret_key)
     return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
@@ -1934,7 +1989,8 @@ async def func_user_single_read(client_postgres_pool: any, user_id: int) -> dict
 async def func_my_profile_read(client_postgres_pool: any, user_id: int, config_sql: dict) -> dict:
     """Read full user profile and update last activity status."""
     import asyncio
-    user, metadata = await func_user_single_read(client_postgres_pool, user_id), {}
+    user = await func_user_single_read(client_postgres_pool, user_id)
+    metadata = {}
     queries_metadata = config_sql.get("profile_metadata")
     if queries_metadata:
         async with client_postgres_pool.acquire() as conn:
@@ -1963,7 +2019,12 @@ async def func_otp_verify(client_postgres_pool: any, otp_code: int, email_addres
         raise Exception("missing both email and mobile")
     if email_address and mobile_number:
         raise Exception("provide only one identifier")
-    query, identifier = (f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1", email_address.strip().lower()) if email_address else (f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1", mobile_number.strip())
+    if email_address:
+        query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
+        identifier = email_address.strip().lower()
+    else:
+        query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
+        identifier = mobile_number.strip()
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, identifier)
         if not records:
@@ -1976,7 +2037,10 @@ async def func_otp_verify(client_postgres_pool: any, otp_code: int, email_addres
 
 async def func_message_inbox(client_postgres_pool: any, user_id: int, mode: str = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
     """Read a conversation-summarized inbox for a user with unread filtering."""
-    limit_count, page_number, sort_order, where_clause = min(max(int(limit_count or 100), 1), 500), max(int(page_number or 1), 1), sort_order or "id desc", "user_id=$1 AND is_read=1" if mode == "read" else "user_id=$1 AND is_read IS DISTINCT FROM 1" if mode == "unread" else "1=1"
+    limit_count = min(max(int(limit_count or 100), 1), 500)
+    page_number = max(int(page_number or 1), 1)
+    sort_order = sort_order or "id desc"
+    where_clause = "user_id=$1 AND is_read=1" if mode == "read" else "user_id=$1 AND is_read IS DISTINCT FROM 1" if mode == "unread" else "1=1"
     query = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {sort_order} LIMIT {limit_count} OFFSET {(page_number-1)*limit_count};"
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, user_id)
@@ -1985,7 +2049,9 @@ async def func_message_inbox(client_postgres_pool: any, user_id: int, mode: str 
 async def func_message_received(client_postgres_pool: any, user_id: int, mode: str = None, sort_order: str = None, limit_count: int = None, page_number: int = None, func_postgres_ids_update: callable = None) -> list:
     """Read all messages received by a specific user and optionally mark unread ones as read."""
     import asyncio
-    limit_count, page_number, sort_order = min(max(int(limit_count or 100), 1), 500), max(int(page_number or 1), 1), sort_order or "id desc"
+    limit_count = min(max(int(limit_count or 100), 1), 500)
+    page_number = max(int(page_number or 1), 1)
+    sort_order = sort_order or "id desc"
     unread_filter = "AND is_read=1" if mode == "read" else "AND is_read IS DISTINCT FROM 1" if mode == "unread" else ""
     query = f"SELECT * FROM message WHERE user_id=$1 {unread_filter} ORDER BY {sort_order} LIMIT {limit_count} OFFSET {(page_number-1)*limit_count};"
     async with client_postgres_pool.acquire() as conn:
@@ -1999,7 +2065,9 @@ async def func_message_received(client_postgres_pool: any, user_id: int, mode: s
 
 async def func_message_thread(client_postgres_pool: any, user_one_id: int, user_two_id: int, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
     """Read the full message thread between two users."""
-    limit_count, page_number, sort_order = min(max(int(limit_count or 100), 1), 500), max(int(page_number or 1), 1), sort_order or "id desc"
+    limit_count = min(max(int(limit_count or 100), 1), 500)
+    page_number = max(int(page_number or 1), 1)
+    sort_order = sort_order or "id desc"
     query = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {sort_order} LIMIT {limit_count} OFFSET {(page_number-1)*limit_count};"
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, user_one_id, user_two_id)
@@ -2019,11 +2087,14 @@ async def func_message_delete_single(client_postgres_pool: any, message_id: int,
 async def func_message_delete_bulk(client_postgres_pool: any, user_id: int, delete_mode: str) -> str:
     """Delete multiple messages for a user based on context (sent, received, all)."""
     if delete_mode == "sent":
-        query, args = ("DELETE FROM message WHERE created_by_id=$1", (user_id,))
+        query = "DELETE FROM message WHERE created_by_id=$1"
+        args = (user_id,)
     elif delete_mode == "received":
-        query, args = ("DELETE FROM message WHERE user_id=$1", (user_id,))
+        query = "DELETE FROM message WHERE user_id=$1"
+        args = (user_id,)
     elif delete_mode == "all":
-        query, args = ("DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)", (user_id,))
+        query = "DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)"
+        args = (user_id,)
     else:
         raise Exception(f"invalid delete mode: {delete_mode}, allowed: sent, received, all")
     async with client_postgres_pool.acquire() as conn:
@@ -2040,7 +2111,8 @@ async def func_auth_signup_username_password(client_postgres_pool: any, user_typ
     if user_type not in config_auth_type:
         raise Exception(f"authentication type {user_type} not allowed")
     import bcrypt
-    username, password = username_raw.strip().lower(), bcrypt.hashpw(password_raw.encode(), bcrypt.gensalt()).decode()
+    username = username_raw.strip().lower()
+    password = bcrypt.hashpw(password_raw.encode(), bcrypt.gensalt()).decode()
     query = "INSERT INTO users (type, username, password, name) VALUES ($1, $2, $3, $4) RETURNING *;"
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, user_type, username, password, name_raw)
@@ -2135,7 +2207,9 @@ async def func_auth_login_google(client_postgres_pool: any, config_google_login_
     id_info = id_token.verify_oauth2_token(google_token, requests.Request(), config_google_login_client_id)
     if not id_info:
         raise Exception("invalid google token")
-    google_id, email, name = id_info["sub"], id_info.get("email"), id_info.get("name")
+    google_id = id_info["sub"]
+    email = id_info.get("email")
+    name = id_info.get("name")
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE google_login_id=$1 AND type=$2;", google_id, user_type)
         if records:
@@ -2255,7 +2329,9 @@ def func_jira_worklog_export(url: str, email_address: str, api_token: str, start
         current_date = date.today()
         start_date = start_date or current_date.replace(day=1).strftime("%Y-%m-%d")
         end_date = end_date or current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1]).strftime("%Y-%m-%d")
-        jira_client, log_rows, people = JIRA(server=url, basic_auth=(email_address, api_token)), [], set()
+        jira_client = JIRA(server=url, basic_auth=(email_address, api_token))
+        log_rows = []
+        people = set()
         jql = f"worklogDate >= '{start_date}' AND worklogDate <= '{end_date}'"
         all_issues = jira_client.enhanced_search_issues(jql, maxResults=0)
         for issue in all_issues:
@@ -2304,7 +2380,8 @@ async def func_client_download_file(file_path: str, is_delete_after: int = None,
     from fastapi import responses
     from starlette.background import BackgroundTask
     import os, mimetypes, aiofiles
-    is_delete_after, chunk_size = is_delete_after if is_delete_after is not None else 1, chunk_size or 1048576
+    is_delete_after = is_delete_after if is_delete_after is not None else 1
+    chunk_size = chunk_size or 1048576
     file_name = os.path.basename(file_path)
     content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
     async def file_iterator():
@@ -2318,7 +2395,8 @@ async def func_client_download_file(file_path: str, is_delete_after: int = None,
 
 async def func_request_param_read(request_obj: any, parsing_mode: str, param_config: list, is_strict: int = None) -> dict:
     """Extract, validate, and type-cast request parameters from query, form, body or headers."""
-    is_strict, params_dict = is_strict or 0, {}
+    is_strict = is_strict or 0
+    params_dict = {}
     header_params = {k.lower(): v for k, v in request_obj.headers.items()}
     if parsing_mode == "query":
         params_dict = dict(request_obj.query_params)
@@ -2409,10 +2487,12 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
 
 def func_converter_number(data_type: str, process_mode: str, value: any) -> any:
     """Encode strings into specific-size integers or decode them back using a custom charset."""
-    type_limits, charset = {"smallint": 2, "int": 5, "bigint": 11}, "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"
+    type_limits = {"smallint": 2, "int": 5, "bigint": 11}
+    charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"
     if data_type not in type_limits:
         raise ValueError(f"invalid data type: {data_type}, allowed: {list(type_limits.keys())}")
-    base, max_len = len(charset), type_limits[data_type]
+    base = len(charset)
+    max_len = type_limits[data_type]
     if process_mode == "encode":
         val_str = str(value)
         val_len = len(val_str)
