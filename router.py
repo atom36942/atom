@@ -289,7 +289,8 @@ async def func_api_public_otp_send_mobile_fast2sms(request:Request):
 @router.post("/public/jira-worklog-export")
 async def func_api_public_jira_worklog_export(request:Request):
    obj_body=await func_request_param_read(request,"body",[("url","str",1,None,None,None),("email","str",1,None,None,None),("api_token","str",1,None,None,None),("start_date","str",0,None,None,None),("end_date","str",0,None,None,None)])
-   import asyncio; output_path=await asyncio.to_thread(func_jira_worklog_export,obj_body["url"],obj_body["email"],obj_body["api_token"],obj_body["start_date"],obj_body["end_date"],None)
+   import asyncio
+   output_path=await asyncio.to_thread(func_jira_worklog_export,obj_body["url"],obj_body["email"],obj_body["api_token"],obj_body["start_date"],obj_body["end_date"],None)
    return await func_client_download_file(output_path,1,None)
 
 @router.get("/public/table-tag-read")
@@ -297,7 +298,8 @@ async def func_api_public_table_tag_read(request:Request):
    st=request.app.state
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None),("column","str",1,st.cache_postgres_schema_columns,None,None),("filter_col","str",0,st.cache_postgres_schema_columns,None,None),("filter_val","str",0,None,None,None),("limit","int",0,None,100,None),("page","int",0,None,1,None)])
    val=None
-   if obj_query["filter_col"] and obj_query["filter_val"]:val=(await func_postgres_obj_serialize(st.client_postgres_pool,obj_query["table"],[{obj_query["filter_col"]:obj_query["filter_val"]}]))[0][obj_query["filter_col"]]
+   if obj_query["filter_col"] and obj_query["filter_val"]:
+      val=(await func_postgres_obj_serialize(st.client_postgres_pool,obj_query["table"],[{obj_query["filter_col"]:obj_query["filter_val"]}]))[0][obj_query["filter_col"]]
    output=await func_table_tag_read(st.client_postgres_pool,obj_query["table"],obj_query["column"],obj_query["filter_col"],val,obj_query["limit"],obj_query["page"])
    return {"status":1,"message":output}
 
@@ -306,7 +308,8 @@ async def func_api_public_table_tag_read(request:Request):
 async def func_api_private_s3_upload_file(request:Request):
    obj_form=await func_request_param_read(request,"form",[("bucket","str",1,None,None,None),("file","file",1,[],None,None)])
    st,output=request.app.state,{}
-   if len(obj_form["file"])>config_s3_upload_limit_count:raise Exception(f"maximum {config_s3_upload_limit_count} files allowed")
+   if len(obj_form["file"])>config_s3_upload_limit_count:
+      raise Exception(f"maximum {config_s3_upload_limit_count} files allowed")
    for item in obj_form["file"]:
       output[item.filename]=await func_s3_upload(st.client_s3,obj_form["bucket"],item,config_s3_limit_kb=config_s3_limit_kb)
    return {"status":1,"message":output}
@@ -314,7 +317,8 @@ async def func_api_private_s3_upload_file(request:Request):
 @router.post("/private/s3-upload-presigned")
 async def func_api_private_s3_upload_presigned(request:Request):
    obj_query=await func_request_param_read(request,"query",[("bucket","str",1,None,None,None),("count","int",0,None,1,None)])
-   if obj_query["count"]>config_s3_upload_limit_count:raise Exception(f"maximum {config_s3_upload_limit_count} allowed")
+   if obj_query["count"]>config_s3_upload_limit_count:
+      raise Exception(f"maximum {config_s3_upload_limit_count} allowed")
    st,output=request.app.state,[]
    for _ in range(obj_query["count"]):
       output.append(func_s3_upload_presigned(st.client_s3,config_s3_region_name,obj_query["bucket"],config_s3_limit_kb=config_s3_limit_kb,config_s3_presigned_expire_sec=config_s3_presigned_expire_sec))
@@ -323,7 +327,8 @@ async def func_api_private_s3_upload_presigned(request:Request):
 #admin
 @router.get("/admin/sync")
 async def func_api_admin_sync(request:Request):
-   if request.app.state.client_postgres_pool: await func_postgres_init(request.app.state.client_postgres_pool, config_postgres)
+   if request.app.state.client_postgres_pool:
+      await func_postgres_init(request.app.state.client_postgres_pool, config_postgres)
    await func_postgres_create(request.app.state.client_postgres_pool,func_postgres_obj_serialize,"flush",None,None)
    request.app.state.cache_postgres_schema=await func_postgres_schema_read(request.app.state.client_postgres_pool) if request.app.state.client_postgres_pool else {}
    request.app.state.cache_postgres_schema_tables=list(request.app.state.cache_postgres_schema.keys())
@@ -351,9 +356,12 @@ async def func_api_admin_postgres_import(request:Request):
    st, count = request.app.state, 0
    obj_form=await func_request_param_read(request,"form",[("mode","str",1,["create","update","delete"],None,None),("table","str",1,st.cache_postgres_schema_tables,None,None),("file","file",1,[],None,None)])
    async for obj_list in func_api_file_to_chunks(obj_form["file"][-1]):
-      if obj_form["mode"]=="create":await func_postgres_create(st.client_postgres_pool,func_postgres_obj_serialize,"now",obj_form["table"],obj_list,1,None)
-      elif obj_form["mode"]=="update":await func_postgres_update(st.client_postgres_pool,func_postgres_obj_serialize,obj_form["table"],obj_list,1,None)
-      elif obj_form["mode"]=="delete":await func_postgres_ids_delete(st.client_postgres_pool,obj_form["table"],",".join(str(obj["id"]) for obj in obj_list),None)
+      if obj_form["mode"]=="create":
+         await func_postgres_create(st.client_postgres_pool,func_postgres_obj_serialize,"now",obj_form["table"],obj_list,1,None)
+      elif obj_form["mode"]=="update":
+         await func_postgres_update(st.client_postgres_pool,func_postgres_obj_serialize,obj_form["table"],obj_list,1,None)
+      elif obj_form["mode"]=="delete":
+         await func_postgres_ids_delete(st.client_postgres_pool,obj_form["table"],",".join(str(obj["id"]) for obj in obj_list),None)
       count += len(obj_list)
    return {"status":1,"message":f"{count} rows processed"}
 
@@ -410,8 +418,10 @@ async def func_api_admin_mongodb_import(request:Request):
    st, count = request.app.state, 0
    obj_form=await func_request_param_read(request,"form",[("mode","str",1,["create","delete"],None,None),("database","str",1,None,None,None),("table","str",1,st.cache_postgres_schema_tables,None,None),("file","file",1,[],None,None)])
    async for obj_list in func_api_file_to_chunks(obj_form["file"][-1]):
-      if obj_form["mode"]=="create":await func_mongodb_object_create(st.client_mongodb,obj_form["database"],obj_form["table"],obj_list)
-      elif obj_form["mode"]=="delete":await func_mongodb_object_delete(st.client_mongodb,obj_form["database"],obj_form["table"],obj_list)
+      if obj_form["mode"]=="create":
+         await func_mongodb_object_create(st.client_mongodb,obj_form["database"],obj_form["table"],obj_list)
+      elif obj_form["mode"]=="delete":
+         await func_mongodb_object_delete(st.client_mongodb,obj_form["database"],obj_form["table"],obj_list)
       count += len(obj_list)
    return {"status":1,"message":f"{count} rows processed"}
 

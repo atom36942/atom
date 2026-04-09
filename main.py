@@ -28,7 +28,8 @@ async def func_lifespan(app:FastAPI):
    client_gsheet=func_gsheet_client_read(config_gsheet_service_account_json_path, config_gsheet_scope) if config_gsheet_service_account_json_path else None
    client_sftp=await func_sftp_client_read(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_key_path,config_sftp_auth_method) if config_sftp_host else None
    client_gemini=func_gemini_client_read(config_gemini_key) if config_gemini_key else None
-   if client_postgres_pool and config_is_postgres_init_startup == 1: await func_postgres_init(client_postgres_pool, config_postgres)
+   if client_postgres_pool and config_is_postgres_init_startup == 1:
+      await func_postgres_init(client_postgres_pool, config_postgres)
    #cache init
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool) if client_postgres_pool else {}
    cache_postgres_schema_tables=list(cache_postgres_schema.keys())
@@ -43,18 +44,29 @@ async def func_lifespan(app:FastAPI):
    #app shutdown
    yield
    await func_postgres_create(client_postgres_pool, func_postgres_obj_serialize, "flush", None, None)
-   if config_is_reset_tmp == 1:func_folder_reset("tmp")
+   if config_is_reset_tmp == 1:
+      func_folder_reset("tmp")
    await client_http.aclose()
-   if client_postgres_pool:await client_postgres_pool.close()
-   if client_redis:await client_redis.aclose()
-   if client_redis_ratelimiter:await client_redis_ratelimiter.aclose()
-   if client_mongodb:client_mongodb.close()
-   if client_posthog:client_posthog.shutdown()
-   if client_posthog:client_posthog.flush()
-   if client_kafka_producer:await client_kafka_producer.stop()
-   if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed:await client_rabbitmq_producer.close()
-   if client_rabbitmq and not client_rabbitmq.is_closed:await client_rabbitmq.close()
-   if client_redis_producer:await client_redis_producer.aclose()
+   if client_postgres_pool:
+      await client_postgres_pool.close()
+   if client_redis:
+      await client_redis.aclose()
+   if client_redis_ratelimiter:
+      await client_redis_ratelimiter.aclose()
+   if client_mongodb:
+      client_mongodb.close()
+   if client_posthog:
+      client_posthog.shutdown()
+   if client_posthog:
+      client_posthog.flush()
+   if client_kafka_producer:
+      await client_kafka_producer.stop()
+   if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed:
+      await client_rabbitmq_producer.close()
+   if client_rabbitmq and not client_rabbitmq.is_closed:
+      await client_rabbitmq.close()
+   if client_redis_producer:
+      await client_redis_producer.aclose()
    if client_sftp:
       client_sftp.close()
       await client_sftp.wait_closed()
@@ -66,8 +78,10 @@ app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
 func_app_add_cors(app,config_cors_origin,config_cors_method,config_cors_headers,config_is_cors_allow_credentials)
 func_add_router(app)
 func_app_add_static(app,"./static","/static")
-if config_sentry_dsn:func_app_add_sentry(config_sentry_dsn)
-if config_is_prometheus == 1:func_app_add_prometheus(app)
+if config_sentry_dsn:
+   func_app_add_sentry(config_sentry_dsn)
+if config_is_prometheus == 1:
+   func_app_add_prometheus(app)
 
 #middleware
 import time,json
@@ -81,7 +95,8 @@ async def middleware(request,api_function):
       await st.func_check_is_active(request.state.user,request.url.path,st.config_api,st.client_postgres_pool,st.client_redis,st.cache_users_is_active,st.config_redis_cache_ttl_sec)
       await st.func_check_ratelimiter(st.client_redis_ratelimiter,st.config_api,request.url.path,request.state.user.get("id") if request.state.user else request.client.host)
       response,type=await st.func_api_response(request,api_function,st.config_api,st.client_redis,request.state.user.get("id") if request.state.user else 0,st.func_api_response_background,st.func_check_cache)
-   except Exception as e:error,response=await request.app.state.func_api_response_error(e,request.app.state.config_is_traceback,request.app.state.config_sentry_dsn)
+   except Exception as e:
+      error,response=await request.app.state.func_api_response_error(e,request.app.state.config_is_traceback,request.app.state.config_sentry_dsn)
    await request.app.state.func_api_log_create(request.app.state.config_is_log_api, request.app.state.config_api.get(request.url.path, {}).get("id"), request, response, int((time.perf_counter() - start) * 1000), request.state.user.get("id") if getattr(request.state, "user", None) else None, request.app.state.func_postgres_create, request.app.state.client_postgres_pool, request.app.state.func_postgres_obj_serialize, request.app.state.config_table)
    return response
 
