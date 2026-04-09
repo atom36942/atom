@@ -1,0 +1,63 @@
+{
+  "declarationNumber": "master_BOE #",
+  "entryDate": "master_Date",
+  "dispatchDate": "master_dispatchDate",
+  "inspected": "master_inspected",
+  "remarks": null,
+  "customsEntryInvoices": [
+    {
+      "code": "pdf_invoice no",
+      "date": "pdf_invoice date",
+      "partial": false,
+      "pendingUnits": null,
+      "additionalUnits": null
+    }
+  ],
+  "declarationStatus":null,
+  "arrivalDate": "master_Date of Payment",
+  "currencyIso": "INR",
+  "exchangeRate": 1,
+  "globalTaxes":null,
+  "declarationLines": [
+    {
+      "lineNumber": 1,
+      "tariffHeading": "BWF_CTH",
+      "originMarketIso": "BWF_ISO CODE",
+      "destinationMarketIso": "BWF_ISO CODE",
+      "preferentiality": null,
+      "currencyIso": "INR",
+      "goodsDescription": "BWF_PRODUCT_DESC",
+      "itemUnits": "BWF_Qauntity",
+      "netWeight": {
+        "value": "BWF_VALUE",
+        "unit": "BWF_UNIT"
+      },
+      "taxes": [
+        {
+          "taxType": "BWF_M.N,O.P",
+          "taxTypeCode": "9903.02.69",
+          "taxNature": "STANDARD",
+          "taxableBase": 1.8,
+          "taxableBaseMeasure": "Units",
+          "taxRate": 1.7085,
+          "payableAmount": 1.75,
+          "deductAmount": 1.75
+        }
+      ],
+      "invoices": [
+        {
+          "code": "24-261261",
+          "date": "2025-01-01",
+          "items": [
+            {
+              "skuReference": "bwf product desc split - (---6873-937-)",
+              "units": "BWF_quantity",
+              "price": "BWF_unit_price",
+              "netWeight": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

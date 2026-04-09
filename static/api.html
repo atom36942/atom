@@ -238,6 +238,7 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
             <h3 style="margin:0">API Runner</h3>
         </div>
         <div class="modal-actions">
+            <button type="button" class="icon-btn" id="runnerLinkBtn" title="Copy Shareable Link"></button>
             <button type="button" class="icon-btn" id="runnerOvrBtn" title="View Overrides"></button>
             <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response"></button>
             <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -1186,9 +1187,35 @@ async function init() {
     const b = UI('baseUrl');
     if (b) b.textContent = window.location.origin;
     renderApiInfoTags();
-    renderApiInfoTable('');
+    
+    let initialSearch = '';
+    const urlParams = new URLSearchParams(window.location.search);
+    const runApi = urlParams.get('api');
+    if (runApi) {
+        const [method, path] = runApi.includes('|') ? runApi.split('|') : [null, runApi];
+        const idx = COMMANDS.findIndex(c => c.p === path && (!method || c.m === method.toUpperCase()));
+        if (idx !== -1) {
+            initialSearch = path;
+            UI('apiInfoSearch').value = path;
+            const clearBtn = UI('apiInfoSearchClear');
+            if (clearBtn) clearBtn.style.display = 'block';
+            activeMasterRunIndex = idx;
+            setTimeout(() => {
+                const cmd = COMMANDS[idx];
+                if (cmd && cmd.m === 'WS') {
+                    showModal('wsRunnerModal');
+                    if (typeof loadWs === 'function') loadWs(idx);
+                } else {
+                    showModal('apiRunnerModal');
+                    load(idx);
+                }
+            }, 100);
+        }
+    }
+    
+    renderApiInfoTable(initialSearch);
     updateLoginIndicator();
-    load(null);
+    if (!runApi || UI('apiInfoSearch').value !== initialSearch) load(null);
     updateTestSummary();
     setupIcons();
     UI('runnerCurlBtn').innerHTML = ICON.terminal(20);
@@ -1878,6 +1905,12 @@ const setupEventListeners = () => {
         e.preventDefault();
         executeCurrentApi();
     });
+    UI('runnerLinkBtn')?.addEventListener('click', () => {
+        if (curr) {
+            const link = `${window.location.origin}${window.location.pathname}?api=${curr.m}|${curr.p}`;
+            copyWithFeedback(UI('runnerLinkBtn'), link, 20, 'Link copied');
+        }
+    });
     UI('runnerOvrBtn')?.addEventListener('click', () => {
         if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'ovr');
     });
@@ -2223,7 +2256,8 @@ const setupIcons = () => {
         'masterRespCopyFull': ICON.copyCurl(16),
         'masterRespCsv': ICON.fileCsv(16),
         'masterRespJson': ICON.fileJson(16),
-        'runnerOvrBtn': ICON.ovr(20)
+        'runnerOvrBtn': ICON.ovr(20),
+        'runnerLinkBtn': ICON.link(20)
     };
 
     Object.entries(iconMap).forEach(([id, svg]) => {
@@ -2354,7 +2388,8 @@ const ICON = {
   eye: s => SVG(s, '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'),
   info: s => SVG(s, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
   copyCurl: s => SVG(s, '<rect x="9" y="9" width="11" height="11" rx="2" ry="2" stroke="var(--accent)"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><polyline points="11 16 14 13 11 10" stroke="var(--accent)"/><line x1="16" y1="17" x2="19" y2="17" stroke="var(--accent)"/>'),
-  ovr: s => SVG(s, '<circle cx="12" cy="12" r="7" stroke-width="3"/>')
+  ovr: s => SVG(s, '<circle cx="12" cy="12" r="7" stroke-width="3"/>'),
+  link: s => SVG(s, '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>')
 };
 
 init();

@@ -1839,7 +1839,7 @@ async def func_token_encode(user_obj: dict, config_token_secret_key: str, config
     serialized_payload, now_ts = orjson.dumps(payload_dict, default=str).decode('utf-8'), int(time.time())
     access_token = jwt.encode({"exp": now_ts + config_token_expiry_sec, "data": serialized_payload, "type": "access"}, config_token_secret_key)
     refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, config_token_secret_key)
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
+    return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
 
 def func_fastapi_app_read(lifespan_handler: any, is_debug_mode: int) -> any:
     """Initialize a FastAPI application with debug mode and lifespan handler, disabling default OpenAPI routes."""
