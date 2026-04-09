@@ -5,13 +5,13 @@ def func_structure_create(directories_list: list, files_list: list) -> None:
     for directory_path in directories_list:
         try:
             os.makedirs(directory_path, exist_ok=True)
-        except:
+        except OSError:
             pass
     for file_path in files_list:
         try:
             if not os.path.exists(file_path):
                 open(file_path, "a").close()
-        except:
+        except OSError:
             pass
 
 def func_structure_check(root_path: str, dirs: tuple = None, files: tuple = None) -> None:
@@ -24,9 +24,11 @@ def func_structure_check(root_path: str, dirs: tuple = None, files: tuple = None
             return None
         missing_dirs = [directory_name for directory_name in dirs_list if not (root / directory_name).is_dir()]
         missing_files = [file_name for file_name in files_list if not (root / file_name).is_file()]
-        if missing_dirs or missing_files:
-            print(f"Structure verification failed. Missing Dirs: {missing_dirs}, Missing Files: {missing_files}")
-    except:
+        if missing_dirs:
+            print(f"Structure verification failed. Missing Dirs: {missing_dirs}")
+        if missing_files:
+            print(f"Structure verification failed. Missing Files: {missing_files}")
+    except Exception:
         pass
     return None
 
@@ -83,7 +85,7 @@ async def func_html_serve(html_name: str) -> any:
     try:
         async with aiofiles.open(absolute_path, "r", encoding="utf-8") as file_handle:
             html_content = await file_handle.read()
-    except:
+    except Exception:
         raise HTTPException(500, "failed to read file")
     return responses.HTMLResponse(content=html_content, headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0"})
 
@@ -105,10 +107,16 @@ async def func_api_response_error(exception: Exception, is_traceback: int, sentr
     elif isinstance(exception, asyncpg.exceptions.NotNullViolationError):
         column = re.findall(r"\"(.*?)\"", exception.message or "")
         error_msg = (column[-1].replace("_", " ") + " required") if column else "missing required field"
-    elif isinstance(exception, (asyncpg.exceptions.InvalidTextRepresentationError, asyncpg.exceptions.NumericValueOutOfRangeError, asyncpg.exceptions.StringDataRightTruncationError)):
-        error_msg = "invalid database input"
-    elif isinstance(exception, (asyncpg.exceptions.DeadlockDetectedError, asyncpg.exceptions.SerializationError)):
-        error_msg = "database conflict retry"
+    elif isinstance(exception, asyncpg.exceptions.InvalidTextRepresentationError):
+        error_msg = "invalid database input text format"
+    elif isinstance(exception, asyncpg.exceptions.NumericValueOutOfRangeError):
+        error_msg = "invalid database input numeric range"
+    elif isinstance(exception, asyncpg.exceptions.StringDataRightTruncationError):
+        error_msg = "invalid database input string truncation"
+    elif isinstance(exception, asyncpg.exceptions.DeadlockDetectedError):
+        error_msg = "database conflict deadlock detected"
+    elif isinstance(exception, asyncpg.exceptions.SerializationError):
+        error_msg = "database conflict serialization error"
     elif isinstance(exception, botocore.exceptions.ClientError):
         error_msg = f"""cloud service error: {exception.response.get("Error", {}).get("Code", "Unknown")}"""
     elif isinstance(exception, redis.exceptions.RedisError):
@@ -318,7 +326,9 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
         "components": {"securitySchemes": {"BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}}}
     }
     for route in app_routes:
-        if not hasattr(route, "path") or not hasattr(route, "endpoint"):
+        if not hasattr(route, "path"):
+            continue
+        if not hasattr(route, "endpoint"):
             continue
         path = route.path
         if path not in spec["paths"]:
@@ -340,7 +350,15 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                 sig = inspect.signature(route.endpoint)
                 for name, par in sig.parameters.items():
                     p_type = par.annotation.__name__ if hasattr(par.annotation, "__name__") else str(par.annotation)
-                    if name in ["request", "websocket", "req"] or "Request" in p_type or "Response" in p_type or "WebSocket" in p_type or "BackgroundTasks" in p_type:
+                    if name in ["request", "websocket", "req"]:
+                        continue
+                    if "Request" in p_type:
+                        continue
+                    if "Response" in p_type:
+                        continue
+                    if "WebSocket" in p_type:
+                        continue
+                    if "BackgroundTasks" in p_type:
                         continue
                     if any(x["name"] == name for x in op["parameters"]):
                         continue
@@ -383,7 +401,9 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                             if k_name:
                                 props[k_name] = ast_to_schema(v)
                         return {"type": "object", "properties": props}
-                    if isinstance(n, ast.List) or isinstance(n, ast.Tuple):
+                    if isinstance(n, ast.List):
+                        return {"type": "array", "items": ast_to_schema(n.elts[0]) if n.elts else {"type": "string"}}
+                    if isinstance(n, ast.Tuple):
                         return {"type": "array", "items": ast_to_schema(n.elts[0]) if n.elts else {"type": "string"}}
                     if isinstance(n, ast.BinOp) and isinstance(n.op, ast.BitOr):
                         s1, s2 = ast_to_schema(n.left), ast_to_schema(n.right)
@@ -407,7 +427,7 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                     if isinstance(node, ast.Return):
                         try:
                             op["responses"]["200"]["content"] = {"application/json": {"schema": ast_to_schema(node.value)}}
-                        except:
+                        except Exception:
                             pass
                     if not isinstance(node, ast.Call):
                         continue
@@ -511,9 +531,9 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                                     }
                                     if len(p) > 2 and bool(p[2]):
                                         schema_obj["required"].append(p[0])
-                    except:
+                    except Exception:
                         pass
-            except:
+            except Exception:
                 pass
 
             spec["paths"][path][m_lower] = op
@@ -539,7 +559,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
                                         keys.append(k.s)
                                 duplicates = [str(k) for k in set(keys) if keys.count(k) > 1]
                                 return [f"duplicate keys in {var_name}: {', '.join(duplicates)}"] if duplicates else []
-        except:
+        except Exception:
             pass
         return []
     app_paths = {route.path for route in app_routes if hasattr(route, "path")}
@@ -579,7 +599,9 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
                     errs.append(f"invalid api role in path {route.path}: {role}")
         return errs
     def get_control_errors(config_pg):
-        if not config_pg or "control" not in config_pg:
+        if not config_pg:
+            return []
+        if "control" not in config_pg:
             return []
         errs, ctrl = [], config_pg["control"]
         for k, v in ctrl.items():
@@ -625,7 +647,9 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
         return errs
     def get_table_integrity_errors(config_pg):
         import config
-        if not config_pg or "table" not in config_pg:
+        if not config_pg:
+            return []
+        if "table" not in config_pg:
             return []
         errs, db_tables = [], set(config_pg["table"].keys())
         for k in ("config_table_create_my", "config_table_create_public", "config_table_read_public", "config_table"):
@@ -691,7 +715,7 @@ def func_repo_info(app_routes: list, cache_postgres_schema: dict, config_postgre
                                     val = getattr(elt.elts[0], "value", getattr(elt.elts[0], "s", None))
                                     if isinstance(val, str):
                                         param_counts[val] = param_counts.get(val, 0) + 1
-            except:
+            except Exception:
                 pass
         return dict(sorted(param_counts.items(), key=lambda x: x[1], reverse=True))
     def get_config_keys(cfg):
@@ -724,12 +748,12 @@ def func_config_override_from_env(global_dict: dict) -> None:
             elif isinstance(value, dict):
                 try:
                     global_dict[key] = orjson.loads(config_val)
-                except:
+                except Exception:
                     pass
             else:
                 try:
                     global_dict[key] = int(config_val)
-                except:
+                except Exception:
                     global_dict[key] = config_val
             if isinstance(global_dict[key], list):
                 global_dict[key] = tuple(global_dict[key])
@@ -741,7 +765,7 @@ def func_config_override_from_env(global_dict: dict) -> None:
                     value_id = node.value.id
                     if target_id.startswith("config_") and value_id.startswith("config_") and os.getenv(target_id) is None:
                         global_dict[target_id] = global_dict[value_id]
-    except:
+    except Exception:
         pass
 
 #database - core operations
@@ -838,7 +862,7 @@ async def func_sql_map_column(client_postgres_pool: any, sql_query: str) -> dict
                 if isinstance(val, str) and val.lstrip().startswith(("{", "[")):
                     try:
                         val = orjson.loads(val)
-                    except:
+                    except Exception:
                         pass
                 if key not in result_map:
                     result_map[key] = val
@@ -933,7 +957,7 @@ async def func_postgres_read(client_postgres_pool: any, func_postgres_obj_serial
                 else:
                     try:
                         serialized_val = orjson.dumps(orjson.loads(raw_val)).decode('utf-8')
-                    except:
+                    except Exception:
                         serialized_val = raw_val
             elif is_array:
                 parts = raw_val.split("|")
@@ -1718,7 +1742,7 @@ async def func_check_admin(user_dict: dict, url_path: str, config_api: dict, cli
     if not isinstance(user_role, int):
         try:
             user_role = int(user_role)
-        except:
+        except Exception:
             raise Exception("invalid user role type")
     if user_role not in roles:
         raise Exception("access denied")
@@ -1729,16 +1753,13 @@ async def func_check_cache(mode: str, url_path: str, query_params: dict, config_
     import gzip, base64, time
     if not hasattr(func_check_cache, "state"):
         func_check_cache.state = {}
-    def should_cache(expire_sec): return expire_sec is not None and expire_sec > 0
-    def build_cache_key(path, qp, uid): return f"""cache:{path}?{"&".join(f"{k}={v}" for k, v in sorted(qp.items()))}:{uid}"""
-    def compress_data(body): return base64.b64encode(gzip.compress(body)).decode()
-    def decompress_data(data): return gzip.decompress(base64.b64decode(data)).decode()
     if mode not in ["get", "set"]:
         raise Exception(f"invalid cache mode: {mode}")
     uid = user_id if "my/" in url_path else 0
-    cache_key, api_cfg = build_cache_key(url_path, query_params, uid), config_api.get(url_path, {})
+    cache_key = f"""cache:{url_path}?{"&".join(f"{k}={v}" for k, v in sorted(query_params.items()))}:{uid}"""
+    api_cfg = config_api.get(url_path, {})
     cache_mode, expire_sec = api_cfg.get("api_cache_sec", (None, None))
-    if not should_cache(expire_sec):
+    if not (expire_sec is not None and expire_sec > 0):
         return None if mode == "get" else response_obj
     if mode == "get":
         cached_data = None
@@ -1749,13 +1770,13 @@ async def func_check_cache(mode: str, url_path: str, query_params: dict, config_
             if item and item["expire_at"] > time.time():
                 cached_data = item["data"]
         if cached_data:
-            return Response(content=decompress_data(cached_data), status_code=200, media_type="application/json", headers={"x-cache": "hit"})
+            return Response(content=gzip.decompress(base64.b64decode(cached_data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"})
         return None
     elif mode == "set":
         body_content = getattr(response_obj, "body", None)
         if body_content is None:
             body_content = b"".join([chunk async for chunk in response_obj.body_iterator])
-        compressed_body = compress_data(body_content)
+        compressed_body = base64.b64encode(gzip.compress(body_content)).decode()
         if cache_mode == "redis":
             await client_redis.setex(cache_key, expire_sec, compressed_body)
         elif cache_mode == "inmemory":
@@ -1866,7 +1887,7 @@ def func_add_router(fastapi_app: any) -> None:
                 sys.modules[module_name] = module
                 spec.loader.exec_module(module)
                 fastapi_app.include_router(getattr(module, "router"))
-        except:
+        except Exception:
             traceback.print_exc()
     root_dir = Path(".").resolve()
     for py_file in root_dir.rglob("*.py"):
@@ -2010,8 +2031,10 @@ async def func_message_delete_bulk(client_postgres_pool: any, user_id: int, dele
     return "messages deleted"
 
 
-async def func_auth_signup_username_password(client_postgres_pool: any, user_type: int, username_raw: str, password_raw: str, name_raw: str = None, config_is_signup: int = 1, config_auth_type: list = [1, 2, 3]) -> dict:
+async def func_auth_signup_username_password(client_postgres_pool: any, user_type: int, username_raw: str, password_raw: str, name_raw: str = None, config_is_signup: int = None, config_auth_type: list = None) -> dict:
     """Handle user signup with username and password, including validation of global signup toggle and allowed identifier types."""
+    config_is_signup = config_is_signup if config_is_signup is not None else 1
+    config_auth_type = config_auth_type or [1, 2, 3]
     if config_is_signup == 0:
         raise Exception("signup disabled")
     if user_type not in config_auth_type:
@@ -2213,7 +2236,7 @@ async def func_mongodb_object_delete(client_mongodb: any, db_name: str, collecti
             continue
         try:
             id_list.append(ObjectId(obj_id)) if len(str(obj_id)) == 24 else id_list.append(obj_id)
-        except:
+        except Exception:
             id_list.append(obj_id)
     if not id_list:
         return "0 rows deleted"
@@ -2276,6 +2299,8 @@ def func_folder_reset(folder_path: str) -> str:
 
 async def func_client_download_file(file_path: str, is_delete_after: int = None, chunk_size: int = None) -> any:
     """Stream a file for client download with optional automatic cleanup after transmission."""
+    if "tmp/" not in str(file_path):
+        raise Exception("IO Boundary Violation: tmp/ path required")
     from fastapi import responses
     from starlette.background import BackgroundTask
     import os, mimetypes, aiofiles
@@ -2307,7 +2332,7 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
     elif parsing_mode == "body":
         try:
             json_payload = await request_obj.json()
-        except:
+        except Exception:
             json_payload = None
         params_dict = json_payload if isinstance(json_payload, dict) else {"body": json_payload}
     elif parsing_mode == "header":
@@ -2317,8 +2342,6 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
     if param_config is None:
         return params_dict
     import orjson
-    def smart_bool(v): return 1 if str(v).strip().lower() in ("1", "true", "yes", "on", "ok") else 0
-    def smart_list(v): return [] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]
     def smart_dict(v):
         if v is None:
             return {}
@@ -2327,15 +2350,17 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
         if isinstance(v, str) and v.strip():
             try:
                 return orjson.loads(v)
-            except:
+            except Exception:
                 pass
         return {}
     TYPE_MAP = {
         "int": int, "bigint": int, "smallint": int, "integer": int, "int4": int, "int8": int,
         "float": float, "number": float, "numeric": float,
-        "str": str, "any": lambda v: v, "bool": smart_bool, "dict": smart_dict, "object": smart_dict,
+        "str": str, "any": lambda v: v, 
+        "bool": lambda v: 1 if str(v).strip().lower() in ("1", "true", "yes", "on", "ok") else 0, 
+        "dict": smart_dict, "object": smart_dict,
         "file": lambda v: ([] if v is None else v if isinstance(v, list) else [v]),
-        "list": smart_list
+        "list": lambda v: [] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]
     }
     output_dict = params_dict.copy() if not is_strict else {}
     for param in param_config:
@@ -2371,7 +2396,7 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
                     val = [TYPE_MAP[inner_type](x) for x in val_list]
                 else:
                     val = TYPE_MAP[data_type](val)
-            except:
+            except Exception:
                 raise Exception(f"parameter '{key}' invalid type {data_type}")
         if val is not None and allowed_values and val not in allowed_values:
             raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
@@ -2403,7 +2428,7 @@ def func_converter_number(data_type: str, process_mode: str, value: any) -> any:
     if process_mode == "decode":
         try:
             num_val = int(value)
-        except:
+        except Exception:
             raise ValueError("invalid integer for decoding")
         decoded_chars = []
         while num_val > 0:
