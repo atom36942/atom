@@ -749,8 +749,14 @@ const hideModal = id => {
 const copyWithFeedback = (btn, text, size = 16, msg) => {
   navigator.clipboard.writeText(text);
   if (msg) toast(msg);
+  if (btn.dataset.copied === '1') return;
+  const originalHtml = btn.innerHTML;
+  btn.dataset.copied = '1';
   btn.innerHTML = ICON.check(size);
-  setTimeout(() => btn.innerHTML = ICON.copy(size), 1500);
+  setTimeout(() => {
+    btn.innerHTML = originalHtml;
+    delete btn.dataset.copied;
+  }, 1500);
 };
 
 /**
