@@ -80,7 +80,7 @@ The background worker system uses a minimalist, top-down linear architecture for
 ./venv/bin/python consumer.py celery default
 ```
 The infrastructure is built on **Dynamic Task Discovery**, requiring zero configuration to add new workers:
-- **Add a Task**: Simply define an `async` function in `function.py`.
+- **Add a Task**: Simply define an `async` function in the `function/` directory.
 - **Resource Aware**: If your task needs the database, ensure it accepts `postgres_pool`. The consumer will intelligently inject the pool only if your signature requests it.
 - **Trigger**: Tasks are queued using the `tech_channel` format (e.g., `redis_default`).
 
