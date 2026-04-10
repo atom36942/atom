@@ -38,7 +38,6 @@ config_mongodb_uri="mongodb://localhost:27017"
 ./venv/bin/python consumer.py kafka default
 ./venv/bin/python consumer.py celery default
 ```
----
 
 ###  FAQ
 | Category | Description |
