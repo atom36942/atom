@@ -12,11 +12,11 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 #index
 @router.get("/")
 async def func_api_index(request:Request):
-   return {"status":1,"message":"welcome to atom"} if not config_index_html else await func_html_serve(config_index_html)
+   return {"status":1,"message":"welcome to atom"} if not config_index_html_path else responses.FileResponse(config_index_html_path)
 
 @router.get("/health")
 async def func_api_index(request:Request):
-   return {"status":1,"message":"welcome to atom"}
+   return {"status":1,"message":"ok"}
 
 @router.get("/openapi.json")
 async def func_api_openapi_json(request:Request):
@@ -27,10 +27,6 @@ async def func_api_index(request:Request):
    st=request.app.state
    output=st.func_repo_info(request.app.routes,st.cache_postgres_schema,st.config_postgres,st.config_table,st.config_api)
    return {"status":1,"message":output}
-
-@router.get("/page-{name}")
-async def func_api_page_serve(request:Request,name:str):
-   return await func_html_serve(name)
 
 @router.websocket("/websocket")
 async def func_api_websocket(websocket:WebSocket):

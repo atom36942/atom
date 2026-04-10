@@ -73,7 +73,7 @@ config_cors_headers=["*"]
 config_is_cors_allow_credentials=0
 
 #enum
-config_index_html=None
+config_index_html_path=None
 config_auth_type=[1, 2, 3]
 config_table_create_my=["test", "post", "support", "rating_test"]
 config_table_create_public=["test", "support"]

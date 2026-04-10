@@ -62,38 +62,6 @@ def func_gemini_client_read(config_gemini_key: str) -> any:
     genai.configure(api_key=config_gemini_key)
     return genai
 
-async def func_html_serve(html_name: str) -> any:
-    """Serve local HTML files from the static directory with search-fallback."""
-    import os, aiofiles
-    from pathlib import Path
-    from fastapi import responses, HTTPException
-    file_name = html_name
-    if not html_name.endswith(".html"):
-        file_name = f"{html_name}.html"
-    static_root = Path("static")
-    file_path = Path("static") / file_name
-    if not file_path.is_file():
-        for found_path in static_root.rglob(file_name):
-            if found_path.is_file():
-                file_path = found_path
-                break
-        else:
-            raise HTTPException(404, "page not found")
-    resolved_path = str(file_path)
-    if ".." in resolved_path:
-        raise HTTPException(400, "invalid name")
-    absolute_path = os.path.abspath(resolved_path)
-    if not absolute_path.endswith(".html"):
-        raise HTTPException(404, "file not found")
-    if not os.path.isfile(absolute_path):
-        raise HTTPException(404, "file not found")
-    try:
-        async with aiofiles.open(absolute_path, "r", encoding="utf-8") as file_handle:
-            html_content = await file_handle.read()
-    except Exception:
-        raise HTTPException(500, "failed to read file")
-    return responses.HTMLResponse(content=html_content, headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0"})
-
 
 #api & middleware utilities
 async def func_api_response_error(exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple[str, any]:

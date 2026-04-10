@@ -206,9 +206,35 @@ td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px
   .modal-header{align-items:flex-start}
   .runner-endpoint{align-items:flex-start}
 }
+.app-loader-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: var(--bg); z-index: 9000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.4s ease, visibility 0.4s;
+}
+.app-loader-content {
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  background: rgba(255, 255, 255, 0.03); padding: 40px; border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+.app-loader-title { font-size: 24px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+.app-loader-bar-wrap { width: 300px; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
+.app-loader-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s ease; box-shadow: 0 0 15px var(--accent); }
+.app-loader-pct { font-size: 16px; font-weight: 600; color: var(--accent); }
+.app-loader-msg { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.app-loader-overlay.hidden { opacity: 0; visibility: hidden; }
 </style>
 </head>
 <body>
+<div id="appLoader" class="app-loader-overlay">
+    <div class="app-loader-content">
+        <div class="app-loader-title">API MASTER</div>
+        <div class="app-loader-bar-wrap"><div id="appLoaderFill" class="app-loader-bar-fill"></div></div>
+        <div id="appLoaderPct" class="app-loader-pct">0%</div>
+        <div id="appLoaderMsg" class="app-loader-msg">Initializing...</div>
+    </div>
+</div>
 <div class="container"><div class="card">
 <h1>API Master <div style="display:flex;align-items:center;gap:8px;margin-left:auto"><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button><button type="button" class="icon-btn" id="infoToggleBtn" title="View API Master Info"></button><button type="button" class="icon-btn" id="storageToggleBtn" title="View Local Storage"></button><button type="button" class="icon-btn" id="analyticsToggleBtn" title="View Analytics"></button><button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV catalog"></button></div></h1>
 <div class="toolbar-search"><input type="text" id="apiInfoSearch" placeholder="Search" style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
@@ -480,6 +506,14 @@ let curr = null, orig = [];
 let activeMasterRunIndex = null, testResponseRaw = '';
 
 const getPathTags = p => p.split(/[\/-]/).filter(x => x.length > 1 && !x.startsWith('{'));
+
+const updateAppLoader = (pct, msg) => {
+    const fill = UI('appLoaderFill'), text = UI('appLoaderPct'), info = UI('appLoaderMsg');
+    if (fill) fill.style.width = pct + '%';
+    if (text) text.textContent = pct + '%';
+    if (info && msg) info.textContent = msg;
+    if (pct >= 100) setTimeout(() => UI('appLoader')?.classList.add('hidden'), 400);
+};
 
 /**
  * @description Renders API category tags based on the current command list.
@@ -1177,18 +1211,23 @@ const exportCatalogCsv = () => {
 };
 
 async function init() {
+  updateAppLoader(5, 'Connecting to server...');
   try {
+    updateAppLoader(20, 'Fetching OpenAPI spec...');
     const specR = await fetch('/openapi.json', { cache: 'no-cache' });
+    updateAppLoader(40, 'Parsing specification...');
     const spec = await specR.json();
     SPEC = spec;
     if (!spec || !spec.paths) throw new Error("Invalid OpenAPI spec returned");
     COMMANDS = [];
+    updateAppLoader(60, 'Generating commands...');
     Object.entries(spec.paths).forEach(([path, methods]) => {
       Object.entries(methods).forEach(([method, op]) => {
         COMMANDS.push(createCommandFromOperation(path, method, op));
       });
     });
     orig = COMMANDS.map((c, i) => ({ ...c, oi: i }));
+    updateAppLoader(80, 'Rendering interface...');
     applyMasterTableLayout();
     const b = UI('baseUrl');
     if (b) b.textContent = window.location.origin;
@@ -1226,7 +1265,9 @@ async function init() {
     setupIcons();
     UI('runnerCurlBtn').innerHTML = ICON.terminal(20);
     setupEventListeners();
+    updateAppLoader(100, 'Ready');
   } catch (err) {
+    updateAppLoader(100, 'Error');
     console.error('Failed to load API info', err);
     d.getElementById('apiInfoTbl').innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--delete);padding:20px">Failed to load API info: ${err.message}. Click Refresh to try again.</td></tr>`;
     load(null);

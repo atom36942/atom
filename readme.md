@@ -38,9 +38,8 @@ config_mongodb_uri="mongodb://localhost:27017"
 ## FAQ
 
 ### API Master & Static Assets
-- **API Master**: Access the interactive API tester at `static/api.html` or the `/page-api` route.
-- **Static Content**: All files in the `static/` directory are served automatically.
-- **HTML Pages**: Serve HTML files from the `static/` directory using `/page-{name}` or `/s/{name}` routes.
+- **API Master**: Access the interactive API tester at `static/api.html`.
+- **Static Content**: All files in the `static/` directory are served automatically via the `/static/` prefix.
 
 ### Postgres Database
 - **Auto Initialization**: The system automatically runs `func_postgres_init` on application startup.
