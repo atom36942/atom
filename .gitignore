@@ -2,12 +2,12 @@
 *
 
 # folders
-!static/
-!static/**
-!script/
-!script/**
 !router/
 !router/**
+!script/
+!script/**
+!static/
+!static/**
 
 # files
 !function.py
