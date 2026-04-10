@@ -130,6 +130,18 @@ async def func_api_log_create(config_is_log_api: int, api_id: int, request_obj: 
     return None
 
 #api core logic
+def func_logic_data_validate(obj_list: list, api_role: str, config_column_blocked: list, immutable_fields: list = None) -> None:
+    """Centralized validation for platform constraints, blocked columns, and immutable fields across one pass."""
+    immutable_fields = immutable_fields or ["created_at"]
+    for item in obj_list:
+        if not isinstance(item, dict):
+            continue
+        for key in item:
+            if key in immutable_fields:
+                raise Exception(f"restricted update to immutable field: {key}")
+            if api_role != "admin" and key in config_column_blocked:
+                raise Exception(f"unauthorized update to restricted field: {key}")
+
 async def func_logic_obj_create(api_role: str, obj_query: dict[str, any], obj_body: dict[str, any], user_id: any, config_table_create_my: list, config_table_create_public: list, config_column_blocked: list, client_postgres_pool: any, func_postgres_obj_serialize: callable, config_table: dict, func_producer_logic: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_create: callable, config_postgres_batch_limit: int = None) -> any:
     """Wrapper logic for object creation with role-based validation and optional queueing."""
     if not obj_body:
@@ -144,28 +156,13 @@ async def func_logic_obj_create(api_role: str, obj_query: dict[str, any], obj_bo
         raise Exception("batch size exceeded")
     if obj_query.get("table") == "users":
         obj_query["is_serialize"] = 1
-    if api_role == "my":
-        if obj_query.get("table") not in config_table_create_my:
-            raise Exception(f"""table not allowed: {obj_query.get("table")}, allowed: {config_table_create_my}""")
-        for item in obj_list:
-            for key in item:
-                if key in config_column_blocked:
-                    raise Exception(f"blocked key not allowed: {key}")
-    elif api_role == "public":
-        if obj_query.get("table") not in config_table_create_public:
-            raise Exception(f"""table not allowed: {obj_query.get("table")}, allowed: {config_table_create_public}""")
-        for item in obj_list:
-            for key in item:
-                if key in config_column_blocked:
-                    raise Exception(f"blocked key not allowed: {key}")
-    elif api_role == "auth":
-        raise Exception("role not allowed")
-    elif api_role == "private":
-        raise Exception("role not allowed")
-    elif api_role == "admin":
-        pass
-    else:
-        raise Exception(f"invalid role: {api_role}")
+    if api_role not in ("my", "public", "admin"):
+        raise Exception(f"role not allowed for creation: {api_role}")
+    if api_role == "my" and obj_query.get("table") not in config_table_create_my:
+        raise Exception(f"""table not allowed for role 'my': {obj_query.get("table")}, allowed: {config_table_create_my}""")
+    if api_role == "public" and obj_query.get("table") not in config_table_create_public:
+        raise Exception(f"""table not allowed for role 'public': {obj_query.get("table")}, allowed: {config_table_create_public}""")
+    func_logic_data_validate(obj_list, api_role, config_column_blocked)
     if user_id:
         for item in obj_list:
             item["created_by_id"] = user_id
@@ -191,40 +188,27 @@ async def func_logic_obj_update(api_role: str, obj_query: dict, obj_body: dict, 
     if obj_query.get("table") == "users":
         obj_query["is_serialize"] = 1
         created_by_id = None
+    if api_role not in ("my", "admin"):
+        raise Exception(f"role not allowed for update: {api_role}")
+    func_logic_data_validate(obj_list, api_role, config_column_blocked)
+    async def func_logic_user_otp_check(item: dict) -> None:
+        """Internal helper to enforce OTP verification and single-field update constraints for sensitive user data."""
+        if any(key in item for key in ("email", "mobile")):
+            if len(obj_list) > 1:
+                raise Exception("multi-object user update restricted")
+            if len(item) != 2:
+                raise Exception("sensitive fields must be updated individually (item length 2 required)")
+            await func_otp_verify(client_postgres_pool, obj_query.get("otp"), item.get("email"), item.get("mobile"), config_expiry_sec_otp)
     if api_role == "my":
         item = obj_list[0]
-        for key in item:
-            if key in config_column_blocked:
-                raise Exception(f"blocked key not allowed: {key}")
         if obj_query.get("table") == "users":
-            if len(obj_list) > 1:
-                raise Exception("multi-object update not allowed")
             if str(item.get("id")) != str(user_id):
-                raise Exception("ownership issue")
-            if any(key in item and len(item) != 2 for key in config_column_single_update):
-                raise Exception("obj length should be 2")
-            if any(key in item for key in ("email", "mobile")):
-                await func_otp_verify(client_postgres_pool, obj_query.get("otp"), item.get("email"), item.get("mobile"), config_expiry_sec_otp)
-    elif api_role == "public":
-        raise Exception("not allowed")
-    elif api_role == "admin": 
+                raise Exception("ownership issue: cannot update other users")
+            await func_logic_user_otp_check(item)
+    elif api_role == "admin":
         created_by_id = None
         if obj_query.get("table") == "users" and (config_is_otp_users_update_admin or 0) == 1:
-            item = obj_list[0]
-            if any(key in item for key in ("email", "mobile")):
-                if len(obj_list) > 1:
-                    raise Exception("multi-object update not allowed")
-                if len(item) != 2:
-                    raise Exception("obj length should be 2")
-                await func_otp_verify(client_postgres_pool, obj_query.get("otp"), item.get("email"), item.get("mobile"), config_expiry_sec_otp)
-    elif api_role == "auth":
-        raise Exception("role not allowed")
-    elif api_role == "private":
-        raise Exception("role not allowed")
-    else:
-        raise Exception(f"invalid role: {api_role}")
-    if any(any(k == "created_at" for k in item) for item in obj_list):
-        raise Exception("immutable fields cannot be modified: created_at")
+            await func_logic_user_otp_check(obj_list[0])
     if user_id:
         for item in obj_list:
             item["updated_by_id"] = user_id
@@ -452,9 +436,8 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                                         "type": tp,
                                         "format": fmt,
                                         "items": itms,
-                                        "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
-                                        "default": p[4] if len(p) > 4 else None,
-                                        "pattern": p[5] if len(p) > 5 else None
+                                        "pattern": p[5] if len(p) > 5 else None,
+                                        "description": f"{p[6]}" if len(p) > 6 and p[6] else None
                                     }
                                 })
                         elif p_list is not None and p_loc in ["body", "form"]:
@@ -506,7 +489,8 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
                                         "items": itms,
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
                                         "default": p[4] if len(p) > 4 else None,
-                                        "pattern": p[5] if len(p) > 5 else None
+                                        "pattern": p[5] if len(p) > 5 else None,
+                                        "description": f"{p[6]}" if len(p) > 6 and p[6] else None
                                     }
                                     if len(p) > 2 and bool(p[2]):
                                         schema_obj["required"].append(p[0])
@@ -2111,9 +2095,8 @@ async def func_auth_login_password_username(client_postgres_pool: any, user_type
         if not records:
             raise Exception("username not found")
         if records[0]["password"] != hashed_pwd:
-            raise Exception("invalid password")
+            raise Exception("incorrect password")
         return dict(records[0])
-
 
 async def func_auth_login_password_username_bigint(client_postgres_pool: any, user_type: int, password_bigint: int, username_bigint: int) -> dict:
     """Authenticate a user using bigint identifier and bigint password."""
@@ -2122,7 +2105,7 @@ async def func_auth_login_password_username_bigint(client_postgres_pool: any, us
         if not records:
             raise Exception("username not found")
         if int(records[0]["password_bigint"]) != int(password_bigint):
-            raise Exception("invalid password")
+            raise Exception("incorrect password")
     return dict(records[0])
 
 async def func_auth_login_password_email(client_postgres_pool: any, user_type: int, password_raw: str, email_address: str) -> dict:
@@ -2133,9 +2116,8 @@ async def func_auth_login_password_email(client_postgres_pool: any, user_type: i
         if not records:
             raise Exception("email not found")
         if records[0]["password"] != hashed_pwd:
-            raise Exception("invalid password")
+            raise Exception("incorrect password")
     return dict(records[0])
-
 
 async def func_auth_login_password_mobile(client_postgres_pool: any, user_type: int, password_raw: str, mobile_number: str) -> dict:
     """Authenticate a user using mobile number and password."""
@@ -2145,7 +2127,7 @@ async def func_auth_login_password_mobile(client_postgres_pool: any, user_type: 
         if not records:
             raise Exception("mobile not found")
         if records[0]["password"] != hashed_pwd:
-            raise Exception("invalid password")
+            raise Exception("incorrect password")
     return dict(records[0])
 
 
@@ -2418,6 +2400,7 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
     for param in param_config:
         key, data_type, is_mandatory, allowed_values, default_value = param[:5]
         regex_pattern = param[5] if len(param) > 5 else None
+        custom_error = param[6] if len(param) > 6 else None
         if data_type not in TYPE_MAP and not data_type.startswith("list:"):
             raise Exception(f"parameter '{key}' has invalid data_type '{data_type}'")
         if is_mandatory == 1 and default_value is not None:
@@ -2455,7 +2438,7 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
         if val is not None and regex_pattern:
             import re
             if not re.match(regex_pattern, str(val)):
-                raise Exception(f"parameter '{key}' format invalid")
+                raise Exception(custom_error if custom_error else f"parameter '{key}' format invalid")
         output_dict[key] = val
     return output_dict
 
