@@ -3,7 +3,7 @@ from fastapi import APIRouter
 router=APIRouter()
 
 #import
-from core.config import *
+from config import *
 from function import *
 import asyncio
 from datetime import datetime
@@ -21,7 +21,7 @@ async def func_api_public_object_create(request:Request):
    st=request.app.state
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("mode","str",0,["now","buffer"],"now",None,None),("is_serialize","int",0,[0,1],0,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await func_request_param_read(request,"body",[])
-   return {"status":1,"message":await func_orchestrator_object_create("public",obj_query,obj_body,request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_obj_serialize,st.config_table,st.func_orchestrator_producer_dispatch,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_create,st.config_postgres_batch_limit)}
+   return {"status":1,"message":await func_logic_obj_create("public",obj_query,obj_body,request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_obj_serialize,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_create,st.config_postgres_batch_limit)}
 
 @router.get("/public/object-read")
 async def func_api_public_object_read(request:Request):
