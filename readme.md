@@ -42,12 +42,12 @@ config_mongodb_uri="mongodb://localhost:27017"
 ###  FAQ
 | Category | Description |
 | :--- | :--- |
-| **API Master** | Access the interactive API tester at `static/api.html` |
-| **Postgres Init** | The system automatically runs `func_postgres_init` on application startup. |
-| **Access App State** | Access global clients (DB, Redis, etc.) and configuration singletons via `request.app.state`. |
-| **User Context** | Access the current authorized user's state (id, role, etc.) via `request.state.user`. |
-| **Manual Auth Check** | Use `if request.state.user is None: raise Exception("Unauthorized")` within your functional logic. |
-| **Admin Control** | Roles are managed via `user_role_check` in `config_api`. Available modes: `realtime`, `token`, `inmemory`, `redis`. |
-| **User Active Check** | Enforce user active status via `user_is_active_check` in `config_api`. Available modes: `realtime`, `token`, `inmemory`, `redis`. |
-| **API Caching** | Configure response caching using `api_cache_sec` in `config_api`. Available modes: `inmemory`, `redis`. |
-| **API Ratelimiter** | Set limits using `api_ratelimiting_times_sec` in `config_api`. Available modes: `inmemory`, `redis`. |
+| **API Master** | Interactive API tester at `static/api.html`. |
+| **Postgres Init** | Automatic `func_postgres_init` run on startup. |
+| **Access App State** | Global clients (DB, Redis, etc.) via `request.app.state`. |
+| **User Context** | Current user state (id, role, etc.) via `request.state.user`. |
+| **Manual Auth Check** | Check via `if request.state.user is None: raise Exception("Unauthorized")`. |
+| **Admin Control** | Role checks via `user_role_check` in `config_api` (Modes: realtime, token, inmemory, redis). |
+| **User Active Check** | Status checks via `user_is_active_check` in `config_api` (Modes: realtime, token, inmemory, redis). |
+| **API Caching** | Cache logic via `api_cache_sec` in `config_api` (Modes: inmemory, redis). |
+| **API Ratelimiter** | Rate limits via `api_ratelimiting_times_sec` in `config_api` (Modes: inmemory, redis). |
