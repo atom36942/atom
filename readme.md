@@ -77,14 +77,6 @@ The Atom Framework uses **Dynamic Router Discovery**. To add new endpoints:
 3. Add your endpoints to this instance.
 The system will automatically discover and include these routes on the next startup.
 
-### Validation
-- **Username Regex**: `^(?=.{3,20}$)[a-z][a-z0-9_@-]*$`
-  - **Pass**: `john_doe`, `admin@atom`, `user-123`
-  - **Fail**: `Jo` (too short), `User 123` (uppercase/space)
-- **Password Regex**: `^\\S{8,32}$`
-  - **Pass**: `SecurePass12!`, `atom_dev_2026`
-  - **Fail**: `short` (< 8), `Pass word` (contains space)
-
 ### Consumers
 
 The background worker system uses a minimalist, top-down linear architecture for maximum performance and surgical execution. Start a worker by specifying the technology and the target channel:
