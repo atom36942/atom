@@ -3,7 +3,7 @@ from fastapi import APIRouter
 router=APIRouter()
 
 #import
-from config import *
+from core.config import *
 from function import *
 import asyncio
 from datetime import datetime

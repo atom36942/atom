@@ -8,10 +8,9 @@
 !script/**
 !router/
 !router/**
-!function/
-!function/**
 
 # files
+!function.py
 !config.py
 !main.py
 !consumer.py
