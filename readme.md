@@ -70,17 +70,8 @@ config_mongodb_uri="mongodb://localhost:27017"
   - `private/`: General authenticated access (any valid token).
   - `admin/`: Management-level routes restricted to administrative roles.
 
-### Extending the Router
-The Atom Framework uses **Dynamic Router Discovery**. To add new endpoints:
-1. Create a new `.py` file within the `router/` directory (e.g., `router/custom.py`).
-2. Define an `APIRouter` instance named `router`.
-3. Add your endpoints to this instance.
-The system will automatically discover and include these routes on the next startup.
-
 ### Consumers
-
 The background worker system uses a minimalist, top-down linear architecture for maximum performance and surgical execution. Start a worker by specifying the technology and the target channel:
-
 ```bash
 # General Signature: ./venv/bin/python consumer.py [tech] [channel]
 ./venv/bin/python consumer.py redis default
@@ -88,7 +79,6 @@ The background worker system uses a minimalist, top-down linear architecture for
 ./venv/bin/python consumer.py kafka default
 ./venv/bin/python consumer.py celery default
 ```
-
 The infrastructure is built on **Dynamic Task Discovery**, requiring zero configuration to add new workers:
 - **Add a Task**: Simply define an `async` function in `function.py`.
 - **Resource Aware**: If your task needs the database, ensure it accepts `postgres_pool`. The consumer will intelligently inject the pool only if your signature requests it.

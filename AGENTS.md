@@ -10,7 +10,6 @@
 | **Defaults** | INTERNAL HANDLING| No parameter defaults in signatures; use `None` and handle at function start. |
 | **Frontend** | Single-File | `static/` HTML files must contain all JS/CSS/HTML logic. No external local assets. |
 | **Validation** | Centralized | All app-start validation checks must reside within `func_check` in `function.py`. |
-| **Params** | **Explicit Naming** | Always use explicit parameter names that match their source identifier (e.g. `config_`, `client_`). Avoid generic objects/modules. |
 | **Philosophy** | **Explicitness** | Explicitness > Implicitness. 1:1 mapping between parameters and global state. |
 
 ### Naming Conventions
@@ -35,14 +34,6 @@
 | `consumer.py` | **Workers** | Background task processing (Celery, Kafka, etc.). |
 | `script/` | **Isolated** | Independent scripts with standalone Docker/Main logic. |
 
-### Standardized Routing Logic
-| Rule | Pattern | Behavior |
-| :--- | :--- | :--- |
-| **Structure** | `/{cat}/{name}` | Strictly 2 levels deep. `{name}` maps to a pure function. |
-| **Consolidation**| Identical Params | Combine `create/update/delete` if all parameters match. |
-| **Isolation** | Divergent Params | Use unique endpoints if action-specific parameters (e.g. `expiry`) exist. |
-| **Audit** | Sync Check | Update all related files (configs, docs, HTML) after any API change. |
-
 ### Development Workflow
 | Stage | File | Action |
 | :--- | :--- | :--- |
@@ -50,13 +41,5 @@
 | **2. Logic** | `function.py` | Create pure logic (use local imports). |
 | **3. Config** | `config.py` | Add `config_` variables and table schemas. |
 | **4. Init** | `main.py` | Initialize new `client_` singletons if required. |
-| **5. Entry** | `static/api.html` | Sync OpenAPI and Test Runner entries. |
-| **6. Audit** | - | Verify system-wide alignment and update documentation. |
+| **5. Audit** | - | Verify system-wide alignment and update documentation. |
 
-### Independent Scripts
-| Rule | Format | Description |
-| :--- | :--- | :--- |
-| **Directory** | `script/{name}/` | All independent scripts must reside in a named subfolder within `script/`. |
-| **Entry Point**| `main.py` | Primary execution script; must include a minimalist `uvicorn.run(app, ...)` block. |
-| **Container** | `Dockerfile` | Standard container configuration mirroring the root repository's structure. |
-| **Deps** | `requirements.txt`| Explicitly defined Python dependencies for the specific script. |

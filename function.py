@@ -1887,14 +1887,19 @@ def func_app_add_static(fastapi_app: any, folder_path: str, mount_path: str) -> 
     fastapi_app.mount(mount_path, StaticFiles(directory=folder_path), name="static")
 
 def func_add_router(fastapi_app: any) -> None:
-    """Dynamically discover and include all FastAPI routers from the project directory."""
+    """Dynamically discover and include all FastAPI routers from the router directory."""
     import sys, importlib.util, traceback
     from pathlib import Path
-    def load_router(root, file_path):
+    root_dir = Path("./router").resolve()
+    if not root_dir.exists():
+        return None
+    for py_file in root_dir.rglob("*.py"):
+        if py_file.name.startswith((".", "__")):
+            continue
         try:
-            rel_path = file_path.relative_to(root)
-            module_name = "routers." + ".".join(rel_path.with_suffix("").parts)
-            spec = importlib.util.spec_from_file_location(module_name, file_path)
+            rel_path = py_file.relative_to(root_dir)
+            module_name = "router." + ".".join(rel_path.with_suffix("").parts)
+            spec = importlib.util.spec_from_file_location(module_name, py_file)
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[module_name] = module
@@ -1902,12 +1907,6 @@ def func_add_router(fastapi_app: any) -> None:
                 fastapi_app.include_router(getattr(module, "router"))
         except Exception:
             traceback.print_exc()
-    root_dir = Path(".").resolve()
-    for py_file in root_dir.rglob("*.py"):
-        if py_file.name.startswith((".", "__")) or any(p.startswith(".") or p in ("venv", "env", "__pycache__") for p in py_file.parts):
-            continue
-        rel = py_file.relative_to(root_dir)
-        ( load_router(root_dir, py_file) if (len(rel.parts) == 1 and py_file.name.startswith("router")) or ("router" in rel.parts[:-1]) else None )
 
 #admin & analytics
 
