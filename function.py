@@ -56,12 +56,16 @@ async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: 
         rows = await conn.fetch(query, *query_args)
     return [{"tag": row["tag_item"], "count": row["count"]} for row in rows]
 
+def func_password_hash(password_raw: any) -> str:
+    """Generate SHA-256 hash of the provided password string."""
+    import hashlib
+    return hashlib.sha256(str(password_raw).encode()).hexdigest()
+
 def func_gemini_client_read(config_gemini_key: str) -> any:
     """Initialize Gemini (Generative AI) client with the provided API key."""
     import google.generativeai as genai
     genai.configure(api_key=config_gemini_key)
     return genai
-
 
 #api & middleware utilities
 async def func_api_response_error(exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple[str, any]:
@@ -1194,6 +1198,8 @@ async def func_postgres_obj_serialize(client_postgres_pool: any, table_name: str
     for item in obj_list:
         new_item = {}
         for col, val in item.items():
+            if table_name == "users" and col == "password" and val:
+                val = func_password_hash(val)
             if col not in schema:
                 if col == "id":
                     continue # ID is always handled but might not be in partial schemas
@@ -2078,15 +2084,15 @@ async def func_auth_signup_username_password(client_postgres_pool: any, user_typ
         raise Exception("signup disabled")
     if user_type not in config_auth_type:
         raise Exception(f"authentication type {user_type} not allowed")
-    import bcrypt
     username = username_raw.strip().lower()
-    password = bcrypt.hashpw(password_raw.encode(), bcrypt.gensalt()).decode()
+    password = func_password_hash(password_raw)
     query = "INSERT INTO users (type, username, password, name) VALUES ($1, $2, $3, $4) RETURNING *;"
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, user_type, username, password, name_raw)
         return dict(records[0])
 
 async def func_auth_signup_username_password_bigint(client_postgres_pool: any, user_type: int, username_bigint: int, password_bigint: int, config_is_signup: int, config_auth_type: list) -> dict:
+
     """Register a new user with bigint identifier and bigint password (for specialized devices)."""
     if config_is_signup == 0:
         raise Exception("signup disabled")
@@ -2099,8 +2105,7 @@ async def func_auth_signup_username_password_bigint(client_postgres_pool: any, u
 
 async def func_auth_login_password_username(client_postgres_pool: any, user_type: int, password_raw: str, username: str) -> dict:
     """Authenticate a user using username and password."""
-    import hashlib
-    hashed_pwd = hashlib.sha256(str(password_raw).encode()).hexdigest()
+    hashed_pwd = func_password_hash(password_raw)
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username=$2 ORDER BY id DESC LIMIT 1;", user_type, username)
         if not records:
@@ -2108,6 +2113,7 @@ async def func_auth_login_password_username(client_postgres_pool: any, user_type
         if records[0]["password"] != hashed_pwd:
             raise Exception("invalid password")
         return dict(records[0])
+
 
 async def func_auth_login_password_username_bigint(client_postgres_pool: any, user_type: int, password_bigint: int, username_bigint: int) -> dict:
     """Authenticate a user using bigint identifier and bigint password."""
@@ -2121,8 +2127,7 @@ async def func_auth_login_password_username_bigint(client_postgres_pool: any, us
 
 async def func_auth_login_password_email(client_postgres_pool: any, user_type: int, password_raw: str, email_address: str) -> dict:
     """Authenticate a user using email address and password."""
-    import hashlib
-    hashed_pwd = hashlib.sha256(str(password_raw).encode()).hexdigest()
+    hashed_pwd = func_password_hash(password_raw)
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", user_type, email_address)
         if not records:
@@ -2131,10 +2136,10 @@ async def func_auth_login_password_email(client_postgres_pool: any, user_type: i
             raise Exception("invalid password")
     return dict(records[0])
 
+
 async def func_auth_login_password_mobile(client_postgres_pool: any, user_type: int, password_raw: str, mobile_number: str) -> dict:
     """Authenticate a user using mobile number and password."""
-    import hashlib
-    hashed_pwd = hashlib.sha256(str(password_raw).encode()).hexdigest()
+    hashed_pwd = func_password_hash(password_raw)
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", user_type, mobile_number)
         if not records:
@@ -2142,6 +2147,7 @@ async def func_auth_login_password_mobile(client_postgres_pool: any, user_type: 
         if records[0]["password"] != hashed_pwd:
             raise Exception("invalid password")
     return dict(records[0])
+
 
 async def func_auth_login_otp_email(client_postgres_pool: any, user_type: int, email_address: str, config_auth_type: list) -> dict:
     """Authenticate or register a user using email OTP with type validation."""
