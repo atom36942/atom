@@ -9,7 +9,7 @@ import httpx
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
    #start
-   func_structure_create(["tmp","secret"], [".env","z.py"])
+   func_structure_create(["tmp","secret"], [".env"])
    #client init
    client_http=httpx.AsyncClient()
    client_postgres_pool=await func_postgres_client_read({"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection}) if config_postgres_url else None
