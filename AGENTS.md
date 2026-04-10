@@ -1,46 +1,58 @@
-### AGENTS Rules
+# Atom Development Standards
+This document serves as the primary source of truth for AI Agents working within the Atom framework. Adherence to these rules is mandatory to maintain codebase consistency and safety.
 
-### Repository Map
-| Path | Service | Responsibility |
-| :--- | :--- | :--- |
-| `static/` | **Assets** | Frontend files and documentation pages. |
-| `tmp/` | **Runtime** | Workspace for temporary runtime operations. |
-| `function.py` | **Core** | Primary functional logic and database drivers. |
-| `config.py` | **Settings** | Global configuration and schema definitions. |
-| `app.py` | **Initialization** | Lifespan, Middleware, App Setup. |
-| `main.py` | **Entry** | Server execution and runtime orchestration. |
-| `router/` | **API** | Definition of all endpoints and role assignments. |
-| `consumer.py` | **Workers** | Background task processing (Celery, Kafka, etc.). |
-| `script/` | **Isolated** | Independent scripts with standalone Docker/Main logic. |
+## 📂 Repository Map
+- **`main.py`**: Entry point for the application. Handles server execution and runtime orchestration.
+- **`app.py`**: Initialization logic. Manages lifespan, middleware, and application setup.
+- **`config.py`**: Centralized settings and schema definitions.
+- **`function.py`**: The core logic layer. Contains primary functional logic and database drivers.
+- **`consumer.py`**: Background task processing (Celery, Kafka, etc.).
+- **`router/`**: API endpoint definitions and role assignments.
+- **`script/`**: Isolated, independent scripts with standalone logic.
+- **`static/`**: Frontend assets and documentation.
+- **`tmp/`**: **Strictly** for temporary runtime operations (IO).
+- **`secret/`**: Sensitive credentials (protected).
 
+---
 
-### Core Development Principles
-| Section | Standard | Execution Logic |
-| :--- | :--- | :--- |
-| **Logic** | Pure Functional | `function.py` for stateless logic; no external dependencies; SOLID compliant. |
-| **Safety** | Error Isolation | No `or` logic in checks; individual `if` blocks for specific exceptions. No clubbed error messages (e.g., "A or B missing"). |
-| **IO** | Path Security | `tmp/` for temporary files only. No exceptions. |
-| **Defaults** | INTERNAL HANDLING| No parameter defaults in signatures; use `None` and handle at function start. |
-| **Philosophy** | **Explicitness** | Explicitness > Implicitness. 1:1 mapping between parameters and global state. |
+## 🛠 Core Development Principles
 
-### Naming Conventions
-| Category | Variable Prefix | Behavior |
-| :--- | :--- | :--- |
-| **Boolean** | `is_[name]` | Strictly `int` (1/0). NEVER use Python `True`/`False`. |
-| **Config** | `config_` | Global settings in `config.py` and matching function parameters. |
-| **Functions** | `func_` | Standard prefix for all functional logic. |
-| **Clients** | `client_` | Persistent singletons and matching function parameters (e.g. `client_postgres_pool`). |
-| **Cache** | `cache_` | Dictionary-based local or distributed state maps. |
-| **Explicit** | N/A | Variable names MUST include the service/feature name (e.g., `config_postgres_batch_limit`). |
+### 1. Pure Functional Logic
+- All logic in `function.py` must be stateless.
+- **Dependency Rule**: No external dependencies in logic blocks.
+- **SOLID Compliance**: Maintain strict single-responsibility for all functions.
 
+### 2. Safety & Error Isolation
+- **No Logical Unions**: Never use `or` when checking for multiple failure conditions. Use individual `if` blocks.
+- **Detailed Exceptions**: Avoid clubbed error messages (e.g., "Field A or B missing"). Each error must be explicit to the specific failure.
+- **IO Isolation**: Only use `tmp/` for file operations.
 
-### Development Workflow
-| Stage | File | Action |
-| :--- | :--- | :--- |
-| **1. Define** | `router/` | Add route with path-based prefix code. |
-| **2. Logic** | `function.py` | Create pure logic (use local imports). |
-| **3. Config** | `config.py` | Add `config_` variables and table schemas. |
-| **4. Setup** | `app.py` | Define Lifespan, Middleware, and app instance. |
-| **5. Run** | `main.py` | Start uvicorn server. |
-| **6. Audit** | - | Verify system-wide alignment and update documentation. |
+### 3. Parameter Handling
+- **No Defaults**: Do not use default values in function signatures.
+- **Initialization**: Use `None` in signatures and handle actual initialization at the start of the function body.
+- **Explicitness**: Every parameter must map 1:1 to global state or internal logic—no implicit behaviors.
 
+### 4. Naming Conventions (Strict)
+All variables and functions must follow these prefix rules:
+- `is_`: Integers used as booleans (1/0).
+- `config_`: Settings and configuration variables.
+- `func_`: Logic functions.
+- `client_`: Client initialization/drivers.
+- `cache_`: Caching-related logic.
+- **Scope**: All names must include the service or feature name (e.g., `func_auth_login`).
+
+---
+
+## 🚀 Development Workflow
+
+1.  **Define (Routing)**: Start in `router/`. Add the route with a path-based prefix code.
+2.  **Logic (Core)**: Implement the pure logic in `function.py` using local imports.
+3.  **Config (Settings)**: Add any required `config_` variables or table schemas in `config.py`.
+4.  **Setup (App)**: Register the logic in `app.py` via Lifespan or Middleware.
+5.  **Run (Execution)**: Execute via `main.py` (Uvicorn).
+6.  **Audit (Validation)**: Verify system-wide alignment and update relevant documentation.
+
+---
+
+> [!IMPORTANT]
+> **AI Agent Behavior**: Always prefer explicitness over conciseness. If a rule in this file conflicts with a general coding best practice, the rule in this file takes precedence.
