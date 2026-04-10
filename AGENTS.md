@@ -31,7 +31,7 @@
 | `function.py` | **Core** | Primary functional logic and database drivers. |
 | `config.py` | **Settings** | Global configuration and schema definitions. |
 | `main.py` | **Entry** | Lifespan, Middleware, App Initialization. |
-| `router.py` | **API** | Definition of all endpoints and role assignments. |
+| `router/` | **API** | Definition of all endpoints and role assignments. |
 | `consumer.py` | **Workers** | Background task processing (Celery, Kafka, etc.). |
 | `script/` | **Isolated** | Independent scripts with standalone Docker/Main logic. |
 
@@ -46,7 +46,7 @@
 ### Development Workflow
 | Stage | File | Action |
 | :--- | :--- | :--- |
-| **1. Define** | `router.py` | Add route with path-based prefix code. |
+| **1. Define** | `router/` | Add route with path-based prefix code. |
 | **2. Logic** | `function.py` | Create pure logic (use local imports). |
 | **3. Config** | `config.py` | Add `config_` variables and table schemas. |
 | **4. Init** | `main.py` | Initialize new `client_` singletons if required. |

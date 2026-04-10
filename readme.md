@@ -70,6 +70,13 @@ config_mongodb_uri="mongodb://localhost:27017"
   - `private/`: General authenticated access (any valid token).
   - `admin/`: Management-level routes restricted to administrative roles.
 
+### Extending the Router
+The Atom Framework uses **Dynamic Router Discovery**. To add new endpoints:
+1. Create a new `.py` file within the `router/` directory (e.g., `router/custom.py`).
+2. Define an `APIRouter` instance named `router`.
+3. Add your endpoints to this instance.
+The system will automatically discover and include these routes on the next startup.
+
 ### Validation
 - **Username Regex**: `^(?=.{3,20}$)[a-z][a-z0-9_@-]*$`
   - **Pass**: `john_doe`, `admin@atom`, `user-123`

@@ -6,12 +6,13 @@
 !static/**
 !script/
 !script/**
+!router/
+!router/**
 
 # files
 !function.py
 !config.py
 !main.py
-!router.py
 !consumer.py
 
 # misc
