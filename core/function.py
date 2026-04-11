@@ -61,11 +61,6 @@ def func_password_hash(password_raw: any) -> str:
     import hashlib
     return hashlib.sha256(str(password_raw).encode()).hexdigest()
 
-def func_gemini_client_read(config_gemini_key: str) -> any:
-    """Initialize Gemini (Generative AI) client with the provided API key."""
-    import google.generativeai as genai
-    genai.configure(api_key=config_gemini_key)
-    return genai
 
 #api & middleware utilities
 async def func_api_response_error(exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple[str, any]:
@@ -591,7 +586,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
                     errs.append(f"invalid bulk delete format: {x} (expected [table, limit])")
         return errs
     def get_cors_errors():
-        import config
+        from . import config
         errs = []
         for k in ("config_cors_origin", "config_cors_method", "config_cors_headers"):
             v = getattr(config, k, None)
@@ -602,7 +597,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
         return errs
 
     def get_switch_errors():
-        import config
+        from . import config
         errs = []
         for key, value in vars(config).items():
             if key.startswith("config_is_"):
@@ -610,7 +605,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
                     errs.append(f"invalid value for {key}: {value} (allowed: 0, 1, None)")
         return errs
     def get_table_integrity_errors(config_pg):
-        import config
+        from . import config
         if not config_pg:
             return []
         if "table" not in config_pg:
@@ -632,7 +627,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
         dupes = [str(i) for i in set(ids) if ids.count(i) > 1]
         return [f"duplicate API IDs in config_api: {', '.join(dupes)}"] if dupes else []
     def get_enum_type_errors():
-        import config
+        from . import config
         errs = []
         checks = {"config_auth_type": int, "config_token_key": str, "config_api_roles": str}
         for k, t in checks.items():
@@ -723,7 +718,7 @@ def func_config_override_from_env(global_dict: dict) -> None:
             if isinstance(global_dict[key], list):
                 global_dict[key] = tuple(global_dict[key])
     try:
-        with open("config.py", "r") as config_file:
+        with open("core/config.py", "r") as config_file:
             for node in ast.parse(config_file.read()).body:
                 if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) and isinstance(node.value, ast.Name):
                     target_id = node.targets[0].id
@@ -1451,23 +1446,10 @@ async def func_postgres_schema_read(client_postgres_pool: any) -> dict:
             schema[table][col] = {"datatype": r["data_type"]}
     return schema
 
-async def func_postgres_client_read(config_postgres: dict) -> any:
-    """Initialize PostgreSQL connection pool."""
-    import asyncpg
-    return await asyncpg.create_pool(dsn=config_postgres["dsn"], min_size=config_postgres["min_size"], max_size=config_postgres["max_size"])
 
 
 #external clients - messaging & cache (redis/rabbitmq/kafka/celery)
-async def func_redis_client_read(config_redis_url: str) -> any:
-    """Initialize Redis client using connection pooling."""
-    import redis.asyncio as redis
-    return redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
 
-async def func_redis_client_read_consumer(client_redis: any, channel_name: str) -> any:
-    """Initialize Redis PubSub consumer and subscribe to a channel."""
-    pubsub = client_redis.pubsub()
-    await pubsub.subscribe(channel_name)
-    return pubsub
 
 async def func_redis_producer(channel_name: str, client_redis: any, payload: dict) -> int:
     """Publish a JSON-serialized payload to a Redis channel."""
@@ -1495,10 +1477,6 @@ async def func_redis_object_delete(client_redis: any, keys: list) -> None:
         await pipe.execute()
     return None
 
-def func_ses_client_read(config_aws_access_key_id: str, config_aws_secret_access_key: str, config_ses_region_name: str) -> any:
-    """Initialize AWS SES client."""
-    import boto3
-    return boto3.client("ses", region_name=config_ses_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
 
 def func_ses_send_email(client_ses: any, from_email: str, to_emails: list, subject: str, body: str) -> None:
     """Send an email via AWS SES."""
@@ -1515,19 +1493,9 @@ def func_sns_send_mobile_message_template(client_sns: any, mobile_number: str, m
     client_sns.publish(PhoneNumber=mobile_number, Message=message_text, MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sender_id}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": template_id}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": entity_id}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
     return None
 
-def func_sns_client_read(config_aws_access_key_id: str, config_aws_secret_access_key: str, config_sns_region_name: str) -> any:
-    """Initialize AWS SNS client."""
-    import boto3
-    return boto3.client("sns", region_name=config_sns_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
 
 
 #external clients - cloud (aws/s3/sns/ses)
-async def func_s3_client_read(config_aws_access_key_id: str, config_aws_secret_access_key: str, config_s3_region_name: str) -> any:
-    """Initialize AWS S3 client and resource."""
-    import aiobotocore.session, boto3
-    client = aiobotocore.session.get_session().create_client("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
-    resource = boto3.resource("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
-    return client, resource
 
 async def func_s3_bucket_create(client_s3: any, config_s3_region_name: str, bucket_name: str) -> any:
     """Create a new AWS S3 bucket in a specific region."""
@@ -1575,56 +1543,20 @@ def func_s3_upload_presigned(client_s3: any, config_s3_region_name: str, bucket_
     presigned_post = client_s3.generate_presigned_post(Bucket=bucket_name, Key=file_key, ExpiresIn=config_s3_presigned_expire_sec, Conditions=[["content-length-range", 1, config_s3_limit_kb * 1024]])
     return {**presigned_post["fields"], "url_final": f"https://{bucket_name}.s3.{config_s3_region_name}.amazonaws.com/{file_key}"}
 
-def func_celery_client_read_producer(config_celery_broker_url: str, config_celery_backend_url: str) -> any:
-    """Initialize Celery producer client."""
-    from celery import Celery
-    return Celery("atom", broker=config_celery_broker_url, backend=config_celery_backend_url)
 
-def func_celery_client_read_consumer(config_celery_broker_url: str, config_celery_backend_url: str) -> any:
-    """Initialize Celery consumer client."""
-    from celery import Celery
-    return Celery("atom", broker=config_celery_broker_url, backend=config_celery_backend_url)
 
 def func_celery_producer(channel_name: str, task_name: str, client_celery_producer: any, params: dict) -> any:
     """Send a task to a Celery worker."""
     return client_celery_producer.send_task(task_name, kwargs=params, queue=channel_name).id
 
-async def func_rabbitmq_client_read_producer(config_rabbitmq_url: str) -> any:
-    """Initialize RabbitMQ producer connection and channel."""
-    import aio_pika
-    conn = await aio_pika.connect_robust(config_rabbitmq_url)
-    channel = await conn.channel()
-    return conn, channel
 
-async def func_rabbitmq_client_read_consumer(config_rabbitmq_url: str, channel_name: str) -> any:
-    """Initialize RabbitMQ consumer connection and queue."""
-    import aio_pika
-    conn = await aio_pika.connect_robust(config_rabbitmq_url)
-    channel = await conn.channel()
-    await channel.set_qos(prefetch_count=1)
-    queue = await channel.declare_queue(channel_name, durable=True)
-    return conn, queue
 
 async def func_rabbitmq_producer(channel_name: str, client_rabbitmq_producer: any, payload: dict) -> any:
     """Publish a JSON payload to a RabbitMQ queue."""
     import aio_pika, orjson
     return await client_rabbitmq_producer.default_exchange.publish(aio_pika.Message(body=orjson.dumps(payload), delivery_mode=aio_pika.DeliveryMode.PERSISTENT), routing_key=channel_name)
 
-async def func_kafka_client_read_producer(config_kafka_url: str, config_kafka_username: str = None, config_kafka_password: str = None) -> any:
-    """Initialize Kafka producer client with optional SASL authentication."""
-    from aiokafka import AIOKafkaProducer
-    p = AIOKafkaProducer(bootstrap_servers=config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaProducer(bootstrap_servers=config_kafka_url)
-    await p.start()
-    return p
 
-async def func_kafka_client_read_consumer(config_kafka_url: str, config_kafka_username: str = None, config_kafka_password: str = None, channel_name: str = None, config_kafka_group_id: str = None, config_kafka_is_auto_commit: int = None) -> any:
-    """Initialize Kafka consumer client with optional SASL authentication and group settings."""
-    if config_kafka_is_auto_commit is None:
-        config_kafka_is_auto_commit = 1
-    from aiokafka import AIOKafkaConsumer
-    c = AIOKafkaConsumer(channel_name, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, enable_auto_commit=bool(config_kafka_is_auto_commit), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaConsumer(channel_name, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, enable_auto_commit=bool(config_kafka_is_auto_commit))
-    await c.start()
-    return c
 
 async def func_kafka_producer(channel_name: str, client_kafka_producer: any, payload: dict) -> any:
     """Publish a JSON payload to a Kafka topic."""
@@ -1888,25 +1820,26 @@ def func_app_add_static(fastapi_app: any, folder_path: str, mount_path: str) -> 
 
 def func_add_router(fastapi_app: any) -> None:
     """Dynamically discover and include all FastAPI routers from the router directory."""
-    import sys, importlib.util, traceback
+    import sys, importlib.util
     from pathlib import Path
+    from fastapi import APIRouter
     root_dir = Path("./router").resolve()
     if not root_dir.exists():
         return None
     for py_file in root_dir.rglob("*.py"):
         if py_file.name.startswith((".", "__")):
             continue
-        try:
-            rel_path = py_file.relative_to(root_dir)
-            module_name = "router." + ".".join(rel_path.with_suffix("").parts)
-            spec = importlib.util.spec_from_file_location(module_name, py_file)
-            if spec and spec.loader:
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                spec.loader.exec_module(module)
-                fastapi_app.include_router(getattr(module, "router"))
-        except Exception:
-            traceback.print_exc()
+        rel_path = py_file.relative_to(root_dir)
+        module_name = "router." + ".".join(rel_path.with_suffix("").parts)
+        spec = importlib.util.spec_from_file_location(module_name, py_file)
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+            router = getattr(module, "router", None)
+            if not isinstance(router, APIRouter):
+                raise Exception(f"invalid router file: {py_file} (missing 'router' attribute of type APIRouter)")
+            fastapi_app.include_router(router)
 
 #admin & analytics
 
@@ -2173,10 +2106,6 @@ async def func_auth_login_google(client_postgres_pool: any, config_google_login_
         return dict(records[0])
 
 
-def func_openai_client_read(config_openai_key: str) -> any:
-    """Initialize OpenAI client with the provided API key."""
-    from openai import OpenAI
-    return OpenAI(api_key=config_openai_key)
 
 async def func_resend_send_email(config_resend_url: str, config_resend_key: str, from_email: str, to_email: str, email_subject: str, email_content: str) -> None:
     """Send an email using the Resend API."""
@@ -2197,17 +2126,7 @@ def func_fast2sms_send_otp_mobile(config_fast2sms_url: str, config_fast2sms_key:
         raise Exception(response.get("message"))
     return response
 
-def func_posthog_client_read(config_posthog_project_host: str, config_posthog_project_key: str) -> any:
-    """Initialize PostHog client for analytics tracking."""
-    from posthog import Posthog
-    return Posthog(config_posthog_project_key, host=config_posthog_project_host)
 
-def func_gsheet_client_read(config_gsheet_service_account_json_path: str, config_gsheet_scope: list) -> any:
-    """Initialize Google Sheets client using a service account credentials file and specific scopes."""
-    import gspread
-    from google.oauth2.service_account import Credentials
-    creds = Credentials.from_service_account_file(config_gsheet_service_account_json_path, scopes=config_gsheet_scope)
-    return gspread.authorize(creds)
 
 def func_gsheet_object_create(client_gsheet: any, sheet_url: str, object_list: list) -> any:
     """Append records to a Google Sheet."""
@@ -2241,10 +2160,6 @@ async def func_gsheet_object_read(sheet_url: str) -> list:
     data_frame = pd.read_csv(io.StringIO(csv_content))
     return data_frame.where(pd.notnull(data_frame), None).to_dict(orient="records")
 
-def func_mongodb_client_read(config_mongodb_uri: str) -> any:
-    """Initialize MongoDB client."""
-    import motor.motor_asyncio
-    return motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_uri)
 
 async def func_mongodb_object_create(client_mongodb: any, db_name: str, collection_name: str, object_list: list) -> str:
     """Insert multiple records into a MongoDB collection."""
@@ -2472,19 +2387,6 @@ def func_converter_number(data_type: str, process_mode: str, value: any) -> any:
             decoded_chars.append(charset[reminder])
         return "".join(decoded_chars[::-1][1:]) if decoded_chars else ""
         
-async def func_sftp_client_read(host: str, port: int, username: str, password: str, key_path: str, auth_mode: str) -> any:
-    """Initialize SFTP connection using asyncssh."""
-    import asyncssh
-    if auth_mode not in ("key", "password"):
-        raise Exception(f"invalid sftp auth mode: {auth_mode}, allowed: key, password")
-    if auth_mode == "key":
-        if not key_path:
-            raise Exception("ssh key path missing")
-        return await asyncssh.connect(host=host, port=int(port), username=username, client_keys=[key_path], known_hosts=None)
-    if auth_mode == "password":
-        if not password:
-            raise Exception("password missing")
-        return await asyncssh.connect(host=host, port=int(port), username=username, password=password, known_hosts=None)
 
 
 # celery init moved to consumer.py

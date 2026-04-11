@@ -8,16 +8,14 @@
 !script/**
 !static/
 !static/**
+!core/
+!core/**
 
 # files
-!function.py
-!config.py
 !main.py
-!consumer.py
-
-# misc
 !requirements.txt
 !Dockerfile
 !readme.md
 !AGENTS.md
 !.gitignore
+

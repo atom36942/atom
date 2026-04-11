@@ -1,7 +1,7 @@
 #import
 import os
 import uvicorn
-from app import app
+from core.app import app
 
 #main
 if __name__ == "__main__":

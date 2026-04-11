@@ -2,11 +2,11 @@
 | Core Principle | Description |
 | :--- | :--- |
 | **Speed** | Open-source backend for rapid large-scale development. |
-| **Architecture** | Modular setup combining functional and procedural styles. |
-| **Reliability** | Pure functions to minimize side effects and improve testing. |
-| **Production** | Rapidly build APIs, background jobs, and integrations. |
-| **Efficiency** | Minimal boilerplate to avoid reinventing the wheel. |
-| **Flexibility** | Non-opinionated and fully extensible framework. |
+| **Architecture** | Modular setup with `core/` for framework logic and `function/` for domain logic. |
+| **Reliability** | Pure functions within `core/function.py` to minimize side effects. |
+| **Production** | Rapidly build APIs, background jobs, and modular integrations. |
+| **Efficiency** | Centralized client initialization in `function/client.py`. |
+| **Flexibility** | Non-opinionated and fully extensible modular micro-framework. |
 | **Tech Stack** | FastAPI, Postgres, Redis, RabbitMQ, Kafka, Celery, S3. |
 
 ###  Setup
@@ -32,11 +32,11 @@ config_redis_url="redis://localhost:6379"
 config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 config_mongodb_uri="mongodb://localhost:27017"
 
-#Consumers
-./venv/bin/python consumer.py redis default
-./venv/bin/python consumer.py rabbitmq default
-./venv/bin/python consumer.py kafka default
-./venv/bin/python consumer.py celery default
+# Consumers (Modules)
+./venv/bin/python -m core.consumer redis default
+./venv/bin/python -m core.consumer rabbitmq default
+./venv/bin/python -m core.consumer kafka default
+./venv/bin/python -m core.consumer celery default
 ```
 
 ###  FAQ

@@ -1,6 +1,7 @@
 #import
-from function import *
-from config import *
+from .function import *
+from function.client import *
+from .config import *
 import sys
 import asyncio
 from itertools import groupby, count
@@ -36,17 +37,17 @@ async def logic_task_exec(pool: any, payload: any) -> any:
         raise
 
 #celery init
-def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str, config_celery_backend_url: str, config_postgres_url: str, config_postgres_min_connection: int, config_postgres_max_connection: int, func_postgres_client_read: callable, func_postgres_create: callable, func_postgres_update: callable, func_postgres_obj_serialize: callable) -> any:
+def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str, config_celery_backend_url: str, config_postgres_url: str, config_postgres_min_connection: int, config_postgres_max_connection: int, func_client_read_postgres: callable, func_postgres_create: callable, func_postgres_update: callable, func_postgres_obj_serialize: callable) -> any:
     """Initialize Celery with signature-aware dynamic task registration."""
     from celery import signals
     import inspect
-    app = func_celery_client_read_consumer(config_celery_broker_url, config_celery_backend_url)
+    app = func_client_read_celery_consumer(config_celery_broker_url, config_celery_backend_url)
     app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
     client_postgres_pool, worker_loop = None, None
     async def _init_pool():
         nonlocal client_postgres_pool
         if client_postgres_pool is None:
-            client_postgres_pool = await func_postgres_client_read({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+            client_postgres_pool = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
     @signals.worker_process_init.connect
     def init_worker(**kwargs):
         nonlocal worker_loop
@@ -93,14 +94,14 @@ def logic_celery(channel=None):
     if not channel:
         raise Exception("channel name required")
     name = f"celery_{channel}"
-    return func_consumer_celery_init(name, config_celery_broker_url, config_celery_backend_url, config_postgres_url, config_postgres_min_connection, config_postgres_max_connection, func_postgres_client_read, func_postgres_create, func_postgres_update, func_postgres_obj_serialize)
+    return func_consumer_celery_init(name, config_celery_broker_url, config_celery_backend_url, config_postgres_url, config_postgres_min_connection, config_postgres_max_connection, func_client_read_postgres, func_postgres_create, func_postgres_update, func_postgres_obj_serialize)
 
 async def logic_redis(channel=None):
     if not channel:
         raise Exception("channel name required")
-    pool = await func_postgres_client_read({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
-    client = await func_redis_client_read(config_redis_url_pubsub)
-    reader = await func_redis_client_read_consumer(client, channel)
+    pool = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    client = await func_client_read_redis(config_redis_url_pubsub)
+    reader = await func_client_read_redis_consumer(client, channel)
     print(f"redis consumer started on {channel}", flush=True)
     try:
         async for msg in reader.listen():
@@ -113,8 +114,8 @@ async def logic_redis(channel=None):
 async def logic_rabbitmq(channel=None):
     if not channel:
         raise Exception("channel name required")
-    pool = await func_postgres_client_read({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
-    conn, queue = await func_rabbitmq_client_read_consumer(config_rabbitmq_url, channel)
+    pool = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    conn, queue = await func_client_read_rabbitmq_consumer(config_rabbitmq_url, channel)
     print(f"rabbitmq consumer started on {channel}", flush=True)
     try:
         async with queue.iterator() as queue_iter:
@@ -128,8 +129,8 @@ async def logic_rabbitmq(channel=None):
 async def logic_kafka(channel=None):
     if not channel:
         raise Exception("channel name required")
-    pool = await func_postgres_client_read({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
-    consumer = await func_kafka_client_read_consumer(config_kafka_url, config_kafka_username, config_kafka_password, channel, config_kafka_group_id, config_kafka_is_auto_commit)
+    pool = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    consumer = await func_client_read_kafka_consumer(config_kafka_url, config_kafka_username, config_kafka_password, channel, config_kafka_group_id, config_kafka_is_auto_commit)
     print(f"kafka consumer started on {channel}", flush=True)
     try:
         while True:
@@ -148,7 +149,7 @@ async def logic_kafka(channel=None):
 #main
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("usage: venv/bin/python consumer.py [redis|rabbitmq|kafka|celery] [channel]")
+        print("usage: venv/bin/python -m core.consumer [redis|rabbitmq|kafka|celery] [channel]")
         sys.exit(1)
     mode, channel, celery = sys.argv[1], sys.argv[2], None
     if mode == "celery":
