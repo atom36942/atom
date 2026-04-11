@@ -37,17 +37,51 @@ def func_password_hash(password_raw: any) -> str:
     import hashlib
     return hashlib.sha256(str(password_raw).encode()).hexdigest()
 
-def func_logic_data_validate(obj_list: list, api_role: str, config_column_blocked: list, immutable_fields: list = None) -> None:
-    """Centralized validation for platform constraints, blocked columns, and immutable fields across one pass."""
-    immutable_fields = immutable_fields or ["created_at"]
-    for item in obj_list:
-        if not isinstance(item, dict):
-            continue
-        for key in item:
-            if key in immutable_fields:
-                raise Exception(f"restricted update to immutable field: {key}")
-            if api_role != "admin" and key in config_column_blocked:
-                raise Exception(f"unauthorized update to restricted field: {key}")
+async def func_token_encode(user_obj: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_token_key: list = None) -> dict:
+    """Generate access and refresh JWT tokens for a user object."""
+    import jwt, orjson, time
+    if user_obj is None:
+        return None
+    payload_dict = {k: user_obj.get(k) for k in config_token_key} if config_token_key else dict(user_obj) if isinstance(user_obj, dict) else user_obj
+    serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
+    now_ts = int(time.time())
+    access_token = jwt.encode({"exp": now_ts + config_token_expiry_sec, "data": serialized_payload, "type": "access"}, config_token_secret_key)
+    refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, config_token_secret_key)
+    return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
+
+async def func_otp_generate(client_postgres_pool: any, email_address: str = None, mobile_number: str = None) -> int:
+    """Generate a random 6-digit OTP and store it in PostgreSQL for a given email or mobile."""
+    import random
+    otp_code = random.randint(100000, 999999)
+    query = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
+    async with client_postgres_pool.acquire() as conn:
+        await conn.execute(query, otp_code, email_address.strip().lower() if email_address else None, mobile_number.strip() if mobile_number else None)
+    return otp_code
+
+async def func_otp_verify(client_postgres_pool: any, otp_code: int, email_address: str = None, mobile_number: str = None, config_expiry_sec_otp: int = None) -> None:
+    """Verify an OTP for email or mobile within its expiration window."""
+    config_expiry_sec_otp = config_expiry_sec_otp or 600
+    if not otp_code:
+        raise Exception("otp code missing")
+    if not email_address and not mobile_number:
+        raise Exception("missing both email and mobile")
+    if email_address and mobile_number:
+        raise Exception("provide only one identifier")
+    if email_address:
+        query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
+        identifier = email_address.strip().lower()
+    else:
+        query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
+        identifier = mobile_number.strip()
+    async with client_postgres_pool.acquire() as conn:
+        records = await conn.fetch(query, identifier)
+        if not records:
+            raise Exception("otp not found")
+        if records[0]["otp"] != otp_code:
+            raise Exception("invalid otp code")
+        if not records[0]["is_active"]:
+            raise Exception("otp code expired")
+    return None
 
 async def func_api_file_to_obj_list(upload_file: any) -> list[dict[str, any]]:
     """Convert an uploaded CSV file into a list of dictionaries (all at once)."""

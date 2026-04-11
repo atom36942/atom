@@ -17,57 +17,6 @@ async def func_postgres_runner(client_postgres_pool: any, execution_mode: str, s
             return await conn.fetch(sql_query, timeout=15)
         return await conn.execute(sql_query, timeout=15)
 
-async def func_postgres_ids_update(client_postgres_pool: any, table_name: str, record_ids: any, column_name: str, target_value: any, func_validate_identifier: callable, created_by_id: int = None, updated_by_id: int = None) -> None:
-    """Update a specific column for a list of record IDs with ownership check (identifier validated)."""
-    table = func_validate_identifier(table_name)
-    column = func_validate_identifier(column_name)
-    ids_str = ""
-    if isinstance(record_ids, str):
-        ids_str = ",".join([str(int(x.strip())) for x in record_ids.split(",") if x.strip()])
-    elif isinstance(record_ids, (list, tuple)):
-        ids_str = ",".join([str(int(x)) for x in record_ids])
-    set_clause = f"{column}=$1"
-    if updated_by_id is not None:
-        set_clause = f"{column}=$1,updated_by_id=$2"
-    update_query = f"UPDATE {table} SET {set_clause} WHERE id IN ({ids_str}) AND ($3::bigint IS NULL OR created_by_id=$3);"
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(update_query, target_value, updated_by_id, created_by_id)
-
-async def func_postgres_ids_delete(client_postgres_pool: any, table_name: str, record_ids: any, func_validate_identifier: callable, created_by_id: int = None, config_table_system: list = None, config_postgres_ids_delete_limit: int = None) -> str:
-    """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
-    table = func_validate_identifier(table_name)
-    config_postgres_ids_delete_limit = config_postgres_ids_delete_limit or 100
-    if table == "users":
-        raise Exception("users table not allowed")
-    ids_str = ""
-    if isinstance(record_ids, str):
-        id_list = [str(int(x.strip())) for x in record_ids.split(",") if x.strip()]
-        if len(id_list) > config_postgres_ids_delete_limit:
-            raise Exception("ids length exceeded")
-        ids_str = ",".join(id_list)
-    elif isinstance(record_ids, (list, tuple)):
-        if len(record_ids) > config_postgres_ids_delete_limit:
-            raise Exception("ids length exceeded")
-        ids_str = ",".join([str(int(x)) for x in record_ids])
-    delete_query = f"DELETE FROM {table} WHERE id IN ({ids_str}) AND ($1::bigint IS NULL OR created_by_id=$1);"
-    if config_table_system and table in config_table_system:
-        raise Exception("system table protected")
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(delete_query, created_by_id)
-    return "ids deleted"
-
-async def func_postgres_parent_read(client_postgres_pool: any, table_name: str, parent_column: str, parent_table: str, func_validate_identifier: callable, created_by_id: int = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
-    """Read parent records based on child table's foreign key column (identifier validated)."""
-    table = func_validate_identifier(table_name)
-    col = func_validate_identifier(parent_column)
-    p_table = func_validate_identifier(parent_table)
-    limit = min(max(int(limit_count or 100), 1), 500)
-    page = max(int(page_number or 1), 1)
-    order = sort_order or "id desc"
-    query = f"WITH x AS (SELECT {col} FROM {table} WHERE ($1::bigint IS NULL OR created_by_id=$1) ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit}) SELECT ct.* FROM x LEFT JOIN {p_table} ct ON x.{col}=ct.id;"
-    async with client_postgres_pool.acquire() as conn:
-        return [dict(r) for r in (await conn.fetch(query, created_by_id))]
-
 async def func_postgres_clean(client_postgres_pool: any, config_table: dict, func_validate_identifier: callable) -> None:
     """Perform database maintenance by cleaning up expired records based on retention configurations (identifier validated)."""
     if not config_table:
@@ -414,14 +363,14 @@ async def func_postgres_serialize(client_postgres_pool: any, table_name: str, ob
                 val = hashlib.sha256(str(val).encode()).hexdigest()
             if col not in schema:
                 if col == "id":
-                    continue # ID is always handled but might not be in partial schemas
+                    continue
                 async with client_postgres_pool.acquire() as conn:
                     rows = await conn.fetch("SELECT column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_name = $1", table_name)
                     func_postgres_serialize.state[table_name] = {r["column_name"]: r["data_type"] for r in rows}
                     schema = func_postgres_serialize.state[table_name]
             if col not in schema:
                 if col == "id":
-                    new_item[col] = val # Force ID through even if schema check fails
+                    new_item[col] = val
                 continue
             if val is None:
                 new_item[col] = val

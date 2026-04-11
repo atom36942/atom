@@ -41,7 +41,7 @@ async def func_api_my_account_delete(request:Request):
 @router.get("/my/message-received")
 async def func_api_my_message_received(request:Request):
    obj_query=await func_request_param_read(request,"query",[("mode","str",1,["all","unread","read"],None,None,None),("order","str",0,None,"id desc",None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None)])
-   obj_list=await func_message_received(request.app.state.client_postgres_pool,request.state.user["id"],obj_query["mode"],obj_query["order"],obj_query["limit"],obj_query["page"],request.app.state.func_postgres_ids_update,func_validate_identifier)
+   obj_list=await func_message_received(request.app.state.client_postgres_pool,request.state.user["id"],obj_query["mode"],obj_query["order"],obj_query["limit"],obj_query["page"],request.app.state.func_ids_update,func_validate_identifier)
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-inbox")
@@ -73,14 +73,14 @@ async def func_api_my_message_delete_bulk(request:Request):
 async def func_api_my_parent_read(request:Request):
    st=request.app.state
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("parent_table","str",1,st.cache_postgres_schema_tables,None,None,None),("parent_column","str",1,st.cache_postgres_schema_columns,None,None,None),("order","str",0,None,"id desc",None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None)])
-   output=await func_postgres_parent_read(st.client_postgres_pool,obj_query["table"],obj_query["parent_column"],obj_query["parent_table"],func_validate_identifier,request.state.user["id"],obj_query["order"],obj_query["limit"],obj_query["page"])
+   output=await func_parent_read(st.client_postgres_pool,obj_query["table"],obj_query["parent_column"],obj_query["parent_table"],func_validate_identifier,request.state.user["id"],obj_query["order"],obj_query["limit"],obj_query["page"])
    return {"status":1,"message":output}
 
 @router.post("/my/ids-delete")
 async def func_api_my_ids_delete(request:Request):
    st=request.app.state
    obj_body=await func_request_param_read(request,"body",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("ids","str",1,None,None,None,None)])
-   output=await func_postgres_ids_delete(st.client_postgres_pool,obj_body["table"],obj_body["ids"],func_validate_identifier,request.state.user.get("id",0),config_table_system,config_postgres_ids_delete_limit)
+   output=await func_ids_delete(st.client_postgres_pool,obj_body["table"],obj_body["ids"],func_validate_identifier,request.state.user.get("id",0),config_table_system,config_postgres_ids_delete_limit)
    return {"status":1,"message":output}
 
 @router.post("/my/object-create")

@@ -77,11 +77,11 @@ async def func_lifespan(app:FastAPI):
       await client_sftp.wait_closed()
       
 #app
-app=func_fastapi_app_read(func_lifespan,config_is_debug_fastapi)
+app=func_app_read(func_lifespan,config_is_debug_fastapi)
 
 #app add
 func_app_add_cors(app,config_cors_origin,config_cors_method,config_cors_headers,config_is_cors_allow_credentials)
-func_add_router(app)
+func_app_add_router(app)
 func_app_add_static(app,"./static","/static")
 if config_sentry_dsn:
    func_app_add_sentry(config_sentry_dsn)
