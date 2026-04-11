@@ -25,7 +25,7 @@ async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: 
 
 
 
-async def func_logic_obj_create(api_role: str, obj_query: dict[str, any], obj_body: dict[str, any], user_id: any, config_table_create_my: list, config_table_create_public: list, config_column_blocked: list, client_postgres_pool: any, func_postgres_serialize: callable, config_table: dict, func_producer_logic: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_object_create: callable, func_validate_identifier: callable, config_postgres_batch_limit: int = None) -> any:
+async def func_logic_obj_create(api_role: str, obj_query: dict[str, any], obj_body: dict[str, any], user_id: any, config_table_create_my: list, config_table_create_public: list, config_column_blocked: list, client_postgres_pool: any, func_postgres_serialize: callable, config_table: dict, func_producer_logic: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_postgres_object_create: callable, func_validate_identifier: callable, config_postgres_batch_limit: int = None) -> any:
     """Wrapper logic for object creation with role-based validation and optional queueing."""
     if not obj_body:
         raise Exception("body required")
@@ -51,11 +51,10 @@ async def func_logic_obj_create(api_role: str, obj_query: dict[str, any], obj_bo
             item["created_by_id"] = user_id
     if obj_query.get("queue"):
         task_obj = {"task_name": "func_postgres_object_create", "params": {"execution_mode": obj_query.get("mode"), "table_name": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "config_table": config_table.get(obj_query.get("table"), {}).get("buffer")}}
-        producer_obj = {"celery": {"client": client_celery_producer, "func": func_celery_producer}, "kafka": {"client": client_kafka_producer, "func": func_kafka_producer}, "rabbitmq": {"client": client_rabbitmq_producer, "func": func_rabbitmq_producer}, "redis": {"client": client_redis_producer, "func": func_redis_producer}, "config_channel_allowed": config_channel_allowed}
-        return await func_producer_logic(obj_query.get("queue"), task_obj, producer_obj)
+        return await func_producer_logic(obj_query.get("queue"), task_obj, config_channel_allowed, client_celery_producer, client_kafka_producer, client_rabbitmq_producer, client_redis_producer)
     return await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, obj_query.get("mode"), obj_query.get("table"), obj_list, func_validate_identifier, obj_query.get("is_serialize"), config_table.get(obj_query.get("table"), {}).get("buffer"))
 
-async def func_logic_obj_update(api_role: str, obj_query: dict, obj_body: dict, user_id: any, config_column_blocked: list, config_column_single_update: list, client_postgres_pool: any, func_postgres_serialize: callable, func_producer_logic: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_celery_producer: callable, func_kafka_producer: callable, func_rabbitmq_producer: callable, func_redis_producer: callable, func_postgres_object_update: callable, func_validate_identifier: callable, func_otp_verify: callable, config_expiry_sec_otp: int, config_is_otp_users_update_admin: int = None, config_postgres_batch_limit: int = None) -> any:
+async def func_logic_obj_update(api_role: str, obj_query: dict, obj_body: dict, user_id: any, config_column_blocked: list, config_column_single_update: list, client_postgres_pool: any, func_postgres_serialize: callable, func_producer_logic: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_postgres_object_update: callable, func_validate_identifier: callable, func_otp_verify: callable, config_expiry_sec_otp: int, config_is_otp_users_update_admin: int = None, config_postgres_batch_limit: int = None) -> any:
     """Wrapper logic for object updates with owner validation, OTP checks, and optional queueing."""
     if not obj_body:
         raise Exception("body required")
@@ -97,12 +96,12 @@ async def func_logic_obj_update(api_role: str, obj_query: dict, obj_body: dict, 
             item["updated_by_id"] = user_id
     if obj_query.get("queue"):
         task_obj = {"task_name": "func_postgres_object_update", "params": {"table_name": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "created_by_id": created_by_id}}
-        producer_obj = {"celery": {"client": client_celery_producer, "func": func_celery_producer}, "kafka": {"client": client_kafka_producer, "func": func_kafka_producer}, "rabbitmq": {"client": client_rabbitmq_producer, "func": func_rabbitmq_producer}, "redis": {"client": client_redis_producer, "func": func_redis_producer}, "config_channel_allowed": config_channel_allowed}
-        return await func_producer_logic(obj_query.get("queue"), task_obj, producer_obj)
+        return await func_producer_logic(obj_query.get("queue"), task_obj, config_channel_allowed, client_celery_producer, client_kafka_producer, client_rabbitmq_producer, client_redis_producer)
     return await func_postgres_object_update(client_postgres_pool, func_postgres_serialize, obj_query.get("table"), obj_list, func_validate_identifier, obj_query.get("is_serialize"), created_by_id)
 
-async def func_producer_logic(queue: str, task_obj: dict, producer_obj: dict) -> any:
-    """Ultra-standardized producer logic. Handles queue splitting, validation, and multi-tech dispatch in exactly 3 parameters."""
+async def func_producer_logic(queue: str, task_obj: dict, config_channel_allowed: list, client_celery_producer: any = None, client_kafka_producer: any = None, client_rabbitmq_producer: any = None, client_redis_producer: any = None) -> any:
+    """Ultra-standardized producer logic. Handles queue splitting, validation, and multi-tech dispatch in exactly 3-7 parameters."""
+    import orjson
     if not queue:
         raise Exception("invalid queue format: queue name missing")
     if "_" not in queue:
@@ -110,14 +109,26 @@ async def func_producer_logic(queue: str, task_obj: dict, producer_obj: dict) ->
     tech, channel = queue.split("_", 1)
     if tech not in ["redis", "rabbitmq", "kafka", "celery"]:
         raise Exception(f"invalid queue technology: {tech}")
-    if channel not in producer_obj.get("config_channel_allowed", []):
-        raise Exception(f"unauthorized channel: {channel}, allowed: {producer_obj.get('config_channel_allowed')}")
-    p = producer_obj.get(tech)
-    if not p:
-        raise Exception(f"producer not found for tech: {tech}")
+    if channel not in (config_channel_allowed or []):
+        raise Exception(f"unauthorized channel: {channel}, allowed: {config_channel_allowed}")
     if tech == "celery":
-        return p["func"](channel, task_obj["task_name"], p["client"], task_obj["params"])
-    return await p["func"](channel, p["client"], task_obj)
+        if not client_celery_producer:
+            raise Exception("celery producer not initialized")
+        return client_celery_producer.send_task(task_obj["task_name"], kwargs=task_obj["params"], queue=channel).id
+    elif tech == "rabbitmq":
+        import aio_pika
+        if not client_rabbitmq_producer:
+            raise Exception("rabbitmq producer not initialized")
+        return await client_rabbitmq_producer.default_exchange.publish(aio_pika.Message(body=orjson.dumps(task_obj), delivery_mode=aio_pika.DeliveryMode.PERSISTENT), routing_key=channel)
+    elif tech == "kafka":
+        if not client_kafka_producer:
+            raise Exception("kafka producer not initialized")
+        return await client_kafka_producer.send_and_wait(channel, orjson.dumps(task_obj))
+    elif tech == "redis":
+        if not client_redis_producer:
+            raise Exception("redis producer not initialized")
+        return await client_redis_producer.publish(channel, orjson.dumps(task_obj).decode("utf-8"))
+    return None
 
 
 #api metadata
@@ -577,25 +588,6 @@ async def func_redis_object_delete(client_redis: any, keys: list) -> None:
         await pipe.execute()
     return None
 
-
-def func_celery_producer(channel_name: str, task_name: str, client_celery_producer: any, params: dict) -> any:
-    """Send a task to a Celery worker."""
-    return client_celery_producer.send_task(task_name, kwargs=params, queue=channel_name).id
-
-async def func_rabbitmq_producer(channel_name: str, client_rabbitmq_producer: any, payload: dict) -> any:
-    """Publish a JSON payload to a RabbitMQ queue."""
-    import aio_pika, orjson
-    return await client_rabbitmq_producer.default_exchange.publish(aio_pika.Message(body=orjson.dumps(payload), delivery_mode=aio_pika.DeliveryMode.PERSISTENT), routing_key=channel_name)
-
-async def func_kafka_producer(channel_name: str, client_kafka_producer: any, payload: dict) -> any:
-    """Publish a JSON payload to a Kafka topic."""
-    import orjson
-    return await client_kafka_producer.send_and_wait(channel_name, orjson.dumps(payload))
-
-async def func_redis_producer(channel_name: str, client_redis: any, payload: dict) -> int:
-    """Publish a JSON-serialized payload to a Redis channel."""
-    import orjson
-    return await client_redis.publish(channel_name, orjson.dumps(payload).decode('utf-8'))
 
 #api cache & rate limiting
 async def func_token_encode(user_obj: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_token_key: list = None) -> dict:
