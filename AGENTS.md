@@ -10,7 +10,11 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 - **IO Isolation**: Use `tmp/` strictly for all file operations.
 - **Naming Conventions**: Strict prefixes required (`is_`, `config_`, `func_`, `client_`, `cache_`) including service/feature scope.
 - **Booleans**: All boolean values must be integers (1/0) and must use the `is_` prefix.
-- **Pure Functional Logic**: Place heavy focus on pure functional programming. All core logic must be stateless, without external dependencies or side effects.
+- **Pure Functional Logic**: All logic in the `function/` directory must be 100% pure, stateless, and without side effects. To maintain this purity, the following MUST be passed as parameters and NEVER imported at the top level:
+    1. **External Libraries/Packages** (e.g., `import json` inside or pass as param).
+    2. **System Clients** (e.g., `client_postgres`).
+    3. **Configuration Settings** (e.g., `config_api`).
+    4. **Functional Logic** (i.e., other functions passed as callables).
 
 ### Repository Map
 - **`main.py`**: Entry point for the application. Handles server execution and runtime orchestration.
@@ -42,5 +46,5 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 - **Caching**: Use the `cache_` prefix for any new caching-related state or logic.
 - **Client Lifecycle**: All clients must be defined as pure functions in `function/client.py` and managed via the application state (`request.app.state`).
 - **HTML Modularization**: Large HTML files must be refactored into a dedicated directory with separate CSS and JS components (e.g., `static/api/`) to maintain maintainability.
-- **Pure Functional Logic**: Place all pure functions in appropriate files within the `function/` directory. Every function in this directory must be 100% pure, stateless, and without external dependencies or side effects. Create new files as needed to maintain organization.
+- **Pure Functional Logic**: All functions in the `function/` directory must be 100% pure and stateless. Strictly pass libraries, clients, configs, and other logic as parameters.
 
