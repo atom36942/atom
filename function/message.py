@@ -1,13 +1,3 @@
-def func_sns_send_mobile_message(client_sns: any, mobile_number: str, message_text: str) -> None:
-    """Send a mobile SMS using AWS SNS."""
-    client_sns.publish(PhoneNumber=mobile_number, Message=message_text)
-    return None
-
-def func_sns_send_mobile_message_template(client_sns: any, mobile_number: str, message_text: str, template_id: str, entity_id: str, sender_id: str) -> None:
-    """Send a mobile SMS using AWS SNS with specific template and attributes."""
-    client_sns.publish(PhoneNumber=mobile_number, Message=message_text, MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sender_id}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": template_id}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": entity_id}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
-    return None
-
 async def func_message_inbox(client_postgres_pool: any, user_id: int, mode: str = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
     """Read a conversation-summarized inbox for a user with unread filtering."""
     limit_count = min(max(int(limit_count or 100), 1), 500)

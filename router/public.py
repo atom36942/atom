@@ -6,6 +6,7 @@ router=APIRouter()
 from core.config import *
 from core.function import *
 from function.message import *
+from function.aws import *
 import asyncio
 from datetime import datetime
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect
