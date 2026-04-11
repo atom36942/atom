@@ -5,6 +5,7 @@ router=APIRouter()
 #import
 from core.config import *
 from core.function import *
+from function.message import *
 import asyncio
 from datetime import datetime
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect
@@ -38,7 +39,7 @@ async def func_api_my_account_delete(request:Request):
 @router.get("/my/message-received")
 async def func_api_my_message_received(request:Request):
    obj_query=await func_request_param_read(request,"query",[("mode","str",1,["all","unread","read"],None,None,None),("order","str",0,None,"id desc",None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None)])
-   obj_list=await func_message_received(request.app.state.client_postgres_pool,request.state.user["id"],obj_query["mode"],obj_query["order"],obj_query["limit"],obj_query["page"],request.app.state.func_postgres_ids_update)
+   obj_list=await func_message_received(request.app.state.client_postgres_pool,request.state.user["id"],asyncio,obj_query["mode"],obj_query["order"],obj_query["limit"],obj_query["page"],request.app.state.func_postgres_ids_update)
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-inbox")

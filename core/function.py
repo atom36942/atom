@@ -61,7 +61,6 @@ def func_password_hash(password_raw: any) -> str:
     import hashlib
     return hashlib.sha256(str(password_raw).encode()).hexdigest()
 
-
 #api & middleware utilities
 async def func_api_response_error(exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple[str, any]:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
@@ -1483,15 +1482,7 @@ def func_ses_send_email(client_ses: any, from_email: str, to_emails: list, subje
     client_ses.send_email(Source=from_email, Destination={"ToAddresses": to_emails}, Message={"Subject": {"Data": subject}, "Body": {"Html": {"Data": body}}})
     return None
 
-def func_sns_send_mobile_message(client_sns: any, mobile_number: str, message_text: str) -> None:
-    """Send a mobile SMS using AWS SNS."""
-    client_sns.publish(PhoneNumber=mobile_number, Message=message_text)
-    return None
 
-def func_sns_send_mobile_message_template(client_sns: any, mobile_number: str, message_text: str, template_id: str, entity_id: str, sender_id: str) -> None:
-    """Send a mobile SMS using AWS SNS with specific template and attributes."""
-    client_sns.publish(PhoneNumber=mobile_number, Message=message_text, MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sender_id}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": template_id}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": entity_id}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
-    return None
 
 
 
@@ -1925,185 +1916,8 @@ async def func_otp_verify(client_postgres_pool: any, otp_code: int, email_addres
             raise Exception("otp code expired")
     return None
 
-async def func_message_inbox(client_postgres_pool: any, user_id: int, mode: str = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
-    """Read a conversation-summarized inbox for a user with unread filtering."""
-    limit_count = min(max(int(limit_count or 100), 1), 500)
-    page_number = max(int(page_number or 1), 1)
-    sort_order = sort_order or "id desc"
-    where_clause = "user_id=$1 AND is_read=1" if mode == "read" else "user_id=$1 AND is_read IS DISTINCT FROM 1" if mode == "unread" else "1=1"
-    query = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {sort_order} LIMIT {limit_count} OFFSET {(page_number-1)*limit_count};"
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_id)
-        return [dict(r) for r in records]
-
-async def func_message_received(client_postgres_pool: any, user_id: int, mode: str = None, sort_order: str = None, limit_count: int = None, page_number: int = None, func_postgres_ids_update: callable = None) -> list:
-    """Read all messages received by a specific user and optionally mark unread ones as read."""
-    import asyncio
-    limit_count = min(max(int(limit_count or 100), 1), 500)
-    page_number = max(int(page_number or 1), 1)
-    sort_order = sort_order or "id desc"
-    unread_filter = "AND is_read=1" if mode == "read" else "AND is_read IS DISTINCT FROM 1" if mode == "unread" else ""
-    query = f"SELECT * FROM message WHERE user_id=$1 {unread_filter} ORDER BY {sort_order} LIMIT {limit_count} OFFSET {(page_number-1)*limit_count};"
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_id)
-        obj_list = [dict(r) for r in records]
-        if obj_list and func_postgres_ids_update:
-            mark_read_ids = [r["id"] for r in obj_list if r.get("is_read") != 1]
-            if mark_read_ids:
-                asyncio.create_task(func_postgres_ids_update(client_postgres_pool, "message", mark_read_ids, "is_read", 1))
-    return obj_list
-
-async def func_message_thread(client_postgres_pool: any, user_one_id: int, user_two_id: int, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
-    """Read the full message thread between two users."""
-    limit_count = min(max(int(limit_count or 100), 1), 500)
-    page_number = max(int(page_number or 1), 1)
-    sort_order = sort_order or "id desc"
-    query = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {sort_order} LIMIT {limit_count} OFFSET {(page_number-1)*limit_count};"
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_one_id, user_two_id)
-        return [dict(r) for r in records]
-
-async def func_message_thread_mark_read(client_postgres_pool: any, current_user_id: int, partner_id: int) -> None:
-    """Mark all messages in a thread as read for the current user."""
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute("UPDATE message SET is_read=1 WHERE created_by_id=$1 AND user_id=$2;", partner_id, current_user_id)
-
-async def func_message_delete_single(client_postgres_pool: any, message_id: int, user_id: int) -> str:
-    """Delete a single message given its ID and user context."""
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute("DELETE FROM message WHERE id=$1 AND (created_by_id=$2 OR user_id=$2)", message_id, user_id)
-    return "message deleted"
-
-async def func_message_delete_bulk(client_postgres_pool: any, user_id: int, delete_mode: str) -> str:
-    """Delete multiple messages for a user based on context (sent, received, all)."""
-    if delete_mode == "sent":
-        query = "DELETE FROM message WHERE created_by_id=$1"
-        args = (user_id,)
-    elif delete_mode == "received":
-        query = "DELETE FROM message WHERE user_id=$1"
-        args = (user_id,)
-    elif delete_mode == "all":
-        query = "DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)"
-        args = (user_id,)
-    else:
-        raise Exception(f"invalid delete mode: {delete_mode}, allowed: sent, received, all")
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(query, *args)
-    return "messages deleted"
 
 
-async def func_auth_signup_username_password(client_postgres_pool: any, user_type: int, username_raw: str, password_raw: str, name_raw: str = None, config_is_signup: int = None, config_auth_type: list = None) -> dict:
-    """Handle user signup with username and password, including validation of global signup toggle and allowed identifier types."""
-    config_is_signup = config_is_signup if config_is_signup is not None else 1
-    config_auth_type = config_auth_type or [1, 2, 3]
-    if config_is_signup == 0:
-        raise Exception("signup disabled")
-    if user_type not in config_auth_type:
-        raise Exception(f"authentication type {user_type} not allowed")
-    username = username_raw.strip().lower()
-    password = func_password_hash(password_raw)
-    query = "INSERT INTO users (type, username, password, name) VALUES ($1, $2, $3, $4) RETURNING *;"
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_type, username, password, name_raw)
-        return dict(records[0])
-
-async def func_auth_signup_username_password_bigint(client_postgres_pool: any, user_type: int, username_bigint: int, password_bigint: int, config_is_signup: int, config_auth_type: list) -> dict:
-
-    """Register a new user with bigint identifier and bigint password (for specialized devices)."""
-    if config_is_signup == 0:
-        raise Exception("signup disabled")
-    if user_type not in config_auth_type:
-        raise Exception(f"type not allowed: {user_type}, allowed: {config_auth_type}")
-    query = "INSERT INTO users (type, username_bigint, password_bigint) VALUES ($1, $2, $3) RETURNING *;"
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_type, username_bigint, password_bigint)
-        return dict(records[0])
-
-async def func_auth_login_password_username(client_postgres_pool: any, user_type: int, password_raw: str, username: str) -> dict:
-    """Authenticate a user using username and password."""
-    hashed_pwd = func_password_hash(password_raw)
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username=$2 ORDER BY id DESC LIMIT 1;", user_type, username)
-        if not records:
-            raise Exception("username not found")
-        if records[0]["password"] != hashed_pwd:
-            raise Exception("incorrect password")
-        return dict(records[0])
-
-async def func_auth_login_password_username_bigint(client_postgres_pool: any, user_type: int, password_bigint: int, username_bigint: int) -> dict:
-    """Authenticate a user using bigint identifier and bigint password."""
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username_bigint=$2 ORDER BY id DESC LIMIT 1;", user_type, username_bigint)
-        if not records:
-            raise Exception("username not found")
-        if int(records[0]["password_bigint"]) != int(password_bigint):
-            raise Exception("incorrect password")
-    return dict(records[0])
-
-async def func_auth_login_password_email(client_postgres_pool: any, user_type: int, password_raw: str, email_address: str) -> dict:
-    """Authenticate a user using email address and password."""
-    hashed_pwd = func_password_hash(password_raw)
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", user_type, email_address)
-        if not records:
-            raise Exception("email not found")
-        if records[0]["password"] != hashed_pwd:
-            raise Exception("incorrect password")
-    return dict(records[0])
-
-async def func_auth_login_password_mobile(client_postgres_pool: any, user_type: int, password_raw: str, mobile_number: str) -> dict:
-    """Authenticate a user using mobile number and password."""
-    hashed_pwd = func_password_hash(password_raw)
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", user_type, mobile_number)
-        if not records:
-            raise Exception("mobile not found")
-        if records[0]["password"] != hashed_pwd:
-            raise Exception("incorrect password")
-    return dict(records[0])
-
-
-async def func_auth_login_otp_email(client_postgres_pool: any, user_type: int, email_address: str, config_auth_type: list) -> dict:
-    """Authenticate or register a user using email OTP with type validation."""
-    if config_auth_type and user_type not in config_auth_type:
-        raise Exception(f"type not allowed: {user_type}, allowed: {config_auth_type}")
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", user_type, email_address)
-        if records:
-            return dict(records[0])
-        new_records = await conn.fetch("INSERT INTO users (type, email) VALUES ($1, $2) RETURNING *;", user_type, email_address)
-        return dict(new_records[0])
-
-async def func_auth_login_otp_mobile(client_postgres_pool: any, user_type: int, mobile_number: str, config_auth_type: list) -> dict:
-    """Authenticate or register a user using mobile OTP with type validation."""
-    if config_auth_type and user_type not in config_auth_type:
-        raise Exception(f"type not allowed: {user_type}, allowed: {config_auth_type}")
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", user_type, mobile_number)
-        if records:
-            return dict(records[0])
-        new_records = await conn.fetch("INSERT INTO users (type, mobile) VALUES ($1, $2) RETURNING *;", user_type, mobile_number)
-        return dict(new_records[0])
-
-async def func_auth_login_google(client_postgres_pool: any, config_google_login_client_id: str, user_type: int, google_token: str, config_auth_type: list) -> dict:
-    """Validate a Google ID token and perform user login or signup based on the verified identity."""
-    if user_type not in config_auth_type:
-        raise Exception(f"authentication type {user_type} not allowed")
-    from google.oauth2 import id_token
-    from google.auth.transport import requests
-    import orjson
-    id_info = id_token.verify_oauth2_token(google_token, requests.Request(), config_google_login_client_id)
-    if not id_info:
-        raise Exception("invalid google token")
-    google_id = id_info["sub"]
-    email = id_info.get("email")
-    name = id_info.get("name")
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE google_login_id=$1 AND type=$2;", google_id, user_type)
-        if records:
-            return dict(records[0])
-        records = await conn.fetch("INSERT INTO users (type, google_login_id, email, name, google_login_metadata) VALUES ($1, $2, $3, $4, $5) RETURNING *;", user_type, google_id, email, name, orjson.dumps(id_info).decode('utf-8'))
-        return dict(records[0])
 
 
 
