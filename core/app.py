@@ -2,6 +2,7 @@
 from .function import *
 from function.client import *
 from function.middleware import *
+from function.postgres import *
 from .config import *
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
@@ -46,7 +47,7 @@ async def func_lifespan(app:FastAPI):
    func_check(app.routes, config_api, config_api_roles, config_postgres, config_api_roles_auth)
    #app shutdown
    yield
-   await func_postgres_create(client_postgres_pool, func_postgres_obj_serialize, "flush", None, None)
+   await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "flush", None, None, func_validate_identifier)
    if config_is_reset_tmp == 1:
       func_folder_reset("tmp")
    await client_http.aclose()
@@ -99,5 +100,5 @@ async def middleware(request, api_function):
         response, type = await st.func_api_response(request, api_function, st.config_api, st.client_redis, request.state.user.get("id") if request.state.user else 0, st.func_api_response_background, st.func_check_cache)
     except Exception as e:
         error, response = await request.app.state.func_api_response_error(e, request.app.state.config_is_traceback, request.app.state.config_sentry_dsn)
-    await request.app.state.func_api_log_create(request.app.state.config_is_log_api, request.app.state.config_api.get(request.url.path, {}).get("id"), request, response, int((time.perf_counter() - start) * 1000), request.state.user.get("id") if getattr(request.state, "user", None) else None, request.app.state.func_postgres_create, request.app.state.client_postgres_pool, request.app.state.func_postgres_obj_serialize, request.app.state.config_table)
+    await request.app.state.func_api_log_create(request.app.state.config_is_log_api, request.app.state.config_api.get(request.url.path, {}).get("id"), request, response, int((time.perf_counter() - start) * 1000), request.state.user.get("id") if getattr(request.state, "user", None) else None, request.app.state.func_postgres_object_create, request.app.state.client_postgres_pool, request.app.state.func_postgres_serialize, request.app.state.config_table, request.app.state.func_validate_identifier)
     return response

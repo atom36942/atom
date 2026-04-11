@@ -5,6 +5,7 @@ router=APIRouter()
 #import
 from core.config import *
 from core.function import *
+from function.postgres import *
 from function.message import *
 from function.aws import *
 import asyncio
@@ -23,7 +24,7 @@ async def func_api_public_object_create(request:Request):
    st=request.app.state
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("mode","str",0,["now","buffer"],"now",None,None),("is_serialize","int",0,[0,1],0,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await func_request_param_read(request,"body",[])
-   return {"status":1,"message":await func_logic_obj_create("public",obj_query,obj_body,request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_obj_serialize,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_create,st.config_postgres_batch_limit)}
+   return {"status":1,"message":await func_logic_obj_create("public",obj_query,obj_body,request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_celery_producer,st.func_kafka_producer,st.func_rabbitmq_producer,st.func_redis_producer,st.func_postgres_object_create,st.func_validate_identifier,st.config_postgres_batch_limit)}
 
 @router.get("/public/object-read")
 async def func_api_public_object_read(request:Request):
@@ -31,7 +32,7 @@ async def func_api_public_object_read(request:Request):
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None),("order","str",0,None,"id desc",None,None),("column","str",0,None,"*",None,None),("creator_key","str",0,None,None,None,None),("action_key","str",0,None,None,None,None)])
    if config_table_read_public and obj_query["table"] not in config_table_read_public:
       raise Exception(f"table not allowed: {obj_query['table']}, allowed: {config_table_read_public}")
-   obj_list=await func_postgres_read(st.client_postgres_pool,func_postgres_obj_serialize,obj_query["table"],obj_query)
+   obj_list=await func_postgres_object_read(st.client_postgres_pool,func_postgres_serialize,obj_query["table"],obj_query,func_validate_identifier)
    return {"status":1,"message":obj_list}
 
 @router.get("/public/otp-verify-email")
@@ -100,6 +101,6 @@ async def func_api_public_table_tag_read(request:Request):
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("column","str",1,st.cache_postgres_schema_columns,None,None,None),("filter_col","str",0,st.cache_postgres_schema_columns,None,None,None),("filter_val","str",0,None,None,None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None)])
    val=None
    if obj_query["filter_col"] and obj_query["filter_val"]:
-      val=(await func_postgres_obj_serialize(st.client_postgres_pool,obj_query["table"],[{obj_query["filter_col"]:obj_query["filter_val"]}]))[0][obj_query["filter_col"]]
+      val=(await func_postgres_serialize(st.client_postgres_pool,obj_query["table"],[{obj_query["filter_col"]:obj_query["filter_val"]}]))[0][obj_query["filter_col"]]
    output=await func_table_tag_read(st.client_postgres_pool,obj_query["table"],obj_query["column"],obj_query["filter_col"],val,obj_query["limit"],obj_query["page"])
    return {"status":1,"message":output}

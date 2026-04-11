@@ -40,4 +40,3 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 - **Client Lifecycle**: All clients must be defined as pure functions in `function/client.py` and managed via the application state (`request.app.state`).
 - **HTML Modularization**: Large HTML files must be refactored into a dedicated directory with separate CSS and JS components (e.g., `static/api/`) to maintain maintainability.
 - **Pure Functional Logic**: All functions in the `function/` directory must be 100% pure and stateless. Strictly pass external clients, configs, and other logic as parameters. Built-in and external libraries can be imported inline.
-
