@@ -1,7 +1,5 @@
 #import
-from .function import *
-from function.client import *
-from function.postgres import *
+from function import *
 from .config import *
 import sys
 import asyncio

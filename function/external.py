@@ -1,37 +1,16 @@
-#utils & converters
-from function.bootstrap import (
-    func_fastapi_app_read,
-    func_app_add_cors,
-    func_app_add_prometheus,
-    func_app_state_add,
-    func_app_add_sentry,
-    func_app_add_static,
-    func_add_router,
-    func_openapi_spec_generate,
-    func_check,
-    func_repo_info,
-)
-from function.utility import func_token_encode, func_otp_generate, func_otp_verify
-from function.crud import (
-    func_table_tag_read,
-    func_api_usage_read,
-    func_account_delete,
-    func_user_single_read,
-    func_my_profile_read,
-)
-
 async def func_redis_object_create(client_redis: any, keys: list, objects: list, config_redis_cache_ttl_sec: int) -> None:
     """Batch create/update objects in Redis with optional expiration in a pipeline transaction."""
     import orjson
     async with client_redis.pipeline(transaction=True) as pipe:
         for key, obj in zip(keys, objects):
-            val = orjson.dumps(obj).decode('utf-8')
+            val = orjson.dumps(obj).decode("utf-8")
             if config_redis_cache_ttl_sec:
                 pipe.setex(key, config_redis_cache_ttl_sec, val)
             else:
                 pipe.set(key, val)
         await pipe.execute()
     return None
+
 
 async def func_redis_object_delete(client_redis: any, keys: list) -> None:
     """Batch delete objects in Redis using a pipeline transaction."""
@@ -41,18 +20,6 @@ async def func_redis_object_delete(client_redis: any, keys: list) -> None:
         await pipe.execute()
     return None
 
-#api cache & rate limiting
-
-#admin & analytics
-
-#user & message operations
-
-#auth & otp
-
-
-
-
-
 
 async def func_resend_send_email(config_resend_url: str, config_resend_key: str, from_email: str, to_email: str, email_subject: str, email_content: str) -> None:
     """Send an email using the Resend API."""
@@ -60,10 +27,11 @@ async def func_resend_send_email(config_resend_url: str, config_resend_key: str,
     headers = {"Authorization": f"Bearer {config_resend_key}", "Content-Type": "application/json"}
     payload = {"from": from_email, "to": [to_email], "subject": email_subject, "html": email_content}
     async with httpx.AsyncClient() as client:
-        response = await client.post(config_resend_url, headers=headers, data=orjson.dumps(payload).decode('utf-8'))
+        response = await client.post(config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
         if response.status_code != 200:
             raise Exception(f"failed to send email: {response.text}")
     return None
+
 
 def func_fast2sms_send_otp_mobile(config_fast2sms_url: str, config_fast2sms_key: str, mobile_number: str, otp_code: str) -> dict:
     """Send an OTP via Fast2SMS API."""
@@ -72,7 +40,6 @@ def func_fast2sms_send_otp_mobile(config_fast2sms_url: str, config_fast2sms_key:
     if not response.get("return"):
         raise Exception(response.get("message"))
     return response
-
 
 
 def func_gsheet_object_create(client_gsheet: any, sheet_url: str, object_list: list) -> any:
@@ -91,6 +58,7 @@ def func_gsheet_object_create(client_gsheet: any, sheet_url: str, object_list: l
     column_headers = list(object_list[0].keys())
     rows_to_insert = [[obj.get(col, "") for col in column_headers] for obj in object_list]
     return worksheet.append_rows(rows_to_insert, value_input_option="USER_ENTERED", insert_data_option="INSERT_ROWS")
+
 
 async def func_gsheet_object_read(sheet_url: str) -> list:
     """Read records from a public Google Sheet as a list of dictionaries."""
@@ -115,6 +83,7 @@ async def func_mongodb_object_create(client_mongodb: any, db_name: str, collecti
     result = await client_mongodb[db_name][collection_name].insert_many(object_list)
     return str(result.inserted_ids)
 
+
 async def func_mongodb_object_delete(client_mongodb: any, db_name: str, collection_name: str, object_list: list) -> str:
     """Delete multiple records from a MongoDB collection using ID matching from a list of objects."""
     if not client_mongodb:
@@ -133,6 +102,7 @@ async def func_mongodb_object_delete(client_mongodb: any, db_name: str, collecti
         return "0 rows deleted"
     result = await client_mongodb[db_name][collection_name].delete_many({"_id": {"$in": id_list}})
     return f"{result.deleted_count} rows deleted"
+
 
 def func_jira_worklog_export(url: str, email_address: str, api_token: str, start_date: str = None, end_date: str = None, output_path: str = None) -> str:
     """Export Jira worklogs for a specific period to a CSV file."""

@@ -3,14 +3,11 @@ from fastapi import APIRouter
 router=APIRouter()
 
 #import
+from function import *
+from core.config import *
 import orjson
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from core.config import *
-from core.function import *
-from function.utility import func_request_param_read, func_password_hash
-from function.auth import *
-
 import asyncio
 from datetime import datetime
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect

@@ -3,11 +3,8 @@ from fastapi import APIRouter
 router=APIRouter()
 
 #import
+from function import *
 from core.config import *
-from core.function import *
-from function.utility import func_request_param_read, func_api_file_to_chunks
-from function.postgres import *
-from function.aws import *
 import asyncio
 from datetime import datetime
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect
