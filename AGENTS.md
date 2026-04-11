@@ -28,15 +28,9 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 - **`static/`**: Frontend assets and documentation.
 - **`tmp/`**: **Strictly** for temporary runtime operations (IO).
 - **`secret/`**: Sensitive credentials (protected).
+- **`AGENTS.md`**: Framework rules, AI agent guidelines, and repository map.
+- **`Dockerfile`**: Containerization configuration for the application environment.
+- **`readme.md`**: General project overview, installation, and usage instructions.
+- **`requirements.txt`**: Application dependencies and package versions.
 
-### Development Workflow
-- **Define (Routing)**: Add API in `router/`. Add the route with a path-based prefix code.
-- **State & Clients**: Access system clients via `request.app` and user context via `request.state`.
-- **Config (Settings)**: Add any required `config_` variables or table schemas in `core/config.py`.
-- **Logic (Core)**: Implement framework logic in `core/function.py` and domain/feature logic in `function/`. If a new function is needed, use the `func_` prefix.
-- **Lifespan (Clients)**: For new system clients, define initialization in `func_lifespan` using functions from `function/client.py` and assign to `app.state`.
-- **Naming Conventions**: Use the `func_client_read_` prefix for client initializers in `function/client.py`.
-- **Caching**: Use the `cache_` prefix for any new caching-related state or logic.
-- **Client Lifecycle**: All clients must be defined as pure functions in `function/client.py` and managed via the application state (`request.app.state`).
-- **HTML Modularization**: Large HTML files must be refactored into a dedicated directory with separate CSS and JS components (e.g., `static/api/`) to maintain maintainability.
-- **Pure Functional Logic**: All functions in the `function/` directory must be 100% pure and stateless. Strictly pass external clients, configs, and other logic as parameters. Built-in and external libraries can be imported inline.
+

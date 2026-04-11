@@ -5,6 +5,7 @@ router=APIRouter()
 #import
 from core.config import *
 from core.function import *
+from function.utility import func_request_param_read
 from function.aws import *
 import asyncio
 from datetime import datetime

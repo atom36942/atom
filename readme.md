@@ -3,7 +3,7 @@
 | :--- | :--- |
 | **Speed** | Open-source backend for rapid large-scale development. |
 | **Architecture** | Modular setup with `core/` for framework logic and `function/` for domain logic. |
-| **Reliability** | Pure functions within `core/function.py` to minimize side effects. |
+| **Reliability** | Pure functions within `core/function.py` and `function/utility.py` to minimize side effects. |
 | **Production** | Rapidly build APIs, background jobs, and modular integrations. |
 | **Efficiency** | Centralized client initialization in `function/client.py`. |
 | **Flexibility** | Non-opinionated and fully extensible modular micro-framework. |
