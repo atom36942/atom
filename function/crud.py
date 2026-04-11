@@ -3,13 +3,13 @@ async def func_table_tag_read(postgres_pool: any, table_name: str, column_name: 
     import re
     limit = min(max(int(limit_count or 100), 1), 500)
     page = max(int(page_number or 1), 1)
-    regex_identifier = re.compile(r"^[a-z_][a-z0-9_]*$")
-    if not regex_identifier.match(table_name):
-        raise Exception("table identifier invalid")
-    if not regex_identifier.match(column_name):
-        raise Exception("column identifier invalid")
-    if filter_column and not regex_identifier.match(filter_column):
-        raise Exception("bad filter column identifier")
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table_name)):
+        raise Exception(f"invalid identifier {table_name}")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column_name)):
+        raise Exception(f"invalid identifier {column_name}")
+    if filter_column and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_column)):
+        raise Exception(f"invalid identifier {filter_column}")
     where_clause = ""
     query_args = []
     if filter_column and filter_value is not None:
@@ -66,10 +66,15 @@ async def func_my_profile_read(client_postgres_pool: any, user_id: int, config_s
     asyncio.create_task(client_postgres_pool.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
     return {**user, **metadata}
 
-async def func_ids_update(client_postgres_pool: any, table_name: str, record_ids: any, column_name: str, target_value: any, func_validate_identifier: callable, created_by_id: int = None, updated_by_id: int = None) -> None:
+async def func_ids_update(client_postgres_pool: any, table_name: str, record_ids: any, column_name: str, target_value: any, created_by_id: int = None, updated_by_id: int = None) -> None:
     """Update a specific column for a list of record IDs with ownership check (identifier validated)."""
-    table = func_validate_identifier(table_name)
-    column = func_validate_identifier(column_name)
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table_name)):
+        raise Exception(f"invalid identifier {table_name}")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column_name)):
+        raise Exception(f"invalid identifier {column_name}")
+    table = table_name
+    column = column_name
     ids_str = ""
     if isinstance(record_ids, str):
         ids_str = ",".join([str(int(x.strip())) for x in record_ids.split(",") if x.strip()])
@@ -82,9 +87,12 @@ async def func_ids_update(client_postgres_pool: any, table_name: str, record_ids
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(update_query, target_value, updated_by_id, created_by_id)
 
-async def func_ids_delete(client_postgres_pool: any, table_name: str, record_ids: any, func_validate_identifier: callable, created_by_id: int = None, config_table_system: list = None, config_postgres_ids_delete_limit: int = None) -> str:
+async def func_ids_delete(client_postgres_pool: any, table_name: str, record_ids: any, created_by_id: int = None, config_table_system: list = None, config_postgres_ids_delete_limit: int = None) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
-    table = func_validate_identifier(table_name)
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table_name)):
+        raise Exception(f"invalid identifier {table_name}")
+    table = table_name
     config_postgres_ids_delete_limit = config_postgres_ids_delete_limit or 100
     if table == "users":
         raise Exception("users table not allowed")
@@ -105,11 +113,18 @@ async def func_ids_delete(client_postgres_pool: any, table_name: str, record_ids
         await conn.execute(delete_query, created_by_id)
     return "ids deleted"
 
-async def func_parent_read(client_postgres_pool: any, table_name: str, parent_column: str, parent_table: str, func_validate_identifier: callable, created_by_id: int = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
+async def func_parent_read(client_postgres_pool: any, table_name: str, parent_column: str, parent_table: str, created_by_id: int = None, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
     """Read parent records based on child table's foreign key column (identifier validated)."""
-    table = func_validate_identifier(table_name)
-    col = func_validate_identifier(parent_column)
-    p_table = func_validate_identifier(parent_table)
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table_name)):
+        raise Exception(f"invalid identifier {table_name}")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(parent_column)):
+        raise Exception(f"invalid identifier {parent_column}")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(parent_table)):
+        raise Exception(f"invalid identifier {parent_table}")
+    table = table_name
+    col = parent_column
+    p_table = parent_table
     limit = min(max(int(limit_count or 100), 1), 500)
     page = max(int(page_number or 1), 1)
     order = sort_order or "id desc"

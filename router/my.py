@@ -38,7 +38,7 @@ async def func_api_my_account_delete(request:Request):
 @router.get("/my/message-received")
 async def func_api_my_message_received(request:Request):
    obj_query=await func_request_param_read(request,"query",[("mode","str",1,["all","unread","read"],None,None,None),("order","str",0,None,"id desc",None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None)])
-   obj_list=await func_message_received(request.app.state.client_postgres_pool,request.state.user["id"],obj_query["mode"],obj_query["order"],obj_query["limit"],obj_query["page"],request.app.state.func_ids_update,func_validate_identifier)
+   obj_list=await func_message_received(request.app.state.client_postgres_pool,request.state.user["id"],obj_query["mode"],obj_query["order"],obj_query["limit"],obj_query["page"],request.app.state.func_ids_update)
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-inbox")
@@ -70,14 +70,14 @@ async def func_api_my_message_delete_bulk(request:Request):
 async def func_api_my_parent_read(request:Request):
    st=request.app.state
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("parent_table","str",1,st.cache_postgres_schema_tables,None,None,None),("parent_column","str",1,st.cache_postgres_schema_columns,None,None,None),("order","str",0,None,"id desc",None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None)])
-   output=await func_parent_read(st.client_postgres_pool,obj_query["table"],obj_query["parent_column"],obj_query["parent_table"],func_validate_identifier,request.state.user["id"],obj_query["order"],obj_query["limit"],obj_query["page"])
+   output=await func_parent_read(st.client_postgres_pool,obj_query["table"],obj_query["parent_column"],obj_query["parent_table"],request.state.user["id"],obj_query["order"],obj_query["limit"],obj_query["page"])
    return {"status":1,"message":output}
 
 @router.post("/my/ids-delete")
 async def func_api_my_ids_delete(request:Request):
    st=request.app.state
    obj_body=await func_request_param_read(request,"body",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("ids","str",1,None,None,None,None)])
-   output=await func_ids_delete(st.client_postgres_pool,obj_body["table"],obj_body["ids"],func_validate_identifier,request.state.user.get("id",0),config_table_system,config_postgres_ids_delete_limit)
+   output=await func_ids_delete(st.client_postgres_pool,obj_body["table"],obj_body["ids"],request.state.user.get("id",0),config_table_system,config_postgres_ids_delete_limit)
    return {"status":1,"message":output}
 
 @router.post("/my/object-create")
@@ -85,21 +85,21 @@ async def func_api_my_object_create(request:Request):
    st=request.app.state
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("mode","str",0,["now","buffer"],"now",None,None),("is_serialize","int",0,[0,1],0,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await func_request_param_read(request,"body",[])
-   return {"status":1,"message":await func_logic_obj_create("my",obj_query,obj_body,request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_create,st.func_validate_identifier,st.config_postgres_batch_limit)}
+   return {"status":1,"message":await func_orchestrator_obj_create("my",obj_query,obj_body,request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_create,st.config_postgres_batch_limit)}
 
 @router.put("/my/object-update")
 async def func_api_my_object_update(request:Request):
    st=request.app.state
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("is_serialize","int",0,[0,1],0,None,None),("otp","int",0,None,None,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await func_request_param_read(request,"body",[])
-   return {"status":1,"message":await func_logic_obj_update("my",obj_query,obj_body,request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.client_postgres_pool,st.func_postgres_serialize,st.func_producer_logic,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_update,st.func_validate_identifier,st.func_otp_verify,st.config_expiry_sec_otp,0,st.config_postgres_batch_limit)}
+   return {"status":1,"message":await func_orchestrator_obj_update("my",obj_query,obj_body,request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.client_postgres_pool,st.func_postgres_serialize,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_update,st.func_otp_verify,st.config_expiry_sec_otp,0,st.config_postgres_batch_limit)}
 
 @router.get("/my/object-read")
 async def func_api_my_object_read(request:Request):
    st=request.app.state
    obj_query=await func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None),("order","str",0,None,"id desc",None,None),("column","str",0,None,"*",None,None),("creator_key","str",0,None,None,None,None),("action_key","str",0,None,None,None,None)])
    obj_query["created_by_id"]=f"""=,{request.state.user["id"]}"""
-   obj_list=await func_postgres_object_read(st.client_postgres_pool,func_postgres_serialize,obj_query["table"],obj_query,func_validate_identifier)
+   obj_list=await func_postgres_object_read(st.client_postgres_pool,func_postgres_serialize,obj_query["table"],obj_query)
    return {"status":1,"message":obj_list}
 
 @router.post("/my/object-create-mongodb")

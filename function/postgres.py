@@ -17,30 +17,37 @@ async def func_postgres_runner(client_postgres_pool: any, execution_mode: str, s
             return await conn.fetch(sql_query, timeout=15)
         return await conn.execute(sql_query, timeout=15)
 
-async def func_postgres_clean(client_postgres_pool: any, config_table: dict, func_validate_identifier: callable) -> None:
+async def func_postgres_clean(client_postgres_pool: any, config_table: dict) -> None:
     """Perform database maintenance by cleaning up expired records based on retention configurations (identifier validated)."""
+    import re
     if not config_table:
         return None
     for tbl, cfg in config_table.items():
         if (retention_days := cfg.get("retention_day")) is not None:
-            table = func_validate_identifier(tbl)
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(tbl)):
+                raise Exception(f"invalid identifier {tbl}")
+            table = tbl
             query = f"DELETE FROM {table} WHERE created_at < NOW() - INTERVAL '{retention_days} days';"
             async with client_postgres_pool.acquire() as conn:
                 await conn.execute(query)
     return None
 
-async def func_postgres_object_read(client_postgres_pool: any, func_postgres_serialize: callable, table_name: str, query_params: dict, func_validate_identifier: callable) -> list:
+async def func_postgres_object_read(client_postgres_pool: any, func_postgres_serialize: callable, table_name: str, query_params: dict) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re, orjson
     from datetime import datetime
-    table = func_validate_identifier(table_name)
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table_name)):
+        raise Exception(f"invalid identifier {table_name}")
+    table = table_name
     limit = min(max(int(query_params.get("limit") or 100), 1), 500)
     page = max(int(query_params.get("page") or 1), 1)
     order_list = []
     for part in query_params.get("order", "id desc").split(","):
         p = part.strip().split()
         if p:
-            col = func_validate_identifier(p[0])
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(p[0])):
+                raise Exception(f"invalid identifier {p[0]}")
+            col = p[0]
             dir = "ASC"
             if len(p) > 1 and p[1].lower() in ("asc", "desc"):
                 dir = p[1].upper()
@@ -48,7 +55,13 @@ async def func_postgres_object_read(client_postgres_pool: any, func_postgres_ser
     order_clause = ", ".join(order_list)
     column_list = "*"
     if query_params.get("column", "*") != "*":
-        column_list = ",".join([func_validate_identifier(c.strip()) for c in query_params.get("column").split(",")])
+        cols = []
+        for c in query_params.get("column").split(","):
+            c_strip = c.strip()
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)):
+                raise Exception(f"invalid identifier {c_strip}")
+            cols.append(c_strip)
+        column_list = ",".join(cols)
     creator_key = query_params.get("creator_key")
     action_key = query_params.get("action_key")
     filters = {k: v for k, v in query_params.items() if k not in ("table", "order", "limit", "page", "column", "creator_key", "action_key")}
@@ -64,7 +77,8 @@ async def func_postgres_object_read(client_postgres_pool: any, func_postgres_ser
     v_ops = {"=":"=","==":"=","!=":"!=","<>":"<>",">":">","<":"<",">=":">=","<=":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
     s_ops = {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
     for filter_key, expression in filters.items():
-        func_validate_identifier(filter_key)
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_key)):
+            raise Exception(f"invalid identifier {filter_key}")
         # Spatial filter shortcut
         if expression.lower().startswith("point,"):
             _, coords = expression.split(",", 1)
@@ -215,7 +229,7 @@ async def func_postgres_object_read(client_postgres_pool: any, func_postgres_ser
                 res_row[f"{target_tbl}_{action_op}"] = action_map.get(obj_id, default_val)
         return result_list
 
-async def func_postgres_object_update(client_postgres_pool: any, func_postgres_serialize: callable, table_name: str, obj_list: list, func_validate_identifier: callable, is_serialize: int = None, created_by_id: int = None, is_return_ids: int = None) -> any:
+async def func_postgres_object_update(client_postgres_pool: any, func_postgres_serialize: callable, table_name: str, obj_list: list, is_serialize: int = None, created_by_id: int = None, is_return_ids: int = None) -> any:
     """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
     is_serialize = is_serialize if is_serialize is not None else 0
     limit_batch = 5000
@@ -227,7 +241,12 @@ async def func_postgres_object_update(client_postgres_pool: any, func_postgres_s
         return "0 rows updated"
     if any("id" not in obj for obj in obj_list):
         raise Exception("missing required field: 'id' for update operation")
-    update_cols = [func_validate_identifier(c) for c in obj_list[0] if c != "id"]
+    update_cols = []
+    for c in obj_list[0]:
+        if c != "id":
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)):
+                raise Exception(f"invalid identifier {c}")
+            update_cols.append(c)
     if not update_cols:
         return "0 rows updated"
     actual_batch_size = min(limit_batch, 65535 // (len(update_cols) + (2 if created_by_id else 1)))
@@ -279,7 +298,7 @@ async def func_postgres_object_update(client_postgres_pool: any, func_postgres_s
                     total_updated += int((await conn.execute(query, *batch_vals)).split()[-1])
             return returned_ids if is_return_ids == 1 else f"{total_updated} rows updated"
 
-async def func_postgres_object_create(client_postgres_pool: any, func_postgres_serialize: callable, execution_mode: str, table_name: str, obj_list: list[dict[str, any]], func_validate_identifier: callable, is_serialize: int = None, config_table: int = None) -> any:
+async def func_postgres_object_create(client_postgres_pool: any, func_postgres_serialize: callable, execution_mode: str, table_name: str, obj_list: list[dict[str, any]], is_serialize: int = None, config_table: int = None) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     if not hasattr(func_postgres_object_create, "state"):
         func_postgres_object_create.state = {}
@@ -288,7 +307,7 @@ async def func_postgres_object_create(client_postgres_pool: any, func_postgres_s
     if execution_mode == "flush":
         for table, buffer_list in list(func_postgres_object_create.state.items()):
             if buffer_list:
-                await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "now", table, buffer_list, func_validate_identifier)
+                await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "now", table, buffer_list)
                 func_postgres_object_create.state[table] = []
         return "flushed"
     if not obj_list:
@@ -308,7 +327,13 @@ async def func_postgres_object_create(client_postgres_pool: any, func_postgres_s
             func_postgres_object_create.state[table_name] = []
             return "buffered released"
         return "buffered"
-    columns = [func_validate_identifier(c) for c in serialized_list[0].keys()]
+    import re
+    cols = []
+    for c in serialized_list[0].keys():
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)):
+            raise Exception(f"invalid identifier {c}")
+        cols.append(c)
+    columns = cols
     if len(serialized_list) == 1:
         placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
         query = f"""INSERT INTO {table_name} ({",".join(columns)}) VALUES ({placeholders}) RETURNING id"""
@@ -347,27 +372,23 @@ async def func_postgres_serialize(client_postgres_pool: any, table_name: str, ob
     is_base = is_base or 0
     output_list = []
     import orjson, hashlib
-    if not hasattr(func_postgres_serialize, "state"):
-        func_postgres_serialize.state = {}
-    if table_name not in func_postgres_serialize.state:
+    if getattr(func_postgres_serialize, "state", None) is None:
         async with client_postgres_pool.acquire() as conn:
-            rows = await conn.fetch("SELECT column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_name = $1", table_name)
-            if not rows:
-                return obj_list
-            func_postgres_serialize.state[table_name] = {r["column_name"]: r["data_type"] for r in rows}
+            rows = await conn.fetch("SELECT table_name, column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_schema = 'public'")
+            func_postgres_serialize.state = {}
+            for r in rows:
+                t = r["table_name"]
+                if t not in func_postgres_serialize.state:
+                    func_postgres_serialize.state[t] = {}
+                func_postgres_serialize.state[t][r["column_name"]] = r["data_type"]
+    if table_name not in func_postgres_serialize.state:
+        return obj_list
     schema = func_postgres_serialize.state[table_name]
     for item in obj_list:
         new_item = {}
         for col, val in item.items():
             if table_name == "users" and col == "password" and val:
                 val = hashlib.sha256(str(val).encode()).hexdigest()
-            if col not in schema:
-                if col == "id":
-                    continue
-                async with client_postgres_pool.acquire() as conn:
-                    rows = await conn.fetch("SELECT column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_name = $1", table_name)
-                    func_postgres_serialize.state[table_name] = {r["column_name"]: r["data_type"] for r in rows}
-                    schema = func_postgres_serialize.state[table_name]
             if col not in schema:
                 if col == "id":
                     new_item[col] = val
@@ -612,12 +633,13 @@ async def func_postgres_init(client_postgres_pool: any, config_postgres: dict) -
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
         if is_analyze:
             await conn.execute("ANALYZE;")
+    func_postgres_serialize.state = None
     return "database init done"
 
 async def func_postgres_schema_read(client_postgres_pool: any) -> dict:
     """Read full database schema as a nested dictionary."""
     async with client_postgres_pool.acquire() as conn:
-        rows = await conn.fetch("SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public'")
+        rows = await conn.fetch("SELECT table_name, column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_schema = 'public'")
         schema = {}
         for r in rows:
             table = r["table_name"]
@@ -627,9 +649,4 @@ async def func_postgres_schema_read(client_postgres_pool: any) -> dict:
             schema[table][col] = {"datatype": r["data_type"]}
     return schema
 
-def func_validate_identifier(name: str) -> str:
-    """Validate that a string is a safe SQL identifier (table/column name)."""
-    import re
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(name)):
-        raise Exception(f"invalid identifier {name}")
-    return name
+# identifier validation now inlined for simplicity

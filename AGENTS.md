@@ -8,7 +8,7 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
     - **`app.py`**: Initialization logic. Manages lifespan, middleware, and application setup.
     - **`config.py`**: Centralized settings and schema definitions.
     - **`consumer.py`**: Background task processing (Celery, Kafka, etc.).
-- **`function/`**: Modular pure functional logic layer (100% pure, no IO).
+- **`function/`**: Modular functional logic layer (IO allowed via injected clients).
 - **`router/`**: API endpoint definitions and role assignments.
 - **`script/`**: Isolated, independent scripts with standalone logic.
 - **`static/`**: Frontend assets and documentation.
@@ -22,14 +22,10 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 ### Core Principles
 - **AI Agent Behavior**: Always prefer explicitness over implicitness.
 - **SOLID Principles**: Adhere strictly to SOLID principles across all logic. Every function and module must have a single responsibility and be easily testable.
-- **Dependency Injection**: To maintain 100% purity and explicitness, all external dependencies—including utility functions—must be passed as parameters. Implicit top-level imports of functional logic are prohibited.
+- **Dependency Injection**: To maintain strict architectural explicitness, all external dependencies—including utility functions—must be passed as parameters. Implicit top-level imports of functional logic are prohibited.
 - **Parameter Handling**: No defaults in signatures; use `None` and initialize internally for 1:1 explicit mapping.
 - **IO Isolation**: Use `tmp/` strictly for all file operations.
 - **Naming Conventions**: Strict prefixes required (`is_`, `config_`, `func_`, `client_`, `cache_`) including service/feature scope.
 - **Booleans**: All boolean values must be integers (1/0) and must use the `is_` prefix.
-- **Pure Functional Logic**: All logic in the `function/` directory must be 100% pure, stateless, and without side effects. To maintain this purity, the following MUST be passed as parameters and NEVER imported at the top level:
-    1. **System Clients** (e.g., `client_postgres`).
-    2. **Configuration Settings** (e.g., `config_api`).
-    3. **Functional Logic** (i.e., other functions passed as callables).
-    4. **Built-in Python libraries and External Packages** Built-in Python libraries (e.g., `time`, `json`, `re`, `uuid`, `traceback`, `hashlib`, `gzip`, `base64`) and external packages (e.g., `jwt`, `orjson`, `httpx`) can be imported inline.
-
+- **New API Development Flow**: When creating a new API endpoint, follow this order strictly: (1) define the endpoint in the appropriate `router/` API file, (2) separate business logic into a function in the corresponding `function/` API file, and (3) consume request context explicitly (e.g., `request.state`, authenticated `user`, roles, tenant, trace ids) in the router layer and pass only required values into functional logic.
+- **Functional Logic**: All logic in `function/` must be modular and stateless; system clients, config settings, and other functional logic must be passed as parameters (not imported at top level), while built-in and external libraries may be imported inline. Logic should remain side-effect free whenever possible, with IO restricted to injected clients.

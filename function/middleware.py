@@ -41,7 +41,7 @@ async def func_api_response_error(exception: Exception, is_traceback: int, sentr
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
 
-async def func_api_log_create(config_is_log_api: int, api_id: int, request_obj: any, response_obj: any, response_time_ms: int, user_id: any, func_postgres_object_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, config_table: dict, func_validate_identifier: callable) -> None:
+async def func_api_log_create(config_is_log_api: int, api_id: int, request_obj: any, response_obj: any, response_time_ms: int, user_id: any, func_postgres_object_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, config_table: dict) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
     if config_is_log_api == 0:
         return None
@@ -56,7 +56,7 @@ async def func_api_log_create(config_is_log_api: int, api_id: int, request_obj: 
         "status_code": response_obj.status_code,
         "response_time_ms": response_time_ms
     }
-    await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "buffer", "log_api", [log_obj], func_validate_identifier, is_serialize=0, config_table=config_table.get("log_api", {}).get("buffer", 100))
+    await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "buffer", "log_api", [log_obj], is_serialize=0, config_table=config_table.get("log_api", {}).get("buffer", 100))
     return None
 
 async def func_check_ratelimiter(client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str) -> None:

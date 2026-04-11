@@ -9,7 +9,7 @@ async def func_message_inbox(client_postgres_pool: any, user_id: int, mode: str 
         records = await conn.fetch(query, user_id)
         return [dict(r) for r in records]
 
-async def func_message_received(client_postgres_pool: any, user_id: int, mode: str = None, sort_order: str = None, limit_count: int = None, page_number: int = None, func_ids_update: callable = None, func_validate_identifier: callable = None) -> list:
+async def func_message_received(client_postgres_pool: any, user_id: int, mode: str = None, sort_order: str = None, limit_count: int = None, page_number: int = None, func_ids_update: callable = None) -> list:
     """Read all messages received by a specific user and optionally mark unread ones as read (identifier validated)."""
     import asyncio
     limit_count = min(max(int(limit_count or 100), 1), 500)
@@ -23,7 +23,7 @@ async def func_message_received(client_postgres_pool: any, user_id: int, mode: s
         if obj_list and func_ids_update:
             mark_read_ids = [r["id"] for r in obj_list if r.get("is_read") != 1]
             if mark_read_ids:
-                asyncio.create_task(func_ids_update(client_postgres_pool, "message", mark_read_ids, "is_read", 1, func_validate_identifier))
+                asyncio.create_task(func_ids_update(client_postgres_pool, "message", mark_read_ids, "is_read", 1))
     return obj_list
 
 async def func_message_thread(client_postgres_pool: any, user_one_id: int, user_two_id: int, sort_order: str = None, limit_count: int = None, page_number: int = None) -> list:
