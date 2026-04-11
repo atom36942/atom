@@ -268,20 +268,3 @@ async def func_authenticate(headers: dict, url_path: str, config_token_secret_ke
             raise Exception("authorization token missing")
     return user_obj
 
-def func_app_add_middleware(app: any) -> None:
-    """Register the main application middleware for HTTP request processing."""
-    import time
-    @app.middleware("http")
-    async def middleware(request, api_function):
-        try:
-            start, type, error, request.state.user = time.perf_counter(), None, None, {}
-            st = request.app.state
-            request.state.user = await st.func_authenticate(request.headers, request.url.path, st.config_token_secret_key, st.config_api_roles_auth)
-            await st.func_check_admin(request.state.user, request.url.path, st.config_api, st.client_postgres_pool, st.client_redis, st.cache_users_role, st.config_redis_cache_ttl_sec)
-            await st.func_check_is_active(request.state.user, request.url.path, st.config_api, st.client_postgres_pool, st.client_redis, st.cache_users_is_active, st.config_redis_cache_ttl_sec)
-            await st.func_check_ratelimiter(st.client_redis_ratelimiter, st.config_api, request.url.path, request.state.user.get("id") if request.state.user else request.client.host)
-            response, type = await st.func_api_response(request, api_function, st.config_api, st.client_redis, request.state.user.get("id") if request.state.user else 0, st.func_api_response_background, st.func_check_cache)
-        except Exception as e:
-            error, response = await request.app.state.func_api_response_error(e, request.app.state.config_is_traceback, request.app.state.config_sentry_dsn)
-        await request.app.state.func_api_log_create(request.app.state.config_is_log_api, request.app.state.config_api.get(request.url.path, {}).get("id"), request, response, int((time.perf_counter() - start) * 1000), request.state.user.get("id") if getattr(request.state, "user", None) else None, request.app.state.func_postgres_create, request.app.state.client_postgres_pool, request.app.state.func_postgres_obj_serialize, request.app.state.config_table)
-        return response
