@@ -89,7 +89,6 @@ config_is_log_api=1
 config_is_traceback=1
 config_is_prometheus=0
 config_is_reset_tmp=1
-config_is_debug_fastapi=1
 config_is_index_html=0
 config_is_otp_users_update_admin=0
 config_is_postgres_init_startup=1

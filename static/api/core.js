@@ -217,6 +217,7 @@ const openCurlViewModal = (indexValue, viewType) => {
     }
   }
   showModal('curlViewModal');
+};
 const debounce = (fn, ms) => {
   let t;
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) };
@@ -617,8 +618,6 @@ const setupEventListeners = () => {
             openMasterResponse(idx);
             return;
         }
-    });
-
     // Tree Toggles (Delegation)
     d.addEventListener('click', e => {
         const toggle = e.target.closest('.tree-toggle');
@@ -628,4 +627,3 @@ const setupEventListeners = () => {
         }
     });
 };
-init();
