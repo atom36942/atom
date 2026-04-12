@@ -104,18 +104,14 @@ async def func_mongodb_object_delete(client_mongodb: any, db_name: str, collecti
     return f"{result.deleted_count} rows deleted"
 
 
-def func_jira_worklog_export(url: str, email_address: str, api_token: str, start_date: str = None, end_date: str = None, output_path: str = None) -> str:
+def func_jira_worklog_export(*, url: str, email_address: str, api_token: str, start_date: str, end_date: str, output_path: str) -> str:
     """Export Jira worklogs for a specific period to a CSV file."""
     try:
         from jira import JIRA
         from pathlib import Path
-        import pandas as pd, uuid, calendar
-        from datetime import date
+        import pandas as pd, uuid
         output_path = output_path or f"tmp/{uuid.uuid4().hex}.csv"
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        current_date = date.today()
-        start_date = start_date or current_date.replace(day=1).strftime("%Y-%m-%d")
-        end_date = end_date or current_date.replace(day=calendar.monthrange(current_date.year, current_date.month)[1]).strftime("%Y-%m-%d")
         jira_client = JIRA(server=url, basic_auth=(email_address, api_token))
         log_rows = []
         people = set()

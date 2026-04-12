@@ -91,14 +91,57 @@ async def func_api_my_object_create(request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("mode","str",0,["now","buffer"],"now",None,None),("is_serialize","int",0,[0,1],0,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await st.func_request_param_read(request,"body",[])
-   return {"status":1,"message":await st.func_orchestrator_obj_create("my",obj_query,obj_body,request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_create,st.config_limit_obj_list)}
+   return {"status":1,"message":await st.func_orchestrator_obj_create(
+      api_role="my",
+      obj_query=obj_query,
+      obj_body=obj_body,
+      user_id=request.state.user.get("id"),
+      config_table_create_my=st.config_table_create_my,
+      config_table_create_public=st.config_table_create_public,
+      config_column_blocked=st.config_column_blocked,
+      client_postgres_pool=st.client_postgres_pool,
+      func_postgres_serialize=st.func_postgres_serialize,
+      config_table=st.config_table,
+      func_orchestrator_producer=st.func_orchestrator_producer,
+      producer_obj={
+          "config_channel_allowed": st.config_channel_allowed,
+          "client_celery_producer": st.client_celery_producer,
+          "client_kafka_producer": st.client_kafka_producer,
+          "client_rabbitmq_producer": st.client_rabbitmq_producer,
+          "client_redis_producer": st.client_redis_producer
+      },
+      func_postgres_object_create=st.func_postgres_object_create,
+      config_limit_obj_list=st.config_limit_obj_list
+   )}
 
 @router.put("/my/object-update")
 async def func_api_my_object_update(request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("is_serialize","int",0,[0,1],0,None,None),("otp","int",0,None,None,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await st.func_request_param_read(request,"body",[])
-   return {"status":1,"message":await st.func_orchestrator_obj_update("my",obj_query,obj_body,request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.client_postgres_pool,st.func_postgres_serialize,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_update,st.func_otp_verify,st.config_expiry_sec_otp,0,st.config_limit_obj_list)}
+   return {"status":1,"message":await st.func_orchestrator_obj_update(
+      api_role="my",
+      obj_query=obj_query,
+      obj_body=obj_body,
+      user_id=request.state.user.get("id"),
+      config_column_blocked=st.config_column_blocked,
+      config_column_single_update=st.config_column_single_update,
+      client_postgres_pool=st.client_postgres_pool,
+      func_postgres_serialize=st.func_postgres_serialize,
+      func_orchestrator_producer=st.func_orchestrator_producer,
+      producer_obj={
+          "config_channel_allowed": st.config_channel_allowed,
+          "client_celery_producer": st.client_celery_producer,
+          "client_kafka_producer": st.client_kafka_producer,
+          "client_rabbitmq_producer": st.client_rabbitmq_producer,
+          "client_redis_producer": st.client_redis_producer
+      },
+      func_postgres_object_update=st.func_postgres_object_update,
+      func_otp_verify=st.func_otp_verify,
+      config_expiry_sec_otp=st.config_expiry_sec_otp,
+      config_is_otp_users_update_admin=0,
+      config_limit_obj_list=st.config_limit_obj_list
+   )}
 
 @router.get("/my/object-read")
 async def func_api_my_object_read(request:Request):

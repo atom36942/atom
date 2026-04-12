@@ -44,7 +44,7 @@ async def func_lifespan(app:FastAPI):
    func_check(app.routes, config_api, config_api_roles, config_postgres, config_api_roles_auth)
    #app shutdown
    yield
-   await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "flush", None, None, table_buffer_limit=None)
+   await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "flush", None, None, None, None)
    if config_is_reset_tmp == 1:
       func_folder_reset("tmp")
    await client_http.aclose()

@@ -20,7 +20,28 @@ async def func_api_public_object_create(request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("mode","str",0,["now","buffer"],"now",None,None),("is_serialize","int",0,[0,1],0,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await st.func_request_param_read(request,"body",[])
-   return {"status":1,"message":await st.func_orchestrator_obj_create("public",obj_query,obj_body,request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_create,st.config_limit_obj_list)}
+   return {"status":1,"message":await st.func_orchestrator_obj_create(
+      api_role="public",
+      obj_query=obj_query,
+      obj_body=obj_body,
+      user_id=request.state.user.get("id") if getattr(request.state,"user",None) else None,
+      config_table_create_my=st.config_table_create_my,
+      config_table_create_public=st.config_table_create_public,
+      config_column_blocked=st.config_column_blocked,
+      client_postgres_pool=st.client_postgres_pool,
+      func_postgres_serialize=st.func_postgres_serialize,
+      config_table=st.config_table,
+      func_orchestrator_producer=st.func_orchestrator_producer,
+      producer_obj={
+          "config_channel_allowed": st.config_channel_allowed,
+          "client_celery_producer": st.client_celery_producer,
+          "client_kafka_producer": st.client_kafka_producer,
+          "client_rabbitmq_producer": st.client_rabbitmq_producer,
+          "client_redis_producer": st.client_redis_producer
+      },
+      func_postgres_object_create=st.func_postgres_object_create,
+      config_limit_obj_list=st.config_limit_obj_list
+   )}
 
 @router.get("/public/object-read")
 async def func_api_public_object_read(request:Request):
@@ -89,9 +110,9 @@ async def func_api_public_otp_send_mobile_fast2sms(request:Request):
 @router.post("/public/jira-worklog-export")
 async def func_api_public_jira_worklog_export(request:Request):
    st=request.app.state
-   obj_body=await st.func_request_param_read(request,"body",[("url","str",1,None,None,None,None),("email","str",1,None,None,None,None),("api_token","str",1,None,None,None,None),("start_date","str",0,None,None,None,None),("end_date","str",0,None,None,None,None)])
+   obj_body=await st.func_request_param_read(request,"body",[("url","str",1,None,None,None,None),("email","str",1,None,None,None,None),("api_token","str",1,None,None,None,None),("start_date","str",1,None,None,None,None),("end_date","str",1,None,None,None,None)])
    import asyncio
-   output_path=await asyncio.to_thread(st.func_jira_worklog_export, obj_body["url"], obj_body["email"], obj_body["api_token"], obj_body["start_date"], obj_body["end_date"], None)
+   output_path=await asyncio.to_thread(st.func_jira_worklog_export, url=obj_body["url"], email_address=obj_body["email"], api_token=obj_body["api_token"], start_date=obj_body["start_date"], end_date=obj_body["end_date"], output_path=None)
    return await st.func_client_download_file(output_path, 1, None)
 
 @router.get("/public/table-tag-read")
