@@ -38,7 +38,7 @@ async def func_lifespan(app:FastAPI):
    cache_users_role=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool else {}
    cache_users_is_active=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
    #app state add
-   func_app_state_add(app,{**globals(),**locals()},("func_","config_","client_","cache_"))
+   func_app_state_add(app,{**globals(),**locals()},("client_","cache_","func_","config_"))
    app.state.cache_openapi=func_openapi_spec_generate(app.routes, config_api_roles_auth, app.state)
    #check
    func_check(app.routes, config_api, config_api_roles, config_postgres, config_api_roles_auth)
