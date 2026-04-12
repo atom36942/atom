@@ -325,7 +325,7 @@ async def func_postgres_delete(*, client_postgres_pool: any, table: str, ids: an
         await conn.execute(delete_query, created_by_id)
     return "ids deleted"
 
-async def func_postgres_update(*, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, obj_list: list, is_serialize: int = 1, created_by_id: int = None, is_return_ids: int = 0) -> any:
+async def func_postgres_update(*, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, obj_list: list, is_serialize: int, created_by_id: int, is_return_ids: int) -> any:
     """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
     limit_batch = 5000
     import re, orjson

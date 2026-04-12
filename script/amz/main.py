@@ -140,7 +140,7 @@ async def func_db_records_save(*, client_postgres_pool,table_name,db_records):
 
 #lifespan
 @asynccontextmanager
-async def func_lifespan(*, app:FastAPI):
+async def func_lifespan(app:FastAPI):
     app.state.client_postgres_pool=await asyncpg.create_pool(config_postgres_url,min_size=1,max_size=10)
     async with app.state.client_postgres_pool.acquire() as conn:
         await conn.execute(f"""

@@ -26,6 +26,10 @@ async def logic_task_exec(pool: any, payload: any, cache_postgres_buffer: dict) 
             if "buffer_limit" not in params:
                 tbl = params.get("table")
                 params["buffer_limit"] = config_table.get(tbl, {}).get("buffer", 100) if tbl else 100
+        elif task_name == "func_postgres_update":
+            if "is_serialize" not in params: params["is_serialize"] = 1
+            if "created_by_id" not in params: params["created_by_id"] = None
+            if "is_return_ids" not in params: params["is_return_ids"] = 0
         ctx = {"client_postgres_pool": pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer}
         call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
         call_args.update({k: v for k, v in params.items() if k in sig.parameters})
@@ -47,7 +51,7 @@ def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str,
     async def _init_pool():
         nonlocal client_postgres_pool
         if client_postgres_pool is None:
-            client_postgres_pool = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+            client_postgres_pool = await func_client_read_postgres(config_postgres={"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
     @signals.worker_process_init.connect
     def init_worker(**kwargs):
         nonlocal worker_loop
@@ -97,9 +101,9 @@ async def logic_redis(channel=None):
     if not channel:
         raise Exception("channel name required")
     import orjson
-    pool, buffer = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
-    client = await func_client_read_redis(config_redis_url_pubsub)
-    reader = await func_client_read_redis_consumer(client, channel)
+    pool, buffer = await func_client_read_postgres(config_postgres={"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
+    client = await func_client_read_redis(config_redis_url=config_redis_url_pubsub)
+    reader = await func_client_read_redis_consumer(client_redis=client, channel_name=channel)
     print(f"redis consumer started on {channel}", flush=True)
     try:
         async for msg in reader.listen():
@@ -113,8 +117,8 @@ async def logic_rabbitmq(channel=None):
     if not channel:
         raise Exception("channel name required")
     import orjson
-    pool, buffer = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
-    conn, queue = await func_client_read_rabbitmq_consumer(config_rabbitmq_url, channel)
+    pool, buffer = await func_client_read_postgres(config_postgres={"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
+    conn, queue = await func_client_read_rabbitmq_consumer(config_rabbitmq_url=config_rabbitmq_url, channel_name=channel)
     print(f"rabbitmq consumer started on {channel}", flush=True)
     try:
         async with queue.iterator() as queue_iter:
@@ -129,8 +133,8 @@ async def logic_kafka(channel=None):
     if not channel:
         raise Exception("channel name required")
     import orjson
-    pool, buffer = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
-    consumer = await func_client_read_kafka_consumer(config_kafka_url, config_kafka_username, config_kafka_password, channel, config_kafka_group_id, config_kafka_is_auto_commit)
+    pool, buffer = await func_client_read_postgres(config_postgres={"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
+    consumer = await func_client_read_kafka_consumer(config_kafka_url=config_kafka_url, config_kafka_username=config_kafka_username, config_kafka_password=config_kafka_password, channel_name=channel, config_kafka_group_id=config_kafka_group_id, config_kafka_is_auto_commit=config_kafka_is_auto_commit)
     print(f"kafka consumer started on {channel}", flush=True)
     try:
         while True:

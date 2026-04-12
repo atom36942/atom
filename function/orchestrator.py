@@ -91,8 +91,10 @@ async def func_orchestrator_obj_update(*, api_role: str, obj_query: dict, obj_bo
     if user_id:
         for item in obj_list:
             item["updated_by_id"] = user_id
+    is_serialize = int(obj_query.get("is_serialize", 1))
+    is_return_ids = 0 # Explicitly set to 0 to fulfill mandatory parameter requirement
     if obj_query.get("queue"):
-        task_obj = {"task_name": "func_postgres_update", "params": {"table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "created_by_id": created_by_id}}
+        task_obj = {"task_name": "func_postgres_update", "params": {"table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": is_serialize, "created_by_id": created_by_id, "is_return_ids": is_return_ids}}
         return await func_orchestrator_producer(queue=obj_query.get("queue"), task_obj=task_obj, producer_obj=producer_obj)
     return await func_postgres_update(
         client_postgres_pool=client_postgres_pool,
@@ -100,9 +102,9 @@ async def func_orchestrator_obj_update(*, api_role: str, obj_query: dict, obj_bo
         cache_postgres_schema=cache_postgres_schema,
         table=obj_query.get("table", ""),
         obj_list=obj_list,
+        is_serialize=is_serialize,
         created_by_id=created_by_id,
-        **({"is_serialize": obj_query.get("is_serialize")} if obj_query.get("is_serialize") is not None else {}),
-        **({"is_return_ids": 0} if False else {}) # Keep it simple for now, defaults to 0 anyway
+        is_return_ids=is_return_ids
     )
 
 async def func_orchestrator_producer(*, queue: str, task_obj: dict, producer_obj: dict) -> any:

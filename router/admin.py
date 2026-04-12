@@ -45,7 +45,7 @@ async def func_api_admin_postgres_import(*, request:Request):
       if obj_form["mode"]=="create":
          await st.func_postgres_create(client_postgres_pool=st.client_postgres_pool, func_postgres_serialize=st.func_postgres_serialize, cache_postgres_schema=st.cache_postgres_schema, mode="now", table=obj_form["table"], obj_list=obj_list, is_serialize=1, buffer_limit=0, cache_postgres_buffer=st.cache_postgres_buffer)
       elif obj_form["mode"]=="update":
-         await st.func_postgres_update(client_postgres_pool=st.client_postgres_pool, func_postgres_serialize=st.func_postgres_serialize, cache_postgres_schema=st.cache_postgres_schema, table=obj_form["table"], obj_list=obj_list)
+         await st.func_postgres_update(client_postgres_pool=st.client_postgres_pool, func_postgres_serialize=st.func_postgres_serialize, cache_postgres_schema=st.cache_postgres_schema, table=obj_form["table"], obj_list=obj_list, is_serialize=1, created_by_id=None, is_return_ids=0)
       elif obj_form["mode"]=="delete":
          await st.func_postgres_delete(client_postgres_pool=st.client_postgres_pool, table=obj_form["table"], ids=",".join(str(obj["id"]) for obj in obj_list), created_by_id=None, config_postgres_ids_delete_limit=st.config_postgres_ids_delete_limit)
       count += len(obj_list)

@@ -43,7 +43,7 @@ async def func_api_response_error(*, exception: Exception, is_traceback: int, se
 
 async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, func_postgres_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
-    if config_is_log_api == 0:
+    if config_is_log_api == 0 or client_postgres_pool is None:
         return None
     log_obj = {
         "created_by_id": user_id,
@@ -101,6 +101,8 @@ async def func_check_is_active(*, user_dict: dict, url_path: str, config_api: di
     if active_flag == 0:
         return None
     async def fetch_is_active(uid):
+        if not client_postgres_pool:
+            raise Exception("postgres client missing")
         async with client_postgres_pool.acquire() as conn:
             rows = await conn.fetch("select id,is_active from users where id=$1", uid)
         if not rows:
@@ -139,6 +141,8 @@ async def func_check_admin(*, user_dict: dict, url_path: str, config_api: dict, 
     mode = cfg["user_role_check"][0]
     roles = set(cfg["user_role_check"][1])
     async def fetch_role(uid):
+        if not client_postgres_pool:
+            raise Exception("postgres client missing")
         async with client_postgres_pool.acquire() as conn:
             rows = await conn.fetch("select role from users where id=$1", uid)
         if not rows:

@@ -100,16 +100,16 @@ def func_client_read_mongodb(*, config_mongodb_uri: str) -> any:
     import motor.motor_asyncio
     return motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_uri)
 
-async def func_client_read_sftp(*, host: str, port: int, username: str, password: str, key_path: str, auth_mode: str) -> any:
+async def func_client_read_sftp(*, config_sftp_host: str, config_sftp_port: int, config_sftp_username: str, config_sftp_password: str, config_sftp_key_path: str, config_sftp_auth_method: str) -> any:
     """Initialize SFTP connection using asyncssh."""
     import asyncssh
-    if auth_mode not in ("key", "password"):
-        raise Exception(f"invalid sftp auth mode: {auth_mode}, allowed: key, password")
-    if auth_mode == "key":
-        if not key_path:
+    if config_sftp_auth_method not in ("key", "password"):
+        raise Exception(f"invalid sftp auth mode: {config_sftp_auth_method}, allowed: key, password")
+    if config_sftp_auth_method == "key":
+        if not config_sftp_key_path:
             raise Exception("ssh key path missing")
-        return await asyncssh.connect(host=host, port=int(port), username=username, client_keys=[key_path], known_hosts=None)
-    if auth_mode == "password":
-        if not password:
+        return await asyncssh.connect(host=config_sftp_host, port=int(config_sftp_port), username=config_sftp_username, client_keys=[config_sftp_key_path], known_hosts=None)
+    if config_sftp_auth_method == "password":
+        if not config_sftp_password:
             raise Exception("password missing")
-        return await asyncssh.connect(host=host, port=int(port), username=username, password=password, known_hosts=None)
+        return await asyncssh.connect(host=config_sftp_host, port=int(config_sftp_port), username=config_sftp_username, password=config_sftp_password, known_hosts=None)

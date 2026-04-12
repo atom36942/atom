@@ -8,7 +8,7 @@ import time
 
 #lifespan
 @asynccontextmanager
-async def func_lifespan(*, app:FastAPI):
+async def func_lifespan(app:FastAPI):
    #start
    func_structure_create(directories=["tmp","secret"], files=[".env"])
    #client init
@@ -47,7 +47,8 @@ async def func_lifespan(*, app:FastAPI):
    func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, config_postgres=config_postgres, api_roles_auth=config_api_roles_auth)
    #app shutdown
    yield
-   await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
+   if client_postgres_pool:
+      await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
    if config_is_reset_tmp == 1:
       func_folder_reset(folder_path="tmp")
    await client_http.aclose()
@@ -61,7 +62,6 @@ async def func_lifespan(*, app:FastAPI):
       client_mongodb.close()
    if client_posthog:
       client_posthog.shutdown()
-   if client_posthog:
       client_posthog.flush()
    if client_kafka_producer:
       await client_kafka_producer.stop()
