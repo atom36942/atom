@@ -17,7 +17,20 @@ async def func_table_tag_read(*, client_postgres_pool: any, table: str, column: 
         rows = await conn.fetch(query, *query_args)
     return [{"tag": row["tag_item"], "count": row["count"]} for row in rows]
 
-async def func_ids_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int = None, config_postgres_ids_delete_limit: int = 1000) -> str:
+async def func_parent_read(*, client_postgres_pool: any, table: str, parent_column: str, parent_table: str, created_by_id: int, order: str, limit: int, page: int) -> list:
+    """Read parent records based on child table's foreign key column (identifier validated)."""
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
+        raise Exception(f"invalid identifier {table}")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(parent_column)):
+        raise Exception(f"invalid identifier {parent_column}")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(parent_table)):
+        raise Exception(f"invalid identifier {parent_table}")
+    query = f"WITH x AS (SELECT {parent_column} FROM {table} WHERE ($1::bigint IS NULL OR created_by_id=$1) ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit}) SELECT ct.* FROM x LEFT JOIN {parent_table} ct ON x.{parent_column}=ct.id;"
+    async with client_postgres_pool.acquire() as conn:
+        return [dict(r) for r in (await conn.fetch(query, created_by_id))]
+
+async def func_ids_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int, config_postgres_ids_delete_limit: int) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
@@ -40,16 +53,3 @@ async def func_ids_delete(*, client_postgres_pool: any, table: str, ids: any, cr
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(delete_query, created_by_id)
     return "ids deleted"
-
-async def func_parent_read(*, client_postgres_pool: any, table: str, parent_column: str, parent_table: str, created_by_id: int, order: str, limit: int, page: int) -> list:
-    """Read parent records based on child table's foreign key column (identifier validated)."""
-    import re
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
-        raise Exception(f"invalid identifier {table}")
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(parent_column)):
-        raise Exception(f"invalid identifier {parent_column}")
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(parent_table)):
-        raise Exception(f"invalid identifier {parent_table}")
-    query = f"WITH x AS (SELECT {parent_column} FROM {table} WHERE ($1::bigint IS NULL OR created_by_id=$1) ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit}) SELECT ct.* FROM x LEFT JOIN {parent_table} ct ON x.{parent_column}=ct.id;"
-    async with client_postgres_pool.acquire() as conn:
-        return [dict(r) for r in (await conn.fetch(query, created_by_id))]

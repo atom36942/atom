@@ -47,7 +47,7 @@ async def func_api_admin_postgres_import(*, request:Request):
       elif obj_form["mode"]=="update":
          await st.func_postgres_object_update(client_postgres_pool=st.client_postgres_pool, func_postgres_serialize=st.func_postgres_serialize, cache_postgres_schema=st.cache_postgres_schema, table=obj_form["table"], obj_list=obj_list)
       elif obj_form["mode"]=="delete":
-         await st.func_ids_delete(client_postgres_pool=st.client_postgres_pool, table=obj_form["table"], ids=",".join(str(obj["id"]) for obj in obj_list), created_by_id=0, config_postgres_ids_delete_limit=st.config_postgres_ids_delete_limit)
+         await st.func_ids_delete(client_postgres_pool=st.client_postgres_pool, table=obj_form["table"], ids=",".join(str(obj["id"]) for obj in obj_list), created_by_id=None, config_postgres_ids_delete_limit=st.config_postgres_ids_delete_limit)
       count += len(obj_list)
    return {"status":1,"message":f"{count} rows processed"}
 
@@ -76,7 +76,7 @@ async def func_api_admin_object_read(*, request:Request):
 async def func_api_admin_ids_delete(*, request:Request):
    st=request.app.state
    obj_body=await st.func_request_param_read(request=request, mode="body", config=[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("ids","str",1,None,None,None,None)], strict=0)
-   output=await st.func_ids_delete(client_postgres_pool=st.client_postgres_pool, table=obj_body["table"], ids=obj_body["ids"], created_by_id=0, config_postgres_ids_delete_limit=st.config_postgres_ids_delete_limit)
+   output=await st.func_ids_delete(client_postgres_pool=st.client_postgres_pool, table=obj_body["table"], ids=obj_body["ids"], created_by_id=None, config_postgres_ids_delete_limit=st.config_postgres_ids_delete_limit)
    return {"status":1,"message":output}
 
 @router.post("/admin/redis-import-create")
