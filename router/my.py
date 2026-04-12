@@ -19,7 +19,7 @@ async def func_api_my_profile(*, request:Request):
 async def func_api_my_token_refresh(*, request:Request):
    st=request.app.state
    user=await st.func_user_single_read(client_postgres_pool=st.client_postgres_pool, user_id=request.state.user["id"])
-    token=await st.func_token_encode(user=user, config_token_secret_key=st.config_token_secret_key, config_token_expiry_sec=st.config_token_expiry_sec, config_token_refresh_expiry_sec=st.config_token_refresh_expiry_sec, config_token_key=st.config_token_key)
+   token=await st.func_token_encode(user=user, config_token_secret_key=st.config_token_secret_key, config_token_expiry_sec=st.config_token_expiry_sec, config_token_refresh_expiry_sec=st.config_token_refresh_expiry_sec, config_token_key=st.config_token_key)
    return {"status":1,"message":token}
 
 @router.get("/my/api-usage")
@@ -43,7 +43,7 @@ async def func_api_my_message_received(*, request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request=request, mode="query", config=[("mode","str",1,["all","unread","read"],None,None,None),("order","str",0,None,"id desc",None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None)], strict=0)
    # RENAMED: sort_order -> order, limit_count -> limit, page_number -> page
-   obj_list=await st.func_message_received(client_postgres_pool=st.client_postgres_pool, user_id=request.state.user["id"], mode=obj_query["mode"], order=obj_query["order"], limit=obj_query["limit"], page=obj_query["page"], func_ids_update=st.func_ids_update)
+   obj_list=await st.func_message_received(client_postgres_pool=st.client_postgres_pool, user_id=request.state.user["id"], mode=obj_query["mode"], order=obj_query["order"], limit=obj_query["limit"], page=obj_query["page"])
    return {"status":1,"message":obj_list}
 
 @router.get("/my/message-inbox")
@@ -92,7 +92,7 @@ async def func_api_my_ids_delete(*, request:Request):
    st=request.app.state
    obj_body=await st.func_request_param_read(request=request, mode="body", config=[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("ids","str",1,None,None,None,None)], strict=0)
    # RENAMED: table_name -> table, record_ids -> ids
-   output=await st.func_ids_delete(client_postgres_pool=st.client_postgres_pool, table=obj_body["table"], ids=obj_body["ids"], created_by_id=request.state.user.get("id",0), config_table_system=st.config_table_system, config_postgres_ids_delete_limit=st.config_postgres_ids_delete_limit)
+   output=await st.func_ids_delete(client_postgres_pool=st.client_postgres_pool, table=obj_body["table"], ids=obj_body["ids"], created_by_id=request.state.user.get("id",0), config_postgres_ids_delete_limit=st.config_postgres_ids_delete_limit)
    return {"status":1,"message":output}
 
 @router.post("/my/object-create")

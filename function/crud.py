@@ -17,26 +17,7 @@ async def func_table_tag_read(*, client_postgres_pool: any, table: str, column: 
         rows = await conn.fetch(query, *query_args)
     return [{"tag": row["tag_item"], "count": row["count"]} for row in rows]
 
-async def func_ids_update(*, client_postgres_pool: any, table: str, ids: any, column: str, value: any, created_by_id: int, updated_by_id: int) -> None:
-    """Update a specific column for a list of record IDs with ownership check (identifier validated)."""
-    import re
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
-        raise Exception(f"invalid identifier {table}")
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column)):
-        raise Exception(f"invalid identifier {column}")
-    ids_str = ""
-    if isinstance(ids, str):
-        ids_str = ",".join([str(int(x.strip())) for x in ids.split(",") if x.strip()])
-    elif isinstance(ids, (list, tuple)):
-        ids_str = ",".join([str(int(x)) for x in ids])
-    set_clause = f"{column}=$1"
-    if updated_by_id is not None:
-        set_clause = f"{column}=$1,updated_by_id=$2"
-    update_query = f"UPDATE {table} SET {set_clause} WHERE id IN ({ids_str}) AND ($3::bigint IS NULL OR created_by_id=$3);"
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(update_query, value, updated_by_id, created_by_id)
-
-async def func_ids_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int = None, config_table_system: list = None, config_postgres_ids_delete_limit: int = 1000) -> str:
+async def func_ids_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int = None, config_postgres_ids_delete_limit: int = 1000) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
@@ -54,7 +35,7 @@ async def func_ids_delete(*, client_postgres_pool: any, table: str, ids: any, cr
             raise Exception("ids length exceeded")
         ids_str = ",".join([str(int(x)) for x in ids])
     delete_query = f"DELETE FROM {table} WHERE id IN ({ids_str}) AND ($1::bigint IS NULL OR created_by_id=$1);"
-    if config_table_system and table in config_table_system:
+    if table == "spatial_ref_sys":
         raise Exception("system table protected")
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(delete_query, created_by_id)

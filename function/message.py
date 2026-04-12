@@ -6,7 +6,7 @@ async def func_message_inbox(*, client_postgres_pool: any, user_id: int, mode: s
         records = await conn.fetch(query, user_id)
         return [dict(r) for r in records]
 
-async def func_message_received(*, client_postgres_pool: any, user_id: int, mode: str, order: str, limit: int, page: int, func_ids_update: callable) -> list:
+async def func_message_received(*, client_postgres_pool: any, user_id: int, mode: str, order: str, limit: int, page: int) -> list:
     """Read all messages received by a specific user and optionally mark unread ones as read (identifier validated)."""
     import asyncio
     unread_filter = "AND is_read=1" if mode == "read" else "AND is_read IS DISTINCT FROM 1" if mode == "unread" else ""
@@ -14,10 +14,13 @@ async def func_message_received(*, client_postgres_pool: any, user_id: int, mode
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, user_id)
         obj_list = [dict(r) for r in records]
-        if obj_list and func_ids_update:
+        if obj_list:
             mark_read_ids = [r["id"] for r in obj_list if r.get("is_read") != 1]
             if mark_read_ids:
-                asyncio.create_task(func_ids_update(client_postgres_pool=client_postgres_pool, table="message", ids=mark_read_ids, column="is_read", value=1, created_by_id=None, updated_by_id=None))
+                async def _mark_read():
+                    async with client_postgres_pool.acquire() as conn:
+                        await conn.execute(f"UPDATE message SET is_read=1 WHERE id IN ({','.join(map(str, mark_read_ids))})")
+                asyncio.create_task(_mark_read())
     return obj_list
 
 async def func_message_thread(*, client_postgres_pool: any, user_one_id: int, user_id: int, order: str, limit: int, page: int) -> list:
