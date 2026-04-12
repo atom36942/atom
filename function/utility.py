@@ -1,4 +1,4 @@
-def func_structure_create(directories: list, files: list) -> None:
+def func_structure_create(*, directories: list, files: list) -> None:
     """Create directory and file structure if it doesn't exist."""
     import os
     for directory_path in directories:
@@ -13,17 +13,15 @@ def func_structure_create(directories: list, files: list) -> None:
         except OSError:
             pass
 
-def func_structure_check(root_path: str, dirs: tuple = None, files: tuple = None) -> None:
+def func_structure_check(*, root_path: str, dirs: tuple, files: tuple) -> None:
     """Verify existence of required project directories and files."""
     from pathlib import Path
-    dirs_list = dirs or ()
-    files_list = files or ()
     try:
         root = Path(root_path)
         if not root.exists():
             return None
-        missing_dirs = [directory_name for directory_name in dirs_list if not (root / directory_name).is_dir()]
-        missing_files = [file_name for file_name in files_list if not (root / file_name).is_file()]
+        missing_dirs = [directory_name for directory_name in dirs if not (root / directory_name).is_dir()]
+        missing_files = [file_name for file_name in files if not (root / file_name).is_file()]
         if missing_dirs:
             print(f"Structure verification failed. Missing Dirs: {missing_dirs}")
         if missing_files:
@@ -32,12 +30,12 @@ def func_structure_check(root_path: str, dirs: tuple = None, files: tuple = None
         pass
     return None
 
-def func_password_hash(password_raw: any) -> str:
+def func_password_hash(*, password_raw: any) -> str:
     """Generate SHA-256 hash of the provided password string."""
     import hashlib
     return hashlib.sha256(str(password_raw).encode()).hexdigest()
 
-async def func_token_encode(user: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_token_key: list = None) -> dict:
+async def func_token_encode(*, user: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_token_key: list) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
     if user is None:
@@ -49,7 +47,7 @@ async def func_token_encode(user: dict, config_token_secret_key: str, config_tok
     refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, config_token_secret_key)
     return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
 
-async def func_otp_generate(client_postgres_pool: any, email: str = None, mobile: str = None) -> int:
+async def func_otp_generate(*, client_postgres_pool: any, email: str = None, mobile: str = None) -> int:
     """Generate a random 6-digit OTP and store it in PostgreSQL for a given email or mobile."""
     import random
     otp = random.randint(100000, 999999)
@@ -58,9 +56,8 @@ async def func_otp_generate(client_postgres_pool: any, email: str = None, mobile
         await conn.execute(query, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
     return otp
 
-async def func_otp_verify(client_postgres_pool: any, otp: int, email: str = None, mobile: str = None, config_expiry_sec_otp: int = None) -> None:
+async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str = None, mobile: str = None, config_expiry_sec_otp: int = 600) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
-    config_expiry_sec_otp = config_expiry_sec_otp or 600
     if not otp:
         raise Exception("otp code missing")
     if not email and not mobile:
@@ -83,7 +80,7 @@ async def func_otp_verify(client_postgres_pool: any, otp: int, email: str = None
             raise Exception("otp code expired")
     return None
 
-async def func_api_file_to_obj_list(upload_file: any) -> list[dict[str, any]]:
+async def func_api_file_to_obj_list(*, upload_file: any) -> list[dict[str, any]]:
     """Convert an uploaded CSV file into a list of dictionaries (all at once)."""
     import csv, io, asyncio
     def _parse_csv(file):
@@ -92,10 +89,8 @@ async def func_api_file_to_obj_list(upload_file: any) -> list[dict[str, any]]:
     await upload_file.close()
     return obj_list
 
-async def func_api_file_to_chunks(upload_file: any, chunk_size: int = None) -> any:
+async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int) -> any:
     """Yield chunks of dictionaries from an uploaded CSV file for memory efficiency."""
-    if chunk_size is None:
-        chunk_size = 5000
     import csv, io, asyncio
     
     def _read_chunk(reader_iter, size):
@@ -116,7 +111,7 @@ async def func_api_file_to_chunks(upload_file: any, chunk_size: int = None) -> a
     await upload_file.close()
     return
 
-def func_config_override_from_env(global_dict: dict) -> None:
+def func_config_override_from_env(*, global_dict: dict) -> None:
     """Override configuration variables starting with 'config_' from environment variables and .env file."""
     import orjson, os, ast
     from dotenv import load_dotenv
@@ -155,7 +150,7 @@ def func_config_override_from_env(global_dict: dict) -> None:
     except Exception:
         pass
 
-def func_folder_reset(folder_path: str) -> str:
+def func_folder_reset(*, folder_path: str) -> str:
     """Purge all files and subdirectories within a specified directory."""
     import os, shutil
     absolute_path = folder_path if os.path.isabs(folder_path) else os.path.join(os.getcwd(), folder_path)
@@ -169,15 +164,13 @@ def func_folder_reset(folder_path: str) -> str:
             os.remove(item_path)
     return "folder reset done"
 
-async def func_client_download_file(file_path: str, is_delete_after: int = None, chunk_size: int = None) -> any:
+async def func_client_download_file(*, file_path: str, is_delete_after: int = 0, chunk_size: int = 1048576) -> any:
     """Stream a file for client download with optional automatic cleanup after transmission."""
     if "tmp/" not in str(file_path):
         raise Exception("IO Boundary Violation: tmp/ path required")
     from fastapi import responses
     from starlette.background import BackgroundTask
     import os, mimetypes, aiofiles
-    is_delete_after = is_delete_after if is_delete_after is not None else 1
-    chunk_size = chunk_size or 1048576
     file_name = os.path.basename(file_path)
     content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
     async def file_iterator():
@@ -189,9 +182,8 @@ async def func_client_download_file(file_path: str, is_delete_after: int = None,
                 yield chunk
     return responses.StreamingResponse(file_iterator(), media_type=content_type, headers={"Content-Disposition": f"attachment; filename=\"{file_name}\""}, background=BackgroundTask(os.remove, file_path) if is_delete_after == 1 else None)
 
-async def func_request_param_read(request_obj: any, parsing_mode: str, param_config: list, is_strict: int = None) -> dict:
+async def func_request_param_read(*, request_obj: any, parsing_mode: str, param_config: list, is_strict: int) -> dict:
     """Extract, validate, and type-cast request parameters from query, form, body or headers."""
-    is_strict = is_strict or 0
     params_dict = {}
     header_params = {k.lower(): v for k, v in request_obj.headers.items()}
     if parsing_mode == "query":
@@ -282,7 +274,7 @@ async def func_request_param_read(request_obj: any, parsing_mode: str, param_con
         output_dict[key] = val
     return output_dict
 
-def func_converter_number(data_type: str, process_mode: str, value: any) -> any:
+def func_converter_number(*, data_type: str, process_mode: str, value: any) -> any:
     """Encode strings into specific-size integers or decode them back using a custom charset."""
     type_limits = {"smallint": 2, "int": 5, "bigint": 11}
     charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"

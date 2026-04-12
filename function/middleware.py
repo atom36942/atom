@@ -1,4 +1,4 @@
-async def func_api_response_error(exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
+async def func_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
     import traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
     from fastapi import responses
@@ -41,7 +41,7 @@ async def func_api_response_error(exception: Exception, is_traceback: int, sentr
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
 
-async def func_api_log_create(config_is_log_api: int, api_id: int, request_obj: any, response_obj: any, response_time_ms: int, user_id: any, func_postgres_object_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
+async def func_api_log_create(*, config_is_log_api: int, api_id: int, request_obj: any, response_obj: any, response_time_ms: int, user_id: any, func_postgres_object_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
     if config_is_log_api == 0:
         return None
@@ -56,10 +56,10 @@ async def func_api_log_create(config_is_log_api: int, api_id: int, request_obj: 
         "status_code": response_obj.status_code,
         "response_time_ms": response_time_ms
     }
-    await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, cache_postgres_schema, "buffer", "log_api", [log_obj], 0, config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer)
+    await func_postgres_object_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, execution_mode="buffer", table_name="log_api", obj_list=[log_obj], is_serialize=0, table_buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer)
     return None
 
-async def func_check_ratelimiter(client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
+async def func_check_ratelimiter(*, client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     import time
     api_cfg = config_api.get(url_path, {})
@@ -92,7 +92,7 @@ async def func_check_ratelimiter(client_redis_ratelimiter: any, config_api: dict
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_check_is_active(user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_is_active: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_check_is_active(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_is_active: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is active using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_is_active_check")
     if not cfg or not user_dict:
@@ -132,7 +132,7 @@ async def func_check_is_active(user_dict: dict, url_path: str, config_api: dict,
     if active_status == 0:
         raise Exception("user not active")
 
-async def func_check_admin(user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_check_admin(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access admin endpoints using a strictly configured mode from config_api."""
     if not url_path.startswith("/admin") or not (cfg := config_api.get(url_path)) or "user_role_check" not in cfg:
         return None
@@ -179,7 +179,7 @@ async def func_check_admin(user_dict: dict, url_path: str, config_api: dict, cli
     if user_role not in roles:
         raise Exception("access denied")
 
-async def func_check_cache(mode: str, url_path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, response_obj: any, cache_api_response: dict) -> any:
+async def func_check_cache(*, mode: str, url_path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, response_obj: any, cache_api_response: dict) -> any:
     """Retrieve from or store to cache API responses based on configuration."""
     from fastapi import Response
     import gzip, base64, time
@@ -213,7 +213,7 @@ async def func_check_cache(mode: str, url_path: str, query_params: dict, config_
             cache_api_response[cache_key] = {"data": compressed_body, "expire_at": time.time() + expire_sec}
         return Response(content=body_content, status_code=response_obj.status_code, media_type=response_obj.media_type, headers=dict(response_obj.headers))
 
-async def func_api_response_background(scope: dict, body_bytes: bytes, api_function: callable) -> any:
+async def func_api_response_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> any:
     """Execute an API function in the background and return a 200 response immediately."""
     from fastapi import Request, responses
     from starlette.background import BackgroundTask
@@ -225,7 +225,7 @@ async def func_api_response_background(scope: dict, body_bytes: bytes, api_funct
     background_resp.background = BackgroundTask(api_task_execution)
     return background_resp
 
-async def func_api_response(request: any, api_function: callable, config_api: dict, client_redis: any, user_id: int, func_background: callable, func_cache: callable, cache_api_response: dict) -> tuple:
+async def func_api_response(*, request: any, api_function: callable, config_api: dict, client_redis: any, user_id: int, func_background: callable, func_cache: callable, cache_api_response: dict) -> tuple:
     """Orchestrate API request handling, including background task delegation and cache management."""
     from fastapi import responses
     path = request.url.path
@@ -236,21 +236,21 @@ async def func_api_response(request: any, api_function: callable, config_api: di
     resp_type = 0
     if query_params.get("is_background") == "1":
         body_bytes = await request.body()
-        response = await func_background(request.scope, body_bytes, api_function)
+        response = await func_background(scope=request.scope, body_bytes=body_bytes, api_function=api_function)
         resp_type = 1
     elif cache_sec_config:
-        response = await func_cache("get", path, query_params, config_api, client_redis, user_id, None, cache_api_response)
+        response = await func_cache(mode="get", url_path=path, query_params=query_params, config_api=config_api, client_redis=client_redis, user_id=user_id, response_obj=None, cache_api_response=cache_api_response)
         if response:
             resp_type = 2
     if not response:
         response = await api_function(request)
         resp_type = 3
         if cache_sec_config:
-            response = await func_cache("set", path, query_params, config_api, client_redis, user_id, response, cache_api_response)
+            response = await func_cache(mode="set", url_path=path, query_params=query_params, config_api=config_api, client_redis=client_redis, user_id=user_id, response_obj=response, cache_api_response=cache_api_response)
             resp_type = 4
     return response, resp_type
 
-async def func_authenticate(headers: dict, url_path: str, config_token_secret_key: str, config_api_roles_auth: list) -> dict:
+async def func_authenticate(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_roles_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None

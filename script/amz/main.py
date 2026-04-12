@@ -66,7 +66,7 @@ config_payload_amazon_invoice={
 }
 
 #pure func
-async def func_sftp_read_files(host,port,username,password,remote_dir,local_prefix):
+async def func_sftp_read_files(*, host,port,username,password,remote_dir,local_prefix):
     os.makedirs(os.path.dirname(local_prefix),exist_ok=True)
     list_files=[]
     async with asyncssh.connect(host,port=port,username=username,password=password,known_hosts=None) as conn:
@@ -79,11 +79,11 @@ async def func_sftp_read_files(host,port,username,password,remote_dir,local_pref
                     list_files.append((f,local_path))
     return list_files
 
-def func_csv_to_dict_list(local_path):
+def func_csv_to_dict_list(*, local_path):
     with open(local_path,"r",encoding="utf-8") as file_csv:
         return list(csv.DictReader(file_csv))
 
-def func_amazon_payload_build(row,invoice_id,today_utc):
+def func_amazon_payload_build(*, row,invoice_id,today_utc):
     for k in ("INVOICEDATE","SHIPPEDDATE","DELIVERYDATE"):
         v=row.get(k)
         row[k]=datetime.strptime(v.strip(),"%Y%m%d").strftime("%Y-%m-%dT%H:%M:%SZ") if v and v!="00000000" else today_utc
@@ -119,7 +119,7 @@ def func_amazon_payload_build(row,invoice_id,today_utc):
     iitem["lineItemAmountWithoutTaxes"].update({"amount":float(row["INVOICEAMOUNT"]),"currencyCode":row["CURRENCYCODE"]} )
     return payload
 
-async def func_amazon_token_get(state,config_token_url,now_utc):
+async def func_amazon_token_get(*, state,config_token_url,now_utc):
     if not getattr(state,"cache_amazon_token",None) or not getattr(state,"cache_amazon_token_expires",None) or now_utc>=state.cache_amazon_token_expires:
         r_tk=await state.client_http.post(config_token_url,data={"grant_type":"client_credentials","client_id":config_amazon_client_id,"client_secret":config_amazon_client_secret},headers={"Content-Type":"application/x-www-form-urlencoded"})
         r_tk.raise_for_status()
@@ -127,12 +127,12 @@ async def func_amazon_token_get(state,config_token_url,now_utc):
         state.cache_amazon_token_expires=now_utc+timedelta(minutes=55)
     return state.cache_amazon_token
 
-async def func_amazon_invoice_send(state,payload,config_api_url,config_cert_files):
+async def func_amazon_invoice_send(*, state,payload,config_api_url,config_cert_files):
     r=await state.client_http.post(config_api_url,json=payload,headers={"Authorization":f"Bearer {state.cache_amazon_token}","Content-Type":"application/json"},cert=config_cert_files,timeout=60)
     ok=r.status_code in (200,202)
     return ok,r
 
-async def func_db_records_save(client_postgres_pool,table_name,db_records):
+async def func_db_records_save(*, client_postgres_pool,table_name,db_records):
     query=f"INSERT INTO {table_name} (invoice_id,payload,filename,status,response) VALUES ($1,$2::jsonb,$3,$4,$5::jsonb)"
     async with client_postgres_pool.acquire() as conn:
         async with conn.transaction():
@@ -140,7 +140,7 @@ async def func_db_records_save(client_postgres_pool,table_name,db_records):
 
 #lifespan
 @asynccontextmanager
-async def func_lifespan(app:FastAPI):
+async def func_lifespan(*, app:FastAPI):
     app.state.client_postgres_pool=await asyncpg.create_pool(config_postgres_url,min_size=1,max_size=10)
     async with app.state.client_postgres_pool.acquire() as conn:
         await conn.execute(f"""
@@ -179,21 +179,21 @@ async def api_health(request:Request):
 async def api_mgh_amazon_invoice_send(request:Request):
     state=request.app.state
     process_results=[]
-    list_files=await func_sftp_read_files(config_sftp_host,config_sftp_port,config_sftp_username,config_sftp_password,config_sftp_path,config_export_prefix)
+    list_files=await func_sftp_read_files(host=config_sftp_host, port=config_sftp_port, username=config_sftp_username, password=config_sftp_password, remote_dir=config_sftp_path, local_prefix=config_export_prefix)
     now_utc=datetime.now(timezone.utc)
     today_utc=now_utc.strftime("%Y-%m-%dT00:00:00Z")
-    await func_amazon_token_get(state,config_token_url,now_utc)
+    await func_amazon_token_get(state=state, config_token_url=config_token_url, now_utc=now_utc)
     for filename,local_path in list_files:
         db_records=[]
-        rows=func_csv_to_dict_list(local_path)
+        rows=func_csv_to_dict_list(local_path=local_path)
         for row in rows:
             invoice_id=row.get("INVOICENUMBER")
             if not invoice_id or not invoice_id.strip(): continue
-            payload=func_amazon_payload_build(row,invoice_id,today_utc)
-            ok,r=await func_amazon_invoice_send(state,payload,config_api_url,config_cert_files)
+            payload=func_amazon_payload_build(row=row, invoice_id=invoice_id, today_utc=today_utc)
+            ok,r=await func_amazon_invoice_send(state=state, payload=payload, config_api_url=config_api_url, config_cert_files=config_cert_files)
             db_records.append({"invoice_id":invoice_id,"payload":json.dumps(payload),"filename":filename,"status":1 if ok else 0,"response":json.dumps(r.json() if r.content else {}) if ok else json.dumps({"error":r.text})})
         if db_records:
-            await func_db_records_save(state.client_postgres_pool,config_table_name,db_records)
+            await func_db_records_save(client_postgres_pool=state.client_postgres_pool, table_name=config_table_name, db_records=db_records)
             process_results.append({"filename":filename,"records_processed":len(db_records)})
     return {"status":1,"message":process_results}
 

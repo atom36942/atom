@@ -1,8 +1,8 @@
-async def func_table_tag_read(postgres_pool: any, table: str, column: str, filter_column: str = None, filter_value: any = None, limit: int = None, page: int = None) -> list:
+async def func_table_tag_read(*, postgres_pool: any, table: str, column: str, filter_column: str, filter_value: any, limit: int = 100, page: int = 1) -> list:
     """Read unique tags/items from an array column with occurrence counts."""
     import re
-    limit = min(max(int(limit or 100), 1), 500)
-    page = max(int(page or 1), 1)
+    limit = min(max(int(limit), 1), 500)
+    page = max(int(page), 1)
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
         raise Exception(f"invalid identifier {table}")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column)):
@@ -19,14 +19,14 @@ async def func_table_tag_read(postgres_pool: any, table: str, column: str, filte
         rows = await conn.fetch(query, *query_args)
     return [{"tag": row["tag_item"], "count": row["count"]} for row in rows]
 
-async def func_api_usage_read(client_postgres_pool: any, days: int, user_id: int = None) -> list:
+async def func_api_usage_read(*, client_postgres_pool: any, days: int, user_id: int) -> list:
     """Read API usage logs for a specific user or globally within a day limit."""
     query = "SELECT api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND ($2::bigint IS NULL OR created_by_id=$2) GROUP BY api LIMIT 1000;"
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, days, user_id)
         return [dict(r) for r in records]
 
-async def func_account_delete(mode: str, client_postgres_pool: any, user_id: int) -> str:
+async def func_account_delete(*, mode: str, client_postgres_pool: any, user_id: int) -> str:
     """Delete a user account either softly (flag) or hardly (row removal)."""
     async with client_postgres_pool.acquire() as conn:
         user = await conn.fetchrow("SELECT role FROM users WHERE id=$1", user_id)
@@ -43,7 +43,7 @@ async def func_account_delete(mode: str, client_postgres_pool: any, user_id: int
         await conn.execute(query, user_id)
     return "account deleted"
 
-async def func_user_single_read(client_postgres_pool: any, user_id: int) -> dict:
+async def func_user_single_read(*, client_postgres_pool: any, user_id: int) -> dict:
     """Read a single user's full record by their ID."""
     async with client_postgres_pool.acquire() as conn:
         record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", user_id)
@@ -51,10 +51,10 @@ async def func_user_single_read(client_postgres_pool: any, user_id: int) -> dict
             raise Exception("user not found")
         return dict(record)
 
-async def func_my_profile_read(client_postgres_pool: any, user_id: int, config_sql: dict) -> dict:
+async def func_my_profile_read(*, client_postgres_pool: any, user_id: int, config_sql: dict) -> dict:
     """Read full user profile and update last activity status."""
     import asyncio
-    user = await func_user_single_read(client_postgres_pool, user_id)
+    user = await func_user_single_read(client_postgres_pool=client_postgres_pool, user_id=user_id)
     metadata = {}
     queries_metadata = config_sql.get("profile_metadata")
     if queries_metadata:
@@ -65,7 +65,7 @@ async def func_my_profile_read(client_postgres_pool: any, user_id: int, config_s
     asyncio.create_task(client_postgres_pool.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
     return {**user, **metadata}
 
-async def func_ids_update(client_postgres_pool: any, table: str, ids: any, column: str, target_value: any, created_by_id: int = None, updated_by_id: int = None) -> None:
+async def func_ids_update(*, client_postgres_pool: any, table: str, ids: any, column: str, target_value: any, created_by_id: int, updated_by_id: int) -> None:
     """Update a specific column for a list of record IDs with ownership check (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
@@ -84,12 +84,11 @@ async def func_ids_update(client_postgres_pool: any, table: str, ids: any, colum
     async with client_postgres_pool.acquire() as conn:
         await conn.execute(update_query, target_value, updated_by_id, created_by_id)
 
-async def func_ids_delete(client_postgres_pool: any, table: str, ids: any, created_by_id: int = None, config_table_system: list = None, config_postgres_ids_delete_limit: int = None) -> str:
+async def func_ids_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int = None, config_table_system: list = None, config_postgres_ids_delete_limit: int = 1000) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
         raise Exception(f"invalid identifier {table}")
-    config_postgres_ids_delete_limit = config_postgres_ids_delete_limit or 100
     if table == "users":
         raise Exception("users table not allowed")
     ids_str = ""
@@ -109,7 +108,7 @@ async def func_ids_delete(client_postgres_pool: any, table: str, ids: any, creat
         await conn.execute(delete_query, created_by_id)
     return "ids deleted"
 
-async def func_parent_read(client_postgres_pool: any, table: str, parent_column: str, parent_table: str, created_by_id: int = None, order: str = None, limit: int = None, page: int = None) -> list:
+async def func_parent_read(*, client_postgres_pool: any, table: str, parent_column: str, parent_table: str, created_by_id: int, order: str, limit: int, page: int) -> list:
     """Read parent records based on child table's foreign key column (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
@@ -118,9 +117,8 @@ async def func_parent_read(client_postgres_pool: any, table: str, parent_column:
         raise Exception(f"invalid identifier {parent_column}")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(parent_table)):
         raise Exception(f"invalid identifier {parent_table}")
-    limit = min(max(int(limit or 100), 1), 500)
-    page = max(int(page or 1), 1)
-    order = order or "id desc"
+    limit = min(max(int(limit), 1), 500)
+    page = max(int(page), 1)
     query = f"WITH x AS (SELECT {parent_column} FROM {table} WHERE ($1::bigint IS NULL OR created_by_id=$1) ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit}) SELECT ct.* FROM x LEFT JOIN {parent_table} ct ON x.{parent_column}=ct.id;"
     async with client_postgres_pool.acquire() as conn:
         return [dict(r) for r in (await conn.fetch(query, created_by_id))]

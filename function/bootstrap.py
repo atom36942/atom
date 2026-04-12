@@ -1,36 +1,40 @@
-def func_app_read(lifespan_handler: any, is_debug_mode: int) -> any:
+def func_app_read(*, lifespan_handler: any, is_debug_mode: int) -> any:
     """Initialize a FastAPI application with debug mode and lifespan handler, disabling default OpenAPI routes."""
     from fastapi import FastAPI
     return FastAPI(debug=bool(is_debug_mode), lifespan=lifespan_handler, openapi_url=None, docs_url=None, redoc_url=None)
 
-def func_app_add_cors(fastapi_app: any, origins: list, methods: list, headers: list, is_allow_credentials: int) -> None:
+def func_app_add_cors(*, fastapi_app: any, origins: list, methods: list, headers: list, is_allow_credentials: int) -> None:
     """Add CORS middleware to the FastAPI application."""
     from fastapi.middleware.cors import CORSMiddleware
     fastapi_app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=methods, allow_headers=headers, allow_credentials=bool(is_allow_credentials))
 
-def func_app_add_prometheus(fastapi_app: any) -> None:
+async def func_request_param_read(*, request_obj: any, parsing_mode: str, param_config: list, is_strict: int = 1) -> dict:
+    """Read and validate request parameters from query, body, or form data based on configuration."""
+    output_dict = {}
+
+def func_app_add_prometheus(*, fastapi_app: any) -> None:
     """Expose Prometheus metrics for the FastAPI application."""
     from prometheus_fastapi_instrumentator import Instrumentator
     Instrumentator().instrument(fastapi_app).expose(fastapi_app)
 
-def func_app_state_add(fastapi_app: any, config_dict: dict, prefix: str) -> None:
+def func_app_state_add(*, fastapi_app: any, config_dict: dict, prefix: str) -> None:
     """Inject configuration values into the FastAPI application state based on a prefix."""
     for key, val in config_dict.items():
         if key.startswith(prefix):
             setattr(fastapi_app.state, key, val)
 
-def func_app_add_sentry(sentry_dsn: str) -> None:
+def func_app_add_sentry(*, sentry_dsn: str) -> None:
     """Initialize Sentry SDK for error tracking and profiling."""
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     sentry_sdk.init(dsn=sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=True)
 
-def func_app_add_static(fastapi_app: any, folder_path: str, mount_path: str) -> None:
+def func_app_add_static(*, fastapi_app: any, folder_path: str, mount_path: str) -> None:
     """Mount a static directory to the FastAPI application."""
     from fastapi.staticfiles import StaticFiles
     fastapi_app.mount(mount_path, StaticFiles(directory=folder_path), name="static")
 
-def func_app_add_router(fastapi_app: any) -> None:
+def func_app_add_router(*, fastapi_app: any) -> None:
     """Dynamically discover and include all FastAPI routers from the router directory."""
     import sys, importlib.util
     from pathlib import Path
@@ -53,7 +57,7 @@ def func_app_add_router(fastapi_app: any) -> None:
                 raise Exception(f"invalid router file: {py_file} (missing 'router' attribute of type APIRouter)")
             fastapi_app.include_router(router)
 
-def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = None, app_state: any = None) -> dict:
+def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
     spec = {
@@ -78,7 +82,7 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
             path_parts = path.split("/")
             tag = path_parts[1] if len(path_parts) > 1 and path_parts[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
-            if any(path.startswith(x) for x in (config_api_roles_auth if config_api_roles_auth else [])):
+            if any(path.startswith(x) for x in config_api_roles_auth):
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
             for p in re.findall(r"\{(\w+)\}", path):
@@ -285,7 +289,7 @@ def func_openapi_spec_generate(app_routes: list, config_api_roles_auth: list = N
             spec["paths"][path][m_lower] = op
     return spec
 
-def func_check(app_routes: list, current_config_api: dict, allowed_roles: list = None, config_postgres: dict = None, api_roles_auth: list = None) -> None:
+def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: list, config_postgres: dict, api_roles_auth: list) -> None:
     """Validate config_api consistency with app routes, admin roles, valid modes, duplicate keys, and strict api roles."""
     import ast
     def get_duplicate_errors(file_path, var_name):
@@ -431,7 +435,7 @@ def func_check(app_routes: list, current_config_api: dict, allowed_roles: list =
     if errors:
         raise Exception("; ".join(errors))
 
-def func_repo_info(app_routes: list, cache_postgres_schema: dict, config_postgres: dict, config_table: dict, config_api: dict) -> dict:
+def func_repo_info(*, app_routes: list, cache_postgres_schema: dict, config_postgres: dict, config_table: dict, config_api: dict) -> dict:
     """Construct system discovery metadata including routes, schema, and configuration settings."""
     import inspect, ast
     def get_postgres_keys(config_pg):

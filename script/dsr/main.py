@@ -113,7 +113,7 @@ def process_eml_bytes(eml_bytes: bytes) -> bytes:
 
 #lifespan
 @asynccontextmanager
-async def func_lifespan(app: FastAPI):
+async def func_lifespan(*, app: FastAPI):
     yield
 
 #app
