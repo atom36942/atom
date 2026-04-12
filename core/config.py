@@ -98,7 +98,7 @@ config_is_postgres_init_startup=1
 #zzz
 config_expiry_sec_otp=600
 config_postgres_ids_delete_limit=1000
-config_postgres_batch_limit=1000
+config_limit_obj_list=1000
 config_google_login_client_id=None
 config_mongodb_uri=None
 config_openai_key=None

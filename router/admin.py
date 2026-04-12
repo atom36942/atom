@@ -13,7 +13,7 @@ async def func_api_admin_sync(request:Request):
    st = request.app.state
    if st.client_postgres_pool:
       await st.func_postgres_init(st.client_postgres_pool, st.config_postgres)
-   await st.func_postgres_object_create(st.client_postgres_pool, st.func_postgres_serialize, "flush", None, None)
+   await st.func_postgres_object_create(st.client_postgres_pool, st.func_postgres_serialize, "flush", None, None, table_buffer_limit=None)
    st.cache_postgres_schema = await st.func_postgres_schema_read(st.client_postgres_pool) if st.client_postgres_pool else {}
    st.cache_postgres_schema_tables = list(st.cache_postgres_schema.keys())
    st.cache_postgres_schema_columns = sorted(list(set(col for table in st.cache_postgres_schema.values() for col in table.keys())))
@@ -43,7 +43,7 @@ async def func_api_admin_postgres_import(request:Request):
    obj_form=await st.func_request_param_read(request,"form",[("mode","str",1,["create","update","delete"],None,None,None),("table","str",1,st.cache_postgres_schema_tables,None,None,None),("file","file",1,[],None,None,None)])
    async for obj_list in st.func_api_file_to_chunks(obj_form["file"][-1]):
       if obj_form["mode"]=="create":
-         await st.func_postgres_object_create(st.client_postgres_pool, st.func_postgres_serialize, "now", obj_form["table"], obj_list, 1, None)
+         await st.func_postgres_object_create(st.client_postgres_pool, st.func_postgres_serialize, "now", obj_form["table"], obj_list, 1, table_buffer_limit=None)
       elif obj_form["mode"]=="update":
          await st.func_postgres_object_update(st.client_postgres_pool, st.func_postgres_serialize, obj_form["table"], obj_list, 1, None)
       elif obj_form["mode"]=="delete":
@@ -56,14 +56,14 @@ async def func_api_admin_object_create(request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("mode","str",0,["now","buffer"],"now",None,None),("is_serialize","int",0,[0,1],0,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await st.func_request_param_read(request,"body",[])
-   return {"status":1,"message":await st.func_orchestrator_obj_create("admin",obj_query,obj_body,request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_create,st.config_postgres_batch_limit)}
+   return {"status":1,"message":await st.func_orchestrator_obj_create("admin",obj_query,obj_body,request.state.user.get("id"),st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_create,st.config_limit_obj_list)}
 
 @router.put("/admin/object-update")
 async def func_api_admin_object_update(request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("is_serialize","int",0,[0,1],0,None,None),("otp","int",0,None,None,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await st.func_request_param_read(request,"body",[])
-   return {"status":1,"message":await st.func_orchestrator_obj_update("admin",obj_query,obj_body,request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.client_postgres_pool,st.func_postgres_serialize,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_update,st.func_otp_verify,st.config_expiry_sec_otp,st.config_is_otp_users_update_admin,st.config_postgres_batch_limit)}
+   return {"status":1,"message":await st.func_orchestrator_obj_update("admin",obj_query,obj_body,request.state.user.get("id"),st.config_column_blocked,st.config_column_single_update,st.client_postgres_pool,st.func_postgres_serialize,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_update,st.func_otp_verify,st.config_expiry_sec_otp,st.config_is_otp_users_update_admin,st.config_limit_obj_list)}
 
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(request:Request):

@@ -20,7 +20,7 @@ async def func_api_public_object_create(request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("mode","str",0,["now","buffer"],"now",None,None),("is_serialize","int",0,[0,1],0,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await st.func_request_param_read(request,"body",[])
-   return {"status":1,"message":await st.func_orchestrator_obj_create("public",obj_query,obj_body,request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_create,st.config_postgres_batch_limit)}
+   return {"status":1,"message":await st.func_orchestrator_obj_create("public",obj_query,obj_body,request.state.user.get("id") if getattr(request.state,"user",None) else None,st.config_table_create_my,st.config_table_create_public,st.config_column_blocked,st.client_postgres_pool,st.func_postgres_serialize,st.config_table,st.func_orchestrator_producer,st.client_celery_producer,st.client_kafka_producer,st.client_rabbitmq_producer,st.client_redis_producer,st.config_channel_allowed,st.func_postgres_object_create,st.config_limit_obj_list)}
 
 @router.get("/public/object-read")
 async def func_api_public_object_read(request:Request):

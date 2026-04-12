@@ -1,4 +1,4 @@
-async def func_orchestrator_obj_create(api_role: str, obj_query: dict[str, any], obj_body: dict[str, any], user_id: any, config_table_create_my: list, config_table_create_public: list, config_column_blocked: list, client_postgres_pool: any, func_postgres_serialize: callable, config_table: dict, func_orchestrator_producer: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_postgres_object_create: callable, config_postgres_batch_limit: int = None) -> any:
+async def func_orchestrator_obj_create(api_role: str, obj_query: dict[str, any], obj_body: dict[str, any], user_id: any, config_table_create_my: list, config_table_create_public: list, config_column_blocked: list, client_postgres_pool: any, func_postgres_serialize: callable, config_table: dict, func_orchestrator_producer: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_postgres_object_create: callable, config_limit_obj_list: int = None) -> any:
     """Wrapper orchestration for object creation with role-based validation and optional queueing."""
     if not obj_body:
         raise Exception("body required")
@@ -7,8 +7,8 @@ async def func_orchestrator_obj_create(api_role: str, obj_query: dict[str, any],
         raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]:
         raise Exception("object data required")
-    config_postgres_batch_limit = config_postgres_batch_limit or 1000
-    if len(obj_list) > config_postgres_batch_limit:
+    config_limit_obj_list = config_limit_obj_list or 1000
+    if len(obj_list) > config_limit_obj_list:
         raise Exception("batch size exceeded")
     if obj_query.get("table") == "users":
         obj_query["is_serialize"] = 1
@@ -30,11 +30,11 @@ async def func_orchestrator_obj_create(api_role: str, obj_query: dict[str, any],
         for item in obj_list:
             item["created_by_id"] = user_id
     if obj_query.get("queue"):
-        task_obj = {"task_name": "func_postgres_object_create", "params": {"execution_mode": obj_query.get("mode"), "table_name": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "config_table": config_table.get(obj_query.get("table"), {}).get("buffer")}}
+        task_obj = {"task_name": "func_postgres_object_create", "params": {"execution_mode": obj_query.get("mode"), "table_name": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "table_buffer_limit": config_table.get(obj_query.get("table"), {}).get("buffer")}}
         return await func_orchestrator_producer(obj_query.get("queue"), task_obj, config_channel_allowed, client_celery_producer, client_kafka_producer, client_rabbitmq_producer, client_redis_producer)
-    return await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, obj_query.get("mode"), obj_query.get("table"), obj_list, obj_query.get("is_serialize"), config_table.get(obj_query.get("table"), {}).get("buffer"))
+    return await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, obj_query.get("mode"), obj_query.get("table"), obj_list, obj_query.get("is_serialize"), table_buffer_limit=config_table.get(obj_query.get("table"), {}).get("buffer"))
 
-async def func_orchestrator_obj_update(api_role: str, obj_query: dict, obj_body: dict, user_id: any, config_column_blocked: list, config_column_single_update: list, client_postgres_pool: any, func_postgres_serialize: callable, func_orchestrator_producer: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_postgres_object_update: callable, func_otp_verify: callable, config_expiry_sec_otp: int, config_is_otp_users_update_admin: int = None, config_postgres_batch_limit: int = None) -> any:
+async def func_orchestrator_obj_update(api_role: str, obj_query: dict, obj_body: dict, user_id: any, config_column_blocked: list, config_column_single_update: list, client_postgres_pool: any, func_postgres_serialize: callable, func_orchestrator_producer: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, config_channel_allowed: list, func_postgres_object_update: callable, func_otp_verify: callable, config_expiry_sec_otp: int, config_is_otp_users_update_admin: int = None, config_limit_obj_list: int = None) -> any:
     """Wrapper orchestration for object updates with owner validation, OTP checks, and optional queueing."""
     if not obj_body:
         raise Exception("body required")
@@ -44,8 +44,8 @@ async def func_orchestrator_obj_update(api_role: str, obj_query: dict, obj_body:
         raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]:
         raise Exception("object data required")
-    config_postgres_batch_limit = config_postgres_batch_limit or 1000
-    if len(obj_list) > config_postgres_batch_limit:
+    config_limit_obj_list = config_limit_obj_list or 1000
+    if len(obj_list) > config_limit_obj_list:
         raise Exception("batch size exceeded")
     if obj_query.get("table") == "users":
         obj_query["is_serialize"] = 1

@@ -33,7 +33,7 @@ async def func_api_websocket(websocket:WebSocket):
    try:
       while True:
          message=await websocket.receive_text()
-         output=await st.func_postgres_object_create(st.client_postgres_pool, st.func_postgres_serialize, "buffer", "test", [{"title":message}], 0, 3)
+         output=await st.func_postgres_object_create(st.client_postgres_pool, st.func_postgres_serialize, "buffer", "test", [{"title":message}], 0, table_buffer_limit=3)
          await websocket.send_text(str(output))
    except WebSocketDisconnect:
       print("client disconnected")

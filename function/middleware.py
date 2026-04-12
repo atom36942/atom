@@ -56,7 +56,7 @@ async def func_api_log_create(config_is_log_api: int, api_id: int, request_obj: 
         "status_code": response_obj.status_code,
         "response_time_ms": response_time_ms
     }
-    await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "buffer", "log_api", [log_obj], is_serialize=0, config_table=config_table.get("log_api", {}).get("buffer", 100))
+    await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "buffer", "log_api", [log_obj], is_serialize=0, table_buffer_limit=config_table.get("log_api", {}).get("buffer", 100))
     return None
 
 async def func_check_ratelimiter(client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str) -> None:

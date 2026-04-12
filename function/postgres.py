@@ -298,12 +298,12 @@ async def func_postgres_object_update(client_postgres_pool: any, func_postgres_s
                     total_updated += int((await conn.execute(query, *batch_vals)).split()[-1])
             return returned_ids if is_return_ids == 1 else f"{total_updated} rows updated"
 
-async def func_postgres_object_create(client_postgres_pool: any, func_postgres_serialize: callable, execution_mode: str, table_name: str, obj_list: list[dict[str, any]], is_serialize: int = None, config_table: int = None) -> any:
+async def func_postgres_object_create(client_postgres_pool: any, func_postgres_serialize: callable, execution_mode: str, table_name: str, obj_list: list[dict[str, any]], is_serialize: int = None, table_buffer_limit: int = None) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     if not hasattr(func_postgres_object_create, "state"):
         func_postgres_object_create.state = {}
     is_serialize = is_serialize if is_serialize is not None else 0
-    config_table = config_table if config_table is not None else 100
+    table_buffer_limit = table_buffer_limit if table_buffer_limit is not None else 100
     if execution_mode == "flush":
         for table, buffer_list in list(func_postgres_object_create.state.items()):
             if buffer_list:
@@ -317,7 +317,7 @@ async def func_postgres_object_create(client_postgres_pool: any, func_postgres_s
         if table_name not in func_postgres_object_create.state:
             func_postgres_object_create.state[table_name] = []
         func_postgres_object_create.state[table_name].extend(serialized_list)
-        if len(func_postgres_object_create.state[table_name]) >= config_table:
+        if len(func_postgres_object_create.state[table_name]) >= table_buffer_limit:
             items = func_postgres_object_create.state[table_name]
             columns = items[0].keys()
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
