@@ -182,30 +182,30 @@ async def func_client_download_file(*, file_path: str, is_delete_after: int = 0,
                 yield chunk
     return responses.StreamingResponse(file_iterator(), media_type=content_type, headers={"Content-Disposition": f"attachment; filename=\"{file_name}\""}, background=BackgroundTask(os.remove, file_path) if is_delete_after == 1 else None)
 
-async def func_request_param_read(*, request_obj: any, parsing_mode: str, param_config: list, is_strict: int) -> dict:
+async def func_request_param_read(*, request: any, mode: str, config: list, strict: int) -> dict:
     """Extract, validate, and type-cast request parameters from query, form, body or headers."""
     params_dict = {}
-    header_params = {k.lower(): v for k, v in request_obj.headers.items()}
-    if parsing_mode == "query":
-        params_dict = dict(request_obj.query_params)
-    elif parsing_mode == "form":
-        form_data = await request_obj.form()
+    header_params = {k.lower(): v for k, v in request.headers.items()}
+    if mode == "query":
+        params_dict = dict(request.query_params)
+    elif mode == "form":
+        form_data = await request.form()
         params_dict = {key: val for key, val in form_data.items() if isinstance(val, str)}
         for key in form_data.keys():
             files = [x for x in form_data.getlist(key) if getattr(x, "filename", None)]
             if files:
                 params_dict[key] = files
-    elif parsing_mode == "body":
+    elif mode == "body":
         try:
-            json_payload = await request_obj.json()
+            json_payload = await request.json()
         except Exception:
             json_payload = None
         params_dict = json_payload if isinstance(json_payload, dict) else {"body": json_payload}
-    elif parsing_mode == "header":
+    elif mode == "header":
         params_dict = header_params
     else:
-        raise Exception(f"invalid parsing mode: {parsing_mode}")
-    if param_config is None:
+        raise Exception(f"invalid mode: {mode}")
+    if config is None:
         return params_dict
     import orjson
     def smart_dict(v):
@@ -228,13 +228,13 @@ async def func_request_param_read(*, request_obj: any, parsing_mode: str, param_
         "file": lambda v: ([] if v is None else v if isinstance(v, list) else [v]),
         "list": lambda v: [] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]
     }
-    output_dict = params_dict.copy() if not is_strict else {}
-    for param in param_config:
-        key, data_type, is_mandatory, allowed_values, default_value = param[:5]
+    output_dict = params_dict.copy() if not strict else {}
+    for param in config:
+        key, dtype, is_mandatory, allowed_values, default_value = param[:5]
         regex_pattern = param[5] if len(param) > 5 else None
         custom_error = param[6] if len(param) > 6 else None
-        if data_type not in TYPE_MAP and not data_type.startswith("list:"):
-            raise Exception(f"parameter '{key}' has invalid data_type '{data_type}'")
+        if dtype not in TYPE_MAP and not dtype.startswith("list:"):
+            raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
         if is_mandatory == 1 and default_value is not None:
             raise Exception(f"parameter '{key}' is mandatory, default_value must be None")
         if default_value is not None and allowed_values and default_value not in allowed_values:
@@ -257,14 +257,14 @@ async def func_request_param_read(*, request_obj: any, parsing_mode: str, param_
                 raise Exception(f"parameter '{key}' cannot be empty")
         if val is not None:
             try:
-                if data_type.startswith("list:") and ":" in data_type:
-                    inner_type = data_type.split(":")[1]
+                if dtype.startswith("list:") and ":" in dtype:
+                    inner_type = dtype.split(":")[1]
                     val_list = TYPE_MAP["list"](val)
                     val = [TYPE_MAP[inner_type](x) for x in val_list]
                 else:
-                    val = TYPE_MAP[data_type](val)
+                    val = TYPE_MAP[dtype](val)
             except Exception:
-                raise Exception(f"parameter '{key}' invalid type {data_type}")
+                raise Exception(f"parameter '{key}' invalid type {dtype}")
         if val is not None and allowed_values and val not in allowed_values:
             raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
         if val is not None and regex_pattern:
@@ -274,16 +274,16 @@ async def func_request_param_read(*, request_obj: any, parsing_mode: str, param_
         output_dict[key] = val
     return output_dict
 
-def func_converter_number(*, data_type: str, process_mode: str, value: any) -> any:
+def func_converter_number(*, type: str, mode: str, x: any) -> any:
     """Encode strings into specific-size integers or decode them back using a custom charset."""
     type_limits = {"smallint": 2, "int": 5, "bigint": 11}
     charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"
-    if data_type not in type_limits:
-        raise ValueError(f"invalid data type: {data_type}, allowed: {list(type_limits.keys())}")
+    if type not in type_limits:
+        raise ValueError(f"invalid type: {type}, allowed: {list(type_limits.keys())}")
     base = len(charset)
-    max_len = type_limits[data_type]
-    if process_mode == "encode":
-        val_str = str(value)
+    max_len = type_limits[type]
+    if mode == "encode":
+        val_str = str(x)
         val_len = len(val_str)
         if val_len > max_len:
             raise ValueError(f"input too long {val_len} > {max_len}")
@@ -294,9 +294,9 @@ def func_converter_number(*, data_type: str, process_mode: str, value: any) -> a
                 raise ValueError("invalid character in input")
             result_num = result_num * base + char_idx
         return result_num
-    if process_mode == "decode":
+    if mode == "decode":
         try:
-            num_val = int(value)
+            num_val = int(x)
         except Exception:
             raise ValueError("invalid integer for decoding")
         decoded_chars = []

@@ -33,10 +33,10 @@ async def func_resend_send_email(*, config_resend_url: str, config_resend_key: s
     return None
 
 
-def func_fast2sms_send_otp_mobile(*, config_fast2sms_url: str, config_fast2sms_key: str, mobile_number: str, otp_code: str) -> dict:
+def func_fast2sms_send_otp_mobile(*, config_fast2sms_url: str, config_fast2sms_key: str, mobile: str, otp_code: str) -> dict:
     """Send an OTP via Fast2SMS API."""
     import requests
-    response = requests.get(config_fast2sms_url, params={"authorization": config_fast2sms_key, "numbers": mobile_number, "variables_values": otp_code, "route": "otp"}).json()
+    response = requests.get(config_fast2sms_url, params={"authorization": config_fast2sms_key, "numbers": mobile, "variables_values": otp_code, "route": "otp"}).json()
     if not response.get("return"):
         raise Exception(response.get("message"))
     return response
@@ -104,14 +104,14 @@ async def func_mongodb_object_delete(*, client_mongodb: any, database: str, tabl
     return f"{result.deleted_count} rows deleted"
 
 
-def func_jira_worklog_export(*, url: str, email_address: str, api_token: str, start_date: str, end_date: str, output_path: str) -> str:
+def func_jira_worklog_export(*, url: str, email: str, api_token: str, start_date: str, end_date: str, output_path: str) -> str:
     """Export Jira worklogs for a specific period to a CSV file."""
     try:
         from jira import JIRA
         from pathlib import Path
         import pandas as pd, uuid
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        jira_client = JIRA(server=url, basic_auth=(email_address, api_token))
+        jira_client = JIRA(server=url, basic_auth=(email, api_token))
         log_rows = []
         people = set()
         jql = f"worklogDate >= '{start_date}' AND worklogDate <= '{end_date}'"

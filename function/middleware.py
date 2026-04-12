@@ -41,22 +41,22 @@ async def func_api_response_error(*, exception: Exception, is_traceback: int, se
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
 
-async def func_api_log_create(*, config_is_log_api: int, api_id: int, request_obj: any, response_obj: any, response_time_ms: int, user_id: any, func_postgres_object_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
+async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, func_postgres_object_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
     if config_is_log_api == 0:
         return None
     log_obj = {
         "created_by_id": user_id,
         "type": 1,
-        "ip_address": request_obj.client.host,
-        "api": request_obj.url.path,
+        "ip_address": request.client.host if request.client else None,
+        "api": request.url.path,
         "api_id": api_id,
-        "method": request_obj.method,
-        "query_param": str(request_obj.query_params),
-        "status_code": response_obj.status_code,
-        "response_time_ms": response_time_ms
+        "method": request.method,
+        "query_param": str(request.query_params),
+        "status_code": response.status_code if hasattr(response, "status_code") else None,
+        "response_time_ms": time_ms
     }
-    await func_postgres_object_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, execution_mode="buffer", table_name="log_api", obj_list=[log_obj], is_serialize=0, table_buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer)
+    await func_postgres_object_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0, buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer)
     return None
 
 async def func_check_ratelimiter(*, client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
@@ -179,7 +179,7 @@ async def func_check_admin(*, user_dict: dict, url_path: str, config_api: dict, 
     if user_role not in roles:
         raise Exception("access denied")
 
-async def func_check_cache(*, mode: str, url_path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, response_obj: any, cache_api_response: dict) -> any:
+async def func_check_cache(*, mode: str, url_path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, response: any, cache_api_response: dict) -> any:
     """Retrieve from or store to cache API responses based on configuration."""
     from fastapi import Response
     import gzip, base64, time
@@ -190,7 +190,7 @@ async def func_check_cache(*, mode: str, url_path: str, query_params: dict, conf
     api_cfg = config_api.get(url_path, {})
     cache_mode, expire_sec = api_cfg.get("api_cache_sec", (None, None))
     if not (expire_sec is not None and expire_sec > 0):
-        return None if mode == "get" else response_obj
+        return None if mode == "get" else response
     if mode == "get":
         cached_data = None
         if cache_mode == "redis":
@@ -203,15 +203,15 @@ async def func_check_cache(*, mode: str, url_path: str, query_params: dict, conf
             return Response(content=gzip.decompress(base64.b64decode(cached_data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"})
         return None
     elif mode == "set":
-        body_content = getattr(response_obj, "body", None)
+        body_content = getattr(response, "body", None)
         if body_content is None:
-            body_content = b"".join([chunk async for chunk in response_obj.body_iterator])
+            body_content = b"".join([chunk async for chunk in response.body_iterator])
         compressed_body = base64.b64encode(gzip.compress(body_content)).decode()
         if cache_mode == "redis":
             await client_redis.setex(cache_key, expire_sec, compressed_body)
         elif cache_mode == "inmemory":
             cache_api_response[cache_key] = {"data": compressed_body, "expire_at": time.time() + expire_sec}
-        return Response(content=body_content, status_code=response_obj.status_code, media_type=response_obj.media_type, headers=dict(response_obj.headers))
+        return Response(content=body_content, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
 
 async def func_api_response_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> any:
     """Execute an API function in the background and return a 200 response immediately."""
@@ -239,14 +239,14 @@ async def func_api_response(*, request: any, api_function: callable, config_api:
         response = await func_background(scope=request.scope, body_bytes=body_bytes, api_function=api_function)
         resp_type = 1
     elif cache_sec_config:
-        response = await func_cache(mode="get", url_path=path, query_params=query_params, config_api=config_api, client_redis=client_redis, user_id=user_id, response_obj=None, cache_api_response=cache_api_response)
+        response = await func_cache(mode="get", url_path=path, query_params=query_params, config_api=config_api, client_redis=client_redis, user_id=user_id, response=None, cache_api_response=cache_api_response)
         if response:
             resp_type = 2
     if not response:
         response = await api_function(request)
         resp_type = 3
         if cache_sec_config:
-            response = await func_cache(mode="set", url_path=path, query_params=query_params, config_api=config_api, client_redis=client_redis, user_id=user_id, response_obj=response, cache_api_response=cache_api_response)
+            response = await func_cache(mode="set", url_path=path, query_params=query_params, config_api=config_api, client_redis=client_redis, user_id=user_id, response=response, cache_api_response=cache_api_response)
             resp_type = 4
     return response, resp_type
 

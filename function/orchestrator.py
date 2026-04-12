@@ -25,18 +25,18 @@ async def func_orchestrator_obj_create(*, api_role: str, obj_query: dict[str, an
         for item in obj_list:
             item["created_by_id"] = user_id
     if obj_query.get("queue"):
-        task_obj = {"task_name": "func_postgres_object_create", "params": {"execution_mode": obj_query.get("mode"), "table_name": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "table_buffer_limit": config_table.get(obj_query.get("table"), {}).get("buffer")}}
+        task_obj = {"task_name": "func_postgres_object_create", "params": {"mode": obj_query.get("mode"), "table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "buffer_limit": config_table.get(obj_query.get("table"), {}).get("buffer")}}
         return await func_orchestrator_producer(queue=obj_query.get("queue"), task_obj=task_obj, producer_obj=producer_obj)
     return await func_postgres_object_create(
         client_postgres_pool=client_postgres_pool,
         func_postgres_serialize=func_postgres_serialize,
         cache_postgres_schema=cache_postgres_schema,
-        table_name=obj_query.get("table", ""),
+        table=obj_query.get("table", ""),
         obj_list=obj_list,
         cache_postgres_buffer=cache_postgres_buffer,
-        **({"execution_mode": obj_query.get("mode")} if obj_query.get("mode") else {}),
+        **({"mode": obj_query.get("mode")} if obj_query.get("mode") else {}),
         **({"is_serialize": obj_query.get("is_serialize")} if obj_query.get("is_serialize") is not None else {}),
-        **({"table_buffer_limit": config_table.get(obj_query.get("table", ""), {}).get("buffer")} if config_table.get(obj_query.get("table", ""), {}).get("buffer") is not None else {})
+        **({"buffer_limit": config_table.get(obj_query.get("table", ""), {}).get("buffer")} if config_table.get(obj_query.get("table", ""), {}).get("buffer") is not None else {})
     )
 
 async def func_orchestrator_obj_update(*, api_role: str, obj_query: dict, obj_body: dict, user_id: any, config_column_blocked: list, config_column_single_update: list, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, func_orchestrator_producer: callable, producer_obj: dict, func_postgres_object_update: callable, func_otp_verify: callable, config_expiry_sec_otp: int, config_is_otp_users_update_admin: int, config_limit_obj_list: int) -> any:
@@ -88,13 +88,13 @@ async def func_orchestrator_obj_update(*, api_role: str, obj_query: dict, obj_bo
         for item in obj_list:
             item["updated_by_id"] = user_id
     if obj_query.get("queue"):
-        task_obj = {"task_name": "func_postgres_object_update", "params": {"table_name": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "created_by_id": created_by_id}}
+        task_obj = {"task_name": "func_postgres_object_update", "params": {"table": obj_query.get("table"), "obj_list": obj_list, "is_serialize": obj_query.get("is_serialize"), "created_by_id": created_by_id}}
         return await func_orchestrator_producer(queue=obj_query.get("queue"), task_obj=task_obj, producer_obj=producer_obj)
     return await func_postgres_object_update(
         client_postgres_pool=client_postgres_pool,
         func_postgres_serialize=func_postgres_serialize,
         cache_postgres_schema=cache_postgres_schema,
-        table_name=obj_query.get("table", ""),
+        table=obj_query.get("table", ""),
         obj_list=obj_list,
         created_by_id=created_by_id,
         **({"is_serialize": obj_query.get("is_serialize")} if obj_query.get("is_serialize") is not None else {}),

@@ -1,18 +1,14 @@
-async def func_message_inbox(*, client_postgres_pool: any, user_id: int, mode: str, order: str = "id desc", limit: int = 100, page: int = 1) -> list:
+async def func_message_inbox(*, client_postgres_pool: any, user_id: int, mode: str, order: str, limit: int, page: int) -> list:
     """Read a conversation-summarized inbox for a user with unread filtering."""
-    limit = min(max(int(limit), 1), 500)
-    page = max(int(page), 1)
     where_clause = "user_id=$1 AND is_read=1" if mode == "read" else "user_id=$1 AND is_read IS DISTINCT FROM 1" if mode == "unread" else "1=1"
     query = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, user_id)
         return [dict(r) for r in records]
 
-async def func_message_received(*, client_postgres_pool: any, user_id: int, mode: str, order: str = "id desc", limit: int = 100, page: int = 1, func_ids_update: callable) -> list:
+async def func_message_received(*, client_postgres_pool: any, user_id: int, mode: str, order: str, limit: int, page: int, func_ids_update: callable) -> list:
     """Read all messages received by a specific user and optionally mark unread ones as read (identifier validated)."""
     import asyncio
-    limit = min(max(int(limit), 1), 500)
-    page = max(int(page), 1)
     unread_filter = "AND is_read=1" if mode == "read" else "AND is_read IS DISTINCT FROM 1" if mode == "unread" else ""
     query = f"SELECT * FROM message WHERE user_id=$1 {unread_filter} ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
@@ -21,16 +17,14 @@ async def func_message_received(*, client_postgres_pool: any, user_id: int, mode
         if obj_list and func_ids_update:
             mark_read_ids = [r["id"] for r in obj_list if r.get("is_read") != 1]
             if mark_read_ids:
-                asyncio.create_task(func_ids_update(client_postgres_pool=client_postgres_pool, table="message", ids=mark_read_ids, column="is_read", target_value=1, created_by_id=None, updated_by_id=None))
+                asyncio.create_task(func_ids_update(client_postgres_pool=client_postgres_pool, table="message", ids=mark_read_ids, column="is_read", value=1, created_by_id=None, updated_by_id=None))
     return obj_list
 
-async def func_message_thread(*, client_postgres_pool: any, user_one_id: int, user_two_id: int, order: str = "id desc", limit: int = 100, page: int = 1) -> list:
+async def func_message_thread(*, client_postgres_pool: any, user_one_id: int, user_id: int, order: str, limit: int, page: int) -> list:
     """Read the full message thread between two users."""
-    limit = min(max(int(limit), 1), 500)
-    page = max(int(page), 1)
     query = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {order} LIMIT {limit} OFFSET {(page-1)*limit};"
     async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_one_id, user_two_id)
+        records = await conn.fetch(query, user_one_id, user_id)
         return [dict(r) for r in records]
 
 async def func_message_thread_mark_read(*, client_postgres_pool: any, current_user_id: int, partner_id: int) -> None:

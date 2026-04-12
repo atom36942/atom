@@ -3,32 +3,32 @@ def func_ses_send_email(*, client_ses: any, from_email: str, to_emails: list, su
     client_ses.send_email(Source=from_email, Destination={"ToAddresses": to_emails}, Message={"Subject": {"Data": subject}, "Body": {"Html": {"Data": body}}})
     return None
 
-async def func_s3_bucket_create(*, client_s3: any, config_s3_region_name: str, bucket_name: str) -> any:
+async def func_s3_bucket_create(*, client_s3: any, config_s3_region_name: str, bucket: str) -> any:
     """Create a new AWS S3 bucket in a specific region."""
-    return await client_s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={"LocationConstraint": config_s3_region_name})
+    return await client_s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": config_s3_region_name})
 
-async def func_s3_bucket_public(*, client_s3: any, bucket_name: str) -> any:
+async def func_s3_bucket_public(*, client_s3: any, bucket: str) -> any:
     """Expose an AWS S3 bucket for public read access."""
-    await client_s3.put_public_access_block(Bucket=bucket_name, PublicAccessBlockConfiguration={"BlockPublicAcls": False, "IgnorePublicAcls": False, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
-    return await client_s3.put_bucket_policy(Bucket=bucket_name, Policy="""{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}""".replace("bucket_name", bucket_name))
+    await client_s3.put_public_access_block(Bucket=bucket, PublicAccessBlockConfiguration={"BlockPublicAcls": False, "IgnorePublicAcls": False, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
+    return await client_s3.put_bucket_policy(Bucket=bucket, Policy="""{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}""".replace("bucket_name", bucket))
 
-def func_s3_bucket_empty(*, client_s3_resource: any, bucket_name: str) -> any:
+def func_s3_bucket_empty(*, client_s3_resource: any, bucket: str) -> any:
     """Purge all objects from an AWS S3 bucket."""
-    return client_s3_resource.Bucket(bucket_name).objects.all().delete()
+    return client_s3_resource.Bucket(bucket).objects.all().delete()
 
-async def func_s3_bucket_delete(*, client_s3: any, bucket_name: str) -> any:
+async def func_s3_bucket_delete(*, client_s3: any, bucket: str) -> any:
     """Delete an AWS S3 bucket."""
-    return await client_s3.delete_bucket(Bucket=bucket_name)
+    return await client_s3.delete_bucket(Bucket=bucket)
 
-def func_s3_url_delete(*, client_s3_resource: any, url_list: list) -> any:
+def func_s3_url_delete(*, client_s3_resource: any, url: list) -> any:
     """Delete multiple objects from AWS S3 in bulk given their public URLs."""
-    for file_url in url_list:
+    for file_url in url:
         bucket = file_url.split("//", 1)[1].split(".", 1)[0]
         key = file_url.rsplit("/", 1)[1]
         client_s3_resource.Object(bucket, key).delete()
     return "urls deleted"
 
-async def func_s3_upload(*, client_s3: any, bucket_name: str, file_obj: any, config_s3_limit_kb: int) -> str:
+async def func_s3_upload(*, client_s3: any, bucket: str, file_obj: any, config_s3_limit_kb: int) -> str:
     """Upload a file to AWS S3 bucket with unique key generation and size limit check."""
     import uuid
     file_data = await file_obj.read()
@@ -36,22 +36,22 @@ async def func_s3_upload(*, client_s3: any, bucket_name: str, file_obj: any, con
         raise Exception(f"file size exceeds {config_s3_limit_kb}kb")
     ext = file_obj.filename.split(".")[-1] if "." in file_obj.filename else "bin"
     file_key = f"{uuid.uuid4().hex}.{ext}"
-    await client_s3.put_object(Bucket=bucket_name, Key=file_key, Body=file_data)
-    return f"https://{bucket_name}.s3.amazonaws.com/{file_key}"
+    await client_s3.put_object(Bucket=bucket, Key=file_key, Body=file_data)
+    return f"https://{bucket}.s3.amazonaws.com/{file_key}"
 
-def func_s3_upload_presigned(*, client_s3: any, config_s3_region_name: str, bucket_name: str, config_s3_limit_kb: int, config_s3_presigned_expire_sec: int) -> dict:
+def func_s3_upload_presigned(*, client_s3: any, config_s3_region_name: str, bucket: str, config_s3_limit_kb: int, config_s3_presigned_expire_sec: int) -> dict:
     """Generate a presigned POST URL for secure client-side binary uploads to S3 with unique key generation."""
     import uuid
     file_key = f"{uuid.uuid4().hex}.bin"
-    presigned_post = client_s3.generate_presigned_post(Bucket=bucket_name, Key=file_key, ExpiresIn=config_s3_presigned_expire_sec, Conditions=[["content-length-range", 1, config_s3_limit_kb * 1024]])
-    return {**presigned_post["fields"], "url_final": f"https://{bucket_name}.s3.{config_s3_region_name}.amazonaws.com/{file_key}"}
+    presigned_post = client_s3.generate_presigned_post(Bucket=bucket, Key=file_key, ExpiresIn=config_s3_presigned_expire_sec, Conditions=[["content-length-range", 1, config_s3_limit_kb * 1024]])
+    return {**presigned_post["fields"], "url_final": f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{file_key}"}
 
-def func_sns_send_mobile_message(*, client_sns: any, mobile_number: str, message_text: str) -> None:
+def func_sns_send_mobile_message(*, client_sns: any, mobile: str, message: str) -> None:
     """Send a mobile SMS using AWS SNS."""
-    client_sns.publish(PhoneNumber=mobile_number, Message=message_text)
+    client_sns.publish(PhoneNumber=mobile, Message=message)
     return None
 
-def func_sns_send_mobile_message_template(*, client_sns: any, mobile_number: str, message_text: str, template_id: str, entity_id: str, sender_id: str) -> None:
+def func_sns_send_mobile_message_template(*, client_sns: any, mobile: str, message: str, template_id: str, entity_id: str, sender_id: str) -> None:
     """Send a mobile SMS using AWS SNS with specific template and attributes."""
-    client_sns.publish(PhoneNumber=mobile_number, Message=message_text, MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sender_id}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": template_id}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": entity_id}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
+    client_sns.publish(PhoneNumber=mobile, Message=message, MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sender_id}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": template_id}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": entity_id}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
     return None

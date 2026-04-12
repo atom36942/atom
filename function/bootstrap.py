@@ -1,40 +1,37 @@
-def func_app_read(*, lifespan_handler: any, is_debug_mode: int) -> any:
+def func_app_read(*, func_lifespan: any, config_is_debug_fastapi: int) -> any:
     """Initialize a FastAPI application with debug mode and lifespan handler, disabling default OpenAPI routes."""
     from fastapi import FastAPI
-    return FastAPI(debug=bool(is_debug_mode), lifespan=lifespan_handler, openapi_url=None, docs_url=None, redoc_url=None)
+    return FastAPI(debug=bool(config_is_debug_fastapi), lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
-def func_app_add_cors(*, fastapi_app: any, origins: list, methods: list, headers: list, is_allow_credentials: int) -> None:
+def func_app_add_cors(*, app_obj: any, config_cors_origin: list, config_cors_method: list, config_cors_headers: list, config_is_cors_allow_credentials: int) -> None:
     """Add CORS middleware to the FastAPI application."""
     from fastapi.middleware.cors import CORSMiddleware
-    fastapi_app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=methods, allow_headers=headers, allow_credentials=bool(is_allow_credentials))
+    app_obj.add_middleware(CORSMiddleware, allow_origins=config_cors_origin, allow_methods=config_cors_method, allow_headers=config_cors_headers, allow_credentials=bool(config_is_cors_allow_credentials))
 
-async def func_request_param_read(*, request_obj: any, parsing_mode: str, param_config: list, is_strict: int = 1) -> dict:
-    """Read and validate request parameters from query, body, or form data based on configuration."""
-    output_dict = {}
 
-def func_app_add_prometheus(*, fastapi_app: any) -> None:
+def func_app_add_prometheus(*, app_obj: any) -> None:
     """Expose Prometheus metrics for the FastAPI application."""
     from prometheus_fastapi_instrumentator import Instrumentator
-    Instrumentator().instrument(fastapi_app).expose(fastapi_app)
+    Instrumentator().instrument(app_obj).expose(app_obj)
 
-def func_app_state_add(*, fastapi_app: any, config_dict: dict, prefix: str) -> None:
-    """Inject configuration values into the FastAPI application state based on a prefix."""
-    for key, val in config_dict.items():
-        if key.startswith(prefix):
-            setattr(fastapi_app.state, key, val)
+def func_app_state_add(*, app_obj: any, dict_context: dict, prefix_list: tuple) -> None:
+    """Inject configuration values into the FastAPI application state based on a prefix list."""
+    for key, val in dict_context.items():
+        if key.startswith(prefix_list):
+            setattr(app_obj.state, key, val)
 
-def func_app_add_sentry(*, sentry_dsn: str) -> None:
+def func_app_add_sentry(*, config_sentry_dsn: str) -> None:
     """Initialize Sentry SDK for error tracking and profiling."""
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
-    sentry_sdk.init(dsn=sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=True)
+    sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=True)
 
-def func_app_add_static(*, fastapi_app: any, folder_path: str, mount_path: str) -> None:
+def func_app_add_static(*, app_obj: any, folder_path: str, route_path: str) -> None:
     """Mount a static directory to the FastAPI application."""
     from fastapi.staticfiles import StaticFiles
-    fastapi_app.mount(mount_path, StaticFiles(directory=folder_path), name="static")
+    app_obj.mount(route_path, StaticFiles(directory=folder_path), name="static")
 
-def func_app_add_router(*, fastapi_app: any) -> None:
+def func_app_add_router(*, app_obj: any) -> None:
     """Dynamically discover and include all FastAPI routers from the router directory."""
     import sys, importlib.util
     from pathlib import Path
@@ -55,7 +52,7 @@ def func_app_add_router(*, fastapi_app: any) -> None:
             router = getattr(module, "router", None)
             if not isinstance(router, APIRouter):
                 raise Exception(f"invalid router file: {py_file} (missing 'router' attribute of type APIRouter)")
-            fastapi_app.include_router(router)
+            app_obj.include_router(router)
 
 def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
@@ -179,8 +176,13 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                     if func_id != "func_request_param_read":
                         continue
                     try:
-                        p_loc = eval_node(node.args[1])
-                        p_list = eval_node(node.args[2])
+                        p_loc = None
+                        p_list = None
+                        for kw in node.keywords:
+                            if kw.arg == "mode": p_loc = eval_node(kw.value)
+                            elif kw.arg == "config": p_list = eval_node(kw.value)
+                        if p_loc is None and len(node.args) > 1: p_loc = eval_node(node.args[1])
+                        if p_list is None and len(node.args) > 2: p_list = eval_node(node.args[2])
                         if p_list is not None and p_loc in ["header", "query"]:
                             for p in p_list:
                                 if not p or not isinstance(p, (list, tuple)) or len(p) < 1:
@@ -461,8 +463,12 @@ def func_repo_info(*, app_routes: list, cache_postgres_schema: dict, config_post
             try:
                 for node in ast.walk(ast.parse(inspect.getsource(route.endpoint))):
                     if isinstance(node, ast.Call) and getattr(node.func, "id", getattr(node.func, "attr", None)) == "func_request_param_read":
-                        if len(node.args) > 2 and isinstance(node.args[2], ast.List):
-                            for elt in node.args[2].elts:
+                        p_list_node = None
+                        for kw in node.keywords:
+                            if kw.arg == "config": p_list_node = kw.value
+                        if p_list_node is None and len(node.args) > 2: p_list_node = node.args[2]
+                        if isinstance(p_list_node, ast.List):
+                            for elt in p_list_node.elts:
                                 if isinstance(elt, (ast.Tuple, ast.List)) and len(elt.elts) > 0:
                                     val = getattr(elt.elts[0], "value", getattr(elt.elts[0], "s", None))
                                     if isinstance(val, str):
