@@ -20,28 +20,7 @@ async def func_api_public_object_create(request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request,"query",[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("mode","str",0,["now","buffer"],"now",None,None),("is_serialize","int",0,[0,1],0,None,None),("queue","str",0,None,None,None,None)])
    obj_body=await st.func_request_param_read(request,"body",[])
-   return {"status":1,"message":await st.func_orchestrator_obj_create(
-      api_role="public",
-      obj_query=obj_query,
-      obj_body=obj_body,
-      user_id=request.state.user.get("id") if getattr(request.state,"user",None) else None,
-      config_table_create_my=st.config_table_create_my,
-      config_table_create_public=st.config_table_create_public,
-      config_column_blocked=st.config_column_blocked,
-      client_postgres_pool=st.client_postgres_pool,
-      func_postgres_serialize=st.func_postgres_serialize,
-      config_table=st.config_table,
-      func_orchestrator_producer=st.func_orchestrator_producer,
-      producer_obj={
-          "config_channel_allowed": st.config_channel_allowed,
-          "client_celery_producer": st.client_celery_producer,
-          "client_kafka_producer": st.client_kafka_producer,
-          "client_rabbitmq_producer": st.client_rabbitmq_producer,
-          "client_redis_producer": st.client_redis_producer
-      },
-      func_postgres_object_create=st.func_postgres_object_create,
-      config_limit_obj_list=st.config_limit_obj_list
-   )}
+   return {"status":1,"message":await st.func_orchestrator_obj_create(api_role="public", obj_query=obj_query, obj_body=obj_body, user_id=request.state.user.get("id") if getattr(request.state,"user",None) else None, config_table_create_my=st.config_table_create_my, config_table_create_public=st.config_table_create_public, config_column_blocked=st.config_column_blocked, client_postgres_pool=st.client_postgres_pool, func_postgres_serialize=st.func_postgres_serialize, config_table=st.config_table, func_orchestrator_producer=st.func_orchestrator_producer, producer_obj={"config_channel_allowed":st.config_channel_allowed, "client_celery_producer":st.client_celery_producer, "client_kafka_producer":st.client_kafka_producer, "client_rabbitmq_producer":st.client_rabbitmq_producer, "client_redis_producer":st.client_redis_producer}, func_postgres_object_create=st.func_postgres_object_create, config_limit_obj_list=st.config_limit_obj_list)}
 
 @router.get("/public/object-read")
 async def func_api_public_object_read(request:Request):

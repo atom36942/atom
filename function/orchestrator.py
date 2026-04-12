@@ -67,6 +67,10 @@ async def func_orchestrator_obj_update(api_role: str, obj_query: dict, obj_body:
             item = obj_list[0]
             if str(item.get("id")) != str(user_id):
                 raise Exception("ownership issue: cannot update other users")
+            for key in item:
+                if key in config_column_single_update:
+                    if len(item) != 2:
+                         raise Exception("sensitive fields must be updated individually (item length 2 required)")
             await func_orchestrator_user_otp_check(item)
     elif api_role == "admin":
         created_by_id = None
