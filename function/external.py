@@ -42,10 +42,10 @@ def func_fast2sms_send_otp_mobile(config_fast2sms_url: str, config_fast2sms_key:
     return response
 
 
-def func_gsheet_object_create(client_gsheet: any, sheet_url: str, object_list: list) -> any:
+def func_gsheet_object_create(client_gsheet: any, sheet_url: str, obj_list: list) -> any:
     """Append records to a Google Sheet."""
     from urllib.parse import urlparse, parse_qs
-    if not object_list:
+    if not obj_list:
         return None
     parsed_url = urlparse(sheet_url)
     spreadsheet_id = parsed_url.path.split("/")[3]
@@ -55,8 +55,8 @@ def func_gsheet_object_create(client_gsheet: any, sheet_url: str, object_list: l
     worksheet = next((ws for ws in spreadsheet.worksheets() if ws.id == grid_id), None)
     if not worksheet:
         raise Exception("worksheet not found")
-    column_headers = list(object_list[0].keys())
-    rows_to_insert = [[obj.get(col, "") for col in column_headers] for obj in object_list]
+    column_headers = list(obj_list[0].keys())
+    rows_to_insert = [[obj.get(col, "") for col in column_headers] for obj in obj_list]
     return worksheet.append_rows(rows_to_insert, value_input_option="USER_ENTERED", insert_data_option="INSERT_ROWS")
 
 
@@ -76,21 +76,21 @@ async def func_gsheet_object_read(sheet_url: str) -> list:
     return data_frame.where(pd.notnull(data_frame), None).to_dict(orient="records")
 
 
-async def func_mongodb_object_create(client_mongodb: any, db_name: str, collection_name: str, object_list: list) -> str:
+async def func_mongodb_object_create(client_mongodb: any, database: str, table: str, obj_list: list) -> str:
     """Insert multiple records into a MongoDB collection."""
     if not client_mongodb:
         raise Exception("mongo client missing")
-    result = await client_mongodb[db_name][collection_name].insert_many(object_list)
+    result = await client_mongodb[database][table].insert_many(obj_list)
     return str(result.inserted_ids)
 
 
-async def func_mongodb_object_delete(client_mongodb: any, db_name: str, collection_name: str, object_list: list) -> str:
+async def func_mongodb_object_delete(client_mongodb: any, database: str, table: str, obj_list: list) -> str:
     """Delete multiple records from a MongoDB collection using ID matching from a list of objects."""
     if not client_mongodb:
         raise Exception("mongo client missing")
     from bson.objectid import ObjectId
     id_list = []
-    for obj in object_list:
+    for obj in obj_list:
         obj_id = obj.get("_id") or obj.get("id")
         if not obj_id:
             continue
@@ -100,7 +100,7 @@ async def func_mongodb_object_delete(client_mongodb: any, db_name: str, collecti
             id_list.append(obj_id)
     if not id_list:
         return "0 rows deleted"
-    result = await client_mongodb[db_name][collection_name].delete_many({"_id": {"$in": id_list}})
+    result = await client_mongodb[database][table].delete_many({"_id": {"$in": id_list}})
     return f"{result.deleted_count} rows deleted"
 
 

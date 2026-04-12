@@ -1,12 +1,12 @@
-def func_structure_create(directories_list: list, files_list: list) -> None:
+def func_structure_create(directories: list, files: list) -> None:
     """Create directory and file structure if it doesn't exist."""
     import os
-    for directory_path in directories_list:
+    for directory_path in directories:
         try:
             os.makedirs(directory_path, exist_ok=True)
         except OSError:
             pass
-    for file_path in files_list:
+    for file_path in files:
         try:
             if not os.path.exists(file_path):
                 open(file_path, "a").close()
@@ -37,47 +37,47 @@ def func_password_hash(password_raw: any) -> str:
     import hashlib
     return hashlib.sha256(str(password_raw).encode()).hexdigest()
 
-async def func_token_encode(user_obj: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_token_key: list = None) -> dict:
+async def func_token_encode(user: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_token_key: list = None) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
-    if user_obj is None:
+    if user is None:
         return None
-    payload_dict = {k: user_obj.get(k) for k in config_token_key} if config_token_key else dict(user_obj) if isinstance(user_obj, dict) else user_obj
+    payload_dict = {k: user.get(k) for k in config_token_key} if config_token_key else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
     now_ts = int(time.time())
     access_token = jwt.encode({"exp": now_ts + config_token_expiry_sec, "data": serialized_payload, "type": "access"}, config_token_secret_key)
     refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, config_token_secret_key)
     return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
 
-async def func_otp_generate(client_postgres_pool: any, email_address: str = None, mobile_number: str = None) -> int:
+async def func_otp_generate(client_postgres_pool: any, email: str = None, mobile: str = None) -> int:
     """Generate a random 6-digit OTP and store it in PostgreSQL for a given email or mobile."""
     import random
-    otp_code = random.randint(100000, 999999)
+    otp = random.randint(100000, 999999)
     query = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
     async with client_postgres_pool.acquire() as conn:
-        await conn.execute(query, otp_code, email_address.strip().lower() if email_address else None, mobile_number.strip() if mobile_number else None)
-    return otp_code
+        await conn.execute(query, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
+    return otp
 
-async def func_otp_verify(client_postgres_pool: any, otp_code: int, email_address: str = None, mobile_number: str = None, config_expiry_sec_otp: int = None) -> None:
+async def func_otp_verify(client_postgres_pool: any, otp: int, email: str = None, mobile: str = None, config_expiry_sec_otp: int = None) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
     config_expiry_sec_otp = config_expiry_sec_otp or 600
-    if not otp_code:
+    if not otp:
         raise Exception("otp code missing")
-    if not email_address and not mobile_number:
+    if not email and not mobile:
         raise Exception("missing both email and mobile")
-    if email_address and mobile_number:
+    if email and mobile:
         raise Exception("provide only one identifier")
-    if email_address:
+    if email:
         query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
-        identifier = email_address.strip().lower()
+        identifier = email.strip().lower()
     else:
         query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
-        identifier = mobile_number.strip()
+        identifier = mobile.strip()
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, identifier)
         if not records:
             raise Exception("otp not found")
-        if records[0]["otp"] != otp_code:
+        if records[0]["otp"] != otp:
             raise Exception("invalid otp code")
         if not records[0]["is_active"]:
             raise Exception("otp code expired")

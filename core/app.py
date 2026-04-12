@@ -37,6 +37,9 @@ async def func_lifespan(app:FastAPI):
    cache_postgres_schema_columns=sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
    cache_users_role=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_role")) if client_postgres_pool else {}
    cache_users_is_active=await func_sql_map_column(client_postgres_pool,config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
+   cache_ratelimiter = {}
+   cache_api_response = {}
+   cache_postgres_buffer = {}
    #app state add
    func_app_state_add(app,{**globals(),**locals()},("client_","cache_","func_","config_"))
    app.state.cache_openapi=func_openapi_spec_generate(app.routes, config_api_roles_auth, app.state)
@@ -44,7 +47,7 @@ async def func_lifespan(app:FastAPI):
    func_check(app.routes, config_api, config_api_roles, config_postgres, config_api_roles_auth)
    #app shutdown
    yield
-   await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "flush", None, None, None, None)
+   await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, cache_postgres_schema, "flush", None, None, None, cache_postgres_buffer)
    if config_is_reset_tmp == 1:
       func_folder_reset("tmp")
    await client_http.aclose()
@@ -93,9 +96,9 @@ async def middleware(request, api_function):
         request.state.user = await st.func_authenticate(request.headers, request.url.path, st.config_token_secret_key, st.config_api_roles_auth)
         await st.func_check_admin(request.state.user, request.url.path, st.config_api, st.client_postgres_pool, st.client_redis, st.cache_users_role, st.config_redis_cache_ttl_sec)
         await st.func_check_is_active(request.state.user, request.url.path, st.config_api, st.client_postgres_pool, st.client_redis, st.cache_users_is_active, st.config_redis_cache_ttl_sec)
-        await st.func_check_ratelimiter(st.client_redis_ratelimiter, st.config_api, request.url.path, request.state.user.get("id") if request.state.user else request.client.host)
-        response, type = await st.func_api_response(request, api_function, st.config_api, st.client_redis, request.state.user.get("id") if request.state.user else 0, st.func_api_response_background, st.func_check_cache)
+        await st.func_check_ratelimiter(st.client_redis_ratelimiter, st.config_api, request.url.path, request.state.user.get("id") if request.state.user else request.client.host, st.cache_ratelimiter)
+        response, type = await st.func_api_response(request, api_function, st.config_api, st.client_redis, request.state.user.get("id") if request.state.user else 0, st.func_api_response_background, st.func_check_cache, st.cache_api_response)
     except Exception as e:
         error, response = await request.app.state.func_api_response_error(e, request.app.state.config_is_traceback, request.app.state.config_sentry_dsn)
-    await request.app.state.func_api_log_create(request.app.state.config_is_log_api, request.app.state.config_api.get(request.url.path, {}).get("id"), request, response, int((time.perf_counter() - start) * 1000), request.state.user.get("id") if getattr(request.state, "user", None) else None, request.app.state.func_postgres_object_create, request.app.state.client_postgres_pool, request.app.state.func_postgres_serialize, request.app.state.config_table)
+    await request.app.state.func_api_log_create(request.app.state.config_is_log_api, request.app.state.config_api.get(request.url.path, {}).get("id"), request, response, int((time.perf_counter() - start) * 1000), request.state.user.get("id") if getattr(request.state, "user", None) else None, request.app.state.func_postgres_object_create, request.app.state.client_postgres_pool, request.app.state.func_postgres_serialize, request.app.state.cache_postgres_schema, request.app.state.cache_postgres_buffer, request.app.state.config_table)
     return response

@@ -32,7 +32,7 @@ async def func_postgres_clean(client_postgres_pool: any, config_table: dict) -> 
                 await conn.execute(query)
     return None
 
-async def func_postgres_object_read(client_postgres_pool: any, func_postgres_serialize: callable, table_name: str, query_params: dict) -> list:
+async def func_postgres_object_read(client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table_name: str, query_params: dict) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re, orjson
     from datetime import datetime
@@ -69,7 +69,7 @@ async def func_postgres_object_read(client_postgres_pool: any, func_postgres_ser
         is_base_type = is_base_type if is_base_type is not None else 0
         if str(val).lower() == "null":
             return None
-        serialized = await func_postgres_serialize(client_postgres_pool, table, [{col: val}], is_base=is_base_type)
+        serialized = await func_postgres_serialize(client_postgres_pool, cache_postgres_schema, table, [{col: val}], is_base=is_base_type)
         return serialized[0][col]
     conditions = []
     values = []
@@ -87,10 +87,7 @@ async def func_postgres_object_read(client_postgres_pool: any, func_postgres_ser
             values.extend([lon, lat, min_meter, max_meter])
             bind_idx += 4
             continue
-        # Ensure schema metadata is available
-        if not hasattr(func_postgres_serialize, "state") or table not in func_postgres_serialize.state or filter_key not in func_postgres_serialize.state[table]:
-            await func_postgres_serialize(client_postgres_pool, table, [{filter_key: None}])
-        datatype = func_postgres_serialize.state[table].get(filter_key, "text").lower()
+        datatype = cache_postgres_schema.get(table, {}).get(filter_key, "text").lower()
         is_json = "json" in datatype
         is_array = "[]" in datatype or "array" in datatype
         if "," not in expression:
@@ -124,42 +121,27 @@ async def func_postgres_object_read(client_postgres_pool: any, func_postgres_ser
                         serialized_val = raw_val
             elif is_array:
                 parts = raw_val.split("|")
-                dtype = func_postgres_serialize.state[table].get(filter_key, "text").lower()
+                dtype = cache_postgres_schema.get(table, {}).get(filter_key, "text").lower()
                 elem_type = dtype.replace("[]", "").replace("array", "").replace("int4", "int").replace("_", "").strip()
-                fake_schema = {**func_postgres_serialize.state[table], filter_key: elem_type}
+                fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: elem_type}}
                 async def serialize_element(v):
-                    orig_state = func_postgres_serialize.state[table]
-                    try:
-                        func_postgres_serialize.state[table] = fake_schema
-                        res = (await func_postgres_serialize(client_postgres_pool, table, [{filter_key: v}], is_base=1))[0][filter_key]
-                    finally:
-                        func_postgres_serialize.state[table] = orig_state
+                    res = (await func_postgres_serialize(client_postgres_pool, fake_schema, table, [{filter_key: v}], is_base=1))[0][filter_key]
                     return res
                 serialized_val = [(await serialize_element(x.strip())) for x in parts]
             else:
                 serialized_val = await serialize_filter(filter_key, raw_val)
         elif operator == "overlap":
             parts = raw_val.split("|")
-            fake_schema = {**func_postgres_serialize.state[table], filter_key: func_postgres_serialize.state[table][filter_key].replace("[]", "").replace("array", "").strip()}
+            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: cache_postgres_schema.get(table, {}).get(filter_key, "text").lower().replace("[]", "").replace("array", "").strip()}}
             async def serialize_element(v):
-                orig_state = func_postgres_serialize.state[table]
-                try:
-                    func_postgres_serialize.state[table] = fake_schema
-                    res = (await func_postgres_serialize(client_postgres_pool, table, [{filter_key: v}], is_base=1))[0][filter_key]
-                finally:
-                    func_postgres_serialize.state[table] = orig_state
+                res = (await func_postgres_serialize(client_postgres_pool, fake_schema, table, [{filter_key: v}], is_base=1))[0][filter_key]
                 return res
             serialized_val = [(await serialize_element(x.strip())) for x in parts]
         elif operator in ("in", "not in", "between"):
             serialized_val = [await serialize_filter(filter_key, x.strip(), 1 if is_array else 0) for x in raw_val.split("|")]
         elif operator == "any":
-            fake_schema = {**func_postgres_serialize.state[table], filter_key: func_postgres_serialize.state[table][filter_key].replace("[]", "").replace("array", "").strip()}
-            orig_state = func_postgres_serialize.state[table]
-            try:
-                func_postgres_serialize.state[table] = fake_schema
-                serialized_val = (await func_postgres_serialize(client_postgres_pool, table, [{filter_key: raw_val}], is_base=1))[0][filter_key]
-            finally:
-                func_postgres_serialize.state[table] = orig_state
+            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: cache_postgres_schema.get(table, {}).get(filter_key, "text").lower().replace("[]", "").replace("array", "").strip()}}
+            serialized_val = (await func_postgres_serialize(client_postgres_pool, fake_schema, table, [{filter_key: raw_val}], is_base=1))[0][filter_key]
         else:
             serialized_val = await serialize_filter(filter_key, raw_val, 1 if is_json and operator == "exists" else 0)
         if serialized_val is None:
@@ -229,14 +211,14 @@ async def func_postgres_object_read(client_postgres_pool: any, func_postgres_ser
                 res_row[f"{target_tbl}_{action_op}"] = action_map.get(obj_id, default_val)
         return result_list
 
-async def func_postgres_object_update(client_postgres_pool: any, func_postgres_serialize: callable, table_name: str, obj_list: list, is_serialize: int = None, created_by_id: int = None, is_return_ids: int = None) -> any:
+async def func_postgres_object_update(client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table_name: str, obj_list: list, is_serialize: int = None, created_by_id: int = None, is_return_ids: int = None) -> any:
     """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
     is_serialize = is_serialize if is_serialize is not None else 0
     limit_batch = 5000
     is_return_ids = is_return_ids if is_return_ids is not None else 0
     import re, orjson
     if is_serialize:
-        obj_list = await func_postgres_serialize(client_postgres_pool, table_name, obj_list)
+        obj_list = await func_postgres_serialize(client_postgres_pool, cache_postgres_schema, table_name, obj_list)
     if not obj_list:
         return "0 rows updated"
     if any("id" not in obj for obj in obj_list):
@@ -298,33 +280,31 @@ async def func_postgres_object_update(client_postgres_pool: any, func_postgres_s
                     total_updated += int((await conn.execute(query, *batch_vals)).split()[-1])
             return returned_ids if is_return_ids == 1 else f"{total_updated} rows updated"
 
-async def func_postgres_object_create(client_postgres_pool: any, func_postgres_serialize: callable, execution_mode: str, table_name: str, obj_list: list[dict[str, any]], is_serialize: int = None, table_buffer_limit: int = None) -> any:
+async def func_postgres_object_create(client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, execution_mode: str, table_name: str, obj_list: list[dict[str, any]], is_serialize: int = None, table_buffer_limit: int = None, cache_postgres_buffer: dict = None) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
-    if not hasattr(func_postgres_object_create, "state"):
-        func_postgres_object_create.state = {}
     is_serialize = is_serialize if is_serialize is not None else 0
     table_buffer_limit = table_buffer_limit if table_buffer_limit is not None else 100
     if execution_mode == "flush":
-        for table, buffer_list in list(func_postgres_object_create.state.items()):
+        for table, buffer_list in list(cache_postgres_buffer.items()):
             if buffer_list:
-                await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, "now", table, buffer_list)
-                func_postgres_object_create.state[table] = []
+                await func_postgres_object_create(client_postgres_pool, func_postgres_serialize, cache_postgres_schema, "now", table, buffer_list, 0, None, cache_postgres_buffer)
+                cache_postgres_buffer[table] = []
         return "flushed"
     if not obj_list:
         return None
-    serialized_list = await func_postgres_serialize(client_postgres_pool, table_name, obj_list) if is_serialize else obj_list
+    serialized_list = await func_postgres_serialize(client_postgres_pool, cache_postgres_schema, table_name, obj_list) if is_serialize else obj_list
     if execution_mode == "buffer":
-        if table_name not in func_postgres_object_create.state:
-            func_postgres_object_create.state[table_name] = []
-        func_postgres_object_create.state[table_name].extend(serialized_list)
-        if len(func_postgres_object_create.state[table_name]) >= table_buffer_limit:
-            items = func_postgres_object_create.state[table_name]
+        if table_name not in cache_postgres_buffer:
+            cache_postgres_buffer[table_name] = []
+        cache_postgres_buffer[table_name].extend(serialized_list)
+        if len(cache_postgres_buffer[table_name]) >= table_buffer_limit:
+            items = cache_postgres_buffer[table_name]
             columns = items[0].keys()
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
             query = f"""INSERT INTO {table_name} ({",".join(columns)}) VALUES ({placeholders})"""
             async with client_postgres_pool.acquire() as conn:
                 await conn.executemany(query, [tuple(i.values()) for i in items])
-            func_postgres_object_create.state[table_name] = []
+            cache_postgres_buffer[table_name] = []
             return "buffered released"
         return "buffered"
     import re
@@ -341,9 +321,9 @@ async def func_postgres_object_create(client_postgres_pool: any, func_postgres_s
             ids = await conn.fetch(query, *serialized_list[0].values())
     else:
         import orjson
-        if not hasattr(func_postgres_serialize, "state") or table_name not in func_postgres_serialize.state:
-            await func_postgres_serialize(client_postgres_pool, table_name, [])
-        schema = func_postgres_serialize.state.get(table_name, {})
+        schema = cache_postgres_schema.get(table_name, {})
+        if not schema:
+            schema = (await func_postgres_serialize(client_postgres_pool, cache_postgres_schema, table_name, []))
         col_list = ",".join(columns)
         def_list = ",".join([f"{c} jsonb" for c in columns])
         cast_parts = []
@@ -367,23 +347,14 @@ async def func_postgres_object_create(client_postgres_pool: any, func_postgres_s
         ids = all_ids
     return [r["id"] for r in ids] if ids and "id" in ids[0] else "bulk created"
 
-async def func_postgres_serialize(client_postgres_pool: any, table_name: str, obj_list: list, is_base: int = None) -> list:
-    """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware caching."""
+async def func_postgres_serialize(client_postgres_pool: any, cache_postgres_schema: dict, table_name: str, obj_list: list, is_base: int = None) -> list:
+    """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware injection."""
     is_base = is_base or 0
     output_list = []
     import orjson, hashlib
-    if getattr(func_postgres_serialize, "state", None) is None:
-        async with client_postgres_pool.acquire() as conn:
-            rows = await conn.fetch("SELECT table_name, column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_schema = 'public'")
-            func_postgres_serialize.state = {}
-            for r in rows:
-                t = r["table_name"]
-                if t not in func_postgres_serialize.state:
-                    func_postgres_serialize.state[t] = {}
-                func_postgres_serialize.state[t][r["column_name"]] = r["data_type"]
-    if table_name not in func_postgres_serialize.state:
+    if table_name not in cache_postgres_schema:
         return obj_list
-    schema = func_postgres_serialize.state[table_name]
+    schema = cache_postgres_schema[table_name]
     for item in obj_list:
         new_item = {}
         for col, val in item.items():
@@ -631,13 +602,11 @@ async def func_postgres_init(client_postgres_pool: any, config_postgres: dict) -
                 drop_vars = "record.relname, record.conname"
                 like_filter = "(conname LIKE 'unique_%%' OR conname LIKE 'check_%%')"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-        if is_analyze:
-            await conn.execute("ANALYZE;")
-    func_postgres_serialize.state = None
+    await conn.execute("ANALYZE;")
     return "database init done"
 
 async def func_postgres_schema_read(client_postgres_pool: any) -> dict:
-    """Read full database schema as a nested dictionary."""
+    """Read full database schema as a simplified dictionary."""
     async with client_postgres_pool.acquire() as conn:
         rows = await conn.fetch("SELECT table_name, column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_schema = 'public'")
         schema = {}
@@ -646,7 +615,7 @@ async def func_postgres_schema_read(client_postgres_pool: any) -> dict:
             col = r["column_name"]
             if table not in schema:
                 schema[table] = {}
-            schema[table][col] = {"datatype": r["data_type"]}
+            schema[table][col] = r["data_type"]
     return schema
 
 # identifier validation now inlined for simplicity

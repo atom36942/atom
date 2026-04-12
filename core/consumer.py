@@ -9,7 +9,7 @@ from itertools import groupby, count
 _run_counter = count(1)
 
 #dynamic task executor
-async def logic_task_exec(pool: any, payload: any) -> any:
+async def logic_task_exec(pool: any, payload: any, cache_postgres_buffer: dict) -> any:
     """Dynamically lookup and execute a task function with signature-aware parameter injection."""
     import inspect
     task_name, params = payload.get("task_name"), payload.get("params", {})
@@ -20,7 +20,7 @@ async def logic_task_exec(pool: any, payload: any) -> any:
         return print(f"skipping unknown task: {task_name}", flush=True)
     try:
         sig = inspect.signature(func)
-        ctx = {"client_postgres_pool": pool, "func_postgres_serialize": func_postgres_serialize}
+        ctx = {"client_postgres_pool": pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer}
         call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
         call_args.update({k: v for k, v in params.items() if k in sig.parameters})
         res = await func(**call_args)
@@ -37,7 +37,7 @@ def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str,
     import inspect
     app = func_client_read_celery_consumer(config_celery_broker_url, config_celery_backend_url)
     app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
-    client_postgres_pool, worker_loop = None, None
+    client_postgres_pool, cache_postgres_buffer, worker_loop = None, {}, None
     async def _init_pool():
         nonlocal client_postgres_pool
         if client_postgres_pool is None:
@@ -53,7 +53,7 @@ def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str,
         n = next(_run_counter)
         task_name = coro_func.__name__
         print(f"task started #{n}: {task_name}", flush=True)
-        nonlocal worker_loop, client_postgres_pool
+        nonlocal worker_loop, client_postgres_pool, cache_postgres_buffer
         if not worker_loop:
             worker_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(worker_loop)
@@ -61,7 +61,7 @@ def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str,
             worker_loop.run_until_complete(_init_pool())
         try:
             sig = inspect.signature(coro_func)
-            ctx = {"client_postgres_pool": client_postgres_pool, "func_postgres_serialize": func_postgres_serialize}
+            ctx = {"client_postgres_pool": client_postgres_pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer}
             # 1. Start with injected context parameters
             call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
             # 2. Map positional args to parameters that are NOT in the injected context
@@ -94,14 +94,14 @@ async def logic_redis(channel=None):
     if not channel:
         raise Exception("channel name required")
     import orjson
-    pool = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    pool, buffer = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
     client = await func_client_read_redis(config_redis_url_pubsub)
     reader = await func_client_read_redis_consumer(client, channel)
     print(f"redis consumer started on {channel}", flush=True)
     try:
         async for msg in reader.listen():
             if msg["type"] == "message":
-                await logic_task_exec(pool, orjson.loads(msg["data"]))
+                await logic_task_exec(pool, orjson.loads(msg["data"]), buffer)
     finally:
         await client.aclose()
         await pool.close()
@@ -110,14 +110,14 @@ async def logic_rabbitmq(channel=None):
     if not channel:
         raise Exception("channel name required")
     import orjson
-    pool = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    pool, buffer = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
     conn, queue = await func_client_read_rabbitmq_consumer(config_rabbitmq_url, channel)
     print(f"rabbitmq consumer started on {channel}", flush=True)
     try:
         async with queue.iterator() as queue_iter:
             async for msg in queue_iter:
                 async with msg.process():
-                    await logic_task_exec(pool, orjson.loads(msg.body))
+                    await logic_task_exec(pool, orjson.loads(msg.body), buffer)
     finally:
         await conn.close()
         await pool.close()
@@ -126,7 +126,7 @@ async def logic_kafka(channel=None):
     if not channel:
         raise Exception("channel name required")
     import orjson
-    pool = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    pool, buffer = await func_client_read_postgres({"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection}), {}
     consumer = await func_client_read_kafka_consumer(config_kafka_url, config_kafka_username, config_kafka_password, channel, config_kafka_group_id, config_kafka_is_auto_commit)
     print(f"kafka consumer started on {channel}", flush=True)
     try:
@@ -136,7 +136,7 @@ async def logic_kafka(channel=None):
                 continue
             for tp, messages in batch.items():
                 for msg in messages:
-                    await logic_task_exec(pool, orjson.loads(msg.value))
+                    await logic_task_exec(pool, orjson.loads(msg.value), buffer)
                 if not config_kafka_is_auto_commit:
                     await consumer.commit(tp)
     finally:
