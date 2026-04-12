@@ -30,26 +30,3 @@ async def func_parent_read(*, client_postgres_pool: any, table: str, parent_colu
     async with client_postgres_pool.acquire() as conn:
         return [dict(r) for r in (await conn.fetch(query, created_by_id))]
 
-async def func_ids_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int, config_postgres_ids_delete_limit: int) -> str:
-    """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
-    import re
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
-        raise Exception(f"invalid identifier {table}")
-    if table == "users":
-        raise Exception("users table not allowed")
-    ids_str = ""
-    if isinstance(ids, str):
-        id_list = [str(int(x.strip())) for x in ids.split(",") if x.strip()]
-        if len(id_list) > config_postgres_ids_delete_limit:
-            raise Exception("ids length exceeded")
-        ids_str = ",".join(id_list)
-    elif isinstance(ids, (list, tuple)):
-        if len(ids) > config_postgres_ids_delete_limit:
-            raise Exception("ids length exceeded")
-        ids_str = ",".join([str(int(x)) for x in ids])
-    delete_query = f"DELETE FROM {table} WHERE id IN ({ids_str}) AND ($1::bigint IS NULL OR created_by_id=$1);"
-    if table == "spatial_ref_sys":
-        raise Exception("system table protected")
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(delete_query, created_by_id)
-    return "ids deleted"

@@ -47,7 +47,7 @@ async def func_lifespan(*, app:FastAPI):
    func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, config_postgres=config_postgres, api_roles_auth=config_api_roles_auth)
    #app shutdown
    yield
-   await func_postgres_object_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, execution_mode="flush", table_name="", obj_list=[], is_serialize=0, table_buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
+   await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
    if config_is_reset_tmp == 1:
       func_folder_reset(folder_path="tmp")
    await client_http.aclose()
@@ -100,5 +100,5 @@ async def middleware(request, api_function):
         response, type = await st.func_api_response(request=request, api_function=api_function, config_api=st.config_api, client_redis=st.client_redis, user_id=request.state.user.get("id") if request.state.user else 0, func_background=st.func_api_response_background, func_cache=st.func_check_cache, cache_api_response=st.cache_api_response)
     except Exception as e:
         error, response = await request.app.state.func_api_response_error(exception=e, is_traceback=request.app.state.config_is_traceback, sentry_dsn=request.app.state.config_sentry_dsn)
-    await request.app.state.func_api_log_create(config_is_log_api=request.app.state.config_is_log_api, api_id=request.app.state.config_api.get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, func_postgres_object_create=request.app.state.func_postgres_object_create, client_postgres_pool=request.app.state.client_postgres_pool, func_postgres_serialize=request.app.state.func_postgres_serialize, cache_postgres_schema=request.app.state.cache_postgres_schema, cache_postgres_buffer=request.app.state.cache_postgres_buffer, config_table=request.app.state.config_table)
+    await request.app.state.func_api_log_create(config_is_log_api=request.app.state.config_is_log_api, api_id=request.app.state.config_api.get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, func_postgres_create=request.app.state.func_postgres_create, client_postgres_pool=request.app.state.client_postgres_pool, func_postgres_serialize=request.app.state.func_postgres_serialize, cache_postgres_schema=request.app.state.cache_postgres_schema, cache_postgres_buffer=request.app.state.cache_postgres_buffer, config_table=request.app.state.config_table)
     return response

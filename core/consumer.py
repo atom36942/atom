@@ -20,6 +20,12 @@ async def logic_task_exec(pool: any, payload: any, cache_postgres_buffer: dict) 
         return print(f"skipping unknown task: {task_name}", flush=True)
     try:
         sig = inspect.signature(func)
+        if task_name == "func_postgres_create":
+            if "mode" not in params: params["mode"] = "now"
+            if "is_serialize" not in params: params["is_serialize"] = 0
+            if "buffer_limit" not in params:
+                tbl = params.get("table")
+                params["buffer_limit"] = config_table.get(tbl, {}).get("buffer", 100) if tbl else 100
         ctx = {"client_postgres_pool": pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer}
         call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
         call_args.update({k: v for k, v in params.items() if k in sig.parameters})
@@ -31,7 +37,7 @@ async def logic_task_exec(pool: any, payload: any, cache_postgres_buffer: dict) 
         raise
 
 #celery init
-def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str, config_celery_backend_url: str, config_postgres_url: str, config_postgres_min_connection: int, config_postgres_max_connection: int, func_client_read_postgres: callable, func_postgres_object_create: callable, func_postgres_object_update: callable, func_postgres_serialize: callable) -> any:
+def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str, config_celery_backend_url: str, config_postgres_url: str, config_postgres_min_connection: int, config_postgres_max_connection: int, func_client_read_postgres: callable, func_postgres_create: callable, func_postgres_update: callable, func_postgres_serialize: callable) -> any:
     """Initialize Celery with signature-aware dynamic task registration."""
     from celery import signals
     import inspect
@@ -62,12 +68,9 @@ def func_consumer_celery_init(consumer_name: str, config_celery_broker_url: str,
         try:
             sig = inspect.signature(coro_func)
             ctx = {"client_postgres_pool": client_postgres_pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer}
-            # 1. Start with injected context parameters
             call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
-            # 2. Map positional args to parameters that are NOT in the injected context
             remaining_keys = [p.name for p in sig.parameters.values() if p.name not in call_args]
             call_args.update(dict(zip(remaining_keys, args)))
-            # 3. Apply keyword arguments (these take final precedence)
             call_args.update({k: v for k, v in kwargs.items() if k in sig.parameters})
             worker_loop.run_until_complete(coro_func(**call_args))
             print(f"task completed #{n}: {task_name}", flush=True)
@@ -88,7 +91,7 @@ def logic_celery(channel=None):
     if not channel:
         raise Exception("channel name required")
     name = f"celery_{channel}"
-    return func_consumer_celery_init(name, config_celery_broker_url, config_celery_backend_url, config_postgres_url, config_postgres_min_connection, config_postgres_max_connection, func_client_read_postgres, func_postgres_object_create, func_postgres_object_update, func_postgres_serialize)
+    return func_consumer_celery_init(name, config_celery_broker_url, config_celery_backend_url, config_postgres_url, config_postgres_min_connection, config_postgres_max_connection, func_client_read_postgres, func_postgres_create, func_postgres_update, func_postgres_serialize)
 
 async def logic_redis(channel=None):
     if not channel:

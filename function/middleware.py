@@ -41,7 +41,7 @@ async def func_api_response_error(*, exception: Exception, is_traceback: int, se
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
 
-async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, func_postgres_object_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
+async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, func_postgres_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
     if config_is_log_api == 0:
         return None
@@ -56,7 +56,7 @@ async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: a
         "status_code": response.status_code if hasattr(response, "status_code") else None,
         "response_time_ms": time_ms
     }
-    await func_postgres_object_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0, buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer)
+    await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0, buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer)
     return None
 
 async def func_check_ratelimiter(*, client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
