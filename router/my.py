@@ -11,7 +11,7 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 @router.get("/my/profile")
 async def func_api_my_profile(*, request:Request):
    st=request.app.state
-   profile=await st.func_my_profile_read(client_postgres_pool=st.client_postgres_pool, user_id=request.state.user["id"], config_sql=st.config_sql)
+   profile=await st.func_user_profile_read(client_postgres_pool=st.client_postgres_pool, user_id=request.state.user["id"], config_sql=st.config_sql)
    token=await st.func_token_encode(user=profile, config_token_secret_key=st.config_token_secret_key, config_token_expiry_sec=st.config_token_expiry_sec, config_token_refresh_expiry_sec=st.config_token_refresh_expiry_sec, config_token_key=st.config_token_key)
    return {"status":1,"message":profile|token}
 
@@ -27,7 +27,7 @@ async def func_api_my_api_usage(*, request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request=request, mode="query", config=[("days","int",1,None,None,None,None)], strict=0)
    # RENAMED: days_limit -> days
-   obj_list=await st.func_api_usage_read(client_postgres_pool=st.client_postgres_pool, days=obj_query["days"], user_id=request.state.user["id"])
+   obj_list=await st.func_user_api_usage_read(client_postgres_pool=st.client_postgres_pool, days=obj_query["days"], user_id=request.state.user["id"])
    return {"status":1,"message":obj_list}
 
 @router.delete("/my/account-delete")
@@ -35,7 +35,7 @@ async def func_api_my_account_delete(*, request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request=request, mode="query", config=[("mode","str",1,["soft","hard"],None,None,None)], strict=0)
    # RENAMED: delete_mode -> mode
-   output=await st.func_account_delete(mode=obj_query["mode"], client_postgres_pool=st.client_postgres_pool, user_id=request.state.user["id"])
+   output=await st.func_user_account_delete(mode=obj_query["mode"], client_postgres_pool=st.client_postgres_pool, user_id=request.state.user["id"])
    return {"status":1,"message":output}
 
 @router.get("/my/message-received")

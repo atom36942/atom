@@ -11,7 +11,6 @@ async def func_redis_object_create(*, client_redis: any, keys: list, objects: li
         await pipe.execute()
     return None
 
-
 async def func_redis_object_delete(*, client_redis: any, keys: list) -> None:
     """Batch delete objects in Redis using a pipeline transaction."""
     async with client_redis.pipeline(transaction=True) as pipe:
@@ -19,7 +18,6 @@ async def func_redis_object_delete(*, client_redis: any, keys: list) -> None:
             pipe.delete(key)
         await pipe.execute()
     return None
-
 
 async def func_resend_send_email(*, config_resend_url: str, config_resend_key: str, from_email: str, to_email: str, email_subject: str, email_content: str) -> None:
     """Send an email using the Resend API."""
@@ -32,7 +30,6 @@ async def func_resend_send_email(*, config_resend_url: str, config_resend_key: s
             raise Exception(f"failed to send email: {response.text}")
     return None
 
-
 def func_fast2sms_send_otp_mobile(*, config_fast2sms_url: str, config_fast2sms_key: str, mobile: str, otp_code: str) -> dict:
     """Send an OTP via Fast2SMS API."""
     import requests
@@ -40,7 +37,6 @@ def func_fast2sms_send_otp_mobile(*, config_fast2sms_url: str, config_fast2sms_k
     if not response.get("return"):
         raise Exception(response.get("message"))
     return response
-
 
 def func_gsheet_object_create(*, client_gsheet: any, sheet_url: str, obj_list: list) -> any:
     """Append records to a Google Sheet."""
@@ -59,7 +55,6 @@ def func_gsheet_object_create(*, client_gsheet: any, sheet_url: str, obj_list: l
     rows_to_insert = [[obj.get(col, "") for col in column_headers] for obj in obj_list]
     return worksheet.append_rows(rows_to_insert, value_input_option="USER_ENTERED", insert_data_option="INSERT_ROWS")
 
-
 async def func_gsheet_object_read(*, sheet_url: str) -> list:
     """Read records from a public Google Sheet as a list of dictionaries."""
     from urllib.parse import urlparse, parse_qs
@@ -75,14 +70,12 @@ async def func_gsheet_object_read(*, sheet_url: str) -> list:
     data_frame = pd.read_csv(io.StringIO(csv_content))
     return data_frame.where(pd.notnull(data_frame), None).to_dict(orient="records")
 
-
 async def func_mongodb_object_create(*, client_mongodb: any, database: str, table: str, obj_list: list) -> str:
     """Insert multiple records into a MongoDB collection."""
     if not client_mongodb:
         raise Exception("mongo client missing")
     result = await client_mongodb[database][table].insert_many(obj_list)
     return str(result.inserted_ids)
-
 
 async def func_mongodb_object_delete(*, client_mongodb: any, database: str, table: str, obj_list: list) -> str:
     """Delete multiple records from a MongoDB collection using ID matching from a list of objects."""
@@ -102,7 +95,6 @@ async def func_mongodb_object_delete(*, client_mongodb: any, database: str, tabl
         return "0 rows deleted"
     result = await client_mongodb[database][table].delete_many({"_id": {"$in": id_list}})
     return f"{result.deleted_count} rows deleted"
-
 
 def func_jira_worklog_export(*, url: str, email: str, api_token: str, start_date: str, end_date: str, output_path: str) -> str:
     """Export Jira worklogs for a specific period to a CSV file."""

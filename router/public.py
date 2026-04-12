@@ -98,9 +98,9 @@ async def func_api_public_jira_worklog_export(*, request:Request):
 @router.get("/public/table-tag-read")
 async def func_api_public_table_tag_read(*, request:Request):
    st=request.app.state
-   obj_query=await st.func_request_param_read(request=request, mode="query", config=[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("column","str",1,st.cache_postgres_schema_columns,None,None,None),("filter_col","str",0,st.cache_postgres_schema_columns,None,None,None),("filter_val","str",0,None,None,None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None)], strict=0)
+   obj_query=await st.func_request_param_read(request=request, mode="query", config=[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("column","str",1,st.cache_postgres_schema_columns,None,None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None),("filter_column","str",0,st.cache_postgres_schema_columns,None,None,None),("filter_value","str",0,None,None,None,None)], strict=0)
    val=None
-   if obj_query["filter_col"] and obj_query["filter_val"]:
-      val=(await st.func_postgres_serialize(client_postgres_pool=st.client_postgres_pool, cache_postgres_schema=st.cache_postgres_schema, table=obj_query["table"], obj_list=[{obj_query["filter_col"]:obj_query["filter_val"]}]))[0][obj_query["filter_col"]]
-   output=await st.func_table_tag_read(client_postgres_pool=st.client_postgres_pool, table=obj_query["table"], column=obj_query["column"], filter_col=obj_query["filter_col"], filter_val=val, limit=obj_query["limit"], page=obj_query["page"])
+   if obj_query["filter_column"] and obj_query["filter_value"]:
+      val=(await st.func_postgres_serialize(client_postgres_pool=st.client_postgres_pool, cache_postgres_schema=st.cache_postgres_schema, table=obj_query["table"], obj_list=[{obj_query["filter_column"]:obj_query["filter_value"]}]))[0][obj_query["filter_column"]]
+   output=await st.func_table_tag_read(client_postgres_pool=st.client_postgres_pool, table=obj_query["table"], column=obj_query["column"], limit=obj_query["limit"], page=obj_query["page"], filter_column=obj_query["filter_column"], filter_value=val)
    return {"status":1,"message":output}

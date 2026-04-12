@@ -26,5 +26,4 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 - **Blueprint Pattern (New APIs)**: Follow this strict development sequence: (1) Define endpoint in `router/`, (2) logic in `function/`, (3) inject context via `request.app.state`.
 - **Naming Conventions**: Use strict prefixes (`client_`, `cache_`,`config_`, `func_`) for `core/app.py`, `function/*`, and `core/config/*` logic.
 - **Functional Logic Layer**: Modular, stateless logic only; internal state persistence strictly prohibited; explicit dependency injection; side-effect free IO via injected clients.
-- **API Parameter Matching**: Parameter names in functional logic (`function/`) MUST exactly match the names used in the corresponding API endpoints (`router/`), especially those defined in `func_request_param_read`.
 
