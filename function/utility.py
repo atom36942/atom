@@ -47,7 +47,7 @@ async def func_token_encode(*, user: dict, config_token_secret_key: str, config_
     refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, config_token_secret_key)
     return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
 
-async def func_otp_generate(*, client_postgres_pool: any, email: str = None, mobile: str = None) -> int:
+async def func_otp_generate(*, client_postgres_pool: any, email: str, mobile: str) -> int:
     """Generate a random 6-digit OTP and store it in PostgreSQL for a given email or mobile."""
     import random
     otp = random.randint(100000, 999999)
@@ -56,7 +56,7 @@ async def func_otp_generate(*, client_postgres_pool: any, email: str = None, mob
         await conn.execute(query, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
     return otp
 
-async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str = None, mobile: str = None, config_expiry_sec_otp: int = 600) -> None:
+async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str, mobile: str, config_expiry_sec_otp: int) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
     if not otp:
         raise Exception("otp code missing")
@@ -164,7 +164,7 @@ def func_folder_reset(*, folder_path: str) -> str:
             os.remove(item_path)
     return "folder reset done"
 
-async def func_client_download_file(*, file_path: str, is_delete_after: int = 0, chunk_size: int = 1048576) -> any:
+async def func_client_download_file(*, file_path: str, is_delete_after: int, chunk_size: int) -> any:
     """Stream a file for client download with optional automatic cleanup after transmission."""
     if "tmp/" not in str(file_path):
         raise Exception("IO Boundary Violation: tmp/ path required")
@@ -230,9 +230,19 @@ async def func_request_param_read(*, request: any, mode: str, config: list, stri
     }
     output_dict = params_dict.copy() if not strict else {}
     for param in config:
-        key, dtype, is_mandatory, allowed_values, default_value = param[:5]
-        regex_pattern = param[5] if len(param) > 5 else None
-        custom_error = param[6] if len(param) > 6 else None
+        if not isinstance(param, (list, tuple)):
+            raise Exception(f"invalid configuration format: expected list or tuple, got {type(param)}")
+        param_len = len(param)
+        if param_len < 5:
+            param_key = param[0] if param_len > 0 else "unknown"
+            raise Exception(f"invalid config tuple length {param_len} for '{param_key}': (key, dtype, is_mandatory, allowed_values, default_value) are required")
+        key = param[0]
+        dtype = param[1]
+        is_mandatory = int(param[2])
+        allowed_values = param[3]
+        default_value = param[4]
+        regex_pattern = param[5] if param_len > 5 else None
+        custom_error = param[6] if param_len > 6 else None
         if dtype not in TYPE_MAP and not dtype.startswith("list:"):
             raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
         if is_mandatory == 1 and default_value is not None:
@@ -241,8 +251,6 @@ async def func_request_param_read(*, request: any, mode: str, config: list, stri
             raise Exception(f"parameter '{key}' default '{default_value}' violating allowed_values: {allowed_values}")
         if allowed_values is not None and not isinstance(allowed_values, (list, tuple)):
             raise Exception(f"parameter '{key}' allowed_values must be a list or tuple")
-        if is_mandatory and key not in params_dict:
-            raise Exception(f"parameter '{key}' missing")
         val = params_dict.get(key)
         if val is None:
             val = header_params.get(key.lower())
@@ -250,7 +258,7 @@ async def func_request_param_read(*, request: any, mode: str, config: list, stri
             val = default_value
         if isinstance(val, str) and val.lower() in ("null", "undefined"):
             val = default_value
-        if is_mandatory:
+        if is_mandatory == 1:
             if val is None:
                 raise Exception(f"parameter '{key}' missing")
             if isinstance(val, str) and not val.strip():

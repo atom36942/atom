@@ -35,21 +35,21 @@ async def func_api_public_object_read(*, request:Request):
 async def func_api_public_otp_verify_email(*, request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request=request, mode="query", config=[("otp","int",1,None,None,None,None),("email","str",1,None,None,None,None)], strict=0)
-   output=await st.func_otp_verify(client_postgres_pool=st.client_postgres_pool, otp=obj_query["otp"], email=obj_query["email"], config_expiry_sec_otp=st.config_expiry_sec_otp)
+   output=await st.func_otp_verify(client_postgres_pool=st.client_postgres_pool, otp=obj_query["otp"], email=obj_query["email"], mobile=None, config_expiry_sec_otp=st.config_expiry_sec_otp)
    return {"status":1,"message":output}
 
 @router.get("/public/otp-verify-mobile")
 async def func_api_public_otp_verify_mobile(*, request:Request):
    st=request.app.state
    obj_query=await st.func_request_param_read(request=request, mode="query", config=[("otp","int",1,None,None,None,None),("mobile","str",1,None,None,None,None)], strict=0)
-   output=await st.func_otp_verify(client_postgres_pool=st.client_postgres_pool, otp=obj_query["otp"], mobile=obj_query["mobile"], config_expiry_sec_otp=st.config_expiry_sec_otp)
+   output=await st.func_otp_verify(client_postgres_pool=st.client_postgres_pool, otp=obj_query["otp"], mobile=obj_query["mobile"], email=None, config_expiry_sec_otp=st.config_expiry_sec_otp)
    return {"status":1,"message":output}
 
 @router.post("/public/otp-send-email-ses")
 async def func_api_public_otp_send_email_ses(*, request:Request):
    st=request.app.state
    obj_data=await st.func_request_param_read(request=request, mode="query", config=[("sender","str",1,None,None,None,None),("email","str",1,None,None,None,None)], strict=0)
-   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, email=obj_data["email"])
+   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, email=obj_data["email"], mobile=None)
    output=st.func_ses_send_email(client_ses=st.client_ses, from_email=obj_data["sender"], to_emails=[obj_data["email"]], subject="your otp code", body=str(otp))
    return {"status":1,"message":output}
 
@@ -57,7 +57,7 @@ async def func_api_public_otp_send_email_ses(*, request:Request):
 async def func_api_public_otp_send_email_resend(*, request:Request):
    st=request.app.state
    obj_data=await st.func_request_param_read(request=request, mode="query", config=[("sender","str",1,None,None,None,None),("email","str",1,None,None,None,None)], strict=0)
-   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, email=obj_data["email"])
+   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, email=obj_data["email"], mobile=None)
    output=await st.func_resend_send_email(config_resend_url=st.config_resend_url, config_resend_key=st.config_resend_key, from_email=obj_data["sender"], to_email=obj_data["email"], email_subject="your otp code", email_content=f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")
    return {"status":1,"message":output}
 
@@ -65,7 +65,7 @@ async def func_api_public_otp_send_email_resend(*, request:Request):
 async def func_api_public_otp_send_mobile_sns(*, request:Request):
    st=request.app.state
    obj_data=await st.func_request_param_read(request=request, mode="query", config=[("mobile","str",1,None,None,None,None)], strict=0)
-   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, mobile=obj_data["mobile"])
+   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, mobile=obj_data["mobile"], email=None)
    output=st.func_sns_send_mobile_message(client_sns=st.client_sns, mobile=obj_data["mobile"], message=str(otp))
    return {"status":1,"message":output}
 
@@ -73,7 +73,7 @@ async def func_api_public_otp_send_mobile_sns(*, request:Request):
 async def func_api_public_otp_send_mobile_sns_template(*, request:Request):
    st=request.app.state
    obj_data=await st.func_request_param_read(request=request, mode="body", config=[("mobile","str",1,None,None,None,None),("message","str",1,None,None,None,None),("template_id","str",1,None,None,None,None),("entity_id","str",1,None,None,None,None),("sender_id","str",1,None,None,None,None)], strict=0)
-   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, mobile=obj_data["mobile"])
+   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, mobile=obj_data["mobile"], email=None)
    msg=obj_data["message"].replace("{otp}",str(otp))
    output=st.func_sns_send_mobile_message_template(client_sns=st.client_sns, mobile=obj_data["mobile"], message=msg, template_id=obj_data["template_id"], entity_id=obj_data["entity_id"], sender_id=obj_data["sender_id"])
    return {"status":1,"message":output}
@@ -82,7 +82,7 @@ async def func_api_public_otp_send_mobile_sns_template(*, request:Request):
 async def func_api_public_otp_send_mobile_fast2sms(*, request:Request):
    st=request.app.state
    obj_data=await st.func_request_param_read(request=request, mode="query", config=[("mobile","str",1,None,None,None,None)], strict=0)
-   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, mobile=obj_data["mobile"])
+   otp=await st.func_otp_generate(client_postgres_pool=st.client_postgres_pool, mobile=obj_data["mobile"], email=None)
    output=st.func_fast2sms_send_otp_mobile(config_fast2sms_url=st.config_fast2sms_url, config_fast2sms_key=st.config_fast2sms_key, mobile=obj_data["mobile"], otp_code=str(otp))
    return {"status":1,"message":output}
 
@@ -93,7 +93,7 @@ async def func_api_public_jira_worklog_export(*, request:Request):
    import asyncio, uuid
    output_path=f"tmp/{uuid.uuid4().hex}.csv"
    await asyncio.to_thread(st.func_jira_worklog_export, url=obj_body["url"], email=obj_body["email"], api_token=obj_body["api_token"], start_date=obj_body["start_date"], end_date=obj_body["end_date"], output_path=output_path)
-   return await st.func_client_download_file(file_path=output_path, is_delete_after=1)
+   return await st.func_client_download_file(file_path=output_path, is_delete_after=1, chunk_size=1048576)
 
 @router.get("/public/table-tag-read")
 async def func_api_public_table_tag_read(*, request:Request):

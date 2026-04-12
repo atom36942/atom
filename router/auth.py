@@ -58,7 +58,7 @@ async def func_api_auth_login_password_mobile(*, request:Request):
 async def func_api_auth_login_otp_email(*, request:Request):
    st=request.app.state
    obj_body=await st.func_request_param_read(request=request, mode="body", config=[("type","int",1,None,None,None,None),("email","str",1,None,None,None,None),("otp","int",1,None,None,None,None)], strict=0)
-   await st.func_otp_verify(client_postgres_pool=st.client_postgres_pool, otp=obj_body["otp"], email=obj_body["email"], config_expiry_sec_otp=st.config_expiry_sec_otp)
+   await st.func_otp_verify(client_postgres_pool=st.client_postgres_pool, otp=obj_body["otp"], email=obj_body["email"], mobile=None, config_expiry_sec_otp=st.config_expiry_sec_otp)
    user=await st.func_auth_login_otp_email(client_postgres_pool=st.client_postgres_pool, type=obj_body["type"], email=obj_body["email"], config_auth_type=st.config_auth_type)
    token=await st.func_token_encode(user=user, config_token_secret_key=st.config_token_secret_key, config_token_expiry_sec=st.config_token_expiry_sec, config_token_refresh_expiry_sec=st.config_token_refresh_expiry_sec, config_token_key=st.config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
@@ -67,7 +67,7 @@ async def func_api_auth_login_otp_email(*, request:Request):
 async def func_api_auth_login_otp_mobile(*, request:Request):
    st=request.app.state
    obj_body=await st.func_request_param_read(request=request, mode="body", config=[("type","int",1,None,None,None,None),("mobile","str",1,None,None,None,None),("otp","int",1,None,None,None,None)], strict=0)
-   await st.func_otp_verify(client_postgres_pool=st.client_postgres_pool, otp=obj_body["otp"], mobile=obj_body["mobile"], config_expiry_sec_otp=st.config_expiry_sec_otp)
+   await st.func_otp_verify(client_postgres_pool=st.client_postgres_pool, otp=obj_body["otp"], mobile=obj_body["mobile"], email=None, config_expiry_sec_otp=st.config_expiry_sec_otp)
    user=await st.func_auth_login_otp_mobile(client_postgres_pool=st.client_postgres_pool, type=obj_body["type"], mobile=obj_body["mobile"], config_auth_type=st.config_auth_type)
    token=await st.func_token_encode(user=user, config_token_secret_key=st.config_token_secret_key, config_token_expiry_sec=st.config_token_expiry_sec, config_token_refresh_expiry_sec=st.config_token_refresh_expiry_sec, config_token_key=st.config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
