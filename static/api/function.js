@@ -242,7 +242,7 @@ const createCommandFromOperation = (path, method, op) => {
       v: schema.default != null ? String(schema.default) : '',
       e: getSchemaEnum(schema) || param.enum || null,
       r: schema.pattern || null,
-      d: schema.description || null,
+      d: param.description || schema.description || null,
       req: !!param.required
     };
     if (param.in === 'header') command.h.push(item);

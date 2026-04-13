@@ -216,18 +216,21 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                                         elif inner in ["dict", "object"]:
                                             it_tp = "object"
                                         itms = {"type": it_tp}
-                                op["parameters"].append({
+                                    rgx_pat = p[5][0] if len(p) > 5 and isinstance(p[5], (list, tuple)) and len(p[5]) > 0 else None
+                                    rgx_err = p[5][1] if len(p) > 5 and isinstance(p[5], (list, tuple)) and len(p[5]) > 1 else None
+                                    p_desc = p[6] if len(p) > 6 else None
+                                    op["parameters"].append({
                                     "name": p[0],
                                     "in": p_loc,
+                                    "description": ". ".join([str(x) for x in [rgx_err, p_desc] if x]) if rgx_err or p_desc else None,
                                     "required": bool(p[2]) if len(p) > 2 else False,
                                     "schema": {
                                         "type": tp,
                                         "format": fmt,
-                                        "items": itms,
+                                        **({"items": itms} if itms else {}),
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
                                         "default": p[4] if len(p) > 4 else None,
-                                        "pattern": p[5] if len(p) > 5 else None,
-                                        "description": f"{p[7]}" if len(p) > 7 and p[7] else None
+                                        "pattern": rgx_pat
                                     }
                                 })
                         elif p_list is not None and p_loc in ["body", "form"]:
@@ -273,14 +276,17 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                                             elif inner in ["dict", "object"]:
                                                 it_tp = "object"
                                             itms = {"type": it_tp}
+                                    rgx_pat = p[5][0] if len(p) > 5 and isinstance(p[5], (list, tuple)) and len(p[5]) > 0 else None
+                                    rgx_err = p[5][1] if len(p) > 5 and isinstance(p[5], (list, tuple)) and len(p[5]) > 1 else None
+                                    p_desc = p[6] if len(p) > 6 else None
                                     props[p[0]] = {
                                         "type": tp,
                                         "format": fmt,
-                                        "items": itms,
+                                        **({"items": itms} if itms else {}),
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
                                         "default": p[4] if len(p) > 4 else None,
-                                        "pattern": p[5] if len(p) > 5 else None,
-                                        "description": f"{p[7]}" if len(p) > 7 and p[7] else None
+                                        "pattern": rgx_pat,
+                                        "description": ". ".join([str(x) for x in [rgx_err, p_desc] if x]) if rgx_err or p_desc else None
                                     }
                                     if len(p) > 2 and bool(p[2]):
                                         schema_obj["required"].append(p[0])

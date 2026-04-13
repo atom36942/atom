@@ -171,32 +171,42 @@
     </div>
 </div>
 
-<div id="infoModal" class="modal"><div class="modal-content" style="max-width:600px;margin:2% auto">
+<div id="infoModal" class="modal"><div class="modal-content" style="max-width:800px;margin:2% auto">
     <div class="modal-header">
         <h3 style="margin:0">API Master Information</h3>
         <button type="button" class="icon-btn" id="infoCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
-    <div class="modal-card" style="margin-top:0;padding:20px;display:flex;flex-direction:column;gap:16px;border:1px solid rgba(255,255,255,0.08)">
-        <div style="display:flex;flex-direction:column;gap:8px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.05)">
-            <div style="font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center">
-                <span style="opacity:0.6;min-width:145px">Base URL:</span>
-                <span id="baseUrl" style="color:var(--accent);font-weight:600;letter-spacing:0.5px"></span>
-            </div>
-            <div style="font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center">
-                <span style="opacity:0.6;min-width:145px">OpenAPI Specification:</span>
-                <a href="/openapi.json" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600">/openapi.json</a>
+    <div class="modal-card-grid" style="display:flex;flex-direction:column;gap:16px">
+        <!-- Card 1: General Info -->
+        <div class="modal-card" style="padding:20px;border:1px solid rgba(255,255,255,0.08)">
+            <h4><span>GENERAL INFORMATION</span></h4>
+            <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center">
+                    <span style="opacity:0.6;min-width:145px">Base URL:</span>
+                    <span id="baseUrl" style="color:var(--accent);font-weight:600;letter-spacing:0.5px"></span>
+                </div>
+                <div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center">
+                    <span style="opacity:0.6;min-width:145px">OpenAPI Specification:</span>
+                    <a href="/openapi.json" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600">/openapi.json</a>
+                </div>
             </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">Notes</div>
-            <div style="font-size:13px;color:var(--muted);line-height:1.5">1. All endpoints are loaded live from <b>/openapi.json</b>.</div>
-            <div style="font-size:13px;color:var(--muted);line-height:1.5">2. Display values can be overridden from the internal override map.</div>
-            <div style="font-size:13px;color:var(--muted);line-height:1.5">3. Execution follows the live schema plus any manual override you define.</div>
-            <div style="font-size:13px;color:var(--muted);line-height:1.5">4. Unknown override keys are added to <b>Query for GET</b> and <b>Body for non-GET</b> methods.</div>
+
+        <!-- Card 2: Notes -->
+        <div class="modal-card" style="padding:20px;border:1px solid rgba(255,255,255,0.08)">
+            <h4><span>OPERATIONAL NOTES</span></h4>
+            <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="font-size:13px;color:var(--muted);line-height:1.5">1. All endpoints are loaded live from <b>/openapi.json</b>.</div>
+                <div style="font-size:13px;color:var(--muted);line-height:1.5">2. Display values can be overridden from the internal override map.</div>
+                <div style="font-size:13px;color:var(--muted);line-height:1.5">3. Execution follows the live schema plus any manual override you define.</div>
+                <div style="font-size:13px;color:var(--muted);line-height:1.5">4. Unknown override keys are added to <b>Query for GET</b> and <b>Body for non-GET</b> methods.</div>
+            </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
-            <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">Query Examples (GET /object-read)</div>
-            <div style="display:flex;flex-direction:column;gap:6px">
+
+        <!-- Card 3: Query Examples -->
+        <div class="modal-card" style="padding:20px;border:1px solid rgba(255,255,255,0.08)">
+            <h4><span>QUERY EXAMPLES (GET /object-read)</span></h4>
+            <div style="display:flex;flex-direction:column;gap:8px">
                 <div style="font-size:12px;color:var(--muted)">1. <b>Comparison:</b> <code>id==,5</code>, <code>id=&gt;,100</code>, <code>created_at=&gt;=,2024-01-01</code></div>
                 <div style="font-size:12px;color:var(--muted)">2. <b>List & Null:</b> <code>id=in,1|2|3|4</code>, <code>title=is,null</code>, <code>is_active=is distinct from,0</code></div>
                 <div style="font-size:12px;color:var(--muted)">3. <b>Pattern & Range:</b> <code>title=ilike,%python%</code>, <code>rating=between,4.0|5.0</code></div>
@@ -208,6 +218,17 @@
         </div>
     </div>
 </div></div>
+
+<div id="paramInfoModal" class="modal"><div class="modal-content" style="max-width:1000px;margin:2% auto">
+    <div class="modal-header">
+        <h3 style="margin:0" id="paramInfoTitle">Parameter Configuration</h3>
+        <div class="modal-actions">
+            <button type="button" class="icon-btn" id="paramInfoCopyBtn" title="Copy Detail"></button>
+            <button type="button" class="icon-btn" id="paramInfoCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+    </div>
+    <div id="paramInfoBody" class="modal-subtitle" style="margin-top:16px"></div>
+</div></div>>
 
 <div id="curlViewModal" class="modal">
     <div class="modal-content" style="max-width:800px;margin:5% auto">

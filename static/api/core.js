@@ -417,6 +417,7 @@ const setupEventListeners = () => {
         'testParamsCloseBtn': 'testParamsModal',
         'masterResponseCloseBtn': 'masterResponseModal',
         'infoCloseBtn': 'infoModal',
+        'paramInfoCloseBtn': 'paramInfoModal',
         'curlViewCloseBtn': 'curlViewModal',
         'storageCloseBtn': 'storageModal',
         'analyticsCloseBtn': 'analyticsModal'
@@ -447,17 +448,20 @@ const setupEventListeners = () => {
     UI('runnerOvrBtn')?.addEventListener('click', () => {
         if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'ovr');
     });
+    UI('paramInfoCopyBtn')?.addEventListener('click', () => {
+        const txt = UI('paramInfoBody').innerText;
+        if (txt) copyWithFeedback(UI('paramInfoCopyBtn'), txt, 20, 'Details copied');
+    });
     UI('runnerCurlBtn')?.addEventListener('click', () => {
         if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'all');
     });
 
-    // Info Icon Regex/Desc Copy (Delegation)
+    // Info Icon Regex/Desc Modal (Delegation)
     d.addEventListener('click', e => {
         const btn = e.target.closest('.info-icon-btn');
-        const info = btn?.dataset.info || btn?.dataset.regex;
-        if (btn && info) {
+        if (btn) {
             e.stopPropagation();
-            copyWithFeedback(btn, info, 14, 'Info copied');
+            showInfoModal(btn.dataset.key || '', btn.dataset.regex || '', btn.dataset.desc || '');
         }
     });
     // API Runner Sections

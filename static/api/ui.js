@@ -241,16 +241,63 @@ const valHtml = (ct, v, t, e) => {
   return wrap(inputHtml);
 };
 
+const showInfoModal = (k, r_pat, desc) => {
+  UI('paramInfoTitle').innerHTML = `Configuration Detail: <span style="color:var(--accent);font-weight:700;background:rgba(255,255,255,0.05);padding:2px 10px;border-radius:6px;margin-left:8px;border:1px solid rgba(255,255,255,0.1)">${he(k)}</span>`;
+  UI('paramInfoCopyBtn').innerHTML = ICON.copy(20);
+  
+  let html = '<div style="background:rgba(255,255,255,0.03);padding:24px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:12px;width:fit-content;min-width:500px;max-width:900px">';
+  
+  if (desc || r_pat) {
+    const parts = desc ? desc.split('. ').filter(p => p.trim()) : [];
+    const finalItems = [];
+
+    if (r_pat) {
+      // First Bullet: Regex [Description]
+      let bullet1 = `<code style="background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px;font-size:12px;color:var(--accent);font-family:'SF Mono',Menlo,monospace">${he(r_pat)}</code>`;
+      if (parts.length > 0) {
+        bullet1 += ` <span style="color:var(--muted);font-style:italic;margin-left:6px">[${he(parts[0])}]</span>`;
+      }
+      finalItems.push(bullet1);
+      // Remaining bullets
+      if (parts.length > 1) finalItems.push(...parts.slice(1));
+    } else {
+      // No Regex, just show all description parts
+      if (parts.length > 0) finalItems.push(...parts);
+    }
+
+    html += `
+      <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+        ${finalItems.map(item => `
+          <li style="display:flex;gap:12px;line-height:1.6;color:#e6eef3;font-size:13px;white-space:nowrap">
+            <span style="color:var(--primary);flex-shrink:0;font-size:18px;line-height:12px;margin-top:4px">•</span>
+            <span>${item}</span>
+          </li>`).join('')}
+      </ul>`;
+  } else {
+    html += '<div style="color:var(--muted);font-style:italic">No additional configuration details available.</div>';
+  }
+  
+  html += '</div>';
+  
+  UI('paramInfoBody').innerHTML = html;
+  
+  // Dynamic width for the modal content
+  const modalCont = UI('paramInfoModal').querySelector('.modal-content');
+  modalCont.style.width = 'fit-content';
+  modalCont.style.minWidth = '500px';
+  modalCont.style.maxWidth = '1000px';
+
+  showModal('paramInfoModal');
+};
+
 const mkRow = (ct, k = '', v = '', t = 'string', e = null, r_pat = null, isFixed = false, isReq = false, desc = null) => {
   const r = d.createElement('div');
   r.className = 'input-row';
   const rmBtn = `<button type="button" class="remove-btn"${isReq ? ' disabled' : ''}>${ICON.trash(16)}</button>`;
-  const infoContent = [r_pat ? `[REGEX] ${r_pat}` : null, desc].filter(Boolean).join('\n\n');
-  const tip = infoContent ? ` data-tooltip="${he(infoContent)}"` : '';
-  const infoIconHtml = infoContent ? `<span class="info-icon-btn" data-info="${he(infoContent)}">${ICON.info(13)}</span>` : '';
+  const infoIconHtml = (r_pat || desc) ? `<span class="info-icon-btn" data-key="${he(k)}" data-regex="${he(r_pat || '')}" data-desc="${he(desc || '')}">${ICON.info(13)}</span>` : '';
   const keyHtml = isReq 
-    ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap" ${tip}><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${he(k)}${infoIconHtml ? `<span style="margin-left:6px">${infoIconHtml}</span>` : ''}</div><input type="hidden" class="row-key" value="${he(k)}">` 
-    : `<div style="flex:0 0 180px;position:relative;display:flex;align-items:center"><input type="text" class="row-key" value="${he(k)}" ${isFixed ? 'readonly tabindex="-1"' : ''} ${tip}>${infoIconHtml ? `<div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;z-index:11">${infoIconHtml}</div>` : ''}</div>`;
+    ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap" ><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${he(k)}${infoIconHtml ? `<span style="margin-left:6px">${infoIconHtml}</span>` : ''}</div><input type="hidden" class="row-key" value="${he(k)}">` 
+    : `<div style="flex:0 0 180px;position:relative;display:flex;align-items:center"><input type="text" class="row-key" value="${he(k)}" ${isFixed ? 'readonly tabindex="-1"' : ''} >${infoIconHtml ? `<div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;z-index:11">${infoIconHtml}</div>` : ''}</div>`;
   r.innerHTML = `${keyHtml}${valHtml(ct, v, t, e)}${rmBtn}`;
   if (!isReq) r.querySelector('.remove-btn').onclick = () => r.remove();
   bindClear(r);
