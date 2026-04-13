@@ -1,0 +1,133 @@
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, .8);
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--card);
+  margin: 5% auto;
+  padding: 24px;
+  width: 95%;
+  max-width: 1000px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.modal-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modal-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.icon-btn svg { pointer-events: none; }
+.icon-btn:hover { color: #fff; }
+.icon-btn.delete:hover { color: var(--delete); }
+.icon-btn.save:hover { color: var(--primary); }
+.icon-btn.loading svg { animation: spin 1s linear infinite; }
+
+.cell-pop {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  background: #1a1d23;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-width: 400px;
+  max-height: 250px;
+  overflow: auto;
+  font-size: 13px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .6);
+  color: #e6eef3;
+  font-family: 'SF Mono', Menlo, monospace;
+}
+
+.cell-pop.show { display: flex; gap: 8px; align-items: flex-start; }
+
+.cell-pop-copy {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.cell-pop-copy:hover { color: #fff; }
+
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+  overflow: visible !important;
+}
+
+[data-tooltip]:after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: #1a1d23;
+  color: #e6eef3;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: normal;
+  max-width: 240px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .5);
+  opacity: 0;
+  visibility: hidden;
+  transition: all .15s ease-out;
+  z-index: 3000;
+  pointer-events: none;
+}
+
+[data-tooltip]:hover:after {
+  opacity: 1;
+  visibility: visible;
+  bottom: calc(100% + 6px);
+}

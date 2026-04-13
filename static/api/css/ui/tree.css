@@ -1,0 +1,66 @@
+/* Syntax Highlighting */
+.jk { color: #7ec8e3; } /* key */
+.js { color: #98c379; } /* string */
+.jn { color: #d19a66; } /* number */
+.jb { color: #c678dd; } /* boolean */
+.jl { color: #56b6c2; } /* null */
+.jp { color: var(--muted); } /* punctuation */
+
+.resp-pre {
+  padding: 20px;
+  margin: 0;
+  font-size: 13px;
+  font-family: 'SF Mono', Menlo, monospace;
+  color: #e6eef3;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: none;
+  border: none;
+  line-height: 1.5;
+}
+
+/* Tree View */
+.tree-node { margin-left: 20px; position: relative; }
+.tree-node:first-child { margin-top: 2px; }
+#viewPretty, #masterViewPretty { padding: 12px; overflow: auto; }
+#viewPretty > .tree-node, #masterViewPretty > .tree-node { margin-left: 0; }
+
+.tree-toggle, .tree-row {
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  gap: 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.tree-toggle { cursor: pointer; }
+.tree-toggle:hover { background: rgba(255, 255, 255, 0.05); }
+
+.tree-arrow {
+  width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.tree-arrow.open { transform: rotate(90deg); }
+
+.tree-key { color: #7ec8e3; font-weight: 600; flex-shrink: 0; }
+.tree-colon { color: var(--muted); }
+.tree-val { color: #e6eef3; word-break: break-all; }
+.tree-content { display: none; }
+.tree-content.show { display: block; }
+.tree-summary { font-size: 11px; color: var(--muted); font-style: italic; margin-left: 8px; }
+
+/* Table Grid View */
+.resp-tbl-wrap { overflow: auto; max-width: 100%; max-height: 500px; }
+.resp-tbl-wrap .resp-tbl { border-collapse: collapse; font-size: 13px; margin: 0; table-layout: auto; width: 100%; }
+.resp-tbl-wrap .resp-tbl th { background: #1a1d23; padding: 8px 6px; text-align: left; font-weight: 600; color: var(--accent); border-bottom: 1px solid rgba(255, 255, 255, .1); font-size: 12px; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+.resp-tbl-wrap .resp-tbl td { padding: 8px 6px; color: #e6eef3; border-bottom: 1px solid rgba(255, 255, 255, .05); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.resp-tbl-wrap .resp-tbl td:hover { background: rgba(255, 255, 255, 0.02); }
