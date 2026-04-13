@@ -227,7 +227,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
                                         "default": p[4] if len(p) > 4 else None,
                                         "pattern": p[5] if len(p) > 5 else None,
-                                        "description": f"{p[6]}" if len(p) > 6 and p[6] else None
+                                        "description": f"{p[7]}" if len(p) > 7 and p[7] else None
                                     }
                                 })
                         elif p_list is not None and p_loc in ["body", "form"]:
@@ -280,7 +280,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                                         "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
                                         "default": p[4] if len(p) > 4 else None,
                                         "pattern": p[5] if len(p) > 5 else None,
-                                        "description": f"{p[6]}" if len(p) > 6 and p[6] else None
+                                        "description": f"{p[7]}" if len(p) > 7 and p[7] else None
                                     }
                                     if len(p) > 2 and bool(p[2]):
                                         schema_obj["required"].append(p[0])

@@ -451,12 +451,13 @@ const setupEventListeners = () => {
         if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'all');
     });
 
-    // Info Icon Regex Copy (Delegation)
+    // Info Icon Regex/Desc Copy (Delegation)
     d.addEventListener('click', e => {
         const btn = e.target.closest('.info-icon-btn');
-        if (btn && btn.dataset.regex) {
+        const info = btn?.dataset.info || btn?.dataset.regex;
+        if (btn && info) {
             e.stopPropagation();
-            copyWithFeedback(btn, btn.dataset.regex, 14, 'Regex copied');
+            copyWithFeedback(btn, info, 14, 'Info copied');
         }
     });
     // API Runner Sections

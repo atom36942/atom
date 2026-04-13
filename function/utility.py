@@ -243,6 +243,7 @@ async def func_request_param_read(*, request: any, mode: str, config: list, stri
         default_value = param[4]
         regex_pattern = param[5] if param_len > 5 else None
         custom_error = param[6] if param_len > 6 else None
+        description = param[7] if param_len > 7 else None
         if dtype not in TYPE_MAP and not dtype.startswith("list:"):
             raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
         if is_mandatory == 1 and default_value is not None:

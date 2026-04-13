@@ -241,13 +241,13 @@ const valHtml = (ct, v, t, e) => {
   return wrap(inputHtml);
 };
 
-const mkRow = (ct, k = '', v = '', t = 'string', e = null, r_pat = null, isFixed = false, isReq = false) => {
+const mkRow = (ct, k = '', v = '', t = 'string', e = null, r_pat = null, isFixed = false, isReq = false, desc = null) => {
   const r = d.createElement('div');
   r.className = 'input-row';
   const rmBtn = `<button type="button" class="remove-btn"${isReq ? ' disabled' : ''}>${ICON.trash(16)}</button>`;
-  const keyTitle = (r_pat ? `[REGEX: ${r_pat}] (Click to copy) ` : '') + k;
-  const tip = r_pat ? ` data-tooltip="${he(keyTitle)}"` : '';
-  const infoIconHtml = r_pat ? `<span class="info-icon-btn" data-regex="${he(r_pat)}">${ICON.info(13)}</span>` : '';
+  const infoContent = [r_pat ? `[REGEX] ${r_pat}` : null, desc].filter(Boolean).join('\n\n');
+  const tip = infoContent ? ` data-tooltip="${he(infoContent)}"` : '';
+  const infoIconHtml = infoContent ? `<span class="info-icon-btn" data-info="${he(infoContent)}">${ICON.info(13)}</span>` : '';
   const keyHtml = isReq 
     ? `<div style="flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap" ${tip}><span style="color:var(--delete);margin-right:4px;font-weight:bold">*</span>${he(k)}${infoIconHtml ? `<span style="margin-left:6px">${infoIconHtml}</span>` : ''}</div><input type="hidden" class="row-key" value="${he(k)}">` 
     : `<div style="flex:0 0 180px;position:relative;display:flex;align-items:center"><input type="text" class="row-key" value="${he(k)}" ${isFixed ? 'readonly tabindex="-1"' : ''} ${tip}>${infoIconHtml ? `<div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;z-index:11">${infoIconHtml}</div>` : ''}</div>`;
@@ -298,7 +298,7 @@ const populate = (cont, sec, spec, isJson = false) => {
       if (lsVal) val = lsVal.startsWith('Bearer ') ? lsVal : `Bearer ${lsVal}`;
       else if (val && !val.startsWith('Bearer ')) val = `Bearer ${val}`;
     }
-    mkRow(UI(cont), x.k, val, x.t || 'string', x.e, x.r || null, !!spec.find(s => s.k === x.k), !!spec.find(s => s.k === x.k && s.req));
+    mkRow(UI(cont), x.k, val, x.t || 'string', x.e, x.r || null, !!spec.find(s => s.k === x.k), !!spec.find(s => s.k === x.k && s.req), x.d || null);
   });
 };
 const renderApiInfoTable = (searchQuery = '') => {
