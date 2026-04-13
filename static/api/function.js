@@ -472,6 +472,70 @@ const testNeedsToken = c => {
   if (c.h && c.h.some(x => x.k.toLowerCase() === 'authorization')) return 1;
   return 0;
 };
+/**
+ * @description Executes an API by its global index without touching the Runner UI.
+ * @param {number} index - The global command index.
+ */
+const runMasterApiByIndex = async (index) => {
+  const c = COMMANDS[index];
+  if (!c) return;
+  const t0 = performance.now();
+  const params = {
+    h: c.h.map(x => ({...x})),
+    q: c.q.map(x => ({...x})),
+    u: c.u.map(x => ({...x})),
+    f: c.f.map(x => ({...x})),
+    j: c.j.map(x => ({...x}))
+  };
+  
+  let urlPath = c.p;
+  params.u.forEach(x => { if (x.k) urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(x.v || 'null')); });
+  let url = window.location.origin + urlPath;
+  const qs = params.q.filter(x => x.k).map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v || 'null')}`).join('&');
+  if (qs) url += '?' + qs;
+
+  const h = {};
+  params.h.forEach(x => {
+    if (x.k) {
+      const val = x.v || 'null';
+      h[x.k] = x.k.toLowerCase() === 'authorization' ? (val.startsWith('Bearer ') ? val : `Bearer ${val}`) : val;
+    }
+  });
+
+  const opts = { method: c.m, headers: h };
+  if (params.f.length) {
+    const fd = new FormData();
+    params.f.forEach(x => { if (x.k) fd.append(x.k, x.v || 'null'); });
+    opts.body = fd;
+  } else if (params.j.length || c._hj) {
+    const body = {};
+    try {
+      params.j.forEach(x => { if (x.k) body[x.k] = ParamManager.cast(x.v, x.t, x.k); });
+      opts.body = JSON.stringify(body);
+      h['Content-Type'] = 'application/json';
+    } catch(e) {
+      const ms = Math.round(performance.now() - t0);
+      Store.setResponse(index, { status: 0, time: ms, data: { status: 0, message: e.message }, updated_at: Date.now() });
+      renderApiInfoTable(UI('apiInfoSearch').value);
+      return;
+    }
+  }
+
+  try {
+    const r = await fetch(url, opts);
+    const ms = Math.round(performance.now() - t0);
+    const text = await r.text();
+    let json;
+    try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || 'Raw' } }
+    
+    Store.setResponse(index, { status: r.status, time: ms, data: json, updated_at: Date.now() });
+    renderApiInfoTable(UI('apiInfoSearch').value);
+  } catch (err) {
+    const ms = Math.round(performance.now() - t0);
+    Store.setResponse(index, { status: 0, time: ms, data: { status: 0, message: err.message }, updated_at: Date.now() });
+    renderApiInfoTable(UI('apiInfoSearch').value);
+  }
+};
 let testRunning = 0;
 const testRunApis = async () => {
   if (testRunning) return toast('Test already running');
@@ -479,8 +543,6 @@ const testRunApis = async () => {
   if (!visibleIndexes.length) return toast('No APIs available in the current filters');
   testRunning = 1;
   const runBtn = UI('testRunBtn');
-  if (!runBtn) return;
-  testRunning = 1;
   UI('testProgress').style.display = 'flex';
   UI('testProgressFill').style.width = '0%';
   const total = visibleIndexes.length;
@@ -612,5 +674,7 @@ const PATH_OVERRIDES = {
   '/admin/ids-delete': { table: 'test', ids: '1,2,3,4,5' },
 
   // Pages
-  '/page-{name}': { name: 'api' }
+  '/page-{name}': { name: 'api' },
+  // Auth
+  '/auth/signup-username-password': { username: 'testuser', password: 'password123', email: 'test@example.com', name: 'Test User', type: 1 }
 };

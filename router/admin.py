@@ -17,8 +17,8 @@ async def func_api_admin_sync(*, request:Request):
    st.cache_postgres_schema = await st.func_postgres_schema_read(client_postgres_pool=st.client_postgres_pool) if st.client_postgres_pool else {}
    st.cache_postgres_schema_tables = list(st.cache_postgres_schema.keys())
    st.cache_postgres_schema_columns = sorted(list(set(col for table in st.cache_postgres_schema.values() for col in table.keys())))
-   st.cache_users_role = await st.func_sql_map_column(client_postgres_pool=st.client_postgres_pool, config_sql=st.config_sql.get("cache_users_role")) if st.client_postgres_pool else {}
-   st.cache_users_is_active = await st.func_sql_map_column(client_postgres_pool=st.client_postgres_pool, config_sql=st.config_sql.get("cache_users_is_active")) if st.client_postgres_pool else {}
+   st.cache_users_role = await st.func_postgres_map_column(client_postgres_pool=st.client_postgres_pool, config_sql=st.config_sql.get("cache_users_role")) if st.client_postgres_pool else {}
+   st.cache_users_is_active = await st.func_postgres_map_column(client_postgres_pool=st.client_postgres_pool, config_sql=st.config_sql.get("cache_users_is_active")) if st.client_postgres_pool else {}
    await st.func_postgres_clean(client_postgres_pool=st.client_postgres_pool, config_table=st.config_table)
    st.cache_openapi = st.func_openapi_spec_generate(app_routes=request.app.routes, config_api_roles_auth=st.config_api_roles_auth, app_state=st)
    return {"status":1,"message":"done"}

@@ -5,7 +5,7 @@ async def func_auth_signup_username_password(*, client_postgres_pool: any, func_
     if type not in config_auth_type:
         raise Exception(f"authentication type {type} not allowed")
     username = username.strip().lower()
-    password = func_password_hash(password)
+    password = func_password_hash(password_raw=password)
     query = "INSERT INTO users (type, username, password, name) VALUES ($1, $2, $3, $4) RETURNING *;"
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, type, username, password, name)
@@ -24,7 +24,7 @@ async def func_auth_signup_username_password_bigint(*, client_postgres_pool: any
 
 async def func_auth_login_password_username(*, client_postgres_pool: any, func_password_hash: callable, type: int, password: str, username: str) -> dict:
     """Authenticate a user using username and password."""
-    hashed_pwd = func_password_hash(password)
+    hashed_pwd = func_password_hash(password_raw=password)
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username=$2 ORDER BY id DESC LIMIT 1;", type, username)
         if not records:
@@ -45,7 +45,7 @@ async def func_auth_login_password_username_bigint(*, client_postgres_pool: any,
 
 async def func_auth_login_password_email(*, client_postgres_pool: any, func_password_hash: callable, type: int, password: str, email: str) -> dict:
     """Authenticate a user using email address and password."""
-    hashed_pwd = func_password_hash(password)
+    hashed_pwd = func_password_hash(password_raw=password)
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", type, email)
         if not records:
@@ -56,7 +56,7 @@ async def func_auth_login_password_email(*, client_postgres_pool: any, func_pass
 
 async def func_auth_login_password_mobile(*, client_postgres_pool: any, func_password_hash: callable, type: int, password: str, mobile: str) -> dict:
     """Authenticate a user using mobile number and password."""
-    hashed_pwd = func_password_hash(password)
+    hashed_pwd = func_password_hash(password_raw=password)
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", type, mobile)
         if not records:

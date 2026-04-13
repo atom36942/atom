@@ -618,6 +618,8 @@ const setupEventListeners = () => {
             openMasterResponse(idx);
             return;
         }
+    });
+
     // Tree Toggles (Delegation)
     d.addEventListener('click', e => {
         const toggle = e.target.closest('.tree-toggle');

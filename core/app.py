@@ -35,8 +35,8 @@ async def func_lifespan(app:FastAPI):
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
    cache_postgres_schema_tables=list(cache_postgres_schema.keys())
    cache_postgres_schema_columns=sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
-   cache_users_role=await st.func_sql_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("cache_users_role")) if client_postgres_pool else {}
-   cache_users_is_active=await st.func_sql_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
+   cache_users_role=await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("cache_users_role")) if client_postgres_pool else {}
+   cache_users_is_active=await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
    cache_ratelimiter = {}
    cache_api_response = {}
    cache_postgres_buffer = {}

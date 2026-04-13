@@ -69,6 +69,40 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
             schema[table][col] = r["data_type"]
     return schema
 
+async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str) -> dict:
+    """Execute a SQL query and map results into a dictionary, supporting grouping for duplicate keys."""
+    import re, orjson
+    if not config_sql:
+        return {}
+    match = re.search(r"select\s+(.*?)\s+from\s", config_sql, flags=re.I | re.S)
+    columns = [c.strip() for c in match.group(1).split(",")]
+    key_col = columns[0]
+    other_cols = columns[1:]
+    result_map = {}
+    async with client_postgres_pool.acquire() as conn:
+        async with conn.transaction():
+            async for record in conn.cursor(config_sql, prefetch=5000):
+                key = record.get(key_col)
+                if len(other_cols) == 1:
+                    if other_cols[0] == "*":
+                        val = dict(record)
+                    else:
+                        val = record.get(other_cols[0])
+                else:
+                    val = {c: record.get(c) for c in other_cols}
+                if isinstance(val, str) and val.lstrip().startswith(("{", "[")):
+                    try:
+                        val = orjson.loads(val)
+                    except Exception:
+                        pass
+                if key not in result_map:
+                    result_map[key] = val
+                else:
+                    if not isinstance(result_map[key], list):
+                        result_map[key] = [result_map[key]]
+                    result_map[key].append(val)
+    return result_map
+
 async def func_postgres_init(*, client_postgres_pool: any, config_postgres: dict) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
     if not config_postgres:
@@ -229,7 +263,8 @@ async def func_postgres_init(*, client_postgres_pool: any, config_postgres: dict
                 drop_vars = "record.relname, record.conname"
                 like_filter = "(conname LIKE 'unique_%%' OR conname LIKE 'check_%%')"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-    await conn.execute("ANALYZE;")
+        if is_analyze:
+            await conn.execute("ANALYZE;")
     return "database init done"
 
 async def func_postgres_serialize(*, client_postgres_pool: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
