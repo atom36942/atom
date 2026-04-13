@@ -25,7 +25,7 @@ async def func_api_public_object_create(*, request:Request):
 @router.get("/public/object-read")
 async def func_api_public_object_read(*, request:Request):
    st=request.app.state
-   obj_query=await st.func_request_param_read(request=request, mode="query", config=[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None),("order","str",0,None,"id desc",None,None),("column","str",0,None,"*",None,None),("creator_key","str",0,None,None,None,None),("action_key","str",0,None,None,None,None)])
+   obj_query=await st.func_request_param_read(request=request, mode="query", config=[("table","str",1,st.cache_postgres_schema_tables,None,None,None),("limit","int",0,None,100,None,None),("page","int",0,None,1,None,None),("order","str",0,None,"id desc",None,None),("column","str",0,None,"*",None,None),("creator_key","str",0,None,None,None,None),("action_key","str",0,None,None,None,None)], strict=0)
    if st.config_table_read_public and obj_query["table"] not in st.config_table_read_public:
       raise Exception(f"table not allowed: {obj_query['table']}, allowed: {st.config_table_read_public}")
    obj_list=await st.func_postgres_read(client_postgres_pool=st.client_postgres_pool, func_postgres_serialize=st.func_postgres_serialize, cache_postgres_schema=st.cache_postgres_schema, table=obj_query["table"], filter_obj=obj_query, limit=obj_query["limit"], page=obj_query["page"], order=obj_query["order"], column=obj_query["column"], creator_key=obj_query["creator_key"], action_key=obj_query["action_key"])

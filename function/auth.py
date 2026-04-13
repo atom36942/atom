@@ -1,4 +1,4 @@
-async def func_auth_signup_username_password(*, client_postgres_pool: any, func_password_hash: callable, type: int, username: str, password: str, name: str, config_is_signup: int, config_auth_type: list) -> dict:
+async def func_auth_signup_username_password(*, client_postgres_pool: any, func_password_hash: callable, type: int, username: str, password: str, config_is_signup: int, config_auth_type: list) -> dict:
     """Handle user signup with username and password, including validation of global signup toggle and allowed identifier types."""
     if config_is_signup == 0:
         raise Exception("signup disabled")
@@ -6,9 +6,9 @@ async def func_auth_signup_username_password(*, client_postgres_pool: any, func_
         raise Exception(f"authentication type {type} not allowed")
     username = username.strip().lower()
     password = func_password_hash(password_raw=password)
-    query = "INSERT INTO users (type, username, password, name) VALUES ($1, $2, $3, $4) RETURNING *;"
+    query = "INSERT INTO users (type, username, password) VALUES ($1, $2, $3) RETURNING *;"
     async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, type, username, password, name)
+        records = await conn.fetch(query, type, username, password)
         return dict(records[0])
 
 async def func_auth_signup_username_password_bigint(*, client_postgres_pool: any, type: int, username_bigint: int, password_bigint: int, config_is_signup: int, config_auth_type: list) -> dict:

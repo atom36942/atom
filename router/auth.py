@@ -9,8 +9,8 @@ from fastapi import Request
 @router.post("/auth/signup-username-password")
 async def func_api_auth_signup_username_password(*, request:Request):
    st=request.app.state
-   obj_body=await st.func_request_param_read(request=request, mode="body", config=[("type","int",1,None,None,None),("username","str",1,None,None,None),("password","str",1,None,None,"^\\S{8,32}$", "Password must be 8-32 characters and contain no spaces"),("name","str",0,None,"")], strict=0)
-   user=await st.func_auth_signup_username_password(client_postgres_pool=st.client_postgres_pool, func_password_hash=st.func_password_hash, type=obj_body["type"], username=obj_body["username"], password=obj_body["password"], name=obj_body["name"], config_is_signup=st.config_is_signup, config_auth_type=st.config_auth_type)
+   obj_body=await st.func_request_param_read(request=request, mode="body", config=[("type","int",1,None,None,None),("username","str",1,None,None,None),("password","str",1,None,None,"^\\S{8,32}$", "Password must be 8-32 characters and contain no spaces")], strict=0)
+   user=await st.func_auth_signup_username_password(client_postgres_pool=st.client_postgres_pool, func_password_hash=st.func_password_hash, type=obj_body["type"], username=obj_body["username"], password=obj_body["password"], config_is_signup=st.config_is_signup, config_auth_type=st.config_auth_type)
    token=await st.func_token_encode(user=user, config_token_secret_key=st.config_token_secret_key, config_token_expiry_sec=st.config_token_expiry_sec, config_token_refresh_expiry_sec=st.config_token_refresh_expiry_sec, config_token_key=st.config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 

@@ -9,3 +9,5 @@ from .auth import *
 from .message import *
 from .aws import *
 from .orchestrator import *
+from .user import *
+

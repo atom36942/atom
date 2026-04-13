@@ -281,6 +281,9 @@ const generateCurl = i => {
       h.push(`-H "${x.k}: ${val}"`);
     } else h.push(`-H "${x.k}: ${sanitize(val)}"`);
   });
+  if (Store.token && !hData.some(x => x.k.toLowerCase() === 'authorization')) {
+    h.push(`-H "Authorization: Bearer ${Store.token}"`);
+  }
   const qStr = qData.filter(x => x.k).map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(sanitize(x.v)).replace(/%7B/g, '{').replace(/%7D/g, '}')}`).join('&');
   const url = window.location.origin + path + (qStr ? '?' + qStr : '');
   let body = '';
@@ -394,10 +397,14 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
   params.h.forEach(x => {
     if (x.k) {
       const val = x.v || 'null';
-      h[x.k] = x.k.toLowerCase() === 'authorization' ? (val.startsWith('Bearer ') ? val : `Bearer ${val}`) : val;
+      const finalVal = x.k.toLowerCase() === 'authorization' ? (Store.token || val) : val;
+      h[x.k] = x.k.toLowerCase() === 'authorization' ? (finalVal.startsWith('Bearer ') ? finalVal : `Bearer ${finalVal}`) : finalVal;
     }
   });
   const opts = { method: curr.m, headers: h };
+  if (Store.token && !Object.keys(h).some(k => k.toLowerCase() === 'authorization')) {
+    h['Authorization'] = `Bearer ${Store.token}`;
+  }
   if (params.f.length) {
     const fd = new FormData();
     params.f.forEach(x => { 
@@ -470,6 +477,7 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
 };
 const testNeedsToken = c => {
   if (c.h && c.h.some(x => x.k.toLowerCase() === 'authorization')) return 1;
+  if (c.p.startsWith('/my/') || c.p.startsWith('/admin/')) return 1;
   return 0;
 };
 /**
@@ -498,11 +506,15 @@ const runMasterApiByIndex = async (index) => {
   params.h.forEach(x => {
     if (x.k) {
       const val = x.v || 'null';
-      h[x.k] = x.k.toLowerCase() === 'authorization' ? (val.startsWith('Bearer ') ? val : `Bearer ${val}`) : val;
+      const finalVal = x.k.toLowerCase() === 'authorization' ? (Store.token || val) : val;
+      h[x.k] = x.k.toLowerCase() === 'authorization' ? (finalVal.startsWith('Bearer ') ? finalVal : `Bearer ${finalVal}`) : finalVal;
     }
   });
 
   const opts = { method: c.m, headers: h };
+  if (Store.token && !Object.keys(h).some(k => k.toLowerCase() === 'authorization')) {
+    h['Authorization'] = `Bearer ${Store.token}`;
+  }
   if (params.f.length) {
     const fd = new FormData();
     params.f.forEach(x => { if (x.k) fd.append(x.k, x.v || 'null'); });
@@ -674,7 +686,5 @@ const PATH_OVERRIDES = {
   '/admin/ids-delete': { table: 'test', ids: '1,2,3,4,5' },
 
   // Pages
-  '/page-{name}': { name: 'api' },
-  // Auth
-  '/auth/signup-username-password': { username: 'testuser', password: 'password123', email: 'test@example.com', name: 'Test User', type: 1 }
+  '/page-{name}': { name: 'api' }
 };

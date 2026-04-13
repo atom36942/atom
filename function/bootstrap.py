@@ -224,6 +224,8 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                                         "type": tp,
                                         "format": fmt,
                                         "items": itms,
+                                        "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None,
+                                        "default": p[4] if len(p) > 4 else None,
                                         "pattern": p[5] if len(p) > 5 else None,
                                         "description": f"{p[6]}" if len(p) > 6 and p[6] else None
                                     }
