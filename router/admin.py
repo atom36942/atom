@@ -11,8 +11,7 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 @router.get("/admin/sync")
 async def func_api_admin_sync(*, request:Request):
    st = request.app.state
-   if st.client_postgres_pool:
-      await st.func_postgres_init(client_postgres_pool=st.client_postgres_pool, config_postgres=st.config_postgres)
+   await st.func_postgres_init(client_postgres_pool=st.client_postgres_pool, config_postgres=st.config_postgres)
    await st.func_postgres_create(client_postgres_pool=st.client_postgres_pool, func_postgres_serialize=st.func_postgres_serialize, cache_postgres_schema=st.cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=st.cache_postgres_buffer)
    st.cache_postgres_schema = await st.func_postgres_schema_read(client_postgres_pool=st.client_postgres_pool) if st.client_postgres_pool else {}
    st.cache_postgres_schema_tables = list(st.cache_postgres_schema.keys())

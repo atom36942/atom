@@ -525,7 +525,7 @@ const setupEventListeners = () => {
                 toast('Logged Out');
             }
         } else {
-            const idx = COMMANDS.findIndex(c => c.p === '/auth/login-password-username' && c.m === 'POST');
+            const idx = COMMANDS.findIndex(c => c.p === '/auth/login-username-password' && c.m === 'POST');
             if (idx !== -1) {
                 activeMasterRunIndex = null;
                 showModal('apiRunnerModal');

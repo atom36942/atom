@@ -22,7 +22,7 @@ async def func_auth_signup_username_password_bigint(*, client_postgres_pool: any
         records = await conn.fetch(query, type, username_bigint, password_bigint)
         return dict(records[0])
 
-async def func_auth_login_password_username(*, client_postgres_pool: any, func_password_hash: callable, type: int, password: str, username: str) -> dict:
+async def func_auth_login_username_password(*, client_postgres_pool: any, func_password_hash: callable, type: int, username: str, password: str) -> dict:
     """Authenticate a user using username and password."""
     hashed_pwd = func_password_hash(password_raw=password)
     async with client_postgres_pool.acquire() as conn:
@@ -33,7 +33,7 @@ async def func_auth_login_password_username(*, client_postgres_pool: any, func_p
             raise Exception("incorrect password")
         return dict(records[0])
 
-async def func_auth_login_password_username_bigint(*, client_postgres_pool: any, type: int, password_bigint: int, username_bigint: int) -> dict:
+async def func_auth_login_username_password_bigint(*, client_postgres_pool: any, type: int, username_bigint: int, password_bigint: int) -> dict:
     """Authenticate a user using bigint identifier and bigint password."""
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username_bigint=$2 ORDER BY id DESC LIMIT 1;", type, username_bigint)
@@ -43,7 +43,7 @@ async def func_auth_login_password_username_bigint(*, client_postgres_pool: any,
             raise Exception("incorrect password")
     return dict(records[0])
 
-async def func_auth_login_password_email(*, client_postgres_pool: any, func_password_hash: callable, type: int, password: str, email: str) -> dict:
+async def func_auth_login_email_password(*, client_postgres_pool: any, func_password_hash: callable, type: int, email: str, password: str) -> dict:
     """Authenticate a user using email address and password."""
     hashed_pwd = func_password_hash(password_raw=password)
     async with client_postgres_pool.acquire() as conn:
@@ -54,7 +54,7 @@ async def func_auth_login_password_email(*, client_postgres_pool: any, func_pass
             raise Exception("incorrect password")
     return dict(records[0])
 
-async def func_auth_login_password_mobile(*, client_postgres_pool: any, func_password_hash: callable, type: int, password: str, mobile: str) -> dict:
+async def func_auth_login_mobile_password(*, client_postgres_pool: any, func_password_hash: callable, type: int, mobile: str, password: str) -> dict:
     """Authenticate a user using mobile number and password."""
     hashed_pwd = func_password_hash(password_raw=password)
     async with client_postgres_pool.acquire() as conn:
@@ -65,7 +65,7 @@ async def func_auth_login_password_mobile(*, client_postgres_pool: any, func_pas
             raise Exception("incorrect password")
     return dict(records[0])
 
-async def func_auth_login_otp_email(*, client_postgres_pool: any, type: int, email: str, config_auth_type: list) -> dict:
+async def func_auth_login_email_otp(*, client_postgres_pool: any, type: int, email: str, config_auth_type: list) -> dict:
     """Authenticate or register a user using email OTP with type validation."""
     if type not in config_auth_type:
         raise Exception(f"type not allowed: {type}, allowed: {config_auth_type}")
@@ -76,7 +76,7 @@ async def func_auth_login_otp_email(*, client_postgres_pool: any, type: int, ema
         new_records = await conn.fetch("INSERT INTO users (type, email) VALUES ($1, $2) RETURNING *;", type, email)
         return dict(new_records[0])
 
-async def func_auth_login_otp_mobile(*, client_postgres_pool: any, type: int, mobile: str, config_auth_type: list) -> dict:
+async def func_auth_login_mobile_otp(*, client_postgres_pool: any, type: int, mobile: str, config_auth_type: list) -> dict:
     """Authenticate or register a user using mobile OTP with type validation."""
     if type not in config_auth_type:
         raise Exception(f"type not allowed: {type}, allowed: {config_auth_type}")

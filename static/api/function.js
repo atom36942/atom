@@ -103,6 +103,7 @@ const resolveSchema = (s) => {
     const merged = {};
     s.allOf.forEach(sub => {
       const resolved = resolveSchema(sub);
+      // Object.assign preserves property insertion order from the spec
       if (resolved.properties) Object.assign(merged, resolved.properties);
     });
     return { ...s, properties: merged };
@@ -174,6 +175,8 @@ const getRequestFormRows = bodyContent => {
 const applyPathOverrides = command => {
   const overrideData = PATH_OVERRIDES[command.p];
   if (!overrideData) return;
+  // Standardize order: Spec-defined parameters maintain their original order, 
+  // while overridden values are injected in-place.
   const updateRows = (rowList, isJson = 0) => rowList.forEach(row => {
     if (overrideData[row.k] === undefined) return;
     const value = overrideData[row.k];
@@ -446,7 +449,7 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
       const text = await r.text();
       let json;
       try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || 'Raw' } }
-      if (r.ok && json && curr.p === '/auth/login-password-username') {
+      if (r.ok && json && curr.p.includes('/auth/login')) {
         if (json.status === 1 && json.message?.token?.token) {
           Store.token = json.message.token.token;
           toast(`Session Token Saved`);
