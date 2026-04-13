@@ -22,6 +22,7 @@ const refreshDebugUi = () => {
  * @description Main application entry point. Initializes state, fetches OpenAPI, and renders the UI.
  */
 async function init() {
+  injectModals();
   updateAppLoader(5, 'Connecting to server...');
   try {
     updateAppLoader(20, 'Fetching OpenAPI spec...');
