@@ -1,46 +1,3 @@
-async def func_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
-    """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
-    import traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
-    from fastapi import responses
-    if isinstance(exception, asyncpg.exceptions.UniqueViolationError):
-        column = re.findall(r"\((.*?)\)=", exception.detail or "")
-        error_msg = (column[0].replace("_", " ") + " already exists") if column else "duplicate value"
-    elif isinstance(exception, asyncpg.exceptions.CheckViolationError):
-        constraint = exception.constraint_name or ""
-        error_msg = re.sub(r"^constraint_|_regex$", "", constraint).replace("_", " ") + " invalid"
-    elif isinstance(exception, asyncpg.exceptions.ForeignKeyViolationError):
-        column = re.findall(r"\((.*?)\)=", exception.detail or "")
-        error_msg = (column[0].replace("_", " ") + " invalid reference") if column else "invalid reference"
-    elif isinstance(exception, asyncpg.exceptions.NotNullViolationError):
-        column = re.findall(r"\"(.*?)\"", exception.message or "")
-        error_msg = (column[-1].replace("_", " ") + " required") if column else "missing required field"
-    elif isinstance(exception, asyncpg.exceptions.InvalidTextRepresentationError):
-        error_msg = "invalid database input text format"
-    elif isinstance(exception, asyncpg.exceptions.NumericValueOutOfRangeError):
-        error_msg = "invalid database input numeric range"
-    elif isinstance(exception, asyncpg.exceptions.StringDataRightTruncationError):
-        error_msg = "invalid database input string truncation"
-    elif isinstance(exception, asyncpg.exceptions.DeadlockDetectedError):
-        error_msg = "database conflict deadlock detected"
-    elif isinstance(exception, asyncpg.exceptions.SerializationError):
-        error_msg = "database conflict serialization error"
-    elif isinstance(exception, botocore.exceptions.ClientError):
-        error_msg = f"""cloud service error: {exception.response.get("Error", {}).get("Code", "Unknown")}"""
-    elif isinstance(exception, redis.exceptions.RedisError):
-        error_msg = "cache service error"
-    elif isinstance(exception, jwt.exceptions.PyJWTError):
-        error_msg = "authentication token invalid"
-    elif isinstance(exception, httpx.HTTPStatusError):
-        error_msg = f"external api error: {exception.response.status_code}"
-    else:
-        error_msg = str(exception)
-    if is_traceback:
-        print(traceback.format_exc())
-    if sentry_dsn:
-        import sentry_sdk
-        sentry_sdk.capture_exception(exception)
-    return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
-
 async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, func_postgres_create: callable, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
     if config_is_log_api == 0 or client_postgres_pool is None:
@@ -268,3 +225,45 @@ async def func_authenticate(*, headers: dict, url_path: str, config_token_secret
             raise Exception("authorization token missing")
     return user_obj
 
+async def func_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
+    """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
+    import traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
+    from fastapi import responses
+    if isinstance(exception, asyncpg.exceptions.UniqueViolationError):
+        column = re.findall(r"\((.*?)\)=", exception.detail or "")
+        error_msg = (column[0].replace("_", " ") + " already exists") if column else "duplicate value"
+    elif isinstance(exception, asyncpg.exceptions.CheckViolationError):
+        constraint = exception.constraint_name or ""
+        error_msg = re.sub(r"^constraint_|_regex$", "", constraint).replace("_", " ") + " invalid"
+    elif isinstance(exception, asyncpg.exceptions.ForeignKeyViolationError):
+        column = re.findall(r"\((.*?)\)=", exception.detail or "")
+        error_msg = (column[0].replace("_", " ") + " invalid reference") if column else "invalid reference"
+    elif isinstance(exception, asyncpg.exceptions.NotNullViolationError):
+        column = re.findall(r"\"(.*?)\"", exception.message or "")
+        error_msg = (column[-1].replace("_", " ") + " required") if column else "missing required field"
+    elif isinstance(exception, asyncpg.exceptions.InvalidTextRepresentationError):
+        error_msg = "invalid database input text format"
+    elif isinstance(exception, asyncpg.exceptions.NumericValueOutOfRangeError):
+        error_msg = "invalid database input numeric range"
+    elif isinstance(exception, asyncpg.exceptions.StringDataRightTruncationError):
+        error_msg = "invalid database input string truncation"
+    elif isinstance(exception, asyncpg.exceptions.DeadlockDetectedError):
+        error_msg = "database conflict deadlock detected"
+    elif isinstance(exception, asyncpg.exceptions.SerializationError):
+        error_msg = "database conflict serialization error"
+    elif isinstance(exception, botocore.exceptions.ClientError):
+        error_msg = f"""cloud service error: {exception.response.get("Error", {}).get("Code", "Unknown")}"""
+    elif isinstance(exception, redis.exceptions.RedisError):
+        error_msg = "cache service error"
+    elif isinstance(exception, jwt.exceptions.PyJWTError):
+        error_msg = "authentication token invalid"
+    elif isinstance(exception, httpx.HTTPStatusError):
+        error_msg = f"external api error: {exception.response.status_code}"
+    else:
+        error_msg = str(exception)
+    if is_traceback:
+        print(traceback.format_exc())
+    if sentry_dsn:
+        import sentry_sdk
+        sentry_sdk.capture_exception(exception)
+    return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
