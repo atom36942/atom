@@ -1,68 +1,3 @@
-async def func_postgres_create(*, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict) -> any:
-    """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
-    if mode == "flush":
-        for tbl, buffer_list in list(cache_postgres_buffer.items()):
-            if buffer_list:
-                await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
-                cache_postgres_buffer[tbl] = []
-        return "flushed"
-    if not obj_list:
-        return None
-    serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0) if is_serialize else obj_list
-    if mode == "buffer":
-        if table not in cache_postgres_buffer:
-            cache_postgres_buffer[table] = []
-        cache_postgres_buffer[table].extend(serialized_list)
-        if len(cache_postgres_buffer[table]) >= buffer_limit:
-            items = cache_postgres_buffer[table]
-            columns = items[0].keys()
-            placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
-            query = f"""INSERT INTO {table} ({",".join(columns)}) VALUES ({placeholders})"""
-            async with client_postgres_pool.acquire() as conn:
-                await conn.executemany(query, [tuple(i.values()) for i in items])
-            cache_postgres_buffer[table] = []
-            return "buffered released"
-        return "buffered"
-    import re
-    cols = []
-    for c in serialized_list[0].keys():
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)):
-            raise Exception(f"invalid identifier {c}")
-        cols.append(c)
-    columns = cols
-    if len(serialized_list) == 1:
-        placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
-        query = f"""INSERT INTO {table} ({",".join(columns)}) VALUES ({placeholders}) RETURNING id"""
-        async with client_postgres_pool.acquire() as conn:
-            ids = await conn.fetch(query, *serialized_list[0].values())
-    else:
-        import orjson
-        schema = cache_postgres_schema.get(table, {})
-        if not schema:
-            schema = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=[], is_base=0))
-        col_list = ",".join(columns)
-        def_list = ",".join([f"{c} jsonb" for c in columns])
-        cast_parts = []
-        for c in columns:
-            col_dtype = schema.get(c, "text")
-            if "[]" in col_dtype:
-                cast_parts.append(f"(SELECT ARRAY(SELECT jsonb_array_elements_text({c})))::{col_dtype}")
-            elif "jsonb" in col_dtype:
-                cast_parts.append(f"{c}::{col_dtype}")
-            else:
-                cast_parts.append(f"({c}->>0)::{col_dtype}")
-        cast_list = ",".join(cast_parts)
-        all_ids = []
-        limit_chunk = 5000
-        async with client_postgres_pool.acquire() as conn:
-            for i in range(0, len(serialized_list), limit_chunk):
-                batch = serialized_list[i : i + limit_chunk]
-                query = f"INSERT INTO {table} ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id"
-                ids_batch = await conn.fetch(query, orjson.dumps(batch, default=str).decode('utf-8'))
-                all_ids.extend([dict(r) for r in ids_batch])
-        ids = all_ids
-    return [r["id"] for r in ids] if ids and "id" in ids[0] else "bulk created"
-
 async def func_postgres_read(*, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter_obj: dict, limit: int, page: int, order: str, column: str, creator_key: any, action_key: any) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re, orjson
@@ -234,7 +169,71 @@ async def func_postgres_read(*, client_postgres_pool: any, func_postgres_seriali
                 default_val = 0 if action_op == "count" else None
                 res_row[f"{target_tbl}_{action_op}"] = action_map.get(obj_id, default_val)
         return result_list
-        
+async def func_postgres_create(*, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict) -> any:
+    """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
+    if mode == "flush":
+        for tbl, buffer_list in list(cache_postgres_buffer.items()):
+            if buffer_list:
+                await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
+                cache_postgres_buffer[tbl] = []
+        return "flushed"
+    if not obj_list:
+        return None
+    serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0) if is_serialize else obj_list
+    if mode == "buffer":
+        if table not in cache_postgres_buffer:
+            cache_postgres_buffer[table] = []
+        cache_postgres_buffer[table].extend(serialized_list)
+        if len(cache_postgres_buffer[table]) >= buffer_limit:
+            items = cache_postgres_buffer[table]
+            columns = items[0].keys()
+            placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
+            query = f"""INSERT INTO {table} ({",".join(columns)}) VALUES ({placeholders})"""
+            async with client_postgres_pool.acquire() as conn:
+                await conn.executemany(query, [tuple(i.values()) for i in items])
+            cache_postgres_buffer[table] = []
+            return "buffered released"
+        return "buffered"
+    import re
+    cols = []
+    for c in serialized_list[0].keys():
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)):
+            raise Exception(f"invalid identifier {c}")
+        cols.append(c)
+    columns = cols
+    if len(serialized_list) == 1:
+        placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
+        query = f"""INSERT INTO {table} ({",".join(columns)}) VALUES ({placeholders}) RETURNING id"""
+        async with client_postgres_pool.acquire() as conn:
+            ids = await conn.fetch(query, *serialized_list[0].values())
+    else:
+        import orjson
+        schema = cache_postgres_schema.get(table, {})
+        if not schema:
+            schema = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=[], is_base=0))
+        col_list = ",".join(columns)
+        def_list = ",".join([f"{c} jsonb" for c in columns])
+        cast_parts = []
+        for c in columns:
+            col_dtype = schema.get(c, "text")
+            if "[]" in col_dtype:
+                cast_parts.append(f"(SELECT ARRAY(SELECT jsonb_array_elements_text({c})))::{col_dtype}")
+            elif "jsonb" in col_dtype:
+                cast_parts.append(f"{c}::{col_dtype}")
+            else:
+                cast_parts.append(f"({c}->>0)::{col_dtype}")
+        cast_list = ",".join(cast_parts)
+        all_ids = []
+        limit_chunk = 5000
+        async with client_postgres_pool.acquire() as conn:
+            for i in range(0, len(serialized_list), limit_chunk):
+                batch = serialized_list[i : i + limit_chunk]
+                query = f"INSERT INTO {table} ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id"
+                ids_batch = await conn.fetch(query, orjson.dumps(batch, default=str).decode('utf-8'))
+                all_ids.extend([dict(r) for r in ids_batch])
+        ids = all_ids
+    return [r["id"] for r in ids] if ids and "id" in ids[0] else "bulk created"
+
 async def func_postgres_update(*, client_postgres_pool: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, obj_list: list, is_serialize: int, created_by_id: int, is_return_ids: int) -> any:
     """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
     limit_batch = 5000
