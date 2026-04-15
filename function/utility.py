@@ -1,49 +1,3 @@
-def func_structure_create(*, directories: list, files: list) -> None:
-    """Create directory and file structure if it doesn't exist."""
-    import os
-    for directory_path in directories:
-        try:
-            os.makedirs(directory_path, exist_ok=True)
-        except OSError:
-            pass
-    for file_path in files:
-        try:
-            if not os.path.exists(file_path):
-                open(file_path, "a").close()
-        except OSError:
-            pass
-        
-async def func_api_file_to_obj_list(*, upload_file: any) -> list[dict[str, any]]:
-    """Convert an uploaded CSV file into a list of dictionaries (all at once)."""
-    import csv, io, asyncio
-    def _parse_csv(file):
-        return [row for row in csv.DictReader(io.TextIOWrapper(file, encoding="utf-8"))]
-    obj_list = await asyncio.to_thread(_parse_csv, upload_file.file)
-    await upload_file.close()
-    return obj_list
-
-async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int) -> any:
-    """Yield chunks of dictionaries from an uploaded CSV file for memory efficiency."""
-    import csv, io, asyncio
-    
-    def _read_chunk(reader_iter, size):
-        chunk = []
-        try:
-            for _ in range(size):
-                chunk.append(next(reader_iter))
-        except StopIteration:
-            pass
-        return chunk
-    reader = csv.DictReader(io.TextIOWrapper(upload_file.file, encoding="utf-8"))
-    reader_iter = iter(reader)
-    while True:
-        chunk = await asyncio.to_thread(_read_chunk, reader_iter, chunk_size)
-        if not chunk:
-            break
-        yield chunk
-    await upload_file.close()
-    return
-
 def func_config_override_from_env(*, global_dict: dict) -> None:
     """Override configuration variables starting with 'config_' from environment variables and .env file."""
     import orjson, os, ast
@@ -82,38 +36,7 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
                         global_dict[target_id] = global_dict[value_id]
     except Exception:
         pass
-
-def func_folder_reset(*, folder_path: str) -> str:
-    """Purge all files and subdirectories within a specified directory."""
-    import os, shutil
-    absolute_path = folder_path if os.path.isabs(folder_path) else os.path.join(os.getcwd(), folder_path)
-    if not os.path.isdir(absolute_path):
-        return "folder not found"
-    for item in os.listdir(absolute_path):
-        item_path = os.path.join(absolute_path, item)
-        if os.path.isdir(item_path):
-            shutil.rmtree(item_path)
-        else:
-            os.remove(item_path)
-    return "folder reset done"
-
-async def func_client_download_file(*, file_path: str, is_delete_after: int, chunk_size: int) -> any:
-    """Stream a file for client download with optional automatic cleanup after transmission."""
-    if "tmp/" not in str(file_path):
-        raise Exception("IO Boundary Violation: tmp/ path required")
-    from fastapi import responses
-    from starlette.background import BackgroundTask
-    import os, mimetypes, aiofiles
-    file_name = os.path.basename(file_path)
-    content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
-    async def file_iterator():
-        async with aiofiles.open(file_path, "rb") as f:
-            while True:
-                chunk = await f.read(chunk_size)
-                if not chunk:
-                    break
-                yield chunk
-    return responses.StreamingResponse(file_iterator(), media_type=content_type, headers={"Content-Disposition": f"attachment; filename=\"{file_name}\""}, background=BackgroundTask(os.remove, file_path) if is_delete_after == 1 else None)
+    return None
 
 def func_converter_number(*, type: str, mode: str, x: any) -> any:
     """Encode strings into specific-size integers or decode them back using a custom charset."""
@@ -145,54 +68,3 @@ def func_converter_number(*, type: str, mode: str, x: any) -> any:
             num_val, reminder = divmod(num_val, base)
             decoded_chars.append(charset[reminder])
         return "".join(decoded_chars[::-1][1:]) if decoded_chars else ""
-
-def func_password_hash(*, password_raw: any) -> str:
-    """Generate SHA-256 hash of the provided password string."""
-    import hashlib
-    return hashlib.sha256(str(password_raw).encode()).hexdigest()
-
-async def func_token_encode(*, user: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_token_key: list) -> dict:
-    """Generate access and refresh JWT tokens for a user object."""
-    import jwt, orjson, time
-    if user is None:
-        return None
-    payload_dict = {k: user.get(k) for k in config_token_key} if config_token_key else dict(user) if isinstance(user, dict) else user
-    serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
-    now_ts = int(time.time())
-    access_token = jwt.encode({"exp": now_ts + config_token_expiry_sec, "data": serialized_payload, "type": "access"}, config_token_secret_key)
-    refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, config_token_secret_key)
-    return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
-
-async def func_otp_generate(*, client_postgres_pool: any, email: str, mobile: str) -> int:
-    """Generate a random 6-digit OTP and store it in PostgreSQL for a given email or mobile."""
-    import random
-    otp = random.randint(100000, 999999)
-    query = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
-    async with client_postgres_pool.acquire() as conn:
-        await conn.execute(query, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
-    return otp
-
-async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str, mobile: str, config_expiry_sec_otp: int) -> None:
-    """Verify an OTP for email or mobile within its expiration window."""
-    if not otp:
-        raise Exception("otp code missing")
-    if not email and not mobile:
-        raise Exception("missing both email and mobile")
-    if email and mobile:
-        raise Exception("provide only one identifier")
-    if email:
-        query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
-        identifier = email.strip().lower()
-    else:
-        query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
-        identifier = mobile.strip()
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, identifier)
-        if not records:
-            raise Exception("otp not found")
-        if records[0]["otp"] != otp:
-            raise Exception("invalid otp code")
-        if not records[0]["is_active"]:
-            raise Exception("otp code expired")
-    return None
-

@@ -32,7 +32,7 @@ input::placeholder { color: rgba(154, 160, 166, .5); }
 select.row-val { 
   appearance: none; -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 12px center; padding-right: 56px; 
+  background-repeat: no-repeat; background-position: right 12px center; padding-right: 64px; 
 }
 .json-type-selector { 
   flex: 0 0 auto; min-width: 90px; appearance: none; -webkit-appearance: none;
@@ -41,6 +41,7 @@ select.row-val {
 }
 
 .clear-input-btn { position: absolute; right: 8px; background: 0 0; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px; display: none; z-index: 10; }
+.input-wrapper select.row-val ~ .clear-input-btn { right: 36px !important; }
 .remove-btn { background: none; color: var(--muted); border: none; width: 36px; height: 36px; flex: 0 0 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .remove-btn:hover:not(:disabled) { color: var(--delete); background: rgba(220, 53, 69, .1); }
 .remove-btn:disabled { opacity: 0.3; cursor: not-allowed; }

@@ -17,7 +17,7 @@ async def func_postgres_runner(*, client_postgres_pool: any, mode: str, query: s
             return await conn.fetch(query, timeout=15)
         return await conn.execute(query, timeout=15)
         
-async def func_postgres_stream(*, client_postgres_pool: any, query: str) -> any:
+async def func_postgres_export(*, client_postgres_pool: any, query: str) -> any:
     """Stream PostgreSQL query results as a CSV Iterative Response with DDL and DELETE protection."""
     import re
     from fastapi.responses import StreamingResponse

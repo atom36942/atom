@@ -27,4 +27,4 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 - **Naming Conventions**: Use strict prefixes (`client_`, `cache_`,`config_`, `func_`) for `core/app.py`, `function/*`, and `core/config/*` logic.
 - **Functional Logic Layer**: Modular, stateless logic only; internal state persistence strictly prohibited; explicit dependency injection; side-effect free IO via injected clients.
 - **Strict Function Signatures**: All functions in the `function/` directory MUST use the keyword-only separator (`*`) immediately after the opening parenthesis. Every parameter MUST be mandatory; internal default values are strictly prohibited.
-
+- **API Parameter Definition**: All API parameters MUST be defined and extracted at the `router/` level using `func_request_param_read`. Functional modules and orchestrators in `function/` MUST receive pre-parsed objects and are prohibited from handling raw request parameter extraction.

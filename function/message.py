@@ -34,6 +34,7 @@ async def func_message_thread_mark_read(*, client_postgres_pool: any, current_us
     """Mark all messages in a thread as read for the current user."""
     async with client_postgres_pool.acquire() as conn:
         await conn.execute("UPDATE message SET is_read=1 WHERE created_by_id=$1 AND user_id=$2;", partner_id, current_user_id)
+    return None
 
 async def func_message_delete_single(*, client_postgres_pool: any, id: int, user_id: int) -> str:
     """Delete a single message given its ID and user context."""
