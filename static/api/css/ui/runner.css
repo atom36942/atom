@@ -7,7 +7,7 @@
 .api-overview-subline-small { display: block; font-size: 11px; opacity: .78; }
 
 .runner-endpoint { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 10px 14px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 8px; background: rgba(255, 255, 255, .03); }
-.runner-endpoint-path { font-size: 14px; font-weight: 600; color: #e6eef3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline; min-width: 0; }
+.runner-endpoint-path { font-size: 13px; font-weight: 600; color: #e6eef3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline; min-width: 0; }
 
 .runner-scroll { max-height: 80vh; overflow-y: auto; }
 .runner-section { display: flex; flex-direction: column; gap: 10px; }

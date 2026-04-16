@@ -143,6 +143,15 @@ const load = i => {
   SECTIONS.forEach(([, sec, cont]) => { UI(cont).innerHTML = ''; UI(sec).classList.remove('active'); });
   const rBox = UI('rBox');
   if (rBox) rBox.classList.remove('show');
+  ['btnRaw', 'btnPretty', 'btnTable', 'rCopy', 'rCopyFull', 'rCsv', 'rJson'].forEach(id => {
+      const btn = UI(id);
+      if (btn) {
+          btn.disabled = true;
+          btn.style.opacity = '0.35';
+          btn.style.pointerEvents = 'none';
+          btn.style.cursor = 'default';
+      }
+  });
   
   const pathHeader = UI('runnerPathHeader');
   if (pathHeader) pathHeader.innerHTML = curr ? renderRunnerEndpoint(curr) : '';
@@ -154,13 +163,9 @@ const load = i => {
   populate('jCont', 'jSec', (curr._hj ? curr.j : []), true);
   if (curr._hf && !UI('fCont').children.length) { UI('fSec').classList.add('active'); mkRow(UI('fCont')); }
   if (curr._hj && !UI('jCont').children.length) { UI('jSec').classList.add('active'); mkRow(UI('jCont')); }
-  const hasOvr = !!PATH_OVERRIDES[curr.p];
-  const btnOvr = UI('runnerOvrBtn');
-  if (btnOvr) {
-      btnOvr.disabled = !hasOvr;
-      btnOvr.style.opacity = hasOvr ? '1' : '0.4';
-      btnOvr.style.cursor = hasOvr ? 'pointer' : 'not-allowed';
-  }
+  const btnCurl = UI('runnerCurlBtn');
+  if (btnCurl) btnCurl.onclick = () => openCurlViewModal(curr, 'all');
+
   setupIcons();
 };
 

@@ -114,7 +114,8 @@ const applyPathOverrides = command => {
       k: key,
       v: typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value),
       t: typeValue,
-      req: false
+      req: false,
+      ovr: true
     };
     if (isBodyMethod) {
       if (command._hf && !command._hj) command.f.push(row);

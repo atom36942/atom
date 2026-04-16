@@ -35,11 +35,13 @@ const debounce = (fn, ms) => {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) };
 };
 
-const generateCurl = i => {
-  const c = COMMANDS[i], is_diff = (curr && COMMANDS.indexOf(curr) === parseInt(i));
+const generateCurl = cmdOrIdx => {
+  const c = typeof cmdOrIdx === 'number' ? COMMANDS[cmdOrIdx] : cmdOrIdx;
+  if (!c) return '';
+  const is_diff = curr && (c === curr);
   const live = is_diff ? ParamManager.getCurrent() : { h: [], q: [], f: [], u: [], j: [] };
   const merge = (spec, liveRows) => {
-    const res = spec.map(s => { const l = liveRows.find(x => x.k === s.k); return { ...s, v: l ? l.v : s.v }; });
+    const res = (spec || []).map(s => { const l = liveRows.find(x => x.k === s.k); return { ...s, v: l ? l.v : s.v }; });
     liveRows.forEach(l => { if (l.k && !res.find(x => x.k === l.k)) res.push(l); });
     return res;
   };

@@ -44,9 +44,12 @@ async def func_api_admin_postgres_import(*, request: Request):
     count, tasks, sem = 0, set(), asyncio.Semaphore(10)
     async def process_chunk(chunk_list):
        async with sem:
-          if obj_f["mode"] == "create": await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="now", table=obj_f["table"], obj_list=chunk_list, is_serialize=obj_f["is_serialize"], buffer_limit=0, cache_postgres_buffer=app_state.cache_postgres_buffer)
-          elif obj_f["mode"] == "update": await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=obj_f["table"], obj_list=chunk_list, is_serialize=obj_f["is_serialize"], field_id="id", created_by_id=None, is_return_ids=0)
-          elif obj_f["mode"] == "delete": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=obj_f["table"], ids=",".join(str(obj["id"]) for obj in chunk_list), created_by_id=None, config_postgres_ids_delete_limit=app_state.config_postgres_ids_delete_limit)
+          if obj_f["mode"] == "create":
+             await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="now", table=obj_f["table"], obj_list=chunk_list, is_serialize=obj_f["is_serialize"], buffer_limit=0, cache_postgres_buffer=app_state.cache_postgres_buffer)
+          elif obj_f["mode"] == "update":
+             await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=obj_f["table"], obj_list=chunk_list, is_serialize=obj_f["is_serialize"], field_id="id", created_by_id=None, is_return_ids=0)
+          elif obj_f["mode"] == "delete":
+             await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=obj_f["table"], ids=",".join(str(obj["id"]) for obj in chunk_list), created_by_id=None, config_postgres_ids_delete_limit=app_state.config_postgres_ids_delete_limit)
           return len(chunk_list)
     async for obj_list in app_state.func_api_file_to_chunks(upload_file=obj_f["file"][-1], chunk_size=app_state.config_limit_obj_list):
        if len(tasks) >= 20:
@@ -112,8 +115,10 @@ async def func_api_admin_mongodb_import(*, request: Request):
     of = await app_state.func_request_param_read(request=request, mode="form", config=[("mode", "str", 1, ["create", "delete"], None, None, None), ("database", "str", 1, None, None, None, None), ("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("file", "file", 1, [], None, None, None)], strict=0)
     count = 0
     async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=app_state.config_limit_obj_list):
-       if of["mode"] == "create": await app_state.func_mongodb_object_create(client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], obj_list=ol)
-       elif of["mode"] == "delete": await app_state.func_mongodb_object_delete(client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], obj_list=ol)
+       if of["mode"] == "create":
+          await app_state.func_mongodb_object_create(client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], obj_list=ol)
+       elif of["mode"] == "delete":
+          await app_state.func_mongodb_object_delete(client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], obj_list=ol)
        count += len(ol)
     return {"status": 1, "message": f"{count} rows processed"}
 
@@ -121,10 +126,14 @@ async def func_api_admin_mongodb_import(*, request: Request):
 async def func_api_admin_s3_bucket_ops(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", config=[("mode", "str", 1, ["create", "public", "empty", "delete"], None, None, None), ("bucket", "str", 1, None, None, None, None)], strict=0)
-    if oq["mode"] == "create": output = await app_state.func_s3_bucket_create(client_s3=app_state.client_s3, config_s3_region_name=app_state.config_s3_region_name, bucket=oq["bucket"])
-    elif oq["mode"] == "public": output = await app_state.func_s3_bucket_public(client_s3=app_state.client_s3, bucket=oq["bucket"])
-    elif oq["mode"] == "empty": output = app_state.func_s3_bucket_empty(client_s3_resource=app_state.client_s3_resource, bucket=oq["bucket"])
-    elif oq["mode"] == "delete": output = await app_state.func_s3_bucket_delete(client_s3=app_state.client_s3, bucket=oq["bucket"])
+    if oq["mode"] == "create":
+       output = await app_state.func_s3_bucket_create(client_s3=app_state.client_s3, config_s3_region_name=app_state.config_s3_region_name, bucket=oq["bucket"])
+    elif oq["mode"] == "public":
+       output = await app_state.func_s3_bucket_public(client_s3=app_state.client_s3, bucket=oq["bucket"])
+    elif oq["mode"] == "empty":
+       output = app_state.func_s3_bucket_empty(client_s3_resource=app_state.client_s3_resource, bucket=oq["bucket"])
+    elif oq["mode"] == "delete":
+       output = await app_state.func_s3_bucket_delete(client_s3=app_state.client_s3, bucket=oq["bucket"])
     return {"status": 1, "message": output}
 
 @router.post("/admin/s3-url-delete")

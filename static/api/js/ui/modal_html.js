@@ -7,53 +7,50 @@ const MODAL_HTML = `
 <div id="apiRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:2% auto">
     <div class="modal-header">
         <div class="modal-title-block">
-            <h3 style="margin:0">API Runner</h3>
+            <h3>API Runner</h3>
         </div>
         <div class="modal-actions">
-            <button type="button" class="icon-btn" id="runnerLinkBtn" title="Copy Shareable Link"></button>
             <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response"></button>
             <button type="submit" class="btn btn-primary" id="subBtn" form="apiForm" title="Run API" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px;display:flex;align-items:center"><div class="spinner"></div><span id="subBtnIcon" style="display:flex;align-items:center"></span><span id="subBtnText">Run</span></button>
             <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
     </div>
-    <div class="modal-body runner-scroll">
-        <div class="runner-section">
-            <div class="modal-card">
-                <div class="modal-card-header">
-                    <div id="runnerPathHeader" style="font-size:13px;color:var(--muted);font-family:'SF Mono',Menlo,monospace"></div>
-                </div>
-                <div class="modal-card-body">
-                    <form id="apiForm">
-                        <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small">+</button></div><div id="hCont" class="dynamic-container"></div></div>
-                        <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
-                        <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
-                        <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
-                        <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
-                    </form>
+    <div class="modal-body" style="height:75vh;display:flex;flex-direction:column;gap:10px;padding-bottom:12px">
+        <div class="modal-card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+            <div class="modal-card-header">
+                <div id="runnerPathHeader" style="font-size:13px;color:var(--muted);font-family:'SF Mono',Menlo,monospace"></div>
+            </div>
+            <div class="modal-card-body" style="overflow-y:auto">
+                <form id="apiForm">
+                    <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small">+</button></div><div id="hCont" class="dynamic-container"></div></div>
+                    <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
+                    <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
+                    <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
+                    <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal-card resp-box" id="rBox" style="flex:1;display:flex;flex-direction:column;min-height:0">
+            <div class="modal-card-header">
+                <h4>API RESPONSE <span id="rCode" style="font-weight:400;margin-left:8px"></span></h4>
+                <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+                    <button class="view-btn" data-view="raw" title="Raw View" id="btnRaw" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <button class="view-btn" data-view="pretty" title="Tree View" id="btnPretty" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <button class="view-btn" data-view="table" title="Table View" id="btnTable" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                    <button id="rCopy" class="icon-btn" title="Copy Response" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <button id="rCopyFull" class="icon-btn" title="Copy Curl & Response" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                    <button id="rCsv" class="icon-btn" title="Download CSV" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <button id="rJson" class="icon-btn" title="Download JSON" disabled style="opacity:0.35;pointer-events:none"></button>
                 </div>
             </div>
-
-            <div class="modal-card resp-box" id="rBox">
-                <div class="modal-card-header">
-                    <h4>API RESPONSE <span id="rCode" style="font-weight:400;margin-left:8px"></span></h4>
-                    <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-                        <button class="view-btn" data-view="raw" title="Raw View" id="btnRaw"></button>
-                        <button class="view-btn" data-view="pretty" title="Tree View" id="btnPretty"></button>
-                        <button class="view-btn" data-view="table" title="Table View" id="btnTable"></button>
-                        <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-                        <button id="rCopy" class="icon-btn" title="Copy Response"></button>
-                        <button id="rCopyFull" class="icon-btn" title="Copy Curl & Response"></button>
-                        <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-                        <button id="rCsv" class="icon-btn" title="Download CSV"></button>
-                        <button id="rJson" class="icon-btn" title="Download JSON"></button>
-                    </div>
-                </div>
-                <div class="modal-card-body" style="padding:0">
-                    <div class="resp-content">
-                        <div id="viewPretty" class="resp-view active"></div>
-                        <div id="viewRaw" class="resp-view"><pre class="resp-pre" id="rawPre"></pre></div>
-                        <div id="viewTable" class="resp-view"></div>
-                    </div>
+            <div class="modal-card-body" style="padding:0;overflow-y:auto;display:flex;flex-direction:column">
+                <div class="resp-content" style="flex:1">
+                    <div id="viewPretty" class="resp-view active"></div>
+                    <div id="viewRaw" class="resp-view"><pre class="resp-pre" id="rawPre" style="margin:0"></pre></div>
+                    <div id="viewTable" class="resp-view"></div>
                 </div>
             </div>
         </div>
@@ -63,7 +60,7 @@ const MODAL_HTML = `
 <!-- WebSocket Runner Modal -->
 <div id="wsRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:2% auto">
     <div class="modal-header">
-        <h3 style="margin:0">WebSocket Runner</h3>
+        <h3>WebSocket Runner</h3>
         <div class="modal-actions">
             <button type="button" class="icon-btn" id="wsRunnerCloseBtn" title="Close"></button>
         </div>
@@ -95,7 +92,7 @@ const MODAL_HTML = `
 <div id="testResponseModal" class="modal">
     <div class="modal-content" style="max-width:700px;margin:5% auto">
         <div class="modal-header">
-            <h3 style="margin:0" id="testResponseTitle">API Response</h3>
+            <h3 id="testResponseTitle">API Response</h3>
             <div class="modal-actions">
                 <button type="button" class="icon-btn" id="testResponseJson" title="Download JSON"></button>
                 <button type="button" class="icon-btn" id="testResponseCopy" title="Copy Response"></button>
@@ -112,7 +109,7 @@ const MODAL_HTML = `
 <div id="testParamsModal" class="modal">
     <div class="modal-content" style="max-width:540px;margin:5% auto">
         <div class="modal-header">
-            <h3 style="margin:0" id="testParamsTitle">API Configuration Preview</h3>
+            <h3 id="testParamsTitle">API Configuration Preview</h3>
             <div class="modal-actions">
                 <button type="button" class="icon-btn" id="testParamsCloseBtn" title="Close"></button>
             </div>
@@ -125,35 +122,32 @@ const MODAL_HTML = `
 <div id="masterResponseModal" class="modal">
     <div class="modal-content" style="max-width:760px;margin:2% auto">
         <div class="modal-header">
-            <h3 style="margin:0">API Response</h3>
+            <h3>API Response</h3>
             <div class="modal-actions">
                 <button type="button" class="icon-btn" id="masterResponseCloseBtn" title="Close"></button>
             </div>
         </div>
-        <div class="modal-body runner-scroll">
-            <div class="runner-section">
-                <div class="runner-endpoint" id="masterRespIn"></div>
-                <div class="resp-box show" id="masterRespBox" style="display:flex">
-                    <div class="resp-header">
-                        <span>Response <span id="masterRespCode" style="font-weight:400"></span></span>
-                        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-                            <button class="view-btn master-view-btn" data-view="raw" title="Raw View" id="masterBtnRaw"></button>
-                            <button class="view-btn master-view-btn" data-view="pretty" title="Tree View" id="masterBtnPretty"></button>
-                            <button class="view-btn master-view-btn" data-view="table" title="Table View" id="masterBtnTable"></button>
-                            <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-                            <button id="masterRespCopy" class="icon-btn" title="Copy Response"></button>
-                            <button id="masterRespCopyFull" class="icon-btn" title="Copy Curl & Response"></button>
-                            <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-                            <button id="masterRespCsv" class="icon-btn" title="Download CSV"></button>
-                            <button id="masterRespJson" class="icon-btn" title="Download JSON"></button>
-                        </div>
-                    </div>
-                    <div class="resp-content">
-                        <div id="masterViewPretty" class="resp-view active"></div>
-                        <div id="masterViewRaw" class="resp-view"><pre class="resp-pre" id="masterRawPre"></pre></div>
-                        <div id="masterViewTable" class="resp-view"></div>
-                    </div>
+        <div class="modal-body" style="height:75vh;display:flex;flex-direction:column;gap:10px;padding-bottom:12px">
+        <div class="runner-endpoint" id="masterRespIn"></div>
+        <div class="resp-box show" id="masterRespBox" style="flex:1;display:flex;flex-direction:column;min-height:0">
+            <div class="resp-header">
+                <span>Response <span id="masterRespCode" style="font-weight:400"></span></span>
+                <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+                    <button class="view-btn master-view-btn" data-view="raw" title="Raw View" id="masterBtnRaw" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <button class="view-btn master-view-btn" data-view="pretty" title="Tree View" id="masterBtnPretty" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <button class="view-btn master-view-btn" data-view="table" title="Table View" id="masterBtnTable" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                    <button id="masterRespCopy" class="icon-btn" title="Copy Response" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <button id="masterRespCopyFull" class="icon-btn" title="Copy Curl & Response" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                    <button id="masterRespCsv" class="icon-btn" title="Download CSV" disabled style="opacity:0.35;pointer-events:none"></button>
+                    <button id="masterRespJson" class="icon-btn" title="Download JSON" disabled style="opacity:0.35;pointer-events:none"></button>
                 </div>
+            </div>
+            <div class="resp-content" style="flex:1;overflow-y:auto">
+                <div id="masterViewPretty" class="resp-view active"></div>
+                <div id="masterViewRaw" class="resp-view"><pre class="resp-pre" id="masterRawPre" style="margin:0"></pre></div>
+                <div id="masterViewTable" class="resp-view"></div>
             </div>
         </div>
     </div>
@@ -162,7 +156,7 @@ const MODAL_HTML = `
 <!-- Info Modal -->
 <div id="infoModal" class="modal"><div class="modal-content" style="max-width:800px;margin:2% auto">
     <div class="modal-header">
-        <h3 style="margin:0">API Master Information</h3>
+        <h3>API Master Information</h3>
         <div class="modal-actions">
             <button type="button" class="icon-btn" id="infoCloseBtn" title="Close"></button>
         </div>
@@ -214,7 +208,7 @@ const MODAL_HTML = `
 <!-- Param Info Modal -->
 <div id="paramInfoModal" class="modal"><div class="modal-content" style="max-width:1000px;margin:2% auto">
     <div class="modal-header">
-        <h3 style="margin:0" id="paramInfoTitle">Parameter Configuration</h3>
+        <h3 id="paramInfoTitle">Parameter Configuration</h3>
         <div class="modal-actions">
             <button type="button" class="icon-btn" id="paramInfoCopyBtn" title="Copy Detail"></button>
             <button type="button" class="icon-btn" id="paramInfoCloseBtn" title="Close"></button>
@@ -227,7 +221,7 @@ const MODAL_HTML = `
 <div id="curlViewModal" class="modal">
     <div class="modal-content" style="max-width:800px;margin:5% auto">
         <div class="modal-header">
-            <h3 style="margin:0" id="curlViewTitle">Curl</h3>
+            <h3 id="curlViewTitle">Curl</h3>
             <div class="modal-actions">
                 <button type="button" class="icon-btn" id="curlViewCloseBtn" title="Close"></button>
             </div>
@@ -252,7 +246,7 @@ const MODAL_HTML = `
 <!-- Storage Modal -->
 <div id="storageModal" class="modal"><div class="modal-content" style="max-width:540px;margin:2% auto">
     <div class="modal-header">
-        <h3 style="margin:0">Local Storage</h3>
+        <h3>Local Storage</h3>
         <div class="modal-actions">
             <button type="button" class="icon-btn" id="storageCopyAll" title="Copy All State"></button>
             <button type="button" class="icon-btn delete" id="storageResetAll" title="Reset All State"></button>
@@ -272,7 +266,7 @@ const MODAL_HTML = `
 <!-- Analytics Modal -->
 <div id="analyticsModal" class="modal"><div class="modal-content" style="max-width:900px;margin:2% auto">
     <div class="modal-header">
-        <h3 style="margin:0">Analytics</h3>
+        <h3>Analytics</h3>
         <div class="modal-actions">
             <button type="button" class="icon-btn" id="analyticsCloseBtn" title="Close"></button>
         </div>

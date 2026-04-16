@@ -60,30 +60,7 @@ const fmtGrid = v => {
   const keys = [...new Set(arr.flatMap(Object.keys))];
   const colW = k => Math.min(300, Math.max(120, k.length * 10 + 40));
 
-  // If it's a single object, render a Vertical Property List (The Marketplace Standard)
-  if (!isArr && arr.length === 1) {
-    const properties = Object.entries(v).map(([k, val], i) => {
-      const displayVal = val == null ? 'null' : (typeof val === 'object' ? JSON.stringify(val) : String(val));
-      const valColor = val == null ? 'var(--muted)' : (typeof val === 'number' ? 'var(--accent)' : 'inherit');
-      return `
-        <div style="display:flex;border-bottom:1px solid rgba(255,255,255,0.04);background:${i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}">
-          <div style="flex:0 0 140px;padding:12px 16px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;border-right:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01)">${k}</div>
-          <div style="flex:1;padding:12px 16px;font-size:13px;color:${valColor};font-family:'SF Mono',Menlo,monospace;word-break:break-all">${he(displayVal)}</div>
-        </div>`;
-    }).join('');
-
-    return `
-      <div class="modal-card" style="margin:0">
-        <div class="modal-card-header" style="padding:10px 16px;background:rgba(255,255,255,0.02)">
-            <h4>OBJECT PROPERTIES</h4>
-        </div>
-        <div class="modal-card-body" style="padding:0">
-            ${properties}
-        </div>
-      </div>`;
-  }
-
-  // Otherwise, render the Horizontal Data Grid
+  // Shared Horizontal Data Grid Logic (Unified for Objects & Arrays)
   const tableRows = arr.map((row, rowIndex) => `
     <tr style="background:${rowIndex % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}">
       ${keys.map(k => {
@@ -98,10 +75,7 @@ const fmtGrid = v => {
     </tr>`).join('');
 
   return `
-    <div class="modal-card" style="margin:0">
-        <div class="modal-card-header" style="padding:10px 16px;background:rgba(255,255,255,0.02)">
-            <h4>DATA GRID</h4>
-        </div>
+    <div class="modal-card" style="margin:12px 16px 0 16px">
         <div class="modal-card-body" style="padding:0">
             <div class="resp-tbl-wrap" style="max-height:500px">
                 <table class="resp-tbl">

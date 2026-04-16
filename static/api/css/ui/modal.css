@@ -33,6 +33,17 @@
   border-top-right-radius: 12px;
 }
 
+.modal-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e6eef3;
+  margin: 0;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .modal-title-block {
   display: flex;
   flex-direction: column;
@@ -178,12 +189,13 @@
 }
 
 .modal-card-header h4 {
-  margin: 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  color: var(--accent);
-  text-transform: uppercase;
+  color: var(--muted);
   letter-spacing: 1px;
+  margin: 0;
+  text-transform: uppercase;
+  opacity: 0.8;
   display: flex;
   align-items: center;
   gap: 8px;

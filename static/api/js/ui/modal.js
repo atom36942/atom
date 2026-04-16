@@ -43,6 +43,34 @@ const ResponseView = {
     const codeColor = status >= 200 && status < 300 ? 'var(--primary)' : (status >= 400 ? 'var(--delete)' : 'var(--accent)');
     const codeHtml = (status != null ? `<span style="color:${codeColor};font-weight:600">${status}</span>` : '') + 
                      (time != null ? ` <span style="color:var(--muted);font-size:11px;margin-left:8px">${time}ms</span>` : '');
+    const tableData = data?.message;
+    const isTabular = tableData != null && typeof tableData === 'object';
+    
+    // 1. General Response Icons (Enable for any data)
+    const generalIcons = isMaster 
+        ? ['masterBtnRaw', 'masterBtnPretty', 'masterRespCopy', 'masterRespCopyFull', 'masterRespJson']
+        : ['btnRaw', 'btnPretty', 'rCopy', 'rCopyFull', 'rJson'];
+    
+    generalIcons.forEach(id => {
+        const btn = UI(id);
+        if (!btn) return;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+        btn.style.cursor = 'pointer';
+    });
+
+    // 2. Tabular Specific Icons (Enable only for structured data)
+    const tblBtn = UI(isMaster ? 'masterBtnTable' : 'btnTable');
+    const csvBtn = UI(isMaster ? 'masterRespCsv' : 'rCsv');
+    [tblBtn, csvBtn].forEach(btn => {
+        if (!btn) return;
+        btn.disabled = !isTabular;
+        btn.style.opacity = isTabular ? '1' : '0.35';
+        btn.style.pointerEvents = isTabular ? 'auto' : 'none';
+        btn.style.cursor = isTabular ? 'pointer' : 'default';
+    });
+
     UI(isMaster ? 'masterRespCode' : 'rCode').innerHTML = codeHtml;
     UI(isMaster ? 'masterRespBox' : 'rBox').classList.add('show');
     this.switchTo(scope, s.view);
@@ -66,7 +94,7 @@ const ResponseView = {
     } else if (type === 'pretty') {
       UI(isMaster ? 'masterViewPretty' : 'viewPretty').innerHTML = renderTree(data);
     } else if (type === 'table') {
-      const tableData = data?.data || data?.message || data;
+      const tableData = data?.message;
       const tableHtml = fmtGrid(tableData);
       if (tableHtml) {
         UI(isMaster ? 'masterViewTable' : 'viewTable').innerHTML = tableHtml;
@@ -116,46 +144,51 @@ const openMasterResponse = (i) => {
 /**
  * @description Opens the CURL/Override view modal.
  */
-const openCurlViewModal = (indexValue, viewType) => {
+const openCurlViewModal = (cmdOrIdx, viewType) => {
   viewType = viewType || 'all';
-  const command = COMMANDS[indexValue];
+  const command = typeof cmdOrIdx === 'number' ? COMMANDS[cmdOrIdx] : cmdOrIdx;
   if (!command || command.m === 'WS') return;
 
   const ovr = PATH_OVERRIDES[command.p];
   const showAll = viewType === 'all';
   const showOvr = viewType === 'ovr';
 
-  const badge = `<span class="method-badge ${command.m.toLowerCase()}" style="margin-right:8px">${command.m}</span>`;
-  UI('curlViewTitle').innerHTML = (showOvr && !showAll) ? `API Overrides: ${command.p}` : `${badge}${command.p}`;
-  
-  UI('curlViewOvrCard').style.display = (ovr && showOvr) ? 'flex' : 'none';
-  UI('curlViewCard').style.display = showAll ? 'flex' : 'none';
-  UI('curlViewResCard').style.display = showAll ? 'flex' : 'none';
+  try {
+    const badge = `<span class="method-badge ${command.m.toLowerCase()}" style="margin-right:8px">${command.m}</span>`;
+    UI('curlViewTitle').innerHTML = (showOvr && !showAll) ? 'API Overrides' : `${badge}<span class="runner-endpoint-path">${he(command.p)}</span>`;
+    
+    UI('curlViewOvrCard').style.display = (ovr && showOvr) ? 'flex' : 'none';
+    UI('curlViewCard').style.display = showAll ? 'flex' : 'none';
+    UI('curlViewResCard').style.display = showAll ? 'flex' : 'none';
 
-  if (ovr && showOvr) {
-    const ovrText = JSON.stringify(ovr, null, 2);
-    UI('curlViewOvrContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(ovrText)}</pre>`;
-    UI('curlViewOvrCopy').onclick = () => copyWithFeedback(UI('curlViewOvrCopy'), ovrText, 16, 'Overrides copied');
-  }
-
-  if (showAll) {
-    const curve = generateCurl(indexValue);
-    const formatted = curve.replace(/ -H /g, ' \\\n  -H ').replace(/ -d /g, ' \\\n  -d ').replace(/ -F /g, ' \\\n  -F ');
-    UI('curlViewContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0;white-space:pre;overflow-x:auto">${highlightCurl(formatted)}</pre>`;
-    UI('curlViewCopy').onclick = () => copyWithFeedback(UI('curlViewCopy'), curve, 16, 'Curl copied');
-
-    if (command.res) {
-      const exampleValue = schemaToExample(command.res, SPEC);
-      const exampleText = JSON.stringify(exampleValue || { message: 'No schema provided' }, null, 2);
-      UI('curlViewResContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(compactArrays(exampleText))}</pre>`;
-      UI('curlViewResCopy').onclick = () => copyWithFeedback(UI('curlViewResCopy'), exampleText, 16, 'Expected response copied');
-    } else {
-      UI('curlViewResContent').innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted);font-style:italic">No expected response schema provided in OpenAPI.</div>`;
-      UI('curlViewResCopy').onclick = () => toast('No schema to copy');
+    if (ovr && showOvr) {
+      const ovrText = JSON.stringify(ovr, null, 2);
+      UI('curlViewOvrContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(ovrText)}</pre>`;
+      UI('curlViewOvrCopy').onclick = () => copyWithFeedback(UI('curlViewOvrCopy'), ovrText, 16, 'Overrides copied');
     }
+
+    if (showAll) {
+      const curve = generateCurl(command);
+      const formatted = curve.replace(/ -H /g, ' \\\n  -H ').replace(/ -d /g, ' \\\n  -d ').replace(/ -F /g, ' \\\n  -F ');
+      UI('curlViewContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0;white-space:pre;overflow-x:auto">${highlightCurl(formatted)}</pre>`;
+      UI('curlViewCopy').onclick = () => copyWithFeedback(UI('curlViewCopy'), curve, 16, 'Curl copied');
+
+      if (command.res) {
+        const exampleValue = schemaToExample(command.res, SPEC);
+        const exampleText = JSON.stringify(exampleValue || { message: 'No schema provided' }, null, 2);
+        UI('curlViewResContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0">${highlight(compactArrays(exampleText))}</pre>`;
+        UI('curlViewResCopy').onclick = () => copyWithFeedback(UI('curlViewResCopy'), exampleText, 16, 'Expected response copied');
+      } else {
+        UI('curlViewResContent').innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted);font-style:italic">No expected response schema provided in OpenAPI.</div>`;
+        UI('curlViewResCopy').onclick = () => toast('No schema to copy');
+      }
+    }
+    setupIcons();
+    showModal('curlViewModal');
+  } catch (err) {
+    console.error('[ERROR] Failed to open Curl Modal:', err);
+    toast('Error opening Curl detail');
   }
-  setupIcons();
-  showModal('curlViewModal');
 };
 
 /**
@@ -165,7 +198,7 @@ const openParamsPreviewModal = i => {
     const c = COMMANDS[i];
     if (!c) return;
     const badge = `<span class="method-badge ${c.m.toLowerCase()}" style="margin-right:8px">${c.m}</span>`;
-    UI('testParamsTitle').innerHTML = `${badge}${c.p}`;
+    UI('testParamsTitle').innerHTML = `${badge}<span class="runner-endpoint-path">${he(c.p)}</span>`;
     
     const carts = [];
     const addCard = (title, data) => {
@@ -175,7 +208,7 @@ const openParamsPreviewModal = i => {
         let obj = data;
         if (Array.isArray(data)) {
             obj = {};
-            data.forEach(x => { if (x.k) obj[x.k] = x.v; });
+            data.forEach(x => { if (x.k && !x.ovr) obj[x.k] = x.v; });
         }
         
         if (Object.keys(obj).length === 0) return;

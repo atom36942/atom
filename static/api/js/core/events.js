@@ -52,25 +52,31 @@ const setupEventListeners = () => {
     UI('wsLogsClearBtn')?.addEventListener('click', () => { UI('wsLogs').innerHTML = ''; });
     UI('wsMsgIn')?.addEventListener('keydown', e => { if (e.key === 'Enter') wsSend(); });
 
+    // Global Modal Header Actions (Delegation for absolute reliability)
+    d.addEventListener('click', e => {
+        const btn = e.target.closest('.icon-btn');
+        if (!btn) return;
+        
+        // Runner Actions
+        if (btn.id === 'runnerCurlBtn' && curr) {
+            console.log('[DEBUG] Opening Curl Modal for:', curr.p);
+            openCurlViewModal(curr, 'all');
+        }
+        if (btn.id === 'runnerOvrBtn' && curr) openCurlViewModal(curr, 'ovr');
+        if (btn.id === 'runnerLinkBtn' && curr) {
+            const link = `${window.location.origin}${window.location.pathname}?api=${curr.m}|${curr.p}`;
+            copyWithFeedback(btn, link, 20, 'Link copied');
+        }
+    });
+
     UI('apiForm')?.addEventListener('submit', e => {
         e.preventDefault();
         executeCurrentApi();
     });
-    UI('runnerLinkBtn')?.addEventListener('click', () => {
-        if (curr) {
-            const link = `${window.location.origin}${window.location.pathname}?api=${curr.m}|${curr.p}`;
-            copyWithFeedback(UI('runnerLinkBtn'), link, 20, 'Link copied');
-        }
-    });
-    UI('runnerOvrBtn')?.addEventListener('click', () => {
-        if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'ovr');
-    });
+    
     UI('paramInfoCopyBtn')?.addEventListener('click', () => {
         const txt = UI('paramInfoBody').innerText;
         if (txt) copyWithFeedback(UI('paramInfoCopyBtn'), txt, 20, 'Details copied');
-    });
-    UI('runnerCurlBtn')?.addEventListener('click', () => {
-        if (curr) openCurlViewModal(COMMANDS.indexOf(curr), 'all');
     });
 
     // Info Icon Regex/Desc Modal (Delegation)
@@ -118,8 +124,10 @@ const setupEventListeners = () => {
     UI('masterRespCsv')?.addEventListener('click', () => {
         const s = ResponseView.states.master;
         if (s.data) {
-            const raw = s.data?.data || s.data?.message || s.data;
-            downloadCsv('api_response.csv', arrayToCsv(Array.isArray(raw) ? raw : [raw]));
+            const raw = s.data?.message;
+            if (raw && typeof raw === 'object') {
+                downloadCsv('api_response.csv', arrayToCsv(Array.isArray(raw) ? raw : [raw]));
+            }
         }
     });
     UI('masterRespJson')?.addEventListener('click', () => {
@@ -143,8 +151,10 @@ const setupEventListeners = () => {
     UI('rCsv')?.addEventListener('click', () => {
         const s = ResponseView.states.runner;
         if (s.data) {
-            const raw = s.data?.data || s.data?.message || s.data;
-            downloadCsv('api_response.csv', arrayToCsv(Array.isArray(raw) ? raw : [raw]));
+            const raw = s.data?.message;
+            if (raw && typeof raw === 'object') {
+                downloadCsv('api_response.csv', arrayToCsv(Array.isArray(raw) ? raw : [raw]));
+            }
         }
     });
     UI('rJson')?.addEventListener('click', () => {
