@@ -13,11 +13,12 @@
 .modal-content {
   background: var(--card);
   margin: 5% auto;
-  padding: 24px;
+  padding: 0;
   width: 95%;
   max-width: 1000px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, .1);
+  overflow: hidden;
 }
 
 .modal-header {
@@ -25,7 +26,11 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  margin-bottom: 20px;
+  padding: 12px 24px;
+  background: #1a1d23;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
 }
 
 .modal-title-block {
@@ -45,6 +50,12 @@
   gap: 12px;
   align-items: center;
   flex-shrink: 0;
+}
+
+.modal-body {
+  padding: 20px 24px;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 
 .icon-btn {
@@ -130,4 +141,61 @@
   opacity: 1;
   visibility: visible;
   bottom: calc(100% + 6px);
+}
+
+.modal-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.modal-card-grid.vertical-stack {
+  grid-template-columns: 1fr;
+}
+
+.modal-card {
+  background: #0f1114;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-card:last-child {
+  margin-bottom: 0;
+}
+
+.modal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #1a1d23;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.modal-card-header h4 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-card-body {
+  padding: 16px;
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .modal-card-grid, .modal-card-grid.vertical-stack {
+    grid-template-columns: 1fr;
+  }
 }

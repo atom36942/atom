@@ -68,7 +68,11 @@ const ResponseView = {
     } else if (type === 'table') {
       const tableData = data?.data || data?.message || data;
       const tableHtml = fmtGrid(tableData);
-      UI(isMaster ? 'masterViewTable' : 'viewTable').innerHTML = tableHtml || `<div style="padding:20px;text-align:center;color:var(--muted)">Table view not available</div>`;
+      if (tableHtml) {
+        UI(isMaster ? 'masterViewTable' : 'viewTable').innerHTML = tableHtml;
+      } else {
+        UI(isMaster ? 'masterViewTable' : 'viewTable').innerHTML = `<div style="padding:50px;text-align:center;color:var(--muted);font-style:italic;line-height:1.6">Table view not available for this response type.<br>Please use <b>Tree View</b> or <b>Raw View</b> for detailed inspection.</div>`;
+      }
     }
   },
 
@@ -93,8 +97,7 @@ const openJsonResponseModal = (title, data) => {
   UI('testResponseContent').innerHTML = `<pre class="resp-pre" style="padding:20px;margin:0">${highlight(compactArrays(jsonStr))}</pre>`;
   UI('testResponseCopy').onclick = () => copyWithFeedback(UI('testResponseCopy'), jsonStr, 16, 'Response copied');
   UI('testResponseJson').onclick = () => downloadJson('response.json', jsonStr);
-  UI('testResponseCopy').innerHTML = ICON.copy(20);
-  UI('testResponseJson').innerHTML = ICON.fileJson(20);
+  setupIcons();
   showModal('testResponseModal');
 };
 
@@ -106,9 +109,7 @@ const openMasterResponse = (i) => {
     if (!res) return;
     UI('masterRespIn').innerHTML = renderRunnerEndpoint(COMMANDS[i]);
     ResponseView.render('master', res.data, res.status, res.time, i);
-    UI('masterRespCopy').onclick = () => ResponseView.copy('master');
-    UI('masterRespCopyFull').onclick = () => ResponseView.copy('master', true);
-    UI('masterRespJson').onclick = () => downloadJson('response.json', JSON.stringify(res.data, null, 2));
+    setupIcons();
     showModal('masterResponseModal');
 };
 
@@ -153,7 +154,53 @@ const openCurlViewModal = (indexValue, viewType) => {
       UI('curlViewResCopy').onclick = () => toast('No schema to copy');
     }
   }
+  setupIcons();
   showModal('curlViewModal');
+};
+
+/**
+ * @description Opens the multi-card parameter preview modal for a given API.
+ */
+const openParamsPreviewModal = i => {
+    const c = COMMANDS[i];
+    if (!c) return;
+    const badge = `<span class="method-badge ${c.m.toLowerCase()}" style="margin-right:8px">${c.m}</span>`;
+    UI('testParamsTitle').innerHTML = `${badge}${c.p}`;
+    
+    const carts = [];
+    const addCard = (title, data) => {
+        if (!data || (Array.isArray(data) && !data.length)) return;
+        
+        // Flatten array of objects [{k, v}, ...] to {k: v, ...}
+        let obj = data;
+        if (Array.isArray(data)) {
+            obj = {};
+            data.forEach(x => { if (x.k) obj[x.k] = x.v; });
+        }
+        
+        if (Object.keys(obj).length === 0) return;
+
+        const formatted = JSON.stringify(obj, null, 2);
+        carts.push(`
+            <div class="modal-card">
+                <div class="modal-card-header"><h4>${title}</h4></div>
+                <div class="modal-card-body" style="padding:0">
+                    <pre class="resp-pre" style="padding:16px;margin:0;font-size:12px">${highlight(formatted)}</pre>
+                </div>
+            </div>
+        `);
+    };
+
+    addCard('PATH PARAMETERS (P)', c.u);
+    addCard('QUERY PARAMETERS (Q)', c.q);
+    addCard('HEADER PARAMETERS (H)', c.h);
+    addCard('FORM DATA (F)', c.f);
+    addCard('JSON BODY (B)', c.j);
+    addCard('OVERRIDES (O)', PATH_OVERRIDES[c.p]);
+
+    UI('testParamsContent').innerHTML = carts.join('') || `<div style="grid-column:1/-1;padding:50px;text-align:center;color:var(--muted);font-style:italic">No parameters defined for this API.</div>`;
+    setupIcons();
+    showModal('testParamsModal');
 };
 
 /**

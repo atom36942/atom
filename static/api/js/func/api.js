@@ -15,8 +15,8 @@ const testNeedsToken = c => {
 const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
   isShowResponse = isShowResponse ?? 1; isAllowDownload = isAllowDownload ?? 1;
   if (!curr) return alert('Select API');
-  const btn = UI('subBtn'), t0 = performance.now();
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sending...'; btn.classList.add('loading');
+  const btn = UI('subBtn'), icon = UI('subBtnIcon'), txt = UI('subBtnText'), t0 = performance.now();
+  btn.disabled = true; if (icon) icon.innerHTML = ''; if (txt) txt.textContent = 'Sending...'; btn.classList.add('loading');
   const params = ParamManager.getCurrent();
   let urlPath = curr.p;
   params.u.forEach(x => { if (x.k) urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(x.v || 'null')); });
@@ -50,7 +50,8 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
       h['Content-Type'] = 'application/json';
     } catch (err) {
       alert(err.message);
-      btn.disabled = false; btn.classList.remove('loading'); btn.textContent = 'Submit';
+      btn.disabled = false; btn.classList.remove('loading'); 
+      if (icon) icon.innerHTML = ICON.play(14); if (txt) txt.textContent = 'Run';
       return;
     }
   }
@@ -100,9 +101,12 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
     }
     return { status: 0, time: failMs, data: failResponse };
   } finally {
-    btn.disabled = false;
-    btn.classList.remove('loading');
-    btn.textContent = 'Submit';
+    if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+    }
+    if (icon) icon.innerHTML = ICON.play(14);
+    if (txt) txt.textContent = 'Run';
   }
 };
 

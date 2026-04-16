@@ -54,9 +54,14 @@ const renderAnalytics = () => {
                     </div>`;
             }).join('');
         return `
-            <div class="analytics-card">
-                <h4><span>${title}</span>${total ? `<span style="font-size:11px;font-weight:400;color:var(--muted);background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:10px">Total: ${total}</span>` : ''}</h4>
-                <div class="analytics-list">${items}</div>
+            <div class="modal-card">
+                <div class="modal-card-header">
+                    <h4>${title}</h4>
+                    ${total ? `<span style="font-size:10px;font-weight:600;color:var(--muted);background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px">Total: ${total}</span>` : ''}
+                </div>
+                <div class="modal-card-body">
+                    <div class="analytics-list">${items}</div>
+                </div>
             </div>`;
     };
     const topComplexity = complexity

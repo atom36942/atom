@@ -59,7 +59,7 @@ const renderApiInfoTable = (searchQuery = '') => {
           <td class="col-id master-static-cell">${globalIndex + 1}</td>
           <td class="col-method master-static-cell"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td>
           <td class="col-path master-static-cell" title="${c.p}">${c.p}</td>
-          <td class="col-param master-static-cell">${isWs ? '-' : renderParamBadges(c)}</td>
+          <td class="col-param master-static-cell clickable params-preview-btn" title="View Configuration Details">${isWs ? '-' : renderParamBadges(c)}</td>
           <td class="col-time master-status-cell ${hasRes ? 'clickable' : ''}" title="${hasRes ? `HTTP ${responseState.status}` : 'No response yet'}">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
           <td class="col-time master-time-cell">${isWs ? '-' : (responseState ? `${responseState.time}ms` : '-')}</td>
           <td class="col-run run-btn clickable" title="Run">${ICON.play(16)}</td>
@@ -100,5 +100,5 @@ const renderParamBadges = command => {
  */
 const renderRunnerEndpoint = command => {
   if (!command) return '';
-  return `<span class="method-badge ${command.m.toLowerCase()}" style="margin-right:0">${command.m}</span><span class="runner-endpoint-path">${he(command.p)}</span>`;
+  return `<div style="display:flex;align-items:center;gap:10px;font-family:'SF Mono',Menlo,monospace;line-height:1"><span class="method-badge ${command.m.toLowerCase()}" style="margin:0;line-height:1.2">${command.m}</span><span class="runner-endpoint-path" style="display:inline;margin:0;line-height:1">${he(command.p)}</span></div>`;
 };

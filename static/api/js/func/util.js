@@ -11,7 +11,10 @@ const downloadBlob = (blob, filename) => {
 };
 
 const downloadCsv = (filename, csvStr) => downloadBlob(new Blob([csvStr], { type: 'text/csv' }), filename);
-const downloadJson = (filename, jsonStr) => downloadBlob(new Blob([jsonStr], { type: 'application/json' }), filename);
+const downloadJson = (filename, data) => {
+  const jsonStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  downloadBlob(new Blob([jsonStr], { type: 'application/json' }), filename);
+};
 
 const csvEscape = v => {
   const s = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));

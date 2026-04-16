@@ -11,43 +11,52 @@ const MODAL_HTML = `
         </div>
         <div class="modal-actions">
             <button type="button" class="icon-btn" id="runnerLinkBtn" title="Copy Shareable Link"></button>
-            <button type="button" class="icon-btn" id="runnerOvrBtn" title="View Overrides"></button>
             <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response"></button>
+            <button type="submit" class="btn btn-primary" id="subBtn" form="apiForm" title="Run API" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px;display:flex;align-items:center"><div class="spinner"></div><span id="subBtnIcon" style="display:flex;align-items:center"></span><span id="subBtnText">Run</span></button>
             <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
     </div>
-    <div class="runner-scroll">
-    <div class="runner-section">
-    <div class="runner-endpoint" id="apiIn"></div>
-    <form id="apiForm">
-        <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small">+</button></div><div id="hCont" class="dynamic-container"></div></div>
-        <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
-        <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
-        <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
-        <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
-        <div class="footer-row"><button id="subBtn" type="submit" class="btn btn-primary"><div class="spinner"></div>Run</button></div>
-    </form>
-    <div class="resp-box" id="rBox">
-        <div class="resp-header">
-            <span>Response <span id="rCode" style="font-weight:400"></span></span>
-            <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-                <button class="view-btn" data-view="raw" title="Raw View" id="btnRaw"></button>
-                <button class="view-btn" data-view="pretty" title="Tree View" id="btnPretty"></button>
-                <button class="view-btn" data-view="table" title="Table View" id="btnTable"></button>
-                <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-                <button id="rCopy" class="icon-btn" title="Copy Response"></button>
-                <button id="rCopyFull" class="icon-btn" title="Copy Curl & Response"></button>
-                <button id="rCsv" class="icon-btn" title="Download CSV"></button>
-                <button id="rJson" class="icon-btn" title="Download JSON"></button>
+    <div class="modal-body runner-scroll">
+        <div class="runner-section">
+            <div class="modal-card">
+                <div class="modal-card-header">
+                    <div id="runnerPathHeader" style="font-size:13px;color:var(--muted);font-family:'SF Mono',Menlo,monospace"></div>
+                </div>
+                <div class="modal-card-body">
+                    <form id="apiForm">
+                        <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small">+</button></div><div id="hCont" class="dynamic-container"></div></div>
+                        <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small">+</button></div><div id="uCont" class="dynamic-container"></div></div>
+                        <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small">+</button></div><div id="qCont" class="dynamic-container"></div></div>
+                        <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small">+</button></div><div id="fCont" class="dynamic-container"></div></div>
+                        <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small">+</button></div><div id="jCont" class="dynamic-container"></div></div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="modal-card resp-box" id="rBox">
+                <div class="modal-card-header">
+                    <h4>API RESPONSE <span id="rCode" style="font-weight:400;margin-left:8px"></span></h4>
+                    <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+                        <button class="view-btn" data-view="raw" title="Raw View" id="btnRaw"></button>
+                        <button class="view-btn" data-view="pretty" title="Tree View" id="btnPretty"></button>
+                        <button class="view-btn" data-view="table" title="Table View" id="btnTable"></button>
+                        <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                        <button id="rCopy" class="icon-btn" title="Copy Response"></button>
+                        <button id="rCopyFull" class="icon-btn" title="Copy Curl & Response"></button>
+                        <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                        <button id="rCsv" class="icon-btn" title="Download CSV"></button>
+                        <button id="rJson" class="icon-btn" title="Download JSON"></button>
+                    </div>
+                </div>
+                <div class="modal-card-body" style="padding:0">
+                    <div class="resp-content">
+                        <div id="viewPretty" class="resp-view active"></div>
+                        <div id="viewRaw" class="resp-view"><pre class="resp-pre" id="rawPre"></pre></div>
+                        <div id="viewTable" class="resp-view"></div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="resp-content">
-            <div id="viewPretty" class="resp-view active"></div>
-            <div id="viewRaw" class="resp-view"><pre class="resp-pre" id="rawPre"></pre></div>
-            <div id="viewTable" class="resp-view"></div>
-        </div>
-    </div>
-    </div>
     </div>
 </div></div>
 
@@ -55,9 +64,12 @@ const MODAL_HTML = `
 <div id="wsRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:2% auto">
     <div class="modal-header">
         <h3 style="margin:0">WebSocket Runner</h3>
-        <button type="button" class="icon-btn" id="wsRunnerCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <div class="modal-actions">
+            <button type="button" class="icon-btn" id="wsRunnerCloseBtn" title="Close"></button>
+        </div>
     </div>
-    <div style="max-height:80vh;overflow-y:auto;padding-right:8px">
+    <div class="modal-body">
+        <div id="wsIn" style="margin-bottom:20px;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-family:'SF Mono',Menlo,monospace;font-size:13px"></div>
         <div style="display:flex;gap:12px;margin-bottom:20px">
             <input type="text" id="wsUrlIn" readonly style="flex:1;background:rgba(255,255,255,0.02);color:var(--accent);font-weight:600">
             <button id="wsConnBtn" type="button" class="btn btn-primary" style="flex:0 0 120px">Connect</button>
@@ -69,8 +81,11 @@ const MODAL_HTML = `
                 <button type="button" id="wsSendBtn" class="btn btn-primary" style="flex:0 0 80px">Send</button>
             </div>
         </div>
-        <div class="resp-box show" style="display:flex;max-height:400px">
-            <div class="resp-header"><span>Connection Logs</span><button class="copy-btn" id="wsLogsClearBtn" title="Clear Logs"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button></div>
+        <div class="resp-box show" id="wsBox" style="display:flex;max-height:400px">
+            <div class="resp-header">
+                <span>Connection Logs <span id="wsCode" style="font-weight:400"></span></span>
+                <button class="copy-btn" id="wsLogsClearBtn" title="Clear Logs"></button>
+            </div>
             <div class="resp-content" id="wsLogs" style="padding:16px;font-family:'SF Mono',Menlo,monospace;font-size:12px;color:var(--muted)"></div>
         </div>
     </div>
@@ -87,21 +102,22 @@ const MODAL_HTML = `
                 <button type="button" class="icon-btn" id="testResponseCloseBtn" title="Close"></button>
             </div>
         </div>
-        <div id="testResponseContent" style="max-height:70vh;overflow-y:auto;background:#14171c;border-radius:8px;border:1px solid rgba(255,255,255,.08)"></div>
+        <div class="modal-body">
+            <div id="testResponseContent" style="background:#14171c;border-radius:8px;border:1px solid rgba(255,255,255,.08)"></div>
+        </div>
     </div>
 </div>
 
 <!-- Test Params Modal -->
 <div id="testParamsModal" class="modal">
-    <div class="modal-content" style="max-width:700px;margin:5% auto">
+    <div class="modal-content" style="max-width:540px;margin:5% auto">
         <div class="modal-header">
-            <h3 style="margin:0" id="testParamsTitle">API Params Preview</h3>
+            <h3 style="margin:0" id="testParamsTitle">API Configuration Preview</h3>
             <div class="modal-actions">
-                <button type="button" class="icon-btn" id="testParamsCopyCurl" title="Copy Curl"></button>
                 <button type="button" class="icon-btn" id="testParamsCloseBtn" title="Close"></button>
             </div>
         </div>
-        <div id="testParamsContent" style="max-height:70vh;overflow-y:auto;background:#14171c;border-radius:8px;border:1px solid rgba(255,255,255,.08)"></div>
+        <div id="testParamsContent" class="modal-body modal-card-grid vertical-stack"></div>
     </div>
 </div>
 
@@ -114,7 +130,7 @@ const MODAL_HTML = `
                 <button type="button" class="icon-btn" id="masterResponseCloseBtn" title="Close"></button>
             </div>
         </div>
-        <div class="runner-scroll">
+        <div class="modal-body runner-scroll">
             <div class="runner-section">
                 <div class="runner-endpoint" id="masterRespIn"></div>
                 <div class="resp-box show" id="masterRespBox" style="display:flex">
@@ -127,6 +143,7 @@ const MODAL_HTML = `
                             <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
                             <button id="masterRespCopy" class="icon-btn" title="Copy Response"></button>
                             <button id="masterRespCopyFull" class="icon-btn" title="Copy Curl & Response"></button>
+                            <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
                             <button id="masterRespCsv" class="icon-btn" title="Download CSV"></button>
                             <button id="masterRespJson" class="icon-btn" title="Download JSON"></button>
                         </div>
@@ -146,41 +163,49 @@ const MODAL_HTML = `
 <div id="infoModal" class="modal"><div class="modal-content" style="max-width:800px;margin:2% auto">
     <div class="modal-header">
         <h3 style="margin:0">API Master Information</h3>
-        <button type="button" class="icon-btn" id="infoCloseBtn" title="Close"></button>
+        <div class="modal-actions">
+            <button type="button" class="icon-btn" id="infoCloseBtn" title="Close"></button>
+        </div>
     </div>
-    <div class="modal-card-grid" style="display:flex;flex-direction:column;gap:16px">
-        <div class="modal-card" style="padding:20px;border:1px solid rgba(255,255,255,0.08)">
-            <h4><span>GENERAL INFORMATION</span></h4>
-            <div style="display:flex;flex-direction:column;gap:12px">
-                <div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center">
-                    <span style="opacity:0.6;min-width:145px">Base URL:</span>
-                    <span id="baseUrl" style="color:var(--accent);font-weight:600;letter-spacing:0.5px"></span>
-                </div>
-                <div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center">
-                    <span style="opacity:0.6;min-width:145px">OpenAPI Specification:</span>
-                    <a href="/openapi.json" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600">/openapi.json</a>
+    <div class="modal-body modal-card-grid" style="display:flex;flex-direction:column;gap:10px">
+        <div class="modal-card">
+            <div class="modal-card-header"><h4>GENERAL INFORMATION</h4></div>
+            <div class="modal-card-body">
+                <div style="display:flex;flex-direction:column;gap:12px">
+                    <div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center">
+                        <span style="opacity:0.6;min-width:145px">Base URL:</span>
+                        <span id="baseUrl" style="color:var(--accent);font-weight:600;letter-spacing:0.5px"></span>
+                    </div>
+                    <div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center">
+                        <span style="opacity:0.6;min-width:145px">OpenAPI Specification:</span>
+                        <a href="/openapi.json" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600">/openapi.json</a>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="modal-card" style="padding:20px;border:1px solid rgba(255,255,255,0.08)">
-            <h4><span>OPERATIONAL NOTES</span></h4>
-            <div style="display:flex;flex-direction:column;gap:10px">
-                <div style="font-size:13px;color:var(--muted);line-height:1.5">1. All endpoints are loaded live from <b>/openapi.json</b>.</div>
-                <div style="font-size:13px;color:var(--muted);line-height:1.5">2. Display values can be overridden from the internal override map.</div>
-                <div style="font-size:13px;color:var(--muted);line-height:1.5">3. Execution follows the live schema plus any manual override you define.</div>
-                <div style="font-size:13px;color:var(--muted);line-height:1.5">4. Unknown override keys are added to <b>Query for GET</b> and <b>Body for non-GET</b> methods.</div>
+        <div class="modal-card">
+            <div class="modal-card-header"><h4>OPERATIONAL NOTES</h4></div>
+            <div class="modal-card-body">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    <div style="font-size:13px;color:var(--muted);line-height:1.5">1. All endpoints are loaded live from <b>/openapi.json</b>.</div>
+                    <div style="font-size:13px;color:var(--muted);line-height:1.5">2. Display values can be overridden from the internal override map.</div>
+                    <div style="font-size:13px;color:var(--muted);line-height:1.5">3. Execution follows the live schema plus any manual override you define.</div>
+                    <div style="font-size:13px;color:var(--muted);line-height:1.5">4. Unknown override keys are added to <b>Query for GET</b> and <b>Body for non-GET</b> methods.</div>
+                </div>
             </div>
         </div>
-        <div class="modal-card" style="padding:20px;border:1px solid rgba(255,255,255,0.08)">
-            <h4><span>QUERY EXAMPLES (GET /object-read)</span></h4>
-            <div style="display:flex;flex-direction:column;gap:8px">
-                <div style="font-size:12px;color:var(--muted)">1. <b>Comparison:</b> <code>id==,5</code>, <code>id=&gt;,100</code>, <code>created_at=&gt;=,2024-01-01</code></div>
-                <div style="font-size:12px;color:var(--muted)">2. <b>List & Null:</b> <code>id=in,1|2|3|4</code>, <code>title=is,null</code>, <code>is_active=is distinct from,0</code></div>
-                <div style="font-size:12px;color:var(--muted)">3. <b>Pattern & Range:</b> <code>title=ilike,%python%</code>, <code>rating=between,4.0|5.0</code></div>
-                <div style="font-size:12px;color:var(--muted)">4. <b>Spatial (PostGIS):</b> <code>location=point,80.0|15.0|0|1000</code> <small style="opacity:.6">(lon|lat|min_meter|max_meter)</small></div>
-                <div style="font-size:12px;color:var(--muted)">5. <b>Array:</b> <code>tag=contains,python</code>, <code>tag=overlap,python|sql</code>, <code>tag=any,python</code></div>
-                <div style="font-size:12px;color:var(--muted)">6. <b>Array (Int/Bigint):</b> <code>tag_int=contains,1|2</code>, <code>tag_bigint=overlap,1|2</code></div>
-                <div style="font-size:12px;color:var(--muted)">7. <b>JSONB:</b> <code>metadata=contains,role|admin|str</code>, <code>metadata=exists,is_verified</code></div>
+        <div class="modal-card">
+            <div class="modal-card-header"><h4>QUERY EXAMPLES (GET /object-read)</h4></div>
+            <div class="modal-card-body">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12px;color:var(--muted)">1. <b>Comparison:</b> <code>id==,5</code>, <code>id=&gt;,100</code>, <code>created_at=&gt;=,2024-01-01</code></div>
+                    <div style="font-size:12px;color:var(--muted)">2. <b>List & Null:</b> <code>id=in,1|2|3|4</code>, <code>title=is,null</code>, <code>is_active=is distinct from,0</code></div>
+                    <div style="font-size:12px;color:var(--muted)">3. <b>Pattern & Range:</b> <code>title=ilike,%python%</code>, <code>rating=between,4.0|5.0</code></div>
+                    <div style="font-size:12px;color:var(--muted)">4. <b>Spatial (PostGIS):</b> <code>location=point,80.0|15.0|0|1000</code> <small style="opacity:.6">(lon|lat|min_meter|max_meter)</small></div>
+                    <div style="font-size:12px;color:var(--muted)">5. <b>Array:</b> <code>tag=contains,python</code>, <code>tag=overlap,python|sql</code>, <code>tag=any,python</code></div>
+                    <div style="font-size:12px;color:var(--muted)">6. <b>Array (Int/Bigint):</b> <code>tag_int=contains,1|2</code>, <code>tag_bigint=overlap,1|2</code></div>
+                    <div style="font-size:12px;color:var(--muted)">7. <b>JSONB:</b> <code>metadata=contains,role|admin|str</code>, <code>metadata=exists,is_verified</code></div>
+                </div>
             </div>
         </div>
     </div>
@@ -195,7 +220,7 @@ const MODAL_HTML = `
             <button type="button" class="icon-btn" id="paramInfoCloseBtn" title="Close"></button>
         </div>
     </div>
-    <div id="paramInfoBody" class="modal-subtitle" style="margin-top:16px"></div>
+    <div id="paramInfoBody" class="modal-body"></div>
 </div></div>
 
 <!-- Curl View Modal -->
@@ -203,20 +228,22 @@ const MODAL_HTML = `
     <div class="modal-content" style="max-width:800px;margin:5% auto">
         <div class="modal-header">
             <h3 style="margin:0" id="curlViewTitle">Curl</h3>
-            <button type="button" class="icon-btn" id="curlViewCloseBtn" title="Close"></button>
+            <div class="modal-actions">
+                <button type="button" class="icon-btn" id="curlViewCloseBtn" title="Close"></button>
+            </div>
         </div>
-        <div class="modal-card-grid" id="curlViewGrid">
+        <div class="modal-body modal-card-grid vertical-stack" id="curlViewGrid">
             <div class="modal-card" id="curlViewOvrCard" style="display:none">
-                <h4><span>OVERRIDE PARAMETERS</span><button type="button" class="icon-btn" id="curlViewOvrCopy" title="Copy Overrides"></button></h4>
-                <div id="curlViewOvrContent" style="max-height:60vh;overflow-y:auto"></div>
+                <div class="modal-card-header"><h4>OVERRIDE PARAMETERS</h4><button type="button" class="icon-btn" id="curlViewOvrCopy" title="Copy Overrides"></button></div>
+                <div class="modal-card-body"><div id="curlViewOvrContent" style="max-height:60vh;overflow-y:auto"></div></div>
             </div>
             <div class="modal-card" id="curlViewCard">
-                <h4><span>CURL COMMAND</span><button type="button" class="icon-btn" id="curlViewCopy" title="Copy Curl"></button></h4>
-                <div id="curlViewContent" style="max-height:60vh;overflow-y:auto"></div>
+                <div class="modal-card-header"><h4>CURL COMMAND</h4><button type="button" class="icon-btn" id="curlViewCopy" title="Copy Curl"></button></div>
+                <div class="modal-card-body"><div id="curlViewContent" style="max-height:60vh;overflow-y:auto"></div></div>
             </div>
             <div class="modal-card" id="curlViewResCard" style="display:none">
-                <h4><span>EXPECTED RESPONSE (200)</span><button type="button" class="icon-btn" id="curlViewResCopy" title="Copy Expected Response"></button></h4>
-                <div id="curlViewResContent" style="max-height:60vh;overflow-y:auto"></div>
+                <div class="modal-card-header"><h4>EXPECTED RESPONSE (200)</h4><button type="button" class="icon-btn" id="curlViewResCopy" title="Copy Expected Response"></button></div>
+                <div class="modal-card-body"><div id="curlViewResContent" style="max-height:60vh;overflow-y:auto"></div></div>
             </div>
         </div>
     </div>
@@ -232,10 +259,15 @@ const MODAL_HTML = `
             <button type="button" class="icon-btn" id="storageCloseBtn" title="Close"></button>
         </div>
     </div>
-    <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
-        <div id="storageContent" style="max-height:70vh;overflow-y:auto"></div>
+    <div class="modal-body">
+        <div class="modal-card" id="storageCard">
+            <div class="modal-card-body" style="padding:0">
+                <div id="storageContent"></div>
+            </div>
+        </div>
     </div>
-</div></div>
+    </div>
+</div>
 
 <!-- Analytics Modal -->
 <div id="analyticsModal" class="modal"><div class="modal-content" style="max-width:900px;margin:2% auto">
@@ -245,10 +277,11 @@ const MODAL_HTML = `
             <button type="button" class="icon-btn" id="analyticsCloseBtn" title="Close"></button>
         </div>
     </div>
-    <div class="analytics-card" style="padding:0;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
-        <div id="analyticsGrid" class="analytics-grid" style="max-height:70vh;overflow-y:auto;padding:20px"></div>
+    <div id="analyticsContent" class="modal-body">
+        <div id="analyticsGrid" class="analytics-grid"></div>
     </div>
-</div></div>
+    </div>
+</div>
 
 <!-- Popups -->
 <div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"></button></div>

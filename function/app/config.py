@@ -3,7 +3,7 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
     import orjson, os, ast
     from dotenv import load_dotenv
     from pathlib import Path
-    load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
+    load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
     for key, value in list(global_dict.items()):
         val_env = os.getenv(key)
         if key.startswith("config_") and val_env is not None:

@@ -7,10 +7,10 @@
 .api-overview-subline-small { display: block; font-size: 11px; opacity: .78; }
 
 .runner-endpoint { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 10px 14px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 8px; background: rgba(255, 255, 255, .03); }
-.runner-endpoint-path { font-size: 14px; font-weight: 600; color: #e6eef3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0; }
+.runner-endpoint-path { font-size: 14px; font-weight: 600; color: #e6eef3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline; min-width: 0; }
 
-.runner-scroll { max-height: 80vh; overflow-y: auto; padding-right: 8px; }
-.runner-section { display: flex; flex-direction: column; gap: 16px; }
+.runner-scroll { max-height: 80vh; overflow-y: auto; }
+.runner-section { display: flex; flex-direction: column; gap: 10px; }
 
 .toolbar-search { margin-bottom: 16px; position: relative; display: flex; align-items: center; }
 
@@ -57,7 +57,7 @@ select.row-val {
 .add-btn-small { background: var(--accent); color: #fff; border: none; border-radius: 5px; cursor: pointer; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; }
 
 /* Response Box Shell */
-.resp-box { background: #0f1114; border-radius: 12px; margin-top: 10px; display: none; border: 1px solid rgba(255, 255, 255, .08); overflow: hidden; max-height: 600px; flex-direction: column; box-shadow: 0 8px 32px rgba(0, 0, 0, .4); }
+.resp-box { display: none; max-height: 600px; flex-direction: column; box-shadow: 0 8px 32px rgba(0, 0, 0, .4); }
 .resp-box.show { display: flex; }
 .resp-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #1a1d23; border-bottom: 1px solid rgba(255, 255, 255, .08); font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
 .resp-content { overflow-y: auto; flex: 1; position: relative; }

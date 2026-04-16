@@ -141,8 +141,11 @@ const populate = (cont, sec, spec, isJson = false) => {
 const load = i => {
   curr = i === null ? null : COMMANDS[i];
   SECTIONS.forEach(([, sec, cont]) => { UI(cont).innerHTML = ''; UI(sec).classList.remove('active'); });
-  UI('rBox').classList.remove('show');
-  UI('apiIn').innerHTML = curr ? renderRunnerEndpoint(curr) : '';
+  const rBox = UI('rBox');
+  if (rBox) rBox.classList.remove('show');
+  
+  const pathHeader = UI('runnerPathHeader');
+  if (pathHeader) pathHeader.innerHTML = curr ? renderRunnerEndpoint(curr) : '';
   if (!curr) return;
   populate('hCont', 'hSec', curr.h);
   populate('uCont', 'uSec', curr.u);
@@ -158,6 +161,7 @@ const load = i => {
       btnOvr.style.opacity = hasOvr ? '1' : '0.4';
       btnOvr.style.cursor = hasOvr ? 'pointer' : 'not-allowed';
   }
+  setupIcons();
 };
 
 /**

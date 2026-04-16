@@ -75,7 +75,6 @@ async function init() {
     if (!runApi || UI('apiInfoSearch').value !== initialSearch) load(null);
     updateTestSummary();
     setupIcons();
-    UI('runnerCurlBtn').innerHTML = ICON.terminal(20);
     setupEventListeners();
     updateAppLoader(100, 'Ready');
   } catch (err) {

@@ -6,16 +6,16 @@ const setupIcons = () => {
         'infoToggleBtn': ICON.info(18),
         'storageToggleBtn': ICON.database(18),
         'analyticsToggleBtn': ICON.chart(18),
-        'apiInfoCsv': ICON.download(18),
+        'apiInfoCsv': ICON.downloadCsv(18),
         'btnRaw': ICON.code(16),
         'btnPretty': ICON.list(16),
         'btnTable': ICON.table(16),
         'rCopy': ICON.copy(16),
         'rCopyFull': ICON.copyCurl(16),
-        'rCsv': ICON.fileCsv(16),
-        'rJson': ICON.fileJson(16),
-        'testAllExportCsv': ICON.download(16),
-        'testResponseJson': ICON.fileJson(20),
+        'rCsv': ICON.downloadCsv(16),
+        'rJson': ICON.downloadJson(16),
+        'testAllExportCsv': ICON.downloadCsv(16),
+        'testResponseJson': ICON.downloadJson(20),
         'testResponseCopy': ICON.copy(20),
         'testParamsCopyCurl': ICON.copy(20),
         'storageCopyAll': ICON.copy(18),
@@ -29,15 +29,17 @@ const setupIcons = () => {
         'masterBtnTable': ICON.table(16),
         'masterRespCopy': ICON.copy(16),
         'masterRespCopyFull': ICON.copyCurl(16),
-        'masterRespCsv': ICON.fileCsv(16),
-        'masterRespJson': ICON.fileJson(16),
+        'masterRespCsv': ICON.downloadCsv(16),
+        'masterRespJson': ICON.downloadJson(16),
         'runnerOvrBtn': ICON.ovr(20),
-        'runnerLinkBtn': ICON.link(20)
+        'runnerLinkBtn': ICON.link(20),
+        'runnerCurlBtn': ICON.terminal(20),
+        'subBtnIcon': ICON.play(14)
     };
 
     Object.entries(iconMap).forEach(([id, svg]) => {
         const el = UI(id);
-        if (el) el.innerHTML = svg;
+        if (el && svg) el.innerHTML = svg;
     });
     d.querySelectorAll('.modal-header .icon-btn[title="Close"]').forEach(btn => {
         btn.innerHTML = ICON.close(24);

@@ -18,7 +18,16 @@ const toast = msg => {
  * @param {string} [msg] - Optional toast message.
  */
 const copyWithFeedback = (btn, text, size = 16, msg) => {
-  navigator.clipboard.writeText(text);
+  try {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+    } else {
+      console.warn('Clipboard API not available');
+    }
+  } catch (err) {
+    console.error('Failed to copy:', err);
+  }
+  
   if (msg) toast(msg);
   if (btn.dataset.copied === '1') return;
   const originalHtml = btn.innerHTML;

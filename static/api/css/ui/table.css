@@ -22,6 +22,7 @@
 #apiInfoTbl td { padding: 10px 12px; color: #e6eef3; border-bottom: 1px solid rgba(255, 255, 255, .05); font-size: 13px; vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #apiInfoTbl .clickable { cursor: pointer !important; }
 #apiInfoTbl .clickable:hover { background: rgba(255, 255, 255, 0.04); }
+#apiInfoTbl .col-param.clickable:hover { background: rgba(66, 153, 225, 0.1); }
 
 .col-id { width: 32px; min-width: 32px; text-align: center !important; }
 .col-method { width: 52px; min-width: 52px; text-align: center !important; }
@@ -31,7 +32,7 @@
 .col-run { width: 36px; min-width: 36px; text-align: center !important; }
 
 /* Badges & Status */
-.method-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-right: 6px; min-width: 32px; text-align: center; text-transform: uppercase; }
+.method-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; min-width: 32px; text-align: center; text-transform: uppercase; }
 .method-badge.get { background: rgba(56, 161, 105, .2); color: #38a169; }
 .method-badge.post { background: rgba(66, 153, 225, .2); color: #4299e1; }
 .method-badge.put { background: rgba(237, 137, 54, .2); color: #ed8936; }
@@ -40,7 +41,7 @@
 .method-badge.ws { background: rgba(159, 122, 234, .2); color: #9f7aea; }
 
 .param-badge-list { display: grid; grid-template-columns: repeat(6, 12px); gap: 2px; justify-content: center; align-items: center; min-height: 18px; }
-.param-badge { font-size: 9px; font-weight: 700; padding: 1px 0; border-radius: 3px; text-transform: uppercase; cursor: help; opacity: 0.7; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 14px; text-align: center; }
+.param-badge { font-size: 9px; font-weight: 700; padding: 1px 0; border-radius: 3px; text-transform: uppercase; cursor: pointer; opacity: 0.7; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 14px; text-align: center; }
 .param-badge:not(.off):hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
 .param-badge.off { opacity: 0.08 !important; filter: grayscale(1); background: transparent !important; color: var(--muted) !important; cursor: default !important; }
 .param-badge.h { background: rgba(56, 161, 105, 0.15); color: #38a169; }

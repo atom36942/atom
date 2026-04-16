@@ -4,9 +4,9 @@
 const setupEventListeners = () => {
     // Top-level UI & Toolbars
     UI('tagCardHeader')?.addEventListener('click', toggleTagCard);
-    UI('infoToggleBtn')?.addEventListener('click', () => showModal('infoModal'));
-    UI('storageToggleBtn')?.addEventListener('click', () => { showModal('storageModal'); renderStorage(); });
-    UI('analyticsToggleBtn')?.addEventListener('click', () => { showModal('analyticsModal'); renderAnalytics(); });
+    UI('infoToggleBtn')?.addEventListener('click', () => { showModal('infoModal'); setupIcons(); });
+    UI('storageToggleBtn')?.addEventListener('click', () => { showModal('storageModal'); renderStorage(); setupIcons(); });
+    UI('analyticsToggleBtn')?.addEventListener('click', () => { showModal('analyticsModal'); renderAnalytics(); setupIcons(); });
     UI('apiInfoCsv')?.addEventListener('click', () => exportCatalogCsv());
 
     // Search
@@ -31,6 +31,7 @@ const setupEventListeners = () => {
         'runnerCloseBtn': 'apiRunnerModal',
         'wsRunnerCloseBtn': 'wsRunnerModal',
         'testParamsCloseBtn': 'testParamsModal',
+        'testResponseCloseBtn': 'testResponseModal',
         'masterResponseCloseBtn': 'masterResponseModal',
         'infoCloseBtn': 'infoModal',
         'paramInfoCloseBtn': 'paramInfoModal',
@@ -116,10 +117,38 @@ const setupEventListeners = () => {
     });
     UI('masterRespCsv')?.addEventListener('click', () => {
         const s = ResponseView.states.master;
-        if (s.data) downloadCsv('api_response.csv', s.data?.data || s.data?.message || s.data);
+        if (s.data) {
+            const raw = s.data?.data || s.data?.message || s.data;
+            downloadCsv('api_response.csv', arrayToCsv(Array.isArray(raw) ? raw : [raw]));
+        }
     });
     UI('masterRespJson')?.addEventListener('click', () => {
         const s = ResponseView.states.master;
+        if (s.data) downloadJson('api_response.json', s.data);
+    });
+
+    // Runner Response Actions
+    UI('rCopy')?.addEventListener('click', () => {
+        const s = ResponseView.states.runner;
+        if (s.data) copyWithFeedback(UI('rCopy'), JSON.stringify(s.data, null, 2), 16, 'Response copied');
+    });
+    UI('rCopyFull')?.addEventListener('click', () => {
+        const s = ResponseView.states.runner;
+        if (s.data && curr) {
+            const idx = COMMANDS.indexOf(curr);
+            const full = `## CURL\n${generateCurl(idx)}\n\n## RESPONSE\n${JSON.stringify(s.data, null, 2)}`;
+            copyWithFeedback(UI('rCopyFull'), full, 16, 'Curl & Response copied');
+        }
+    });
+    UI('rCsv')?.addEventListener('click', () => {
+        const s = ResponseView.states.runner;
+        if (s.data) {
+            const raw = s.data?.data || s.data?.message || s.data;
+            downloadCsv('api_response.csv', arrayToCsv(Array.isArray(raw) ? raw : [raw]));
+        }
+    });
+    UI('rJson')?.addEventListener('click', () => {
+        const s = ResponseView.states.runner;
         if (s.data) downloadJson('api_response.json', s.data);
     });
 
@@ -185,11 +214,7 @@ const setupEventListeners = () => {
         if (viewBtn) {
             const row = getRow(viewBtn);
             if (!row) return;
-            const valStr = typeof row.value === 'object' ? JSON.stringify(row.value, null, 2) : String(row.value);
-            UI('testResponseTitle').textContent = `Storage Key: ${row.key}`;
-            UI('testResponseContent').innerHTML = `<pre class="resp-pre" style="padding:20px;margin:0">${highlight(valStr)}</pre>`;
-            UI('testResponseCopy').onclick = () => copyWithFeedback(UI('testResponseCopy'), valStr, 16, 'Copied value');
-            showModal('testResponseModal');
+            openJsonResponseModal(`Storage Key: ${row.key}`, row.value);
         } else if (copyBtn) {
             const row = getRow(copyBtn);
             if (!row) return;
@@ -232,6 +257,11 @@ const setupEventListeners = () => {
             return;
         }
 
+        if (e.target.closest('.col-param.clickable')) {
+            openParamsPreviewModal(idx);
+            return;
+        }
+
         if (e.target.closest('.master-status-cell.clickable')) {
             openMasterResponse(idx);
             return;
@@ -249,13 +279,13 @@ const setupEventListeners = () => {
     
     // Global Event Handlers
     d.addEventListener('click', e => {
-        const td = e.target.closest('.resp-tbl td[data-raw]');
-        if (!td) return;
-        const raw = decodeURIComponent(td.dataset.raw);
+        const btn = e.target.closest('.cell-expand-btn');
+        if (!btn) return;
+        const raw = decodeURIComponent(btn.dataset.raw);
         const pop = UI('cellPop');
         UI('cellPopTxt').textContent = raw;
         cellPopRaw = raw;
-        const r = td.getBoundingClientRect();
+        const r = btn.getBoundingClientRect();
         pop.style.left = Math.min(r.left, window.innerWidth - 420) + 'px';
         pop.style.top = (r.bottom + 4) + 'px';
         pop.classList.add('show');

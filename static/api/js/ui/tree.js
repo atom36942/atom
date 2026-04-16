@@ -53,19 +53,64 @@ const gvVal = v => {
  */
 const fmtGrid = v => {
   if (v == null || typeof v !== 'object') return null;
-  const arr = Array.isArray(v) ? v : [v];
+  const isArr = Array.isArray(v);
+  const arr = isArr ? v : [v];
   if (!arr.length || typeof arr[0] !== 'object' || arr[0] === null) return null;
+  
   const keys = [...new Set(arr.flatMap(Object.keys))];
-  const colW = k => Math.max(90, k.length * 9 + 24);
-  return `<div class="resp-tbl-wrap"><table class="resp-tbl">` +
-    `<thead><tr>${keys.map(k => `<th style="width:${colW(k)}px;min-width:${colW(k)}px">${k}</th>`).join('')}</tr></thead>` +
-    `<tbody>${arr.map(row => `<tr>${keys.map(k => {
-        const cv = row[k];
-        const val = cv == null ? '' : (typeof cv === 'object' ? JSON.stringify(cv) : String(cv));
-        const enc = val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        return `<td title="${enc}" data-raw="${encodeURIComponent(val)}">${enc}</td>`;
-    }).join('')}</tr>`).join('')}</tbody>` +
-    `</table></div>`;
+  const colW = k => Math.min(300, Math.max(120, k.length * 10 + 40));
+
+  // If it's a single object, render a Vertical Property List (The Marketplace Standard)
+  if (!isArr && arr.length === 1) {
+    const properties = Object.entries(v).map(([k, val], i) => {
+      const displayVal = val == null ? 'null' : (typeof val === 'object' ? JSON.stringify(val) : String(val));
+      const valColor = val == null ? 'var(--muted)' : (typeof val === 'number' ? 'var(--accent)' : 'inherit');
+      return `
+        <div style="display:flex;border-bottom:1px solid rgba(255,255,255,0.04);background:${i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}">
+          <div style="flex:0 0 140px;padding:12px 16px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;border-right:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01)">${k}</div>
+          <div style="flex:1;padding:12px 16px;font-size:13px;color:${valColor};font-family:'SF Mono',Menlo,monospace;word-break:break-all">${he(displayVal)}</div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="modal-card" style="margin:0">
+        <div class="modal-card-header" style="padding:10px 16px;background:rgba(255,255,255,0.02)">
+            <h4>OBJECT PROPERTIES</h4>
+        </div>
+        <div class="modal-card-body" style="padding:0">
+            ${properties}
+        </div>
+      </div>`;
+  }
+
+  // Otherwise, render the Horizontal Data Grid
+  const tableRows = arr.map((row, rowIndex) => `
+    <tr style="background:${rowIndex % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'}">
+      ${keys.map(k => {
+          const cv = row[k];
+          const val = cv == null ? '' : (typeof cv === 'object' ? JSON.stringify(cv) : String(cv));
+          const enc = val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          const isLong = val.length > 60;
+          const display = isLong ? he(val.substring(0, 57)) + '...' : enc;
+          const viewBtn = isLong ? `<button type="button" class="icon-btn cell-expand-btn" data-raw="${encodeURIComponent(val)}" title="View Full Value" style="padding:2px;margin-left:auto">${ICON.expand(14)}</button>` : '';
+          return `<td title="${enc}"><div style="display:flex;align-items:center;gap:8px;max-width:${colW(k)}px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${display}</span>${viewBtn}</div></td>`;
+      }).join('')}
+    </tr>`).join('');
+
+  return `
+    <div class="modal-card" style="margin:0">
+        <div class="modal-card-header" style="padding:10px 16px;background:rgba(255,255,255,0.02)">
+            <h4>DATA GRID</h4>
+        </div>
+        <div class="modal-card-body" style="padding:0">
+            <div class="resp-tbl-wrap" style="max-height:500px">
+                <table class="resp-tbl">
+                    <thead><tr>${keys.map(k => `<th style="width:${colW(k)}px;min-width:${colW(k)}px">${k}</th>`).join('')}</tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </div>
+        </div>
+    </div>`;
 };
 
 /**

@@ -3,10 +3,15 @@ const d = document;
 /**
  * @namespace UI
  * @description Centralized DOM element registry with caching.
+ * Re-fetches from DOM if the cached element is no longer connected.
  * @param {string} id - The element ID.
  * @returns {HTMLElement}
  */
-const UI = id => (UI.cache[id] || (UI.cache[id] = d.getElementById(id)));
+const UI = id => {
+    const cached = UI.cache[id];
+    if (cached && cached.isConnected) return cached;
+    return (UI.cache[id] = d.getElementById(id));
+};
 UI.cache = {};
 const $ = UI;
 
