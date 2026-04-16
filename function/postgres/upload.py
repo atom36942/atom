@@ -1,6 +1,3 @@
-import asyncio, asyncpg, csv, time
-from datetime import datetime
-
 async def func_postgres_bulk_upload_csv(*, csv_path: str, pg_dsn: str, table: str, const_column: list | None):
     """
     Resilient, schema-aware bulk CSV uploader for PostgreSQL.
@@ -11,6 +8,8 @@ async def func_postgres_bulk_upload_csv(*, csv_path: str, pg_dsn: str, table: st
     - Robustness: Handles dirty data (N/A, NULL strings) and multiple date formats.
     - Strictness: Aborts and reports specific column/row errors for data integrity.
     """
+    import asyncio, asyncpg, csv, time
+    from datetime import datetime
     t0, log_every = time.time(), 100000
     db_name = pg_dsn.split('/')[-1].split('?')[0]
     print(f"\n{'-'*60}\n🚚 INGESTION DASHBOARD\n{'-'*60}")
