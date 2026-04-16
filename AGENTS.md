@@ -4,11 +4,8 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 
 ### Repository Map
 - **`main.py`**: Entry point for the application. Handles server execution and runtime orchestration.
-- **`core/`**: Centralized framework core.
-    - **`app.py`**: Initialization logic. Manages lifespan, middleware, and application setup.
-    - **`config.py`**: Centralized settings and schema definitions.
-    - **`consumer.py`**: Background task processing (Celery, Kafka, etc.).
-- **`function/`**: Modular functional logic layer (IO allowed via injected clients).
+- **`core/`**: Centralized framework core. Manages application initialization, settings, and background task processing.
+- **`function/`**: Modular functional logic layer. Organized by domain (database, user, aws, etc.) with dedicated **`app/`** (infrastructure) and **`utility/`** (helpers) subfolders.
 - **`router/`**: API endpoint definitions and role assignments.
 - **`script/`**: Isolated, independent scripts with standalone logic.
 - **`static/`**: Frontend assets and documentation.
@@ -27,4 +24,4 @@ Adherence to these rules is imp to maintain codebase consistency and safety.
 - **Naming Conventions**: Use strict prefixes (`client_`, `cache_`,`config_`, `func_`) for `core/app.py`, `function/*`, and `core/config/*` logic.
 - **Functional Logic Layer**: Modular, stateless logic only; internal state persistence strictly prohibited; explicit dependency injection; side-effect free IO via injected clients.
 - **Strict Function Signatures**: All functions in the `function/` directory MUST use the keyword-only separator (`*`) immediately after the opening parenthesis. Every parameter MUST be mandatory; internal default values are strictly prohibited.
-- **API Parameter Definition**: All API parameters MUST be defined and extracted at the `router/` level using `func_request_param_read`. Functional modules and orchestrators in `function/` MUST receive pre-parsed objects and are prohibited from handling raw request parameter extraction.
+- **API Parameter Definition**: All API parameters MUST be defined and extracted at the `router/` level using `func_request_param_read`. Functional modules in `function/` MUST receive pre-parsed objects and are prohibited from handling raw request parameter extraction.
