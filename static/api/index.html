@@ -4,14 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>API Master</title>
-    <link rel="stylesheet" href="/static/api/css/core/base.css?v=0.2.5">
-<link rel="stylesheet" href="/static/api/css/ui/loader.css?v=0.2.5">
-<link rel="stylesheet" href="/static/api/css/ui/modal.css?v=0.2.5">
-<link rel="stylesheet" href="/static/api/css/ui/table.css?v=0.2.5">
-<link rel="stylesheet" href="/static/api/css/ui/tree.css?v=0.2.5">
-<link rel="stylesheet" href="/static/api/css/ui/runner.css?v=0.2.5">
-<link rel="stylesheet" href="/static/api/css/ui/analytics.css?v=0.2.5">
-<link rel="stylesheet" href="/static/api/css/ui/toast.css?v=0.2.5">
+    <link rel="stylesheet" href="/static/api/css/core/base.css?v=0.2.8">
+<link rel="stylesheet" href="/static/api/css/ui/loader.css?v=0.2.8">
+<link rel="stylesheet" href="/static/api/css/ui/modal.css?v=0.2.8">
+<link rel="stylesheet" href="/static/api/css/ui/table.css?v=0.2.8">
+<link rel="stylesheet" href="/static/api/css/ui/tree.css?v=0.2.8">
+<link rel="stylesheet" href="/static/api/css/ui/runner.css?v=0.2.8">
+<link rel="stylesheet" href="/static/api/css/ui/analytics.css?v=0.2.8">
+<link rel="stylesheet" href="/static/api/css/ui/toast.css?v=0.2.8">
 </head>
 <body>
 <div id="appLoader" class="app-loader-overlay">
@@ -33,10 +33,10 @@
             <div class="modal-actions">
                 <button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer;transition:all 0.2s"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button>
                 <div style="width:1px;height:24px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-                <button type="button" class="icon-btn" id="infoToggleBtn" title="View Documentation (D)"></button>
-                <button type="button" class="icon-btn" id="storageToggleBtn" title="Local Storage State (S)"></button>
-                <button type="button" class="icon-btn" id="analyticsToggleBtn" title="Performance Analytics (A)"></button>
-                <button type="button" class="icon-btn" id="apiInfoCsv" title="Export CSV Catalog (E)"></button>
+                <button type="button" class="icon-btn" id="infoToggleBtn" title="View Documentation (D)" onclick="showModal('infoModal');setupIcons();"></button>
+                <button type="button" class="icon-btn" id="storageToggleBtn" title="Local Storage State (S)" onclick="showModal('storageModal');renderStorage();setupIcons();"></button>
+                <button type="button" class="icon-btn" id="analyticsToggleBtn" title="Performance Analytics (A)" onclick="showModal('analyticsModal');renderAnalytics();setupIcons();"></button>
+                <button type="button" class="icon-btn" id="apiInfoCsv" title="Export CSV Catalog (E)" onclick="exportCatalogCsv();"></button>
             </div>
         </div>
     <div class="modal-body" style="padding:24px;max-height:none;overflow:visible">
@@ -60,27 +60,27 @@
     </div>
 </div></div></div></div>
 
-<script src="/static/api/js/ui/modal_html.js?v=0.2.5"></script>
-<script src="/static/api/js/core/vars.js?v=0.2.5"></script>
-<script src="/static/api/js/core/ui.js?v=0.2.5"></script>
-<script src="/static/api/js/core/events.js?v=0.2.5"></script>
-<script src="/static/api/js/core/store.js?v=0.2.5"></script>
-<script src="/static/api/js/icons.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/icons_init.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/toast.js?v=0.2.5"></script>
-<script src="/static/api/js/func/util.js?v=0.2.5"></script>
-<script src="/static/api/js/func/param.js?v=0.2.5"></script>
-<script src="/static/api/js/func/openapi.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/loader.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/tree.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/modal.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/table.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/analytics.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/storage.js?v=0.2.5"></script>
-<script src="/static/api/js/ui/runner.js?v=0.2.5"></script>
-<script src="/static/api/js/func/api.js?v=0.2.5"></script>
-<script src="/static/api/js/func/ws.js?v=0.2.5"></script>
-<script src="/static/api/js/core/init.js?v=0.2.5"></script>
+<script src="/static/api/js/ui/modal_html.js?v=0.2.8"></script>
+<script src="/static/api/js/core/vars.js?v=0.2.8"></script>
+<script src="/static/api/js/core/ui.js?v=0.2.8"></script>
+<script src="/static/api/js/core/events.js?v=0.2.8"></script>
+<script src="/static/api/js/core/store.js?v=0.2.8"></script>
+<script src="/static/api/js/icons.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/icons_init.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/toast.js?v=0.2.8"></script>
+<script src="/static/api/js/func/util.js?v=0.2.8"></script>
+<script src="/static/api/js/func/param.js?v=0.2.8"></script>
+<script src="/static/api/js/func/openapi.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/loader.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/tree.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/modal.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/table.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/analytics.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/storage.js?v=0.2.8"></script>
+<script src="/static/api/js/ui/runner.js?v=0.2.8"></script>
+<script src="/static/api/js/func/api.js?v=0.2.8"></script>
+<script src="/static/api/js/func/ws.js?v=0.2.8"></script>
+<script src="/static/api/js/core/init.js?v=0.2.8"></script>
 <script>init();</script>
 </body>
 </html>

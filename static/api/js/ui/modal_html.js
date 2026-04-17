@@ -10,8 +10,8 @@ const MODAL_HTML = `
             <h3>API Runner</h3>
         </div>
         <div class="modal-actions">
-            <button type="button" class="icon-btn" id="runnerLinkBtn" title="Copy Direct API Link"></button>
-            <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response"></button>
+            <button type="button" class="icon-btn" id="runnerLinkBtn" title="Copy Direct API Link" onclick="if(curr){const link=\`\${window.location.origin}\${window.location.pathname}?api=\${curr.m}|\${curr.p}\`;copyWithFeedback(this,link,20,'Link copied');}"></button>
+            <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response" onclick="if(activeMasterRunIndex!==null)openCurlViewModal(activeMasterRunIndex,'all');"></button>
             <button type="submit" class="btn btn-primary" id="subBtn" form="apiForm" title="Run API" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px;display:flex;align-items:center"><div class="spinner"></div><span id="subBtnIcon" style="display:flex;align-items:center"></span><span id="subBtnText">Run</span></button>
             <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"></button>
         </div>
