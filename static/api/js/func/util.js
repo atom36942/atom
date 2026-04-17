@@ -41,7 +41,7 @@ const generateCurl = cmdOrIdx => {
   const is_diff = curr && (c === curr);
   const live = is_diff ? ParamManager.getCurrent() : { h: [], q: [], f: [], u: [], j: [] };
   const merge = (spec, liveRows) => {
-    const res = (spec || []).map(s => { const l = liveRows.find(x => x.k === s.k); return { ...s, v: l ? l.v : s.v }; });
+    const res = (spec || []).map(s => { const l = liveRows.find(x => x.k === s.k); return { ...s, v: l ? l.v : s.v, files: l ? l.files : null }; });
     liveRows.forEach(l => { if (l.k && !res.find(x => x.k === l.k)) res.push(l); });
     return res;
   };
@@ -71,7 +71,13 @@ const generateCurl = cmdOrIdx => {
     body = `-d '${JSON.stringify(b)}'`;
     if (!h.some(x => x.includes('Content-Type'))) h.push('-H "Content-Type: application/json"');
   } else if (fData.length || c._hf) {
-    body = fData.map(x => `-F "${x.k}=${sanitize(x.v)}"`).join(' ');
+    body = fData.map(x => {
+        if (x.files?.length || x.t === 'file') {
+            const fileName = (x.v || '').replace(/^C:\\fakepath\\/, '') || 'file.csv';
+            return `-F "${x.k}=@${fileName}"`;
+        }
+        return `-F "${x.k}=${sanitize(x.v)}"`;
+    }).join(' ');
   }
   return `curl -X ${c.m} "${url}" ${h.join(' ')} ${body}`.trim().replace(/\s+/g, ' ');
 };

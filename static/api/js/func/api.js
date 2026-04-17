@@ -67,6 +67,7 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
       if (m) filename = m[1];
       const fileResponse = { status: 1, message: `File downloaded: ${filename}` };
       if (isAllowDownload) downloadBlob(blob, filename);
+      toast(`File Downloaded: ${filename}`);
       if (isShowResponse) showResponse(fileResponse, r.status, ms);
       if (activeMasterRunIndex !== null) {
         Store.setResponse(activeMasterRunIndex, { status: r.status, time: ms, data: fileResponse, updated_at: Date.now() });
@@ -85,6 +86,7 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
         }
       }
       if (isShowResponse) showResponse(json, r.status, ms);
+      toast(`Execution Complete: ${r.status}`);
       if (activeMasterRunIndex !== null) {
         Store.setResponse(activeMasterRunIndex, { status: r.status, time: ms, data: json, updated_at: Date.now() });
         renderApiInfoTable(UI('apiInfoSearch').value);
@@ -101,6 +103,7 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
   } catch (err) {
     const failMs = Math.round(performance.now() - t0);
     const failResponse = { status: 0, message: err.message };
+    toast(`Execution Error: ${err.message}`);
     if (isShowResponse) showResponse(failResponse, 0, failMs);
     if (activeMasterRunIndex !== null) {
       Store.setResponse(activeMasterRunIndex, { status: 0, time: failMs, data: failResponse, updated_at: Date.now() });

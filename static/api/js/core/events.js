@@ -4,12 +4,25 @@
 const setupEventListeners = () => {
     // Top-level UI & Toolbars
     UI('tagCardHeader')?.addEventListener('click', toggleTagCard);
-    UI('runnerResetBtn')?.addEventListener('click', () => {
-        if (activeMasterRunIndex !== null) {
-            Store.removeResponse(activeMasterRunIndex);
-            ResponseView.states.runner = { data: null, status: null, time: null, index: null, view: 'raw' };
-            load(activeMasterRunIndex);
-            renderApiInfoTable(UI('apiInfoSearch').value);
+    UI('runnerResetBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const s = ResponseView.states.runner;
+        const idx = s.index !== null ? s.index : activeMasterRunIndex;
+        if (idx !== null) {
+            Store.removeResponse(idx);
+            Object.assign(s, { data: null, status: null, time: null });
+            UI('rBox')?.classList.remove('show');
+            ['rCode', 'rawPre', 'viewPretty', 'viewTable'].forEach(id => {
+                const el = UI(id);
+                if (el) el.innerHTML = '';
+            });
+            const resetBtn = UI('runnerResetBtn');
+            if (resetBtn) {
+                resetBtn.disabled = true;
+                resetBtn.style.opacity = '0.35';
+                resetBtn.style.pointerEvents = 'none';
+            }
+            renderApiInfoTable(UI('apiInfoSearch')?.value || '');
             toast('Response history cleared');
         }
     });

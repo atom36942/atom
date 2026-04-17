@@ -8,7 +8,7 @@ async def func_request_param_read(*, request: any, mode: str, config: list, stri
         form_data = await request.form()
         params_dict = {key: val for key, val in form_data.items() if isinstance(val, str)}
         for key in form_data.keys():
-            files = [x for x in form_data.getlist(key) if getattr(x, "filename", None)]
+            files = [x for x in form_data.getlist(key) if not isinstance(x, str)]
             if files:
                 params_dict[key] = files
     elif mode == "body":
@@ -41,7 +41,7 @@ async def func_request_param_read(*, request: any, mode: str, config: list, stri
         "str": str, "any": lambda v: v, 
         "bool": lambda v: 1 if str(v).strip().lower() in ("1", "true", "yes", "on", "ok") else 0, 
         "dict": smart_dict, "object": smart_dict,
-        "file": lambda v: ([] if v is None else v if isinstance(v, list) else [v]),
+        "file": lambda v: [x for x in (v if isinstance(v, list) else [v] if v is not None else []) if hasattr(x, "file")],
         "list": lambda v: [] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]
     }
     output_dict = params_dict.copy() if not strict else {}
@@ -52,15 +52,10 @@ async def func_request_param_read(*, request: any, mode: str, config: list, stri
         if param_len < 5:
             param_key = param[0] if param_len > 0 else "unknown"
             raise Exception(f"invalid config tuple length {param_len} for '{param_key}': (key, dtype, is_mandatory, allowed_values, default_value) are required")
-        key = param[0]
-        dtype = param[1]
-        is_mandatory = int(param[2])
-        allowed_values = param[3]
-        default_value = param[4]
+        key, dtype, is_mandatory, allowed_values, default_value = param[0], param[1], int(param[2]), param[3], param[4]
         regex_info = param[5] if param_len > 5 else None
         regex_pattern = regex_info[0] if isinstance(regex_info, (list, tuple)) and len(regex_info) > 0 else None
         custom_error = regex_info[1] if isinstance(regex_info, (list, tuple)) and len(regex_info) > 1 else None
-        description = param[6] if param_len > 6 else None
         if dtype not in TYPE_MAP and not dtype.startswith("list:"):
             raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
         if is_mandatory == 1 and default_value is not None:
@@ -91,6 +86,11 @@ async def func_request_param_read(*, request: any, mode: str, config: list, stri
                     val = TYPE_MAP[dtype](val)
             except Exception:
                 raise Exception(f"parameter '{key}' invalid type {dtype}")
+        if is_mandatory == 1:
+            if dtype == "file" and (not isinstance(val, list) or len(val) == 0):
+                raise Exception(f"parameter '{key}' missing or invalid file upload")
+            if dtype == "list" and (not isinstance(val, list) or len(val) == 0):
+                 raise Exception(f"parameter '{key}' missing or empty list")
         if val is not None and allowed_values and val not in allowed_values:
             raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
         if val is not None and regex_pattern:

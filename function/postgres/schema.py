@@ -93,6 +93,9 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
     table_blocked = control.get("table_row_delete_disable", [])
     is_autovacuum = control.get("is_autovacuum_optimize", 0)
     is_analyze = control.get("is_analyze_init", 0)
+    is_drop_schema = control.get("is_drop_disable_schema", 0)
+    is_drop_table = control.get("is_drop_disable_table", 0)
+    is_truncate_table = control.get("is_truncate_disable", 0)
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
     for table_name, column_configs in config_postgres["table"].items():
         column_names = [col["name"] for col in column_configs]
@@ -184,10 +187,25 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected=1 THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
-        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'delete not allowed on %', TG_TABLE_NAME; END; $$;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
+        drop_tags = []
+        # Note: 'DROP DATABASE' is not supported by event triggers in Postgres
+        if is_drop_schema: drop_tags.append("'DROP SCHEMA'")
+        if is_drop_table: drop_tags.append("'DROP TABLE'")
+        if drop_tags:
+            tag_list = ",".join(drop_tags)
+            await conn.execute("CREATE OR REPLACE FUNCTION func_drop_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'dropping objects is disabled in configuration'; END; $$;")
+            await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
+            await conn.execute(f"CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ({tag_list}) EXECUTE FUNCTION func_drop_disable();")
+        else:
+            await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
         for table, cols in db_tables.items():
             if table == "spatial_ref_sys":
                 continue
+            if is_truncate_table:
+                trunc_tg_name = f"trigger_truncate_disable_{table}"
+                catalog["tg"].add(trunc_tg_name)
+                await conn.execute(f"DROP TRIGGER IF EXISTS {trunc_tg_name} ON {table}; CREATE TRIGGER {trunc_tg_name} BEFORE TRUNCATE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_table();")
             if "is_protected" in cols:
                 prot_tg_name = f"trigger_delete_disable_is_protected_{table}"
                 catalog["tg"].add(prot_tg_name)
@@ -217,7 +235,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 await conn.execute(f"CREATE TRIGGER {tab_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();")
         for prefix in ("tg", "uni_chk", "idx"):
             wants = catalog["tg"] if prefix == "tg" else catalog["uni"] | catalog["chk"] if prefix == "uni_chk" else catalog["idx"] | catalog["uni"] | catalog["chk"]
-            wants_str = ",".join(f"'{i}'" for i in wants) if wants else "NULL"
+            wants_str = ",".join(f"'{i}'" for i in wants) if wants else "''"
             if prefix == "idx":
                 selection = "indexname"
                 info_tbl = "pg_indexes"

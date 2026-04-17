@@ -12,7 +12,7 @@ const ParamManager = {
       const v = r.querySelector('.row-val');
       const ts = r.querySelector('.json-type-selector');
       const t = isJson && ts ? ts.value : null;
-      if (k || v.value) rows.push({ k, v: v.value, t, f: v.files?.length ? Array.from(v.files) : null });
+      if (k || v.value) rows.push({ k, v: v.value, t, files: v.files?.length ? Array.from(v.files) : null });
     });
     return rows;
   },
