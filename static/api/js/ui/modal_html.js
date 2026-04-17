@@ -11,6 +11,7 @@ const MODAL_HTML = `
         </div>
         <div class="modal-actions">
             <button type="button" class="icon-btn" id="runnerLinkBtn" title="Copy Direct API Link" onclick="if(curr){const link=\`\${window.location.origin}\${window.location.pathname}?api=\${curr.m}|\${curr.p}\`;copyWithFeedback(this,link,20,'Link copied');}"></button>
+            <button type="button" class="icon-btn delete" id="runnerResetBtn" title="Clear Response History"></button>
             <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response" onclick="if(activeMasterRunIndex!==null)openCurlViewModal(activeMasterRunIndex,'all');"></button>
             <button type="submit" class="btn btn-primary" id="subBtn" form="apiForm" title="Run API" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px;display:flex;align-items:center"><div class="spinner"></div><span id="subBtnIcon" style="display:flex;align-items:center"></span><span id="subBtnText">Run</span></button>
             <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"></button>
@@ -119,40 +120,7 @@ const MODAL_HTML = `
     </div>
 </div>
 
-<!-- Master Response Modal -->
-<div id="masterResponseModal" class="modal">
-    <div class="modal-content" style="max-width:760px;margin:2% auto">
-        <div class="modal-header">
-            <h3>API Response</h3>
-            <div class="modal-actions">
-                <button type="button" class="icon-btn" id="masterResponseCloseBtn" title="Close"></button>
-            </div>
-        </div>
-        <div class="modal-body" style="height:75vh;display:flex;flex-direction:column;gap:10px;padding-bottom:12px">
-        <div class="runner-endpoint" id="masterRespIn"></div>
-        <div class="resp-box show" id="masterRespBox" style="flex:1;display:flex;flex-direction:column;min-height:0">
-            <div class="resp-header">
-                <span>Response <span id="masterRespCode" style="font-weight:400"></span></span>
-                <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-                    <button class="view-btn master-view-btn" data-view="raw" title="Raw View" id="masterBtnRaw" disabled style="opacity:0.35;pointer-events:none"></button>
-                    <button class="view-btn master-view-btn" data-view="pretty" title="Tree View" id="masterBtnPretty" disabled style="opacity:0.35;pointer-events:none"></button>
-                    <button class="view-btn master-view-btn" data-view="table" title="Table View" id="masterBtnTable" disabled style="opacity:0.35;pointer-events:none"></button>
-                    <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-                    <button id="masterRespCopy" class="icon-btn" title="Copy Response" disabled style="opacity:0.35;pointer-events:none"></button>
-                    <button id="masterRespCopyFull" class="icon-btn" title="Copy Curl & Response" disabled style="opacity:0.35;pointer-events:none"></button>
-                    <div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-                    <button id="masterRespCsv" class="icon-btn" title="Download CSV" disabled style="opacity:0.35;pointer-events:none"></button>
-                    <button id="masterRespJson" class="icon-btn" title="Download JSON" disabled style="opacity:0.35;pointer-events:none"></button>
-                </div>
-            </div>
-            <div class="resp-content" style="flex:1;overflow-y:auto">
-                <div id="masterViewPretty" class="resp-view active"></div>
-                <div id="masterViewRaw" class="resp-view"><pre class="resp-pre" id="masterRawPre" style="margin:0"></pre></div>
-                <div id="masterViewTable" class="resp-view"></div>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- Info Modal -->
 <div id="infoModal" class="modal"><div class="modal-content" style="max-width:800px;margin:2% auto">

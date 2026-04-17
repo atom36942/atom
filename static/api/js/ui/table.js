@@ -60,7 +60,7 @@ const renderApiInfoTable = (searchQuery = '') => {
           <td class="col-method master-static-cell"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td>
           <td class="col-path master-static-cell" title="${c.p}">${c.p}</td>
           <td class="col-param master-static-cell clickable params-preview-btn" title="View Configuration Details">${isWs ? '-' : renderParamBadges(c)}</td>
-          <td class="col-time master-status-cell ${hasRes ? 'clickable' : ''}" title="${hasRes ? `HTTP ${responseState.status}` : 'No response yet'}">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
+          <td class="col-time master-status-cell" title="API Status">${isWs ? '-' : renderStatusBadge(responseState?.status)}</td>
           <td class="col-time master-time-cell">${isWs ? '-' : (responseState ? `${responseState.time}ms` : '-')}</td>
           <td class="col-run run-btn clickable" title="Run">${ICON.play(16)}</td>
         </tr>`;

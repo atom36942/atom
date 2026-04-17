@@ -41,23 +41,7 @@ async def func_api_admin_postgres_export(*, request: Request):
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
     obj_f = await app_state.func_request_param_read(request=request, mode="form", config=[("mode", "str", 1, ["create", "update", "delete"], None, None, None), ("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("file", "file", 1, [], None, None, None), ("is_serialize", "int", 0, [0, 1], 1, None, None)], strict=0)
-    count, tasks, sem = 0, set(), asyncio.Semaphore(10)
-    async def process_chunk(chunk_list):
-       async with sem:
-          if obj_f["mode"] == "create":
-             await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="now", table=obj_f["table"], obj_list=chunk_list, is_serialize=obj_f["is_serialize"], buffer_limit=0, cache_postgres_buffer=app_state.cache_postgres_buffer)
-          elif obj_f["mode"] == "update":
-             await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=obj_f["table"], obj_list=chunk_list, is_serialize=obj_f["is_serialize"], field_id="id", created_by_id=None, is_return_ids=0)
-          elif obj_f["mode"] == "delete":
-             await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=obj_f["table"], ids=",".join(str(obj["id"]) for obj in chunk_list), created_by_id=None, config_postgres_ids_delete_limit=app_state.config_postgres_ids_delete_limit)
-          return len(chunk_list)
-    async for obj_list in app_state.func_api_file_to_chunks(upload_file=obj_f["file"][-1], chunk_size=app_state.config_limit_obj_list):
-       if len(tasks) >= 20:
-          done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-          for t in done: count += t.result()
-       tasks.add(asyncio.create_task(process_chunk(obj_list)))
-    if tasks:
-       for res in await asyncio.gather(*tasks): count += res
+    count = await app_state.func_orchestrator_semaphore_postgres_import(upload_file=obj_f["file"][-1], mode=obj_f["mode"], table=obj_f["table"], is_serialize=obj_f["is_serialize"], config_limit_obj_list=app_state.config_limit_obj_list, config_postgres_ids_delete_limit=app_state.config_postgres_ids_delete_limit, client_postgres_pool=app_state.client_postgres_pool, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_create=app_state.func_postgres_create, func_postgres_update=app_state.func_postgres_update, func_postgres_delete=app_state.func_postgres_delete, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     return {"status": 1, "message": f"{count} rows processed"}
 
 @router.post("/admin/object-create")

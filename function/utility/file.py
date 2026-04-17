@@ -26,7 +26,6 @@ async def func_api_file_to_obj_list(*, upload_file: any) -> list[dict[str, any]]
 async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int) -> any:
     """Yield chunks of dictionaries from an uploaded CSV file for memory efficiency."""
     import csv, io, asyncio
-    
     def _read_chunk(reader_iter, size):
         chunk = []
         try:

@@ -1,13 +1,11 @@
 def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
-    
     TYPE_MAP = {
         "int": "integer", "bigint": "integer", "smallint": "integer", "integer": "integer", "int4": "integer", "int8": "integer",
         "float": "number", "number": "number", "numeric": "number",
         "bool": "boolean", "dict": "object", "object": "object", "file": "string", "list": "array"
     }
-
     def eval_node(n):
         if hasattr(ast, "Constant") and isinstance(n, ast.Constant): return n.value
         if hasattr(ast, "Str") and isinstance(n, ast.Str): return n.s
@@ -16,7 +14,6 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
         if isinstance(n, (ast.List, ast.Tuple)): return [eval_node(e) for e in n.elts]
         if isinstance(n, ast.Attribute) and hasattr(n.value, "id") and n.value.id == "app_state" and app_state: return getattr(app_state, n.attr, None)
         return None
-
     def ast_to_schema(n):
         if isinstance(n, ast.Dict):
             return {"type": "object", "properties": {eval_node(k): ast_to_schema(v) for k, v in zip(n.keys, n.values) if eval_node(k)}}
@@ -30,32 +27,26 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
         if isinstance(v, list): return {"type": "array", "items": {"type": "string"}}
         if isinstance(v, dict): return {"type": "object", "properties": {k: {"type": "string", "default": str(val)} for k, val in v.items()}}
         return {"type": "string", "default": str(v) if v is not None else None}
-
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "API Documentation", "version": "1.0.0"},
         "paths": {},
         "components": {"securitySchemes": {"BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}}}
     }
-    
     for route in app_routes:
         if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
         path = route.path
         if path not in spec["paths"]: spec["paths"][path] = {}
         methods = list(getattr(route, "methods", [])) or (["WS"] if "WebSocket" in type(route).__name__ else [])
-        
         for method in methods:
             m_lower = method.lower()
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
-            
             if any(path.startswith(x) for x in config_api_roles_auth):
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
-            
             for p in re.findall(r"\{(\w+)\}", path):
                 op["parameters"].append({"name": p, "in": "path", "required": True, "schema": {"type": "string"}})
-            
             try:
                 sig = inspect.signature(route.endpoint)
                 for name, par in sig.parameters.items():
@@ -63,7 +54,6 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                     if name in ["request", "websocket", "req"] or any(x in p_type for x in ["Request", "Response", "WebSocket", "BackgroundTasks"]): continue
                     if any(x["name"] == name for x in op["parameters"]): continue
                     op["parameters"].append({"name": name, "in": "query", "required": par.default == inspect.Parameter.empty, "schema": {"type": "integer" if p_type == "int" else "string", "default": None if par.default == inspect.Parameter.empty else par.default}})
-                
                 source = inspect.getsource(route.endpoint)
                 tree = ast.parse(source)
                 for node in ast.walk(tree):
@@ -104,5 +94,4 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                     except: pass
             except: pass
             spec["paths"][path][m_lower] = op
-            
     return spec

@@ -141,8 +141,16 @@ const populate = (cont, sec, spec, isJson = false) => {
 const load = i => {
   curr = i === null ? null : COMMANDS[i];
   SECTIONS.forEach(([, sec, cont]) => { UI(cont).innerHTML = ''; UI(sec).classList.remove('active'); });
+  
   const rBox = UI('rBox');
-  if (rBox) rBox.classList.remove('show');
+  if (rBox) {
+      rBox.classList.remove('show');
+      ['rCode', 'rawPre', 'viewPretty', 'viewTable'].forEach(id => {
+          const el = UI(id);
+          if (el) el.innerHTML = '';
+      });
+  }
+  
   ['btnRaw', 'btnPretty', 'btnTable', 'rCopy', 'rCopyFull', 'rCsv', 'rJson'].forEach(id => {
       const btn = UI(id);
       if (btn) {
@@ -156,6 +164,7 @@ const load = i => {
   const pathHeader = UI('runnerPathHeader');
   if (pathHeader) pathHeader.innerHTML = curr ? renderRunnerEndpoint(curr) : '';
   if (!curr) return;
+
   populate('hCont', 'hSec', curr.h);
   populate('uCont', 'uSec', curr.u);
   populate('qCont', 'qSec', curr.q);
@@ -163,6 +172,16 @@ const load = i => {
   populate('jCont', 'jSec', (curr._hj ? curr.j : []), true);
   if (curr._hf && !UI('fCont').children.length) { UI('fSec').classList.add('active'); mkRow(UI('fCont')); }
   if (curr._hj && !UI('jCont').children.length) { UI('jSec').classList.add('active'); mkRow(UI('jCont')); }
+
+  const res = Store.getResponse(i);
+  const resetBtn = UI('runnerResetBtn');
+  if (resetBtn) {
+      resetBtn.disabled = !res;
+      resetBtn.style.opacity = res ? '1' : '0.35';
+      resetBtn.style.pointerEvents = res ? 'auto' : 'none';
+      resetBtn.style.cursor = res ? 'pointer' : 'default';
+  }
+  if (res) ResponseView.render('runner', res.data, res.status, res.time, i);
 
   setupIcons();
 };

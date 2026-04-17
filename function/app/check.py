@@ -96,7 +96,6 @@ def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: lis
             elif "*" in v and len(v) > 1:
                 errs.append(f"exclusive wildcard violation: {k} cannot contain other values if '*' is present")
         return errs
-
     def get_switch_errors():
         from core import config
         errs = []

@@ -88,6 +88,13 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
       if (activeMasterRunIndex !== null) {
         Store.setResponse(activeMasterRunIndex, { status: r.status, time: ms, data: json, updated_at: Date.now() });
         renderApiInfoTable(UI('apiInfoSearch').value);
+        const resetBtn = UI('runnerResetBtn');
+        if (resetBtn) {
+            resetBtn.disabled = false;
+            resetBtn.style.opacity = '1';
+            resetBtn.style.pointerEvents = 'auto';
+            resetBtn.style.cursor = 'pointer';
+        }
       }
       return { status: r.status, time: ms, data: json };
     }

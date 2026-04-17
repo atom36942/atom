@@ -32,25 +32,20 @@ const hideModal = id => {
  */
 const ResponseView = {
   states: {
-    runner: { data: null, status: null, time: null, index: null, view: 'raw' },
-    master: { data: null, status: null, time: null, index: null, view: 'raw' }
+    runner: { data: null, status: null, time: null, index: null, view: 'raw' }
   },
 
   render(scope, data, status, time, index = null) {
-    const s = this.states[scope];
+    const s = this.states.runner;
     s.data = data; s.status = status; s.time = time; s.index = index;
-    const isMaster = scope === 'master';
     const codeColor = status >= 200 && status < 300 ? 'var(--primary)' : (status >= 400 ? 'var(--delete)' : 'var(--accent)');
     const codeHtml = (status != null ? `<span style="color:${codeColor};font-weight:600">${status}</span>` : '') + 
                      (time != null ? ` <span style="color:var(--muted);font-size:11px;margin-left:8px">${time}ms</span>` : '');
     const tableData = data?.message;
     const isTabular = tableData != null && typeof tableData === 'object';
     
-    // 1. General Response Icons (Enable for any data)
-    const generalIcons = isMaster 
-        ? ['masterBtnRaw', 'masterBtnPretty', 'masterRespCopy', 'masterRespCopyFull', 'masterRespJson']
-        : ['btnRaw', 'btnPretty', 'rCopy', 'rCopyFull', 'rJson'];
-    
+    // 1. General Response Icons
+    const generalIcons = ['btnRaw', 'btnPretty', 'rCopy', 'rCopyFull', 'rJson'];
     generalIcons.forEach(id => {
         const btn = UI(id);
         if (!btn) return;
@@ -60,9 +55,9 @@ const ResponseView = {
         btn.style.cursor = 'pointer';
     });
 
-    // 2. Tabular Specific Icons (Enable only for structured data)
-    const tblBtn = UI(isMaster ? 'masterBtnTable' : 'btnTable');
-    const csvBtn = UI(isMaster ? 'masterRespCsv' : 'rCsv');
+    // 2. Tabular Specific Icons
+    const tblBtn = UI('btnTable');
+    const csvBtn = UI('rCsv');
     [tblBtn, csvBtn].forEach(btn => {
         if (!btn) return;
         btn.disabled = !isTabular;
@@ -71,47 +66,43 @@ const ResponseView = {
         btn.style.cursor = isTabular ? 'pointer' : 'default';
     });
 
-    UI(isMaster ? 'masterRespCode' : 'rCode').innerHTML = codeHtml;
-    UI(isMaster ? 'masterRespBox' : 'rBox').classList.add('show');
-    this.switchTo(scope, s.view);
+    UI('rCode').innerHTML = codeHtml;
+    UI('rBox').classList.add('show');
+    this.switchTo('runner', s.view);
   },
 
   switchTo(scope, type) {
-    const s = this.states[scope];
+    const s = this.states.runner;
     s.view = type;
-    const isMaster = scope === 'master';
-    const btnP = isMaster ? 'masterBtn' : 'btn';
-    const viewP = isMaster ? 'masterView' : 'view';
     const data = s.data;
     ['Raw', 'Pretty', 'Table'].forEach(t => {
-      const btn = UI(`${btnP}${t}`);
+      const btn = UI(`btn${t}`);
       if (btn) btn.classList.toggle('active', t.toLowerCase() === type);
-      const v = UI(`${viewP}${t}`);
+      const v = UI(`view${t}`);
       if (v) v.classList.toggle('active', t.toLowerCase() === type);
     });
     if (type === 'raw') {
-      UI(isMaster ? 'masterRawPre' : 'rawPre').innerHTML = highlight(JSON.stringify(data, null, 2));
+      UI('rawPre').innerHTML = highlight(JSON.stringify(data, null, 2));
     } else if (type === 'pretty') {
-      UI(isMaster ? 'masterViewPretty' : 'viewPretty').innerHTML = renderTree(data);
+      UI('viewPretty').innerHTML = renderTree(data);
     } else if (type === 'table') {
       const tableData = data?.message;
       const tableHtml = fmtGrid(tableData);
       if (tableHtml) {
-        UI(isMaster ? 'masterViewTable' : 'viewTable').innerHTML = tableHtml;
+        UI('viewTable').innerHTML = tableHtml;
       } else {
-        UI(isMaster ? 'masterViewTable' : 'viewTable').innerHTML = `<div style="padding:50px;text-align:center;color:var(--muted);font-style:italic;line-height:1.6">Table view not available for this response type.<br>Please use <b>Tree View</b> or <b>Raw View</b> for detailed inspection.</div>`;
+        UI('viewTable').innerHTML = `<div style="padding:50px;text-align:center;color:var(--muted);font-style:italic;line-height:1.6">Table view not available for this response type.<br>Please use <b>Tree View</b> or <b>Raw View</b> for detailed inspection.</div>`;
       }
     }
   },
 
   copy(scope, isFull = false) {
-    const s = this.states[scope];
+    const s = this.states.runner;
     if (!s.data) return toast('No data');
     const raw = JSON.stringify(s.data, null, 2);
-    const isMaster = scope === 'master';
-    if (!isFull) return copyWithFeedback(UI(isMaster ? 'masterRespCopy' : 'rCopy'), raw, 16, 'Copied');
-    const curl = generateCurl(isMaster ? s.index : COMMANDS.indexOf(curr));
-    copyWithFeedback(UI(isMaster ? 'masterRespCopyFull' : 'rCopyFull'), `CURL:\n${curl}\n\nRESPONSE:\n${raw}`, 16, 'Curl & Response copied');
+    if (!isFull) return copyWithFeedback(UI('rCopy'), raw, 16, 'Copied');
+    const curl = generateCurl(s.index !== null ? s.index : COMMANDS.indexOf(curr));
+    copyWithFeedback(UI('rCopyFull'), `CURL:\n${curl}\n\nRESPONSE:\n${raw}`, 16, 'Curl & Response copied');
   }
 };
 
@@ -129,17 +120,7 @@ const openJsonResponseModal = (title, data) => {
   showModal('testResponseModal');
 };
 
-/**
- * @description Opens the response details modal for a master list item.
- */
-const openMasterResponse = (i) => {
-    const res = Store.getResponse(i);
-    if (!res) return;
-    UI('masterRespIn').innerHTML = renderRunnerEndpoint(COMMANDS[i]);
-    ResponseView.render('master', res.data, res.status, res.time, i);
-    setupIcons();
-    showModal('masterResponseModal');
-};
+
 
 /**
  * @description Opens the CURL/Override view modal.

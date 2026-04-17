@@ -69,10 +69,10 @@ const renderAnalytics = () => {
         .slice(0, 5)
         .reduce((a, b) => ({ ...a, [b.name]: b.count }), {});
     UI('analyticsGrid').innerHTML = 
-        renderCard('API Roles', roles) + 
-        renderCard('HTTP Methods', methods) + 
         renderCard('Security', security) +
         ((summary.passed + summary.failed) > 0 ? renderCard('Run Outcomes', outcomes) : '') +
         (count > 0 ? renderCard('Run Performance', performance, true) : '') +
+        renderCard('API Roles', roles) + 
+        renderCard('HTTP Methods', methods) + 
         renderCard('Top Params', topComplexity);
 };

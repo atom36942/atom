@@ -40,3 +40,18 @@ def func_s3_upload_presigned(*, client_s3: any, config_s3_region_name: str, buck
     file_key = f"{uuid.uuid4().hex}.bin"
     presigned_post = client_s3.generate_presigned_post(Bucket=bucket, Key=file_key, ExpiresIn=config_s3_presigned_expire_sec, Conditions=[["content-length-range", 1, config_s3_limit_kb * 1024]])
     return {**presigned_post["fields"], "url_final": f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{file_key}"}
+
+def func_sns_send_mobile_message(*, client_sns: any, mobile: str, message: str) -> None:
+    """Send a mobile SMS using AWS SNS."""
+    client_sns.publish(PhoneNumber=mobile, Message=message)
+    return None
+
+def func_sns_send_mobile_message_template(*, client_sns: any, mobile: str, message: str, template_id: str, entity_id: str, sender_id: str) -> None:
+    """Send a mobile SMS using AWS SNS with specific template and attributes."""
+    client_sns.publish(PhoneNumber=mobile, Message=message, MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sender_id}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": template_id}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": entity_id}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
+    return None
+    
+def func_ses_send_email(*, client_ses: any, from_email: str, to_emails: list, subject: str, body: str) -> None:
+    """Send an email via AWS SES."""
+    client_ses.send_email(Source=from_email, Destination={"ToAddresses": to_emails}, Message={"Subject": {"Data": subject}, "Body": {"Html": {"Data": body}}})
+    return None

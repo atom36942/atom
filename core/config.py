@@ -272,7 +272,7 @@ config_postgres={
 },
 "sql":{},
 "control":{
-"root_user_password":"57628ad8592242cbd02129a2ac94bb8ac3e16ac91fa240b812c6176415f04f92",
+"root_user_password":"f2aca8bf32871f21d371a1ba1111b4890e64fadb854201cd77441ac816cc4bc6",
 "is_extension":1,
 "is_column_match":0,
 "is_table_drop_disable":1,

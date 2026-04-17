@@ -4,17 +4,13 @@
 const setupEventListeners = () => {
     // Top-level UI & Toolbars
     UI('tagCardHeader')?.addEventListener('click', toggleTagCard);
-    UI('infoToggleBtn')?.addEventListener('click', () => { showModal('infoModal'); setupIcons(); });
-    UI('storageToggleBtn')?.addEventListener('click', () => { showModal('storageModal'); renderStorage(); setupIcons(); });
-    UI('analyticsToggleBtn')?.addEventListener('click', () => { showModal('analyticsModal'); renderAnalytics(); setupIcons(); });
-    UI('apiInfoCsv')?.addEventListener('click', exportCatalogCsv);
-    UI('runnerCurlBtn')?.addEventListener('click', () => {
-        if (activeMasterRunIndex !== null) openCurlViewModal(activeMasterRunIndex, 'all');
-    });
-    UI('runnerLinkBtn')?.addEventListener('click', () => {
-        if (curr) {
-            const link = `${window.location.origin}${window.location.pathname}?api=${curr.m}|${curr.p}`;
-            copyWithFeedback(UI('runnerLinkBtn'), link, 20, 'Link copied');
+    UI('runnerResetBtn')?.addEventListener('click', () => {
+        if (activeMasterRunIndex !== null) {
+            Store.removeResponse(activeMasterRunIndex);
+            ResponseView.states.runner = { data: null, status: null, time: null, index: null, view: 'raw' };
+            load(activeMasterRunIndex);
+            renderApiInfoTable(UI('apiInfoSearch').value);
+            toast('Response history cleared');
         }
     });
 
@@ -264,10 +260,6 @@ const setupEventListeners = () => {
             return;
         }
 
-        if (e.target.closest('.master-status-cell.clickable')) {
-            openMasterResponse(idx);
-            return;
-        }
     });
 
     // Tree Toggles (Delegation)
