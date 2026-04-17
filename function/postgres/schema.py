@@ -89,8 +89,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
     control = config_postgres.get("control", {})
     is_ext = control.get("is_extension", 0)
     is_match = control.get("is_column_match", 0)
-    bulk_blocked = control.get("table_row_delete_disable_bulk", [])
-    table_blocked = control.get("table_row_delete_disable", [])
+    bulk_blocked = control.get("table_delete_disable_row_bulk", [])
+    table_blocked = control.get("table_delete_disable_row", [])
     is_autovacuum = control.get("is_autovacuum_optimize", 0)
     is_analyze = control.get("is_analyze_init", 0)
     is_drop_schema = control.get("is_drop_disable_schema", 0)
@@ -163,27 +163,27 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
             db_tables.setdefault(row[0], []).append(row[1])
         users_cols = db_tables.get("users", [])
         if users_cols:
-            catalog["tg"].add("trigger_users_root_no_delete")
-            await conn.execute("CREATE OR REPLACE FUNCTION func_users_root_no_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_users_root_no_delete ON users; CREATE TRIGGER trigger_users_root_no_delete BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_root_no_delete();")
+            catalog["tg"].add("trigger_no_delete_root_users")
+            await conn.execute("CREATE OR REPLACE FUNCTION func_no_delete_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_no_delete_root_users ON users; CREATE TRIGGER trigger_no_delete_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_no_delete_root_users();")
             if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
                 root_user_password = control.get("root_user_password", "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3")
                 await conn.execute("INSERT INTO users (id, type, username, password, role, is_active) VALUES (1, 1, 'atom', $1, 1, 1) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password, role = 1, is_active = 1 WHERE users.password IS DISTINCT FROM EXCLUDED.password;", root_user_password)
             if "password" in users_cols and "log_users_password" in db_tables:
-                catalog["tg"].add("trigger_users_password_log")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_users_password_log() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_users_password_log ON users; CREATE TRIGGER trigger_users_password_log AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_users_password_log();")
-            if control.get("is_users_child_delete_soft", 0) and "is_deleted" in users_cols:
-                catalog["tg"].add("trigger_users_soft_delete")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_users_soft_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; v INTEGER; BEGIN v := (CASE WHEN NEW.is_deleted=1 THEN 1 ELSE NULL END); FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'is_deleted') THEN EXECUTE format('UPDATE %I.%I SET is_deleted = $1 WHERE %I = $2', r.table_schema, r.table_name, r.column_name) USING v, NEW.id; END IF; END LOOP; RETURN NEW; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_users_soft_delete ON users; CREATE TRIGGER trigger_users_soft_delete AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.is_deleted IS DISTINCT FROM NEW.is_deleted) EXECUTE FUNCTION func_users_soft_delete();")
-            if control.get("is_users_child_delete_hard", 0):
-                catalog["tg"].add("trigger_users_hard_delete")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_users_hard_delete() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; BEGIN FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP EXECUTE format('DELETE FROM %I.%I WHERE %I = $1', r.table_schema, r.table_name, r.column_name) USING OLD.id; END LOOP; RETURN OLD; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_users_hard_delete ON users; CREATE TRIGGER trigger_users_hard_delete AFTER DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_users_hard_delete();")
+                catalog["tg"].add("trigger_password_log_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
+            if control.get("is_users_delete_child_soft", 0) and "is_deleted" in users_cols:
+                catalog["tg"].add("trigger_soft_delete_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_soft_delete_users() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; v INTEGER; BEGIN v := (CASE WHEN NEW.is_deleted=1 THEN 1 ELSE NULL END); FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'is_deleted') THEN EXECUTE format('UPDATE %I.%I SET is_deleted = $1 WHERE %I = $2', r.table_schema, r.table_name, r.column_name) USING v, NEW.id; END IF; END LOOP; RETURN NEW; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_soft_delete_users ON users; CREATE TRIGGER trigger_soft_delete_users AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.is_deleted IS DISTINCT FROM NEW.is_deleted) EXECUTE FUNCTION func_soft_delete_users();")
+            if control.get("is_users_delete_child_hard", 0):
+                catalog["tg"].add("trigger_hard_delete_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_hard_delete_users() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; BEGIN FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP EXECUTE format('DELETE FROM %I.%I WHERE %I = $1', r.table_schema, r.table_name, r.column_name) USING OLD.id; END LOOP; RETURN OLD; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_hard_delete_users ON users; CREATE TRIGGER trigger_hard_delete_users AFTER DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_hard_delete_users();")
             if control.get("is_users_delete_disable_role", 0) and "role" in users_cols:
-                catalog["tg"].add("trigger_delete_disable_users_role")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_users_role() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_users_role ON users; CREATE TRIGGER trigger_delete_disable_users_role BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_users_role();")
+                catalog["tg"].add("trigger_delete_disable_role_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users ON users; CREATE TRIGGER trigger_delete_disable_role_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users();")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected=1 THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
@@ -212,7 +212,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 await conn.execute(f"DROP TRIGGER IF EXISTS {prot_tg_name} ON {table}")
                 await conn.execute(f"CREATE TRIGGER {prot_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();")
             if "updated_at" in cols:
-                upd_tg_name = f"trigger_set_updated_at_{table}"
+                upd_tg_name = f"trigger_updated_at_set_{table}"
                 catalog["tg"].add(upd_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}")
                 await conn.execute(f"CREATE TRIGGER {upd_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();")

@@ -67,18 +67,18 @@ def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: lis
         for k, v in ctrl.items():
             if k.startswith("is_") and v not in (None, 0, 1):
                 errs.append(f"invalid value for {k}: {v} (allowed: 0, 1, None)")
-        tdd = ctrl.get("table_row_delete_disable")
+        tdd = ctrl.get("table_delete_disable_row", [])
         if not isinstance(tdd, list):
-            errs.append("table_row_delete_disable must be a list")
+            errs.append("table_delete_disable_row must be a list")
         elif "*" in tdd and len(tdd) > 1:
-            errs.append("exclusive wildcard violation: table_row_delete_disable cannot contain other tables if '*' is present")
-        tddb = ctrl.get("table_row_delete_disable_bulk")
+            errs.append("exclusive wildcard violation: table_delete_disable_row cannot contain other tables if '*' is present")
+        tddb = ctrl.get("table_delete_disable_row_bulk", [])
         if not isinstance(tddb, list):
-            errs.append("table_row_delete_disable_bulk must be a list")
+            errs.append("table_delete_disable_row_bulk must be a list")
         else:
             is_star = any(isinstance(x, (list, tuple)) and x and x[0] == "*" for x in tddb)
             if is_star and len(tddb) > 1:
-                errs.append("exclusive wildcard violation: table_row_delete_disable_bulk cannot contain other tables if '*' is present")
+                errs.append("exclusive wildcard violation: table_delete_disable_row_bulk cannot contain other tables if '*' is present")
             for x in tddb:
                 if not isinstance(x, (list, tuple)):
                     errs.append(f"invalid bulk delete format: {x} (expected array)")
