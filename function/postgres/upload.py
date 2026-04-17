@@ -2,11 +2,10 @@ async def func_postgres_bulk_upload_csv(*, csv_path: str, pg_dsn: str, table: st
     """
     High-performance, schema-aware bulk CSV uploader for PostgreSQL.
     Features:
+    - Pre-flight Audit: Indexed column list for easy tracking of large schemas.
+    - PASS/FAIL Checks: Detects type mismatches before ingestion starts.
     - Plan Optimization: Pre-calculates 'Conversion Plan' for max-speed ingestion.
     - Automation: Fetches DB schema dynamically to map columns and types.
-    - Security: Mandatory terminal-confirmation phase before ingestion starts.
-    - Robustness: Handles dirty data (N/A, NULL strings) and multiple date formats.
-    - Strictness: Aborts and reports specific column/row errors for data integrity.
     """
     import asyncio, asyncpg, csv, time
     from datetime import datetime
@@ -40,16 +39,22 @@ async def func_postgres_bulk_upload_csv(*, csv_path: str, pg_dsn: str, table: st
             if not csv_header: raise Exception("Empty CSV or missing header")
             first_row = next(reader, {})
             f.seek(0); f.readline() 
-            print(f"📋 CSV TO DB SCHEMA COMPARISON:\n{'-'*115}\n{'COLUMN NAME':<30} | {'CSV Datatype':<12} | {'DB Datatype':<15} | {'MATCH':^5} | {'NULL':^5} | {'CONV':^5}\n{'-'*115}")
-            for col in csv_header:
+            print(f"📋 CSV TO DB SCHEMA COMPARISON:\n{'-'*130}\n{'Idx':<4} | {'COLUMN NAME':<30} | {'CSV TYPE':<12} | {'DB TYPE':<15} | {'MATCH':^5} | {'NULL':^5} | {'CONV':^5} | {'PASS':^5}\n{'-'*130}")
+            for idx, col in enumerate(csv_header, 1):
                 match = "✅" if col in table_cols else "❌"
                 csv_t = infer_type(first_row.get(col))
                 db_t = col_type_map.get(col, "(missing)").replace("int ", "integer ").replace("integer4", "integer")
                 if db_t == "int": db_t = "integer"
                 is_nullable = "✅" if col_null_map.get(col, True) else "❌"
                 needs_conv = "✅" if db_t != "text" and db_t != "(missing)" else "❌"
-                print(f"{col[:29]:<30} | {csv_t:<12} | {db_t:<15} | {match:^5} | {is_nullable:^5} | {needs_conv:^5}")
-            print(f"{'-'*115}")
+                status = "✅"
+                if match == "✅":
+                    if csv_t == "text" and db_t in ("integer", "bigint", "numeric", "real", "double precision"): status = "❌"
+                    if csv_t == "float" and db_t in ("integer", "bigint"): status = "❌"
+                    if csv_t == "text" and "date" in db_t: status = "❌"
+                    if csv_t == "null" and not col_null_map.get(col, True): status = "❌"
+                print(f"{idx:<4} | {col[:29]:<30} | {csv_t:<12} | {db_t:<15} | {match:^5} | {is_nullable:^5} | {needs_conv:^5} | {status:^5}")
+            print(f"{'-'*130}")
             matched_cols = [c for c in csv_header if c in table_cols and c not in c_names]
             final_cols = matched_cols + c_names
             if not final_cols: raise Exception("No valid columns to upload")

@@ -48,24 +48,24 @@ const setupEventListeners = () => {
     UI('wsLogsClearBtn')?.addEventListener('click', () => { UI('wsLogs').innerHTML = ''; });
     UI('wsMsgIn')?.addEventListener('keydown', e => { if (e.key === 'Enter') wsSend(); });
 
-    // Direct Bindings for Header Actions
-    UI('infoToggleBtn')?.addEventListener('click', () => { showModal('infoModal'); setupIcons(); });
-    UI('storageToggleBtn')?.addEventListener('click', () => { showModal('storageModal'); renderStorage(); setupIcons(); });
-    UI('analyticsToggleBtn')?.addEventListener('click', () => { showModal('analyticsModal'); renderAnalytics(); setupIcons(); });
-    UI('apiInfoCsv')?.addEventListener('click', exportCatalogCsv);
-    UI('runnerCurlBtn')?.addEventListener('click', () => {
-        if (activeMasterRunIndex !== null) {
-            console.log('[DEBUG] Opening Curl Modal for index:', activeMasterRunIndex);
-            openCurlViewModal(activeMasterRunIndex, 'all');
-        }
-    });
-    UI('runnerLinkBtn')?.addEventListener('click', () => {
-        const btn = UI('runnerLinkBtn');
-        if (curr && btn) {
-            const link = `${window.location.origin}${window.location.pathname}?api=${curr.m}|${curr.p}`;
-            copyWithFeedback(btn, link, 20, 'Link copied');
-        }
-    });
+    // Direct Bindings for Header Actions (Foolproof explicit onclick)
+    setTimeout(() => {
+        const bind = (id, fn) => { const el = d.getElementById(id); if (el) el.onclick = fn; };
+        bind('infoToggleBtn', () => { showModal('infoModal'); setupIcons(); });
+        bind('storageToggleBtn', () => { showModal('storageModal'); renderStorage(); setupIcons(); });
+        bind('analyticsToggleBtn', () => { showModal('analyticsModal'); renderAnalytics(); setupIcons(); });
+        bind('apiInfoCsv', exportCatalogCsv);
+        bind('runnerCurlBtn', () => {
+            if (activeMasterRunIndex !== null) openCurlViewModal(activeMasterRunIndex, 'all');
+        });
+        bind('runnerLinkBtn', () => {
+            const btn = d.getElementById('runnerLinkBtn');
+            if (curr && btn) {
+                const link = `${window.location.origin}${window.location.pathname}?api=${curr.m}|${curr.p}`;
+                copyWithFeedback(btn, link, 20, 'Link copied');
+            }
+        });
+    }, 100);
 
     UI('apiForm')?.addEventListener('submit', e => {
         e.preventDefault();

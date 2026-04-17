@@ -75,7 +75,7 @@ const fmtGrid = v => {
     </tr>`).join('');
 
   return `
-    <div class="modal-card panel-shell" style="margin:12px 16px 0 16px; border:none; border-radius:0; background:transparent;">
+    <div class="modal-card panel-shell" style="margin:16px;">
         <div class="modal-card-body" style="padding:0">
             <div class="resp-tbl-wrap master-table-wrap" style="max-height:500px; opacity:1">
                 <table class="resp-tbl">

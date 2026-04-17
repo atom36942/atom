@@ -17,12 +17,13 @@
 
 /* Table Shell */
 .master-table-wrap { max-height: 600px; overflow: auto; opacity: 0; transition: opacity 0.2s ease-in-out; }
-#apiInfoTbl { table-layout: fixed !important; width: 100% !important; min-width: 0 !important; border-collapse: collapse; }
-#apiInfoTbl th { background: #1a1d23; padding: 10px 12px; text-align: left; font-weight: 600; color: var(--accent); border-bottom: 1px solid rgba(255, 255, 255, 0.1); font-size: 12px; white-space: nowrap; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 1; }
-#apiInfoTbl td { padding: 10px 12px; color: #e6eef3; border-bottom: 1px solid rgba(255, 255, 255, .05); font-size: 13px; vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#apiInfoTbl .clickable { cursor: pointer !important; }
-#apiInfoTbl .clickable:hover { background: rgba(255, 255, 255, 0.04); }
-#apiInfoTbl .col-param.clickable:hover { background: rgba(66, 153, 225, 0.1); }
+#apiInfoTbl, .resp-tbl { table-layout: fixed !important; width: 100% !important; min-width: 0 !important; border-collapse: collapse; }
+.resp-tbl th:first-child, .resp-tbl td:first-child { padding-left: 24px !important; }
+#apiInfoTbl th, .resp-tbl th { background: #1a1d23; padding: 10px 12px; text-align: left; font-weight: 600; color: var(--accent); border-bottom: 1px solid rgba(255, 255, 255, 0.1); font-size: 12px; white-space: nowrap; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 1; }
+#apiInfoTbl td, .resp-tbl td { padding: 10px 12px; color: #e6eef3; border-bottom: 1px solid rgba(255, 255, 255, .05); font-size: 13px; vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#apiInfoTbl .clickable, .resp-tbl .clickable { cursor: pointer !important; }
+#apiInfoTbl .clickable:hover, .resp-tbl .clickable:hover { background: rgba(255, 255, 255, 0.04); }
+#apiInfoTbl .col-param.clickable:hover, .resp-tbl .col-param.clickable:hover { background: rgba(66, 153, 225, 0.1); }
 
 .col-id { width: 32px; min-width: 32px; text-align: center !important; }
 .col-method { width: 52px; min-width: 52px; text-align: center !important; }
