@@ -120,11 +120,6 @@ async def func_postgres_bulk_upload_csv(*, mode: str, csv_path: str, pg_dsn: str
             def row_generator():
                 count, rejected = 0, 0
                 f_rej = None
-                if mode == "reject": 
-                    os.makedirs("tmp", exist_ok=True)
-                    f_rej = open(reject_path, "w", encoding='utf-8')
-                    writer = csv.DictWriter(f_rej, fieldnames=csv_header)
-                    writer.writeheader()
                 
                 try:
                     for row in reader:
@@ -135,8 +130,14 @@ async def func_postgres_bulk_upload_csv(*, mode: str, csv_path: str, pg_dsn: str
                             count += 1
                         except RowReject:
                             rejected += 1
-                            if f_rej: csv.DictWriter(f_rej, fieldnames=csv_header).writerow(row)
-                        if count % log_every == 0: 
+                            if mode == "reject":
+                                if f_rej is None:
+                                    os.makedirs("tmp", exist_ok=True)
+                                    f_rej = open(reject_path, "w", encoding='utf-8')
+                                    csv.DictWriter(f_rej, fieldnames=csv_header).writeheader()
+                                csv.DictWriter(f_rej, fieldnames=csv_header).writerow(row)
+                        
+                        if (count + rejected) % log_every == 0: 
                             r_info = f" | ⚠️ REJECTED: {rejected:,}" if rejected else ""
                             print(f"  🔹 PROGRESS: {count:,} rows {r_info} | ⏳ {int(time.time()-t0)}s")
                 finally:
