@@ -48,44 +48,22 @@ const setupEventListeners = () => {
     UI('wsLogsClearBtn')?.addEventListener('click', () => { UI('wsLogs').innerHTML = ''; });
     UI('wsMsgIn')?.addEventListener('keydown', e => { if (e.key === 'Enter') wsSend(); });
 
-    // Global Modal Header Actions (Delegation for absolute reliability)
-    d.addEventListener('click', e => {
-        const btn = e.target.closest('.icon-btn');
-        if (!btn) return;
-        
-        // Main Header Actions
-        if (btn.id === 'infoToggleBtn') {
-            showModal('infoModal');
-            setupIcons();
-            return;
-        }
-        if (btn.id === 'storageToggleBtn') {
-            showModal('storageModal');
-            renderStorage();
-            setupIcons();
-            return;
-        }
-        if (btn.id === 'analyticsToggleBtn') {
-            showModal('analyticsModal');
-            renderAnalytics();
-            setupIcons();
-            return;
-        }
-        if (btn.id === 'apiInfoCsv') {
-            exportCatalogCsv();
-            return;
-        }
-
-        // Runner Actions
-        if (btn.id === 'runnerCurlBtn' && activeMasterRunIndex !== null) {
+    // Direct Bindings for Header Actions
+    UI('infoToggleBtn')?.addEventListener('click', () => { showModal('infoModal'); setupIcons(); });
+    UI('storageToggleBtn')?.addEventListener('click', () => { showModal('storageModal'); renderStorage(); setupIcons(); });
+    UI('analyticsToggleBtn')?.addEventListener('click', () => { showModal('analyticsModal'); renderAnalytics(); setupIcons(); });
+    UI('apiInfoCsv')?.addEventListener('click', exportCatalogCsv);
+    UI('runnerCurlBtn')?.addEventListener('click', () => {
+        if (activeMasterRunIndex !== null) {
             console.log('[DEBUG] Opening Curl Modal for index:', activeMasterRunIndex);
             openCurlViewModal(activeMasterRunIndex, 'all');
-            return;
         }
-        if (btn.id === 'runnerLinkBtn' && curr) {
+    });
+    UI('runnerLinkBtn')?.addEventListener('click', () => {
+        const btn = UI('runnerLinkBtn');
+        if (curr && btn) {
             const link = `${window.location.origin}${window.location.pathname}?api=${curr.m}|${curr.p}`;
             copyWithFeedback(btn, link, 20, 'Link copied');
-            return;
         }
     });
 
