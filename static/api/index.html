@@ -22,17 +22,24 @@
         <div id="appLoaderMsg" class="app-loader-msg">Initializing...</div>
     </div>
 </div>
-<div class="container"><div class="card" style="padding:0">
-    <div class="modal-header">
-        <h3 style="margin:0">API Master</h3>
-        <div class="modal-actions">
-            <button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button>
-            <button type="button" class="icon-btn" id="infoToggleBtn" title="View API Master Info"></button>
-            <button type="button" class="icon-btn" id="storageToggleBtn" title="View Local Storage"></button>
-            <button type="button" class="icon-btn" id="analyticsToggleBtn" title="View Analytics"></button>
-            <button type="button" class="icon-btn" id="apiInfoCsv" title="Download CSV catalog"></button>
+<div class="container">
+    <div class="card" style="padding:0">
+        <div class="modal-header" style="border-top-left-radius:12px;border-top-right-radius:12px">
+            <div class="modal-title-block">
+                <h3 style="margin:0;display:flex;align-items:center;gap:12px">
+                    API Master
+                    <span style="font-size:11px;font-weight:600;color:var(--accent);background:rgba(66,153,225,0.1);padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:1px;border:1px solid rgba(66,153,225,0.2)">Endpoint Catalog</span>
+                </h3>
+            </div>
+            <div class="modal-actions">
+                <button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:12px;margin-right:8px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer;transition:all 0.2s"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login</button>
+                <div style="width:1px;height:24px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+                <button type="button" class="icon-btn" id="infoToggleBtn" title="View Documentation (D)"></button>
+                <button type="button" class="icon-btn" id="storageToggleBtn" title="Local Storage State (S)"></button>
+                <button type="button" class="icon-btn" id="analyticsToggleBtn" title="Performance Analytics (A)"></button>
+                <button type="button" class="icon-btn" id="apiInfoCsv" title="Export CSV Catalog (E)"></button>
+            </div>
         </div>
-    </div>
     <div class="modal-body" style="padding:24px;max-height:none;overflow:visible">
         <div class="toolbar-search" style="margin-bottom:20px"><input type="text" id="apiInfoSearch" placeholder="Search" style="padding:12px 40px 12px 16px;font-size:15px;background:#1a1d23;width:100%;border:1px solid rgba(255,255,255,.12);color:#e6eef3;border-radius:8px;box-sizing:border-box"><button type="button" id="apiInfoSearchClear" class="clear-api-btn" style="right:12px">×</button></div>
         <div class="tag-card">

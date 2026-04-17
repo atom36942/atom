@@ -31,7 +31,6 @@ const setupIcons = () => {
         'masterRespCopyFull': ICON.copyCurl(16),
         'masterRespCsv': ICON.downloadCsv(16),
         'masterRespJson': ICON.downloadJson(16),
-        'runnerOvrBtn': ICON.ovr(20),
         'runnerLinkBtn': ICON.link(20),
         'runnerCurlBtn': ICON.terminal(20),
         'subBtnIcon': ICON.play(14)

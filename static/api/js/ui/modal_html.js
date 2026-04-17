@@ -10,9 +10,10 @@ const MODAL_HTML = `
             <h3>API Runner</h3>
         </div>
         <div class="modal-actions">
+            <button type="button" class="icon-btn" id="runnerLinkBtn" title="Copy Direct API Link"></button>
             <button type="button" class="icon-btn" id="runnerCurlBtn" title="View Curl & Expected Response"></button>
             <button type="submit" class="btn btn-primary" id="subBtn" form="apiForm" title="Run API" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px;display:flex;align-items:center"><div class="spinner"></div><span id="subBtnIcon" style="display:flex;align-items:center"></span><span id="subBtnText">Run</span></button>
-            <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            <button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"></button>
         </div>
     </div>
     <div class="modal-body" style="height:75vh;display:flex;flex-direction:column;gap:10px;padding-bottom:12px">

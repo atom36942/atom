@@ -4,10 +4,6 @@
 const setupEventListeners = () => {
     // Top-level UI & Toolbars
     UI('tagCardHeader')?.addEventListener('click', toggleTagCard);
-    UI('infoToggleBtn')?.addEventListener('click', () => { showModal('infoModal'); setupIcons(); });
-    UI('storageToggleBtn')?.addEventListener('click', () => { showModal('storageModal'); renderStorage(); setupIcons(); });
-    UI('analyticsToggleBtn')?.addEventListener('click', () => { showModal('analyticsModal'); renderAnalytics(); setupIcons(); });
-    UI('apiInfoCsv')?.addEventListener('click', () => exportCatalogCsv());
 
     // Search
     UI('apiInfoSearch')?.addEventListener('input', e => {
@@ -57,15 +53,39 @@ const setupEventListeners = () => {
         const btn = e.target.closest('.icon-btn');
         if (!btn) return;
         
-        // Runner Actions
-        if (btn.id === 'runnerCurlBtn' && curr) {
-            console.log('[DEBUG] Opening Curl Modal for:', curr.p);
-            openCurlViewModal(curr, 'all');
+        // Main Header Actions
+        if (btn.id === 'infoToggleBtn') {
+            showModal('infoModal');
+            setupIcons();
+            return;
         }
-        if (btn.id === 'runnerOvrBtn' && curr) openCurlViewModal(curr, 'ovr');
+        if (btn.id === 'storageToggleBtn') {
+            showModal('storageModal');
+            renderStorage();
+            setupIcons();
+            return;
+        }
+        if (btn.id === 'analyticsToggleBtn') {
+            showModal('analyticsModal');
+            renderAnalytics();
+            setupIcons();
+            return;
+        }
+        if (btn.id === 'apiInfoCsv') {
+            exportCatalogCsv();
+            return;
+        }
+
+        // Runner Actions
+        if (btn.id === 'runnerCurlBtn' && activeMasterRunIndex !== null) {
+            console.log('[DEBUG] Opening Curl Modal for index:', activeMasterRunIndex);
+            openCurlViewModal(activeMasterRunIndex, 'all');
+            return;
+        }
         if (btn.id === 'runnerLinkBtn' && curr) {
             const link = `${window.location.origin}${window.location.pathname}?api=${curr.m}|${curr.p}`;
             copyWithFeedback(btn, link, 20, 'Link copied');
+            return;
         }
     });
 
@@ -310,6 +330,14 @@ const setupEventListeners = () => {
         hideModal('apiRunnerModal');
         hideModal('storageModal');
         UI('cellPop').classList.remove('show');
+      }
+      
+      // Global Workspace Shortcuts (if no input is focused)
+      if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        if (e.key.toLowerCase() === 'd') { e.preventDefault(); showModal('infoModal'); setupIcons(); }
+        if (e.key.toLowerCase() === 's') { e.preventDefault(); showModal('storageModal'); renderStorage(); setupIcons(); }
+        if (e.key.toLowerCase() === 'a') { e.preventDefault(); showModal('analyticsModal'); renderAnalytics(); setupIcons(); }
+        if (e.key.toLowerCase() === 'e') { e.preventDefault(); exportCatalogCsv(); }
       }
     });
 };

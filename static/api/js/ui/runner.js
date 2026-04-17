@@ -163,8 +163,6 @@ const load = i => {
   populate('jCont', 'jSec', (curr._hj ? curr.j : []), true);
   if (curr._hf && !UI('fCont').children.length) { UI('fSec').classList.add('active'); mkRow(UI('fCont')); }
   if (curr._hj && !UI('jCont').children.length) { UI('jSec').classList.add('active'); mkRow(UI('jCont')); }
-  const btnCurl = UI('runnerCurlBtn');
-  if (btnCurl) btnCurl.onclick = () => openCurlViewModal(curr, 'all');
 
   setupIcons();
 };
