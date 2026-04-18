@@ -1,13 +1,8 @@
 ### About 
-| What | Description |
-| :--- | :--- |
-| **Speed** | Open-source backend for rapid large-scale development. |
-| **Architecture** | Modular setup with `core/` for framework logic and `function/` for domain logic. |
-| **Reliability** | Pure functions within `core/function.py` and `function/utility.py` to minimize side effects. |
-| **Production** | Rapidly build APIs, background jobs, and modular integrations. |
-| **Efficiency** | Centralized client initialization in `function/client.py`. |
-| **Flexibility** | Non-opinionated and fully extensible modular micro-framework. |
-| **Tech Stack** | FastAPI, Postgres, Redis, RabbitMQ, Kafka, Celery, S3. |
+Atom is a high-performance, modular backend framework designed for rapid development and scalable orchestration.
+It provides a robust foundation for building modern APIs and managing background processes with extreme efficiency.
+Designed for distributed systems, it offers seamless integration and unified observability for diverse data and messaging ecosystems.
+It follows strict architectural standards to ensure high reliability and optimal performance in demanding production environments.
 
 # Setup
 ```bash
