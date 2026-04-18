@@ -1,5 +1,5 @@
 ### About 
-| Core Principle | Description |
+| What | Description |
 | :--- | :--- |
 | **Speed** | Open-source backend for rapid large-scale development. |
 | **Architecture** | Modular setup with `core/` for framework logic and `function/` for domain logic. |
@@ -40,9 +40,9 @@ venv/bin/python -m core.consumer kafka default
 ```
 
 ###  FAQ
-| Category | Description |
+| What | Description |
 | :--- | :--- |
-| **API Master** | Interactive API tester at `static/api.html`. |
+| **API Master** | Interactive API tester at `static/api/index.html`. |
 | **Postgres Init** | Automatic `func_postgres_schema_init` run on startup. |
 | **Access App State** | Global clients (DB, Redis, etc.) via `request.app.state`. |
 | **User Context** | Current user state (id, role, etc.) via `request.state.user`. |
