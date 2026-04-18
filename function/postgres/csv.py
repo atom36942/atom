@@ -1,8 +1,21 @@
 async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_path: str, pg_dsn: str, table: str, const_column: list | None):
     """
-    Performs high-performance bulk operations from a CSV to Postgres.
-    Uses a 'Stage and Cast' architecture to support complex types (Geography, JSONB, Arrays)
+    Performs high-performance bulk operations from a CSV to Postgres. 
+    Uses a 'Stage and Cast' architecture to support complex types (Geography, JSONB, Arrays) 
     by bypassing binary encoder limitations of the asyncpg COPY protocol.
+
+    Parameters:
+    - crud_mode (str): "create", "update", or "delete".
+    - validation_mode (str): "strict" (abort on error), "reject" (log & skip), or "loose" (nullify bad cells).
+    - csv_path (str): Path to source file.
+    - pg_dsn (str): Postgres connection string.
+    - table (str): Target table name.
+    - const_column (list | None): Constant values to inject (ignored in "delete" mode).
+
+    Examples:
+    - CREATE: await func_postgres_csv_crud(crud_mode="create", validation_mode="strict", csv_path="in.csv", pg_dsn=dsn, table="users", const_column=[["status", "active"]])
+    - UPDATE: await func_postgres_csv_crud(crud_mode="update", validation_mode="reject", csv_path="upd.csv", pg_dsn=dsn, table="users", const_column=[["sync_ts", "now()"]])
+    - DELETE: await func_postgres_csv_crud(crud_mode="delete", validation_mode="strict", csv_path="del.csv", pg_dsn=dsn, table="users", const_column=None)
     """
     import asyncio, asyncpg, csv, time, os
     from datetime import datetime
@@ -136,8 +149,8 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                     v_str = base_clean(v)
                     if v_str is None: return None
                     try:
-                        # Basic validation based on target type
-                        if "int" in t or "numeric" in t or "real" in t or "double" in t:
+                        # Basic validation based on target type (exclude arrays from scalar checks)
+                        if ("int" in t or "numeric" in t or "real" in t or "double" in t) and not t.startswith('_'):
                             float(v_str) # Just validation
                         if "bool" in t:
                             v_str = "true" if v_str.lower() in ("true","1","yes","t","y") else "false"
@@ -165,7 +178,8 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                     for row in reader:
                         try:
                             if crud_mode == "delete":
-                                line = [str(row.get("id"))] # Ensure string for TEXT staging
+                                # Apply the 'id' converter plan to ensure valid IDs and enable rejection
+                                line = [col_plan[0](row.get("id"))]
                             else:
                                 line = [plan(row.get(col)) for plan, col in zip(col_plan, matched_cols)]
                                 line.extend(conv_c_vals)

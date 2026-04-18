@@ -1,5 +1,5 @@
 id,is_active,type,title,description,tag,tag_int,rating,location,dob,email,metadata
-1,1,5,Sample Title 0,This is a sample description for item 0.,"{tag5,tag10}","{9,14}",4.0,POINT(139.13477349383635 8.468083149709997),1991-04-18,user0@example.com,"{""key"": ""value0"", ""priority"": ""low""}"
+103,0,5,Sample Title 0,This is a sample description for item 0.,"{tag5,tag10}","{9,14}",4.0,POINT(139.13477349383635 8.468083149709997),1991-04-18,user0@example.com,"{""key"": ""value0"", ""priority"": ""low""}"
 2,1,2,Sample Title 1,This is a sample description for item 1.,"{tag5,tag8}","{2,15}",4.1,POINT(80.34424965491019 -45.927919348866396),1976-10-26,user1@example.com,"{""key"": ""value1"", ""priority"": ""low""}"
 3,0,10,Sample Title 2,This is a sample description for item 2.,"{tag4,tag8}","{8,16}",2.3,POINT(-92.13927625249858 -70.53421612065083),1989-10-31,user2@example.com,"{""key"": ""value2"", ""priority"": ""low""}"
 4,1,6,Sample Title 3,This is a sample description for item 3.,"{tag1,tag9}","{9,16}",4.7,POINT(-171.73602814638033 -74.38216245102971),1997-08-19,user3@example.com,"{""key"": ""value3"", ""priority"": ""high""}"
