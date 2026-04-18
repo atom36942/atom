@@ -8,7 +8,7 @@ async def func_postgres_create(*, client_postgres_pool: any, func_postgres_seria
         return "flushed"
     if not obj_list:
         return None
-    serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0) if is_serialize else obj_list
+    serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0 if len(obj_list) > 1 else 1) if is_serialize else obj_list
     if mode == "buffer":
         if table not in cache_postgres_buffer:
             cache_postgres_buffer[table] = []
@@ -240,7 +240,7 @@ async def func_postgres_update(*, client_postgres_pool: any, func_postgres_seria
     limit_batch = 5000
     import re, orjson
     if is_serialize:
-        obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0)
+        obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
     if not obj_list:
         return "0 rows updated"
     if any("id" not in obj for obj in obj_list):
@@ -302,7 +302,7 @@ async def func_postgres_update(*, client_postgres_pool: any, func_postgres_seria
                     total_updated += int((await conn.execute(query, *batch_vals)).split()[-1])
             return returned_ids if is_return_ids == 1 else f"{total_updated} rows updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int, config_postgres_ids_delete_limit: int) -> str:
+async def func_postgres_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
@@ -312,12 +312,8 @@ async def func_postgres_delete(*, client_postgres_pool: any, table: str, ids: an
     ids_str = ""
     if isinstance(ids, str):
         id_list = [str(int(x.strip())) for x in ids.split(",") if x.strip()]
-        if len(id_list) > config_postgres_ids_delete_limit:
-            raise Exception("ids length exceeded")
         ids_str = ",".join(id_list)
     elif isinstance(ids, (list, tuple)):
-        if len(ids) > config_postgres_ids_delete_limit:
-            raise Exception("ids length exceeded")
         ids_str = ",".join([str(int(x)) for x in ids])
     delete_query = f"DELETE FROM {table} WHERE id IN ({ids_str}) AND ($1::bigint IS NULL OR created_by_id=$1);"
     if table == "spatial_ref_sys":

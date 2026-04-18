@@ -1,8 +1,6 @@
-async def func_user_profile_read(*, client_postgres_pool: any, user_id: int, config_sql: dict) -> dict:
+async def func_user_profile_read(*, client_postgres_pool: any, user_id: int, config_sql: dict, func_user_single_read: callable) -> dict:
     """Read full user profile and update last activity status."""
     import asyncio
-    # Import locally to avoid circular dependency if user/read.py is processed later
-    from .read import func_user_single_read
     user = await func_user_single_read(client_postgres_pool=client_postgres_pool, user_id=user_id)
     metadata = {}
     queries_metadata = config_sql.get("profile_metadata")

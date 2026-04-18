@@ -33,7 +33,7 @@ async def logic_task_exec(pool: any, payload: any, cache_postgres_buffer: dict, 
             if "is_serialize" not in params: params["is_serialize"] = 1
             if "created_by_id" not in params: params["created_by_id"] = None
             if "is_return_ids" not in params: params["is_return_ids"] = 0
-        ctx = {"client_postgres_pool": pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer, "cache_postgres_schema": cache_postgres_schema, "config_table": config_table, "config_postgres": config_postgres, "config_postgres_ids_delete_limit": config_postgres_ids_delete_limit}
+        ctx = {"client_postgres_pool": pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer, "cache_postgres_schema": cache_postgres_schema, "config_table": config_table, "config_postgres": config_postgres}
         call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
         call_args.update({k: v for k, v in params.items() if k in sig.parameters})
         res = await func(**call_args)
@@ -75,7 +75,7 @@ def func_consumer_celery_init(*, consumer_name: str, config_celery_broker_url: s
             worker_loop.run_until_complete(_init_pool())
         try:
             sig = inspect.signature(coro_func)
-            ctx = {"client_postgres_pool": client_postgres_pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer, "cache_postgres_schema": cache_postgres_schema, "config_table": config_table, "config_postgres": config_postgres, "config_postgres_ids_delete_limit": config_postgres_ids_delete_limit}
+            ctx = {"client_postgres_pool": client_postgres_pool, "func_postgres_serialize": func_postgres_serialize, "cache_postgres_buffer": cache_postgres_buffer, "cache_postgres_schema": cache_postgres_schema, "config_table": config_table, "config_postgres": config_postgres}
             call_args = {k: v for k, v in ctx.items() if k in sig.parameters}
             remaining_keys = [p.name for p in sig.parameters.values() if p.name not in call_args]
             call_args.update(dict(zip(remaining_keys, args)))

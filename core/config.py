@@ -30,23 +30,7 @@ config_redis_batch_timeout_ms=1000
 config_token_secret_key="123"
 config_token_expiry_sec=10*365*24*24
 config_token_refresh_expiry_sec=100*365*24*24
-config_token_key=["id", "type", "is_active", "role"]
-
-#gsheet
-config_gsheet_service_account_json_path=None
-config_gsheet_scope=["https://www.googleapis.com/auth/spreadsheets"]
-
-#fast2sms
-config_fast2sms_url=None
-config_fast2sms_key=None
-
-#resend
-config_resend_url=None
-config_resend_key=None
-
-#posthog
-config_posthog_project_host=None
-config_posthog_project_key=None
+config_token_key=["id", "type", "role", "is_active"]
 
 #aws
 config_aws_access_key_id=None
@@ -57,6 +41,21 @@ config_ses_region_name=None
 config_s3_limit_kb=100
 config_s3_upload_limit_count=10
 config_s3_presigned_expire_sec=60
+
+#integration
+config_google_login_client_id=None
+config_gsheet_service_account_json_path=None
+config_gsheet_scope=["https://www.googleapis.com/auth/spreadsheets"]
+config_fast2sms_url=None
+config_fast2sms_key=None
+config_resend_url=None
+config_resend_key=None
+config_posthog_project_host=None
+config_posthog_project_key=None
+config_mongodb_url=None
+config_openai_key=None
+config_gemini_key=None
+config_sentry_dsn=None
 
 #sftp
 config_sftp_auth_method="password"
@@ -72,17 +71,6 @@ config_cors_method=["*"]
 config_cors_headers=["*"]
 config_is_cors_allow_credentials=0
 
-#enum
-config_index_html_path=None
-config_auth_type=[1, 2, 3]
-config_table_create_my=["test", "post", "support", "rating_test"]
-config_table_create_public=["test", "support"]
-config_table_read_public=["test", "post"]
-config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
-config_column_single_update=["username", "password", "email", "mobile"]
-config_api_roles=["index", "auth", "my", "public", "private", "admin"]
-config_api_roles_auth=["/my/", "/private/", "/admin/"]
-
 #switch
 config_is_signup=1
 config_is_log_api=1
@@ -93,15 +81,19 @@ config_is_index_html=0
 config_is_otp_users_update_admin=0
 config_is_postgres_init_startup=1
 
-#zzz
+#system
+config_index_html_path=None
+config_auth_type=[1, 2, 3]
 config_expiry_sec_otp=600
-config_postgres_ids_delete_limit=1000
-config_limit_obj_list=5000
-config_google_login_client_id=None
-config_mongodb_url=None
-config_openai_key=None
-config_gemini_key=None
-config_sentry_dsn=None
+
+#enum
+config_table_create_my=["test", "post", "support", "rating_test"]
+config_table_create_public=["test", "support"]
+config_table_read_public=["test", "post"]
+config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
+config_column_single_update=["username", "password", "email", "mobile"]
+config_api_roles=["index", "auth", "my", "public", "private", "admin"]
+config_api_roles_auth=["/my/", "/private/", "/admin/"]
 
 #dict
 config_sql={
@@ -152,8 +144,9 @@ config_postgres={
 {"name":"type","datatype":"integer","index":"btree"},
 {"name":"title","datatype":"text","is_mandatory":1,"index":"btree,gin"},
 {"name":"code","datatype":"text","is_mandatory":0,"index":"btree","unique":"code,type"},
-{"name":"email","datatype":"text","unique":"email","regex":"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$"},
+{"name":"email","datatype":"text","regex":"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$"},
 {"name":"mobile","datatype":"text"},
+{"name":"col1","datatype":"text","unique":"col1"},
 {"name":"file_url","datatype":"text"},
 {"name":"link_url","datatype":"text"},
 {"name":"tag","datatype":"text[]","index":"gin"},

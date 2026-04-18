@@ -142,62 +142,103 @@ async def func_postgres_bulk_update_csv(*, mode: str, csv_path: str, pg_dsn: str
             print(f"{'-'*80}")
             if input(f"👉 Proceed with bulk UPDATE on '{table}'? (y/N): ").lower() != 'y':
                 print(f"\n❌ [CANCELLED] Aborted.\n"); return
-            print(f"\n🏗️  PHASE 1: Creating Staging Area...")
-            staging_cols_sql = ", ".join([f"{c} {col_type_map[c].replace('serial','bigint')}" for c in matched_cols])
-            await conn.execute(f"CREATE UNLOGGED TABLE {staging_table} ({staging_cols_sql})")
-            print(f"✅ Staging table '{staging_table}' created.")
-            class RowReject(Exception): pass
-            def get_converter(col_name):
-                t = col_type_map.get(col_name, "text")
-                def base_clean(val):
-                    if val is None: return None
-                    s = str(val).strip()
-                    if s.lower() in ("","none","null","n/a"): return None
-                    return s
-                if t == "text" or "char" in t: return lambda v: base_clean(v)
-                def converter(v):
-                    v_str = base_clean(v)
-                    if v_str is None: return None
-                    try:
-                        if "int" in t: return int(float(v_str)) if '.' in v_str else int(v_str)
-                        if "numeric" in t or "real" in t or "double" in t: return float(v_str)
-                        if "bool" in t: return v_str.lower() in ("true","1","yes","t","y")
-                        if "date" in t or "timestamp" in t:
-                            for fmt in ("%Y-%m-%d","%d-%m-%Y","%m/%d/%Y","%Y-..","%Y%m%d"):
-                                try:
-                                    dt = datetime.strptime(v_str, fmt); return dt.date() if t == "date" else dt
-                                except: continue
-                            return str(v_str) # Fallback
-                    except:
-                        if mode == "strict": raise ValueError(f"Column '{col_name}' error")
-                        if mode == "loose": return None
-                        if mode == "reject": raise RowReject()
-                    return v_str
-                return converter
-            col_plan = [get_converter(c) for c in matched_cols]
-            def row_generator():
-                count, rejected, f_rej = 0, 0, None
-                try:
-                    for row in reader:
+            async with conn.transaction():
+                print(f"\n🏗️  PHASE 1: Creating Staging Area...")
+                staging_cols_sql = ", ".join([f"{c} {col_type_map[c].replace('serial','bigint')}" for c in matched_cols])
+                await conn.execute(f"CREATE TEMP TABLE {staging_table} ({staging_cols_sql}) ON COMMIT DROP")
+                print(f"✅ Staging table '{staging_table}' created.")
+                class RowReject(Exception): pass
+                def get_converter(col_name):
+                    t = col_type_map.get(col_name, "text")
+                    def base_clean(val):
+                        if val is None: return None
+                        s = str(val).strip()
+                        if s.lower() in ("","none","null","n/a"): return None
+                        return s
+                    if t == "text" or "char" in t: return lambda v: base_clean(v)
+                    def converter(v):
+                        v_str = base_clean(v)
+                        if v_str is None: return None
                         try:
-                            line = [plan(row.get(col)) for plan, col in zip(col_plan, matched_cols)]
-                            yield tuple(line); count += 1
-                        except RowReject:
-                            rejected += 1
-                            if mode == "reject":
-                                if f_rej is None:
-                                    os.makedirs("tmp", exist_ok=True); f_rej = open(rej_path,"w",encoding='utf-8')
-                                    csv.DictWriter(f_rej, fieldnames=csv_header).writeheader()
-                                csv.DictWriter(f_rej, fieldnames=csv_header).writerow(row)
-                        if (count+rejected)%log_every==0: print(f"  🔹 STREAMING: {count:,} rows | ⏳ {int(time.time()-t0)}s")
-                finally:
-                    if f_rej: f_rej.close()
-            print(f"\n⚡ PHASE 2: Streaming Data to Staging...")
-            await conn.copy_records_to_table(staging_table, records=row_generator(), columns=matched_cols)
-            print(f"✅ Streaming completed. Now running atomic update...")
-            set_sql = ", ".join([f"{c} = s.{c}" for c in cols_to_update])
-            update_res = await conn.execute(f"UPDATE {table} m SET {set_sql} FROM {staging_table} s WHERE m.id = s.id")
-            print(f"\n⚡ PHASE 3: Cleaning up...")
-            await conn.execute(f"DROP TABLE {staging_table}")
-            print(f"{'-'*60}\n✅ COMPLETED: {update_res} | ⏱️  {int(time.time()-t0)}s\n{'-'*60}\n")
+                            if "int" in t: return int(float(v_str)) if '.' in v_str else int(v_str)
+                            if "numeric" in t or "real" in t or "double" in t: return float(v_str)
+                            if "bool" in t: return v_str.lower() in ("true","1","yes","t","y")
+                            if "date" in t or "timestamp" in t:
+                                for fmt in ("%Y-%m-%d","%d-%m-%Y","%m/%d/%Y","%Y-..","%Y%m%d"):
+                                    try:
+                                        dt = datetime.strptime(v_str, fmt); return dt.date() if t == "date" else dt
+                                    except: continue
+                                return str(v_str) # Fallback
+                        except:
+                            if mode == "strict": raise ValueError(f"Column '{col_name}' error")
+                            if mode == "loose": return None
+                            if mode == "reject": raise RowReject()
+                        return v_str
+                    return converter
+                col_plan = [get_converter(c) for c in matched_cols]
+                def row_generator():
+                    count, rejected, f_rej = 0, 0, None
+                    try:
+                        for row in reader:
+                            try:
+                                line = [plan(row.get(col)) for plan, col in zip(col_plan, matched_cols)]
+                                yield tuple(line); count += 1
+                            except RowReject:
+                                rejected += 1
+                                if mode == "reject":
+                                    if f_rej is None:
+                                        os.makedirs("tmp", exist_ok=True); f_rej = open(rej_path,"w",encoding='utf-8')
+                                        csv.DictWriter(f_rej, fieldnames=csv_header).writeheader()
+                                    csv.DictWriter(f_rej, fieldnames=csv_header).writerow(row)
+                            if (count+rejected)%log_every==0: print(f"  🔹 STREAMING: {count:,} rows | ⏳ {int(time.time()-t0)}s")
+                    finally:
+                        if f_rej: f_rej.close()
+                print(f"\n⚡ PHASE 2: Streaming Data to Staging...")
+                await conn.copy_records_to_table(staging_table, records=row_generator(), columns=matched_cols)
+                print(f"✅ Streaming completed. Now running atomic update...")
+                set_sql = ", ".join([f"{c} = s.{c}" for c in cols_to_update])
+                update_res = await conn.execute(f"UPDATE {table} m SET {set_sql} FROM {staging_table} s WHERE m.id = s.id")
+                print(f"{'-'*60}\n✅ COMPLETED: {update_res} | ⏱️  {int(time.time()-t0)}s\n{'-'*60}\n")
+    finally: await conn.close()
+
+async def func_postgres_bulk_delete_csv(*, csv_path: str, pg_dsn: str, table: str):
+    """Deletes records from PG using IDs provided in a CSV."""
+    import asyncio, asyncpg, csv, time, os
+    from datetime import datetime
+    t0, log_every = time.time(), 100000
+    db_name = pg_dsn.split('/')[-1].split('?')[0]
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    staging_table = f"staging_del_{table}_{ts}"
+    print(f"\n{'-'*60}\n🗑️  BULK DELETE DASHBOARD\n{'-'*60}")
+    print(f"📁 SOURCE: {csv_path}\n🎯 TARGET:   {db_name} -> {table}\n{'-'*60}")
+    conn = await asyncpg.connect(pg_dsn)
+    try:
+        print(f"🔗 DB: Connected to {db_name}\n{'-'*60}")
+        q = "SELECT column_name, data_type FROM information_schema.columns WHERE table_name=$1"
+        columns_records = await conn.fetch(q, table)
+        if not columns_records: raise Exception(f"Table '{table}' not found")
+        col_type_map = {r['column_name']: r['data_type'].lower() for r in columns_records}
+        if "id" not in col_type_map: raise Exception(f"Table '{table}' must have an 'id' column for bulk deletes")
+        with open(csv_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            csv_header = reader.fieldnames or []
+            if "id" not in csv_header: raise Exception("CSV must contain 'id' column for deletes")
+            if input(f"👉 Proceed with bulk DELETE on '{table}'? (y/N): ").lower() != 'y':
+                print(f"\n❌ [CANCELLED] Aborted.\n"); return
+            async with conn.transaction():
+                print(f"\n🏗️  PHASE 1: Creating Staging Area...")
+                id_type = col_type_map["id"].replace('serial','bigint')
+                await conn.execute(f"CREATE TEMP TABLE {staging_table} (id {id_type}) ON COMMIT DROP")
+                print(f"✅ Staging table '{staging_table}' created.")
+                def row_generator():
+                    count = 0
+                    for row in reader:
+                        yield (row["id"],)
+                        count += 1
+                        if count % log_every == 0: print(f"  🔹 STREAMING: {count:,} rows | ⏳ {int(time.time()-t0)}s")
+                print(f"\n⚡ PHASE 2: Streaming IDs to Staging...")
+                await conn.copy_records_to_table(staging_table, records=row_generator(), columns=["id"])
+                print(f"✅ Streaming completed. Now running atomic delete...")
+                delete_res = await conn.execute(f"DELETE FROM {table} m USING {staging_table} s WHERE m.id = s.id")
+                print(f"{'-'*60}\n✅ COMPLETED: {delete_res} | ⏱️  {int(time.time()-t0)}s\n{'-'*60}\n")
     finally: await conn.close()

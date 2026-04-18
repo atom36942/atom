@@ -68,7 +68,7 @@ async def func_postgres_serialize(*, client_postgres_pool: any, cache_postgres_s
                     if isinstance(val, str):
                         new_item[col] = orjson.loads(val_str) if val_str.startswith(("{", "[")) else val_str
                     else:
-                        new_item[col] = orjson.dumps(val).decode('utf-8')
+                        new_item[col] = val
                 elif "[]" in dtype or "array" in dtype:
                     v_arr = val_str.strip("{}")
                     arr = val if isinstance(val, (list, tuple)) else ([x.strip() for x in v_arr.split(",")] if v_arr else [])

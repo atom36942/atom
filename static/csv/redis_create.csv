@@ -1,0 +1,4 @@
+key,value
+user:1001,"{""name"": ""Alice"", ""role"": ""admin""}"
+user:1002,"{""name"": ""Bob"", ""role"": ""editor""}"
+cache:settings,"{""theme"": ""dark"", ""notifications"": true}"

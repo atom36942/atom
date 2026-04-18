@@ -35,8 +35,8 @@ config_mongodb_url="mongodb://localhost:27017"
 # Consumers
 venv/bin/python -m core.consumer redis default
 venv/bin/python -m core.consumer rabbitmq default
-venv/bin/python -m core.consumer kafka default
 venv/bin/python -m core.consumer celery default
+venv/bin/python -m core.consumer kafka default
 ```
 
 ###  FAQ

@@ -41,7 +41,7 @@ async def func_api_admin_postgres_export(*, request: Request):
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
     obj_f = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None, None, None), ("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("file", "file", 1, [], None, None, None), ("is_serialize", "int", 0, [0, 1], 1, None, None)])
-    count = await app_state.func_orchestrator_semaphore_postgres_import(upload_file=obj_f["file"][-1], mode=obj_f["mode"], table=obj_f["table"], is_serialize=obj_f["is_serialize"], config_limit_obj_list=app_state.config_limit_obj_list, config_postgres_ids_delete_limit=app_state.config_postgres_ids_delete_limit, client_postgres_pool=app_state.client_postgres_pool, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_create=app_state.func_postgres_create, func_postgres_update=app_state.func_postgres_update, func_postgres_delete=app_state.func_postgres_delete, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+    count = await app_state.func_orchestrator_semaphore_postgres_import(upload_file=obj_f["file"][-1], mode=obj_f["mode"], table=obj_f["table"], is_serialize=obj_f["is_serialize"], client_postgres_pool=app_state.client_postgres_pool, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_create=app_state.func_postgres_create, func_postgres_update=app_state.func_postgres_update, func_postgres_delete=app_state.func_postgres_delete, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     return {"status": 1, "message": f"{count} rows processed"}
 
 @router.post("/admin/object-create")
@@ -49,14 +49,14 @@ async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("mode", "str", 0, ["now", "buffer"], "now", None, None), ("is_serialize", "int", 0, [0, 1], 0, None, None), ("queue", "str", 0, None, None, None, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
-    return {"status": 1, "message": await app_state.func_orchestrator_obj_create(user_id=None, api_role="admin", obj_query=oq, obj_body=ob, config_limit_obj_list=app_state.config_limit_obj_list, config_table_create_my=app_state.config_table_create_my, config_table_create_public=app_state.config_table_create_public, config_column_blocked=app_state.config_column_blocked, config_table=app_state.config_table, config_channel_allowed=app_state.config_channel_allowed, client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, func_orchestrator_producer=app_state.func_orchestrator_producer, func_postgres_create=app_state.func_postgres_create, client_postgres_pool=app_state.client_postgres_pool, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer)}
+    return {"status": 1, "message": await app_state.func_orchestrator_obj_create(user_id=None, api_role="admin", obj_query=oq, obj_body=ob, config_table_create_my=app_state.config_table_create_my, config_table_create_public=app_state.config_table_create_public, config_column_blocked=app_state.config_column_blocked, config_table=app_state.config_table, config_channel_allowed=app_state.config_channel_allowed, client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, func_orchestrator_producer=app_state.func_orchestrator_producer, func_postgres_create=app_state.func_postgres_create, client_postgres_pool=app_state.client_postgres_pool, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer)}
 
 @router.put("/admin/object-update")
 async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("is_serialize", "int", 0, [0, 1], 0, None, None), ("otp", "int", 0, None, None, None, None), ("queue", "str", 0, None, None, None, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
-    return {"status": 1, "message": await app_state.func_orchestrator_obj_update(user_id=None, api_role="admin", obj_query=oq, obj_body=ob, config_is_otp_users_update_admin=app_state.config_is_otp_users_update_admin, config_limit_obj_list=app_state.config_limit_obj_list, config_column_blocked=app_state.config_column_blocked, config_column_single_update=app_state.config_column_single_update, func_otp_verify=app_state.func_otp_verify, client_postgres_pool=app_state.client_postgres_pool, config_expiry_sec_otp=app_state.config_expiry_sec_otp, config_channel_allowed=app_state.config_channel_allowed, client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, func_orchestrator_producer=app_state.func_orchestrator_producer, func_postgres_update=app_state.func_postgres_update, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema)}
+    return {"status": 1, "message": await app_state.func_orchestrator_obj_update(user_id=None, api_role="admin", obj_query=oq, obj_body=ob, config_is_otp_users_update_admin=app_state.config_is_otp_users_update_admin, config_column_blocked=app_state.config_column_blocked, config_column_single_update=app_state.config_column_single_update, func_otp_verify=app_state.func_otp_verify, client_postgres_pool=app_state.client_postgres_pool, config_expiry_sec_otp=app_state.config_expiry_sec_otp, config_channel_allowed=app_state.config_channel_allowed, client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, func_orchestrator_producer=app_state.func_orchestrator_producer, func_postgres_update=app_state.func_postgres_update, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema)}
 
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
@@ -69,28 +69,28 @@ async def func_api_admin_object_read(*, request: Request):
 async def func_api_admin_ids_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("ids", "str", 1, None, None, None, None)])
-    return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=None, config_postgres_ids_delete_limit=app_state.config_postgres_ids_delete_limit)}
+    return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=None)}
 
 @router.post("/admin/redis-import")
 async def func_api_admin_redis_import(*, request: Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "delete"], None, None, None), ("file", "file", 1, [], None, None, None)])
     if of["mode"] == "create":
-        count = await app_state.func_redis_create(upload_file=of["file"][-1], client_redis=app_state.client_redis, chunk_size=app_state.config_limit_obj_list, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+        count = await app_state.func_redis_create(upload_file=of["file"][-1], client_redis=app_state.client_redis, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     elif of["mode"] == "delete":
-        count = await app_state.func_redis_delete(upload_file=of["file"][-1], client_redis=app_state.client_redis, chunk_size=app_state.config_limit_obj_list, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+        count = await app_state.func_redis_delete(upload_file=of["file"][-1], client_redis=app_state.client_redis, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     return {"status": 1, "message": f"{count} rows processed"}
 
 @router.post("/admin/mongodb-import")
 async def func_api_admin_mongodb_import(*, request: Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None, None, None), ("database", "str", 1, None, None, None, None), ("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("file", "file", 1, [], None, None, None)])
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None, None, None), ("database", "str", 1, None, None, None, None), ("table", "str", 1, None, None, None, None), ("file", "file", 1, [], None, None, None)])
     if of["mode"] == "create":
-        count = await app_state.func_mongodb_create(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], chunk_size=app_state.config_limit_obj_list, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+        count = await app_state.func_mongodb_create(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     elif of["mode"] == "update":
-        count = await app_state.func_mongodb_update(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], chunk_size=app_state.config_limit_obj_list, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+        count = await app_state.func_mongodb_update(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     elif of["mode"] == "delete":
-        count = await app_state.func_mongodb_delete(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], chunk_size=app_state.config_limit_obj_list, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+        count = await app_state.func_mongodb_delete(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     return {"status": 1, "message": f"{count} rows processed"}
 
 @router.post("/admin/s3-bucket-ops")
