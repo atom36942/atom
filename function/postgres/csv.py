@@ -105,8 +105,8 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                 db_t = col_type_map.get(col, "(missing)")
                 
                 is_nullable = "✅" if col_null_map.get(col, True) else "❌"
-                # In Stage-and-Cast, we always treat columns as needing conversion to target types from TEXT
-                needs_conv = "✅"
+                # Show conversion only if the target is NOT a plain text/char type
+                needs_conv = "✅" if db_t not in ("text", "varchar", "character varying", "(missing)") else "❌"
                 status = "✅"
                 
                 print(f"{idx:<4} | {col[:29]:<30} | {csv_t:<12} | {db_t:<15} | {match:^5} | {is_nullable:^5} | {needs_conv:^5} | {status:^5}")
