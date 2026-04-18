@@ -21,6 +21,8 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     from datetime import datetime
 
     # 1. Validation & Initialization
+    if crud_mode == "delete" and const_column:
+        raise ValueError("const_column must be None for 'delete' mode as it is not utilized for row removal.")
     if crud_mode not in ("create", "update", "delete"):
         raise ValueError(f"Invalid crud_mode: {crud_mode}")
     if validation_mode not in ("strict", "reject", "loose"):
@@ -208,7 +210,7 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
             async with conn.transaction():
                 print(f"⚡ PHASE 3: Running Atomic {crud_mode.upper()} with Casting...")
                 if crud_mode == "delete":
-                    res = await conn.execute(f"DELETE FROM {table} m USING {staging_table} s WHERE m.id = s.id::text")
+                    res = await conn.execute(f"DELETE FROM {table} m USING {staging_table} s WHERE m.id = s.id::{col_type_map['id']}")
                 elif crud_mode == "create":
                     cols_sql = ", ".join(final_cols)
                     # We cast each staging TEXT column to the target UDT name
