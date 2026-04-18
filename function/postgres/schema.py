@@ -100,6 +100,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
         for col in column_configs:
             if "name" not in col or "datatype" not in col:
                 raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column config: {col}")
+            if "regex" in col and "[]" in col["datatype"].lower():
+                raise Exception(f"Regex constraint is not supported for array column {table_name}.{col['name']}. Remove the 'regex' key to resolve.")
             column_names.append(col["name"])
         if len(set(column_names)) != len(column_configs):
             raise Exception(f"Duplicate column in {table_name}")
@@ -111,9 +113,10 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
             await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id BIGSERIAL PRIMARY KEY);")
             if is_autovacuum:
                 await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
-            rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
+            rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
             current_cols = {r[0]: r[1] for r in rows}
             current_notnulls = {r[0]: r[2] for r in rows}
+            current_defaults = {r[0]: r[3] for r in rows}
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
@@ -141,6 +144,13 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                             await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} SET NOT NULL")
                         else:
                             await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP NOT NULL")
+                    target_default = str(col_cfg.get("default")).strip() if "default" in col_cfg else None
+                    current_default = current_defaults.get(col_name)
+                    if target_default:
+                        if current_default is None or target_default not in current_default:
+                             await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} SET DEFAULT {target_default}")
+                    elif current_default is not None:
+                        await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP DEFAULT")
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
@@ -156,7 +166,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                     catalog["chk"].add(chk_name)
                     await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {chk_name}")
                     await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {chk_name} CHECK ({col_name} IN {col_cfg["in"]});""")
-                if "regex" in col_cfg and "[]" not in col_type.lower():
+                if "regex" in col_cfg:
                     regex_name = f"check_{table_name}_{col_name}_regex"
                     catalog["chk"].add(regex_name)
                     await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {regex_name}")

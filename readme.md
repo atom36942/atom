@@ -22,10 +22,6 @@ venv/bin/pip install -r requirements.txt
 venv/bin/python main.py
 venv/bin/uvicorn main:app --reload
 
-# Bulk Data Ingestion (Postgres)
-# Generic utility for resilient, schema-aware CSV uploads
-venv/bin/python zzz.py
-
 # Docker Deployment
 docker build -t atom .
 docker run --rm -p 8000:8000 atom
@@ -36,7 +32,7 @@ config_redis_url="redis://localhost:6379"
 config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 config_mongodb_url="mongodb://localhost:27017"
 
-# Consumers (Modules)
+# Consumers
 venv/bin/python -m core.consumer redis default
 venv/bin/python -m core.consumer rabbitmq default
 venv/bin/python -m core.consumer kafka default
