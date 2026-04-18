@@ -88,17 +88,19 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
         raise Exception("config_postgres.table missing")
     control = config_postgres.get("control", {})
     is_ext = control.get("is_extension", 0)
-    is_match = control.get("is_column_match", 0)
     bulk_blocked = control.get("table_delete_disable_row_bulk", [])
     table_blocked = control.get("table_delete_disable_row", [])
     is_autovacuum = control.get("is_autovacuum_optimize", 0)
-    is_analyze = control.get("is_analyze_init", 0)
     is_drop_schema = control.get("is_drop_disable_schema", 0)
     is_drop_table = control.get("is_drop_disable_table", 0)
     is_truncate_table = control.get("is_truncate_disable", 0)
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
     for table_name, column_configs in config_postgres["table"].items():
-        column_names = [col["name"] for col in column_configs]
+        column_names = []
+        for col in column_configs:
+            if "name" not in col or "datatype" not in col:
+                raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column config: {col}")
+            column_names.append(col["name"])
         if len(set(column_names)) != len(column_configs):
             raise Exception(f"Duplicate column in {table_name}")
     async with client_postgres_pool.acquire() as conn:
@@ -109,7 +111,9 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
             await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id BIGSERIAL PRIMARY KEY);")
             if is_autovacuum:
                 await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
-            current_cols = {row[0]: row[1] for row in await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)}
+            rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
+            current_cols = {r[0]: r[1] for r in rows}
+            current_notnulls = {r[0]: r[2] for r in rows}
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
@@ -118,19 +122,25 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                     if old_name and old_name in current_cols:
                         await conn.execute(f"ALTER TABLE {table_name} RENAME COLUMN {old_name} TO {col_name}")
                         current_cols[col_name] = current_cols.pop(old_name)
+                        current_notnulls[col_name] = current_notnulls.pop(old_name)
                     else:
                         default_val = f"""DEFAULT {col_cfg["default"]}""" if "default" in col_cfg else ""
-                        await conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type} {default_val}")
+                        mandatory_val = "NOT NULL" if col_cfg.get("is_mandatory") == 1 else ""
+                        await conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type} {default_val} {mandatory_val}")
                         current_cols[col_name] = col_type.split("(")[0].lower()
+                        current_notnulls[col_name] = (col_cfg.get("is_mandatory") == 1)
                 else:
                     type_mapping = {"timestamp with time zone": "timestamptz", "character varying": "varchar", "integer": "int", "boolean": "bool"}
                     current_type = type_mapping.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0])
                     target_type = type_mapping.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0])
-                    if current_type != target_type:
-                        if is_match:
-                            await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {col_type} USING {col_name}::{col_type}")
+                    if type_mapping.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0]) != type_mapping.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0]):
+                        await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {col_type} USING {col_name}::{col_type}")
+                    target_notnull = (col_cfg.get("is_mandatory") == 1)
+                    if current_notnulls[col_name] != target_notnull:
+                        if target_notnull:
+                            await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} SET NOT NULL")
                         else:
-                            raise Exception(f"Type mismatch {table_name}.{col_name}: {current_cols[col_name]} vs {col_type}")
+                            await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP NOT NULL")
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
@@ -146,6 +156,16 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                     catalog["chk"].add(chk_name)
                     await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {chk_name}")
                     await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {chk_name} CHECK ({col_name} IN {col_cfg["in"]});""")
+                if "regex" in col_cfg and "[]" not in col_type.lower():
+                    regex_name = f"check_{table_name}_{col_name}_regex"
+                    catalog["chk"].add(regex_name)
+                    await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {regex_name}")
+                    await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {regex_name} CHECK ({col_name} ~ '{col_cfg["regex"]}');""")
+                if "check" in col_cfg:
+                    vld_name = f"check_{table_name}_{col_name}_vld"
+                    catalog["chk"].add(vld_name)
+                    await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {vld_name}")
+                    await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {vld_name} CHECK ({col_cfg["check"]});""")
                 if col_cfg.get("unique"):
                     for group in col_cfg["unique"].split("|"):
                         unique_cols = [x.strip() for x in group.split(",")]
@@ -153,10 +173,10 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                         catalog["uni"].add(uni_name)
                         await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {uni_name}")
                         await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {uni_name} UNIQUE ({",".join(unique_cols)});""")
-            if is_match:
-                configured_cols = {cfg["name"] for cfg in column_configs} | {"id"}
-                for col_to_drop in set(current_cols.keys()) - configured_cols:
-                    await conn.execute(f"ALTER TABLE {table_name} DROP COLUMN IF EXISTS {col_to_drop} CASCADE;")
+            configured_cols = {cfg["name"] for cfg in column_configs} | {"id"}
+            db_cols = set(current_cols.keys())
+            if db_cols - configured_cols:
+                raise Exception(f"Database mismatch for table '{table_name}': columns {db_cols - configured_cols} exist in DB but are not in config. Manual cleanup required.")
         db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
         db_tables = {}
         for row in db_schema_rows:
@@ -258,6 +278,5 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 drop_vars = "record.relname, record.conname"
                 like_filter = "(conname LIKE 'unique_%%' OR conname LIKE 'check_%%')"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-        if is_analyze:
-            await conn.execute("ANALYZE;")
+        await conn.execute("VACUUM ANALYZE;")
     return "database init done"

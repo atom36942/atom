@@ -22,9 +22,7 @@ async def func_api_openapi_json(*, request:Request):
 
 @router.get("/info")
 async def func_api_index_info(*, request:Request):
-   app_state=request.app.state
-   output=app_state.func_repo_info(app_routes=request.app.routes, cache_postgres_schema=app_state.cache_postgres_schema, config_postgres=app_state.config_postgres, config_table=app_state.config_table, config_api=app_state.config_api)
-   return {"status":1,"message":output}
+   return {"status": 1,"message": {"api_list": [route.path for route in request.app.routes if hasattr(route, "path")],"postgres_schema": request.app.state.cache_postgres_schema}}
 
 @router.websocket("/websocket")
 async def func_api_websocket(*, websocket:WebSocket):

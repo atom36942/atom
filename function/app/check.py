@@ -1,4 +1,4 @@
-def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: list, config_postgres: dict, api_roles_auth: list) -> None:
+def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: list, api_roles_auth: list) -> None:
     """Validate config_api consistency with app routes, admin roles, valid modes, duplicate keys, and strict api roles."""
     import ast
     def get_duplicate_errors(file_path, var_name):
@@ -57,35 +57,6 @@ def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: lis
                 if role not in allowed:
                     errs.append(f"invalid api role in path {route.path}: {role}")
         return errs
-    def get_control_errors(config_pg):
-        if not config_pg:
-            return []
-        if "control" not in config_pg:
-            return []
-        errs = []
-        ctrl = config_pg["control"]
-        for k, v in ctrl.items():
-            if k.startswith("is_") and v not in (None, 0, 1):
-                errs.append(f"invalid value for {k}: {v} (allowed: 0, 1, None)")
-        tdd = ctrl.get("table_delete_disable_row", [])
-        if not isinstance(tdd, list):
-            errs.append("table_delete_disable_row must be a list")
-        elif "*" in tdd and len(tdd) > 1:
-            errs.append("exclusive wildcard violation: table_delete_disable_row cannot contain other tables if '*' is present")
-        tddb = ctrl.get("table_delete_disable_row_bulk", [])
-        if not isinstance(tddb, list):
-            errs.append("table_delete_disable_row_bulk must be a list")
-        else:
-            is_star = any(isinstance(x, (list, tuple)) and x and x[0] == "*" for x in tddb)
-            if is_star and len(tddb) > 1:
-                errs.append("exclusive wildcard violation: table_delete_disable_row_bulk cannot contain other tables if '*' is present")
-            for x in tddb:
-                if not isinstance(x, (list, tuple)):
-                    errs.append(f"invalid bulk delete format: {x} (expected array)")
-                    continue
-                if len(x) < 2:
-                    errs.append(f"invalid bulk delete format: {x} (expected [table, limit])")
-        return errs
     def get_cors_errors():
         from core import config
         errs = []
@@ -103,21 +74,6 @@ def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: lis
             if key.startswith("config_is_"):
                 if value not in (None, 0, 1):
                     errs.append(f"invalid value for {key}: {value} (allowed: 0, 1, None)")
-        return errs
-    def get_table_integrity_errors(config_pg):
-        from core import config
-        if not config_pg:
-            return []
-        if "table" not in config_pg:
-            return []
-        errs = []
-        db_tables = set(config_pg["table"].keys())
-        for k in ("config_table_create_my", "config_table_create_public", "config_table_read_public", "config_table"):
-            v = getattr(config, k, [] if k != "config_table" else {})
-            v_list = v.keys() if k == "config_table" else v
-            for table in v_list:
-                if table not in db_tables:
-                    errs.append(f"table reference integrity violation: {table} (referenced in {k}) does not exist in config_postgres")
         return errs
     def get_api_id_errors(config_api):
         missing = [p for p, v in config_api.items() if not isinstance(v, dict) or "id" not in v]
@@ -139,7 +95,7 @@ def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: lis
         return errs
     if api_roles_auth is not None and not isinstance(api_roles_auth, (list, tuple)):
         raise Exception("config_api_roles_auth must be a list")
-    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles) + get_switch_errors() + get_control_errors(config_postgres) + get_cors_errors() + get_table_integrity_errors(config_postgres) + get_api_id_errors(current_config_api) + get_enum_type_errors()
+    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles) + get_switch_errors() + get_cors_errors() + get_api_id_errors(current_config_api) + get_enum_type_errors()
     if errors:
         raise Exception("; ".join(errors))
     return None

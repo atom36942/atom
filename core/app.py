@@ -43,7 +43,7 @@ async def func_lifespan(app:FastAPI):
    #misc
    func_app_state_add(app_obj=app, dict_context={**globals(),**locals()}, prefix_list=("client_","cache_","func_","config_"))
    app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
-   func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, config_postgres=config_postgres, api_roles_auth=config_api_roles_auth)
+   func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth)
    #app shutdown
    yield
    if client_postgres_pool:

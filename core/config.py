@@ -151,19 +151,21 @@ config_postgres={
 {"name":"is_deleted","datatype":"integer","index":"btree","in":(0,1)},
 {"name":"is_protected","datatype":"integer","index":"btree","in":(0,1)},
 {"name":"type","datatype":"integer","index":"btree"},
-{"name":"title","datatype":"text","index":"btree,gin","is_mandatory":1},
-{"name":"description","datatype":"text"},
+{"name":"title","datatype":"text","is_mandatory":1,"index":"btree,gin"},
+{"name":"code","datatype":"text","is_mandatory":1,"index":"btree","unique":"code,type"},
+{"name":"email","datatype":"text","unique":"email"},
+{"name":"mobile","datatype":"text"},
 {"name":"file_url","datatype":"text"},
 {"name":"link_url","datatype":"text"},
 {"name":"tag","datatype":"text[]","index":"gin","regex":"^[a-z0-9 _@-]*$"},
 {"name":"tag_int","datatype":"integer[]","index":"gin"},
 {"name":"tag_bigint","datatype":"bigint[]","index":"gin"},
-{"name":"rating","datatype":"numeric(3,1)"},
+{"name":"rating","datatype":"numeric(3,1)","check":"rating >= 0 AND rating <= 5"},
+{"name":"price","datatype":"numeric(10,2)","check":"price > 0"},
 {"name":"remark","datatype":"text"},
 {"name":"location","datatype":"geography(point)","index":"gist"},
 {"name":"dob","datatype":"date"},
-{"name":"email","datatype":"text"},
-{"name":"mobile","datatype":"text"},
+{"name":"description","datatype":"text"},
 {"name":"status","datatype":"integer","index":"btree","old":"status2"},
 {"name":"metadata","datatype":"jsonb","index":"gin"}
 ],
@@ -274,7 +276,6 @@ config_postgres={
 "control":{
 "root_user_password":"f2aca8bf32871f21d371a1ba1111b4890e64fadb854201cd77441ac816cc4bc6",
 "is_extension":1,
-"is_column_match":0,
 "is_drop_disable_schema":0,
 "is_drop_disable_table":1,
 "is_truncate_disable":1,
@@ -283,8 +284,7 @@ config_postgres={
 "is_users_delete_disable_role":1,
 "table_delete_disable_row":["users"],
 "table_delete_disable_row_bulk":[["users",1]],
-"is_autovacuum_optimize":1,
-"is_analyze_init":1
+"is_autovacuum_optimize":1
 }
 }
 
