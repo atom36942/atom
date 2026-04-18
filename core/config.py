@@ -272,7 +272,6 @@ config_postgres={
 {"name":"tag","datatype":"text[]","index":"gin"},
 ]
 },
-"sql":{},
 "control":{
 "root_user_password":"f2aca8bf32871f21d371a1ba1111b4890e64fadb854201cd77441ac816cc4bc6",
 "is_extension":1,
@@ -285,7 +284,8 @@ config_postgres={
 "table_delete_disable_row":["users"],
 "table_delete_disable_row_bulk":[["users",1]],
 "is_autovacuum_optimize":1
-}
+},
+"sql":{},
 }
 
 #override

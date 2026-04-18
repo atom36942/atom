@@ -9,7 +9,7 @@ from fastapi import Request
 @router.post("/private/s3-upload-file")
 async def func_api_private_s3_upload_file(request:Request):
    app_state=request.app.state
-   obj_form=await app_state.func_request_param_read(request=request, mode="form", config=[("bucket","str",1,None,None,None,None),("file","file",1,[],None,None,None)], strict=1)
+   obj_form=await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("bucket","str",1,None,None,None,None),("file","file",1,[],None,None,None)])
    output={}
    if len(obj_form["file"])>app_state.config_s3_upload_limit_count:
       raise Exception(f"maximum {app_state.config_s3_upload_limit_count} files allowed")
@@ -20,7 +20,7 @@ async def func_api_private_s3_upload_file(request:Request):
 @router.post("/private/s3-upload-presigned")
 async def func_api_private_s3_upload_presigned(request:Request):
    app_state=request.app.state
-   obj_query=await app_state.func_request_param_read(request=request, mode="query", config=[("bucket","str",1,None,None,None,None),("count","int",0,None,1,None,None)], strict=1)
+   obj_query=await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("bucket","str",1,None,None,None,None),("count","int",0,None,1,None,None)])
    if obj_query["count"]>app_state.config_s3_upload_limit_count:
       raise Exception(f"maximum {app_state.config_s3_upload_limit_count} allowed")
    output=[]

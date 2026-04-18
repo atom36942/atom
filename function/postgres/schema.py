@@ -95,16 +95,45 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
     is_drop_table = control.get("is_drop_disable_table", 0)
     is_truncate_table = control.get("is_truncate_disable", 0)
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
+    reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
     for table_name, column_configs in config_postgres["table"].items():
-        column_names = []
+        column_names = set()
         for col in column_configs:
-            if "name" not in col or "datatype" not in col:
-                raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column config: {col}")
-            if "regex" in col and "[]" in col["datatype"].lower():
-                raise Exception(f"Regex constraint is not supported for array column {table_name}.{col['name']}. Remove the 'regex' key to resolve.")
-            column_names.append(col["name"])
-        if len(set(column_names)) != len(column_configs):
-            raise Exception(f"Duplicate column in {table_name}")
+            name, dtype = col.get("name"), col.get("datatype")
+            if not name or not dtype:
+                raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column: {col}")
+            if name.lower() in reserved:
+                raise Exception(f"Column name '{name}' in table '{table_name}' is a PostgreSQL reserved keyword. Please rename it.")
+            if name in column_names:
+                raise Exception(f"Duplicate column name '{name}' in table '{table_name}'")
+            column_names.add(name)
+            
+            # Regex validation
+            if "regex" in col and "[]" in dtype.lower():
+                raise Exception(f"Regex constraint is not supported for array column {table_name}.{name}. Remove 'regex' key to resolve.")
+            
+            # Index Compatibility
+            indices = [i.strip() for i in col.get("index", "").split(",") if i.strip()]
+            for idx in indices:
+                if idx.lower() == "gin":
+                    if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar")):
+                        raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar.")
+                if idx.lower() == "gist":
+                    if not any(x in dtype.lower() for x in ("geography", "geometry", "box", "circle", "point", "polygon")):
+                        raise Exception(f"GIST index is not compatible with '{dtype}' on {table_name}.{name}. Supported: geography, geometry, spatial types.")
+            
+            # Spatial Enforcement
+            if any(x in dtype.lower() for x in ("geography", "geometry")):
+                if indices and not any(x.lower() == "gist" for x in indices):
+                    raise Exception(f"Spatial column {table_name}.{name} must use 'gist' index if indexed.")
+
+        # Unique Constraints Cross-Reference
+        for col in column_configs:
+            if col.get("unique"):
+                for group in col["unique"].split("|"):
+                    for u_col in (x.strip() for x in group.split(",") if x.strip()):
+                        if u_col not in column_names:
+                            raise Exception(f"Unique constraint in {table_name} references non-existent column '{u_col}'. Defined columns: {list(column_names)}")
     async with client_postgres_pool.acquire() as conn:
         if is_ext:
             for extension in ("postgis", "pg_trgm", "btree_gin"):

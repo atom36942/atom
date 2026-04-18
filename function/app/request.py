@@ -1,4 +1,4 @@
-async def func_request_param_read(*, request: any, mode: str, config: list, strict: int) -> dict:
+async def func_request_param_read(*, request: any, mode: str, strict: int, config: list) -> dict:
     """Extract, validate, and type-cast request parameters from query, form, body or headers."""
     params_dict = {}
     header_params = {k.lower(): v for k, v in request.headers.items()}
