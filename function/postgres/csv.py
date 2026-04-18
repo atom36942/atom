@@ -51,6 +51,11 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     conn = await asyncpg.connect(pg_dsn)
     try:
         print(f"🔗 DB: Connected to {db_name}\n{'-'*60}")
+
+        # 1.5 Strict Existence Check
+        table_exists = await conn.fetchval('SELECT to_regclass($1)', f'"{table}"' if '.' not in table else table)
+        if not table_exists:
+            raise ValueError(f"Table '{table}' does not exist in database '{db_name}'. Please verify the table name and schema.")
         
         # 2. Fetch Schema Info (including UDT Name for precise casting)
         q = """
@@ -128,10 +133,9 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                 print(f"\n❌ [CANCELLED] Aborted by user.\n"); return
 
             # 6. Execution Prep
-            print(f"\n🏗️  PHASE 1: Preparing Staging Area...")
-            # We create a TEMP table with ALL columns as TEXT to bypass binary encoder limits
-            staging_cols_sql = ", ".join([f"{c} TEXT" for c in final_cols])
-            await conn.execute(f"CREATE TEMP TABLE {staging_table} ({staging_cols_sql})")
+            # We create a TEMP table with ALL columns as TEXT (Quoted for safety)
+            staging_cols_sql = ", ".join([f'"{c}" TEXT' for c in final_cols])
+            await conn.execute(f'CREATE TEMP TABLE "{staging_table}" ({staging_cols_sql})')
             print(f"✅ Staging area '{staging_table}' created (using TEXT optimization).")
 
             print(f"\n⚡ PHASE 2: Ingesting Data to Staging...")
@@ -210,17 +214,16 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
             async with conn.transaction():
                 print(f"⚡ PHASE 3: Running Atomic {crud_mode.upper()} with Casting...")
                 if crud_mode == "delete":
-                    res = await conn.execute(f"DELETE FROM {table} m USING {staging_table} s WHERE m.id = s.id::{col_type_map['id']}")
+                    res = await conn.execute(f'DELETE FROM "{table}" m USING "{staging_table}" s WHERE m."id" = s."id"::{col_type_map["id"]}')
                 elif crud_mode == "create":
-                    cols_sql = ", ".join(final_cols)
+                    cols_sql = ", ".join([f'"{c}"' for c in final_cols])
                     # We cast each staging TEXT column to the target UDT name
-                    # Standard Types (int, bool) and Complex Types (geography, jsonb, _int4) all support ::casting
-                    cast_sql = ", ".join([f"{c}::{col_type_map[c]}" for c in final_cols])
-                    res = await conn.execute(f"INSERT INTO {table} ({cols_sql}) SELECT {cast_sql} FROM {staging_table}")
+                    cast_sql = ", ".join([f's."{c}"::{col_type_map[c]}' for c in final_cols])
+                    res = await conn.execute(f'INSERT INTO "{table}" ({cols_sql}) SELECT {cast_sql} FROM "{staging_table}" s')
                 else: # update
                     cols_to_update = [c for c in final_cols if c != "id"]
-                    set_sql = ", ".join([f"{c} = s.{c}::{col_type_map[c]}" for c in cols_to_update])
-                    res = await conn.execute(f"UPDATE {table} m SET {set_sql} FROM {staging_table} s WHERE m.id = s.id::{col_type_map['id']}")
+                    set_sql = ", ".join([f'"{c}" = s."{c}"::{col_type_map[c]}' for c in cols_to_update])
+                    res = await conn.execute(f'UPDATE "{table}" m SET {set_sql} FROM "{staging_table}" s WHERE m."id" = s."id"::{col_type_map["id"]}')
                 
                 print(f"{'-'*60}\n✅ COMPLETED: {res} | ⏱️  {int(time.time()-t0)}s\n{'-'*60}\n")
 
