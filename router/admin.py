@@ -71,37 +71,26 @@ async def func_api_admin_ids_delete(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("ids", "str", 1, None, None, None, None)])
     return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=None, config_postgres_ids_delete_limit=app_state.config_postgres_ids_delete_limit)}
 
-@router.post("/admin/redis-import-create")
-async def func_api_admin_redis_import_create(*, request: Request):
+@router.post("/admin/redis-import")
+async def func_api_admin_redis_import(*, request: Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("file", "file", 1, [], None, None, None), ("expiry_sec", "int", 0, None, None, None, None)])
-    count = 0
-    async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=app_state.config_limit_obj_list):
-       await app_state.func_redis_object_create(client_redis=app_state.client_redis, keys=[f"""{of["table"]}_{item["id"]}""" for item in ol], objects=ol, config_redis_cache_ttl_sec=of.get("expiry_sec"))
-       count += len(ol)
-    return {"status": 1, "message": f"{count} rows processed"}
-
-@router.post("/admin/redis-import-delete")
-async def func_api_admin_redis_import_delete(*, request: Request):
-    app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("file", "file", 1, [], None, None, None)])
-    count = 0
-    async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=app_state.config_limit_obj_list):
-       await app_state.func_redis_object_delete(client_redis=app_state.client_redis, keys=[f"""{of["table"]}_{item["id"]}""" for item in ol])
-       count += len(ol)
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "delete"], None, None, None), ("file", "file", 1, [], None, None, None)])
+    if of["mode"] == "create":
+        count = await app_state.func_redis_create(upload_file=of["file"][-1], client_redis=app_state.client_redis, chunk_size=app_state.config_limit_obj_list, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+    elif of["mode"] == "delete":
+        count = await app_state.func_redis_delete(upload_file=of["file"][-1], client_redis=app_state.client_redis, chunk_size=app_state.config_limit_obj_list, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     return {"status": 1, "message": f"{count} rows processed"}
 
 @router.post("/admin/mongodb-import")
 async def func_api_admin_mongodb_import(*, request: Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "delete"], None, None, None), ("database", "str", 1, None, None, None, None), ("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("file", "file", 1, [], None, None, None)])
-    count = 0
-    async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=app_state.config_limit_obj_list):
-       if of["mode"] == "create":
-          await app_state.func_mongodb_object_create(client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], obj_list=ol)
-       elif of["mode"] == "delete":
-          await app_state.func_mongodb_object_delete(client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], obj_list=ol)
-       count += len(ol)
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None, None, None), ("database", "str", 1, None, None, None, None), ("table", "str", 1, app_state.cache_postgres_schema_tables, None, None, None), ("file", "file", 1, [], None, None, None)])
+    if of["mode"] == "create":
+        count = await app_state.func_mongodb_create(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], chunk_size=app_state.config_limit_obj_list, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+    elif of["mode"] == "update":
+        count = await app_state.func_mongodb_update(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], chunk_size=app_state.config_limit_obj_list, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
+    elif of["mode"] == "delete":
+        count = await app_state.func_mongodb_delete(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], chunk_size=app_state.config_limit_obj_list, func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     return {"status": 1, "message": f"{count} rows processed"}
 
 @router.post("/admin/s3-bucket-ops")

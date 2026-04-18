@@ -137,11 +137,13 @@ async def func_auth_login_mobile_otp(*, client_postgres_pool: any, type: int, mo
         new_records = await conn.fetch("INSERT INTO users (type, mobile) VALUES ($1, $2) RETURNING *;", type, mobile)
         return dict(new_records[0])
 
-async def func_auth_login_google(*, client_postgres_pool: any, func_google_verify: callable, func_serialize: callable, config_google_login_client_id: str, type: int, google_token: str, config_auth_type: list) -> dict:
+async def func_auth_login_google(*, client_postgres_pool: any, func_serialize: callable, config_google_login_client_id: str, type: int, google_token: str, config_auth_type: list) -> dict:
     """Validate a Google ID token and perform user login or signup based on the verified identity."""
     if type not in config_auth_type:
         raise Exception(f"authentication type {type} not allowed")
-    id_info = func_google_verify(google_token, config_google_login_client_id)
+    from google.oauth2 import id_token
+    from google.auth.transport import requests
+    id_info = id_token.verify_oauth2_token(id_token=google_token, request=requests.Request(), audience=config_google_login_client_id)
     if not id_info:
         raise Exception("invalid google token")
     google_id = id_info["sub"]

@@ -23,23 +23,32 @@ def func_s3_url_delete(*, client_s3_resource: any, url: list) -> any:
         client_s3_resource.Object(bucket, key).delete()
     return "urls deleted"
 
-async def func_s3_upload(*, client_s3: any, bucket: str, file_obj: any, config_s3_limit_kb: int) -> str:
-    """Upload a file to AWS S3 bucket with unique key generation and size limit check."""
+async def func_s3_upload_file(*, client_s3: any, bucket: str, file_list: list, config_s3_limit_kb: int, config_s3_upload_limit_count: int) -> dict:
     import uuid
-    file_data = await file_obj.read()
-    if len(file_data) > config_s3_limit_kb * 1024:
-        raise Exception(f"file size exceeds {config_s3_limit_kb}kb")
-    ext = file_obj.filename.split(".")[-1] if "." in file_obj.filename else "bin"
-    file_key = f"{uuid.uuid4().hex}.{ext}"
-    await client_s3.put_object(Bucket=bucket, Key=file_key, Body=file_data)
-    return f"https://{bucket}.s3.amazonaws.com/{file_key}"
+    if len(file_list) > config_s3_upload_limit_count:
+        raise Exception(f"maximum {config_s3_upload_limit_count} files allowed")
+    output = {}
+    for item in file_list:
+        file_data = await item.read()
+        if len(file_data) > config_s3_limit_kb * 1024:
+            raise Exception(f"file size exceeds {config_s3_limit_kb}kb for {item.filename}")
+        ext = item.filename.split(".")[-1] if "." in item.filename else "bin"
+        file_key = f"{uuid.uuid4().hex}.{ext}"
+        await client_s3.put_object(Bucket=bucket, Key=file_key, Body=file_data)
+        output[item.filename] = f"https://{bucket}.s3.amazonaws.com/{file_key}"
+    return output
 
-def func_s3_upload_presigned(*, client_s3: any, config_s3_region_name: str, bucket: str, config_s3_limit_kb: int, config_s3_presigned_expire_sec: int) -> dict:
-    """Generate a presigned POST URL for secure client-side binary uploads to S3 with unique key generation."""
+def func_s3_upload_url_presigned(*, client_s3: any, config_s3_region_name: str, bucket: str, config_s3_limit_kb: int, config_s3_presigned_expire_sec: int, count: int, config_s3_upload_limit_count: int) -> list:
     import uuid
-    file_key = f"{uuid.uuid4().hex}.bin"
-    presigned_post = client_s3.generate_presigned_post(Bucket=bucket, Key=file_key, ExpiresIn=config_s3_presigned_expire_sec, Conditions=[["content-length-range", 1, config_s3_limit_kb * 1024]])
-    return {**presigned_post["fields"], "url_final": f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{file_key}"}
+    if count > config_s3_upload_limit_count:
+        raise Exception(f"maximum {config_s3_upload_limit_count} allowed")
+    output = []
+    for _ in range(count):
+        file_key = f"{uuid.uuid4().hex}.bin"
+        presigned_post = client_s3.generate_presigned_post(Bucket=bucket, Key=file_key, ExpiresIn=config_s3_presigned_expire_sec, Conditions=[["content-length-range", 1, config_s3_limit_kb * 1024]])
+        output.append({**presigned_post["fields"], "url_final": f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{file_key}"})
+    return output
+
 
 def func_sns_send_mobile_message(*, client_sns: any, mobile: str, message: str) -> None:
     """Send a mobile SMS using AWS SNS."""

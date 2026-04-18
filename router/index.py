@@ -15,15 +15,15 @@ async def func_api_index(*, request:Request):
 async def func_api_index_health(*, request:Request):
    return {"status":1,"message":"ok"}
 
-@router.get("/openapi.json")
-async def func_api_openapi_json(*, request:Request):
-   app_state=request.app.state
-   return app_state.cache_openapi
-
 @router.get("/info")
 async def func_api_index_info(*, request:Request):
    return {"status": 1,"message": {"api_list": [route.path for route in request.app.routes if hasattr(route, "path")],"postgres_schema": request.app.state.cache_postgres_schema}}
 
+@router.get("/openapi.json")
+async def func_api_openapi_json(*, request:Request):
+   app_state=request.app.state
+   return app_state.cache_openapi
+   
 @router.websocket("/websocket")
 async def func_api_websocket(*, websocket:WebSocket):
    await websocket.accept()

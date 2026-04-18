@@ -76,10 +76,6 @@ async def func_api_auth_login_mobile_otp(*, request:Request):
 async def func_api_auth_login_google(*, request:Request):
    app_state=request.app.state
    obj_body=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_auth_type,None,None,"Enter Login Type, Example: 1, 2, 3"),("google_token","str",1,None,None,None,None)])
-   def func_google_verify_wrapper(token, client_id):
-       from google.oauth2 import id_token
-       from google.auth.transport import requests
-       return id_token.verify_oauth2_token(id_token=token, request=requests.Request(), audience=client_id)
-   user=await app_state.func_auth_login_google(client_postgres_pool=app_state.client_postgres_pool, func_google_verify=func_google_verify_wrapper, func_serialize=app_state.func_serialize, config_google_login_client_id=app_state.config_google_login_client_id, type=obj_body["type"], google_token=obj_body["google_token"], config_auth_type=app_state.config_auth_type)
+   user=await app_state.func_auth_login_google(client_postgres_pool=app_state.client_postgres_pool, func_serialize=app_state.func_serialize, config_google_login_client_id=app_state.config_google_login_client_id, type=obj_body["type"], google_token=obj_body["google_token"], config_auth_type=app_state.config_auth_type)
    token=await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
