@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atom Todo - Minimalist Task Tracker</title>
+    <meta name="description" content="A super minimalist, high-performance dark theme todo list for developers. To Do, In Progress, Done.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark">
+    <div class="app-container">
+        <!-- Integrated Actions and Input -->
+        <section class="input-section">
+            <div class="command-bar">
+                <input type="text" id="todoInput" placeholder="Add task..." aria-label="New task">
+                <button id="addTodoBtn" class="add-btn">+</button>
+                <div class="v-divider"></div>
+                <div class="integrated-actions">
+                    <button id="importBtn" class="action-icon" title="Import JSON">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    </button>
+                    <button id="exportBtn" class="action-icon" title="Export JSON">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    </button>
+                </div>
+                <input type="file" id="importInput" style="display: none;" accept=".json">
+            </div>
+        </section>
+
+        <section class="board-container">
+            <div class="board-col" data-stage="todo">
+                <div class="col-head">
+                    <h3>To Do</h3>
+                    <span class="count" id="todoCount">0</span>
+                </div>
+                <div class="task-list drop-zone" id="todoList"></div>
+            </div>
+
+            <div class="board-col" data-stage="in_progress">
+                <div class="col-head">
+                    <h3>In Progress</h3>
+                    <span class="count" id="inProgressCount">0</span>
+                </div>
+                <div class="task-list drop-zone" id="inProgressList"></div>
+            </div>
+
+            <div class="board-col" data-stage="done">
+                <div class="col-head">
+                    <h3>Done</h3>
+                    <span class="count" id="doneCount">0</span>
+                </div>
+                <div class="task-list drop-zone" id="doneList"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h3>Edit Task</h3>
+                <button id="deleteTaskBtn" class="btn-del-icon" title="Delete Task">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                </button>
+            </header>
+            <div class="field">
+                <label>DESCRIPTION</label>
+                <textarea id="editDesc" class="large-area"></textarea>
+            </div>
+            <div class="field">
+                <label>LINK</label>
+                <input type="url" id="editLink" placeholder="https://...">
+            </div>
+            <div class="field">
+                <label>DUE DATE</label>
+                <input type="date" id="editDate">
+            </div>
+            <div class="modal-foot">
+                <div class="spacer"></div>
+                <button id="cancelEditBtn" class="btn-cancel">CANCEL</button>
+                <button id="saveEditBtn" class="btn-save">SAVE</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
