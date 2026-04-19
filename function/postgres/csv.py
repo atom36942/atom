@@ -17,8 +17,11 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     - UPDATE: await func_postgres_csv_crud(crud_mode="update", validation_mode="reject", csv_path="upd.csv", pg_dsn=dsn, table="users", const_column=[["sync_ts", "now()"]])
     - DELETE: await func_postgres_csv_crud(crud_mode="delete", validation_mode="strict", csv_path="del.csv", pg_dsn=dsn, table="users", const_column=None)
     """
-    import asyncio, asyncpg, csv, time, os
+    import asyncio, asyncpg, csv, time, os, itertools, sys
     from datetime import datetime
+    
+    # Increase field size limit for extremely large CSV cells
+    csv.field_size_limit(sys.maxsize)
 
     # 1. Validation & Initialization
     if crud_mode == "delete" and const_column:
@@ -32,13 +35,15 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     db_name = pg_dsn.split('/')[-1].split('?')[0]
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     rej_path = f"tmp/rejected_{crud_mode}_{table}_{ts}.csv"
-    staging_table = f"staging_{crud_mode}_{table}_{ts}"
+    staging_table = f"staging_sync_{table}"
     
     # 1. Summary & Parameters Dashboard
     icons = {"create": "🚚", "update": "🚀", "delete": "🗑️"}
     valid_consts = [c for c in const_column if isinstance(c, (tuple, list)) and len(c) == 2] if const_column else []
     
-    print(f"\n{'-'*60}\n{icons[crud_mode]} POSTGRES BULK {crud_mode.upper()} SUMMARY\n{'-'*60}")
+    def get_ts(): return f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
+
+    print(f"\n{'-'*60}\n{get_ts()} {icons[crud_mode]} POSTGRES BULK {crud_mode.upper()} SUMMARY\n{'-'*60}")
     print(f"📁 SOURCE:      {csv_path}")
     print(f"🎯 TARGET:      {db_name} -> {table}")
     print(f"🛠️  CRUD MODE:   {crud_mode.upper()}")
@@ -48,9 +53,10 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     print(f"{'-'*60}")
 
     c_names, c_vals = [c[0] for c in valid_consts], [c[1] for c in valid_consts]
-    conn = await asyncpg.connect(pg_dsn)
+    # Set a 60s timeout for the initial connection handshake
+    conn = await asyncpg.connect(pg_dsn, timeout=60)
     try:
-        print(f"🔗 DB: Connected to {db_name}\n{'-'*60}")
+        print(f"{get_ts()} 🔗 DB: Connected to {db_name}\n{'-'*60}")
 
         # 1.5 Strict Existence Check
         table_exists = await conn.fetchval('SELECT to_regclass($1)', f'"{table}"' if '.' not in table else table)
@@ -91,7 +97,7 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
             f.readline() 
 
             # 4. Column Comparison Dashboard
-            print(f"\n📋 CSV TO DB SCHEMA COMPARISON:")
+            print(f"\n{get_ts()} 📋 CSV TO DB SCHEMA COMPARISON:")
             print(f"{'-'*130}\n{'Idx':<4} | {'COLUMN NAME':<30} | {'CSV TYPE':<12} | {'DB TYPE':<15} | {'MATCH':^5} | {'NULL':^5} | {'CONV':^5} | {'PASS':^5}")
             print(f"{'-'*130}")
             
@@ -132,13 +138,38 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
             if input(f"👉 Proceed with bulk {crud_mode.upper()} on '{table}'? (y/N): ").lower() != 'y':
                 print(f"\n❌ [CANCELLED] Aborted by user.\n"); return
 
-            # 6. Execution Prep
-            # We create a TEMP table with ALL columns as TEXT (Quoted for safety)
-            staging_cols_sql = ", ".join([f'"{c}" TEXT' for c in final_cols])
-            await conn.execute(f'CREATE TEMP TABLE "{staging_table}" ({staging_cols_sql})')
-            print(f"✅ Staging area '{staging_table}' created (using TEXT optimization).")
+            # 6. Execution Prep & Resume Logic
+            # Check if a persistent staging table already exists
+            skip_count = 0
+            existing_stage = await conn.fetchval('SELECT to_regclass($1)', f'"{staging_table}"')
+            
+            if existing_stage:
+                existing_count = await conn.fetchval(f'SELECT count(*) FROM "{staging_table}"')
+                print(f"⚠️  NOTICE: Persistent staging table '{staging_table}' already exists with {existing_count:,} rows.")
+                choice = input(f"👉 [R]esume from row {existing_count+1:,}, [O]verwrite & start fresh, or [C]ancel? (r/o/C): ").lower()
+                
+                if choice == 'r':
+                    skip_count = existing_count
+                    print(f"✅ RESUMING: Skipping first {skip_count:,} rows in CSV...")
+                elif choice == 'o':
+                    await conn.execute(f'DROP TABLE "{staging_table}"')
+                    print(f"🧹 OVERWRITING: Deleted old staging table.")
+                else:
+                    print(f"❌ Aborted by user."); return
 
-            print(f"\n⚡ PHASE 2: Ingesting Data to Staging...")
+            # We create a persistent table (not TEMP) to support resumes across connection drops
+            if skip_count == 0:
+                staging_cols_sql = ", ".join([f'"{c}" TEXT' for c in final_cols])
+                try:
+                    # UNLOGGED tables are much faster for staging because they don't generate WAL logs
+                    await conn.execute(f'CREATE UNLOGGED TABLE "{staging_table}" ({staging_cols_sql})')
+                    print(f"{get_ts()} ✅ Staging area '{staging_table}' created (using UNLOGGED optimization).")
+                except Exception:
+                    # Fallback to standard table if UNLOGGED is restricted (e.g. some managed DB tiers)
+                    await conn.execute(f'CREATE TABLE "{staging_table}" ({staging_cols_sql})')
+                    print(f"{get_ts()} ✅ Staging area '{staging_table}' created (standard mode).")
+
+            print(f"\n{get_ts()} ⚡ PHASE 2: Ingesting Data to Staging...")
             class RowReject(Exception): pass
 
             # In this architecture, converters primarily handle base data cleaning
@@ -178,10 +209,12 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
             const_converters = [get_converter(c) for c in c_names]
             conv_c_vals = [conv(v) for conv, v in zip(const_converters, c_vals)]
 
-            def row_generator():
-                count, rejected, f_rej = 0, 0, None
+            def row_generator(offset=0):
+                count, rejected, f_rej = offset, 0, None
                 try:
-                    for row in reader:
+                    # Use islice for high-performance row skipping when resuming
+                    items = itertools.islice(reader, offset, None)
+                    for row in items:
                         try:
                             if crud_mode == "delete":
                                 # Apply the 'id' converter plan to ensure valid IDs and enable rejection
@@ -201,18 +234,21 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                                 csv.DictWriter(f_rej, fieldnames=csv_header).writerow(row)
                         
                         if (count+rejected) % log_every == 0:
-                            print(f"  🔹 PROGRESS: {count:,} rows {f'| ⚠️ REJECTED: {rejected:,}' if rejected else ''} | ⏳ {int(time.time()-t0)}s")
+                            print(f"{get_ts()}   🔹 PROGRESS: {count:,} rows {f'| ⚠️ REJECTED: {rejected:,}' if rejected else ''} | ⏳ {int(time.time()-t0)}s")
+                    
+                    print(f"{get_ts()} ✅ CSV reading complete ({count:,} rows total). Finalizing database stream...")
                 finally:
                     if f_rej: f_rej.close()
-                if rejected: print(f"{'-'*60}\n📁 REJECT LOG: {rej_path}\n{'-'*60}")
+                if rejected: print(f"{'-'*60}\n{get_ts()} 📁 REJECT LOG: {rej_path}\n{'-'*60}")
 
             # Stream strings into the staging table (binary copy handles TEXT efficiently)
-            await conn.copy_records_to_table(staging_table, records=row_generator(), columns=final_cols)
-            print(f"✅ Data streamed to staging. Now running atomic migration...")
+            # Set a 1-hour timeout for the data stream to prevent indefinite hangs
+            await conn.copy_records_to_table(staging_table, records=row_generator(skip_count), columns=final_cols, timeout=3600)
+            print(f"{get_ts()} ✅ Data streamed to staging. Now running atomic migration...")
 
             # 7. Final Step: Atomic Migration with Explicit Casting
             async with conn.transaction():
-                print(f"⚡ PHASE 3: Running Atomic {crud_mode.upper()} with Casting...")
+                print(f"{get_ts()} ⚡ PHASE 3: Running Atomic {crud_mode.upper()} with Casting (Timeout: 1h)...")
                 
                 # Helper to generate robust cast expressions for integer types
                 def get_cast(col):
@@ -221,20 +257,30 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                         return f's."{col}"::numeric::{t}'
                     return f's."{col}"::{t}'
 
+                # Migration operations use a 1-hour timeout
                 if crud_mode == "delete":
                     cast_id = get_cast("id")
-                    res = await conn.execute(f'DELETE FROM "{table}" m USING "{staging_table}" s WHERE m."id" = {cast_id}')
+                    res = await conn.execute(f'DELETE FROM "{table}" m USING "{staging_table}" s WHERE m."id" = {cast_id}', timeout=3600)
                 elif crud_mode == "create":
                     cols_sql = ", ".join([f'"{c}"' for c in final_cols])
                     cast_sql = ", ".join([get_cast(c) for c in final_cols])
-                    res = await conn.execute(f'INSERT INTO "{table}" ({cols_sql}) SELECT {cast_sql} FROM "{staging_table}" s')
+                    res = await conn.execute(f'INSERT INTO "{table}" ({cols_sql}) SELECT {cast_sql} FROM "{staging_table}" s', timeout=3600)
                 else: # update
                     cols_to_update = [c for c in final_cols if c != "id"]
                     set_sql = ", ".join([f'"{c}" = {get_cast(c)}' for c in cols_to_update])
                     cast_id = get_cast("id")
-                    res = await conn.execute(f'UPDATE "{table}" m SET {set_sql} FROM "{staging_table}" s WHERE m."id" = {cast_id}')
+                    res = await conn.execute(f'UPDATE "{table}" m SET {set_sql} FROM "{staging_table}" s WHERE m."id" = {cast_id}', timeout=3600)
                 
-                print(f"{'-'*60}\n✅ COMPLETED: {res} | ⏱️  {int(time.time()-t0)}s\n{'-'*60}\n")
+                print(f"{'-'*60}\n{get_ts()} ✅ COMPLETED: {res} | ⏱️  {int(time.time()-t0)}s\n{'-'*60}\n")
+                
+                # Cleanup: Only drop the staging table on absolute success
+                await conn.execute(f'DROP TABLE "{staging_table}"')
+                print(f"{get_ts()} 🧹 Staging table '{staging_table}' cleaned up.")
+
+                # Final optimization: Update statistics for the new massive table
+                print(f"{get_ts()} 📊 Optimizing database statistics (ANALYZE)...")
+                await conn.execute(f'ANALYZE "{table}"')
+                print(f"{get_ts()} ✅ Statistics updated. Ingestion complete.")
 
     finally:
         await conn.close()
