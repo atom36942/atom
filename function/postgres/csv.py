@@ -213,17 +213,26 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
             # 7. Final Step: Atomic Migration with Explicit Casting
             async with conn.transaction():
                 print(f"⚡ PHASE 3: Running Atomic {crud_mode.upper()} with Casting...")
+                
+                # Helper to generate robust cast expressions for integer types
+                def get_cast(col):
+                    t = col_type_map[col]
+                    if t in ("int2", "int4", "int8"):
+                        return f's."{col}"::numeric::{t}'
+                    return f's."{col}"::{t}'
+
                 if crud_mode == "delete":
-                    res = await conn.execute(f'DELETE FROM "{table}" m USING "{staging_table}" s WHERE m."id" = s."id"::{col_type_map["id"]}')
+                    cast_id = get_cast("id")
+                    res = await conn.execute(f'DELETE FROM "{table}" m USING "{staging_table}" s WHERE m."id" = {cast_id}')
                 elif crud_mode == "create":
                     cols_sql = ", ".join([f'"{c}"' for c in final_cols])
-                    # We cast each staging TEXT column to the target UDT name
-                    cast_sql = ", ".join([f's."{c}"::{col_type_map[c]}' for c in final_cols])
+                    cast_sql = ", ".join([get_cast(c) for c in final_cols])
                     res = await conn.execute(f'INSERT INTO "{table}" ({cols_sql}) SELECT {cast_sql} FROM "{staging_table}" s')
                 else: # update
                     cols_to_update = [c for c in final_cols if c != "id"]
-                    set_sql = ", ".join([f'"{c}" = s."{c}"::{col_type_map[c]}' for c in cols_to_update])
-                    res = await conn.execute(f'UPDATE "{table}" m SET {set_sql} FROM "{staging_table}" s WHERE m."id" = s."id"::{col_type_map["id"]}')
+                    set_sql = ", ".join([f'"{c}" = {get_cast(c)}' for c in cols_to_update])
+                    cast_id = get_cast("id")
+                    res = await conn.execute(f'UPDATE "{table}" m SET {set_sql} FROM "{staging_table}" s WHERE m."id" = {cast_id}')
                 
                 print(f"{'-'*60}\n✅ COMPLETED: {res} | ⏱️  {int(time.time()-t0)}s\n{'-'*60}\n")
 
