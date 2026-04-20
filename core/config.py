@@ -185,8 +185,8 @@ config_postgres={
 {"name":"country","datatype":"text"},
 {"name":"state","datatype":"text"},
 {"name":"city","datatype":"text"},
-{"name":"email_comm","datatype":"text"},
-{"name":"mobile_comm","datatype":"text"},
+{"name":"email_communication","datatype":"text"},
+{"name":"mobile_communication","datatype":"text"},
 ],
 "log_api":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree"},
