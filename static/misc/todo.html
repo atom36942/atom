@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atom - Task Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #05070a;
+            --surface: #0d1117;
+            --border: rgba(255, 255, 255, 0.08);
+            --primary: #10b981;
+            --primary-glow: rgba(16, 185, 129, 0.15);
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --danger: #ef4444;
+            --radius: 12px;
+            --shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+            --font-mono: 'JetBrains Mono', monospace;
+            color-scheme: dark;
+        }
+
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: rgba(0, 0, 0, 0.12);
+            --primary: #059669;
+            --primary-glow: rgba(5, 150, 105, 0.1);
+            --text: #0f172a;
+            --text-dim: #475569;
+            --shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+            color-scheme: light;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Outfit', sans-serif; 
+            min-height: 100vh; 
+            overflow: hidden; 
+            transition: background 0.3s;
+        }
+        
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 0%, var(--primary-glow), transparent 70%);
+            z-index: -1; pointer-events: none;
+        }
+
+        .app-container { 
+            max-width: 1600px; margin: 0 auto; padding: 24px; 
+            display: flex; flex-direction: column; gap: 24px; height: 100vh; 
+        }
+        
+        .cmd-section { width: 100%; max-width: 800px; margin: 0 auto; }
+        .cmd-bar { 
+            display: flex; align-items: center; background: var(--surface); 
+            backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 100px; 
+            padding: 8px 16px; box-shadow: var(--shadow); transition: border-color 0.3s;
+        }
+        .cmd-bar:focus-within { border-color: var(--primary); }
+        .cmd-bar input { 
+            flex: 1; background: transparent; border: none; outline: none; 
+            color: var(--text); font-family: var(--font-mono); font-size: 0.9rem; padding: 0 12px; 
+        }
+        .add-btn { 
+            background: var(--primary); color: #000; border: none; border-radius: 50%; 
+            width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; 
+            justify-content: center; font-weight: 600; font-size: 1.2rem; transition: all 0.2s; flex-shrink: 0;
+        }
+        .add-btn:hover { transform: scale(1.1); }
+        .add-btn:active { transform: scale(0.9); opacity: 0.8; }
+
+        .actions { display: flex; gap: 8px; margin-left: 12px; border-left: 1px solid var(--border); padding-left: 12px; }
+        .act-icon { 
+            background: transparent; border: none; color: var(--text-dim); 
+            cursor: pointer; padding: 6px; display: flex; transition: color 0.2s; border-radius: 50%;
+        }
+        .act-icon:hover { color: var(--primary); background: var(--primary-glow); }
+
+        .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; flex: 1; min-height: 0; }
+        .col { 
+            background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border); 
+            border-radius: var(--radius); display: flex; flex-direction: column; min-width: 0;
+        }
+        .col-head { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface); 
+        }
+        .col-head h3 { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; }
+        .count { font-family: var(--font-mono); font-size: 0.65rem; color: var(--primary); background: var(--primary-glow); padding: 2px 8px; border-radius: 4px; }
+        
+        .list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+        .list::-webkit-scrollbar { width: 4px; }
+        .list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        .list.over { background: var(--primary-glow); }
+
+        .task { 
+            background: var(--surface); border: 1px solid var(--border); 
+            border-radius: 10px; padding: 14px; cursor: grab; transition: all 0.2s;
+            animation: slideIn 0.3s ease forwards;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .task:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .task.dragging { opacity: 0.4; }
+        .task-text { font-size: 0.9rem; line-height: 1.4; margin-bottom: 10px; }
+        .task-meta { display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-dim); }
+        .t-link { color: var(--primary); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+        
+        .modal { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); 
+            display: none; align-items: center; justify-content: center; z-index: 100;
+        }
+        .modal-box { 
+            background: var(--surface); border: 1px solid var(--border); width: 90%; max-width: 450px; 
+            border-radius: 16px; padding: 24px; box-shadow: var(--shadow);
+        }
+        .fld { margin-bottom: 16px; }
+        .fld label { display: block; font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 1px; }
+        .fld input, .fld textarea { 
+            width: 100%; background: #000; border: 1px solid var(--border); color: var(--text); 
+            padding: 10px; border-radius: 8px; outline: none; font-family: inherit; font-size: 0.85rem;
+        }
+        .fld textarea { min-height: 100px; resize: none; }
+        .m-foot { display: flex; gap: 10px; margin-top: 24px; }
+        .btn { flex: 1; padding: 10px; border-radius: 8px; font-family: var(--font-mono); font-size: 0.7rem; cursor: pointer; transition: 0.2s; border: none; }
+        .btn-s { background: var(--primary); color: #000; font-weight: 600; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+        .modal-header h3 { font-family: var(--font-mono); font-size: 0.75rem; color: var(--primary); letter-spacing: 2px; text-transform: uppercase; }
+        .del-btn { 
+            background: rgba(239, 68, 68, 0.1); border: none; color: var(--danger); 
+            width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; 
+            border-radius: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        .del-btn:hover { background: var(--danger); color: #fff; transform: scale(1.05); }
+
+        .btn-c { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+
+        @media (max-width: 900px) {
+            .board { grid-template-columns: 1fr; overflow-y: auto; }
+            .col { min-height: 300px; }
+            .app-container { height: auto; overflow: visible; }
+            .list { max-height: 400px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <section class="cmd-section">
+            <div class="cmd-bar">
+                <input type="text" id="taskInput" placeholder="Add task..." autocomplete="off">
+                <button id="addBtn" class="add-btn" type="button">+</button>
+                <div class="actions">
+                    <button id="themeToggle" class="act-icon" title="Toggle Theme" type="button">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    </button>
+                    <button id="importBtn" class="act-icon" title="Import" type="button">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    </button>
+                    <button id="exportBtn" class="act-icon" title="Export" type="button">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    </button>
+                </div>
+                <input type="file" id="fileInput" style="display:none" accept=".json">
+            </div>
+        </section>
+
+        <main class="board">
+            <div class="col" data-status="todo">
+                <div class="col-head"><h3>Backlog</h3><span class="count" id="count-todo">0</span></div>
+                <div class="list" id="list-todo"></div>
+            </div>
+            <div class="col" data-status="in_progress">
+                <div class="col-head"><h3>In Progress</h3><span class="count" id="count-ip">0</span></div>
+                <div class="list" id="list-ip"></div>
+            </div>
+            <div class="col" data-status="done">
+                <div class="col-head"><h3>Done</h3><span class="count" id="count-done">0</span></div>
+                <div class="list" id="list-done"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Edit Task</h3>
+                <button id="delBtn" class="del-btn" title="Delete Task" type="button">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
+                </button>
+            </div>
+            <div class="fld"><label>DESCRIPTION</label><textarea id="editDesc"></textarea></div>
+            <div class="fld"><label>DUE DATE</label><input type="date" id="editDate"></div>
+            <div class="fld"><label>LINK (URL)</label><input type="url" id="editLink"></div>
+            <div class="m-foot">
+                <button id="cancelBtn" class="btn btn-c" type="button">CANCEL</button>
+                <button id="saveBtn" class="btn btn-s" type="button">SAVE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            let tasks = [];
+            let currentTaskId = null;
+            const STORAGE_KEY = 'atom_todo_v5';
+            
+            const $ = id => document.getElementById(id);
+
+            const loadTasks = () => {
+                try {
+                    const data = localStorage.getItem(STORAGE_KEY);
+                    tasks = data ? JSON.parse(data) : [];
+                    if (!Array.isArray(tasks)) tasks = [];
+                } catch (e) {
+                    console.error("Load failed", e);
+                    tasks = [];
+                }
+            };
+
+            const saveTasks = () => {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+                renderBoard();
+            };
+
+            const renderBoard = () => {
+                const stages = ['todo', 'ip', 'done'];
+                stages.forEach(s => {
+                    const list = $('list-' + s);
+                    const count = $('count-' + s);
+                    if (list) list.innerHTML = '';
+                    if (count) count.innerText = '0';
+                });
+
+                let counts = { todo: 0, ip: 0, done: 0 };
+                
+                tasks.forEach(t => {
+                    const card = createCard(t);
+                    const stageKey = t.stage === 'in_progress' ? 'ip' : t.stage;
+                    const container = $('list-' + stageKey);
+                    if (container) {
+                        container.appendChild(card);
+                        counts[stageKey]++;
+                    }
+                });
+
+                stages.forEach(s => {
+                    const count = $('count-' + s);
+                    if (count) count.innerText = counts[s];
+                });
+            };
+
+            const createCard = (t) => {
+                const el = document.createElement('div');
+                el.className = 'task';
+                el.draggable = true;
+                el.onclick = () => openEdit(t.id);
+                
+                el.ondragstart = (e) => {
+                    e.dataTransfer.setData('taskId', t.id);
+                    el.classList.add('dragging');
+                };
+                el.ondragend = () => el.classList.remove('dragging');
+
+                let metaHtml = '';
+                if (t.dueDate) metaHtml += `<span>📅 ${t.dueDate}</span>`;
+                if (t.link) {
+                    try {
+                        const url = t.link.startsWith('http') ? t.link : 'https://' + t.link;
+                        const host = new URL(url).hostname;
+                        metaHtml += `<a href="${url}" class="t-link" target="_blank" onclick="event.stopPropagation()">🔗 ${host}</a>`;
+                    } catch (e) {
+                        metaHtml += `<span class="t-link">🔗 Link</span>`;
+                    }
+                }
+
+                el.innerHTML = `
+                    <div class="task-text">${t.description}</div>
+                    <div class="task-meta">${metaHtml}</div>
+                `;
+                return el;
+            };
+
+            const addTask = () => {
+                const input = $('taskInput');
+                const val = input.value.trim();
+                if (!val) return;
+
+                const newTask = {
+                    id: 'task-' + Date.now(),
+                    description: val,
+                    link: '',
+                    dueDate: '',
+                    stage: 'todo',
+                    createdAt: Date.now()
+                };
+
+                tasks.unshift(newTask);
+                input.value = '';
+                saveTasks();
+            };
+
+            const openEdit = (id) => {
+                const t = tasks.find(x => x.id === id);
+                if (!t) return;
+                currentTaskId = id;
+                $('editDesc').value = t.description;
+                $('editLink').value = t.link;
+                $('editDate').value = t.dueDate;
+                $('editModal').style.display = 'flex';
+            };
+
+            const saveEdit = () => {
+                const t = tasks.find(x => x.id === currentTaskId);
+                if (t) {
+                    t.description = $('editDesc').value;
+                    t.link = $('editLink').value;
+                    t.dueDate = $('editDate').value;
+                    saveTasks();
+                }
+                closeEdit();
+            };
+
+            const closeEdit = () => {
+                $('editModal').style.display = 'none';
+                currentTaskId = null;
+            };
+
+            const deleteTask = () => {
+                tasks = tasks.filter(x => x.id !== currentTaskId);
+                saveTasks();
+                closeEdit();
+            };
+
+            // Event Listeners
+            $('addBtn').onclick = addTask;
+            $('taskInput').onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTask();
+                }
+            };
+
+            $('saveBtn').onclick = saveEdit;
+            $('cancelBtn').onclick = closeEdit;
+            $('delBtn').onclick = deleteTask;
+
+            $('themeToggle').onclick = () => {
+                const html = document.documentElement;
+                html.dataset.theme = (html.dataset.theme === 'dark') ? 'light' : 'dark';
+            };
+
+            $('exportBtn').onclick = () => {
+                const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'atom_tasks.json';
+                a.click();
+            };
+
+            $('importBtn').onclick = () => $('fileInput').click();
+            $('fileInput').onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const data = JSON.parse(ev.target.result);
+                        tasks = Array.isArray(data) ? data : [];
+                        saveTasks();
+                    } catch (err) {
+                        alert('Invalid task file');
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            document.querySelectorAll('.list').forEach(list => {
+                list.ondragover = (e) => {
+                    e.preventDefault();
+                    list.classList.add('over');
+                };
+                list.ondragleave = () => list.classList.remove('over');
+                list.ondrop = (e) => {
+                    e.preventDefault();
+                    list.classList.remove('over');
+                    const taskId = e.dataTransfer.getData('taskId');
+                    const newStage = list.closest('.col').dataset.status;
+                    const task = tasks.find(x => x.id === taskId);
+                    if (task && task.stage !== newStage) {
+                        task.stage = newStage;
+                        saveTasks();
+                    }
+                };
+            });
+
+            window.onclick = (e) => {
+                if (e.target === $('editModal')) closeEdit();
+            };
+
+            // Init
+            loadTasks();
+            renderBoard();
+        })();
+    </script>
+</body>
+</html>
