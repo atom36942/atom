@@ -214,8 +214,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                         await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {uni_name} UNIQUE ({",".join(unique_cols)});""")
             configured_cols = {cfg["name"] for cfg in column_configs} | {"id"}
             db_cols = set(current_cols.keys())
-            if db_cols - configured_cols:
-                raise Exception(f"Database mismatch for table '{table_name}': columns {db_cols - configured_cols} exist in DB but are not in config. Manual cleanup required.")
+            # Extra columns in DB are now allowed (ignored) to support third-party integrations
+            pass
         db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
         db_tables = {}
         for row in db_schema_rows:
@@ -292,6 +292,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 catalog["tg"].add(tab_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {tab_tg_name} ON {table}")
                 await conn.execute(f"CREATE TRIGGER {tab_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();")
+        managed_tables = list(config_postgres["table"].keys())
+        managed_tables_str = ",".join(f"'{t}'" for t in managed_tables) if managed_tables else "''"
         for prefix in ("tg", "uni_chk", "idx"):
             wants = catalog["tg"] if prefix == "tg" else catalog["uni"] | catalog["chk"] if prefix == "uni_chk" else catalog["idx"] | catalog["uni"] | catalog["chk"]
             wants_str = ",".join(f"'{i}'" for i in wants) if wants else "''"
@@ -301,21 +303,21 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 join_clause = ""
                 drop_fmt = "DROP INDEX IF EXISTS %I"
                 drop_vars = "record.indexname"
-                like_filter = "(indexname LIKE 'idx_%%' OR indexname LIKE 'unique_%%' OR indexname LIKE 'check_%%')"
+                like_filter = f"(indexname LIKE 'idx_%%' OR indexname LIKE 'unique_%%' OR indexname LIKE 'check_%%') AND tablename IN ({managed_tables_str})"
             elif prefix == "tg":
                 selection = "tgname, relname"
                 info_tbl = "pg_trigger"
                 join_clause = "JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid"
                 drop_fmt = "DROP TRIGGER IF EXISTS %I ON %I"
                 drop_vars = "record.tgname, record.relname"
-                like_filter = "tgname LIKE 'trigger_%%'"
+                like_filter = f"tgname LIKE 'trigger_%%' AND relname IN ({managed_tables_str})"
             else:
                 selection = "conname, relname"
                 info_tbl = "pg_constraint"
                 join_clause = "JOIN pg_class ON pg_constraint.conrelid = pg_class.oid"
                 drop_fmt = "ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I"
                 drop_vars = "record.relname, record.conname"
-                like_filter = "(conname LIKE 'unique_%%' OR conname LIKE 'check_%%')"
+                like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
         await conn.execute("VACUUM ANALYZE;")
     return "database init done"
