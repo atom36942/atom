@@ -78,7 +78,6 @@ async def func_lifespan(app:FastAPI):
 app=func_app_read(func_lifespan=func_lifespan)
 
 #app add
-func_app_add_cors(app_obj=app, config_cors_origin=config_cors_origin, config_cors_method=config_cors_method, config_cors_headers=config_cors_headers, config_is_cors_allow_credentials=config_is_cors_allow_credentials)
 func_app_add_router(app_obj=app)
 func_app_add_static(app_obj=app, folder_path="./static", route_path="/static")
 if config_sentry_dsn:
@@ -101,3 +100,6 @@ async def middleware(request, api_function):
         error, response = await request.app.state.func_api_response_error(exception=e, is_traceback=request.app.state.config_is_traceback, sentry_dsn=request.app.state.config_sentry_dsn)
     await request.app.state.func_api_log_create(config_is_log_api=request.app.state.config_is_log_api, api_id=request.app.state.config_api.get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, func_postgres_create=request.app.state.func_postgres_create, client_postgres_pool=request.app.state.client_postgres_pool, func_postgres_serialize=request.app.state.func_postgres_serialize, cache_postgres_schema=request.app.state.cache_postgres_schema, cache_postgres_buffer=request.app.state.cache_postgres_buffer, config_table=request.app.state.config_table)
     return response
+    
+#cors add (must be at the end to be outermost)
+func_app_add_cors(app_obj=app, config_cors_origin=config_cors_origin, config_cors_method=config_cors_method, config_cors_headers=config_cors_headers, config_is_cors_allow_credentials=config_is_cors_allow_credentials)
