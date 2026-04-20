@@ -1,4 +1,4 @@
-async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_path: str, pg_dsn: str, table: str, const_column: list | None):
+async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_path: str, pg_dsn: str, table: str, const_column: list | None, rename_column: list | None):
     """
     Performs high-performance bulk operations from a CSV to Postgres. 
     Uses a 'Stage and Cast' architecture to support complex types (Geography, JSONB, Arrays) 
@@ -11,11 +11,12 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     - pg_dsn (str): Postgres connection string.
     - table (str): Target table name.
     - const_column (list | None): Constant values to inject (ignored in "delete" mode).
+    - rename_column (list | None): Headers to rename before matching DB columns. (format: [["old", "new"]])
 
     Examples:
-    - CREATE: await func_postgres_csv_crud(crud_mode="create", validation_mode="strict", csv_path="in.csv", pg_dsn=dsn, table="users", const_column=[["status", "active"]])
-    - UPDATE: await func_postgres_csv_crud(crud_mode="update", validation_mode="reject", csv_path="upd.csv", pg_dsn=dsn, table="users", const_column=[["sync_ts", "now()"]])
-    - DELETE: await func_postgres_csv_crud(crud_mode="delete", validation_mode="strict", csv_path="del.csv", pg_dsn=dsn, table="users", const_column=None)
+    - CREATE: await func_postgres_csv_crud(crud_mode="create", validation_mode="strict", csv_path="in.csv", pg_dsn=dsn, table="users", const_column=[["status", "active"]], rename_column=[["column_old", "column_new"]])
+    - UPDATE: await func_postgres_csv_crud(crud_mode="update", validation_mode="reject", csv_path="upd.csv", pg_dsn=dsn, table="users", const_column=[["sync_ts", "now()"]], rename_column=None)
+    - DELETE: await func_postgres_csv_crud(crud_mode="delete", validation_mode="strict", csv_path="del.csv", pg_dsn=dsn, table="users", const_column=None, rename_column=None)
     """
     import asyncio, asyncpg, csv, time, os, itertools, sys
     from datetime import datetime
@@ -26,6 +27,8 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     # 1. Validation & Initialization
     if crud_mode == "delete" and const_column:
         raise ValueError("const_column must be None for 'delete' mode as it is not utilized for row removal.")
+    if crud_mode == "delete" and rename_column:
+        raise ValueError("rename_column must be None for 'delete' mode.")
     if crud_mode not in ("create", "update", "delete"):
         raise ValueError(f"Invalid crud_mode: {crud_mode}")
     if validation_mode not in ("strict", "reject", "loose"):
@@ -40,6 +43,7 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     # 1. Summary & Parameters Dashboard
     icons = {"create": "🚚", "update": "🚀", "delete": "🗑️"}
     valid_consts = [c for c in const_column if isinstance(c, (tuple, list)) and len(c) == 2] if const_column else []
+    valid_renames = [r for r in rename_column if isinstance(r, (tuple, list)) and len(r) == 2] if rename_column else []
     
     def get_ts(): return f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
 
@@ -50,6 +54,8 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
     print(f"🛡️  VALIDATION: {validation_mode.upper()}")
     if valid_consts:
         print(f"➕ CONST COLS:  {', '.join([f'{k}={v}' for k, v in valid_consts])}")
+    if valid_renames:
+        print(f"🔄 RENAMES:     {', '.join([f'{r[0]}->{r[1]}' for r in valid_renames])}")
     print(f"{'-'*60}")
 
     c_names, c_vals = [c[0] for c in valid_consts], [c[1] for c in valid_consts]
@@ -83,12 +89,17 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
         # 3. CSV Header Analysis
         with open(csv_path, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-            csv_header = reader.fieldnames or []
-            if not csv_header:
+            csv_header_original = reader.fieldnames or []
+            if not csv_header_original:
                 raise Exception("Missing CSV header")
             
+            # Virtual Header Mapping
+            rename_map = {old: new for old, new in valid_renames}
+            reverse_rename_map = {new: old for old, new in valid_renames}
+            csv_header = [rename_map.get(col, col) for col in csv_header_original]
+            
             if crud_mode in ("update", "delete") and "id" not in csv_header:
-                raise Exception(f"CSV must contain 'id' column for {crud_mode} operations")
+                raise Exception(f"CSV must contain 'id' column (possibly renamed) for {crud_mode} operations")
             if crud_mode in ("update", "delete") and "id" not in db_cols_all:
                 raise Exception(f"Table '{table}' must have an 'id' column for {crud_mode} operations")
 
@@ -96,10 +107,20 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
             f.seek(0)
             f.readline() 
 
+            # Helper to extract values by their visual (potentially renamed) column name
+            def get_csv_val(row_dict, mapped_col_name):
+                original_name = reverse_rename_map.get(mapped_col_name, mapped_col_name)
+                return row_dict.get(original_name)
+
             # 4. Column Comparison Dashboard
             print(f"\n{get_ts()} 📋 CSV TO DB SCHEMA COMPARISON:")
-            print(f"{'-'*130}\n{'Idx':<4} | {'COLUMN NAME':<30} | {'CSV TYPE':<12} | {'DB TYPE':<15} | {'MATCH':^5} | {'NULL':^5} | {'CONV':^5} | {'PASS':^5}")
-            print(f"{'-'*130}")
+            
+            # Dynamic width calculation for the 'COLUMN NAME' column
+            max_col_len = max([len(c) for c in csv_header] + [len("COLUMN NAME")])
+            separator_len = max_col_len + 75 
+            
+            print(f"{'-'*separator_len}\n{'Idx':<4} | {'COLUMN NAME':<{max_col_len}} | {'CSV TYPE':<12} | {'DB TYPE':<15} | {'MATCH':^5} | {'NULL':^5} | {'CONV':^5} | {'PASS':^5}")
+            print(f"{'-'*separator_len}")
             
             def infer_type(val):
                 if not val or str(val).lower() in ("null","none","n/a",""): return "null"
@@ -112,7 +133,7 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
 
             for idx, col in enumerate(csv_header, 1):
                 match = "✅" if col in db_cols_all else "❌"
-                csv_t = infer_type(first_row.get(col))
+                csv_t = infer_type(get_csv_val(first_row, col))
                 db_t = col_type_map.get(col, "(missing)")
                 
                 is_nullable = "✅" if col_null_map.get(col, True) else "❌"
@@ -120,8 +141,8 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                 needs_conv = "✅" if db_t not in ("text", "varchar", "character varying", "(missing)") else "❌"
                 status = "✅"
                 
-                print(f"{idx:<4} | {col[:29]:<30} | {csv_t:<12} | {db_t:<15} | {match:^5} | {is_nullable:^5} | {needs_conv:^5} | {status:^5}")
-            print(f"{'-'*130}")
+                print(f"{idx:<4} | {col:<{max_col_len}} | {csv_t:<12} | {db_t:<15} | {match:^5} | {is_nullable:^5} | {needs_conv:^5} | {status:^5}")
+            print(f"{'-'*separator_len}")
 
             # 5. Planning the operation
             if crud_mode == "delete":
@@ -218,9 +239,10 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                         try:
                             if crud_mode == "delete":
                                 # Apply the 'id' converter plan to ensure valid IDs and enable rejection
-                                line = [col_plan[0](row.get("id"))]
+                                # Note: get_csv_val is used to respect potential renaming of the 'id' column
+                                line = [col_plan[0](get_csv_val(row, "id"))]
                             else:
-                                line = [plan(row.get(col)) for plan, col in zip(col_plan, matched_cols)]
+                                line = [plan(get_csv_val(row, col)) for plan, col in zip(col_plan, matched_cols)]
                                 line.extend(conv_c_vals)
                             
                             yield tuple(line)
@@ -230,8 +252,8 @@ async def func_postgres_csv_crud(*, crud_mode: str, validation_mode: str, csv_pa
                             if validation_mode == "reject":
                                 if f_rej is None:
                                     os.makedirs("tmp", exist_ok=True); f_rej = open(rej_path,"w",encoding='utf-8')
-                                    csv.DictWriter(f_rej, fieldnames=csv_header).writeheader()
-                                csv.DictWriter(f_rej, fieldnames=csv_header).writerow(row)
+                                    csv.DictWriter(f_rej, fieldnames=csv_header_original).writeheader()
+                                csv.DictWriter(f_rej, fieldnames=csv_header_original).writerow(row)
                         
                         if (count+rejected) % log_every == 0:
                             print(f"{get_ts()}   🔹 PROGRESS: {count:,} rows {f'| ⚠️ REJECTED: {rejected:,}' if rejected else ''} | ⏳ {int(time.time()-t0)}s")
