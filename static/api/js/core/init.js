@@ -38,6 +38,25 @@ async function init() {
         COMMANDS.push(createCommandFromOperation(path, method, op));
       });
     });
+
+    // Sort COMMANDS based on path categories: index, auth, my, public, private, admin
+    const categoryOrder = ['index', 'auth', 'my', 'public', 'private', 'admin'];
+    COMMANDS.sort((a, b) => {
+      const getCat = p => {
+        const parts = p.split('/').filter(Boolean);
+        return (parts.length <= 1) ? 'index' : parts[0];
+      };
+      const catA = getCat(a.p), catB = getCat(b.p);
+      const idxA = categoryOrder.indexOf(catA), idxB = categoryOrder.indexOf(catB);
+      
+      if (idxA !== -1 && idxB !== -1) {
+        if (idxA !== idxB) return idxA - idxB;
+      } else if (idxA !== -1) return -1;
+      else if (idxB !== -1) return 1;
+      
+      return a.p.localeCompare(b.p);
+    });
+
     orig = COMMANDS.map((c, i) => ({ ...c, oi: i }));
     updateAppLoader(80, 'Rendering interface...');
     applyMasterTableLayout();
