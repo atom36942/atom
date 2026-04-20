@@ -126,7 +126,7 @@ const populate = (cont, sec, spec, isJson = false) => {
   if (spec && spec.length) UI(sec).classList.add('active');
   (spec || []).forEach(x => {
     let val = x.v;
-    if (x.k.toLowerCase() === 'authorization') {
+    if (x.k.toLowerCase() === 'authorization' && curr._needsAuth) {
       const lsVal = Store.token;
       if (lsVal) val = lsVal.startsWith('Bearer ') ? lsVal : `Bearer ${lsVal}`;
       else if (val && !val.startsWith('Bearer ')) val = `Bearer ${val}`;

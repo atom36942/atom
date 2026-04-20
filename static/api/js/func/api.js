@@ -32,7 +32,7 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
     }
   });
   const opts = { method: curr.m, headers: h };
-  if (Store.token && !Object.keys(h).some(k => k.toLowerCase() === 'authorization')) {
+  if (curr._needsAuth && Store.token && !Object.keys(h).some(k => k.toLowerCase() === 'authorization')) {
     h['Authorization'] = `Bearer ${Store.token}`;
   }
   if (params.f.length) {
@@ -151,7 +151,7 @@ const runMasterApiByIndex = async (index) => {
   });
 
   const opts = { method: c.m, headers: h };
-  if (Store.token && !Object.keys(h).some(k => k.toLowerCase() === 'authorization')) {
+  if (c._needsAuth && Store.token && !Object.keys(h).some(k => k.toLowerCase() === 'authorization')) {
     h['Authorization'] = `Bearer ${Store.token}`;
   }
   if (params.f.length) {

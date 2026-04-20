@@ -59,7 +59,7 @@ const generateCurl = cmdOrIdx => {
       h.push(`-H "${x.k}: ${val}"`);
     } else h.push(`-H "${x.k}: ${sanitize(val)}"`);
   });
-  if (Store.token && !hData.some(x => x.k.toLowerCase() === 'authorization')) {
+  if (c._needsAuth && Store.token && !hData.some(x => x.k.toLowerCase() === 'authorization')) {
     h.push(`-H "Authorization: Bearer ${Store.token}"`);
   }
   const qStr = qData.filter(x => x.k).map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(sanitize(x.v)).replace(/%7B/g, '{').replace(/%7D/g, '}')}`).join('&');

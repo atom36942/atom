@@ -167,6 +167,14 @@ const createCommandFromOperation = (path, method, op) => {
   const responseSchema = resolveSchema(op.responses?.['200']?.content?.['application/json']?.schema);
   if (responseSchema) command.res = responseSchema;
   command.r = op.pattern || null;
+
+  // Authentication Detection
+  const security = op.security !== undefined ? op.security : (SPEC.security || []);
+  command._needsAuth = security.length > 0;
+  if (command._needsAuth && !command.h.some(x => x.k.toLowerCase() === 'authorization')) {
+    command.h.push({ k: 'Authorization', v: '', req: true, d: 'Bearer token' });
+  }
+
   applyPathOverrides(command);
   return command;
 };
