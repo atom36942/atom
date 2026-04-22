@@ -93,9 +93,42 @@ def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: lis
             elif not all(isinstance(x, t) for x in v):
                 errs.append(f"{k} must be a list of {t.__name__}s")
         return errs
+    def get_schema_errors():
+        from core import config
+        errs = []
+        tables = config.config_postgres.get("table", {})
+        for table_name, columns in tables.items():
+            if not columns:
+                errs.append(f"table {table_name} has no columns defined")
+            else:
+                col_names = [c.get("name") for c in columns if isinstance(c, dict)]
+                dupes = [n for n in set(col_names) if col_names.count(n) > 1]
+                if dupes:
+                    errs.append(f"duplicate columns in {table_name}: {', '.join(dupes)}")
+        return errs
+    def get_mapping_errors():
+        from core import config
+        errs = []
+        all_cols = set()
+        for columns in config.config_postgres.get("table", {}).values():
+            all_cols.update(c.get("name") for c in columns if isinstance(c, dict) and "name" in c)
+        for k in ("config_column_blocked", "config_column_single_update"):
+            v = getattr(config, k, [])
+            missing = [c for c in v if c not in all_cols]
+            if missing:
+                errs.append(f"columns in {k} missing from schema: {', '.join(missing)}")
+        return errs
+    def get_retention_errors():
+        from core import config
+        errs = []
+        for table_name, cfg in config.config_table.items():
+            retention = cfg.get("retention_day")
+            if retention is not None and (not isinstance(retention, int) or retention <= 0):
+                errs.append(f"invalid retention_day for {table_name}: {retention} (must be positive integer)")
+        return errs
     if api_roles_auth is not None and not isinstance(api_roles_auth, (list, tuple)):
         raise Exception("config_api_roles_auth must be a list")
-    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles) + get_switch_errors() + get_cors_errors() + get_api_id_errors(current_config_api) + get_enum_type_errors()
+    errors = get_duplicate_errors("config.py", "config_api") + get_route_errors(app_paths, current_config_api) + get_admin_errors(app_routes, current_config_api) + get_mode_errors(current_config_api) + get_api_role_errors(app_routes, allowed_roles) + get_switch_errors() + get_cors_errors() + get_api_id_errors(current_config_api) + get_enum_type_errors() + get_schema_errors() + get_mapping_errors() + get_retention_errors()
     if errors:
         raise Exception("; ".join(errors))
     return None
