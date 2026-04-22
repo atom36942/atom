@@ -9,8 +9,8 @@ async def func_postgres_csv_crud(*,
     csv_path: str, 
     pg_dsn: str, 
     table: str, 
-    const_column: list | None = None, 
-    rename_column: list | None = None
+    const_column: list | None, 
+    rename_column: list | None
 ):
     """
     Performs high-performance bulk operations from a CSV to Postgres. 
@@ -56,10 +56,13 @@ async def func_postgres_csv_crud(*,
     print(f"🎯 TARGET:      {db_name} -> {table}")
     print(f"🛠️  CRUD MODE:   {crud_mode.upper()}")
     print(f"🛡️  VALIDATION: {validation_mode.upper()}")
-    if valid_consts:
-        print(f"➕ CONST COLS:  {', '.join([f'{k}={v}' for k, v in valid_consts])}")
-    if valid_renames:
-        print(f"🔄 RENAMES:     {', '.join([f'{r[0]}->{r[1]}' for r in valid_renames])}")
+    
+    const_str = ', '.join([f'{k}={v}' for k, v in valid_consts]) if valid_consts else "None"
+    print(f"➕ CONST COLS:  {const_str}")
+    
+    rename_str = ', '.join([f'{r[0]}->{r[1]}' for r in valid_renames]) if valid_renames else "None"
+    print(f"🔄 RENAMES:     {rename_str}")
+    
     print(f"{'-'*60}")
 
     c_names, c_vals = [c[0] for c in valid_consts], [c[1] for c in valid_consts]
@@ -87,7 +90,7 @@ async def func_postgres_csv_crud(*,
         col_null_map = {r['column_name']: r['is_nullable'] == 'YES' for r in columns_records}
         db_cols_all = [r['column_name'] for r in columns_records]
         
-        # 3. CSV Header Analysis
+        # 3. CSV Header Analysis & Sampling
         with open(csv_path, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             csv_header_original = reader.fieldnames or []
@@ -103,38 +106,97 @@ async def func_postgres_csv_crud(*,
             if crud_mode in ("update", "delete") and "id" not in db_cols_all:
                 raise Exception(f"Table '{table}' must have an 'id' column for {crud_mode} operations")
 
-            first_row = next(reader, {})
-            f.seek(0)
-            f.readline() 
+            # Sample first 100 rows for smarter type inference
+            samples = list(itertools.islice(reader, 100))
+            f.seek(0); f.readline() 
 
             def get_csv_val(row_dict, mapped_col_name):
                 original_name = reverse_rename_map.get(mapped_col_name, mapped_col_name)
                 return row_dict.get(original_name)
 
             # 4. Column Comparison Dashboard
-            print(f"\n{get_ts()} 📋 CSV TO DB SCHEMA COMPARISON:")
-            max_col_len = max([len(c) for c in csv_header] + [len("COLUMN NAME")])
-            separator_len = max_col_len + 75 
-            print(f"{'-'*separator_len}\n{'Idx':<4} | {'COLUMN NAME':<{max_col_len}} | {'CSV TYPE':<12} | {'DB TYPE':<15} | {'MATCH':^5} | {'NULL':^5} | {'CONV':^5} | {'PASS':^5}")
-            print(f"{'-'*separator_len}")
-            
-            def infer_type(val):
-                if not val or str(val).lower() in ("null","none","n/a",""): return "null"
-                v = str(val).strip()
-                if v.replace('.','',1).isdigit(): return "float" if "." in v else "integer"
-                for fmt in ("%Y-%m-%d","%d-%m-%Y","%m/%d/%Y","%Y%m%d"):
-                    try: datetime.strptime(v, fmt); return "date"
-                    except: continue
-                return "text"
+            from wcwidth import wcswidth
+            def align(text, width):
+                text = str(text)
+                v_len = wcswidth(text)
+                # Correction for terminals that render the warning icon as single-width
+                if "⚠️" in text: v_len = 1 
+                pad = max(0, width - v_len)
+                l_pad = pad // 2
+                r_pad = pad - l_pad
+                return f"{' '*l_pad}{text}{' '*r_pad}"
 
+            def infer_type_for_column(mapped_col):
+                vals = [get_csv_val(s, mapped_col) for s in samples if get_csv_val(s, mapped_col)]
+                if not vals: return "null"
+                types = set()
+                for v in vals:
+                    v_clean = str(v).strip()
+                    if v_clean.replace('.','',1).isdigit(): 
+                        types.add("float" if "." in v_clean else "integer")
+                    else:
+                        for fmt in ("%Y-%m-%d","%d-%m-%Y","%m/%d/%Y","%Y%m%d"):
+                            try: datetime.strptime(v_clean, fmt); types.add("date"); break
+                            except: continue
+                        else: types.add("text")
+                if "text" in types: return "text"
+                if "date" in types: return "date"
+                if "float" in types: return "float"
+                return "integer"
+
+            rows = []
+            has_error = False
             for idx, col in enumerate(csv_header, 1):
-                match = "✅" if col in db_cols_all else "❌"
-                csv_t = infer_type(get_csv_val(first_row, col))
+                csv_t = infer_type_for_column(col)
                 db_t = col_type_map.get(col, "(missing)")
-                is_nullable = "✅" if col_null_map.get(col, True) else "❌"
-                needs_conv = "✅" if db_t not in ("text", "varchar", "character varying", "(missing)") else "❌"
-                print(f"{idx:<4} | {col:<{max_col_len}} | {csv_t:<12} | {db_t:<15} | {match:^5} | {is_nullable:^5} | {needs_conv:^5} | ✅")
+                m_icon = "✅" if col in db_cols_all else "❌"
+                n_icon = "✅" if col_null_map.get(col, True) else "❌"
+                c_icon = "✅" if db_t not in ("text", "varchar", "character varying", "(missing)") else "❌"
+                
+                # Compatibility Logic
+                p_icon, rem = "✅", ""
+                if m_icon == "❌":
+                    p_icon, rem = "❌", "Column missing in database table."
+                elif csv_t == "text" and any(x in db_t for x in ("int", "numeric", "real", "double")):
+                    p_icon, rem = "❌", f"Type Mismatch. CSV is alphanumeric 'text', but DB is '{db_t}'."
+                elif csv_t == "float" and "int" in db_t and not db_t.startswith('_'):
+                    p_icon, rem = "⚠️", f"Truncation Risk. CSV has decimals ('float'), but DB is '{db_t}'."
+                elif csv_t == "text" and ("date" in db_t or "timestamp" in db_t):
+                    p_icon, rem = "⚠️", "Date Format Risk. Ensure CSV strings match a standard ISO or YYYY-MM-DD format."
+
+                if "❌" in p_icon: has_error = True
+                rows.append({
+                    "idx": str(idx),
+                    "col": col,
+                    "csv_t": csv_t,
+                    "db_t": db_t,
+                    "c": c_icon,
+                    "n": n_icon,
+                    "m": m_icon,
+                    "p": p_icon,
+                    "rem": rem
+                })
+
+            # Calculate dynamic widths
+            w_idx = max(len(r["idx"]) for r in rows) if rows else 3
+            w_col = max(len(r["col"]) for r in rows + [{"col": "COLUMN NAME"}])
+            w_csv = max(len(r["csv_t"]) for r in rows + [{"csv_t": "CSV TYPE"}])
+            w_db = max(len(r["db_t"]) for r in rows + [{"db_t": "DB TYPE"}])
+            w_ico = 10 # Standard width for icons
+
+            print(f"\n{get_ts()} 📋 CSV TO DB SCHEMA COMPARISON:")
+            h = f"{'Idx':<{w_idx}} | {'COLUMN NAME':<{w_col}} | {'CSV TYPE':<{w_csv}} | {'DB TYPE':<{w_db}} | {align('CONV', w_ico)} | {align('NULL', w_ico)} | {align('MATCH', w_ico)} | {align('PASS', w_ico)} |  REMARK"
+            separator_len = len(h) + 10
+            print(f"{'-'*separator_len}\n{h}\n{'-'*separator_len}")
+            
+            for r in rows:
+                print(f"{r['idx']:<{w_idx}} | {r['col']:<{w_col}} | {r['csv_t']:<{w_csv}} | {r['db_t']:<{w_db}} | {align(r['c'], w_ico)} | {align(r['n'], w_ico)} | {align(r['m'], w_ico)} | {align(r['p'], w_ico)} |  {r['rem']}")
             print(f"{'-'*separator_len}")
+
+            if has_error:
+                print(f"🚨 WARNING: Logical errors detected. Proceeding with 'STRICT' validation will cause a crash.")
+                print(f"💡 TIP: Use validation_mode='reject' to skip bad rows, or fix your DB schema.")
+                print(f"{'-'*separator_len}")
 
             # 5. Planning
             if crud_mode == "delete":
