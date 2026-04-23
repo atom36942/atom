@@ -42,7 +42,9 @@ venv/bin/python -m core.consumer kafka default
 | **Access App State** | Global clients (DB, Redis, etc.) via `request.app.state`. |
 | **User Context** | Current user state (id, role, etc.) via `request.state.user`. |
 | **Manual Auth Check** | Check via `if request.state.user is None: raise Exception("Unauthorized")`. |
-| **Admin Control** | Role checks via `user_role_check` in `config_api` (Modes: realtime, token, inmemory, redis). |
+| **Admin Check** | Role checks via `user_role_check` in `config_api` (Modes: realtime, token, inmemory, redis). |
 | **User Active Check** | Status checks via `user_is_active_check` in `config_api` (Modes: realtime, token, inmemory, redis). |
 | **API Caching** | Cache logic via `api_cache_sec` in `config_api` (Modes: inmemory, redis). |
 | **API Ratelimiter** | Rate limits via `api_ratelimiting_times_sec` in `config_api` (Modes: inmemory, redis). |
+| **Postgres Column Control** | Column control keys: `name`, `datatype`, `default`, `index`, `unique`, `is_mandatory`, `regex`, `in`, `check`, `old`. |
+
