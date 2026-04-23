@@ -1,6 +1,7 @@
 # About
 This document serves as the primary source of truth for AI Agents working within the Atom framework. 
 Adherence to these rules is imp to maintain codebase consistency and safety.
+Pls use scratch folder only for your working temp file.
 
 ### Repository Map
 - **`main.py`**: Entry point for the application. Handles server execution and runtime orchestration.
