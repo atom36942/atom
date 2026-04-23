@@ -8,46 +8,56 @@ async def func_postgres_csv_ingestion(
     table: str,
     crud_mode: str,
     validation_mode: str,
-    const_column: list[list] | None,
     rename_column: list[list] | None,
-    ignore_column: list[str] | None
+    ignore_column: list[str] | None,
+    const_column: list[list] | None
 ):
     """
     Performs high-performance bulk operations from a CSV to Postgres. 
     Uses a 'Stage and Cast' architecture to support complex types (Geography, JSONB, Arrays) 
     by bypassing binary encoder limitations of the asyncpg COPY protocol.
+    Rules & Constraints:
+    - DELETE mode: `const_column`, `rename_column`, and `ignore_column` MUST be None. `validation_mode` cannot be "loose".
+    - UPDATE mode: If `ignore_column` is used, it MUST NOT contain "id" (required for matching). `loose` validation IS allowed.
+    - UPDATE & DELETE modes: The CSV MUST contain an 'id' column (after applying any renames) to identify records.
+    
     Parameters:
-    - crud_mode (str): "create", "update", or "delete".
-    - validation_mode (str): "strict" (abort on error), "reject" (log & skip), or "loose" (nullify bad cells).
     - csv_path (str): Path to source file.
     - pg_dsn (str): Postgres connection string.
     - table (str): Target table name.
-    - const_column (list | None): Constant values to inject (ignored in "delete" mode).
+    - crud_mode (str): "create", "update", or "delete".
+    - validation_mode (str): "strict" (abort on error), "reject" (log & skip), or "loose" (nullify bad cells).
     - rename_column (list | None): Headers to rename before matching DB columns. (format: [["old", "new"]])
     - ignore_column (list | None): List of CSV columns to skip during processing.
+    - const_column (list | None): Constant values to inject.
     Example:
-        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="create", validation_mode="reject", const_column=[["src","api"]], rename_column==[["x","y"],["a","b"]], ignore_column=["tmp"])
-        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="update", validation_mode="reject", const_column=None, rename_column=[["uid","id"]], ignore_column=["tmp"])
-        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="delete", validation_mode="strict", const_column=None, rename_column=None, ignore_column=None)
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="create", validation_mode="reject", rename_column=[["x","y"],["a","b"]], ignore_column=["tmp"], const_column=[["src","api"]])
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="update", validation_mode="reject", rename_column=[["uid","id"]], ignore_column=["tmp"], const_column=None)
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="delete", validation_mode="strict", rename_column=None, ignore_column=None, const_column=None)
     """
     
     # Increase field size limit for extremely large CSV cells
     csv.field_size_limit(sys.maxsize)
     # 1. Validation & Initialization
-    if crud_mode == "delete" and const_column:
-        raise ValueError("const_column must be None for 'delete' mode.")
-    if crud_mode == "delete" and rename_column:
-        raise ValueError("rename_column must be None for 'delete' mode.")
     if crud_mode not in ("create", "update", "delete"):
-        raise ValueError(f"Invalid crud_mode: {crud_mode}")
+        raise ValueError(f"❌ ERROR: Invalid crud_mode: '{crud_mode}'. Allowed: 'create', 'update', 'delete'.")
     if validation_mode not in ("strict", "reject", "loose"):
-        raise ValueError(f"Invalid validation mode: {validation_mode}")
-    if ignore_column and crud_mode in ("update", "delete") and "id" in ignore_column:
-        raise ValueError(f"❌ ERROR: Cannot ignore 'id' column in '{crud_mode}' mode as it is required for row identification.")
+        raise ValueError(f"❌ ERROR: Invalid validation_mode: '{validation_mode}'. Allowed: 'strict', 'reject', 'loose'.")
+
+    if crud_mode == "delete":
+        if const_column: raise ValueError("❌ ERROR: 'const_column' must be None for 'delete' mode.")
+        if rename_column: raise ValueError("❌ ERROR: 'rename_column' must be None for 'delete' mode.")
+        if ignore_column: raise ValueError("❌ ERROR: 'ignore_column' must be None for 'delete' mode.")
+        if validation_mode == "loose": raise ValueError("❌ ERROR: 'validation_mode' cannot be 'loose' for 'delete' mode. Use 'strict' or 'reject'.")
+
+    if crud_mode == "update":
+        if ignore_column and "id" in ignore_column:
+            raise ValueError("❌ ERROR: Cannot ignore 'id' column in 'update' mode as it is required for row identification.")
     t_start = time.time()
     db_name = pg_dsn.split('/')[-1].split('?')[0]
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    rej_path = f"tmp/rejected_{crud_mode}_{table}_{ts}.csv"
+    csv_stem = os.path.splitext(os.path.basename(csv_path))[0]
+    rej_path = f"tmp/{csv_stem}_rejected_{ts}.csv"
     staging_table = f"staging_sync_{table}"
     
     def print_progress(current, total, prefix=''):
@@ -99,6 +109,9 @@ async def func_postgres_csv_ingestion(
             if ignore_column:
                 csv_header = [c for c in csv_header if c not in ignore_column]
                 valid_renames = [r for r in valid_renames if r[0] not in ignore_column and r[1] not in ignore_column]
+                
+            if crud_mode in ("update", "delete") and "id" not in csv_header:
+                raise ValueError(f"❌ ERROR: 'id' column is missing from CSV (required for '{crud_mode}' mode). Use rename_column if it's named differently.")
                 rename_map = {old: new for old, new in valid_renames}
                 reverse_rename_map = {new: old for old, new in valid_renames}
             
@@ -205,9 +218,9 @@ async def func_postgres_csv_ingestion(
                 ("🎯", "table", table),
                 ("🛠️", "crud_mode", crud_mode.upper()),
                 ("🛡️", "validation_mode", validation_mode.upper()),
-                ("➕", "const_column", const_str),
                 ("🔄", "rename_column", rename_str),
                 ("🚫", "ignore_column", ignore_str),
+                ("➕", "const_column", const_str),
                 ("📡", "DB STATUS", "CONNECTED"),
                 ("📊", "STATUS ICONS", "✅ PASS, ⚠️ WARNING, 🚫 MISSING, 🚫 IGNORED, ❌ ERROR")
             ]
@@ -265,8 +278,16 @@ async def func_postgres_csv_ingestion(
             except:
                 total_rows = 0 # Fallback
             print(f"{get_ts()} 📊 TOTAL ROWS: {total_rows:,}")
-            final_cols = [c for c in csv_header if c in db_cols_all]
-            matched_cols = [c for c in final_cols if c != "id"]
+            csv_mapped_cols = [c for c in csv_header if c in db_cols_all]
+            valid_c_names = [c for c in c_names if c in db_cols_all and c not in csv_mapped_cols]
+            
+            if crud_mode == "delete":
+                final_cols = ["id"] if "id" in csv_mapped_cols else []
+            elif crud_mode == "update":
+                final_cols = ["id"] + [c for c in csv_mapped_cols if c != "id"] + valid_c_names if "id" in csv_mapped_cols else []
+            else:
+                final_cols = [c for c in csv_mapped_cols if c != "id"] + valid_c_names
+                
             if not final_cols: raise Exception("No valid columns to process")
             # 6. Execution Prep & Resume Logic
             skip_count = 0
@@ -303,28 +324,31 @@ async def func_postgres_csv_ingestion(
                     except Exception as e:
                         if validation_mode == "strict": raise ValueError(f"Column '{col_name}' error: {e}")
                         if validation_mode == "loose": return None
-                        if validation_mode == "reject": raise RowReject(e)
+                        if validation_mode == "reject": raise RowReject(col_name)
                     return v_str
                 return converter
-            col_plan = [get_converter(c) for c in matched_cols]
-            conv_c_vals = [[get_converter(c)(v) for c, v in zip(c_names, c_vals)]]
-            tracker = {"rejected": 0}
+            col_plan = [get_converter(c) for c in final_cols]
+            tracker = {"rejected": 0, "rejected_cols": set()}
             def row_generator(offset=0):
                 count, f_rej = offset, None
                 try:
                     items = itertools.islice(reader, offset, None)
                     for row in items:
                         try:
-                            if crud_mode == "delete": line = [col_plan[0](get_csv_val(row, "id"))]
-                            else:
-                                line = [plan(get_csv_val(row, col)) for plan, col in zip(col_plan, matched_cols)]
-                                line.extend(conv_c_vals[0])
+                            line = []
+                            for plan, col in zip(col_plan, final_cols):
+                                if col in valid_c_names:
+                                    idx = c_names.index(col)
+                                    line.append(plan(c_vals[idx]))
+                                else:
+                                    line.append(plan(get_csv_val(row, col)))
                             yield tuple(line)
                             count += 1
                             if count % 10000 == 0 and total_rows > 0:
                                 print_progress(count, total_rows, "INGESTING")
-                        except RowReject:
+                        except RowReject as err:
                             tracker["rejected"] += 1
+                            if err.args: tracker["rejected_cols"].add(str(err.args[0]))
                             if validation_mode == "reject":
                                 vals = []
                                 for k, v in row.items():
@@ -391,6 +415,9 @@ async def func_postgres_csv_ingestion(
     
     if validation_mode == "reject" and tracker.get("rejected", 0) > 0:
         meta_final.insert(-2, ("⚠️", "REJECTED ROWS", f"{tracker['rejected']:,} (Saved to {rej_path})"))
+        if tracker.get("rejected_cols"):
+            cols_str = ", ".join(sorted(tracker["rejected_cols"]))
+            meta_final.insert(-2, ("🚫", "REJECTED COLS", cols_str))
     
     # Final Receipt with Manual Alignment
     w_meta_f_lab = max(len(lab) for ico, lab, val in meta_final)
