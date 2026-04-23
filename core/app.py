@@ -48,8 +48,6 @@ async def func_lifespan(app:FastAPI):
    yield
    if client_postgres_pool:
       await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
-   if config_is_reset_tmp == 1:
-      func_folder_reset(folder_path="tmp")
    await client_http.aclose()
    if client_postgres_pool:
       await client_postgres_pool.close()

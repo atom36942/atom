@@ -3,9 +3,9 @@ from datetime import datetime
 def get_ts(): return f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
 async def func_postgres_csv_ingestion(
     *,
+    csv_path: str,
     pg_dsn: str,
     table: str,
-    csv_path: str,
     crud_mode: str,
     validation_mode: str,
     const_column: list[list] | None,
@@ -26,9 +26,9 @@ async def func_postgres_csv_ingestion(
     - rename_column (list | None): Headers to rename before matching DB columns. (format: [["old", "new"]])
     - ignore_column (list | None): List of CSV columns to skip during processing.
     Example:
-        await func_postgres_csv_ingestion(pg_dsn=DSN, table="users", csv_path="data.csv", crud_mode="create", validation_mode="strict", const_column=[["src","api"]], rename_column=None, ignore_column=None)
-        await func_postgres_csv_ingestion(pg_dsn=DSN, table="users", csv_path="data.csv", crud_mode="update", validation_mode="reject", const_column=None, rename_column=[["uid","id"]], ignore_column=["tmp"])
-        await func_postgres_csv_ingestion(pg_dsn=DSN, table="users", csv_path="data.csv", crud_mode="delete", validation_mode="strict", const_column=None, rename_column=None, ignore_column=None)
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="create", validation_mode="reject", const_column=[["src","api"]], rename_column==[["x","y"],["a","b"]], ignore_column=["tmp"])
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="update", validation_mode="reject", const_column=None, rename_column=[["uid","id"]], ignore_column=["tmp"])
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="delete", validation_mode="strict", const_column=None, rename_column=None, ignore_column=None)
     """
     
     # Increase field size limit for extremely large CSV cells
@@ -116,13 +116,10 @@ async def func_postgres_csv_ingestion(
             from wcwidth import wcswidth
             def align(text, width):
                 text = str(text)
-                v_len = wcswidth(text)
-                # Correction for terminals that render the warning icon as single-width
-                if "⚠️" in text: v_len = 1 
-                pad = max(0, width - v_len)
-                l_pad = pad // 2
-                r_pad = pad - l_pad
-                return f"{' '*l_pad}{text}{' '*r_pad}"
+                for char in "✅❌🚫":
+                    text = text.replace(char, char + "\uFE0F")
+                if text == "-": text = "- "
+                return text.center(width)
             def infer_type_for_column(mapped_col):
                 vals = [get_csv_val(s, mapped_col) for s in samples if get_csv_val(s, mapped_col)]
                 if not vals: return "null"
@@ -196,24 +193,33 @@ async def func_postgres_csv_ingestion(
             h = f"{'Idx':<{w_idx}} | {'COLUMN NAME':<{w_col}} | {'CSV TYPE':<{w_csv}} | {'DB TYPE':<{w_db}} | {align('DB CONV', w_ico)} | {align('DB NULL', w_ico)} | {align('STATUS', w_sta)} |  REMARK"
             separator_len = len(h) + 10
             # 1. Unified Summary & Schema Dashboard
-            print(f"{'-'*separator_len}")
-            print(f"{'🕒 TIME':<20}: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"{'⚙️  FUNC':<20}: {sys._getframe().f_code.co_name}")
-            print(f"{'🔗 pg_dsn':<20}: {pg_dsn}")
-            print(f"{'🎯 table':<20}: {table}")
-            print(f"{'📁 csv_path':<20}: {csv_path}")
-            print(f"{'🛠️  crud_mode':<20}: {crud_mode.upper()}")
-            print(f"{'🛡️  validation_mode':<20}: {validation_mode.upper()}")
-            
             const_str = ', '.join([f'{k}={v}' for k, v in valid_consts]) if valid_consts else "None"
-            print(f"{'➕ const_column':<20}: {const_str}")
-            
             rename_str = ', '.join([f'{r[0]}->{r[1]}' for r in valid_renames]) if valid_renames else "None"
-            print(f"{'🔄 rename_column':<20}: {rename_str}")
             ignore_str = ', '.join(ignore_column) if ignore_column else "None"
-            print(f"{'🚫 ignore_column':<20}: {ignore_str}")
-            print(f"{'📡 DB STATUS':<20}: CONNECTED")
-            print(f"{'📊 STATUS ICONS':<20}: ✅ PASS, ⚠️ WARNING, 🚫 MISSING, 🚫 IGNORED, ❌ ERROR")
+            
+            meta = [
+                ("🕒", "TIME", datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                ("⚙️", "FUNC", sys._getframe().f_code.co_name),
+                ("📁", "csv_path", csv_path),
+                ("🔗", "pg_dsn", pg_dsn),
+                ("🎯", "table", table),
+                ("🛠️", "crud_mode", crud_mode.upper()),
+                ("🛡️", "validation_mode", validation_mode.upper()),
+                ("➕", "const_column", const_str),
+                ("🔄", "rename_column", rename_str),
+                ("🚫", "ignore_column", ignore_str),
+                ("📡", "DB STATUS", "CONNECTED"),
+                ("📊", "STATUS ICONS", "✅ PASS, ⚠️ WARNING, 🚫 MISSING, 🚫 IGNORED, ❌ ERROR")
+            ]
+            
+            w_meta_lab = max(len(lab) for ico, lab, val in meta)
+            # Icons that terminals often treat as 1-column wide, causing overlap
+            single_width_icons = {"⚙️", "🛠️", "🛡️", "➕", "✅", "⏳", "⚠️", "🏗️"}
+            print(f"{'-'*separator_len}")
+            for ico, lab, val in meta:
+                ico_norm = ico + "\uFE0F" if len(ico) == 1 else ico
+                if ico_norm in single_width_icons: ico_norm += " " # visual terminal compensation
+                print(f"{ico_norm} {lab:<{w_meta_lab}} : {val}")
             print(f"{'-'*separator_len}")
             print(h)
             print(f"{'-'*separator_len}")
@@ -230,13 +236,24 @@ async def func_postgres_csv_ingestion(
             if confirm != 'y':
                 print(f"\n❌ [CANCELLED] Aborted by user.")
                 # Final Summary (Cancelled)
+                meta_cancel = [
+                    ("🕒", "START TIME", datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S')),
+                    ("⚙️", "FUNC", sys._getframe().f_code.co_name),
+                    ("📁", "csv_path", csv_path),
+                    ("🔗", "pg_dsn", pg_dsn),
+                    ("🎯", "table", table),
+                    ("🛠️", "crud_mode", crud_mode.upper()),
+                    ("🛡️", "validation_mode", validation_mode.upper()),
+                    ("👤", "USER ENTERED", "NO (Aborted)"),
+                    ("🕒", "END TIME", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                ]
+                w_meta_c_lab = max(len(lab) for ico, lab, val in meta_cancel)
+                single_width_icons = {"⚙️", "🛠️", "🛡️", "➕", "✅", "⏳", "⚠️", "🏗️"}
                 print(f"\n{'-'*separator_len}")
-                print(f"{'🕒 START TIME':<20}: {datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S')}")
-                print(f"{'⚙️  FUNC':<20}: {sys._getframe().f_code.co_name}")
-                print(f"{'🎯 table':<20}: {table}")
-                print(f"{'🛠️  crud_mode':<20}: {crud_mode.upper()}")
-                print(f"{'👤 USER ENTERED':<20}: NO (Aborted)")
-                print(f"{'🕒 END TIME':<20}: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                for ico, lab, val in meta_cancel:
+                    ico_norm = ico + "\uFE0F" if len(ico) == 1 else ico
+                    if ico_norm in single_width_icons: ico_norm += " "
+                    print(f"{ico_norm} {lab:<{w_meta_c_lab}} : {val}")
                 print(f"{'-'*separator_len}")
                 await conn.close(); return
             # 6. Row Count & Ingestion
@@ -248,9 +265,9 @@ async def func_postgres_csv_ingestion(
             except:
                 total_rows = 0 # Fallback
             print(f"{get_ts()} 📊 TOTAL ROWS: {total_rows:,}")
+            final_cols = [c for c in csv_header if c in db_cols_all]
+            matched_cols = [c for c in final_cols if c != "id"]
             if not final_cols: raise Exception("No valid columns to process")
-            if input(f"👉 Proceed with bulk {crud_mode.upper()} on '{table}'? (y/N): ").lower() != 'y':
-                print(f"\n❌ [CANCELLED] Aborted by user.\n"); return
             # 6. Execution Prep & Resume Logic
             skip_count = 0
             existing_stage = await conn.fetchval('SELECT to_regclass($1)', f'"{staging_table}"')
@@ -291,8 +308,9 @@ async def func_postgres_csv_ingestion(
                 return converter
             col_plan = [get_converter(c) for c in matched_cols]
             conv_c_vals = [[get_converter(c)(v) for c, v in zip(c_names, c_vals)]]
+            tracker = {"rejected": 0}
             def row_generator(offset=0):
-                count, rejected, f_rej = offset, 0, None
+                count, f_rej = offset, None
                 try:
                     items = itertools.islice(reader, offset, None)
                     for row in items:
@@ -306,14 +324,20 @@ async def func_postgres_csv_ingestion(
                             if count % 10000 == 0 and total_rows > 0:
                                 print_progress(count, total_rows, "INGESTING")
                         except RowReject:
-                            rejected += 1
+                            tracker["rejected"] += 1
                             if validation_mode == "reject":
+                                vals = []
+                                for k, v in row.items():
+                                    if k is None: vals.extend(v)
+                                    else: vals.append(v)
                                 if f_rej is None:
                                     os.makedirs("tmp", exist_ok=True); f_rej = open(rej_path,"w",encoding='utf-8')
-                                    csv.DictWriter(f_rej, fieldnames=csv_header_original).writeheader()
-                                csv.DictWriter(f_rej, fieldnames=csv_header_original).writerow(row)
-                        if (count+rejected) % 10000 == 0 and total_rows > 0:
-                            print_progress(count + rejected, total_rows, "INGESTING")
+                                    header_out = list(csv_header_original)
+                                    for i in range(len(vals) - len(header_out)): header_out.append(f"EXTRA_COL_{i+1}")
+                                    csv.writer(f_rej).writerow(header_out)
+                                csv.writer(f_rej).writerow(vals)
+                        if (count+tracker["rejected"]) % 10000 == 0 and total_rows > 0:
+                            print_progress(count + tracker["rejected"], total_rows, "INGESTING")
                 finally:
                     if f_rej: f_rej.close()
                     if total_rows > 0: print_progress(total_rows, total_rows, "INGESTING")
@@ -334,7 +358,7 @@ async def func_postgres_csv_ingestion(
                     res = await conn.execute(f'INSERT INTO "{table}" ({cols_sql}) SELECT {cast_sql} FROM "{staging_table}" s', timeout=28800)
                 else:
                     set_sql = ", ".join([f'"{c}" = {get_cast(c)}' for c in [x for x in final_cols if x != "id"]])
-                res = await conn.execute(f'UPDATE "{table}" m SET {set_sql} FROM "{staging_table}" s WHERE m."id" = {get_cast("id")}', timeout=28800)
+                    res = await conn.execute(f'UPDATE "{table}" m SET {set_sql} FROM "{staging_table}" s WHERE m."id" = {get_cast("id")}', timeout=28800)
                 
                 if total_rows > 0: print_progress(total_rows, total_rows, "COMPLETED")
                 print(f"{'-'*separator_len}\n{get_ts()} ✅ COMPLETED: {res} | ⏱️  {int(time.time()-t_start)}s\n{'-'*separator_len}\n")
@@ -349,18 +373,31 @@ async def func_postgres_csv_ingestion(
     duration = t_end - t_start
     h_duration = f"{int(duration // 3600)}h {int((duration % 3600) // 60)}m {int(duration % 60)}s"
     
+    meta_final = [
+        ("🕒", "START TIME", datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S')),
+        ("⚙️", "FUNC", sys._getframe().f_code.co_name),
+        ("📁", "csv_path", csv_path),
+        ("🔗", "pg_dsn", pg_dsn),
+        ("🎯", "table", table),
+        ("🛠️", "crud_mode", crud_mode.upper()),
+        ("🛡️", "validation_mode", validation_mode.upper()),
+        ("👤", "USER ENTERED", "YES (Proceed)"),
+        ("🏗️", "STAGING TABLE", "CREATED -> DELETED"),
+        ("📊", "TOTAL ROWS", f"{total_rows:,}"),
+        ("✅", "STATUS", "SUCCESS"),
+        ("⏳", "DURATION", h_duration),
+        ("🕒", "END TIME", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    ]
+    
+    if validation_mode == "reject" and tracker.get("rejected", 0) > 0:
+        meta_final.insert(-2, ("⚠️", "REJECTED ROWS", f"{tracker['rejected']:,} (Saved to {rej_path})"))
+    
+    # Final Receipt with Manual Alignment
+    w_meta_f_lab = max(len(lab) for ico, lab, val in meta_final)
+    single_width_icons = {"⚙️", "🛠️", "🛡️", "➕", "✅", "⏳", "⚠️", "🏗️"}
     print(f"\n{'-'*separator_len}")
-    print(f"{'🕒 START TIME':<20}: {datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'⚙️  FUNC':<20}: {sys._getframe().f_code.co_name}")
-    print(f"{'🔗 pg_dsn':<20}: {pg_dsn}")
-    print(f"{'🎯 table':<20}: {table}")
-    print(f"{'📁 csv_path':<20}: {csv_path}")
-    print(f"{'🛠️  crud_mode':<20}: {crud_mode.upper()}")
-    print(f"{'🛡️  validation_mode':<20}: {validation_mode.upper()}")
-    print(f"{'👤 USER ENTERED':<20}: YES (Proceed)")
-    print(f"{'🏗️  STAGING TABLE':<20}: CREATED -> DELETED")
-    print(f"{'📊 TOTAL ROWS':<20}: {total_rows:,}")
-    print(f"{'✅ STATUS':<20}: SUCCESS")
-    print(f"{'⏳ DURATION':<20}: {h_duration}")
-    print(f"{'🕒 END TIME':<20}: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    for ico, lab, val in meta_final:
+        ico_norm = ico + "\uFE0F" if len(ico) == 1 else ico
+        if ico_norm in single_width_icons: ico_norm += " "
+        print(f"{ico_norm} {lab:<{w_meta_f_lab}} : {val}")
     print(f"{'-'*separator_len}\n")
