@@ -129,10 +129,12 @@ async def func_postgres_csv_ingestion(
             from wcwidth import wcswidth
             def align(text, width):
                 text = str(text)
-                for char in "✅❌🚫":
+                for char in "✅❌🚫🔄➕":
                     text = text.replace(char, char + "\uFE0F")
                 if text == "-": text = "- "
-                return text.center(width)
+                res = text.center(width)
+                if "⚠️" in text: res += " "
+                return res
             def infer_type_for_column(mapped_col):
                 vals = [get_csv_val(s, mapped_col) for s in samples if get_csv_val(s, mapped_col)]
                 if not vals: return "null"
@@ -156,7 +158,14 @@ async def func_postgres_csv_ingestion(
             f.seek(0); full_header = next(csv.reader(f))
             f.seek(0); f.readline()
             
-            for idx, col in enumerate(full_header, 1):
+            for const_name, _ in valid_consts:
+                if const_name not in full_header:
+                    full_header.append(f"__CONST__{const_name}")
+            
+            for idx, raw_col in enumerate(full_header, 1):
+                is_const = raw_col.startswith("__CONST__")
+                col = raw_col.replace("__CONST__", "") if is_const else raw_col
+                
                 if ignore_column and col in ignore_column:
                     rows.append({
                         "idx": str(idx),
@@ -165,26 +174,39 @@ async def func_postgres_csv_ingestion(
                         "db_t": "-",
                         "c": "-",
                         "n": "-",
-                        "p": "🚫 IGNORED",
+                        "p": f"🚫 {'IGNORED':<7}",
                         "rem": "Explicitly ignored by user."
                     })
                     continue
-                csv_t = infer_type_for_column(col)
-                db_t = col_type_map.get(col, "(missing)")
-                m_icon = "✅" if col in db_cols_all else "🚫"
-                n_icon = "✅" if col_null_map.get(col, True) else "❌"
+                
+                if is_const:
+                    csv_t = "const"
+                    mapped_col = col
+                else:
+                    csv_t = infer_type_for_column(col)
+                    mapped_col = rename_map.get(col, col)
+                    
+                db_t = col_type_map.get(mapped_col, "(missing)")
+                m_icon = "✅" if mapped_col in db_cols_all else "🚫"
+                n_icon = "✅" if col_null_map.get(mapped_col, True) else "❌"
                 c_icon = "✅" if db_t not in ("text", "varchar", "character varying", "(missing)") else "❌"
                 
                 # Compatibility Logic
-                p_text, rem = "✅ PASS", ""
                 if m_icon == "🚫":
-                    p_text, rem = "🚫 MISSING", "Column skipped (missing in database table)."
+                    p_text, rem = f"🚫 {'MISSING':<7}", "Column skipped (missing in database table)."
+                elif is_const:
+                    p_text, rem = f"➕ {'CONST':<7}", "Constant value injected dynamically."
                 elif csv_t == "text" and any(x in db_t for x in ("int", "numeric", "real", "double")):
-                    p_text, rem = "❌ ERROR", f"Type Mismatch. CSV is alphanumeric 'text', but DB is '{db_t}'."
+                    p_text, rem = f"❌ {'ERROR':<7}", f"Type Mismatch. CSV is alphanumeric 'text', but DB is '{db_t}'."
                 elif csv_t == "float" and "int" in db_t and not db_t.startswith('_'):
-                    p_text, rem = "⚠️ WARNING", f"Truncation Risk. CSV has decimals ('float'), but DB is '{db_t}'."
+                    p_text, rem = f"⚠️ {'WARNING':<7}", f"Truncation Risk. CSV has decimals ('float'), but DB is '{db_t}'."
                 elif csv_t == "text" and ("date" in db_t or "timestamp" in db_t):
-                    p_text, rem = "⚠️ WARNING", "Date Format Risk. Ensure CSV strings match a standard ISO or YYYY-MM-DD format."
+                    p_text, rem = f"⚠️ {'WARNING':<7}", "Date Format Risk. Ensure CSV strings match a standard ISO or YYYY-MM-DD format."
+                elif col in rename_map:
+                    p_text, rem = f"🔄 {'RENAMED':<7}", f"Mapped to DB column '{mapped_col}'."
+                else:
+                    p_text, rem = f"✅ {'FOUND':<7}", ""
+                    
                 if "❌" in p_text: has_error = True
                 rows.append({
                     "idx": str(idx),
@@ -222,7 +244,7 @@ async def func_postgres_csv_ingestion(
                 ("🚫", "ignore_column", ignore_str),
                 ("➕", "const_column", const_str),
                 ("📡", "DB STATUS", "CONNECTED"),
-                ("📊", "STATUS ICONS", "✅ PASS, ⚠️ WARNING, 🚫 MISSING, 🚫 IGNORED, ❌ ERROR")
+                ("📊", "STATUS ICONS", "✅ FOUND, 🔄 RENAMED, ➕ CONST, ⚠️ WARNING, 🚫 MISSING, 🚫 IGNORED, ❌ ERROR")
             ]
             
             w_meta_lab = max(len(lab) for ico, lab, val in meta)
@@ -314,7 +336,11 @@ async def func_postgres_csv_ingestion(
                     v_str = str(v).strip() if v is not None else None
                     if not v_str or v_str.lower() in ("","none","null","n/a"): return None
                     try:
-                        if ("int" in t or "numeric" in t or "real" in t or "double" in t) and not t.startswith('_'): float(v_str)
+                        if ("int" in t or "numeric" in t or "real" in t or "double" in t) and not t.startswith('_'):
+                            num = float(v_str)
+                            if t == "int2" and not (-32768 <= num <= 32767): raise ValueError(f"Value {num} out of range for int2")
+                            if t == "int4" and not (-2147483648 <= num <= 2147483647): raise ValueError(f"Value {num} out of range for int4")
+                            if t == "int8" and not (-9223372036854775808 <= num <= 9223372036854775807): raise ValueError(f"Value {num} out of range for int8")
                         if "bool" in t: v_str = "true" if v_str.lower() in ("true","1","yes","t","y") else "false"
                         if "date" in t or "timestamp" in t:
                             for fmt in ("%Y-%m-%d","%d-%m-%Y","%m/%d/%Y","%Y-%m-%d %H:%M:%S","%Y%m%d"):
@@ -372,7 +398,7 @@ async def func_postgres_csv_ingestion(
                 print(f"{get_ts()} ⚡ PHASE 3: Running Atomic {crud_mode.upper()} (Timeout: 8h)...")
                 def get_cast(col):
                     t = col_type_map[col]
-                    if t in ("int2", "int4", "int8"): return f's."{col}"::numeric::{t}'
+                    if t in ("int2", "int4", "int8"): return f'ROUND(s."{col}"::numeric)::{t}'
                     return f's."{col}"::{t}'
                 if crud_mode == "delete":
                     res = await conn.execute(f'DELETE FROM "{table}" m USING "{staging_table}" s WHERE m."id" = {get_cast("id")}', timeout=28800)

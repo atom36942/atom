@@ -134,6 +134,9 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                     for u_col in (x.strip() for x in group.split(",") if x.strip()):
                         if u_col not in column_names:
                             raise Exception(f"Unique constraint in {table_name} references non-existent column '{u_col}'. Defined columns: {list(column_names)}")
+    import hashlib
+    def get_hash(val: str) -> str:
+        return hashlib.md5(str(val).encode()).hexdigest()[:4]
     async with client_postgres_pool.acquire() as conn:
         if is_ext:
             for extension in ("postgis", "pg_trgm", "btree_gin"):
@@ -142,10 +145,19 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
             await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id BIGSERIAL PRIMARY KEY);")
             if is_autovacuum:
                 await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
+            
+            # 1. Fetch Metadata (Columns, Indexes, Constraints) in 3 queries per table
             rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
             current_cols = {r[0]: r[1] for r in rows}
             current_notnulls = {r[0]: r[2] for r in rows}
             current_defaults = {r[0]: r[3] for r in rows}
+            
+            # Fetch existing indexes and constraints names for idempotency checks
+            meta_rows = await conn.fetch("SELECT indexname as name FROM pg_indexes WHERE tablename=$1 UNION ALL SELECT conname as name FROM pg_constraint WHERE conrelid=$1::regclass", table_name)
+            existing_meta = {r[0] for r in meta_rows}
+
+            # 2. Sync Columns
+            table_changed = False
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
@@ -155,31 +167,39 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                         await conn.execute(f"ALTER TABLE {table_name} RENAME COLUMN {old_name} TO {col_name}")
                         current_cols[col_name] = current_cols.pop(old_name)
                         current_notnulls[col_name] = current_notnulls.pop(old_name)
+                        table_changed = True
                     else:
                         default_val = f"""DEFAULT {col_cfg["default"]}""" if "default" in col_cfg else ""
                         mandatory_val = "NOT NULL" if col_cfg.get("is_mandatory") == 1 else ""
                         await conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type} {default_val} {mandatory_val}")
                         current_cols[col_name] = col_type.split("(")[0].lower()
                         current_notnulls[col_name] = (col_cfg.get("is_mandatory") == 1)
+                        table_changed = True
                 else:
                     type_mapping = {"timestamp with time zone": "timestamptz", "character varying": "varchar", "integer": "int", "boolean": "bool"}
                     current_type = type_mapping.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0])
                     target_type = type_mapping.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0])
                     if type_mapping.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0]) != type_mapping.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0]):
                         await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {col_type} USING {col_name}::{col_type}")
+                        table_changed = True
                     target_notnull = (col_cfg.get("is_mandatory") == 1)
                     if current_notnulls[col_name] != target_notnull:
                         if target_notnull:
                             await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} SET NOT NULL")
                         else:
                             await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP NOT NULL")
+                        table_changed = True
                     target_default = str(col_cfg.get("default")).strip() if "default" in col_cfg else None
                     current_default = current_defaults.get(col_name)
                     if target_default:
                         if current_default is None or target_default not in current_default:
                              await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} SET DEFAULT {target_default}")
+                             table_changed = True
                     elif current_default is not None:
                         await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP DEFAULT")
+                        table_changed = True
+            
+            # 3. Sync Indexes & Constraints (Logic-Aware)
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
@@ -187,35 +207,40 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                     for index_type in (x.strip() for x in col_cfg["index"].split(",")):
                         idx_name = f"idx_{table_name}_{col_name}_{index_type}"
                         catalog["idx"].add(idx_name)
-                        if idx_name not in [r[0] for r in await conn.fetch("SELECT indexname FROM pg_indexes WHERE tablename=$1", table_name)]:
+                        if idx_name not in existing_meta:
                             ops = "gin_trgm_ops" if index_type == "gin" and "text" in col_type.lower() and "[]" not in col_type.lower() else ""
                             await conn.execute(f"CREATE INDEX {idx_name} ON {table_name} USING {index_type}({col_name} {ops});")
+                            table_changed = True
                 if "in" in col_cfg:
-                    chk_name = f"check_{table_name}_{col_name}_in"
+                    chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"
                     catalog["chk"].add(chk_name)
-                    await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {chk_name}")
-                    await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {chk_name} CHECK ({col_name} IN {col_cfg["in"]});""")
+                    if chk_name not in existing_meta:
+                        await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {chk_name} CHECK ({col_name} IN {col_cfg["in"]});""")
+                        table_changed = True
                 if "regex" in col_cfg:
-                    regex_name = f"check_{table_name}_{col_name}_regex"
+                    regex_name = f"check_{table_name}_{col_name}_regex_{get_hash(col_cfg['regex'])}"
                     catalog["chk"].add(regex_name)
-                    await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {regex_name}")
-                    await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {regex_name} CHECK ({col_name} ~ '{col_cfg["regex"]}');""")
+                    if regex_name not in existing_meta:
+                        await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {regex_name} CHECK ({col_name} ~ '{col_cfg["regex"]}');""")
+                        table_changed = True
                 if "check" in col_cfg:
-                    vld_name = f"check_{table_name}_{col_name}_vld"
+                    vld_name = f"check_{table_name}_{col_name}_vld_{get_hash(col_cfg['check'])}"
                     catalog["chk"].add(vld_name)
-                    await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {vld_name}")
-                    await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {vld_name} CHECK ({col_cfg["check"]});""")
+                    if vld_name not in existing_meta:
+                        await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {vld_name} CHECK ({col_cfg["check"]});""")
+                        table_changed = True
                 if col_cfg.get("unique"):
                     for group in col_cfg["unique"].split("|"):
                         unique_cols = [x.strip() for x in group.split(",")]
                         uni_name = f"""unique_{table_name}_{"_".join(unique_cols)}"""
                         catalog["uni"].add(uni_name)
-                        await conn.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {uni_name}")
-                        await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {uni_name} UNIQUE ({",".join(unique_cols)});""")
-            configured_cols = {cfg["name"] for cfg in column_configs} | {"id"}
-            db_cols = set(current_cols.keys())
-            # Extra columns in DB are now allowed (ignored) to support third-party integrations
-            pass
+                        if uni_name not in existing_meta:
+                            await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {uni_name} UNIQUE ({",".join(unique_cols)});""")
+                            table_changed = True
+
+            # Targeted Analyze ONLY if table structural changes occurred
+            if table_changed:
+                await conn.execute(f"ANALYZE {table_name};")
         db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
         db_tables = {}
         for row in db_schema_rows:
@@ -248,7 +273,6 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
         drop_tags = []
-        # Note: 'DROP DATABASE' is not supported by event triggers in Postgres
         if is_drop_schema: drop_tags.append("'DROP SCHEMA'")
         if is_drop_table: drop_tags.append("'DROP TABLE'")
         if drop_tags:
@@ -319,5 +343,4 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 drop_vars = "record.relname, record.conname"
                 like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-        await conn.execute("VACUUM ANALYZE;")
     return "database init done"
