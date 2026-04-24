@@ -132,9 +132,12 @@ async def func_postgres_csv_ingestion(
                 for char in "✅❌🚫🔄➕":
                     text = text.replace(char, char + "\uFE0F")
                 if text == "-": text = "- "
-                res = text.center(width)
-                if "⚠️" in text: res += " "
-                return res
+                v_len = wcswidth(text)
+                if v_len == -1: v_len = len(text)
+                pad = width - v_len
+                if pad <= 0: return text
+                left = pad // 2
+                return " " * left + text + " " * (pad - left)
             def infer_type_for_column(mapped_col):
                 vals = [get_csv_val(s, mapped_col) for s in samples if get_csv_val(s, mapped_col)]
                 if not vals: return "null"
@@ -219,7 +222,7 @@ async def func_postgres_csv_ingestion(
                     "rem": rem
                 })
             # Calculate dynamic widths
-            w_idx = max(len(r["idx"]) for r in rows) if rows else 3
+            w_idx = max(len(str(r["idx"])) for r in rows + [{"idx": "Idx"}])
             w_col = max(len(r["col"]) for r in rows + [{"col": "COLUMN NAME"}])
             w_csv = max(len(r["csv_t"]) for r in rows + [{"csv_t": "CSV TYPE"}])
             w_db = max(len(r["db_t"]) for r in rows + [{"db_t": "DB TYPE"}])
@@ -244,7 +247,7 @@ async def func_postgres_csv_ingestion(
                 ("🚫", "ignore_column", ignore_str),
                 ("➕", "const_column", const_str),
                 ("📡", "DB STATUS", "CONNECTED"),
-                ("📊", "STATUS ICONS", "✅ FOUND, 🔄 RENAMED, ➕ CONST, ⚠️ WARNING, 🚫 MISSING, 🚫 IGNORED, ❌ ERROR")
+                ("📊", "STATUS ICONS", "✅ FOUND, 🔄 RENAMED, 🚫 IGNORED, ➕ CONST, 🚫 MISSING, ⚠️ WARNING, ❌ ERROR")
             ]
             
             w_meta_lab = max(len(lab) for ico, lab, val in meta)
@@ -423,6 +426,11 @@ async def func_postgres_csv_ingestion(
     duration = t_end - t_start
     h_duration = f"{int(duration // 3600)}h {int((duration % 3600) // 60)}m {int(duration % 60)}s"
     
+    rejected_count = tracker.get("rejected", 0)
+    rejected_val = f"{rejected_count:,}"
+    if rejected_count > 0:
+        rejected_val += f" (Saved to {rej_path})"
+
     meta_final = [
         ("🕒", "START TIME", datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S')),
         ("⚙️", "FUNC", sys._getframe().f_code.co_name),
@@ -434,16 +442,15 @@ async def func_postgres_csv_ingestion(
         ("👤", "USER ENTERED", "YES (Proceed)"),
         ("🏗️", "STAGING TABLE", "CREATED -> DELETED"),
         ("📊", "TOTAL ROWS", f"{total_rows:,}"),
+        ("🚫", "REJECTED", rejected_val),
         ("✅", "STATUS", "SUCCESS"),
         ("⏳", "DURATION", h_duration),
         ("🕒", "END TIME", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     ]
     
-    if validation_mode == "reject" and tracker.get("rejected", 0) > 0:
-        meta_final.insert(-2, ("⚠️", "REJECTED ROWS", f"{tracker['rejected']:,} (Saved to {rej_path})"))
-        if tracker.get("rejected_cols"):
-            cols_str = ", ".join(sorted(tracker["rejected_cols"]))
-            meta_final.insert(-2, ("🚫", "REJECTED COLS", cols_str))
+    if tracker.get("rejected_cols"):
+        cols_str = ", ".join(sorted(tracker["rejected_cols"]))
+        meta_final.insert(-3, ("🚫", "REJECTED COLS", cols_str))
     
     # Final Receipt with Manual Alignment
     w_meta_f_lab = max(len(lab) for ico, lab, val in meta_final)
