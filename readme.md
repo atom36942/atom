@@ -37,8 +37,8 @@ venv/bin/python -m core.consumer kafka default
 ###  FAQ
 | What | Description |
 | :--- | :--- |
-| **API Master** | Interactive API tester at `static/api/index.html`. |
 | **Postgres Init** | Automatic `func_postgres_schema_init` run on startup. |
+| **API Master** | Interactive API tester at `static/api/index.html`. |
 | **Access App State** | Global clients (DB, Redis, etc.) via `request.app.state`. |
 | **User Context** | Current user state (id, role, etc.) via `request.state.user`. |
 | **Manual Auth Check** | Check via `if request.state.user is None: raise Exception("Unauthorized")`. |
