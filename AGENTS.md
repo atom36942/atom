@@ -6,9 +6,9 @@ Pls use scratch folder only for your working temp file.
 ### Repository Map
 - **`main.py`**: Entry point for the application. Handles server execution and runtime orchestration.
 - **`core/`**: Centralized framework core. Manages application initialization, settings, and background task processing.
-- **`function/`**: Modular functional logic layer. Organized by domain (database, user, aws, etc.) with dedicated **`app/`** (infrastructure) and **`utility/`** (helpers) subfolders.
+- **`function/`**: Modular functional logic layer. Contains a flat set of ~25-30 granular files grouped by specific tasks (e.g., `postgres_crud.py`, `app_server.py`, `integration_sms.py`).
 - **`router/`**: API endpoint definitions and role assignments.
-- **`script/`**: Isolated, independent scripts with standalone logic.
+- **`service/`**: Isolated, independent FastAPI applications with standalone logic and deployment configurations.
 - **`static/`**: Frontend assets and documentation.
 - **`tmp/`**: **Strictly** for temporary runtime operations (IO).
 - **`secret/`**: Sensitive credentials (protected).

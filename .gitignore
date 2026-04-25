@@ -2,8 +2,8 @@
 *
 
 # folders
-!script/
-!script/**
+!service/
+!service/**
 !static/
 !static/**
 !core/
