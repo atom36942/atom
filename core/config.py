@@ -281,5 +281,5 @@ config_postgres={
 }
 
 #override
-from function import func_config_override_from_env
+from .function import func_config_override_from_env
 func_config_override_from_env(global_dict=globals())

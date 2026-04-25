@@ -2,16 +2,12 @@
 *
 
 # folders
+!core/
+!core/**
 !service/
 !service/**
 !static/
 !static/**
-!core/
-!core/**
-!function/
-!function/**
-!router/
-!router/**
 
 # files
 !main.py

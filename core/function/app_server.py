@@ -40,14 +40,14 @@ def func_app_add_router(*, app_obj: any) -> None:
     import sys, importlib.util
     from pathlib import Path
     from fastapi import APIRouter
-    root_dir = Path("./router").resolve()
+    root_dir = Path("./core/router").resolve()
     if not root_dir.exists():
         return None
     for py_file in root_dir.rglob("*.py"):
         if py_file.name.startswith((".", "__")):
             continue
         rel_path = py_file.relative_to(root_dir)
-        module_name = "router." + ".".join(rel_path.with_suffix("").parts)
+        module_name = "core.router." + ".".join(rel_path.with_suffix("").parts)
         spec = importlib.util.spec_from_file_location(module_name, py_file)
         if spec and spec.loader:
             module = importlib.util.module_from_spec(spec)

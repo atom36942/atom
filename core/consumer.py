@@ -1,5 +1,5 @@
 #import
-from function import *
+from .function import *
 from .config import *
 import sys
 import asyncio
