@@ -99,6 +99,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
                 raise Exception(custom_error if custom_error else f"parameter '{key}' format invalid")
         output_dict[key] = val
     return output_dict
+    
 async def func_check_cache(*, mode: str, url_path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, response: any, cache_api_response: dict) -> any:
     """Retrieve from or store to cache API responses based on configuration."""
     from fastapi import Response
