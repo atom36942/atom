@@ -146,17 +146,7 @@ const MODAL_HTML = `
                 </div>
             </div>
         </div>
-        <div class="modal-card">
-            <div class="modal-card-header"><h4>OPERATIONAL NOTES</h4></div>
-            <div class="modal-card-body">
-                <div style="display:flex;flex-direction:column;gap:10px">
-                    <div style="font-size:13px;color:var(--muted);line-height:1.5">1. All endpoints are loaded live from <b>/openapi.json</b>.</div>
-                    <div style="font-size:13px;color:var(--muted);line-height:1.5">2. Display values can be overridden from the internal override map.</div>
-                    <div style="font-size:13px;color:var(--muted);line-height:1.5">3. Execution follows the live schema plus any manual override you define.</div>
-                    <div style="font-size:13px;color:var(--muted);line-height:1.5">4. Unknown override keys are added to <b>Query for GET</b> and <b>Body for non-GET</b> methods.</div>
-                </div>
-            </div>
-        </div>
+
         <div class="modal-card">
             <div class="modal-card-header"><h4>QUERY EXAMPLES (GET /object-read)</h4></div>
             <div class="modal-card-body">

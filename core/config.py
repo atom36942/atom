@@ -9,7 +9,6 @@ config_redis_url_ratelimiter=config_redis_url
 config_redis_cache_ttl_sec=3600
 
 #queue
-config_channel_allowed = ["default", "pcreate", "pupdate", "auditlog", "notifications"]
 config_redis_url_pubsub=config_redis_url
 config_rabbitmq_url=None
 config_celery_broker_url=config_redis_url

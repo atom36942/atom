@@ -1,3 +1,11 @@
+import os
+import sys
+import csv
+import time
+import itertools
+import asyncpg
+from datetime import datetime
+
 def get_ts(): return f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
 async def func_postgres_csv_ingestion(
     *,
@@ -142,9 +150,10 @@ async def func_postgres_csv_ingestion(
                 types = set()
                 for v in vals:
                     v_clean = str(v).strip()
-                    if v_clean.replace('.','',1).isdigit(): 
-                        types.add("float" if "." in v_clean else "integer")
-                    else:
+                    try:
+                        float(v_clean)
+                        types.add("float" if "." in v_clean or "e" in v_clean.lower() else "integer")
+                    except ValueError:
                         for fmt in ("%Y-%m-%d","%d-%m-%Y","%m/%d/%Y","%Y%m%d"):
                             try: datetime.strptime(v_clean, fmt); types.add("date"); break
                             except: continue

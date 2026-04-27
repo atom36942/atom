@@ -160,27 +160,8 @@ const PATH_OVERRIDES = {
   '/public/converter-number': { datatype: 'int', mode: 'encode', x: '123' },
   '/public/object-create': {
     table: 'test',
-    is_serialize: 1,
     type: 1,
-    title: 'test',
-    tag: ['java', 'python', 'sql'],
-    location: 'POINT(17.794387 -83.032150)',
-    metadata: {
-      id: 1,
-      name: 'test',
-      is_active: 1,
-      score: 99.5,
-      notes: null,
-      tag: ['java', 'sql', 'ai'],
-      details: {
-        version: '2.1',
-        category: 'backend',
-        metrics: {
-          uptime: 99.9,
-          requests: 1000
-        }
-      }
-    }
+    title: 'test'
   },
   '/public/object-read': {
     table: 'test',
