@@ -191,7 +191,7 @@ const MODAL_HTML = `
                 <div class="modal-card-body"><div id="curlViewOvrContent" style="max-height:60vh;overflow-y:auto"></div></div>
             </div>
             <div class="modal-card" id="curlViewCard">
-                <div class="modal-card-header"><h4>CURL COMMAND</h4><button type="button" class="icon-btn" id="curlViewCopy" title="Copy Curl"></button></div>
+                <div class="modal-card-header"><h4>CURL COMMAND</h4><div style="display:flex;align-items:center;gap:6px;margin-left:auto"><button type="button" class="icon-btn" id="curlViewCopy" title="Copy Curl"></button><button type="button" class="icon-btn" id="curlViewCopyVar" title="Copy Curl with Variables"></button></div></div>
                 <div class="modal-card-body"><div id="curlViewContent" style="max-height:60vh;overflow-y:auto"></div></div>
             </div>
             <div class="modal-card" id="curlViewResCard" style="display:none">

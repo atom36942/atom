@@ -22,6 +22,7 @@ const setupIcons = () => {
         'storageResetAll': ICON.trash(18),
         'cellPopCopy': ICON.copy(14),
         'curlViewCopy': ICON.copy(16),
+        'curlViewCopyVar': ICON.copyCurl(16),
         'curlViewResCopy': ICON.copy(16),
         'curlViewOvrCopy': ICON.copy(16),
         'runnerResetBtn': ICON.trash(18),

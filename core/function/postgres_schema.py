@@ -97,37 +97,45 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
     for table_name, column_configs in config_postgres["table"].items():
-        column_names = set()
+        column_names = {col["name"] for col in column_configs if "name" in col}
+        
         for col in column_configs:
             name, dtype = col.get("name"), col.get("datatype")
             if not name or not dtype:
                 raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column: {col}")
             if name.lower() in reserved:
                 raise Exception(f"Column name '{name}' in table '{table_name}' is a PostgreSQL reserved keyword. Please rename it.")
-            if name in column_names:
-                raise Exception(f"Duplicate column name '{name}' in table '{table_name}'")
-            column_names.add(name)
             
             # Regex validation
             if "regex" in col and "[]" in dtype.lower():
                 raise Exception(f"Regex constraint is not supported for array column {table_name}.{name}. Remove 'regex' key to resolve.")
             
-            # Index Compatibility
-            indices = [i.strip() for i in col.get("index", "").split(",") if i.strip()]
-            for idx in indices:
-                if idx.lower() == "gin":
-                    if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar")):
-                        raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar.")
-                if idx.lower() == "gist":
-                    if not any(x in dtype.lower() for x in ("geography", "geometry", "box", "circle", "point", "polygon")):
-                        raise Exception(f"GIST index is not compatible with '{dtype}' on {table_name}.{name}. Supported: geography, geometry, spatial types.")
-            
-            # Spatial Enforcement
-            if any(x in dtype.lower() for x in ("geography", "geometry")):
-                if indices and not any(x.lower() == "gist" for x in indices):
-                    raise Exception(f"Spatial column {table_name}.{name} must use 'gist' index if indexed.")
+            # Index Compatibility & Spatial Enforcement (Refactored for new syntax)
+            if col.get("index"):
+                for index_group in (x.strip() for x in col["index"].split("|")):
+                    if "(" in index_group and index_group.endswith(")"):
+                        cols_str, index_type = index_group[:-1].split("(", 1)
+                        index_type = index_type.strip().lower()
+                        index_cols = [c.strip() for c in cols_str.split(",")]
+                        
+                        # Validate each column in the index exists
+                        for ic in index_cols:
+                            if ic not in column_names:
+                                raise Exception(f"Index in {table_name} references non-existent column '{ic}'. Defined: {list(column_names)}")
+                        
+                        if index_type == "gin":
+                            if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar")):
+                                raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar.")
+                        elif index_type == "gist":
+                            if not any(x in dtype.lower() for x in ("geography", "geometry", "box", "circle", "point", "polygon")):
+                                raise Exception(f"GIST index is not compatible with '{dtype}' on {table_name}.{name}. Supported: geography, geometry, spatial types.")
+                        
+                        if any(x in dtype.lower() for x in ("geography", "geometry")) and index_type != "gist":
+                            raise Exception(f"Spatial column {table_name}.{name} must use 'gist' index if indexed.")
+                    else:
+                        raise Exception(f"Invalid index syntax '{index_group}' in {table_name}.{name}. Expected 'col(type)' or 'col1,col2(type)'.")
 
-        # Unique Constraints Cross-Reference
+        # Unique Constraints Cross-Reference (Existing logic remains valid)
         for col in column_configs:
             if col.get("unique"):
                 for group in col["unique"].split("|"):
@@ -204,13 +212,28 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
                 if col_cfg.get("index"):
-                    for index_type in (x.strip() for x in col_cfg["index"].split(",")):
-                        idx_name = f"idx_{table_name}_{col_name}_{index_type}"
-                        catalog["idx"].add(idx_name)
-                        if idx_name not in existing_meta:
-                            ops = "gin_trgm_ops" if index_type == "gin" and "text" in col_type.lower() and "[]" not in col_type.lower() else ""
-                            await conn.execute(f"CREATE INDEX {idx_name} ON {table_name} USING {index_type}({col_name} {ops});")
-                            table_changed = True
+                    for index_group in (x.strip() for x in col_cfg["index"].split("|")):
+                        if "(" in index_group and index_group.endswith(")"):
+                            cols_str, index_type = index_group[:-1].split("(", 1)
+                            index_type = index_type.strip().lower()
+                            index_cols = [c.strip() for c in cols_str.split(",")]
+                            
+                            idx_name = f"idx_{table_name}_{'_'.join(index_cols)}_{index_type}"
+                            catalog["idx"].add(idx_name)
+                            if idx_name not in existing_meta:
+                                # Apply trigram ops if it's a single-column GIN index on text
+                                ops = ""
+                                if index_type == "gin" and len(index_cols) == 1:
+                                    # We use the current col_type if the index is on the current column
+                                    if index_cols[0] == col_name and "text" in col_type.lower() and "[]" not in col_type.lower():
+                                        ops = "gin_trgm_ops"
+                                
+                                cols_joined = ", ".join(index_cols)
+                                if ops:
+                                    await conn.execute(f"CREATE INDEX {idx_name} ON {table_name} USING {index_type}({index_cols[0]} {ops});")
+                                else:
+                                    await conn.execute(f"CREATE INDEX {idx_name} ON {table_name} USING {index_type}({cols_joined});")
+                                table_changed = True
                 if "in" in col_cfg:
                     chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"
                     catalog["chk"].add(chk_name)

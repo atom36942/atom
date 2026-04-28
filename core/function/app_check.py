@@ -111,16 +111,21 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
             SELECT 
                 t.relname AS table_name,
                 a.attname AS column_name,
-                COUNT(ix.indexrelid) FILTER (WHERE a.attnum = ix.indkey[0]) AS usable_first_col_count
+                am.amname AS index_type,
+                COUNT(ix.indexrelid) AS index_count
             FROM pg_class t
             JOIN pg_attribute a ON a.attrelid = t.oid
-            JOIN pg_index ix ON t.oid = ix.indrelid AND a.attnum = ANY(ix.indkey)
-            WHERE t.relkind = 'r' AND t.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-            GROUP BY t.relname, a.attname
-            HAVING COUNT(ix.indexrelid) FILTER (WHERE a.attnum = ix.indkey[0]) > 1;
+            JOIN pg_index ix ON t.oid = ix.indrelid AND a.attnum = ix.indkey[0]
+            JOIN pg_class i ON ix.indexrelid = i.oid
+            JOIN pg_am am ON i.relam = am.oid
+            WHERE t.relkind = 'r' 
+              AND t.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+              AND ix.indisunique = false  -- Only flag non-unique indexes as redundant
+            GROUP BY t.relname, a.attname, am.amname
+            HAVING COUNT(ix.indexrelid) > 1;
         """
         records = await pool.fetch(query)
-        return [f"table '{r['table_name']}' has redundant indexes starting with column '{r['column_name']}' ({r['usable_first_col_count']} indexes found)" for r in records]
+        return [f"table '{r['table_name']}' has redundant non-unique {r['index_type']} indexes starting with column '{r['column_name']}' ({r['index_count']} indexes found)" for r in records]
 
     if api_roles_auth is not None and not isinstance(api_roles_auth, (list, tuple)):
         raise Exception("config_api_roles_auth must be a list")

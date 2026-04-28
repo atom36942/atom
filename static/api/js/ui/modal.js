@@ -153,6 +153,11 @@ const openCurlViewModal = (cmdOrIdx, viewType) => {
       const formatted = curve.replace(/ -H /g, ' \\\n  -H ').replace(/ -d /g, ' \\\n  -d ').replace(/ -F /g, ' \\\n  -F ');
       UI('curlViewContent').innerHTML = `<pre class="resp-pre" style="padding:16px;margin:0;white-space:pre;overflow-x:auto">${highlightCurl(formatted)}</pre>`;
       UI('curlViewCopy').onclick = () => copyWithFeedback(UI('curlViewCopy'), curve, 16, 'Curl copied');
+      UI('curlViewCopyVar').onclick = () => {
+        let curveVar = curve.replace(window.location.origin, '{{base_url}}');
+        if (Store.token) curveVar = curveVar.split(Store.token).join('{{token}}');
+        copyWithFeedback(UI('curlViewCopyVar'), curveVar, 16, 'Curl with variables copied');
+      };
 
       if (command.res) {
         const exampleValue = schemaToExample(command.res, SPEC);
