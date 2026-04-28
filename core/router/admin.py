@@ -19,7 +19,7 @@ async def func_api_admin_sync(*, request: Request):
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("cache_users_role")) if app_state.client_postgres_pool else {}
     app_state.cache_users_is_active = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("cache_users_is_active")) if app_state.client_postgres_pool else {}
     await app_state.func_postgres_clean(client_postgres_pool=app_state.client_postgres_pool, config_table=app_state.config_table)
-    if config_is_reset_tmp == 1:func_folder_reset(folder_path="tmp")
+    if app_state.config_is_reset_tmp == 1:app_state.func_folder_reset(folder_path="tmp")
     return {"status": 1, "message": "done"}
 
 @router.post("/admin/postgres-runner")
