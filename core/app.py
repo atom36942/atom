@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import httpx
 import time
+from argon2 import PasswordHasher
 
 #lifespan
 @asynccontextmanager
@@ -12,6 +13,7 @@ async def func_lifespan(app:FastAPI):
    #start
    func_structure_create(directories=["tmp","secret"], files=[".env"])
    #client init
+   client_password_hasher=PasswordHasher()
    client_http=httpx.AsyncClient()
    client_postgres_pool=await func_client_read_postgres(config_postgres={"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection}) if config_postgres_url else None
    client_redis=await func_client_read_redis(config_redis_url=config_redis_url) if config_redis_url else None

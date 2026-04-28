@@ -173,8 +173,6 @@ config_postgres={
 {"name":"type","datatype":"integer","is_mandatory":1,"index":"type(btree)"},
 {"name":"username","datatype":"text","unique":"username,type","regex":"^(?=.{3,20}$)[a-z][a-z0-9_@-]*$"},
 {"name":"password","datatype":"text","index":"password(btree)"},
-{"name":"username_bigint","datatype":"bigint","unique":"username_bigint,type"},
-{"name":"password_bigint","datatype":"bigint","index":"password_bigint(btree)"},
 {"name":"google_login_id","datatype":"text","unique":"google_login_id,type"},
 {"name":"google_login_metadata","datatype":"jsonb"},
 {"name":"email","datatype":"text","unique":"email,type"},
@@ -265,7 +263,7 @@ config_postgres={
 ]
 },
 "control":{
-"root_user_password":"f2aca8bf32871f21d371a1ba1111b4890e64fadb854201cd77441ac816cc4bc6",
+"root_user_password":"$argon2id$v=19$m=65536,t=3,p=4$L9VZSso91yxx05jHstaVKw$e5m4nvmTrk+xu9ip3zkgc6tMkDA3hfyUURSMCR5CLuY",
 "is_extension":1,
 "is_drop_disable_schema":0,
 "is_drop_disable_table":1,
