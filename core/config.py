@@ -2,6 +2,7 @@
 config_postgres_url=None
 config_postgres_min_connection=5
 config_postgres_max_connection=20
+config_postgres_root_user_password="atom123321"
 
 #redis
 config_redis_url=None
@@ -171,7 +172,7 @@ config_postgres={
 {"name":"is_deleted","datatype":"integer","in":(0,1),"index":"is_deleted(btree)"},
 {"name":"is_protected","datatype":"integer","in":(0,1),"index":"is_protected(btree)"},
 {"name":"type","datatype":"integer","is_mandatory":1,"index":"type(btree)"},
-{"name":"username","datatype":"text","unique":"username,type","regex":"^(?=.{3,20}$)[a-z][a-z0-9_@-]*$"},
+{"name":"username","datatype":"text","unique":"username,type"},
 {"name":"password","datatype":"text","index":"password(btree)"},
 {"name":"google_login_id","datatype":"text","unique":"google_login_id,type"},
 {"name":"google_login_metadata","datatype":"jsonb"},
@@ -263,7 +264,6 @@ config_postgres={
 ]
 },
 "control":{
-"root_user_password":"$argon2id$v=19$m=65536,t=3,p=4$L9VZSso91yxx05jHstaVKw$e5m4nvmTrk+xu9ip3zkgc6tMkDA3hfyUURSMCR5CLuY",
 "is_extension":1,
 "is_drop_disable_schema":0,
 "is_drop_disable_table":1,
@@ -276,6 +276,13 @@ config_postgres={
 "is_autovacuum_optimize":1
 },
 "sql":{},
+}
+
+config_regex={
+"username":["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
+"password":["^\\S{8,32}$", "Password must be 8-32 characters and contain no spaces"],
+"email":["^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$", "Email format is invalid"],
+"mobile":["^\\+?[1-9]\\d{7,14}$", "Mobile number must be 8-15 digits and may start with +"]
 }
 
 #override

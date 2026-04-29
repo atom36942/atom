@@ -53,7 +53,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
             param_key = param[0] if param_len > 0 else "unknown"
             raise Exception(f"invalid config tuple length {param_len} for '{param_key}': (key, dtype, is_mandatory, allowed_values, default_value) are required")
         key, dtype, is_mandatory, allowed_values, default_value = param[0], param[1], int(param[2]), param[3], param[4]
-        regex_info = param[5] if param_len > 5 else None
+        regex_info = param[6] if param_len > 6 else None
         regex_pattern = regex_info[0] if isinstance(regex_info, (list, tuple)) and len(regex_info) > 0 else None
         custom_error = regex_info[1] if isinstance(regex_info, (list, tuple)) and len(regex_info) > 1 else None
         if dtype not in TYPE_MAP and not dtype.startswith("list:"):

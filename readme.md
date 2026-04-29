@@ -41,4 +41,10 @@ config_mongodb_url="mongodb://localhost:27017"
 | **API Caching** | Cache logic via `api_cache_sec` in `config_api` (Modes: inmemory, redis). |
 | **API Ratelimiter** | Rate limits via `api_ratelimiting_times_sec` in `config_api` (Modes: inmemory, redis). |
 | **Postgres Column Control** | Column control keys: `name`, `datatype`, `default`, `index`, `unique`, `is_mandatory`, `regex`, `in`, `check`, `old`. |
+| **API Param Control** | Config tuple for `func_request_param_read`: `name`, `datatype`, `is_mandatory`, `allowed_values`, `default`, `description`, `regex_info` (pattern, error). |
+| **Username Regex** | Rules: 3-20 chars, start/end with `a-z0-9`, symbols `_`, `@`, `-` middle only. Examples: `7eleven` ✅, `admin_atom` ✅, `user_` ❌, `_user` ❌, `user.name` ❌. |
+| **Password Regex** | Rules: 8-32 chars, no spaces. Examples: `Password@123` ✅, `@Admin123` ✅, `User#2026!` ✅, `pass 123` ❌, `short` ❌. |
+| **Email Regex** | Rules: Basic email format (`user@domain.com`). Examples: `test@atom.com` ✅, `user+tag@work.co` ✅, `invalid-email` ❌. |
+| **Mobile Regex** | Rules: 8-15 digits, may start with `+`. Examples: `+919876543210` ✅, `9876543210` ✅, `1234567` ❌, `+0123456789` ❌. |
+| **Root User Sync** | ID 1 metadata resets on restart: `type=1`, `username='atom'`, `role=1`, `is_active=1`. Password is only set from `config_postgres_root_user_password` during first creation. |
 

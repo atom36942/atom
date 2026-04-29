@@ -32,7 +32,7 @@ async def func_lifespan(app:FastAPI):
    client_sftp=await func_client_read_sftp(config_sftp_host=config_sftp_host, config_sftp_port=config_sftp_port, config_sftp_username=config_sftp_username, config_sftp_password=config_sftp_password, config_sftp_key_path=config_sftp_key_path, config_sftp_auth_method=config_sftp_auth_method) if config_sftp_host else None
    client_gemini=func_client_read_gemini(config_gemini_key=config_gemini_key) if config_gemini_key else None
    if client_postgres_pool and config_is_postgres_init_startup == 1:
-      await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, config_postgres=config_postgres)
+      await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=config_postgres, config_postgres_root_user_password=config_postgres_root_user_password)
    #cache init
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
    cache_postgres_schema_tables=list(cache_postgres_schema.keys())
@@ -49,7 +49,7 @@ async def func_lifespan(app:FastAPI):
    #app shutdown
    yield
    if client_postgres_pool:
-      await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
+      await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
    await client_http.aclose()
    if client_postgres_pool:
       await client_postgres_pool.close()

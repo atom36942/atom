@@ -11,10 +11,10 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
             schema[table][col] = r["data_type"]
     return schema
 
-async def func_postgres_serialize(*, client_postgres_pool: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
+async def func_postgres_serialize(*, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
     """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware injection."""
     output_list = []
-    import orjson, hashlib
+    import orjson
     if table not in cache_postgres_schema:
         return obj_list
     schema = cache_postgres_schema[table]
@@ -22,7 +22,7 @@ async def func_postgres_serialize(*, client_postgres_pool: any, cache_postgres_s
         new_item = {}
         for col, val in item.items():
             if table == "users" and col == "password" and val:
-                val = hashlib.sha256(str(val).encode()).hexdigest()
+                val = client_password_hasher.hash(str(val))
             if col not in schema:
                 if col == "id":
                     new_item[col] = val
@@ -80,7 +80,7 @@ async def func_postgres_serialize(*, client_postgres_pool: any, cache_postgres_s
         output_list.append(new_item)
     return output_list
 
-async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgres: dict) -> str:
+async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_postgres_root_user_password: str) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
     if not config_postgres:
         raise Exception("config_postgres missing")
@@ -273,8 +273,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
             catalog["tg"].add("trigger_no_delete_root_users")
             await conn.execute("CREATE OR REPLACE FUNCTION func_no_delete_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_no_delete_root_users ON users; CREATE TRIGGER trigger_no_delete_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_no_delete_root_users();")
             if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
-                root_user_password = control.get("root_user_password", "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3")
-                await conn.execute("INSERT INTO users (id, type, username, password, role, is_active) VALUES (1, 1, 'atom', $1, 1, 1) ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password, role = 1, is_active = 1 WHERE users.password IS DISTINCT FROM EXCLUDED.password;", root_user_password)
+                root_user_password_hash = client_password_hasher.hash(config_postgres_root_user_password)
+                await conn.execute("INSERT INTO users (id, type, username, password, role, is_active) VALUES (1, 1, 'atom', $1, 1, 1) ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type, username = EXCLUDED.username, role = 1, is_active = 1 WHERE users.type IS DISTINCT FROM 1 OR users.username IS DISTINCT FROM EXCLUDED.username OR users.role IS DISTINCT FROM 1 OR users.is_active IS DISTINCT FROM 1;", root_user_password_hash)
             if "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")

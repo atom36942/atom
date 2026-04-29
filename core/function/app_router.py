@@ -183,8 +183,8 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                                 itms = {"type": TYPE_MAP.get(dt.split(":")[1], "string")} if ":" in dt else None
                                 op["parameters"].append({
                                     "name": p[0], "in": p_loc, "required": bool(p[2]) if len(p) > 2 else False,
-                                    "description": ". ".join([str(x) for x in [p[5][1] if len(p) > 5 and isinstance(p[5], (list, tuple)) and len(p[5]) > 1 else None, p[6] if len(p) > 6 else None] if x]) or None,
-                                    "schema": {"type": tp, "format": "binary" if dt == "file" else None, **({"items": itms} if itms else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": p[5][0] if len(p) > 5 and isinstance(p[5], (list, tuple)) and len(p[5]) > 0 else None}
+                                    "description": ". ".join([str(x) for x in [p[5] if len(p) > 5 else None, p[6][1] if len(p) > 6 and isinstance(p[6], (list, tuple)) and len(p[6]) > 1 else None] if x]) or None,
+                                    "schema": {"type": tp, "format": "binary" if dt == "file" else None, **({"items": itms} if itms else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": p[6][0] if len(p) > 6 and isinstance(p[6], (list, tuple)) and len(p[6]) > 0 else None}
                                 })
                         elif p_list is not None and p_loc in ["body", "form"]:
                             media_type = "application/json" if p_loc == "body" else "multipart/form-data"
@@ -193,7 +193,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                             for p in p_list:
                                 if not p or not isinstance(p, (list, tuple)) or len(p) < 1: continue
                                 dt = p[1] if len(p) > 1 else "str"
-                                props[p[0]] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": p[5][0] if len(p) > 5 and isinstance(p[5], (list, tuple)) and len(p[5]) > 0 else None, "description": ". ".join([str(x) for x in [p[5][1] if len(p) > 5 and isinstance(p[5], (list, tuple)) and len(p[5]) > 1 else None, p[6] if len(p) > 6 else None] if x]) or None}
+                                props[p[0]] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": p[6][0] if len(p) > 6 and isinstance(p[6], (list, tuple)) and len(p[6]) > 0 else None, "description": ". ".join([str(x) for x in [p[5] if len(p) > 5 else None, p[6][1] if len(p) > 6 and isinstance(p[6], (list, tuple)) and len(p[6]) > 1 else None] if x]) or None}
                                 if len(p) > 2 and bool(p[2]): reqs.append(p[0])
                     except: pass
             except: pass

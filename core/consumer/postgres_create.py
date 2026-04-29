@@ -2,6 +2,7 @@ import sys
 from ..config import *
 from ..function import *
 from .base_broker import run_broker
+from argon2 import PasswordHasher
 
 task_name = "func_postgres_create"
 
@@ -9,13 +10,15 @@ async def setup():
     pool = await func_client_read_postgres(config_postgres={"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
     buffer = {}
     schema = await func_postgres_schema_read(client_postgres_pool=pool)
-    return pool, buffer, schema
+    hasher = PasswordHasher()
+    return pool, buffer, schema, hasher
 
-async def execute(pool, payload, buffer, schema):
+async def execute(pool, payload, buffer, schema, hasher):
     tbl = payload.get("table")
     
     return await func_postgres_create(
         client_postgres_pool=pool,
+        client_password_hasher=hasher,
         func_postgres_serialize=func_postgres_serialize,
         cache_postgres_schema=schema,
         mode=payload.get("mode", "now"),

@@ -132,6 +132,12 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
 
     app_paths = {route.path for route in app_routes if hasattr(route, "path")}
     
+    async def _get_root_user_errors(pool):
+        if not pool:
+            return []
+        res = await pool.fetchval("SELECT COUNT(*) FROM users WHERE id = 1")
+        return ["root user (id=1) missing from users table"] if not res else []
+
     errors = (
         _get_duplicate_errors("config.py", "config_api") +
         _get_route_errors(app_paths, current_config_api) +
@@ -142,7 +148,8 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         _get_cors_errors() +
         _get_api_id_errors(current_config_api) +
         _get_schema_errors() +
-        (await _get_index_errors(client_postgres_pool))
+        (await _get_index_errors(client_postgres_pool)) +
+        (await _get_root_user_errors(client_postgres_pool))
     )
 
     if errors:
