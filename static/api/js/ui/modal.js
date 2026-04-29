@@ -229,33 +229,30 @@ const showInfoModal = (k, r_pat, desc) => {
   UI('paramInfoTitle').innerHTML = `Configuration Detail: <span style="color:var(--accent);font-weight:700;background:rgba(255,255,255,0.05);padding:2px 10px;border-radius:6px;margin-left:8px;border:1px solid rgba(255,255,255,0.1)">${he(k)}</span>`;
   UI('paramInfoCopyBtn').innerHTML = ICON.copy(20);
   
-  let html = '<div style="background:rgba(255,255,255,0.03);padding:24px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:12px;width:fit-content;min-width:500px;max-width:900px">';
+  let html = '<div style="display:flex;flex-direction:column;gap:16px;width:560px;max-width:100%">';
   
-  if (desc || r_pat) {
-    const parts = desc ? desc.split('. ').filter(p => p.trim()) : [];
-    const finalItems = [];
-
-    if (r_pat) {
-      let bullet1 = `<code style="background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px;font-size:12px;color:var(--accent);font-family:'SF Mono',Menlo,monospace">${he(r_pat)}</code>`;
-      if (parts.length > 0) {
-        bullet1 += ` <span style="color:var(--muted);font-style:italic;margin-left:6px">[${he(parts[0])}]</span>`;
-      }
-      finalItems.push(bullet1);
-      if (parts.length > 1) finalItems.push(...parts.slice(1));
-    } else {
-      if (parts.length > 0) finalItems.push(...parts);
-    }
-
+  if (r_pat) {
     html += `
-      <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
-        ${finalItems.map(item => `
-          <li style="display:flex;gap:12px;line-height:1.6;color:#e6eef3;font-size:13px;white-space:nowrap">
-            <span style="color:var(--primary);flex-shrink:0;font-size:18px;line-height:12px;margin-top:4px">•</span>
-            <span>${item}</span>
-          </li>`).join('')}
-      </ul>`;
-  } else {
-    html += '<div style="color:var(--muted);font-style:italic">No additional configuration details available.</div>';
+      <div class="modal-card" style="margin-bottom:0">
+        <div class="modal-card-header"><h4>Regex Pattern</h4></div>
+        <div class="modal-card-body">
+            <div style="background:rgba(0,0,0,0.2);padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);font-family:'SF Mono',Menlo,monospace;color:var(--accent);font-size:13px;word-break:break-all;line-height:1.5">${he(r_pat)}</div>
+        </div>
+      </div>`;
+  }
+  
+  if (desc) {
+    html += `
+      <div class="modal-card" style="margin-bottom:0">
+        <div class="modal-card-header"><h4>Description</h4></div>
+        <div class="modal-card-body">
+            <div style="color:#e6eef3;font-size:14px;line-height:1.6;word-break:break-word;overflow-wrap:anywhere">${he(desc)}</div>
+        </div>
+      </div>`;
+  }
+
+  if (!r_pat && !desc) {
+    html += '<div style="color:var(--muted);font-style:italic;text-align:center;padding:20px">No additional configuration details available.</div>';
   }
   
   html += '</div>';
@@ -263,7 +260,6 @@ const showInfoModal = (k, r_pat, desc) => {
   
   const modalCont = UI('paramInfoModal').querySelector('.modal-content');
   modalCont.style.width = 'fit-content';
-  modalCont.style.minWidth = '500px';
-  modalCont.style.maxWidth = '1000px';
+  modalCont.style.maxWidth = '600px';
   showModal('paramInfoModal');
 };

@@ -102,6 +102,7 @@ async def func_check_admin(*, user_dict: dict, url_path: str, config_api: dict, 
             raise Exception("invalid user role type")
     if user_role not in roles:
         raise Exception("access denied")
+        
 def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
@@ -167,6 +168,8 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                     if not isinstance(node, ast.Call): continue
                     func_id = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
                     if func_id != "func_request_param_read": continue
+                    hardened_funcs = ("func_regex_check", "func_orchestrator_obj_create", "func_orchestrator_obj_update", "func_orchestrator_semaphore_postgres_import")
+                    is_regex_enabled = any(isinstance(n, ast.Call) and (getattr(n.func, "id", None) in hardened_funcs or getattr(n.func, "attr", None) in hardened_funcs) for n in ast.walk(tree))
                     try:
                         p_loc, p_list = None, None
                         for kw in node.keywords:
@@ -181,10 +184,11 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                                 dt = p[1] if len(p) > 1 else "str"
                                 tp = TYPE_MAP.get(dt.split(":")[0], "string")
                                 itms = {"type": TYPE_MAP.get(dt.split(":")[1], "string")} if ":" in dt else None
+                                reg_info = getattr(app_state, "config_regex", {}).get(p[0]) if is_regex_enabled else None
                                 op["parameters"].append({
                                     "name": p[0], "in": p_loc, "required": bool(p[2]) if len(p) > 2 else False,
-                                    "description": ". ".join([str(x) for x in [p[5] if len(p) > 5 else None, p[6][1] if len(p) > 6 and isinstance(p[6], (list, tuple)) and len(p[6]) > 1 else None] if x]) or None,
-                                    "schema": {"type": tp, "format": "binary" if dt == "file" else None, **({"items": itms} if itms else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": p[6][0] if len(p) > 6 and isinstance(p[6], (list, tuple)) and len(p[6]) > 0 else None}
+                                    "description": reg_info[1] if reg_info and len(reg_info) > 1 else None,
+                                    "schema": {"type": tp, "format": "binary" if dt == "file" else None, **({"items": itms} if itms else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None}
                                 })
                         elif p_list is not None and p_loc in ["body", "form"]:
                             media_type = "application/json" if p_loc == "body" else "multipart/form-data"
@@ -192,8 +196,9 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                             props, reqs = op["requestBody"]["content"][media_type]["schema"]["properties"], op["requestBody"]["content"][media_type]["schema"]["required"]
                             for p in p_list:
                                 if not p or not isinstance(p, (list, tuple)) or len(p) < 1: continue
+                                reg_info = getattr(app_state, "config_regex", {}).get(p[0]) if is_regex_enabled else None
                                 dt = p[1] if len(p) > 1 else "str"
-                                props[p[0]] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": p[6][0] if len(p) > 6 and isinstance(p[6], (list, tuple)) and len(p[6]) > 0 else None, "description": ". ".join([str(x) for x in [p[5] if len(p) > 5 else None, p[6][1] if len(p) > 6 and isinstance(p[6], (list, tuple)) and len(p[6]) > 1 else None] if x]) or None}
+                                props[p[0]] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None, "description": reg_info[1] if reg_info and len(reg_info) > 1 else None}
                                 if len(p) > 2 and bool(p[2]): reqs.append(p[0])
                     except: pass
             except: pass

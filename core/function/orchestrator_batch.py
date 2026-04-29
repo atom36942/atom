@@ -1,4 +1,4 @@
-async def func_orchestrator_semaphore_postgres_import(*, upload_file: any, mode: str, table: str, is_serialize: int, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, cache_postgres_buffer: dict, func_postgres_serialize: callable, func_postgres_create: callable, func_postgres_update: callable, func_postgres_delete: callable, func_api_file_to_chunks: callable) -> int:
+async def func_orchestrator_semaphore_postgres_import(*, upload_file: any, mode: str, table: str, is_serialize: int, config_regex: dict, func_regex_check: callable, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, cache_postgres_buffer: dict, func_postgres_serialize: callable, func_postgres_create: callable, func_postgres_update: callable, func_postgres_delete: callable, func_api_file_to_chunks: callable) -> int:
     """Orchestrates bulk PostgreSQL operations using an asynchronous semaphore for concurrency control and task-based throttling."""
     limit_chunk = 5000
     if mode == "update" and is_serialize == 0:
@@ -6,6 +6,7 @@ async def func_orchestrator_semaphore_postgres_import(*, upload_file: any, mode:
     count, tasks, sem = 0, set(), asyncio.Semaphore(10)
     async def process_chunk(chunk_list):
         async with sem:
+            await func_regex_check(config_regex=config_regex, obj_list=chunk_list)
             if mode == "create":
                 await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=chunk_list, is_serialize=is_serialize, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
             elif mode == "update":

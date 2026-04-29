@@ -53,9 +53,6 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
             param_key = param[0] if param_len > 0 else "unknown"
             raise Exception(f"invalid config tuple length {param_len} for '{param_key}': (key, dtype, is_mandatory, allowed_values, default_value) are required")
         key, dtype, is_mandatory, allowed_values, default_value = param[0], param[1], int(param[2]), param[3], param[4]
-        regex_info = param[6] if param_len > 6 else None
-        regex_pattern = regex_info[0] if isinstance(regex_info, (list, tuple)) and len(regex_info) > 0 else None
-        custom_error = regex_info[1] if isinstance(regex_info, (list, tuple)) and len(regex_info) > 1 else None
         if dtype not in TYPE_MAP and not dtype.startswith("list:"):
             raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
         if is_mandatory == 1 and default_value is not None:
@@ -93,13 +90,27 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
                  raise Exception(f"parameter '{key}' missing or empty list")
         if val is not None and allowed_values and val not in allowed_values:
             raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
-        if val is not None and regex_pattern:
-            import re
-            if not re.match(regex_pattern, str(val)):
-                raise Exception(custom_error if custom_error else f"parameter '{key}' format invalid")
         output_dict[key] = val
     return output_dict
-    
+
+def func_request_obj_list_read(*, obj_body: dict) -> list:
+    """Extract a list of objects from the request body, supporting both single objects and 'obj_list' wrappers."""
+    return obj_body.get("obj_list", [obj_body])
+
+async def func_regex_check(*, config_regex: dict, obj_list: list):
+    """Validate fields in a list of objects against regex patterns defined in config."""
+    import re
+    if not config_regex:
+        return
+    for obj in obj_list:
+        for key, regex_info in config_regex.items():
+            val = obj.get(key)
+            if val is not None:
+                pattern = regex_info[0]
+                error_msg = regex_info[1]
+                if not re.match(pattern, str(val)):
+                    raise Exception(error_msg)
+                    
 async def func_check_cache(*, mode: str, url_path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, response: any, cache_api_response: dict) -> any:
     """Retrieve from or store to cache API responses based on configuration."""
     from fastapi import Response

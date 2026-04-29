@@ -40,12 +40,3 @@ config_mongodb_url="mongodb://localhost:27017"
 | **Status Authorization** | Automated account status enforcement via `user_is_active_check` in `config_api` (Supports: Realtime, Token, In-Memory, Redis). |
 | **API Response Cache** | Highly configurable caching via `api_cache_sec` in `config_api` (Supports: In-Memory, Redis). |
 | **API Rate Limiter** | Traffic control via `api_ratelimiting_times_sec` in `config_api` (Supports: In-Memory, Redis). |
-| **Postgres Schema DSL** | Supported column configuration keys: `name`, `datatype`, `default`, `index`, `unique`, `is_mandatory`, `regex`, `in`, `check`, `old`. |
-| **API Parameter DSL** | Parameter definition tuple: `name`, `datatype`, `is_mandatory`, `allowed_values`, `default`, `description`, `regex_info`. |
-| **Username Validation** | Rules: 3-20 characters, alphanumeric start/end, allowed middle symbols (`_`, `@`, `-`). |
-| **Password Validation** | Rules: 8-32 characters, no whitespace, supports high-entropy symbols. |
-| **Email Validation** | Standard RFC-compliant email regex validation. |
-| **Mobile Validation** | International format support (8-15 digits, optional `+` prefix). |
-| **Root Account Sync** | Mandatory ID 1 lifecycle: `username='atom'`, `role=1`, `is_active=1`. Password is set only during initial database creation. |
-| **Application Guard** | Strict startup consistency checks: Duplicate Config Keys, Route Discovery Mapping, Admin API Role Enforcement, Invalid Middleware Modes, Strict CORS Wildcard Rules, Boolean Switch Validation, Unique API ID Enforcement, Table & Column Integrity, Redundant Non-Unique Index Detection, Root User Presence. |
-
