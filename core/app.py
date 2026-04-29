@@ -13,6 +13,7 @@ async def func_lifespan(app:FastAPI):
    #start
    func_structure_create(directories=["tmp","secret"], files=[".env"])
    #client init
+   print("🔌 initializing clients...")
    client_password_hasher=PasswordHasher()
    client_http=httpx.AsyncClient()
    client_postgres_pool=await func_client_read_postgres(config_postgres={"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection}) if config_postgres_url else None
@@ -31,9 +32,17 @@ async def func_lifespan(app:FastAPI):
    client_gsheet=func_client_read_gsheet(config_gsheet_service_account_json_path=config_gsheet_service_account_json_path, config_gsheet_scope=config_gsheet_scope) if config_gsheet_service_account_json_path else None
    client_sftp=await func_client_read_sftp(config_sftp_host=config_sftp_host, config_sftp_port=config_sftp_port, config_sftp_username=config_sftp_username, config_sftp_password=config_sftp_password, config_sftp_key_path=config_sftp_key_path, config_sftp_auth_method=config_sftp_auth_method) if config_sftp_host else None
    client_gemini=func_client_read_gemini(config_gemini_key=config_gemini_key) if config_gemini_key else None
+   if client_postgres_pool: print("  🐘 postgres: connected")
+   if client_redis: print("  🔴 redis: connected")
+   if client_mongodb: print("  🍃 mongodb: connected")
+   if client_rabbitmq: print("  🐇 rabbitmq: connected")
+   if client_kafka_producer: print("  🎡 kafka: connected")
+   if client_s3: print("  ☁️  aws s3: connected")
    if client_postgres_pool and config_is_postgres_init_startup == 1:
+      print("🏗️  syncing postgres schema...")
       await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=config_postgres, config_postgres_root_user_password=config_postgres_root_user_password)
    #cache init
+   print("📦 initializing cache...")
    cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
    cache_postgres_schema_tables=list(cache_postgres_schema.keys())
    cache_postgres_schema_columns=sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
@@ -42,10 +51,13 @@ async def func_lifespan(app:FastAPI):
    cache_ratelimiter = {}
    cache_api_response = {}
    cache_postgres_buffer = {}
+   print("✅ cache initialized")
    #misc
    func_app_state_add(app_obj=app, dict_context={**globals(),**locals()}, prefix_list=("client_","cache_","func_","config_"))
    app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
+   print("🛡️  running application checks...")
    await func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth, client_postgres_pool=client_postgres_pool)
+   print("✨ atom server is ready")
    #app shutdown
    yield
    if client_postgres_pool:

@@ -147,9 +147,11 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
         return hashlib.md5(str(val).encode()).hexdigest()[:4]
     async with client_postgres_pool.acquire() as conn:
         if is_ext:
+            print("  🧩 enabling extensions...")
             for extension in ("postgis", "pg_trgm", "btree_gin"):
                 await conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension};")
         for table_name, column_configs in config_postgres["table"].items():
+            print(f"  📊 syncing table: {table_name}")
             await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id BIGSERIAL PRIMARY KEY);")
             if is_autovacuum:
                 await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
@@ -273,6 +275,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             catalog["tg"].add("trigger_no_delete_root_users")
             await conn.execute("CREATE OR REPLACE FUNCTION func_no_delete_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_no_delete_root_users ON users; CREATE TRIGGER trigger_no_delete_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_no_delete_root_users();")
             if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
+                print("  👤 syncing root user...")
                 root_user_password_hash = client_password_hasher.hash(config_postgres_root_user_password)
                 await conn.execute("INSERT INTO users (id, type, username, password, role, is_active) VALUES (1, 1, 'atom', $1, 1, 1) ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type, username = EXCLUDED.username, role = 1, is_active = 1 WHERE users.type IS DISTINCT FROM 1 OR users.username IS DISTINCT FROM EXCLUDED.username OR users.role IS DISTINCT FROM 1 OR users.is_active IS DISTINCT FROM 1;", root_user_password_hash)
             if "password" in users_cols and "log_users_password" in db_tables:
@@ -295,6 +298,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
         await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
+        print("  ⚙️  syncing triggers & constraints...")
         drop_tags = []
         if is_drop_schema: drop_tags.append("'DROP SCHEMA'")
         if is_drop_table: drop_tags.append("'DROP TABLE'")

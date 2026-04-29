@@ -132,6 +132,12 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
 
     app_paths = {route.path for route in app_routes if hasattr(route, "path")}
     
+    print("    🔍 checking routes & roles...")
+    print("    🔍 checking modes & ratelimits...")
+    print("    🔍 checking schema consistency...")
+    if client_postgres_pool:
+        print("    🔍 checking database indexes...")
+        print("    🔍 checking root user presence...")
     async def _get_root_user_errors(pool):
         if not pool:
             return []
