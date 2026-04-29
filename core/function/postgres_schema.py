@@ -114,7 +114,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             if col.get("index"):
                 for index_group in (x.strip() for x in col["index"].split("|")):
                     if "(" in index_group and index_group.endswith(")"):
-                        cols_str, index_type = index_group[:-1].split("(", 1)
+                        index_type, cols_str = index_group[:-1].split("(", 1)
                         index_type = index_type.strip().lower()
                         index_cols = [c.strip() for c in cols_str.split(",")]
                         
@@ -216,7 +216,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 if col_cfg.get("index"):
                     for index_group in (x.strip() for x in col_cfg["index"].split("|")):
                         if "(" in index_group and index_group.endswith(")"):
-                            cols_str, index_type = index_group[:-1].split("(", 1)
+                            index_type, cols_str = index_group[:-1].split("(", 1)
                             index_type = index_type.strip().lower()
                             index_cols = [c.strip() for c in cols_str.split(",")]
                             

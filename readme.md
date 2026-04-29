@@ -31,20 +31,21 @@ config_mongodb_url="mongodb://localhost:27017"
 ###  FAQ
 | What | Description |
 | :--- | :--- |
-| **Postgres Init** | Automatic `func_postgres_schema_init` run on startup. |
-| **API Master** | Interactive API tester at `static/api/index.html`. |
-| **Access App State** | Global clients (DB, Redis, etc.) via `request.app.state`. |
-| **User Context** | Current user state (id, role, etc.) via `request.state.user`. |
-| **Manual Auth Check** | Check via `if request.state.user is None: raise Exception("Unauthorized")`. |
-| **Admin Check** | Role checks via `user_role_check` in `config_api` (Modes: realtime, token, inmemory, redis). |
-| **User Active Check** | Status checks via `user_is_active_check` in `config_api` (Modes: realtime, token, inmemory, redis). |
-| **API Caching** | Cache logic via `api_cache_sec` in `config_api` (Modes: inmemory, redis). |
-| **API Ratelimiter** | Rate limits via `api_ratelimiting_times_sec` in `config_api` (Modes: inmemory, redis). |
-| **Postgres Column Control** | Column control keys: `name`, `datatype`, `default`, `index`, `unique`, `is_mandatory`, `regex`, `in`, `check`, `old`. |
-| **API Param Control** | Config tuple for `func_request_param_read`: `name`, `datatype`, `is_mandatory`, `allowed_values`, `default`, `description`, `regex_info` (pattern, error). |
-| **Username Regex** | Rules: 3-20 chars, start/end with `a-z0-9`, symbols `_`, `@`, `-` middle only. Examples: `7eleven` ✅, `admin_atom` ✅, `user_` ❌, `_user` ❌, `user.name` ❌. |
-| **Password Regex** | Rules: 8-32 chars, no spaces. Examples: `Password@123` ✅, `@Admin123` ✅, `User#2026!` ✅, `pass 123` ❌, `short` ❌. |
-| **Email Regex** | Rules: Basic email format (`user@domain.com`). Examples: `test@atom.com` ✅, `user+tag@work.co` ✅, `invalid-email` ❌. |
-| **Mobile Regex** | Rules: 8-15 digits, may start with `+`. Examples: `+919876543210` ✅, `9876543210` ✅, `1234567` ❌, `+0123456789` ❌. |
-| **Root User Sync** | ID 1 metadata resets on restart: `type=1`, `username='atom'`, `role=1`, `is_active=1`. Password is only set from `config_postgres_root_user_password` during first creation. |
+| **Postgres Schema Init** | Automatic database synchronization (`func_postgres_schema_init`) executed on every startup. |
+| **API Runner / Tester** | Interactive interface for API exploration and testing available at `static/api/index.html`. |
+| **Global App State** | Access to shared clients (Postgres, Redis, S3, etc.) and caches via `request.app.state`. |
+| **Authenticated User** | Injected user context (ID, Role, Username, etc.) accessible via `request.state.user`. |
+| **Manual Auth Guard** | Enforce security manually using `if request.state.user is None: raise Exception("Unauthorized")`. |
+| **Role Authorization** | Automated role-based access control via `user_role_check` in `config_api` (Supports: Realtime, Token, In-Memory, Redis). |
+| **Status Authorization** | Automated account status enforcement via `user_is_active_check` in `config_api` (Supports: Realtime, Token, In-Memory, Redis). |
+| **API Response Cache** | Highly configurable caching via `api_cache_sec` in `config_api` (Supports: In-Memory, Redis). |
+| **API Rate Limiter** | Traffic control via `api_ratelimiting_times_sec` in `config_api` (Supports: In-Memory, Redis). |
+| **Postgres Schema DSL** | Supported column configuration keys: `name`, `datatype`, `default`, `index`, `unique`, `is_mandatory`, `regex`, `in`, `check`, `old`. |
+| **API Parameter DSL** | Parameter definition tuple: `name`, `datatype`, `is_mandatory`, `allowed_values`, `default`, `description`, `regex_info`. |
+| **Username Validation** | Rules: 3-20 characters, alphanumeric start/end, allowed middle symbols (`_`, `@`, `-`). |
+| **Password Validation** | Rules: 8-32 characters, no whitespace, supports high-entropy symbols. |
+| **Email Validation** | Standard RFC-compliant email regex validation. |
+| **Mobile Validation** | International format support (8-15 digits, optional `+` prefix). |
+| **Root Account Sync** | Mandatory ID 1 lifecycle: `username='atom'`, `role=1`, `is_active=1`. Password is set only during initial database creation. |
+| **Application Guard** | Strict startup consistency checks: Duplicate Config Keys, Route Discovery Mapping, Admin API Role Enforcement, Invalid Middleware Modes, Strict CORS Wildcard Rules, Boolean Switch Validation, Unique API ID Enforcement, Table & Column Integrity, Redundant Non-Unique Index Detection, Root User Presence. |
 

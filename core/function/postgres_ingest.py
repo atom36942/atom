@@ -37,9 +37,12 @@ async def func_postgres_csv_ingestion(
     - ignore_column (list | None): List of CSV columns to skip during processing.
     - const_column (list | None): Constant values to inject.
     Example:
-        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="create", validation_mode="reject", rename_column=[["x","y"],["a","b"]], ignore_column=["tmp"], const_column=[["src","api"]])
-        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="update", validation_mode="reject", rename_column=[["uid","id"]], ignore_column=["tmp"], const_column=None)
-        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="delete", validation_mode="strict", rename_column=None, ignore_column=None, const_column=None)
+        # Create mode (Auto-increment ID):
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="create", validation_mode="reject", ignore_column=["id"])
+        # Create mode (Manual ID upload):
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="create", validation_mode="reject", ignore_column=None)
+        # Update/Delete modes (ID mandatory):
+        await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="update", validation_mode="reject", rename_column=[["uid","id"]])
     """
     
     # Increase field size limit for extremely large CSV cells
@@ -52,8 +55,7 @@ async def func_postgres_csv_ingestion(
 
     if crud_mode == "delete":
         if const_column: raise ValueError("❌ ERROR: 'const_column' must be None for 'delete' mode.")
-        if rename_column: raise ValueError("❌ ERROR: 'rename_column' must be None for 'delete' mode.")
-        if ignore_column: raise ValueError("❌ ERROR: 'ignore_column' must be None for 'delete' mode.")
+        if ignore_column: raise ValueError("❌ ERROR: 'ignore_column' must be None for 'delete' mode (skipping is automatic).")
         if validation_mode == "loose": raise ValueError("❌ ERROR: 'validation_mode' cannot be 'loose' for 'delete' mode. Use 'strict' or 'reject'.")
 
     if crud_mode == "update":
@@ -88,7 +90,7 @@ async def func_postgres_csv_ingestion(
         
         # 2. Fetch Schema Info
         q = """
-        SELECT column_name, data_type, udt_name, is_nullable 
+        SELECT column_name, data_type, udt_name, is_nullable, column_default 
         FROM information_schema.columns 
         WHERE table_name=$1 
         ORDER BY ordinal_position
@@ -99,6 +101,7 @@ async def func_postgres_csv_ingestion(
         
         col_type_map = {r['column_name']: r['udt_name'] for r in columns_records}
         col_null_map = {r['column_name']: r['is_nullable'] == 'YES' for r in columns_records}
+        col_default_map = {r['column_name']: r['column_default'] for r in columns_records}
         db_cols_all = [r['column_name'] for r in columns_records]
         
         # 3. CSV Header Analysis & Sampling
@@ -164,6 +167,7 @@ async def func_postgres_csv_ingestion(
                 return "integer"
             rows = []
             has_error = False
+            id_is_mapped = False
             # Get original CSV headers for the dashboard (including ignored ones)
             f.seek(0); full_header = next(csv.reader(f))
             f.seek(0); f.readline()
@@ -175,8 +179,18 @@ async def func_postgres_csv_ingestion(
             for idx, raw_col in enumerate(full_header, 1):
                 is_const = raw_col.startswith("__CONST__")
                 col = raw_col.replace("__CONST__", "") if is_const else raw_col
+                mapped_col = rename_map.get(col, col)
                 
                 if ignore_column and col in ignore_column:
+                    rem = "Explicitly ignored by user."
+                    p_text = f"🚫 {'IGNORED':<7}"
+                    # Smart check for ignored ID
+                    if mapped_col.lower() == "id":
+                        default_val = str(col_default_map.get(mapped_col, "") or "").lower()
+                        if "nextval" not in default_val:
+                            p_text = f"❌ {'ERROR':<7}"
+                            rem = "ID is mandatory (no default in DB). Cannot be ignored."
+                    
                     rows.append({
                         "idx": str(idx),
                         "col": col,
@@ -184,25 +198,45 @@ async def func_postgres_csv_ingestion(
                         "db_t": "-",
                         "c": "-",
                         "n": "-",
-                        "p": f"🚫 {'IGNORED':<7}",
-                        "rem": "Explicitly ignored by user."
+                        "p": p_text,
+                        "rem": rem
                     })
                     continue
                 
                 if is_const:
                     csv_t = "const"
-                    mapped_col = col
                 else:
                     csv_t = infer_type_for_column(col)
-                    mapped_col = rename_map.get(col, col)
                     
                 db_t = col_type_map.get(mapped_col, "(missing)")
                 m_icon = "✅" if mapped_col in db_cols_all else "🚫"
                 n_icon = "✅" if col_null_map.get(mapped_col, True) else "❌"
                 c_icon = "✅" if db_t not in ("text", "varchar", "character varying", "(missing)") else "❌"
                 
+                # Track if DB 'id' is being populated
+                if mapped_col.lower() == "id": id_is_mapped = True
+
                 # Compatibility Logic
-                if m_icon == "🚫":
+                if crud_mode == "create" and mapped_col.lower() == "id":
+                    default_val = str(col_default_map.get(mapped_col, "") or "").lower()
+                    has_auto_inc = "nextval" in default_val
+                    
+                    if has_auto_inc:
+                        # Auto-inc detected: User MUST ignore it
+                        p_text, rem = f"❌ {'ERROR':<7}", "Auto-increment detected. ID MUST be ignored to prevent sequence desync."
+                    else:
+                        # No default detected: User MUST provide it
+                        p_text, rem = f"✅ {'FOUND':<7}", "Manual ID column (no auto-increment). Values will be ingested."
+                
+                # Check for CSV 'id' being renamed away
+                elif crud_mode == "create" and col.lower() == "id" and mapped_col.lower() != "id" and not is_const:
+                     p_text, rem = f"⚠️ {'WARNING':<7}", f"CSV 'id' renamed to '{mapped_col}'. Postgres will generate a NEW 'id'."
+                
+                # Delete Mode: Auto-skip non-ID columns
+                elif crud_mode == "delete" and mapped_col.lower() != "id":
+                     p_text, rem = f"🚫 {'SKIP':<7}", "Column not used in 'delete' mode (only 'id' is used)."
+                
+                elif m_icon == "🚫":
                     p_text, rem = f"🚫 {'MISSING':<7}", "Column skipped (missing in database table)."
                 elif is_const:
                     p_text, rem = f"➕ {'CONST':<7}", "Constant value injected dynamically."
@@ -272,6 +306,15 @@ async def func_postgres_csv_ingestion(
                 print(f"{r['idx']:<{w_idx}} | {r['col']:<{w_col}} | {r['csv_t']:<{w_csv}} | {r['db_t']:<{w_db}} | {align(r['c'], w_ico)} | {align(r['n'], w_ico)} | {align(r['p'], w_sta)} |  {r['rem']}")
             print(f"{'-'*separator_len}")
             
+            # Final Mandatory Check: Manual ID missing?
+            if crud_mode == "create" and not id_is_mapped:
+                default_val = str(col_default_map.get("id", "") or "").lower()
+                if "id" in col_default_map and "nextval" not in default_val:
+                    has_error = True
+                    print(f"❌ ERROR: Mandatory 'id' column (no default) is missing from your CSV mapping.")
+                    print(f"💡 TIP: Add an 'id' column to your CSV or use const_column to provide one.")
+                    print(f"{'-'*separator_len}")
+
             if has_error:
                 print(f"🚨 WARNING: Logical errors detected. Proceeding with 'STRICT' validation will cause a crash.")
                 print(f"💡 TIP: Use validation_mode='reject' to skip bad rows, or fix your DB schema.")
@@ -318,8 +361,10 @@ async def func_postgres_csv_ingestion(
             elif crud_mode == "update":
                 final_cols = ["id"] + [c for c in csv_mapped_cols if c != "id"] + valid_c_names if "id" in csv_mapped_cols else []
             else:
-                final_cols = [c for c in csv_mapped_cols if c != "id"] + valid_c_names
+                final_cols = csv_mapped_cols + valid_c_names
                 
+            if crud_mode == "update" and len(final_cols) < 2:
+                raise ValueError("❌ ERROR: At least two columns (id + one field to update) are required for 'update' mode.")
             if not final_cols: raise Exception("No valid columns to process")
             # 6. Execution Prep & Resume Logic
             skip_count = 0

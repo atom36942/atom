@@ -61,11 +61,9 @@ async def func_lifespan(app:FastAPI):
    app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
    print(f"📖 {'openapi documentation':<30} : ✅ generated")
    await func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth, client_postgres_pool=client_postgres_pool)
-   
    #ready
    duration = (time.perf_counter() - start_journey) * 1000
    print(f"✨ {'atom server is ready':<30} : ✅ {duration:.2f} ms")
-   
    #app shutdown
    yield
    print(f"🛑 {'application shutdown':<30} : 🚀 started")
