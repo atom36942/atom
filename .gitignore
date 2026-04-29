@@ -17,22 +17,18 @@
 !AGENTS.md
 !/.gitignore
 
-# python
+# ignore
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 .mypy_cache/
-
-# system/ide
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 *.swp
 *.bak
-
-# temp/scratch
 tmp/
 scratch/
 venv/
