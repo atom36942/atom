@@ -1,15 +1,13 @@
-# deny all
+# deny
 *
 
-# folders
+# add
 !core/
 !core/**
 !service/
 !service/**
 !static/
 !static/**
-
-# files
 !main.py
 !requirements.txt
 !Dockerfile

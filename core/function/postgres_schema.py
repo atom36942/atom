@@ -82,6 +82,7 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
 
 async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_postgres_root_user_password: str) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
+    print("🏗️  syncing postgres schema...")
     if not config_postgres:
         raise Exception("config_postgres missing")
     if "table" not in config_postgres:

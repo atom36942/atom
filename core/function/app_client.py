@@ -1,12 +1,16 @@
 async def func_client_read_postgres(*, config_postgres: dict) -> any:
     """Initialize PostgreSQL connection pool."""
     import asyncpg
-    return await asyncpg.create_pool(dsn=config_postgres["dsn"], min_size=config_postgres["min_size"], max_size=config_postgres["max_size"])
+    res = await asyncpg.create_pool(dsn=config_postgres["dsn"], min_size=config_postgres["min_size"], max_size=config_postgres["max_size"])
+    print("  🐘 postgres: connected")
+    return res
 
 async def func_client_read_mongodb(*, config_mongodb_url: str) -> any:
     """Initialize MongoDB client."""
     import motor.motor_asyncio
-    return motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_url)
+    res = motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_url)
+    print("  🍃 mongodb: connected")
+    return res
 
 def func_client_read_gemini(*, config_gemini_key: str) -> any:
     """Initialize Gemini (Generative AI) client with the provided API key."""
@@ -35,12 +39,15 @@ async def func_client_read_s3(*, config_aws_access_key_id: str, config_aws_secre
     import boto3
     client = aiobotocore.session.get_session().create_client("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
     resource = boto3.resource("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
+    print("  ☁️  aws s3: connected")
     return client, resource
 
 async def func_client_read_redis(*, config_redis_url: str) -> any:
     """Initialize Redis client using connection pooling."""
     import redis.asyncio as redis
-    return redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
+    res = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
+    print("  🔴 redis: connected")
+    return res
 
 async def func_client_read_redis_consumer(*, client_redis: any, channel_name: str) -> any:
     """Initialize Redis PubSub consumer and subscribe to a channel."""
@@ -63,6 +70,7 @@ async def func_client_read_rabbitmq_producer(*, config_rabbitmq_url: str) -> any
     import aio_pika
     conn = await aio_pika.connect_robust(config_rabbitmq_url)
     channel = await conn.channel()
+    print("  🐇 rabbitmq: connected")
     return conn, channel
 
 async def func_client_read_rabbitmq_consumer(*, config_rabbitmq_url: str, channel_name: str) -> any:
@@ -79,6 +87,7 @@ async def func_client_read_kafka_producer(*, config_kafka_url: str, config_kafka
     from aiokafka import AIOKafkaProducer
     p = AIOKafkaProducer(bootstrap_servers=config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaProducer(bootstrap_servers=config_kafka_url)
     await p.start()
+    print("  🎡 kafka: connected")
     return p
 
 async def func_client_read_kafka_consumer(*, config_kafka_url: str, config_kafka_username: str, config_kafka_password: str, channel_name: str, config_kafka_group_id: str, config_kafka_is_auto_commit: int) -> any:
