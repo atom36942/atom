@@ -131,6 +131,7 @@ config_api={
 }
 
 config_postgres={
+"extension": ["postgis", "pg_trgm", "btree_gin",],
 "table":{
 "test":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"created_at(btree)"},

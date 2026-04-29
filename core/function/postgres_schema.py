@@ -82,7 +82,6 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
 
 async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_postgres_root_user_password: str) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
-    print("🏗️  syncing postgres schema...")
     if not config_postgres:
         raise Exception("config_postgres missing")
     if "table" not in config_postgres:
@@ -130,13 +129,10 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                         elif index_type == "gist":
                             if not any(x in dtype.lower() for x in ("geography", "geometry", "box", "circle", "point", "polygon")):
                                 raise Exception(f"GIST index is not compatible with '{dtype}' on {table_name}.{name}. Supported: geography, geometry, spatial types.")
-                        
                         if any(x in dtype.lower() for x in ("geography", "geometry")) and index_type != "gist":
                             raise Exception(f"Spatial column {table_name}.{name} must use 'gist' index if indexed.")
                     else:
                         raise Exception(f"Invalid index syntax '{index_group}' in {table_name}.{name}. Expected 'col(type)' or 'col1,col2(type)'.")
-
-        # Unique Constraints Cross-Reference (Existing logic remains valid)
         for col in column_configs:
             if col.get("unique"):
                 for group in col["unique"].split("|"):
@@ -148,26 +144,25 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
         return hashlib.md5(str(val).encode()).hexdigest()[:4]
     async with client_postgres_pool.acquire() as conn:
         if is_ext:
-            print("  🧩 enabling extensions...")
-            for extension in ("postgis", "pg_trgm", "btree_gin"):
-                await conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension};")
+            extensions = config_postgres.get("extension", [])
+            for extension in extensions:
+                try:
+                    await conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension};")
+                except Exception as e:
+                    if "pg_cron" in extension:
+                        pass
+                    else:
+                        raise e
         for table_name, column_configs in config_postgres["table"].items():
-            print(f"  📊 syncing table: {table_name}")
             await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id BIGSERIAL PRIMARY KEY);")
             if is_autovacuum:
                 await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
-            
-            # 1. Fetch Metadata (Columns, Indexes, Constraints) in 3 queries per table
             rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
             current_cols = {r[0]: r[1] for r in rows}
             current_notnulls = {r[0]: r[2] for r in rows}
             current_defaults = {r[0]: r[3] for r in rows}
-            
-            # Fetch existing indexes and constraints names for idempotency checks
             meta_rows = await conn.fetch("SELECT indexname as name FROM pg_indexes WHERE tablename=$1 UNION ALL SELECT conname as name FROM pg_constraint WHERE conrelid=$1::regclass", table_name)
             existing_meta = {r[0] for r in meta_rows}
-
-            # 2. Sync Columns
             table_changed = False
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
@@ -276,7 +271,6 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             catalog["tg"].add("trigger_no_delete_root_users")
             await conn.execute("CREATE OR REPLACE FUNCTION func_no_delete_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_no_delete_root_users ON users; CREATE TRIGGER trigger_no_delete_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_no_delete_root_users();")
             if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
-                print("  👤 syncing root user...")
                 root_user_password_hash = client_password_hasher.hash(config_postgres_root_user_password)
                 await conn.execute("INSERT INTO users (id, type, username, password, role, is_active) VALUES (1, 1, 'atom', $1, 1, 1) ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type, username = EXCLUDED.username, role = 1, is_active = 1 WHERE users.type IS DISTINCT FROM 1 OR users.username IS DISTINCT FROM EXCLUDED.username OR users.role IS DISTINCT FROM 1 OR users.is_active IS DISTINCT FROM 1;", root_user_password_hash)
             if "password" in users_cols and "log_users_password" in db_tables:
@@ -299,7 +293,6 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
         await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
-        print("  ⚙️  syncing triggers & constraints...")
         drop_tags = []
         if is_drop_schema: drop_tags.append("'DROP SCHEMA'")
         if is_drop_table: drop_tags.append("'DROP TABLE'")
@@ -371,4 +364,5 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 drop_vars = "record.relname, record.conname"
                 like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
+    print(f"🏗️  {'postgres schema sync':<30} : ✅ done")
     return "database init done"

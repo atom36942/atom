@@ -1,6 +1,5 @@
 async def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: list, api_roles_auth: list, client_postgres_pool: any = None) -> None:
     """Orchestrate all application consistency checks (routes, roles, modes, and database indexes)."""
-    print("🛡️  running application checks...")
     import ast
 
     def _get_duplicate_errors(file_path, var_name):
@@ -133,12 +132,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
 
     app_paths = {route.path for route in app_routes if hasattr(route, "path")}
     
-    print("    🔍 checking routes & roles...")
-    print("    🔍 checking modes & ratelimits...")
-    print("    🔍 checking schema consistency...")
-    if client_postgres_pool:
-        print("    🔍 checking database indexes...")
-        print("    🔍 checking root user presence...")
     async def _get_root_user_errors(pool):
         if not pool:
             return []
@@ -161,7 +154,7 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
 
     if errors:
         raise Exception("; ".join(errors))
-    print("✨ atom server is ready")
+    print(f"🛡️  {'application checks':<30} : ✅ done")
     return None
 
 async def func_check_ratelimiter(*, client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:

@@ -10,27 +10,39 @@ from argon2 import PasswordHasher
 #lifespan
 @asynccontextmanager
 async def func_lifespan(app:FastAPI):
-   #start
+   #logging start
+   start_journey = time.perf_counter()
+   import sys, platform
+   print("----------------------------------------------------------------------")
+   print(f"                         🚀 ATOM FRAMEWORK ")
+   print("----------------------------------------------------------------------")
+   print(f"🚀 {'main.py start':<30} : ✅ done")
+   print(f"🚀 {'app initialization':<30} : ✅ started")
+   print(f"💻 {'system information':<30} : {platform.system()} {platform.release()} ({sys.version.split()[0]})")
+   #structure
    func_structure_create(directories=["tmp","secret"], files=[".env"])
    #client init
    client_password_hasher=PasswordHasher()
+   print(f"🔑 {'password hasher':<30} : ✅ initialized")
    client_http=httpx.AsyncClient()
-   client_postgres_pool=await func_client_read_postgres(config_postgres={"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection}) if config_postgres_url else None
-   client_redis=await func_client_read_redis(config_redis_url=config_redis_url) if config_redis_url else None
-   client_redis_ratelimiter=await func_client_read_redis(config_redis_url=config_redis_url_ratelimiter) if config_redis_url_ratelimiter else None
-   client_mongodb=await func_client_read_mongodb(config_mongodb_url=config_mongodb_url) if config_mongodb_url else None
-   client_s3,client_s3_resource=(await func_client_read_s3(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_s3_region_name=config_s3_region_name)) if config_s3_region_name else (None, None)
-   client_sns=func_client_read_sns(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_sns_region_name=config_sns_region_name) if config_sns_region_name else None
-   client_ses=func_client_read_ses(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_ses_region_name=config_ses_region_name) if config_ses_region_name else None
-   client_openai=func_client_read_openai(config_openai_key=config_openai_key) if config_openai_key else None
-   client_posthog=func_client_read_posthog(config_posthog_project_host=config_posthog_project_host, config_posthog_project_key=config_posthog_project_key)
-   client_celery_producer=func_client_read_celery_producer(config_celery_broker_url=config_celery_broker_url, config_celery_backend_url=config_celery_backend_url) if config_celery_broker_url else None
-   client_kafka_producer=await func_client_read_kafka_producer(config_kafka_url=config_kafka_url, config_kafka_username=config_kafka_username, config_kafka_password=config_kafka_password) if config_kafka_url else None
-   client_rabbitmq,client_rabbitmq_producer=await func_client_read_rabbitmq_producer(config_rabbitmq_url=config_rabbitmq_url) if config_rabbitmq_url else (None, None)
-   client_redis_producer=await func_client_read_redis(config_redis_url=config_redis_url_pubsub) if config_redis_url_pubsub else None
-   client_gsheet=func_client_read_gsheet(config_gsheet_service_account_json_path=config_gsheet_service_account_json_path, config_gsheet_scope=config_gsheet_scope) if config_gsheet_service_account_json_path else None
-   client_sftp=await func_client_read_sftp(config_sftp_host=config_sftp_host, config_sftp_port=config_sftp_port, config_sftp_username=config_sftp_username, config_sftp_password=config_sftp_password, config_sftp_key_path=config_sftp_key_path, config_sftp_auth_method=config_sftp_auth_method) if config_sftp_host else None
-   client_gemini=func_client_read_gemini(config_gemini_key=config_gemini_key) if config_gemini_key else None
+   print(f"🌐 {'http client':<30} : ✅ connected")
+   client_postgres_pool = await func_client_read_postgres(config_postgres={"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection})
+   client_redis = await func_client_read_redis(config_redis_url=config_redis_url)
+   client_redis_ratelimiter = await func_client_read_redis(config_redis_url=config_redis_url_ratelimiter, event_name="🔴 redis ratelimiter")
+   client_mongodb = await func_client_read_mongodb(config_mongodb_url=config_mongodb_url)
+   client_s3, client_s3_resource = await func_client_read_s3(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_s3_region_name=config_s3_region_name)
+   client_sns = func_client_read_sns(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_sns_region_name=config_sns_region_name)
+   client_ses = func_client_read_ses(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_ses_region_name=config_ses_region_name)
+   client_openai = func_client_read_openai(config_openai_key=config_openai_key)
+   client_gemini = func_client_read_gemini(config_gemini_key=config_gemini_key)
+   client_posthog = func_client_read_posthog(config_posthog_project_host=config_posthog_project_host, config_posthog_project_key=config_posthog_project_key)
+   client_celery_producer = func_client_read_celery_producer(config_celery_broker_url=config_celery_broker_url, config_celery_backend_url=config_celery_backend_url)
+   client_kafka_producer = await func_client_read_kafka_producer(config_kafka_url=config_kafka_url, config_kafka_username=config_kafka_username, config_kafka_password=config_kafka_password)
+   client_rabbitmq, client_rabbitmq_producer = await func_client_read_rabbitmq_producer(config_rabbitmq_url=config_rabbitmq_url)
+   client_redis_producer = await func_client_read_redis(config_redis_url=config_redis_url_pubsub, event_name="🔴 redis producer")
+   client_gsheet = func_client_read_gsheet(config_gsheet_service_account_json_path=config_gsheet_service_account_json_path, config_gsheet_scope=config_gsheet_scope)
+   client_sftp = await func_client_read_sftp(config_sftp_host=config_sftp_host, config_sftp_port=config_sftp_port, config_sftp_username=config_sftp_username, config_sftp_password=config_sftp_password, config_sftp_key_path=config_sftp_key_path, config_sftp_auth_method=config_sftp_auth_method)
+   #schema sync
    if client_postgres_pool and config_is_postgres_init_startup == 1:
       await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=config_postgres, config_postgres_root_user_password=config_postgres_root_user_password)
    #cache init
@@ -42,12 +54,21 @@ async def func_lifespan(app:FastAPI):
    cache_ratelimiter = {}
    cache_api_response = {}
    cache_postgres_buffer = {}
+   print(f"📦 {'cache initialization':<30} : ✅ done")
    #misc
    func_app_state_add(app_obj=app, dict_context={**globals(),**locals()}, prefix_list=("client_","cache_","func_","config_"))
+   print(f"🛣️  {'router discovery':<30} : ✅ {len(app.routes)} routes")
    app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
+   print(f"📖 {'openapi documentation':<30} : ✅ generated")
    await func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth, client_postgres_pool=client_postgres_pool)
+   
+   #ready
+   duration = (time.perf_counter() - start_journey) * 1000
+   print(f"✨ {'atom server is ready':<30} : ✅ {duration:.2f} ms")
+   
    #app shutdown
    yield
+   print(f"🛑 {'application shutdown':<30} : 🚀 started")
    if client_postgres_pool:
       await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
    await client_http.aclose()
@@ -73,6 +94,7 @@ async def func_lifespan(app:FastAPI):
    if client_sftp:
       client_sftp.close()
       await client_sftp.wait_closed()
+   print(f"🛑 {'application shutdown':<30} : ✅ completed")
       
 #app
 app=func_app_read(func_lifespan=func_lifespan)
