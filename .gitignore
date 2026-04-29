@@ -15,4 +15,9 @@
 !Dockerfile
 !readme.md
 !AGENTS.md
-!.gitignore
+!/.gitignore
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
