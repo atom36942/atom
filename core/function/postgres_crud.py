@@ -3,7 +3,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_password_has
     if mode == "flush":
         for tbl, buffer_list in list(cache_postgres_buffer.items()):
             if buffer_list:
-                await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
+                await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
                 cache_postgres_buffer[tbl] = []
         return "flushed"
     if not obj_list:
@@ -15,7 +15,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_password_has
         cache_postgres_buffer[table].extend(serialized_list)
         if len(cache_postgres_buffer[table]) >= buffer_limit:
             items = cache_postgres_buffer[table]
-            await func_postgres_create(client_postgres_pool=client_postgres_pool, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=items, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
+            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=items, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
             cache_postgres_buffer[table] = []
             return "buffered released"
         return "buffered"
