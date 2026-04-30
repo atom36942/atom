@@ -1,7 +1,6 @@
 async def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: list, api_roles_auth: list, client_postgres_pool: any = None) -> None:
     """Orchestrate all application consistency checks (routes, roles, modes, and database indexes)."""
     import ast
-
     def _get_duplicate_errors(file_path, var_name):
         try:
             with open(file_path, "r") as f:
@@ -22,11 +21,9 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         except Exception:
             pass
         return []
-
     def _get_route_errors(app_paths, config):
         missing = [p for p in config if p not in app_paths]
         return [f"""config_api paths missing from app: {", ".join(missing)}"""] if missing else []
-
     def _get_admin_errors(app_routes, config):
         errs = []
         for route in app_routes:
@@ -39,7 +36,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
                     if 1 not in (allowed_roles_cfg if isinstance(allowed_roles_cfg, (list, tuple, set)) else []):
                         errs.append(f"{route.path} missing role 1")
         return errs
-
     def _get_mode_errors(config):
         errs = []
         rules = {"user_role_check": ["redis", "realtime", "inmemory", "token"], "user_is_active_check": ["redis", "realtime", "inmemory", "token"], "api_cache_sec": ["redis", "inmemory"], "api_ratelimiting_times_sec": ["redis", "inmemory"]}
@@ -50,7 +46,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
                     if not isinstance(setting, (list, tuple)) or len(setting) < 2 or setting[0] not in allowed:
                         errs.append(f"{path} invalid {key} mode (allowed: {allowed})")
         return errs
-
     def _get_api_role_errors(app_routes, allowed):
         if not allowed:
             return []
@@ -61,7 +56,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
                 if role not in allowed:
                     errs.append(f"invalid api role in path {route.path}: {role}")
         return errs
-
     def _get_cors_errors():
         from core import config
         errs = []
@@ -72,7 +66,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
             elif "*" in v and len(v) > 1:
                 errs.append(f"exclusive wildcard violation: {k} cannot contain other values if '*' is present")
         return errs
-
     def _get_switch_errors():
         from core import config
         errs = []
@@ -81,7 +74,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
                 if value not in (None, 0, 1):
                     errs.append(f"invalid value for {key}: {value} (allowed: 0, 1, None)")
         return errs
-
     def _get_api_id_errors(config_api):
         missing = [p for p, v in config_api.items() if not isinstance(v, dict) or "id" not in v]
         if missing:
@@ -89,7 +81,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         ids = [v["id"] for v in config_api.values()]
         dupes = [str(i) for i in set(ids) if ids.count(i) > 1]
         return [f"duplicate API IDs in config_api: {', '.join(dupes)}"] if dupes else []
-
     def _get_schema_errors():
         from core import config
         errs = []
@@ -103,7 +94,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
                 if dupes:
                     errs.append(f"duplicate columns in {table_name}: {', '.join(dupes)}")
         return errs
-
     async def _get_index_errors(pool):
         if not pool:
             return []
@@ -126,18 +116,14 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         """
         records = await pool.fetch(query)
         return [f"table '{r['table_name']}' has redundant non-unique {r['index_type']} indexes starting with column '{r['column_name']}' ({r['index_count']} indexes found)" for r in records]
-
     if api_roles_auth is not None and not isinstance(api_roles_auth, (list, tuple)):
         raise Exception("config_api_roles_auth must be a list")
-
     app_paths = {route.path for route in app_routes if hasattr(route, "path")}
-    
     async def _get_root_user_errors(pool):
         if not pool:
             return []
         res = await pool.fetchval("SELECT COUNT(*) FROM users WHERE id = 1")
         return ["root user (id=1) missing from users table"] if not res else []
-
     errors = (
         _get_duplicate_errors("config.py", "config_api") +
         _get_route_errors(app_paths, current_config_api) +
@@ -151,7 +137,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         (await _get_index_errors(client_postgres_pool)) +
         (await _get_root_user_errors(client_postgres_pool))
     )
-
     if errors:
         raise Exception("; ".join(errors))
     print(f"🛡️  {'application checks':<30} : ✅ done")

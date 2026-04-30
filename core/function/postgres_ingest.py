@@ -26,7 +26,6 @@ async def func_postgres_csv_ingestion(
     - DELETE mode: `const_column`, `rename_column`, and `ignore_column` MUST be None. `validation_mode` cannot be "loose".
     - UPDATE mode: If `ignore_column` is used, it MUST NOT contain "id" (required for matching). `loose` validation IS allowed.
     - UPDATE & DELETE modes: The CSV MUST contain an 'id' column (after applying any renames) to identify records.
-    
     Parameters:
     - csv_path (str): Path to source file.
     - pg_dsn (str): Postgres connection string.
@@ -44,7 +43,6 @@ async def func_postgres_csv_ingestion(
         # Update/Delete modes (ID mandatory):
         await func_postgres_csv_ingestion(csv_path="data.csv", pg_dsn=DSN, table="users", crud_mode="update", validation_mode="reject", rename_column=[["uid","id"]])
     """
-    
     # Increase field size limit for extremely large CSV cells
     csv.field_size_limit(sys.maxsize)
     # 1. Validation & Initialization
@@ -52,12 +50,10 @@ async def func_postgres_csv_ingestion(
         raise ValueError(f"❌ ERROR: Invalid crud_mode: '{crud_mode}'. Allowed: 'create', 'update', 'delete'.")
     if validation_mode not in ("strict", "reject", "loose"):
         raise ValueError(f"❌ ERROR: Invalid validation_mode: '{validation_mode}'. Allowed: 'strict', 'reject', 'loose'.")
-
     if crud_mode == "delete":
         if const_column: raise ValueError("❌ ERROR: 'const_column' must be None for 'delete' mode.")
         if ignore_column: raise ValueError("❌ ERROR: 'ignore_column' must be None for 'delete' mode (skipping is automatic).")
         if validation_mode == "loose": raise ValueError("❌ ERROR: 'validation_mode' cannot be 'loose' for 'delete' mode. Use 'strict' or 'reject'.")
-
     if crud_mode == "update":
         if ignore_column and "id" in ignore_column:
             raise ValueError("❌ ERROR: Cannot ignore 'id' column in 'update' mode as it is required for row identification.")
@@ -67,7 +63,6 @@ async def func_postgres_csv_ingestion(
     csv_stem = os.path.splitext(os.path.basename(csv_path))[0]
     rej_path = f"tmp/{csv_stem}_rejected_{ts}.csv"
     staging_table = f"staging_sync_{table}"
-    
     def print_progress(current, total, prefix=''):
         bar_len = 40
         filled_len = int(bar_len * current // total)
@@ -76,10 +71,8 @@ async def func_postgres_csv_ingestion(
         sys.stdout.write(f'\r{get_ts()} {prefix} |{bar}| {percent:>.1f}%')
         sys.stdout.flush()
         if current == total: sys.stdout.write('\n')
-    
     valid_consts = [c for c in const_column if isinstance(c, (tuple, list)) and len(c) == 2] if const_column else []
     valid_renames = [r for r in rename_column if isinstance(r, (tuple, list)) and len(r) == 2] if rename_column else []
-    
     c_names, c_vals = [c[0] for c in valid_consts], [c[1] for c in valid_consts]
     conn = await asyncpg.connect(pg_dsn, timeout=60)
     try:
@@ -87,7 +80,6 @@ async def func_postgres_csv_ingestion(
         table_exists = await conn.fetchval('SELECT to_regclass($1)', f'"{table}"' if '.' not in table else table)
         if not table_exists:
             raise ValueError(f"Table '{table}' does not exist in database '{db_name}'.")
-        
         # 2. Fetch Schema Info
         q = """
         SELECT column_name, data_type, udt_name, is_nullable, column_default 
@@ -98,19 +90,16 @@ async def func_postgres_csv_ingestion(
         columns_records = await conn.fetch(q, table)
         if not columns_records:
             raise Exception(f"Table '{table}' not found")
-        
         col_type_map = {r['column_name']: r['udt_name'] for r in columns_records}
         col_null_map = {r['column_name']: r['is_nullable'] == 'YES' for r in columns_records}
         col_default_map = {r['column_name']: r['column_default'] for r in columns_records}
         db_cols_all = [r['column_name'] for r in columns_records]
-        
         # 3. CSV Header Analysis & Sampling
         with open(csv_path, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             csv_header_original = reader.fieldnames or []
             if not csv_header_original:
                 raise Exception("Missing CSV header")
-            
             rename_map = {old: new for old, new in valid_renames}
             reverse_rename_map = {new: old for old, new in valid_renames}
             csv_header = [rename_map.get(col, col) for col in csv_header_original]
@@ -118,12 +107,10 @@ async def func_postgres_csv_ingestion(
             if ignore_column:
                 csv_header = [c for c in csv_header if c not in ignore_column]
                 valid_renames = [r for r in valid_renames if r[0] not in ignore_column and r[1] not in ignore_column]
-                
             if crud_mode in ("update", "delete") and "id" not in csv_header:
                 raise ValueError(f"❌ ERROR: 'id' column is missing from CSV (required for '{crud_mode}' mode). Use rename_column if it's named differently.")
                 rename_map = {old: new for old, new in valid_renames}
                 reverse_rename_map = {new: old for old, new in valid_renames}
-            
             if crud_mode in ("update", "delete") and "id" not in csv_header:
                 raise Exception(f"CSV must contain 'id' column for {crud_mode} operations")
             if crud_mode in ("update", "delete") and "id" not in db_cols_all:
@@ -171,16 +158,13 @@ async def func_postgres_csv_ingestion(
             # Get original CSV headers for the dashboard (including ignored ones)
             f.seek(0); full_header = next(csv.reader(f))
             f.seek(0); f.readline()
-            
             for const_name, _ in valid_consts:
                 if const_name not in full_header:
                     full_header.append(f"__CONST__{const_name}")
-            
             for idx, raw_col in enumerate(full_header, 1):
                 is_const = raw_col.startswith("__CONST__")
                 col = raw_col.replace("__CONST__", "") if is_const else raw_col
                 mapped_col = rename_map.get(col, col)
-                
                 if ignore_column and col in ignore_column:
                     rem = "Explicitly ignored by user."
                     p_text = f"🚫 {'IGNORED':<7}"
@@ -190,7 +174,6 @@ async def func_postgres_csv_ingestion(
                         if "nextval" not in default_val:
                             p_text = f"❌ {'ERROR':<7}"
                             rem = "ID is mandatory (no default in DB). Cannot be ignored."
-                    
                     rows.append({
                         "idx": str(idx),
                         "col": col,
@@ -202,40 +185,32 @@ async def func_postgres_csv_ingestion(
                         "rem": rem
                     })
                     continue
-                
                 if is_const:
                     csv_t = "const"
                 else:
                     csv_t = infer_type_for_column(col)
-                    
                 db_t = col_type_map.get(mapped_col, "(missing)")
                 m_icon = "✅" if mapped_col in db_cols_all else "🚫"
                 n_icon = "✅" if col_null_map.get(mapped_col, True) else "❌"
                 c_icon = "✅" if db_t not in ("text", "varchar", "character varying", "(missing)") else "❌"
-                
                 # Track if DB 'id' is being populated
                 if mapped_col.lower() == "id": id_is_mapped = True
-
                 # Compatibility Logic
                 if crud_mode == "create" and mapped_col.lower() == "id":
                     default_val = str(col_default_map.get(mapped_col, "") or "").lower()
                     has_auto_inc = "nextval" in default_val
-                    
                     if has_auto_inc:
                         # Auto-inc detected: User MUST ignore it
                         p_text, rem = f"❌ {'ERROR':<7}", "Auto-increment detected. ID MUST be ignored to prevent sequence desync."
                     else:
                         # No default detected: User MUST provide it
                         p_text, rem = f"✅ {'FOUND':<7}", "Manual ID column (no auto-increment). Values will be ingested."
-                
                 # Check for CSV 'id' being renamed away
                 elif crud_mode == "create" and col.lower() == "id" and mapped_col.lower() != "id" and not is_const:
                      p_text, rem = f"⚠️ {'WARNING':<7}", f"CSV 'id' renamed to '{mapped_col}'. Postgres will generate a NEW 'id'."
-                
                 # Delete Mode: Auto-skip non-ID columns
                 elif crud_mode == "delete" and mapped_col.lower() != "id":
                      p_text, rem = f"🚫 {'SKIP':<7}", "Column not used in 'delete' mode (only 'id' is used)."
-                
                 elif m_icon == "🚫":
                     p_text, rem = f"🚫 {'MISSING':<7}", "Column skipped (missing in database table)."
                 elif is_const:
@@ -250,7 +225,6 @@ async def func_postgres_csv_ingestion(
                     p_text, rem = f"🔄 {'RENAMED':<7}", f"Mapped to DB column '{mapped_col}'."
                 else:
                     p_text, rem = f"✅ {'FOUND':<7}", ""
-                    
                 if "❌" in p_text: has_error = True
                 rows.append({
                     "idx": str(idx),
@@ -275,7 +249,6 @@ async def func_postgres_csv_ingestion(
             const_str = ', '.join([f'{k}={v}' for k, v in valid_consts]) if valid_consts else "None"
             rename_str = ', '.join([f'{r[0]}->{r[1]}' for r in valid_renames]) if valid_renames else "None"
             ignore_str = ', '.join(ignore_column) if ignore_column else "None"
-            
             meta = [
                 ("🕒", "TIME", datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
                 ("⚙️", "FUNC", sys._getframe().f_code.co_name),
@@ -290,7 +263,6 @@ async def func_postgres_csv_ingestion(
                 ("📡", "DB STATUS", "CONNECTED"),
                 ("📊", "STATUS ICONS", "✅ FOUND, 🔄 RENAMED, 🚫 IGNORED, ➕ CONST, 🚫 MISSING, ⚠️ WARNING, ❌ ERROR")
             ]
-            
             w_meta_lab = max(len(lab) for ico, lab, val in meta)
             # Icons that terminals often treat as 1-column wide, causing overlap
             single_width_icons = {"⚙️", "🛠️", "🛡️", "➕", "✅", "⏳", "⚠️", "🏗️"}
@@ -305,7 +277,6 @@ async def func_postgres_csv_ingestion(
             for r in rows:
                 print(f"{r['idx']:<{w_idx}} | {r['col']:<{w_col}} | {r['csv_t']:<{w_csv}} | {r['db_t']:<{w_db}} | {align(r['c'], w_ico)} | {align(r['n'], w_ico)} | {align(r['p'], w_sta)} |  {r['rem']}")
             print(f"{'-'*separator_len}")
-            
             # Final Mandatory Check: Manual ID missing?
             if crud_mode == "create" and not id_is_mapped:
                 default_val = str(col_default_map.get("id", "") or "").lower()
@@ -314,7 +285,6 @@ async def func_postgres_csv_ingestion(
                     print(f"❌ ERROR: Mandatory 'id' column (no default) is missing from your CSV mapping.")
                     print(f"💡 TIP: Add an 'id' column to your CSV or use const_column to provide one.")
                     print(f"{'-'*separator_len}")
-
             if has_error:
                 print(f"🚨 WARNING: Logical errors detected. Proceeding with 'STRICT' validation will cause a crash.")
                 print(f"💡 TIP: Use validation_mode='reject' to skip bad rows, or fix your DB schema.")
@@ -355,14 +325,12 @@ async def func_postgres_csv_ingestion(
             print(f"{get_ts()} 📊 TOTAL ROWS: {total_rows:,}")
             csv_mapped_cols = [c for c in csv_header if c in db_cols_all]
             valid_c_names = [c for c in c_names if c in db_cols_all and c not in csv_mapped_cols]
-            
             if crud_mode == "delete":
                 final_cols = ["id"] if "id" in csv_mapped_cols else []
             elif crud_mode == "update":
                 final_cols = ["id"] + [c for c in csv_mapped_cols if c != "id"] + valid_c_names if "id" in csv_mapped_cols else []
             else:
                 final_cols = csv_mapped_cols + valid_c_names
-                
             if crud_mode == "update" and len(final_cols) < 2:
                 raise ValueError("❌ ERROR: At least two columns (id + one field to update) are required for 'update' mode.")
             if not final_cols: raise Exception("No valid columns to process")
@@ -464,10 +432,8 @@ async def func_postgres_csv_ingestion(
                 else:
                     set_sql = ", ".join([f'"{c}" = {get_cast(c)}' for c in [x for x in final_cols if x != "id"]])
                     res = await conn.execute(f'UPDATE "{table}" m SET {set_sql} FROM "{staging_table}" s WHERE m."id" = {get_cast("id")}', timeout=28800)
-                
                 if total_rows > 0: print_progress(total_rows, total_rows, "COMPLETED")
                 print(f"{'-'*separator_len}\n{get_ts()} ✅ COMPLETED: {res} | ⏱️  {int(time.time()-t_start)}s\n{'-'*separator_len}\n")
-                
                 await conn.execute(f'DROP TABLE "{staging_table}"')
                 print(f"{get_ts()} 🧹 Cleanup: Staging table dropped.")
                 print(f"{get_ts()} ✅ Ingestion finished successfully.")
@@ -477,12 +443,10 @@ async def func_postgres_csv_ingestion(
     t_end = time.time()
     duration = t_end - t_start
     h_duration = f"{int(duration // 3600)}h {int((duration % 3600) // 60)}m {int(duration % 60)}s"
-    
     rejected_count = tracker.get("rejected", 0)
     rejected_val = f"{rejected_count:,}"
     if rejected_count > 0:
         rejected_val += f" (Saved to {rej_path})"
-
     meta_final = [
         ("🕒", "START TIME", datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S')),
         ("⚙️", "FUNC", sys._getframe().f_code.co_name),
@@ -499,11 +463,9 @@ async def func_postgres_csv_ingestion(
         ("⏳", "DURATION", h_duration),
         ("🕒", "END TIME", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     ]
-    
     if tracker.get("rejected_cols"):
         cols_str = ", ".join(sorted(tracker["rejected_cols"]))
         meta_final.insert(-3, ("🚫", "REJECTED COLS", cols_str))
-    
     # Final Receipt with Manual Alignment
     w_meta_f_lab = max(len(lab) for ico, lab, val in meta_final)
     single_width_icons = {"⚙️", "🛠️", "🛡️", "➕", "✅", "⏳", "⚠️", "🏗️"}

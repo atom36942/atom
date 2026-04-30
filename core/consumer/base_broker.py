@@ -2,7 +2,6 @@ import sys
 import asyncio
 import inspect
 from itertools import count
-
 from ..config import *
 from ..function import *
 
@@ -12,7 +11,8 @@ async def broker_logic_redis(channel: str, task_name: str, setup_callback: calla
     import orjson
     if not channel:
         raise Exception("channel name required")
-    pool, buffer, schema = await setup_callback()
+    setup_data = await setup_callback()
+    pool = setup_data[0]
     client = await func_client_read_redis(config_redis_url=config_redis_url_pubsub)
     reader = await func_client_read_redis_consumer(client_redis=client, channel_name=channel)
     print(f"redis consumer started on {channel} for {task_name}", flush=True)
@@ -22,7 +22,7 @@ async def broker_logic_redis(channel: str, task_name: str, setup_callback: calla
                 n = next(_run_counter)
                 print(f"task started #{n}: {task_name}", flush=True)
                 try:
-                    await execute_callback(pool, orjson.loads(msg["data"]), buffer, schema)
+                    await execute_callback(pool, orjson.loads(msg["data"]), *setup_data[1:])
                     print(f"task completed #{n}: {task_name}", flush=True)
                 except Exception as e:
                     print(f"task failed #{n}: {task_name} error: {str(e)}", flush=True)
@@ -35,7 +35,8 @@ async def broker_logic_rabbitmq(channel: str, task_name: str, setup_callback: ca
     import orjson
     if not channel:
         raise Exception("channel name required")
-    pool, buffer, schema = await setup_callback()
+    setup_data = await setup_callback()
+    pool = setup_data[0]
     conn, queue = await func_client_read_rabbitmq_consumer(config_rabbitmq_url=config_rabbitmq_url, channel_name=channel)
     print(f"rabbitmq consumer started on {channel} for {task_name}", flush=True)
     try:
@@ -45,7 +46,7 @@ async def broker_logic_rabbitmq(channel: str, task_name: str, setup_callback: ca
                     n = next(_run_counter)
                     print(f"task started #{n}: {task_name}", flush=True)
                     try:
-                        await execute_callback(pool, orjson.loads(msg.body), buffer, schema)
+                        await execute_callback(pool, orjson.loads(msg.body), *setup_data[1:])
                         print(f"task completed #{n}: {task_name}", flush=True)
                     except Exception as e:
                         print(f"task failed #{n}: {task_name} error: {str(e)}", flush=True)
@@ -58,7 +59,8 @@ async def broker_logic_kafka(channel: str, task_name: str, setup_callback: calla
     import orjson
     if not channel:
         raise Exception("channel name required")
-    pool, buffer, schema = await setup_callback()
+    setup_data = await setup_callback()
+    pool = setup_data[0]
     consumer = await func_client_read_kafka_consumer(config_kafka_url=config_kafka_url, config_kafka_username=config_kafka_username, config_kafka_password=config_kafka_password, channel_name=channel, config_kafka_group_id=config_kafka_group_id, config_kafka_is_auto_commit=config_kafka_is_auto_commit)
     print(f"kafka consumer started on {channel} for {task_name}", flush=True)
     try:
@@ -71,7 +73,7 @@ async def broker_logic_kafka(channel: str, task_name: str, setup_callback: calla
                     n = next(_run_counter)
                     print(f"task started #{n}: {task_name}", flush=True)
                     try:
-                        await execute_callback(pool, orjson.loads(msg.value), buffer, schema)
+                        await execute_callback(pool, orjson.loads(msg.value), *setup_data[1:])
                         print(f"task completed #{n}: {task_name}", flush=True)
                     except Exception as e:
                         print(f"task failed #{n}: {task_name} error: {str(e)}", flush=True)
@@ -89,45 +91,39 @@ def broker_logic_celery(channel: str, task_name: str, setup_callback: callable, 
     consumer_name = f"celery_{channel}"
     app = func_client_read_celery_consumer(config_celery_broker_url=config_celery_broker_url, config_celery_backend_url=config_celery_backend_url)
     app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
-    
-    pool, buffer, schema, worker_loop = None, {}, {}, None
-    
+    setup_data, worker_loop = None, None
     @signals.worker_process_init.connect
     def init_worker(**kwargs):
-        nonlocal worker_loop, pool, buffer, schema
+        nonlocal worker_loop, setup_data
         worker_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(worker_loop)
-        pool, buffer, schema = worker_loop.run_until_complete(setup_callback())
-
+        setup_data = worker_loop.run_until_complete(setup_callback())
     def run_async(*args, **kwargs):
         n = next(_run_counter)
         print(f"task started #{n}: {task_name}", flush=True)
-        nonlocal worker_loop, pool, buffer, schema
+        nonlocal worker_loop, setup_data
         if not worker_loop:
             worker_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(worker_loop)
-            pool, buffer, schema = worker_loop.run_until_complete(setup_callback())
+            setup_data = worker_loop.run_until_complete(setup_callback())
         try:
             # Handle payload mapping
             payload = kwargs.get("payload", {}) if "payload" in kwargs else kwargs
-            worker_loop.run_until_complete(execute_callback(pool, payload, buffer, schema))
+            worker_loop.run_until_complete(execute_callback(setup_data[0], payload, *setup_data[1:]))
             print(f"task completed #{n}: {task_name}", flush=True)
             return None
         except Exception as e:
             print(f"task failed #{n}: {task_name} error: {str(e)}", flush=True)
             raise
-
     @app.task(name=task_name)
     def celery_task(*args, **kwargs):
         return run_async(*args, **kwargs)
-
     return app
 
 def run_broker(mode: str, channel: str, task_name: str, setup_callback: callable, execute_callback: callable):
     celery_app = None
     if mode == "celery":
         celery_app = broker_logic_celery(channel, task_name, setup_callback, execute_callback)
-    
     try:
         if mode == "redis":
             asyncio.run(broker_logic_redis(channel, task_name, setup_callback, execute_callback))

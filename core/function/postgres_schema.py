@@ -98,18 +98,15 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
     for table_name, column_configs in config_postgres["table"].items():
         column_names = {col["name"] for col in column_configs if "name" in col}
-        
         for col in column_configs:
             name, dtype = col.get("name"), col.get("datatype")
             if not name or not dtype:
                 raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column: {col}")
             if name.lower() in reserved:
                 raise Exception(f"Column name '{name}' in table '{table_name}' is a PostgreSQL reserved keyword. Please rename it.")
-            
             # Regex validation
             if "regex" in col and "[]" in dtype.lower():
                 raise Exception(f"Regex constraint is not supported for array column {table_name}.{name}. Remove 'regex' key to resolve.")
-            
             # Index Compatibility & Spatial Enforcement (Refactored for new syntax)
             if col.get("index"):
                 for index_group in (x.strip() for x in col["index"].split("|")):
@@ -117,12 +114,10 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                         index_type, cols_str = index_group[:-1].split("(", 1)
                         index_type = index_type.strip().lower()
                         index_cols = [c.strip() for c in cols_str.split(",")]
-                        
                         # Validate each column in the index exists
                         for ic in index_cols:
                             if ic not in column_names:
                                 raise Exception(f"Index in {table_name} references non-existent column '{ic}'. Defined: {list(column_names)}")
-                        
                         if index_type == "gin":
                             if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar")):
                                 raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar.")
@@ -164,10 +159,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             meta_rows = await conn.fetch("SELECT indexname as name FROM pg_indexes WHERE tablename=$1 UNION ALL SELECT conname as name FROM pg_constraint WHERE conrelid=$1::regclass", table_name)
             existing_meta = {r[0] for r in meta_rows}
             table_changed = False
-            
             # Drop all managed triggers before structural changes to avoid dependency errors (e.g. type changes on columns used in triggers)
             await conn.execute(f"DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid WHERE relname = '{table_name}' AND tgname LIKE 'trigger_%%' LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{table_name}'); END LOOP; END $$;")
-
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
@@ -208,7 +201,6 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                     elif current_default is not None:
                         await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP DEFAULT")
                         table_changed = True
-            
             # 3. Sync Indexes & Constraints (Logic-Aware)
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
@@ -219,7 +211,6 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                             index_type, cols_str = index_group[:-1].split("(", 1)
                             index_type = index_type.strip().lower()
                             index_cols = [c.strip() for c in cols_str.split(",")]
-                            
                             idx_name = f"idx_{table_name}_{'_'.join(index_cols)}_{index_type}"
                             catalog["idx"].add(idx_name)
                             if idx_name not in existing_meta:
@@ -229,7 +220,6 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                                     # We use the current col_type if the index is on the current column
                                     if index_cols[0] == col_name and "text" in col_type.lower() and "[]" not in col_type.lower():
                                         ops = "gin_trgm_ops"
-                                
                                 cols_joined = ", ".join(index_cols)
                                 if ops:
                                     await conn.execute(f"CREATE INDEX {idx_name} ON {table_name} USING {index_type}({index_cols[0]} {ops});")
@@ -262,7 +252,6 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                         if uni_name not in existing_meta:
                             await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {uni_name} UNIQUE ({",".join(unique_cols)});""")
                             table_changed = True
-
             # Targeted Analyze ONLY if table structural changes occurred
             if table_changed:
                 await conn.execute(f"ANALYZE {table_name};")

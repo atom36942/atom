@@ -15,7 +15,6 @@ async def setup():
 
 async def execute(pool, payload, buffer, schema, hasher):
     tbl = payload.get("table")
-    
     return await func_postgres_create(
         client_postgres_pool=pool,
         client_password_hasher=hasher,

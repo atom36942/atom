@@ -10,10 +10,8 @@ def _import_recursive(package_path, package_name):
                 # Calculate the relative module path (e.g., 'database.read')
                 rel_path = os.path.relpath(os.path.join(root, file), package_path)
                 module_name = rel_path[:-3].replace(os.path.sep, ".")
-                
                 # Import the leaf module
                 module = importlib.import_module(f".{module_name}", package_name)
-                
                 # Flatten the module's public attributes into the package namespace
                 for attr_name in dir(module):
                     if not attr_name.startswith("_"):
