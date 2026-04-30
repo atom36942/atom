@@ -1,11 +1,14 @@
+#import
 import sys
 from ..config import *
 from ..function import *
 from .base_broker import run_broker
 from argon2 import PasswordHasher
 
+#taskname
 task_name = "func_postgres_create"
 
+#setup
 async def setup():
     pool = await func_client_read_postgres(config_postgres={"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
     buffer = {}
@@ -13,6 +16,7 @@ async def setup():
     hasher = PasswordHasher()
     return pool, buffer, schema, hasher
 
+#execute
 async def execute(pool, payload, buffer, schema, hasher):
     tbl = payload.get("table")
     return await func_postgres_create(
@@ -29,6 +33,7 @@ async def execute(pool, payload, buffer, schema, hasher):
         client_postgres_conn=None
     )
 
+#init
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(f"usage: venv/bin/python -m core.consumer.postgres_create [redis|rabbitmq|kafka|celery]")
@@ -36,3 +41,4 @@ if __name__ == "__main__":
     mode = sys.argv[1]
     channel = task_name
     run_broker(mode, channel, task_name, setup, execute)
+

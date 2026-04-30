@@ -11,7 +11,6 @@ async def func_auth_signup_username_password(*, client_postgres_pool: any, clien
         records = await conn.fetch(query, type, username, password)
         return dict(records[0])
 
-
 async def func_auth_login_username_password(*, client_postgres_pool: any, client_password_hasher: any, type: int, username: str, password: str) -> dict:
     """Authenticate a user using username and password with Argon2id verification."""
     async with client_postgres_pool.acquire() as conn:
@@ -23,7 +22,6 @@ async def func_auth_login_username_password(*, client_postgres_pool: any, client
         except Exception:
             raise Exception("incorrect password")
         return dict(records[0])
-
 
 async def func_auth_login_email_password(*, client_postgres_pool: any, client_password_hasher: any, type: int, email: str, password: str) -> dict:
     """Authenticate a user using email address and password with Argon2id verification."""
