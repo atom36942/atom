@@ -110,7 +110,7 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
         pass
     return None
 
-async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
+async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, description: str, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
     if config_is_log_api == 0 or client_postgres_pool is None:
         return None
@@ -123,7 +123,8 @@ async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: a
         "method": request.method,
         "query_param": str(request.query_params),
         "status_code": response.status_code if hasattr(response, "status_code") else None,
-        "response_time_ms": time_ms
+        "response_time_ms": time_ms,
+        "description": description
     }
     await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0, buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=None)
     return None
