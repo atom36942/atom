@@ -1,8 +1,21 @@
-### About 
-Atom is a high-performance, modular backend framework designed for rapid development and scalable orchestration.
-It provides a robust foundation for building modern APIs and managing background processes with extreme efficiency.
-Designed for distributed systems, it offers seamless integration and unified observability for diverse data and messaging ecosystems.
-It follows strict architectural standards to ensure high reliability and optimal performance in demanding production environments.
+### About
+Atom is a high-performance, modular backend framework designed for atomic data orchestration and scalable distributed systems.
+
+| Major Feature | Description |
+| :--- | :--- |
+| **🚀 High Performance** | Low-latency backend orchestration for complex distributed systems. |
+| **🧩 Modular Design** | Decoupled architecture with clear separation of core and service layers. |
+| **🏗️ SOLID Principles** | Stateless functional logic layer following strict architectural standards. |
+| **⚙️ Multi-Queue Engine** | Unified task dispatching via Celery, Kafka, RabbitMQ, or Redis. |
+| **🗄️ Schema Sync** | Automatic PostgreSQL schema synchronization and maintenance on startup. |
+| **⚡ Smart Routing** | Integrated parameter extraction, validation, and multi-backend caching. |
+| **🛡️ Argon2id Security** | Hardened authentication with built-in RBAC and account status checks. |
+| **🚀 Stage & Cast** | High-performance bulk ingestion with support for complex data types. |
+| **🧩 CRUD Orchestrator** | Role-based object management with owner validation and OTP security. |
+| **🛠️ API Sandbox** | Native interactive tester for real-time endpoint exploration and validation. |
+| **🌐 Unified Clients** | Centralized dependency injection for Postgres, Redis, MongoDB, and S3. |
+| **📊 Observability** | Integrated Prometheus monitoring, Sentry error tracking, and logging. |
+| **☁️ Cloud Native** | Out-of-the-box integrations for AWS S3, Jira, GSheet, and Email services. |
 
 # Setup
 ```bash

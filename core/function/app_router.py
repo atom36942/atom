@@ -168,7 +168,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                     if not isinstance(node, ast.Call): continue
                     func_id = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
                     if func_id != "func_request_param_read": continue
-                    hardened_funcs = ("func_regex_check", "func_orchestrator_obj_create", "func_orchestrator_obj_update", "func_orchestrator_semaphore_postgres_import")
+                    hardened_funcs = ("func_regex_check", "func_orchestrator_obj_create", "func_orchestrator_obj_update", "func_orchestrator_postgres_import")
                     is_regex_enabled = any(isinstance(n, ast.Call) and (getattr(n.func, "id", None) in hardened_funcs or getattr(n.func, "attr", None) in hardened_funcs) for n in ast.walk(tree))
                     try:
                         p_loc, p_list = None, None
