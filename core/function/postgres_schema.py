@@ -144,8 +144,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 try:
                     await conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension};")
                 except Exception as e:
-                    if "pg_cron" in extension:
-                        pass
+                    if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")) or "pg_cron" in extension:
+                        print(f"⚠️  {f'extension {extension}':<30} : ❌ skipped (insufficient privileges)")
                     else:
                         raise e
         for table_name, column_configs in config_postgres["table"].items():
@@ -292,10 +292,19 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
         if drop_tags:
             tag_list = ",".join(drop_tags)
             await conn.execute("CREATE OR REPLACE FUNCTION func_drop_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'dropping objects is disabled in configuration'; END; $$;")
-            await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
-            await conn.execute(f"CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ({tag_list}) EXECUTE FUNCTION func_drop_disable();")
+            try:
+                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
+                await conn.execute(f"CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ({tag_list}) EXECUTE FUNCTION func_drop_disable();")
+            except Exception as e:
+                if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
+                    print(f"⚠️  {'event trigger':<30} : ❌ skipped (insufficient privileges)")
+                else:
+                    raise e
         else:
-            await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
+            try:
+                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
+            except:
+                pass
         for table, cols in db_tables.items():
             if table == "spatial_ref_sys":
                 continue
