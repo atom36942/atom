@@ -26,7 +26,8 @@ async def execute(pool, payload, buffer, schema, hasher):
         obj_list=payload.get("obj_list"),
         is_serialize=payload.get("is_serialize", 0),
         buffer_limit=payload.get("buffer_limit", config_table.get(tbl, {}).get("buffer", 100) if tbl else 100),
-        cache_postgres_buffer=buffer
+        cache_postgres_buffer=buffer,
+        client_postgres_conn=None
     )
 
 if __name__ == "__main__":

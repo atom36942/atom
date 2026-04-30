@@ -23,7 +23,8 @@ async def execute(pool, payload, buffer, schema, hasher):
         obj_list=payload.get("obj_list"),
         is_serialize=payload.get("is_serialize", 1),
         created_by_id=payload.get("created_by_id"),
-        is_return_ids=payload.get("is_return_ids", 0)
+        is_return_ids=payload.get("is_return_ids", 0),
+        client_postgres_conn=None
     )
 
 if __name__ == "__main__":

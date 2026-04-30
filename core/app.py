@@ -68,7 +68,7 @@ async def func_lifespan(app:FastAPI):
    yield
    print(f"🛑 {'application shutdown':<30} : 🚀 started")
    if client_postgres_pool:
-      await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer)
+      await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=None)
    await client_http.aclose()
    if client_postgres_pool:
       await client_postgres_pool.close()

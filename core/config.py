@@ -282,8 +282,6 @@ config_postgres={
 config_regex={
 "username":["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
 "password":["^\\S{8,32}$", "Password must be 8-32 characters and contain no spaces"],
-"email":["^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$", "Email format is invalid"],
-"mobile":["^\\+?[1-9]\\d{7,14}$", "Mobile number must be 8-15 digits and may start with +"]
 }
 
 #override
