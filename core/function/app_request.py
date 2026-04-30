@@ -97,20 +97,6 @@ def func_request_obj_list_read(*, obj_body: dict) -> list:
     """Extract a list of objects from the request body, supporting both single objects and 'obj_list' wrappers."""
     return obj_body.get("obj_list", [obj_body])
 
-async def func_regex_check(*, config_regex: dict, obj_list: list):
-    """Validate fields in a list of objects against regex patterns defined in config."""
-    import re
-    if not config_regex:
-        return
-    for obj in obj_list:
-        for key, regex_info in config_regex.items():
-            val = obj.get(key)
-            if val is not None:
-                pattern = regex_info[0]
-                error_msg = regex_info[1]
-                if not re.match(pattern, str(val)):
-                    raise Exception(error_msg)
-                    
 async def func_check_cache(*, mode: str, url_path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, response: any, cache_api_response: dict) -> any:
     """Retrieve from or store to cache API responses based on configuration."""
     from fastapi import Response

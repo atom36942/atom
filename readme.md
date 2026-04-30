@@ -44,12 +44,13 @@ config_mongodb_url="mongodb://localhost:27017"
 ###  FAQ
 | What | Description |
 | :--- | :--- |
-| **Postgres Schema Init** | Automatic database synchronization (`func_postgres_schema_init`) executed on every startup. |
-| **API Runner / Tester** | Interactive interface for API exploration and testing available at `static/api/index.html`. |
-| **Global App State** | Access to shared clients (Postgres, Redis, S3, etc.) and caches via `request.app.state`. |
-| **Authenticated User** | Injected user context (ID, Role, Username, etc.) accessible via `request.state.user`. |
-| **Manual Auth Guard** | Enforce security manually using `if request.state.user is None: raise Exception("Unauthorized")`. |
-| **Role Authorization** | Automated role-based access control via `user_role_check` in `config_api` (Supports: Realtime, Token, In-Memory, Redis). |
-| **Status Authorization** | Automated account status enforcement via `user_is_active_check` in `config_api` (Supports: Realtime, Token, In-Memory, Redis). |
-| **API Response Cache** | Highly configurable caching via `api_cache_sec` in `config_api` (Supports: In-Memory, Redis). |
-| **API Rate Limiter** | Traffic control via `api_ratelimiting_times_sec` in `config_api` (Supports: In-Memory, Redis). |
+| **🔄 Schema Sync** | Automatic DB synchronization via `func_postgres_schema_init` on every startup. |
+| **🧪 API Sandbox** | Interactive tester for real-time endpoint validation at `static/api/index.html`. |
+| **📦 Global State** | Centralized access to Postgres, Redis, and S3 clients via `request.app.state`. |
+| **👤 User Context** | Injected user identity and role data accessible via `request.state.user`. |
+| **🛡️ Auth Guard** | Simple manual security enforcement: `if not request.state.user: raise Exception`. |
+| **🔑 RBAC Control** | Built-in role-based access control (Supports: `realtime`, `token`, `inmemory`, `redis`). |
+| **✅ Account Status** | Automated active-status enforcement (Supports: `realtime`, `token`, `inmemory`, `redis`). |
+| **⚡ Smart Caching** | High-performance response caching (Supports: `inmemory`, `redis`). |
+| **🚦 Rate Limiting** | Integrated traffic control and throttling (Supports: `inmemory`, `redis`). |
+

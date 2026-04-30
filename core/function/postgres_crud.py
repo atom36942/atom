@@ -1,4 +1,4 @@
-async def func_postgres_create(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
+async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     if mode == "flush":
         for tbl, buffer_list in list(cache_postgres_buffer.items()):
@@ -239,7 +239,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
                 res_row[f"{target_tbl}_{action_op}"] = action_map.get(obj_id, default_val)
         return result_list
 
-async def func_postgres_update(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, obj_list: list, is_serialize: int, created_by_id: int, is_return_ids: int, client_postgres_conn: any) -> any:
+async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, obj_list: list, is_serialize: int, created_by_id: int, is_return_ids: int) -> any:
     """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
     limit_batch = 5000
     import re, orjson
@@ -312,7 +312,7 @@ async def func_postgres_update(*, client_postgres_pool: any, client_password_has
                     await _execute_update(conn)
             return returned_ids if is_return_ids == 1 else f"{total_updated} rows updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, table: str, ids: any, created_by_id: int, client_postgres_conn: any) -> str:
+async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, table: str, ids: any, created_by_id: int) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)):
