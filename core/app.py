@@ -102,8 +102,6 @@ func_app_add_router(app_obj=app)
 func_app_add_static(app_obj=app, folder_path="./static", route_path="/static")
 if config_sentry_dsn:
    func_app_add_sentry(config_sentry_dsn=config_sentry_dsn)
-if config_is_prometheus == 1:
-   func_app_add_prometheus(app_obj=app)
 
 #middleware
 @app.middleware("http")

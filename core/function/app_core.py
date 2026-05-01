@@ -21,12 +21,6 @@ def func_app_add_cors(*, app_obj: any, config_cors_origin: list, config_cors_met
     app_obj.add_middleware(CORSMiddleware, allow_origins=config_cors_origin, allow_methods=config_cors_method, allow_headers=config_cors_headers, allow_credentials=bool(config_is_cors_allow_credentials))
     return None
 
-def func_app_add_prometheus(*, app_obj: any) -> None:
-    """Expose Prometheus metrics for the FastAPI application."""
-    from prometheus_fastapi_instrumentator import Instrumentator
-    Instrumentator().instrument(app_obj).expose(app_obj)
-    return None
-
 def func_app_state_add(*, app_obj: any, dict_context: dict, prefix_list: tuple) -> None:
     """Inject configuration values into the FastAPI application state based on a prefix list."""
     for key, val in dict_context.items():

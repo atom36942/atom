@@ -34,6 +34,9 @@ venv/bin/uvicorn main:app --reload
 docker build -t atom .
 docker run --rm -p 8000:8000 atom
 
+# Test
+venv/bin/pytest
+
 # Sample .env
 config_postgres_url="postgresql://atom@127.0.0.1/postgres"
 config_redis_url="redis://localhost:6379"

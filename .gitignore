@@ -8,6 +8,8 @@
 !service/**
 !static/
 !static/**
+!test/
+!test/**
 !main.py
 !requirements.txt
 !Dockerfile
