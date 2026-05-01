@@ -69,6 +69,7 @@ config_sftp_key_path=None
 config_cors_origin=["*"]
 config_cors_method=["*"]
 config_cors_headers=["*"]
+config_cors_expose_headers=["Content-Disposition", "x-cache"]
 config_is_cors_allow_credentials=0
 
 #switch
@@ -86,9 +87,9 @@ config_auth_type=[1, 2, 3]
 config_expiry_sec_otp=600
 
 #enum
-config_table_create_my=["test", "post", "support", "rating_test"]
+config_table_create_my=["test", "post", "support", "rating_test", "job"]
 config_table_create_public=["test", "support"]
-config_table_read_public=["test", "post"]
+config_table_read_public=["test", "post", "job"]
 config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
 config_column_single_update=["username", "password", "email", "mobile"]
 config_api_roles=["index", "auth", "my", "public", "private", "admin"]
@@ -157,6 +158,7 @@ config_postgres={
 {"name":"price","datatype":"numeric(10,2)","check":"price > 0"},
 {"name":"remark","datatype":"text"},
 {"name":"location","datatype":"geography(point)","index":"gist(location)"},
+{"name":"place","datatype":"text"},
 {"name":"dob","datatype":"date"},
 {"name":"description","datatype":"text","index":"btree(description)|gin(description)"},
 {"name":"status","datatype":"smallint","old":"status2","index":"btree(status,type)"},
@@ -261,6 +263,22 @@ config_postgres={
 {"name":"file_url","datatype":"text"},
 {"name":"link_url","datatype":"text"},
 {"name":"tag","datatype":"text[]","index":"gin(tag)"},
+],
+"job":[
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"is_active","datatype":"smallint","in":(0,1),"index":"btree(is_active)"},
+{"name":"is_verified","datatype":"smallint","in":(0,1),"index":"btree(is_verified)"},
+{"name":"is_deleted","datatype":"smallint","in":(0,1),"index":"btree(is_deleted)"},
+{"name":"is_protected","datatype":"smallint","in":(0,1),"index":"btree(is_protected)"},
+{"name":"title","datatype":"text","is_mandatory":1,"index":"gin(title)"},
+{"name":"description","datatype":"text","index":"gin(description)"},
+{"name":"salary","datatype":"text"},
+{"name":"experience","datatype":"text"},
+{"name":"place","datatype":"text","index":"btree(place)"},
+{"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ]
 },
 "control":{

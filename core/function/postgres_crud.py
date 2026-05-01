@@ -42,7 +42,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             def_list = ",".join([f"{c} jsonb" for c in columns])
             cast_parts = []
             for c in columns:
-                col_dtype = schema.get(c, "text")
+                col_dtype = schema.get(c, {}).get("datatype", "text")
                 if "[]" in col_dtype:
                     cast_parts.append(f"(SELECT ARRAY(SELECT jsonb_array_elements_text({c})))::{col_dtype}")
                 elif "jsonb" in col_dtype:
@@ -116,7 +116,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             values.extend([lon, lat, min_meter, max_meter])
             bind_idx += 4
             continue
-        datatype = cache_postgres_schema.get(table, {}).get(filter_key, "text").lower()
+        datatype = cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower()
         is_json = "json" in datatype
         is_array = "[]" in datatype or "array" in datatype
         if "," not in expression:
@@ -149,9 +149,9 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
                         serialized_val = raw_val
             elif is_array:
                 parts = raw_val.split("|")
-                dtype = cache_postgres_schema.get(table, {}).get(filter_key, "text").lower()
+                dtype = cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower()
                 elem_type = dtype.replace("[]", "").replace("array", "").replace("int4", "int").replace("_", "").strip()
-                fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: elem_type}}
+                fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": elem_type}}}
                 async def serialize_element(v):
                     res = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: v}], is_base=1))[0][filter_key]
                     return res
@@ -160,7 +160,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
                 serialized_val = await serialize_filter(filter_key, raw_val)
         elif operator == "overlap":
             parts = raw_val.split("|")
-            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: cache_postgres_schema.get(table, {}).get(filter_key, "text").lower().replace("[]", "").replace("array", "").strip()}}
+            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower().replace("[]", "").replace("array", "").strip()}}}
             async def serialize_element(v):
                 res = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: v}], is_base=1))[0][filter_key]
                 return res
@@ -168,7 +168,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         elif operator in ("in", "not in", "between"):
             serialized_val = [await serialize_filter(filter_key, x.strip(), 1 if is_array else 0) for x in raw_val.split("|")]
         elif operator == "any":
-            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: cache_postgres_schema.get(table, {}).get(filter_key, "text").lower().replace("[]", "").replace("array", "").strip()}}
+            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower().replace("[]", "").replace("array", "").strip()}}}
             serialized_val = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: raw_val}], is_base=1))[0][filter_key]
         else:
             serialized_val = await serialize_filter(filter_key, raw_val, 1 if is_json and operator == "exists" else 0)
@@ -258,6 +258,7 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
     if not update_cols:
         return "0 rows updated"
     actual_batch_size = min(limit_batch, 65535 // (len(update_cols) + (2 if created_by_id else 1)))
+    returned_ids = []
     async with client_postgres_pool.acquire() as conn:
         if len(obj_list) == 1:
             obj = obj_list[0]
@@ -274,43 +275,43 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
                 query = f"""UPDATE {table} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause};"""
                 status = await conn.execute(query, *params)
                 return f"{int(status.split()[-1])} rows updated"
-            total_updated = 0
-            async def _execute_update(connection):
-                nonlocal total_updated
-                async with connection.transaction():
-                    for i in range(0, len(obj_list), actual_batch_size):
-                        batch = obj_list[i:i+actual_batch_size]
-                        batch_vals = []
-                        set_clauses = []
-                        for col in update_cols:
-                            case_statements = []
-                            for obj in batch:
-                                batch_vals.extend([obj["id"], obj[col]])
-                                if created_by_id:
-                                    batch_vals.append(created_by_id)
-                                    case_statements.append(f"WHEN id=${len(batch_vals)-2} AND created_by_id=${len(batch_vals)-1} THEN ${len(batch_vals)}")
-                                else:
-                                    case_statements.append(f"WHEN id=${len(batch_vals)-1} THEN ${len(batch_vals)}")
-                            set_clauses.append(f"""{col} = CASE {" ".join(case_statements)} ELSE {col} END""")
-                        id_list = [obj["id"] for obj in batch]
-                        where_clause = f"""id IN ({",".join(f"${len(batch_vals)+j+1}" for j in range(len(id_list)))})"""
-                        if created_by_id:
-                            where_clause += f" AND created_by_id=${len(batch_vals)+len(id_list)+1}"
-                        batch_vals.extend(id_list)
-                        if created_by_id:
-                            batch_vals.append(created_by_id)
-                        if is_return_ids == 1:
-                            query = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;"""
-                            returned_ids.extend([r["id"] for r in (await connection.fetch(query, *batch_vals))])
-                        else:
-                            query = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause};"""
-                            total_updated += int((await connection.execute(query, *batch_vals)).split()[-1])
-            if client_postgres_conn:
-                await _execute_update(client_postgres_conn)
-            else:
-                async with client_postgres_pool.acquire() as conn:
-                    await _execute_update(conn)
-            return returned_ids if is_return_ids == 1 else f"{total_updated} rows updated"
+        total_updated = 0
+        async def _execute_update(connection):
+            nonlocal total_updated
+            async with connection.transaction():
+                for i in range(0, len(obj_list), actual_batch_size):
+                    batch = obj_list[i:i+actual_batch_size]
+                    batch_vals = []
+                    set_clauses = []
+                    for col in update_cols:
+                        case_statements = []
+                        for obj in batch:
+                            batch_vals.extend([obj["id"], obj[col]])
+                            if created_by_id:
+                                batch_vals.append(created_by_id)
+                                case_statements.append(f"WHEN id=${len(batch_vals)-2}::bigint AND created_by_id=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}")
+                            else:
+                                case_statements.append(f"WHEN id=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}")
+                        set_clauses.append(f"""{col} = CASE {" ".join(case_statements)} ELSE {col} END""")
+                    id_list = [obj["id"] for obj in batch]
+                    where_clause = f"""id IN ({",".join(f"${len(batch_vals)+j+1}::bigint" for j in range(len(id_list)))})"""
+                    if created_by_id:
+                        where_clause += f" AND created_by_id=${len(batch_vals)+len(id_list)+1}"
+                    batch_vals.extend(id_list)
+                    if created_by_id:
+                        batch_vals.append(created_by_id)
+                    if is_return_ids == 1:
+                        query = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;"""
+                        returned_ids.extend([r["id"] for r in (await connection.fetch(query, *batch_vals))])
+                    else:
+                        query = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause};"""
+                        total_updated += int((await connection.execute(query, *batch_vals)).split()[-1])
+        if client_postgres_conn:
+            await _execute_update(client_postgres_conn)
+        else:
+            async with client_postgres_pool.acquire() as conn_new:
+                await _execute_update(conn_new)
+        return returned_ids if is_return_ids == 1 else f"{total_updated} rows updated"
 
 async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, table: str, ids: any, created_by_id: int) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""

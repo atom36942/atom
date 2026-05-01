@@ -94,8 +94,9 @@ async def func_postgres_runner(*, client_postgres_pool: any, mode: str, query: s
     if mode == "read" and not ql.startswith(("select", "with", "explain", "show", "describe")):
         raise Exception("read mode restricted to select/with/explain/show/describe")
     async with client_postgres_pool.acquire() as conn:
-        if "returning" in ql:
-            return await conn.fetch(query, timeout=15)
+        if mode == "read" or ql.startswith(("select", "with", "explain", "show", "describe")) or "returning" in ql:
+            rows = await conn.fetch(query, timeout=15)
+            return [dict(r) for r in rows]
         return await conn.execute(query, timeout=15)
 
 async def func_postgres_export(*, client_postgres_pool: any, query: str) -> any:

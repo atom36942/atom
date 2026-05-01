@@ -33,8 +33,9 @@ async def func_api_admin_postgres_runner(*, request: Request):
 async def func_api_admin_postgres_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("query", "str", 1, None, None)])
-    stream = app_state.func_postgres_export(client_postgres_pool=app_state.client_postgres_pool, query=ob["query"])
-    return responses.StreamingResponse(stream, media_type="text/csv", headers={"Content-Disposition": "attachment;filename=file.csv"})
+    res = await app_state.func_postgres_export(client_postgres_pool=app_state.client_postgres_pool, query=ob["query"])
+    res.headers["Content-Disposition"] = "attachment;filename=file.csv"
+    return res
 
 @router.post("/admin/postgres-import")
 async def func_api_admin_postgres_import(*, request: Request):

@@ -88,7 +88,8 @@ const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
       if (isShowResponse) showResponse(json, r.status, ms);
       toast(`Execution Complete: ${r.status}`);
       if (activeMasterRunIndex !== null) {
-        Store.setResponse(activeMasterRunIndex, { status: r.status, time: ms, data: json, updated_at: Date.now() });
+        const storeData = (text.length > 1000000) ? { status: r.status, message: 'Response too large to store' } : json;
+        Store.setResponse(activeMasterRunIndex, { status: r.status, time: ms, data: storeData, updated_at: Date.now() });
         renderApiInfoTable(UI('apiInfoSearch').value);
         const resetBtn = UI('runnerResetBtn');
         if (resetBtn) {
@@ -179,7 +180,8 @@ const runMasterApiByIndex = async (index) => {
     let json;
     try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || 'Raw' } }
     
-    Store.setResponse(index, { status: r.status, time: ms, data: json, updated_at: Date.now() });
+    const storeData = (text.length > 1000000) ? { status: r.status, message: 'Response too large to store' } : json;
+    Store.setResponse(index, { status: r.status, time: ms, data: storeData, updated_at: Date.now() });
     renderApiInfoTable(UI('apiInfoSearch').value);
   } catch (err) {
     const ms = Math.round(performance.now() - t0);

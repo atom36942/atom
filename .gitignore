@@ -8,14 +8,15 @@
 !service/**
 !static/
 !static/**
-!test/
-!test/**
+!tests/
+!tests/**
 !main.py
 !requirements.txt
 !Dockerfile
 !readme.md
 !AGENTS.md
 !/.gitignore
+!pytest.ini
 
 # ignore
 __pycache__/

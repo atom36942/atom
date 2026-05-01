@@ -40,7 +40,16 @@ const Store = {
   get responses() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY_RESPONSE)) || {}; } catch { return {}; }
   },
-  set responses(v) { if (!v || !Object.keys(v).length) localStorage.removeItem(STORAGE_KEY_RESPONSE); else localStorage.setItem(STORAGE_KEY_RESPONSE, JSON.stringify(v)); },
+  set responses(v) { 
+    if (!v || !Object.keys(v).length) localStorage.removeItem(STORAGE_KEY_RESPONSE); 
+    else {
+      try {
+        localStorage.setItem(STORAGE_KEY_RESPONSE, JSON.stringify(v)); 
+      } catch (e) {
+        console.warn('Storage quota exceeded, could not save response state', e);
+      }
+    }
+  },
 
   getResponse(i) { return this.responses[String(i)] || null; },
   setResponse(i, val) {

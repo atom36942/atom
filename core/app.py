@@ -120,4 +120,4 @@ async def middleware(request, api_function):
     return response
     
 #cors add (must be at the end to be outermost)
-func_app_add_cors(app_obj=app, config_cors_origin=config_cors_origin, config_cors_method=config_cors_method, config_cors_headers=config_cors_headers, config_is_cors_allow_credentials=config_is_cors_allow_credentials)
+func_app_add_cors(app_obj=app, config_cors_origin=config_cors_origin, config_cors_method=config_cors_method, config_cors_headers=config_cors_headers, config_cors_expose_headers=config_cors_expose_headers, config_is_cors_allow_credentials=config_is_cors_allow_credentials)

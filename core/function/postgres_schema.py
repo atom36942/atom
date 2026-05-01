@@ -1,14 +1,25 @@
 async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
-    """Read full database schema as a simplified dictionary."""
+    """Read full database schema as a simplified dictionary with rich metadata."""
     async with client_postgres_pool.acquire() as conn:
-        rows = await conn.fetch("SELECT table_name, column_name, CASE WHEN data_type = 'ARRAY' THEN ltrim(udt_name, '_') || '[]' WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS data_type FROM information_schema.columns WHERE table_schema = 'public'")
+        rows = await conn.fetch("""
+            SELECT 
+                c.table_name, 
+                c.column_name, 
+                CASE WHEN c.data_type = 'ARRAY' THEN ltrim(c.udt_name, '_') || '[]' WHEN c.data_type = 'USER-DEFINED' THEN c.udt_name ELSE c.data_type END AS datatype,
+                CASE WHEN c.is_nullable = 'NO' THEN 1 ELSE 0 END as is_mandatory
+            FROM information_schema.columns c
+            WHERE c.table_schema = 'public'
+        """)
         schema = {}
         for r in rows:
             table = r["table_name"]
             col = r["column_name"]
             if table not in schema:
                 schema[table] = {}
-            schema[table][col] = r["data_type"]
+            schema[table][col] = {
+                "datatype": r["datatype"],
+                "is_mandatory": r["is_mandatory"]
+            }
     return schema
 
 async def func_postgres_serialize(*, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
@@ -30,9 +41,9 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
             if val is None:
                 new_item[col] = val
                 continue
-            dtype = schema[col].lower()
+            dtype = schema[col]["datatype"].lower()
             val_str = str(val).strip()
-            base_dtype = schema[col].lower().replace("[]", "").replace("array", "").strip()
+            base_dtype = schema[col]["datatype"].lower().replace("[]", "").replace("array", "").strip()
             def cast_val(v, t):
                 vs = str(v).strip()
                 if not vs or vs.lower() == "null":
