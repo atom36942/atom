@@ -41,7 +41,7 @@ async def test_state_has_functions(state):
 async def test_state_has_configs(state):
     configs = [
         "config_postgres_url", "config_redis_url", "config_token_secret_key",
-        "config_is_signup", "config_auth_type", "config_table_create_my",
+        "config_is_enable_signup", "config_auth_type", "config_table_create_my",
         "config_table_create_public", "config_column_blocked", "config_api",
         "config_postgres", "config_regex", "config_table",
         "config_api_roles", "config_api_roles_auth",

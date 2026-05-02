@@ -34,7 +34,7 @@ async def func_orchestrator_obj_create(*, user_id: any, api_role: str, table: st
         return results if len(results) > 1 else results[0]
     return await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode=mode, table=table, obj_list=obj_list, is_serialize=is_serialize, buffer_limit=buffer_limit, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
 
-async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: str, is_serialize: int, queue: any, otp: any, obj_list: list, config_is_otp_users_update_admin: int, config_column_blocked: list, config_column_single_update: list, config_regex: dict, func_regex_check: callable, func_otp_verify: callable, client_postgres_pool: any, client_password_hasher: any, config_expiry_sec_otp: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_update: callable, func_postgres_serialize: callable, cache_postgres_schema: dict, client_postgres_conn: any) -> any:
+async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: str, is_serialize: int, queue: any, otp: any, obj_list: list, config_is_enable_otp_users_update_admin: int, config_column_blocked: list, config_column_single_update: list, config_regex: dict, func_regex_check: callable, func_otp_verify: callable, client_postgres_pool: any, client_password_hasher: any, config_expiry_sec_otp: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_update: callable, func_postgres_serialize: callable, cache_postgres_schema: dict, client_postgres_conn: any) -> any:
     """Wrapper orchestration for object updates with owner validation, OTP checks, and optional queueing. Uses explicit mandatory parameters."""
     limit_batch = 5000
     if not obj_list:
@@ -75,7 +75,7 @@ async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: st
             await _func_otp_check(item)
     elif api_role == "admin":
         created_by_id = None
-        if table == "users" and (config_is_otp_users_update_admin or 0) == 1:
+        if table == "users" and (config_is_enable_otp_users_update_admin or 0) == 1:
             await _func_otp_check(obj_list[0])
     if user_id:
         for item in obj_list:

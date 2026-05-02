@@ -70,16 +70,16 @@ config_cors_origin=["*"]
 config_cors_method=["*"]
 config_cors_headers=["*"]
 config_cors_expose_headers=["Content-Disposition", "x-cache"]
-config_is_cors_allow_credentials=0
+config_is_enable_cors_credentials=0
 
 #switch
-config_is_signup=1
-config_is_log_api=1
-config_is_traceback=1
-config_is_reset_tmp=0
-config_is_index_html=0
-config_is_otp_users_update_admin=0
-config_is_postgres_init_startup=1
+config_is_enable_signup=1
+config_is_enable_log_api=1
+config_is_enable_traceback=1
+config_is_enable_reset_tmp=0
+config_is_enable_index_html=0
+config_is_enable_otp_users_update_admin=0
+config_is_enable_postgres_init_startup=1
 
 #system
 config_index_html_path=None
@@ -311,16 +311,16 @@ config_postgres={
 ]
 },
 "control":{
-"is_extension":1,
-"is_drop_disable_schema":0,
-"is_drop_disable_table":1,
-"is_truncate_disable":1,
-"is_users_delete_child_soft":1,
-"is_users_delete_child_hard":0,
-"is_users_delete_disable_role":1,
-"table_delete_disable_row":["users"],
-"table_delete_disable_row_bulk":[["users",1]],
-"is_autovacuum_optimize":1
+"is_enable_extension":1,
+"is_disable_drop_schema":0,
+"is_disable_drop_table":0,
+"is_disable_truncate":0,
+"is_disable_users_delete_role":1,
+"is_enable_users_delete_child_soft":1,
+"is_enable_users_delete_child_hard":0,
+"disable_table_delete_row":["users"],
+"disable_table_delete_row_bulk":[["users",1]],
+"is_enable_autovacuum_optimize":1
 },
 "sql":{},
 }

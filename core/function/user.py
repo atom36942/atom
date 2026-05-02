@@ -1,6 +1,6 @@
-async def func_auth_signup_username_password(*, client_postgres_pool: any, client_password_hasher: any, type: int, username: str, password: str, config_is_signup: int, config_auth_type: list) -> dict:
+async def func_auth_signup_username_password(*, client_postgres_pool: any, client_password_hasher: any, type: int, username: str, password: str, config_is_enable_signup: int, config_auth_type: list) -> dict:
     """Handle user signup with username and password, including validation of global signup toggle and allowed identifier types."""
-    if config_is_signup == 0:
+    if config_is_enable_signup == 0:
         raise Exception("signup disabled")
     if type not in config_auth_type:
         raise Exception(f"authentication type {type} not allowed")

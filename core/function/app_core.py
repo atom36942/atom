@@ -15,10 +15,10 @@ def func_app_read(*, func_lifespan: any) -> any:
     from fastapi import FastAPI
     return FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
-def func_app_add_cors(*, app_obj: any, config_cors_origin: list, config_cors_method: list, config_cors_headers: list, config_cors_expose_headers: list, config_is_cors_allow_credentials: int) -> None:
+def func_app_add_cors(*, app_obj: any, config_cors_origin: list, config_cors_method: list, config_cors_headers: list, config_cors_expose_headers: list, config_is_enable_cors_credentials: int) -> None:
     """Add CORS middleware to the FastAPI application, exposing required headers like Content-Disposition."""
     from fastapi.middleware.cors import CORSMiddleware
-    app_obj.add_middleware(CORSMiddleware, allow_origins=config_cors_origin, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_cors_allow_credentials))
+    app_obj.add_middleware(CORSMiddleware, allow_origins=config_cors_origin, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))
     return None
 
 def func_app_state_add(*, app_obj: any, dict_context: dict, prefix_list: tuple) -> None:
@@ -104,9 +104,9 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
         pass
     return None
 
-async def func_api_log_create(*, config_is_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, description: str, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
+async def func_api_log_create(*, config_is_enable_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, description: str, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
-    if config_is_log_api == 0 or client_postgres_pool is None:
+    if config_is_enable_log_api == 0 or client_postgres_pool is None:
         return None
     log_obj = {
         "created_by_id": user_id,

@@ -147,7 +147,7 @@ async def test_update_blocked_column_non_admin(state):
         await func_orchestrator_obj_update(
             user_id=2, api_role="my", table="test", is_serialize=0, queue=None, otp=None,
             obj_list=[{"id": 1, "is_active": 1}],
-            config_is_otp_users_update_admin=0, config_column_blocked=state.config_column_blocked,
+            config_is_enable_otp_users_update_admin=0, config_column_blocked=state.config_column_blocked,
             config_column_single_update=state.config_column_single_update,
             config_regex=state.config_regex, func_regex_check=state.func_regex_check,
             func_otp_verify=state.func_otp_verify,

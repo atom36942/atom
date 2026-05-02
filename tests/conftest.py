@@ -72,7 +72,7 @@ async def my_user(state):
         type=1,
         username=f"testmyuser_{uid}",
         password="password123",
-        config_is_signup=1,
+        config_is_enable_signup=1,
         config_auth_type=state.config_auth_type
     )
     return user

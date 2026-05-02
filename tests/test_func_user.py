@@ -22,7 +22,7 @@ async def test_signup_returns_user_dict(state, db_available):
         client_postgres_pool=state.client_postgres_pool,
         client_password_hasher=state.client_password_hasher,
         type=1, username=f"fu_signup_{uid}", password="password123",
-        config_is_signup=1, config_auth_type=state.config_auth_type
+        config_is_enable_signup=1, config_auth_type=state.config_auth_type
     )
     assert isinstance(user, dict)
     assert "id" in user
@@ -35,7 +35,7 @@ async def test_signup_disabled_flag(state, db_available):
             client_postgres_pool=state.client_postgres_pool,
             client_password_hasher=state.client_password_hasher,
             type=1, username="neverexists", password="password123",
-            config_is_signup=0, config_auth_type=state.config_auth_type
+            config_is_enable_signup=0, config_auth_type=state.config_auth_type
         )
 
 @pytest.mark.asyncio
@@ -45,7 +45,7 @@ async def test_signup_invalid_type(state, db_available):
             client_postgres_pool=state.client_postgres_pool,
             client_password_hasher=state.client_password_hasher,
             type=999, username="neverexists", password="password123",
-            config_is_signup=1, config_auth_type=state.config_auth_type
+            config_is_enable_signup=1, config_auth_type=state.config_auth_type
         )
 
 # ===========================================================================
@@ -59,7 +59,7 @@ async def test_login_success(state, db_available):
         client_postgres_pool=state.client_postgres_pool,
         client_password_hasher=state.client_password_hasher,
         type=1, username=username, password="password123",
-        config_is_signup=1, config_auth_type=state.config_auth_type
+        config_is_enable_signup=1, config_auth_type=state.config_auth_type
     )
     user = await func_auth_login_username_password(
         client_postgres_pool=state.client_postgres_pool,
@@ -85,7 +85,7 @@ async def test_login_wrong_password(state, db_available):
         client_postgres_pool=state.client_postgres_pool,
         client_password_hasher=state.client_password_hasher,
         type=1, username=username, password="password123",
-        config_is_signup=1, config_auth_type=state.config_auth_type
+        config_is_enable_signup=1, config_auth_type=state.config_auth_type
     )
     with pytest.raises(Exception, match="incorrect password"):
         await func_auth_login_username_password(

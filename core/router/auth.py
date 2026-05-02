@@ -11,7 +11,7 @@ async def func_api_auth_signup_username_password(*, request:Request):
    app_state=request.app.state
    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_auth_type,None),("username","str",1,None,None),("password","str",1,None,None)])
    await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=app_state.func_request_obj_list_read(obj_body=ob))
-   user=await app_state.func_auth_signup_username_password(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, type=ob["type"], username=ob["username"], password=ob["password"], config_is_signup=app_state.config_is_signup, config_auth_type=app_state.config_auth_type)
+   user=await app_state.func_auth_signup_username_password(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, type=ob["type"], username=ob["username"], password=ob["password"], config_is_enable_signup=app_state.config_is_enable_signup, config_auth_type=app_state.config_auth_type)
    token=await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}
 

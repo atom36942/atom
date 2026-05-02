@@ -211,8 +211,8 @@ def test_cors_headers_valid():
     assert isinstance(config.config_cors_headers, list)
 
 def test_cors_credentials_valid():
-    assert config.config_is_cors_allow_credentials in (0, 1)
-    if config.config_is_cors_allow_credentials == 1:
+    assert config.config_is_enable_cors_credentials in (0, 1)
+    if config.config_is_enable_cors_credentials == 1:
         assert "*" not in config.config_cors_origin, "credentials=1 with origin=* is insecure"
 
 # ===========================================================================
