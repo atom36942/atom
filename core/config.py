@@ -282,7 +282,7 @@ config_postgres={
 {"name":"description","datatype":"text","index":"gin(description)"},
 {"name":"salary","datatype":"text"},
 {"name":"experience","datatype":"text"},
-{"name":"place","datatype":"text","index":"btree(place)"},
+{"name":"address","datatype":"text","index":"btree(address)"},
 {"name":"status","datatype":"smallint","in":(1,2,3,4,5),"default":1,"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ]
