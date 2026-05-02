@@ -188,6 +188,11 @@ config_postgres={
 {"name":"city","datatype":"text"},
 {"name":"email_communication","datatype":"text"},
 {"name":"mobile_communication","datatype":"text"},
+{"name":"address","datatype":"text"},
+{"name":"title","datatype":"text"},
+{"name":"description","datatype":"text"},
+{"name":"dob","datatype":"date"},
+{"name":"gender","datatype":"smallint"},
 ],
 "log_api":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},

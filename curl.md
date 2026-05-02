@@ -93,3 +93,114 @@ curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
          }'
 ```
 </details>
+
+<details>
+<summary><b>8. My Update Profile</b></summary>
+
+```bash
+curl -X PUT "$baseurl/my/object-update?table=users" \
+     -H "Authorization: Bearer $token" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "id": 1,
+           "name": "John Doe",
+           "email_communication": "john@example.com",
+           "mobile_communication": "9876543210",
+           "country": "USA",
+           "state": "New York",
+           "city": "New York",
+           "address": "123 Main St",
+           "title": "Senior Software Engineer",
+           "description": "Experienced developer with a passion for high-density architectures.",
+           "dob": "1990-01-01",
+           "gender": 1
+         }'
+```
+</details>
+
+<details>
+<summary><b>9. My Delete Account</b></summary>
+
+```bash
+curl -X DELETE "$baseurl/my/account-delete?mode=soft" \
+     -H "Authorization: Bearer $token" \
+     -H "Content-Type: application/json"
+```
+</details>
+
+<details>
+<summary><b>10. My Create Object</b></summary>
+
+```bash
+curl -X POST "$baseurl/my/object-create?table=test" \
+     -H "Authorization: Bearer $token" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "title": "Sample Title",
+           "description": "Sample description for the test object."
+         }'
+```
+</details>
+
+<details>
+<summary><b>11. My Read Objects</b></summary>
+
+```bash
+curl -X GET "$baseurl/my/object-read?table=test&title=ilike,%25sample%25&limit=10&page=1&order=id desc" \
+     -H "Authorization: Bearer $token"
+```
+</details>
+
+<details>
+<summary><b>12. My Update Object</b></summary>
+
+```bash
+curl -X PUT "$baseurl/my/object-update?table=test" \
+     -H "Authorization: Bearer $token" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "id": 1,
+           "title": "Updated Title"
+         }'
+```
+</details>
+
+<details>
+<summary><b>13. My Delete Objects</b></summary>
+
+```bash
+curl -X POST "$baseurl/my/ids-delete" \
+     -H "Authorization: Bearer $token" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "table": "test",
+           "ids": "1,2,3"
+         }'
+```
+</details>
+
+<details>
+<summary><b>14. My Update Objects (Bulk)</b></summary>
+
+```bash
+curl -X PUT "$baseurl/my/object-update?table=test" \
+     -H "Authorization: Bearer $token" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "obj_list": [
+             { "id": 1, "title": "Bulk Update 1" },
+             { "id": 2, "title": "Bulk Update 2" }
+           ]
+         }'
+```
+</details>
+
+<details>
+<summary><b>15. My Token Refresh</b></summary>
+
+```bash
+curl -X POST "$baseurl/my/token-refresh" \
+     -H "Authorization: Bearer $token" \
+     -H "Content-Type: application/json"
+```
+</details>
