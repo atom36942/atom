@@ -17,7 +17,8 @@ async def func_api_index_health(*, request:Request):
 
 @router.get("/info")
 async def func_api_index_info(*, request:Request):
-   return {"status": 1,"message": {"api_list": [route.path for route in request.app.routes if hasattr(route, "path")],"postgres_schema": request.app.state.cache_postgres_schema}}
+   app_state = request.app.state
+   return {"status": 1,"message": {"api_list": [route.path for route in request.app.routes if hasattr(route, "path")], "postgres_schema": app_state.cache_postgres_schema, "mapping": app_state.config_mapping}}
 
 @router.get("/openapi.json")
 async def func_api_openapi_json(*, request:Request):

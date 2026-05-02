@@ -89,7 +89,7 @@ config_expiry_sec_otp=600
 #enum
 config_table_create_my=["test", "post", "support", "rating_test", "job"]
 config_table_create_public=["test", "support"]
-config_table_read_public=["test", "post", "job"]
+config_table_read_public=["test", "post"]
 config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
 config_column_single_update=["username", "password", "email", "mobile"]
 config_api_roles=["index", "auth", "my", "public", "private", "admin"]
@@ -273,11 +273,12 @@ config_postgres={
 {"name":"is_verified","datatype":"smallint","in":(0,1),"index":"btree(is_verified)"},
 {"name":"is_deleted","datatype":"smallint","in":(0,1),"index":"btree(is_deleted)"},
 {"name":"is_protected","datatype":"smallint","in":(0,1),"index":"btree(is_protected)"},
-{"name":"title","datatype":"text","is_mandatory":1,"index":"gin(title)"},
+{"name":"title","datatype":"text","is_mandatory":1,"index":"btree(title)|gin(title)"},
 {"name":"description","datatype":"text","index":"gin(description)"},
 {"name":"salary","datatype":"text"},
 {"name":"experience","datatype":"text"},
 {"name":"place","datatype":"text","index":"btree(place)"},
+{"name":"status","datatype":"smallint","in":(1,2,3,4,5),"default":1,"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ]
 },
@@ -287,13 +288,22 @@ config_postgres={
 "is_drop_disable_table":1,
 "is_truncate_disable":1,
 "is_users_delete_child_soft":1,
-"is_users_delete_child_hard":1,
+"is_users_delete_child_hard":0,
 "is_users_delete_disable_role":1,
 "table_delete_disable_row":["users"],
 "table_delete_disable_row_bulk":[["users",1]],
 "is_autovacuum_optimize":1
 },
 "sql":{},
+}
+
+#mapping
+config_mapping = {
+"status": {1: "Open", 2: "Closed", 3: "Draft", 4: "Archived", 5: "Deleted"},
+"is_active": {0: "Inactive", 1: "Active"},
+"is_verified": {0: "Pending", 1: "Verified"},
+"role": {1: "Admin", 2: "Moderator", 3: "User"},
+"type": {1: "Job Request", 2: "Job Offer"}
 }
 
 config_regex={
