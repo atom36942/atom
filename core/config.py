@@ -283,7 +283,7 @@ config_postgres={
 {"name":"salary","datatype":"text"},
 {"name":"experience","datatype":"text"},
 {"name":"address","datatype":"text","index":"btree(address)"},
-{"name":"status","datatype":"smallint","in":(1,2,3,4,5),"default":1,"index":"btree(status)"},
+{"name":"status","datatype":"smallint","in":(1,2,3,4,5),"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ]
 },
@@ -303,12 +303,13 @@ config_postgres={
 }
 
 #mapping
-config_mapping = {
-"status": {1: "Open", 2: "Closed", 3: "Draft", 4: "Archived", 5: "Deleted"},
-"is_active": {0: "Inactive", 1: "Active"},
-"is_verified": {0: "Pending", 1: "Verified"},
-"role": {1: "Admin", 2: "Moderator", 3: "User"},
-"type": {1: "Job Request", 2: "Job Offer"}
+config_column_int_mapping = {
+"is_active": {0: "Inactive", 1: "Active", None: "Active"},
+"is_verified": {0: "Pending", 1: "Verified", None: "Verified"},
+"is_deleted": {0: "Not Deleted", 1: "Deleted", None: "Not Deleted"},
+"is_protected": {0: "Not Protected", 1: "Protected", None: "Not Protected"},
+"is_read": {0: "Unread", 1: "Read", None: "Unread"},
+"job_status": {None: "Draft", 1: "Approved", 2: "Published", 3: "Archived"},
 }
 
 config_regex={

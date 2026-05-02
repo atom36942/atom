@@ -1,4 +1,4 @@
-# Endpoints
+# Auth Endpoints
 
 <details>
 <summary><b>1. Sign Up</b></summary>
@@ -28,8 +28,10 @@ curl -X POST "$baseurl/auth/login-username-password" \
 ```
 </details>
 
+# My Endpoints
+
 <details>
-<summary><b>3. My Profile</b></summary>
+<summary><b>1. My Profile</b></summary>
 
 ```bash
 curl -X GET "$baseurl/my/profile" \
@@ -39,7 +41,7 @@ curl -X GET "$baseurl/my/profile" \
 </details>
 
 <details>
-<summary><b>4. My Token Refresh</b></summary>
+<summary><b>2. My Token Refresh</b></summary>
 
 ```bash
 curl -X POST "$baseurl/my/token-refresh" \
@@ -49,7 +51,7 @@ curl -X POST "$baseurl/my/token-refresh" \
 </details>
 
 <details>
-<summary><b>5. My Update Username</b></summary>
+<summary><b>3. My Update Username</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users" \
@@ -63,7 +65,7 @@ curl -X PUT "$baseurl/my/object-update?table=users" \
 </details>
 
 <details>
-<summary><b>6. My Update Password</b></summary>
+<summary><b>4. My Update Password</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users" \
@@ -77,7 +79,7 @@ curl -X PUT "$baseurl/my/object-update?table=users" \
 </details>
 
 <details>
-<summary><b>7. My Update Email</b></summary>
+<summary><b>5. My Update Email</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
@@ -91,7 +93,7 @@ curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
 </details>
 
 <details>
-<summary><b>8. My Update Mobile</b></summary>
+<summary><b>6. My Update Mobile</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
@@ -105,7 +107,7 @@ curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
 </details>
 
 <details>
-<summary><b>9. My Update Profile</b></summary>
+<summary><b>7. My Update Profile</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users" \
@@ -129,7 +131,7 @@ curl -X PUT "$baseurl/my/object-update?table=users" \
 </details>
 
 <details>
-<summary><b>10. My Delete Account</b></summary>
+<summary><b>8. My Delete Account</b></summary>
 
 ```bash
 curl -X DELETE "$baseurl/my/account-delete?mode=soft" \
@@ -139,7 +141,7 @@ curl -X DELETE "$baseurl/my/account-delete?mode=soft" \
 </details>
 
 <details>
-<summary><b>11. My Create Object</b></summary>
+<summary><b>9. My Create Object</b></summary>
 
 ```bash
 curl -X POST "$baseurl/my/object-create?table=test" \
@@ -153,7 +155,7 @@ curl -X POST "$baseurl/my/object-create?table=test" \
 </details>
 
 <details>
-<summary><b>12. My Read Objects</b></summary>
+<summary><b>10. My Read Objects</b></summary>
 
 ```bash
 curl -X GET "$baseurl/my/object-read?table=test&title=ilike,%25sample%25&limit=10&page=1&order=id desc" \
@@ -162,7 +164,7 @@ curl -X GET "$baseurl/my/object-read?table=test&title=ilike,%25sample%25&limit=1
 </details>
 
 <details>
-<summary><b>13. My Update Object</b></summary>
+<summary><b>11. My Update Object</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=test" \
@@ -176,7 +178,7 @@ curl -X PUT "$baseurl/my/object-update?table=test" \
 </details>
 
 <details>
-<summary><b>14. My Delete Objects</b></summary>
+<summary><b>12. My Delete Objects</b></summary>
 
 ```bash
 curl -X POST "$baseurl/my/ids-delete" \
@@ -190,7 +192,7 @@ curl -X POST "$baseurl/my/ids-delete" \
 </details>
 
 <details>
-<summary><b>15. My Update Objects (Bulk)</b></summary>
+<summary><b>13. My Update Objects (Bulk)</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=test" \
@@ -218,7 +220,7 @@ curl -X GET "$baseurl/admin/sync" \
 </details>
 
 <details>
-<summary><b>2. Admin Postgres Runner (Read)</b></summary>
+<summary><b>2. Admin Postgres Runner</b></summary>
 
 ```bash
 curl -X POST "$baseurl/admin/postgres-runner" \
@@ -232,21 +234,7 @@ curl -X POST "$baseurl/admin/postgres-runner" \
 </details>
 
 <details>
-<summary><b>3. Admin Postgres Runner (Write)</b></summary>
-
-```bash
-curl -X POST "$baseurl/admin/postgres-runner" \
-     -H "Authorization: Bearer $token" \
-     -H "Content-Type: application/json" \
-     -d '{
-           "mode": "write",
-           "query": "UPDATE users SET is_active = 1 WHERE id = 1"
-         }'
-```
-</details>
-
-<details>
-<summary><b>4. Admin Postgres Export</b></summary>
+<summary><b>3. Admin Postgres Export</b></summary>
 
 ```bash
 curl -X POST "$baseurl/admin/postgres-export" \
@@ -259,7 +247,7 @@ curl -X POST "$baseurl/admin/postgres-export" \
 </details>
 
 <details>
-<summary><b>5. Admin Postgres Import (Create)</b></summary>
+<summary><b>4. Admin Postgres Import (Create)</b></summary>
 
 ```bash
 curl -X POST "$baseurl/admin/postgres-import" \
@@ -272,54 +260,53 @@ curl -X POST "$baseurl/admin/postgres-import" \
 </details>
 
 <details>
-<summary><b>6. Admin Create Object</b></summary>
+<summary><b>5. Admin Create Object</b></summary>
 
 ```bash
-curl -X POST "$baseurl/admin/object-create?table=job" \
+curl -X POST "$baseurl/admin/object-create?table=test" \
      -H "Authorization: Bearer $token" \
      -H "Content-Type: application/json" \
      -d '{
-           "title": "Senior Backend Engineer",
-           "description": "Looking for a high-density orchestration expert.",
-           "salary": "$150k - $200k",
-           "experience": "8+ years",
-           "address": "San Francisco, CA"
+           "title": "Admin Created Test",
+           "category": "Documentation",
+           "description": "A sample object created via the admin interface.",
+           "price": 99.99
          }'
 ```
 </details>
 
 <details>
-<summary><b>7. Admin Read Objects</b></summary>
+<summary><b>6. Admin Read Objects</b></summary>
 
 ```bash
-curl -X GET "$baseurl/admin/object-read?table=job&limit=10&page=1&order=id desc" \
+curl -X GET "$baseurl/admin/object-read?table=test&limit=10&page=1&order=id desc" \
      -H "Authorization: Bearer $token"
 ```
 </details>
 
 <details>
-<summary><b>8. Admin Update Object</b></summary>
+<summary><b>7. Admin Update Object</b></summary>
 
 ```bash
-curl -X PUT "$baseurl/admin/object-update?table=job" \
+curl -X PUT "$baseurl/admin/object-update?table=test" \
      -H "Authorization: Bearer $token" \
      -H "Content-Type: application/json" \
      -d '{
            "id": 1,
-           "title": "Lead Backend Engineer (Updated)"
+           "title": "Admin Updated Test Title"
          }'
 ```
 </details>
 
 <details>
-<summary><b>9. Admin Delete Objects</b></summary>
+<summary><b>8. Admin Delete Objects</b></summary>
 
 ```bash
 curl -X POST "$baseurl/admin/ids-delete" \
      -H "Authorization: Bearer $token" \
      -H "Content-Type: application/json" \
      -d '{
-           "table": "job",
+           "table": "test",
            "ids": "1,2,3"
          }'
 ```
