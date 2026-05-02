@@ -17,6 +17,7 @@
 !AGENTS.md
 !/.gitignore
 !pytest.ini
+!curl.md
 
 # ignore
 __pycache__/
