@@ -23,14 +23,16 @@ const wsToggleConnect = () => {
   ws.onopen = () => {
     wsLog('Connection established', 'received');
     UI('wsConnBtn').textContent = 'Disconnect';
-    UI('wsConnBtn').style.background = 'var(--delete)';
+    UI('wsConnBtn').classList.remove('btn-primary');
+    UI('wsConnBtn').classList.add('btn-danger');
   };
   ws.onmessage = e => wsLog(`Received: ${e.data}`, 'received');
   ws.onerror = e => wsLog('Connection error', 'error');
   ws.onclose = () => {
     wsLog('Connection closed');
     UI('wsConnBtn').textContent = 'Connect';
-    UI('wsConnBtn').style.background = 'var(--primary)';
+    UI('wsConnBtn').classList.remove('btn-danger');
+    UI('wsConnBtn').classList.add('btn-primary');
   };
 };
 
@@ -60,5 +62,6 @@ const loadWs = i => {
   UI('wsUrlIn').value = `${prot}//${window.location.host}${curr.p}`;
   UI('wsLogs').innerHTML = '<div style="color:var(--accent)">Waiting to connect...</div>';
   UI('wsConnBtn').textContent = 'Connect';
-  UI('wsConnBtn').style.background = 'var(--primary)';
+  UI('wsConnBtn').classList.remove('btn-danger');
+  UI('wsConnBtn').classList.add('btn-primary');
 };

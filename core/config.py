@@ -83,7 +83,7 @@ config_is_postgres_init_startup=1
 
 #system
 config_index_html_path=None
-config_auth_type=[1, 2, 3]
+config_auth_type=[1]
 config_expiry_sec_otp=600
 
 #enum

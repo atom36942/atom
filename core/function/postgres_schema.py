@@ -272,11 +272,11 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             db_tables.setdefault(row[0], []).append(row[1])
         users_cols = db_tables.get("users", [])
         if users_cols:
-            catalog["tg"].add("trigger_no_delete_root_users")
-            await conn.execute("CREATE OR REPLACE FUNCTION func_no_delete_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END; $$; DROP TRIGGER IF EXISTS trigger_no_delete_root_users ON users; CREATE TRIGGER trigger_no_delete_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_no_delete_root_users();")
+            catalog["tg"].add("trigger_protect_root_users")
+            await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; ELSIF TG_OP = 'UPDATE' THEN IF OLD.id = 1 THEN IF NEW.type IS DISTINCT FROM OLD.type OR NEW.username IS DISTINCT FROM OLD.username OR NEW.role IS DISTINCT FROM OLD.role OR NEW.is_active IS DISTINCT FROM OLD.is_active THEN RAISE EXCEPTION 'Updates to type, username, role, or is_active are not allowed for root user (id=1)'; END IF; END IF; RETURN NEW; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
             if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
                 root_user_password_hash = client_password_hasher.hash(config_postgres_root_user_password)
-                await conn.execute("INSERT INTO users (id, type, username, password, role, is_active) VALUES (1, 1, 'atom', $1, 1, 1) ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type, username = EXCLUDED.username, role = 1, is_active = 1 WHERE users.type IS DISTINCT FROM 1 OR users.username IS DISTINCT FROM EXCLUDED.username OR users.role IS DISTINCT FROM 1 OR users.is_active IS DISTINCT FROM 1;", root_user_password_hash)
+                await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', $1, 1, 1) ON CONFLICT (username, type) DO UPDATE SET role = 1, is_active = 1 WHERE users.role IS DISTINCT FROM 1 OR users.is_active IS DISTINCT FROM 1;", root_user_password_hash)
             if "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")

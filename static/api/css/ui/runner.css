@@ -51,6 +51,8 @@ select.row-val {
 .btn { padding: 14px 24px; flex: 1; font-size: 15px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; height: 48px; display: flex; align-items: center; justify-content: center; }
 .btn-primary { background: rgba(56, 161, 105, 0.1); color: #38a169; border: 1px solid rgba(56, 161, 105, 0.2); transition: all 0.2s; }
 .btn-primary:hover { background: rgba(56, 161, 105, 0.2); border-color: #38a169; color: #fff; }
+.btn-danger { background: rgba(220, 53, 69, 0.1); color: var(--delete); border: 1px solid rgba(220, 53, 69, 0.2); transition: all 0.2s; }
+.btn-danger:hover { background: rgba(220, 53, 69, 0.2); border-color: var(--delete); color: #fff; }
 .btn-primary .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(56, 161, 105, .2); border-top-color: #38a169; border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px; }
 .btn-primary.loading .spinner { display: inline-block; }
 .btn-secondary { background: var(--secondary); color: var(--secondary-text); }
