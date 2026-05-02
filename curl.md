@@ -1,4 +1,4 @@
-# Auth Endpoints
+# Auth
 
 <details>
 <summary><b>1. Sign Up</b></summary>
@@ -28,7 +28,7 @@ curl -X POST "$baseurl/auth/login-username-password" \
 ```
 </details>
 
-# My Endpoints
+# My
 
 <details>
 <summary><b>1. My Profile</b></summary>
@@ -207,7 +207,7 @@ curl -X PUT "$baseurl/my/object-update?table=test" \
 ```
 </details>
 
-# Admin Endpoints
+# Admin
 
 <details>
 <summary><b>1. Admin Sync</b></summary>
