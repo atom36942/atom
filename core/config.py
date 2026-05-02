@@ -87,7 +87,7 @@ config_auth_type=[1]
 config_expiry_sec_otp=600
 
 #enum
-config_table_create_my=["test", "post", "support", "rating_test", "job"]
+config_table_create_my=["test", "post", "support", "rating_test", "job", "candidate"]
 config_table_create_public=["test", "support"]
 config_table_read_public=["test", "post"]
 config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
@@ -285,6 +285,29 @@ config_postgres={
 {"name":"address","datatype":"text","index":"btree(address)"},
 {"name":"status","datatype":"smallint","in":(1,2,3,4,5),"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
+],
+"candidate":[
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"is_active","datatype":"smallint","in":(0,1),"index":"btree(is_active)"},
+{"name":"is_verified","datatype":"smallint","in":(0,1),"index":"btree(is_verified)"},
+{"name":"is_deleted","datatype":"smallint","in":(0,1),"index":"btree(is_deleted)"},
+{"name":"is_protected","datatype":"smallint","in":(0,1),"index":"btree(is_protected)"},
+{"name":"job_id","datatype":"bigint","is_mandatory":1,"index":"btree(job_id)"},
+{"name":"name","datatype":"text","index":"btree(name)|gin(name)"},
+{"name":"email","datatype":"text","index":"btree(email)"},
+{"name":"mobile","datatype":"text","index":"btree(mobile)"},
+{"name":"experience","datatype":"text"},
+{"name":"college","datatype":"text"},
+{"name":"resume_url","datatype":"text"},
+{"name":"skills","datatype":"text","index":"gin(skills)"},
+{"name":"current_company","datatype":"text"},
+{"name":"status","datatype":"smallint","index":"btree(status)"},
+{"name":"ai_rating","datatype":"numeric(3,1)"},
+{"name":"ai_remark","datatype":"text"},
+{"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ]
 },
 "control":{
@@ -304,12 +327,13 @@ config_postgres={
 
 #mapping
 config_column_int_mapping = {
-"is_active": {0: "Inactive", 1: "Active", None: "Active"},
-"is_verified": {0: "Pending", 1: "Verified", None: "Verified"},
-"is_deleted": {0: "Not Deleted", 1: "Deleted", None: "Not Deleted"},
-"is_protected": {0: "Not Protected", 1: "Protected", None: "Not Protected"},
-"is_read": {0: "Unread", 1: "Read", None: "Unread"},
+"is_active": {None: "Active", 0: "Inactive", 1: "Active"},
+"is_verified": {None: "Verified", 0: "Pending", 1: "Verified"},
+"is_deleted": {None: "Not Deleted", 0: "Not Deleted", 1: "Deleted"},
+"is_protected": {None: "Not Protected", 0: "Not Protected", 1: "Protected"},
+"is_read": {None: "Unread", 0: "Unread", 1: "Read"},
 "job_status": {None: "Draft", 1: "Approved", 2: "Published", 3: "Archived"},
+"candidate_status": {None: "Applied", 1: "Shortlisted", 2: "Interviewing", 3: "Selected", 4: "Offer Sent", 5: "Offer Approved", 6: "Joined", 7: "Rejected"},
 }
 
 config_regex={
