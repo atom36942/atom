@@ -39,7 +39,17 @@ curl -X GET "$baseurl/my/profile" \
 </details>
 
 <details>
-<summary><b>4. My Update Username</b></summary>
+<summary><b>4. My Token Refresh</b></summary>
+
+```bash
+curl -X POST "$baseurl/my/token-refresh" \
+     -H "Authorization: Bearer $token" \
+     -H "Content-Type: application/json"
+```
+</details>
+
+<details>
+<summary><b>5. My Update Username</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users" \
@@ -53,7 +63,7 @@ curl -X PUT "$baseurl/my/object-update?table=users" \
 </details>
 
 <details>
-<summary><b>5. My Update Password</b></summary>
+<summary><b>6. My Update Password</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users" \
@@ -67,7 +77,7 @@ curl -X PUT "$baseurl/my/object-update?table=users" \
 </details>
 
 <details>
-<summary><b>6. My Update Email</b></summary>
+<summary><b>7. My Update Email</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
@@ -81,7 +91,7 @@ curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
 </details>
 
 <details>
-<summary><b>7. My Update Mobile</b></summary>
+<summary><b>8. My Update Mobile</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
@@ -95,7 +105,7 @@ curl -X PUT "$baseurl/my/object-update?table=users&otp=123456" \
 </details>
 
 <details>
-<summary><b>8. My Update Profile</b></summary>
+<summary><b>9. My Update Profile</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=users" \
@@ -119,7 +129,7 @@ curl -X PUT "$baseurl/my/object-update?table=users" \
 </details>
 
 <details>
-<summary><b>9. My Delete Account</b></summary>
+<summary><b>10. My Delete Account</b></summary>
 
 ```bash
 curl -X DELETE "$baseurl/my/account-delete?mode=soft" \
@@ -129,7 +139,7 @@ curl -X DELETE "$baseurl/my/account-delete?mode=soft" \
 </details>
 
 <details>
-<summary><b>10. My Create Object</b></summary>
+<summary><b>11. My Create Object</b></summary>
 
 ```bash
 curl -X POST "$baseurl/my/object-create?table=test" \
@@ -143,7 +153,7 @@ curl -X POST "$baseurl/my/object-create?table=test" \
 </details>
 
 <details>
-<summary><b>11. My Read Objects</b></summary>
+<summary><b>12. My Read Objects</b></summary>
 
 ```bash
 curl -X GET "$baseurl/my/object-read?table=test&title=ilike,%25sample%25&limit=10&page=1&order=id desc" \
@@ -152,7 +162,7 @@ curl -X GET "$baseurl/my/object-read?table=test&title=ilike,%25sample%25&limit=1
 </details>
 
 <details>
-<summary><b>12. My Update Object</b></summary>
+<summary><b>13. My Update Object</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=test" \
@@ -166,7 +176,7 @@ curl -X PUT "$baseurl/my/object-update?table=test" \
 </details>
 
 <details>
-<summary><b>13. My Delete Objects</b></summary>
+<summary><b>14. My Delete Objects</b></summary>
 
 ```bash
 curl -X POST "$baseurl/my/ids-delete" \
@@ -180,7 +190,7 @@ curl -X POST "$baseurl/my/ids-delete" \
 </details>
 
 <details>
-<summary><b>14. My Update Objects (Bulk)</b></summary>
+<summary><b>15. My Update Objects (Bulk)</b></summary>
 
 ```bash
 curl -X PUT "$baseurl/my/object-update?table=test" \
@@ -192,15 +202,5 @@ curl -X PUT "$baseurl/my/object-update?table=test" \
              { "id": 2, "title": "Bulk Update 2" }
            ]
          }'
-```
-</details>
-
-<details>
-<summary><b>15. My Token Refresh</b></summary>
-
-```bash
-curl -X POST "$baseurl/my/token-refresh" \
-     -H "Authorization: Bearer $token" \
-     -H "Content-Type: application/json"
 ```
 </details>
