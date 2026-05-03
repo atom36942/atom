@@ -23,29 +23,31 @@ def func_s3_url_delete(*, client_s3_resource: any, url: list) -> any:
         client_s3_resource.Object(bucket, key).delete()
     return "urls deleted"
 
-async def func_s3_upload_file(*, client_s3: any, bucket: str, file_list: list, config_s3_limit_kb: int, config_s3_upload_limit_count: int) -> dict:
+async def func_s3_upload_file(*, client_s3: any, bucket: str, file_list: list, config_blob_limit_kb: int, config_blob_upload_limit_count: int) -> dict:
     import uuid
-    if len(file_list) > config_s3_upload_limit_count:
-        raise Exception(f"maximum {config_s3_upload_limit_count} files allowed")
+    if not bucket: raise Exception("bucket name required")
+    if len(file_list) > config_blob_upload_limit_count:
+        raise Exception(f"maximum {config_blob_upload_limit_count} files allowed")
     output = {}
     for item in file_list:
         file_data = await item.read()
-        if len(file_data) > config_s3_limit_kb * 1024:
-            raise Exception(f"file size exceeds {config_s3_limit_kb}kb for {item.filename}")
+        if len(file_data) > config_blob_limit_kb * 1024:
+            raise Exception(f"file size exceeds {config_blob_limit_kb}kb for {item.filename}")
         ext = item.filename.split(".")[-1] if "." in item.filename else "bin"
         file_key = f"{uuid.uuid4().hex}.{ext}"
         await client_s3.put_object(Bucket=bucket, Key=file_key, Body=file_data)
         output[item.filename] = f"https://{bucket}.s3.amazonaws.com/{file_key}"
     return output
 
-def func_s3_upload_url_presigned(*, client_s3: any, config_s3_region_name: str, bucket: str, config_s3_limit_kb: int, config_s3_presigned_expire_sec: int, count: int, config_s3_upload_limit_count: int) -> list:
+def func_s3_upload_url_presigned(*, client_s3: any, config_s3_region_name: str, bucket: str, config_blob_limit_kb: int, config_blob_expire_sec: int, count: int, config_blob_upload_limit_count: int) -> list:
     import uuid
-    if count > config_s3_upload_limit_count:
-        raise Exception(f"maximum {config_s3_upload_limit_count} allowed")
+    if not bucket: raise Exception("bucket name required")
+    if count > config_blob_upload_limit_count:
+        raise Exception(f"maximum {config_blob_upload_limit_count} allowed")
     output = []
     for _ in range(count):
         file_key = f"{uuid.uuid4().hex}.bin"
-        presigned_post = client_s3.generate_presigned_post(Bucket=bucket, Key=file_key, ExpiresIn=config_s3_presigned_expire_sec, Conditions=[["content-length-range", 1, config_s3_limit_kb * 1024]])
+        presigned_post = client_s3.generate_presigned_post(Bucket=bucket, Key=file_key, ExpiresIn=config_blob_expire_sec, Conditions=[["content-length-range", 1, config_blob_limit_kb * 1024]])
         output.append({**presigned_post["fields"], "url_final": f"https://{bucket}.s3.{config_s3_region_name}.amazonaws.com/{file_key}"})
     return output
 
@@ -236,3 +238,45 @@ async def func_redis_delete(*, upload_file: any, client_redis: any, func_api_fil
             await pipe.execute()
         count += len(ol)
     return count
+
+async def func_azure_blob_upload_file(*, client_azure_blob: any, container: str, file_list: list, config_blob_limit_kb: int, config_blob_upload_limit_count: int) -> dict:
+    """Upload multiple files to Azure Blob Storage."""
+    import uuid
+    if not container: raise Exception("container name required")
+    if len(file_list) > config_blob_upload_limit_count:
+        raise Exception(f"maximum {config_blob_upload_limit_count} files allowed")
+    output = {}
+    container_client = client_azure_blob.get_container_client(container)
+    for item in file_list:
+        file_data = await item.read()
+        if len(file_data) > config_blob_limit_kb * 1024:
+            raise Exception(f"file size exceeds {config_blob_limit_kb}kb for {item.filename}")
+        ext = item.filename.split(".")[-1] if "." in item.filename else "bin"
+        file_key = f"{uuid.uuid4().hex}.{ext}"
+        blob_client = container_client.get_blob_client(file_key)
+        await blob_client.upload_blob(file_data)
+        output[item.filename] = blob_client.url
+    return output
+
+def func_azure_blob_upload_url_sas(*, client_azure_blob: any, config_azure_account_name: str, config_azure_account_key: str, container: str, config_blob_limit_kb: int, config_blob_expire_sec: int, count: int, config_blob_upload_limit_count: int) -> list:
+    """Generate multiple SAS URLs for uploading files to Azure Blob Storage."""
+    from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+    from datetime import datetime, timedelta, timezone
+    import uuid
+    if not container: raise Exception("container name required")
+    if count > config_blob_upload_limit_count:
+        raise Exception(f"maximum {config_blob_upload_limit_count} allowed")
+    output = []
+    for _ in range(count):
+        file_key = f"{uuid.uuid4().hex}.bin"
+        sas_token = generate_blob_sas(
+            account_name=config_azure_account_name,
+            account_key=config_azure_account_key,
+            container_name=container,
+            blob_name=file_key,
+            permission=BlobSasPermissions(write=True, create=True),
+            expiry=datetime.now(timezone.utc) + timedelta(seconds=config_blob_expire_sec)
+        )
+        sas_url = f"https://{config_azure_account_name}.blob.core.windows.net/{container}/{file_key}?{sas_token}"
+        output.append({"url": sas_url, "file_key": file_key, "url_final": f"https://{config_azure_account_name}.blob.core.windows.net/{container}/{file_key}"})
+    return output

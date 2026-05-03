@@ -42,6 +42,7 @@ async def func_lifespan(app:FastAPI):
    client_redis_producer = await func_client_read_redis(config_redis_url=config_redis_url_pubsub, event_name="🔴 redis producer")
    client_gsheet = func_client_read_gsheet(config_gsheet_service_account_json_path=config_gsheet_service_account_json_path, config_gsheet_scope=config_gsheet_scope)
    client_sftp = await func_client_read_sftp(config_sftp_host=config_sftp_host, config_sftp_port=config_sftp_port, config_sftp_username=config_sftp_username, config_sftp_password=config_sftp_password, config_sftp_key_path=config_sftp_key_path, config_sftp_auth_method=config_sftp_auth_method)
+   client_azure_blob = await func_client_read_azure_blob(config_azure_account_name=config_azure_account_name, config_azure_account_key=config_azure_account_key, config_azure_connection_string=config_azure_connection_string)
    #schema sync
    if client_postgres_pool and config_is_enable_postgres_init_startup == 1:
       await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=config_postgres, config_postgres_root_user_password=config_postgres_root_user_password)
@@ -92,6 +93,8 @@ async def func_lifespan(app:FastAPI):
    if client_sftp:
       client_sftp.close()
       await client_sftp.wait_closed()
+   if client_azure_blob:
+      await client_azure_blob.close()
    print(f"🛑 {'application shutdown':<30} : ✅ completed")
       
 #app

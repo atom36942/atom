@@ -90,7 +90,10 @@ async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: st
             res = await func_orchestrator_producer(queue=queue, func_name=func_name, payload=payload, client_celery_producer=client_celery_producer, client_kafka_producer=client_kafka_producer, client_rabbitmq_producer=client_rabbitmq_producer, client_redis_producer=client_redis_producer)
             results.append(res)
         return results if len(results) > 1 else results[0]
-    return await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_serialize=is_serialize, created_by_id=created_by_id, is_return_ids=is_return_ids, client_postgres_conn=client_postgres_conn)
+    output = await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_serialize=is_serialize, created_by_id=created_by_id, is_return_ids=is_return_ids, client_postgres_conn=client_postgres_conn)
+    if api_role == "my" and output == "0 rows updated":
+        raise Exception("ownership issue or object not found")
+    return output
 
 async def func_orchestrator_postgres_import(*, upload_file: any, mode: str, table: str, is_serialize: int, config_regex: dict, func_regex_check: callable, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, cache_postgres_buffer: dict, func_postgres_serialize: callable, func_postgres_create: callable, func_postgres_update: callable, func_postgres_delete: callable, func_api_file_to_chunks: callable) -> int:
     """Orchestrates atomic bulk PostgreSQL operations using a single transaction to ensure data integrity."""

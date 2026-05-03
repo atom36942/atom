@@ -112,3 +112,33 @@ async def test_my_object_update(client, my_headers, admin_headers, db_available)
 
     # Cleanup via admin
     await client.post("/admin/ids-delete", json={"table": "test", "ids": str(obj_id)}, headers=admin_headers)
+
+# ---------------------------------------------------------------------------
+# Object update ownership check
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_my_object_update_ownership_rejected(client, my_headers, admin_headers, db_available):
+    """Scenario: User cannot update an object owned by another user."""
+    uid = unique_id()
+    # 1. Create an object with ADMIN (owned by admin, id=1)
+    r_create = await client.post(
+        "/admin/object-create?table=test",
+        json={"title": f"admin_owned_{uid}"},
+        headers=admin_headers
+    )
+    assert r_create.status_code == 200
+    obj_id = r_create.json()["message"][0]
+
+    # 2. Try to update it with MY_USER (regular user)
+    r_update = await client.put(
+        f"/my/object-update?table=test",
+        json={"id": obj_id, "title": f"hacked_{uid}"},
+        headers=my_headers
+    )
+    
+    # We expect a 400 error because the orchestrator will raise an Exception
+    assert r_update.status_code == 400, f"Expected 400 for unauthorized update, got {r_update.status_code}: {r_update.text}"
+    assert "ownership" in r_update.json()["message"].lower() or "not found" in r_update.json()["message"].lower()
+
+    # Cleanup
+    await client.post("/admin/ids-delete", json={"table": "test", "ids": str(obj_id)}, headers=admin_headers)

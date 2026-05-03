@@ -238,3 +238,20 @@ async def func_client_read_sftp(*, config_sftp_host: str, config_sftp_port: int,
     except Exception as e:
         print(f"📁 {'sftp client':<30} : ❌ error: {str(e)[:30]}")
         return None
+
+async def func_client_read_azure_blob(*, config_azure_account_name: str, config_azure_account_key: str, config_azure_connection_string: str) -> any:
+    """Initialize Azure Blob Service client (async) and log status."""
+    if not config_azure_account_name and not config_azure_connection_string:
+        print(f"📦 {'azure blob client':<30} : ❌ config missing")
+        return None
+    try:
+        from azure.storage.blob.aio import BlobServiceClient
+        if config_azure_connection_string:
+            res = BlobServiceClient.from_connection_string(config_azure_connection_string)
+        else:
+            res = BlobServiceClient(account_url=f"https://{config_azure_account_name}.blob.core.windows.net", credential=config_azure_account_key)
+        print(f"📦 {'azure blob client':<30} : ✅ connected")
+        return res
+    except Exception as e:
+        print(f"📦 {'azure blob client':<30} : ❌ error: {str(e)[:30]}")
+        return None
