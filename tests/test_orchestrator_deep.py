@@ -16,8 +16,8 @@ async def test_func_orchestrator_obj_create_admin():
     res = await func_orchestrator_obj_create(
         user_id=1, api_role="admin", table="users", mode="create",
         is_serialize=1, queue=None, obj_list=[{"id": 100}],
-        config_table_create_my=[], config_table_create_public=[],
-        config_column_blocked=[], config_table={}, config_regex={},
+        config_table_create_disable_my=[], config_table_create_enable_public=[],
+        config_column_disable=[], config_table={}, config_regex={},
         func_regex_check=AsyncMock(), client_celery_producer=None,
         client_kafka_producer=None, client_rabbitmq_producer=None,
         client_redis_producer=None, func_orchestrator_producer=AsyncMock(),
@@ -30,16 +30,16 @@ async def test_func_orchestrator_obj_create_admin():
     mock_create.assert_called_once()
 
 @pytest.mark.asyncio
-async def test_func_orchestrator_obj_create_my_blocked():
+async def test_func_orchestrator_obj_create_my_disabled():
     from core.function.orchestrator import func_orchestrator_obj_create
     
-    # Test 'my' mode with table NOT in allowed list
+    # Test 'my' mode with table IN blocked list
     with pytest.raises(Exception, match="table not allowed for role 'my'"):
         await func_orchestrator_obj_create(
             user_id=2, api_role="my", table="secret_table", mode="create",
             is_serialize=1, queue=None, obj_list=[{"k": "v"}],
-            config_table_create_my=["allowed_table"], 
-            config_table_create_public=[], config_column_blocked=[],
+            config_table_create_disable_my=["secret_table"], 
+            config_table_create_enable_public=[], config_column_disable=[],
             config_table={}, config_regex={}, func_regex_check=AsyncMock(),
             client_celery_producer=None, client_kafka_producer=None,
             client_rabbitmq_producer=None, client_redis_producer=None,
@@ -59,8 +59,8 @@ async def test_func_orchestrator_obj_create_queue_dispatch():
     res = await func_orchestrator_obj_create(
         user_id=1, api_role="admin", table="logs", mode="create",
         is_serialize=1, queue="celery", obj_list=[{"msg": "test"}],
-        config_table_create_my=[], config_table_create_public=[],
-        config_column_blocked=[], config_table={},
+        config_table_create_disable_my=[], config_table_create_enable_public=[],
+        config_column_disable=[], config_table={},
         config_regex={}, func_regex_check=AsyncMock(),
         client_celery_producer=MagicMock(), client_kafka_producer=None,
         client_rabbitmq_producer=None, client_redis_producer=None,

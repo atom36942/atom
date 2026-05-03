@@ -254,41 +254,41 @@ def test_config_table_retention_valid():
             assert isinstance(cfg["retention_day"], int) and cfg["retention_day"] > 0, f"{table} retention_day must be positive"
 
 # ===========================================================================
-# config_table_create_my / public / read_public
+# config_table_create_disable_my / public / read_public
 # ===========================================================================
-def test_table_create_my_no_users():
-    assert "users" not in config.config_table_create_my, "users table must not be in config_table_create_my"
+def test_table_create_disable_my_has_users():
+    assert "users" in config.config_table_create_disable_my, "users table must be blocked in config_table_create_disable_my"
 
 def test_table_create_public_no_users():
-    assert "users" not in config.config_table_create_public, "users table must not be in config_table_create_public"
+    assert "users" not in config.config_table_create_enable_public, "users table must not be in config_table_create_enable_public"
 
-def test_table_create_public_subset_of_my():
-    """Public should generally be a subset or equal to my."""
-    for t in config.config_table_create_public:
-        assert t in config.config_table_create_my, f"'{t}' in public but not in my"
+def test_table_create_public_not_in_disable_my():
+    """Public should generally not include blocked tables."""
+    for t in config.config_table_create_enable_public:
+        assert t not in config.config_table_create_disable_my, f"'{t}' in public but blocked in my"
 
 # ===========================================================================
-# config_column_blocked
+# config_column_disable
 # ===========================================================================
-def test_column_blocked_is_list():
-    assert isinstance(config.config_column_blocked, list)
-    assert len(config.config_column_blocked) > 0
+def test_column_disabled_is_list():
+    assert isinstance(config.config_column_disable, list)
+    assert len(config.config_column_disable) > 0
 
-def test_column_blocked_essential_fields():
+def test_column_disabled_essential_fields():
     essentials = ["is_active", "role", "created_at"]
     for f in essentials:
-        assert f in config.config_column_blocked, f"'{f}' should be in column_blocked"
+        assert f in config.config_column_disable, f"'{f}' should be in config_column_disable"
 
 # ===========================================================================
-# config_column_single_update
+# config_column_enable_single_update
 # ===========================================================================
 def test_column_single_update_is_list():
-    assert isinstance(config.config_column_single_update, list)
+    assert isinstance(config.config_column_enable_single_update, list)
 
 def test_column_single_update_sensitive_fields():
     sensitive = ["password", "email", "mobile"]
     for f in sensitive:
-        assert f in config.config_column_single_update, f"'{f}' should be in column_single_update"
+        assert f in config.config_column_enable_single_update, f"'{f}' should be in column_enable_single_update"
 
 # ===========================================================================
 # config_api_roles / config_api_roles_auth

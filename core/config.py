@@ -87,11 +87,11 @@ config_auth_type=[1]
 config_expiry_sec_otp=600
 
 #enum
-config_table_create_my=["test", "post", "support", "rating_test", "job", "candidate"]
-config_table_create_public=["test", "support"]
-config_table_read_public=["test", "post"]
-config_column_blocked=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
-config_column_single_update=["username", "password", "email", "mobile"]
+config_table_create_disable_my=["users", "log_api", "log_users_password", "otp"]
+config_table_create_enable_public=["test", "support"]
+config_table_read_enable_public=["test", "post"]
+config_column_disable=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
+config_column_enable_single_update=["username", "password", "email", "mobile"]
 config_api_roles=["index", "auth", "my", "public", "private", "admin"]
 config_api_roles_auth=["/my/", "/private/", "/admin/"]
 
@@ -307,6 +307,27 @@ config_postgres={
 {"name":"status","datatype":"smallint","index":"btree(status)"},
 {"name":"ai_rating","datatype":"numeric(3,1)"},
 {"name":"ai_remark","datatype":"text"},
+{"name":"remark","datatype":"text"},
+{"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
+],
+"interview":[
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"is_active","datatype":"smallint","in":(0,1),"index":"btree(is_active)"},
+{"name":"is_verified","datatype":"smallint","in":(0,1),"index":"btree(is_verified)"},
+{"name":"is_deleted","datatype":"smallint","in":(0,1),"index":"btree(is_deleted)"},
+{"name":"is_protected","datatype":"smallint","in":(0,1),"index":"btree(is_protected)"},
+{"name":"candidate_id","datatype":"bigint","is_mandatory":1,"index":"btree(candidate_id)"},
+{"name":"title","datatype":"text","is_mandatory":1,"index":"btree(title)|gin(title)"},
+{"name":"description","datatype":"text"},
+{"name":"link_url","datatype":"text"},
+{"name":"scheduled_at","datatype":"timestamptz","index":"btree(scheduled_at)"},
+{"name":"panel","datatype":"text"},
+{"name":"feedback","datatype":"text"},
+{"name":"remark","datatype":"text"},
+{"name":"rating","datatype":"numeric(3,1)","check":"rating >= 1 AND rating <= 10"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ]
 },
@@ -318,8 +339,8 @@ config_postgres={
 "is_disable_users_delete_role":1,
 "is_enable_users_delete_child_soft":1,
 "is_enable_users_delete_child_hard":0,
-"disable_table_delete_row":["users"],
-"disable_table_delete_row_bulk":[["users",1]],
+"table_delete_disable_row":["users"],
+"table_delete_disable_row_bulk":[["users",1]],
 "is_enable_autovacuum_optimize":1
 },
 "sql":{},

@@ -11,8 +11,8 @@ async def test_create_admin_any_table(state, db_available):
     result = await func_orchestrator_obj_create(
         user_id=1, api_role="admin", table="test", mode="now", is_serialize=0, queue=None,
         obj_list=[{"title": f"orch_admin_{uid}"}],
-        config_table_create_my=state.config_table_create_my, config_table_create_public=state.config_table_create_public,
-        config_column_blocked=state.config_column_blocked, config_table=state.config_table,
+        config_table_create_disable_my=state.config_table_create_disable_my, config_table_create_enable_public=state.config_table_create_enable_public,
+        config_column_disable=state.config_column_disable, config_table=state.config_table,
         config_regex=state.config_regex, func_regex_check=state.func_regex_check,
         client_celery_producer=state.client_celery_producer, client_kafka_producer=state.client_kafka_producer,
         client_rabbitmq_producer=state.client_rabbitmq_producer, client_redis_producer=state.client_redis_producer,
@@ -30,8 +30,8 @@ async def test_create_my_allowed_table(state, db_available):
     result = await func_orchestrator_obj_create(
         user_id=2, api_role="my", table="test", mode="now", is_serialize=0, queue=None,
         obj_list=[{"title": f"orch_my_{uid}"}],
-        config_table_create_my=state.config_table_create_my, config_table_create_public=state.config_table_create_public,
-        config_column_blocked=state.config_column_blocked, config_table=state.config_table,
+        config_table_create_disable_my=state.config_table_create_disable_my, config_table_create_enable_public=state.config_table_create_enable_public,
+        config_column_disable=state.config_column_disable, config_table=state.config_table,
         config_regex=state.config_regex, func_regex_check=state.func_regex_check,
         client_celery_producer=state.client_celery_producer, client_kafka_producer=state.client_kafka_producer,
         client_rabbitmq_producer=state.client_rabbitmq_producer, client_redis_producer=state.client_redis_producer,
@@ -43,13 +43,13 @@ async def test_create_my_allowed_table(state, db_available):
     assert isinstance(result, list)
 
 @pytest.mark.asyncio
-async def test_create_my_blocked_table(state):
+async def test_create_my_disabled_table(state):
     with pytest.raises(Exception, match="table not allowed for role 'my'"):
         await func_orchestrator_obj_create(
             user_id=2, api_role="my", table="users", mode="now", is_serialize=0, queue=None,
             obj_list=[{"username": "hack"}],
-            config_table_create_my=state.config_table_create_my, config_table_create_public=state.config_table_create_public,
-            config_column_blocked=state.config_column_blocked, config_table=state.config_table,
+            config_table_create_disable_my=state.config_table_create_disable_my, config_table_create_enable_public=state.config_table_create_enable_public,
+            config_column_disable=state.config_column_disable, config_table=state.config_table,
             config_regex=state.config_regex, func_regex_check=state.func_regex_check,
             client_celery_producer=state.client_celery_producer, client_kafka_producer=state.client_kafka_producer,
             client_rabbitmq_producer=state.client_rabbitmq_producer, client_redis_producer=state.client_redis_producer,
@@ -60,13 +60,13 @@ async def test_create_my_blocked_table(state):
         )
 
 @pytest.mark.asyncio
-async def test_create_public_blocked_table(state):
+async def test_create_public_disabled_table(state):
     with pytest.raises(Exception, match="table not allowed for role 'public'"):
         await func_orchestrator_obj_create(
             user_id=None, api_role="public", table="users", mode="now", is_serialize=0, queue=None,
             obj_list=[{"username": "hack"}],
-            config_table_create_my=state.config_table_create_my, config_table_create_public=state.config_table_create_public,
-            config_column_blocked=state.config_column_blocked, config_table=state.config_table,
+            config_table_create_disable_my=state.config_table_create_disable_my, config_table_create_enable_public=state.config_table_create_enable_public,
+            config_column_disable=state.config_column_disable, config_table=state.config_table,
             config_regex=state.config_regex, func_regex_check=state.func_regex_check,
             client_celery_producer=state.client_celery_producer, client_kafka_producer=state.client_kafka_producer,
             client_rabbitmq_producer=state.client_rabbitmq_producer, client_redis_producer=state.client_redis_producer,
@@ -80,13 +80,13 @@ async def test_create_public_blocked_table(state):
 # Create: blocked columns
 # ===========================================================================
 @pytest.mark.asyncio
-async def test_create_blocked_column_non_admin(state):
+async def test_create_disabled_column_non_admin(state):
     with pytest.raises(Exception, match="restricted"):
         await func_orchestrator_obj_create(
             user_id=2, api_role="my", table="test", mode="now", is_serialize=0, queue=None,
             obj_list=[{"title": "test", "is_active": 1}],
-            config_table_create_my=state.config_table_create_my, config_table_create_public=state.config_table_create_public,
-            config_column_blocked=state.config_column_blocked, config_table=state.config_table,
+            config_table_create_disable_my=state.config_table_create_disable_my, config_table_create_enable_public=state.config_table_create_enable_public,
+            config_column_disable=state.config_column_disable, config_table=state.config_table,
             config_regex=state.config_regex, func_regex_check=state.func_regex_check,
             client_celery_producer=state.client_celery_producer, client_kafka_producer=state.client_kafka_producer,
             client_rabbitmq_producer=state.client_rabbitmq_producer, client_redis_producer=state.client_redis_producer,
@@ -105,8 +105,8 @@ async def test_create_empty_list(state):
         await func_orchestrator_obj_create(
             user_id=1, api_role="admin", table="test", mode="now", is_serialize=0, queue=None,
             obj_list=[],
-            config_table_create_my=state.config_table_create_my, config_table_create_public=state.config_table_create_public,
-            config_column_blocked=state.config_column_blocked, config_table=state.config_table,
+            config_table_create_disable_my=state.config_table_create_disable_my, config_table_create_enable_public=state.config_table_create_enable_public,
+            config_column_disable=state.config_column_disable, config_table=state.config_table,
             config_regex=state.config_regex, func_regex_check=state.func_regex_check,
             client_celery_producer=state.client_celery_producer, client_kafka_producer=state.client_kafka_producer,
             client_rabbitmq_producer=state.client_rabbitmq_producer, client_redis_producer=state.client_redis_producer,
@@ -126,8 +126,8 @@ async def test_create_injects_created_by_id(state, db_available):
     await func_orchestrator_obj_create(
         user_id=42, api_role="my", table="test", mode="now", is_serialize=0, queue=None,
         obj_list=obj,
-        config_table_create_my=state.config_table_create_my, config_table_create_public=state.config_table_create_public,
-        config_column_blocked=state.config_column_blocked, config_table=state.config_table,
+        config_table_create_disable_my=state.config_table_create_disable_my, config_table_create_enable_public=state.config_table_create_enable_public,
+        config_column_disable=state.config_column_disable, config_table=state.config_table,
         config_regex=state.config_regex, func_regex_check=state.func_regex_check,
         client_celery_producer=state.client_celery_producer, client_kafka_producer=state.client_kafka_producer,
         client_rabbitmq_producer=state.client_rabbitmq_producer, client_redis_producer=state.client_redis_producer,
@@ -142,13 +142,13 @@ async def test_create_injects_created_by_id(state, db_available):
 # Update: role checks
 # ===========================================================================
 @pytest.mark.asyncio
-async def test_update_blocked_column_non_admin(state):
+async def test_update_disabled_column_non_admin(state):
     with pytest.raises(Exception, match="restricted"):
         await func_orchestrator_obj_update(
             user_id=2, api_role="my", table="test", is_serialize=0, queue=None, otp=None,
             obj_list=[{"id": 1, "is_active": 1}],
-            config_is_enable_otp_users_update_admin=0, config_column_blocked=state.config_column_blocked,
-            config_column_single_update=state.config_column_single_update,
+            config_is_enable_otp_users_update_admin=0, config_column_disable=state.config_column_disable,
+            config_column_enable_single_update=state.config_column_enable_single_update,
             config_regex=state.config_regex, func_regex_check=state.func_regex_check,
             func_otp_verify=state.func_otp_verify,
             client_postgres_pool=state.client_postgres_pool, client_password_hasher=state.client_password_hasher,

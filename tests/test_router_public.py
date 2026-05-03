@@ -18,7 +18,7 @@ async def test_public_object_create_allowed(client, admin_headers, db_available)
 # POST /public/object-create (blocked table)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_public_object_create_blocked_table(client):
+async def test_public_object_create_disabled_table(client):
     r = await client.post("/public/object-create?table=users", json={"username": "hacker"})
     assert r.status_code == 400
     assert "not allowed" in r.json()["message"]
@@ -27,7 +27,7 @@ async def test_public_object_create_blocked_table(client):
 # POST /public/object-create (blocked column)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_public_object_create_blocked_column(client):
+async def test_public_object_create_disabled_column(client):
     r = await client.post("/public/object-create?table=test", json={"title": "test", "role": 1})
     assert r.status_code == 400
 
@@ -43,10 +43,10 @@ async def test_public_object_read(client, db_available):
     assert isinstance(body["message"], list)
 
 @pytest.mark.asyncio
-async def test_public_object_read_blocked_table(client, state):
-    """If config_table_read_public is set and table is not in it, should error."""
-    if not state.config_table_read_public:
-        pytest.skip("config_table_read_public not configured")
+async def test_public_object_read_disabled_table(client, state):
+    """If config_table_read_enable_public is set and table is not in it, should error."""
+    if not state.config_table_read_enable_public:
+        pytest.skip("config_table_read_enable_public not configured")
     r = await client.get("/public/object-read?table=users")
     assert r.status_code == 400
     assert "not allowed" in r.json()["message"]
