@@ -4,6 +4,11 @@ config_postgres_min_connection=5
 config_postgres_max_connection=20
 config_postgres_root_user_password="atom123321"
 
+#system
+config_index_html_path=None
+config_auth_type=[1]
+config_expiry_sec_otp=600
+
 #redis
 config_redis_url=None
 config_redis_url_ratelimiter=config_redis_url
@@ -80,11 +85,6 @@ config_is_enable_reset_tmp=0
 config_is_enable_index_html=0
 config_is_enable_otp_users_update_admin=0
 config_is_enable_postgres_init_startup=1
-
-#system
-config_index_html_path=None
-config_auth_type=[1]
-config_expiry_sec_otp=600
 
 #enum
 config_table_create_disable_my=["users", "log_api", "log_users_password", "otp"]
