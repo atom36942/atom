@@ -1,0 +1,67 @@
+name: deploy-staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy to Azure App Service
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push image to ACR
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_SHA::7}"
+          az acr build \
+            --registry "${{ secrets.AZURE_ACR }}" \
+            --image "atom:${TAG}" \
+            --image "atom:latest" \
+            .
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+
+      - name: Update App Service container reference
+        run: |
+          az webapp config container set \
+            --resource-group "${{ secrets.AZURE_RG }}" \
+            --name "${{ secrets.AZURE_APP }}" \
+            --container-image-name "${{ secrets.AZURE_ACR }}.azurecr.io/atom:${TAG}"
+
+      - name: Restart App Service
+        run: az webapp restart --resource-group "${{ secrets.AZURE_RG }}" --name "${{ secrets.AZURE_APP }}"
+
+      - name: Smoke test /health
+        run: |
+          set -euo pipefail
+          URL="https://${{ secrets.AZURE_APP }}.azurewebsites.net/health"
+          for i in $(seq 1 30); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "$URL" || echo 000)
+            if [ "$CODE" = "200" ]; then
+              echo "healthy after $((i*10))s"
+              exit 0
+            fi
+            echo "attempt $i: $CODE — waiting"
+            sleep 10
+          done
+          echo "::error::health check failed after 5 minutes"
+          exit 1

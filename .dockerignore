@@ -1,0 +1,14 @@
+.git
+.github
+infra
+tests
+scratch
+tmp
+secret
+venv
+__pycache__
+*.pyc
+.env
+.DS_Store
+*.md
+!readme.md

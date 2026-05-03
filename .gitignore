@@ -18,6 +18,11 @@
 !/.gitignore
 !pytest.ini
 !curl.md
+!.dockerignore
+!infra/
+!infra/**
+!.github/
+!.github/**
 
 # ignore
 __pycache__/
@@ -36,3 +41,4 @@ scratch/
 venv/
 .env
 *.log
+infra/main.json
