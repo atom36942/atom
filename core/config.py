@@ -109,6 +109,22 @@ config_table={
 "otp":{"retention_day":365},
 }
 
+config_regex={
+"username":["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
+"password":["^\\S{8,32}$", "Password must be 8-32 characters and contain no spaces"],
+}
+
+config_column_int_mapping = {
+"is_active": {None: "Active", 0: "Inactive", 1: "Active"},
+"is_verified": {None: "Verified", 0: "Pending", 1: "Verified"},
+"is_deleted": {None: "Not Deleted", 0: "Not Deleted", 1: "Deleted"},
+"is_protected": {None: "Not Protected", 0: "Not Protected", 1: "Protected"},
+"is_read": {None: "Unread", 0: "Unread", 1: "Read"},
+"job_status": {None: "Draft", 1: "Approved", 2: "Published", 3: "Archived"},
+"candidate_status": {None: "Applied", 1: "Shortlisted", 2: "Interviewing", 3: "Selected", 4: "Offer Sent", 5: "Offer Approved", 6: "Joined", 7: "Rejected"},
+"interview_status": {None: "Scheduled", 1: "Scheduled", 2: "Completed", 3: "Cancelled", 4: "Rescheduled"},
+}
+
 config_api={
 "/admin/sync":{"id":1,"user_role_check":["realtime",[1]]},
 "/admin/object-create":{"id":2,"user_role_check":["token",[1]]},
@@ -328,6 +344,7 @@ config_postgres={
 {"name":"feedback","datatype":"text"},
 {"name":"remark","datatype":"text"},
 {"name":"rating","datatype":"numeric(3,1)","check":"rating >= 1 AND rating <= 10"},
+{"name":"status","datatype":"smallint","index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ]
 },
@@ -344,22 +361,6 @@ config_postgres={
 "is_enable_autovacuum_optimize":1
 },
 "sql":{},
-}
-
-#mapping
-config_column_int_mapping = {
-"is_active": {None: "Active", 0: "Inactive", 1: "Active"},
-"is_verified": {None: "Verified", 0: "Pending", 1: "Verified"},
-"is_deleted": {None: "Not Deleted", 0: "Not Deleted", 1: "Deleted"},
-"is_protected": {None: "Not Protected", 0: "Not Protected", 1: "Protected"},
-"is_read": {None: "Unread", 0: "Unread", 1: "Read"},
-"job_status": {None: "Draft", 1: "Approved", 2: "Published", 3: "Archived"},
-"candidate_status": {None: "Applied", 1: "Shortlisted", 2: "Interviewing", 3: "Selected", 4: "Offer Sent", 5: "Offer Approved", 6: "Joined", 7: "Rejected"},
-}
-
-config_regex={
-"username":["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
-"password":["^\\S{8,32}$", "Password must be 8-32 characters and contain no spaces"],
 }
 
 #override
