@@ -13,7 +13,7 @@ async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
     profile = await app_state.func_user_profile_read(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"], config_sql=app_state.config_sql, func_user_single_read=app_state.func_user_single_read)
     token = await app_state.func_token_encode(user=profile, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
-    return {"status": 1, "message": profile | token}
+    return {"status": 1, "message": profile | {"token": token}}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
