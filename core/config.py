@@ -120,9 +120,9 @@ config_column_int_mapping = {
 "is_deleted": {None: "Not Deleted", 0: "Not Deleted", 1: "Deleted"},
 "is_protected": {None: "Not Protected", 0: "Not Protected", 1: "Protected"},
 "is_read": {None: "Unread", 0: "Unread", 1: "Read"},
-"job_status": {None: "Draft", 1: "Approved", 2: "Published", 3: "Archived"},
-"candidate_status": {None: "Applied", 1: "Shortlisted", 2: "Interviewing", 3: "Selected", 4: "Offer Sent", 5: "Offer Approved", 6: "Joined", 7: "Rejected"},
-"interview_status": {None: "Scheduled", 1: "Scheduled", 2: "Completed", 3: "Cancelled", 4: "Rescheduled"},
+"job_status": {1: "Draft", 2: "Approved", 3: "Published", 4: "Archived"},
+"candidate_status": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Selected", 5: "Offer Sent", 6: "Offer Approved", 7: "Joined", 8: "Rejected"},
+"interview_status": {1: "Scheduled", 2: "Completed", 3: "Cancelled", 4: "Rescheduled"},
 }
 
 config_api={
@@ -299,7 +299,7 @@ config_postgres={
 {"name":"salary","datatype":"text"},
 {"name":"experience","datatype":"text"},
 {"name":"address","datatype":"text","index":"btree(address)"},
-{"name":"status","datatype":"smallint","in":(1,2,3,4,5),"index":"btree(status)"},
+{"name":"status","datatype":"smallint","default":1,"in":(1,2,3,4),"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
 "candidate":[
@@ -320,7 +320,7 @@ config_postgres={
 {"name":"resume_url","datatype":"text"},
 {"name":"skills","datatype":"text","index":"gin(skills)"},
 {"name":"current_company","datatype":"text"},
-{"name":"status","datatype":"smallint","index":"btree(status)"},
+{"name":"status","datatype":"smallint","default":1,"in":(1,2,3,4,5,6,7,8),"index":"btree(status)"},
 {"name":"ai_rating","datatype":"numeric(3,1)"},
 {"name":"ai_remark","datatype":"text"},
 {"name":"remark","datatype":"text"},
@@ -344,7 +344,7 @@ config_postgres={
 {"name":"feedback","datatype":"text"},
 {"name":"remark","datatype":"text"},
 {"name":"rating","datatype":"numeric(3,1)","check":"rating >= 1 AND rating <= 10"},
-{"name":"status","datatype":"smallint","index":"btree(status)"},
+{"name":"status","datatype":"smallint","default":1,"in":(1,2,3,4),"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ]
 },
