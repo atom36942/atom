@@ -124,6 +124,7 @@ async def func_postgres_export(*, client_postgres_pool: any, query: str) -> any:
     return StreamingResponse(generate(), media_type="text/csv")
 
 def func_postgres_sql_parallel(*,conn_str:str,sql_list:list[str])->dict:
+    """Execute SQL list in parallel, automatically saturating the database's parallel worker pool."""
     import subprocess,time,sys
     from datetime import datetime
     from concurrent.futures import ThreadPoolExecutor,as_completed
@@ -150,18 +151,16 @@ def func_postgres_sql_parallel(*,conn_str:str,sql_list:list[str])->dict:
         mpg=psql_scalar("SHOW max_parallel_workers_per_gather;")
     except Exception:
         mpw,mpg=0,0
-    auto=max(1,mpw//mpg) if mpw>0 and mpg>0 else 2
-    max_parallel=min(auto,3)
+    actual_parallel=max(1,mpw//mpg) if mpw>0 and mpg>0 else 2
     setup="SET work_mem='256MB'; SET max_parallel_workers_per_gather=4;"
-    # 1. Metadata Dashboard
     meta = [
         ("🕒", "START TIME", datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
         ("⚙️", "FUNC", "func_postgres_sql_parallel"),
         ("🔗", "CONN_STR", conn_str.split('@')[-1] if '@' in conn_str else conn_str), 
         ("📊", "TOTAL SQL", f"{len(sql_list):,}"),
-        ("⚡", "PARALLEL", f"{max_parallel} workers"),
+        ("⚡", "PARALLEL", f"{actual_parallel} workers (Auto-Saturated)"),
         ("🏗️", "WORKERS", f"max={mpw}, per_gather={mpg}"),
-        ("📡", "STATUS", "READY")
+        ("📡", "STATUS", "AGGRESSIVE MODE")
     ]
     w_meta_lab = max(len(lab) for ico, lab, val in meta)
     single_width_icons = {"⚙️", "🛠️", "🛡️", "➕", "✅", "⏳", "⚠️", "🏗️", "⚡", "📡"}
@@ -179,7 +178,7 @@ def func_postgres_sql_parallel(*,conn_str:str,sql_list:list[str])->dict:
         return {"sql":sql,"rc":p.returncode,"out":p.stdout,"err":p.stderr,"time_s":dt}
     results=[]; ok=0; fail=0
     print(f"{get_ts()} ⚡ PHASE 1: Executing SQL List in Parallel...")
-    with ThreadPoolExecutor(max_workers=max_parallel) as ex:
+    with ThreadPoolExecutor(max_workers=actual_parallel) as ex:
         futures=[ex.submit(run,s) for s in sql_list]
         for idx, f in enumerate(as_completed(futures), 1):
             r=f.result(); results.append(r)
@@ -193,7 +192,6 @@ def func_postgres_sql_parallel(*,conn_str:str,sql_list:list[str])->dict:
     total_time=round(time.time()-t_start,2)
     h_duration = f"{int(total_time // 3600)}h {int((total_time % 3600) // 60)}m {int(total_time % 60)}s"
     status="success" if fail==0 else ("partial" if ok>0 else "failed")
-    # Final Receipt
     meta_final = [
         ("🕒", "START TIME", datetime.fromtimestamp(t_start).strftime('%Y-%m-%d %H:%M:%S')),
         ("⚙️", "FUNC", "func_postgres_sql_parallel"),
@@ -211,4 +209,4 @@ def func_postgres_sql_parallel(*,conn_str:str,sql_list:list[str])->dict:
         if ico_norm in single_width_icons: ico_norm += " "
         print(f"{ico_norm} {lab:<{w_meta_f_lab}} : {val}")
     print(f"{'-'*separator_len}\n")
-    return {"status":status,"total":len(sql_list),"success":ok,"failed":fail,"elapsed_s":total_time,"parallel":max_parallel,"details":results}
+    return {"status":status,"total":len(sql_list),"success":ok,"failed":fail,"elapsed_s":total_time,"parallel":actual_parallel,"details":results}
