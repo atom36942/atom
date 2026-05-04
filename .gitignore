@@ -12,6 +12,8 @@
 !tests/**
 !.github/
 !.github/**
+!infra/
+!infra/**
 
 !main.py
 !requirements.txt
@@ -21,6 +23,7 @@
 !/.gitignore
 !pytest.ini
 !curl.md
+!.dockerignore
 
 # ignore
 __pycache__/
