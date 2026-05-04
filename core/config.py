@@ -50,7 +50,7 @@ config_azure_account_key=None
 config_azure_connection_string=None
 
 #blob
-config_blob_storage_name_default="atom"
+config_blob_container_default="atom"
 config_blob_limit_kb=100
 config_blob_upload_limit_count=10
 config_blob_expire_sec=60
