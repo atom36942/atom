@@ -1,19 +1,28 @@
 async def func_s3_bucket_create(*, client_s3: any, config_s3_region_name: str, bucket: str) -> any:
     """Create a new AWS S3 bucket in a specific region."""
+    if not bucket: raise Exception("bucket name required")
     return await client_s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": config_s3_region_name})
 
 async def func_s3_bucket_public(*, client_s3: any, bucket: str) -> any:
     """Expose an AWS S3 bucket for public read access."""
+    if not bucket: raise Exception("bucket name required")
     await client_s3.put_public_access_block(Bucket=bucket, PublicAccessBlockConfiguration={"BlockPublicAcls": False, "IgnorePublicAcls": False, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
     return await client_s3.put_bucket_policy(Bucket=bucket, Policy="""{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}""".replace("bucket_name", bucket))
 
 def func_s3_bucket_empty(*, client_s3_resource: any, bucket: str) -> any:
     """Purge all objects from an AWS S3 bucket."""
+    if not bucket: raise Exception("bucket name required")
     return client_s3_resource.Bucket(bucket).objects.all().delete()
 
 async def func_s3_bucket_delete(*, client_s3: any, bucket: str) -> any:
     """Delete an AWS S3 bucket."""
+    if not bucket: raise Exception("bucket name required")
     return await client_s3.delete_bucket(Bucket=bucket)
+
+async def func_s3_bucket_read(*, client_s3: any) -> list:
+    """List all AWS S3 bucket names."""
+    response = await client_s3.list_buckets()
+    return [bucket["Name"] for bucket in response.get("Buckets", [])]
 
 def func_s3_url_delete(*, client_s3_resource: any, url: list) -> any:
     """Delete multiple objects from AWS S3 in bulk given their public URLs."""
@@ -280,3 +289,20 @@ def func_azure_blob_upload_url_sas(*, client_azure_blob: any, config_azure_accou
         sas_url = f"https://{config_azure_account_name}.blob.core.windows.net/{container}/{file_key}?{sas_token}"
         output.append({"url": sas_url, "file_key": file_key, "url_final": f"https://{config_azure_account_name}.blob.core.windows.net/{container}/{file_key}"})
     return output
+
+async def func_azure_container_create(*, client_azure_blob: any, container: str) -> any:
+    """Create a new Azure Blob container."""
+    if not container: raise Exception("container name required")
+    return await client_azure_blob.create_container(container)
+
+async def func_azure_container_delete(*, client_azure_blob: any, container: str) -> any:
+    """Delete an Azure Blob container."""
+    if not container: raise Exception("container name required")
+    return await client_azure_blob.delete_container(container)
+
+async def func_azure_container_read(*, client_azure_blob: any) -> list:
+    """List all Azure Blob container names."""
+    containers = []
+    async for container in client_azure_blob.list_containers():
+        containers.append(container.name)
+    return containers

@@ -109,7 +109,7 @@ async def func_orchestrator_postgres_import(*, upload_file: any, mode: str, tabl
                     if mode in ("update", "delete") and "id" not in obj_list[0]:
                         raise Exception(f"CSV format error: Postgres {mode} requires 'id' column")
                     first_chunk = False
-                if table == "users":
+                if table == "users" and (mode == "create" or mode == "update"):
                     await func_regex_check(config_regex=config_regex, obj_list=obj_list)
                 if mode == "create":
                     await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=obj_list, is_serialize=is_serialize, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=conn)
@@ -141,3 +141,27 @@ async def func_orchestrator_producer(*, queue: str, func_name: str, payload: dic
         if not client_redis_producer: raise Exception("redis producer not initialized")
         return await client_redis_producer.publish(channel, orjson.dumps(payload).decode("utf-8"))
     return None
+
+async def func_orchestrator_blob_storage_ops(*, service: str, mode: str, container: str, client_s3: any, config_s3_region_name: str, client_s3_resource: any, client_azure_blob: any, func_s3_bucket_create: callable, func_s3_bucket_public: callable, func_s3_bucket_empty: callable, func_s3_bucket_delete: callable, func_s3_bucket_read: callable, func_azure_container_create: callable, func_azure_container_delete: callable, func_azure_container_read: callable) -> any:
+    """Orchestrates blob storage operations (S3 and Azure) with unified branching logic."""
+    if service == "s3":
+        if mode == "create":
+            return await func_s3_bucket_create(client_s3=client_s3, config_s3_region_name=config_s3_region_name, bucket=container)
+        elif mode == "public":
+            return await func_s3_bucket_public(client_s3=client_s3, bucket=container)
+        elif mode == "empty":
+            return func_s3_bucket_empty(client_s3_resource=client_s3_resource, bucket=container)
+        elif mode == "delete":
+            return await func_s3_bucket_delete(client_s3=client_s3, bucket=container)
+        elif mode == "read":
+            return await func_s3_bucket_read(client_s3=client_s3)
+    elif service == "azure":
+        if mode == "create":
+            return await func_azure_container_create(client_azure_blob=client_azure_blob, container=container)
+        elif mode == "delete":
+            return await func_azure_container_delete(client_azure_blob=client_azure_blob, container=container)
+        elif mode == "read":
+            return await func_azure_container_read(client_azure_blob=client_azure_blob)
+        else:
+            raise Exception(f"mode {mode} not supported for azure")
+    raise Exception(f"service {service} or mode {mode} not supported")

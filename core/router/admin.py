@@ -95,22 +95,14 @@ async def func_api_admin_mongodb_import(*, request: Request):
         count = await app_state.func_mongodb_delete(upload_file=of["file"][-1], client_mongodb=app_state.client_mongodb, database=of["database"], table=of["table"], func_api_file_to_chunks=app_state.func_api_file_to_chunks)
     return {"status": 1, "message": f"{count} rows processed"}
 
-@router.post("/admin/s3-bucket-ops")
-async def func_api_admin_s3_bucket_ops(*, request: Request):
+@router.post("/admin/blob-storage-ops")
+async def func_api_admin_blob_storage_ops(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["create", "public", "empty", "delete"], None, None, None), ("bucket", "str", 1, None, None, None, None)])
-    if oq["mode"] == "create":
-       output = await app_state.func_s3_bucket_create(client_s3=app_state.client_s3, config_s3_region_name=app_state.config_s3_region_name, bucket=oq["bucket"])
-    elif oq["mode"] == "public":
-       output = await app_state.func_s3_bucket_public(client_s3=app_state.client_s3, bucket=oq["bucket"])
-    elif oq["mode"] == "empty":
-       output = app_state.func_s3_bucket_empty(client_s3_resource=app_state.client_s3_resource, bucket=oq["bucket"])
-    elif oq["mode"] == "delete":
-       output = await app_state.func_s3_bucket_delete(client_s3=app_state.client_s3, bucket=oq["bucket"])
-    return {"status": 1, "message": output}
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, ["s3", "azure"], None, None, None), ("mode", "str", 1, ["create", "public", "empty", "delete", "read"], None, None, None), ("container", "str", 0, None, None, None, None)])
+    return {"status": 1, "message": await app_state.func_orchestrator_blob_storage_ops(service=oq["service"], mode=oq["mode"], container=oq["container"], client_s3=app_state.client_s3, config_s3_region_name=app_state.config_s3_region_name, client_s3_resource=app_state.client_s3_resource, client_azure_blob=app_state.client_azure_blob, func_s3_bucket_create=app_state.func_s3_bucket_create, func_s3_bucket_public=app_state.func_s3_bucket_public, func_s3_bucket_empty=app_state.func_s3_bucket_empty, func_s3_bucket_delete=app_state.func_s3_bucket_delete, func_s3_bucket_read=app_state.func_s3_bucket_read, func_azure_container_create=app_state.func_azure_container_create, func_azure_container_delete=app_state.func_azure_container_delete, func_azure_container_read=app_state.func_azure_container_read)}
 
-@router.post("/admin/s3-url-delete")
-async def func_api_admin_s3_url_delete(*, request: Request):
+@router.post("/admin/blob-url-delete")
+async def func_api_admin_blob_url_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("url", "list", 1, [], None, None, None)])
     return {"status": 1, "message": app_state.func_s3_url_delete(client_s3_resource=app_state.client_s3_resource, url=ob["url"])}
