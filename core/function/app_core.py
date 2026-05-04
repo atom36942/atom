@@ -90,8 +90,6 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
                     global_dict[key] = int(config_val)
                 except Exception:
                     global_dict[key] = config_val
-            if isinstance(global_dict[key], list):
-                global_dict[key] = tuple(global_dict[key])
     try:
         with open("core/config.py", "r") as config_file:
             for node in ast.parse(config_file.read()).body:
