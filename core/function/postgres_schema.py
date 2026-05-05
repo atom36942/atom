@@ -156,7 +156,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                     await conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension};")
                 except Exception as e:
                     if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")) or "pg_cron" in extension:
-                        print(f"⚠️  {f'extension {extension}':<30} : ❌ skipped (insufficient privileges)")
+                        pass
                     else:
                         raise e
         for table_name, column_configs in config_postgres["table"].items():
@@ -308,7 +308,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 await conn.execute(f"CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ({tag_list}) EXECUTE FUNCTION func_drop_disable();")
             except Exception as e:
                 if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
-                    print(f"⚠️  {'event trigger':<30} : ❌ skipped (insufficient privileges)")
+                    pass
                 else:
                     raise e
         else:
@@ -377,5 +377,4 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 drop_vars = "record.relname, record.conname"
                 like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-    print(f"🏗️  {'postgres schema sync':<30} : ✅ done")
     return "database init done"

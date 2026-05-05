@@ -227,7 +227,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
     )
     if errors:
         raise Exception("; ".join(errors))
-    print(f"🛡️  {'application checks':<30} : ✅ done")
     return None
 
 def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list, app_state: any) -> dict:

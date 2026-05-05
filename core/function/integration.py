@@ -1,29 +1,3 @@
-def func_sns_send_mobile_message(*, client_sns: any, mobile: str, message: str) -> None:
-    """Send a mobile SMS using AWS SNS."""
-    client_sns.publish(PhoneNumber=mobile, Message=message)
-    return None
-
-def func_sns_send_mobile_message_template(*, client_sns: any, mobile: str, message: str, template_id: str, entity_id: str, sender_id: str) -> None:
-    """Send a mobile SMS using AWS SNS with specific template and attributes."""
-    client_sns.publish(PhoneNumber=mobile, Message=message, MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sender_id}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": template_id}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": entity_id}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
-    return None
-
-def func_ses_send_email(*, client_ses: any, from_email: str, to_emails: list, subject: str, body: str) -> None:
-    """Send an email via AWS SES."""
-    client_ses.send_email(Source=from_email, Destination={"ToAddresses": to_emails}, Message={"Subject": {"Data": subject}, "Body": {"Html": {"Data": body}}})
-    return None
-
-async def func_resend_send_email(*, config_resend_url: str, config_resend_key: str, from_email: str, to_email: str, email_subject: str, email_content: str) -> None:
-    """Send an email using the Resend API."""
-    import httpx, orjson
-    headers = {"Authorization": f"Bearer {config_resend_key}", "Content-Type": "application/json"}
-    payload = {"from": from_email, "to": [to_email], "subject": email_subject, "html": email_content}
-    async with httpx.AsyncClient() as client:
-        response = await client.post(config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
-        if response.status_code != 200:
-            raise Exception(f"failed to send email: {response.text}")
-    return None
-
 def func_jira_worklog_export(*, url: str, email: str, api_token: str, start_date: str, end_date: str, output_path: str) -> str:
     """Export Jira worklogs for a specific period to a CSV file."""
     try:
@@ -58,16 +32,6 @@ def func_jira_worklog_export(*, url: str, email: str, api_token: str, start_date
         return output_path
     except Exception as e:
         raise Exception(f"jira config exception: {str(e)}")
-
-async def func_mongodb_create(*, upload_file: any, client_mongodb: any, database: str, table: str, func_api_file_to_chunks: any) -> int:
-    """Insert multiple records from a CSV file into a MongoDB collection."""
-    limit_batch = 5000
-    if not client_mongodb: raise Exception("mongo client missing")
-    count = 0
-    async for ol in func_api_file_to_chunks(upload_file=upload_file, chunk_size=limit_batch):
-        await client_mongodb[database][table].insert_many(ol)
-        count += len(ol)
-    return count
 
 async def func_mongodb_update(*, upload_file: any, client_mongodb: any, database: str, table: str, func_api_file_to_chunks: any) -> int:
     """Update multiple records from a CSV file in a MongoDB collection using Replacement."""
@@ -113,43 +77,6 @@ async def func_mongodb_delete(*, upload_file: any, client_mongodb: any, database
             except Exception:
                 id_list.append(obj_id)
         if id_list:
-            await client_mongodb[database][table].delete_many({"_id": {"$in": id_list}})
-        count += len(ol)
-    return count
-
-async def func_redis_create(*, upload_file: any, client_redis: any, config_redis_cache_ttl_sec: int, func_api_file_to_chunks: any) -> int:
-    """Batch create/update objects in Redis from an uploaded CSV file."""
-    limit_batch = 5000
-    import orjson
-    count, first_chunk = 0, True
-    async for ol in func_api_file_to_chunks(upload_file=upload_file, chunk_size=limit_batch):
-        if first_chunk:
-            if sorted(list(ol[0].keys())) != sorted(["key", "value"]):
-                raise Exception("CSV format error: 'create' mode requires exactly 'key' and 'value' columns")
-            first_chunk = False
-        async with client_redis.pipeline(transaction=True) as pipe:
-            for item in ol:
-                val = orjson.dumps(item["value"]).decode("utf-8")
-                if config_redis_cache_ttl_sec:
-                    pipe.setex(item["key"], config_redis_cache_ttl_sec, val)
-                else:
-                    pipe.set(item["key"], val)
-            await pipe.execute()
-        count += len(ol)
-    return count
-
-async def func_redis_delete(*, upload_file: any, client_redis: any, func_api_file_to_chunks: any) -> int:
-    """Batch delete objects in Redis from an uploaded CSV file."""
-    limit_batch = 5000
-    count, first_chunk = 0, True
-    async for ol in func_api_file_to_chunks(upload_file=upload_file, chunk_size=limit_batch):
-        if first_chunk:
-            if list(ol[0].keys()) != ["key"]:
-                raise Exception("CSV format error: 'delete' mode requires exactly one 'key' column")
-            first_chunk = False
-        async with client_redis.pipeline(transaction=True) as pipe:
-            for item in ol:
-                pipe.delete(item["key"])
-            await pipe.execute()
+            await client_mongodb[database][table].delete_many({"_id": {"": id_list}})
         count += len(ol)
     return count

@@ -4,6 +4,10 @@ router = APIRouter()
 
 #import
 import asyncio
+import httpx
+import orjson
+import uuid
+import re
 from datetime import datetime
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 
@@ -12,7 +16,26 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 async def func_api_public_converter_number(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("datatype", "str", 1, ["smallint", "int", "bigint"], None), ("mode", "str", 1, ["encode", "decode"], None), ("x", "str", 1, None, None)])
-    return {"status": 1, "message": app_state.func_converter_number(type=oq["datatype"], mode=oq["mode"], x=oq["x"])}
+    type_limits = {"smallint": 2, "int": 5, "bigint": 11}; charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"
+    if oq["datatype"] not in type_limits: raise ValueError(f"invalid type: {oq['datatype']}, allowed: {list(type_limits.keys())}")
+    base = len(charset); max_len = type_limits[oq["datatype"]]
+    if oq["mode"] == "encode":
+        val_str = str(oq["x"]); val_len = len(val_str)
+        if val_len > max_len: raise ValueError(f"input too long {val_len} > {max_len}")
+        result_num = val_len
+        for char in val_str:
+            char_idx = charset.find(char)
+            if char_idx == -1: raise ValueError("invalid character in input")
+            result_num = result_num * base + char_idx
+        return {"status": 1, "message": result_num}
+    if oq["mode"] == "decode":
+        try: num_val = int(oq["x"])
+        except Exception: raise ValueError("invalid integer for decoding")
+        decoded_chars = []
+        while num_val > 0:
+            num_val, reminder = divmod(num_val, base)
+            decoded_chars.append(charset[reminder])
+        return {"status": 1, "message": "".join(decoded_chars[::-1][1:]) if decoded_chars else ""}
 
 @router.post("/public/object-create")
 async def func_api_public_object_create(*, request: Request):
@@ -47,47 +70,85 @@ async def func_api_public_otp_send_email_ses(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("sender", "str", 1, None, None), ("email", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None)
-    return {"status": 1, "message": app_state.func_ses_send_email(client_ses=app_state.client_ses, from_email=oq["sender"], to_emails=[oq["email"]], subject="your otp code", body=str(otp))}
+    app_state.client_ses.send_email(Source=oq["sender"], Destination={"ToAddresses": [oq["email"]]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
+    return {"status": 1, "message": "done"}
 
 @router.post("/public/otp-send-email-resend")
 async def func_api_public_otp_send_email_resend(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("sender", "str", 1, None, None), ("email", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None)
-    return {"status": 1, "message": await app_state.func_resend_send_email(config_resend_url=app_state.config_resend_url, config_resend_key=app_state.config_resend_key, from_email=oq["sender"], to_email=oq["email"], email_subject="your otp code", email_content=f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>")}
+    headers = {"Authorization": f"Bearer {app_state.config_resend_key}", "Content-Type": "application/json"}
+    payload = {"from": oq["sender"], "to": [oq["email"]], "subject": "your otp code", "html": f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>"}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(app_state.config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
+        if response.status_code != 200: raise Exception(f"failed to send email: {response.text}")
+    return {"status": 1, "message": "done"}
 
 @router.post("/public/otp-send-mobile-sns")
 async def func_api_public_otp_send_mobile_sns(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mobile", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=oq["mobile"], email=None)
-    return {"status": 1, "message": app_state.func_sns_send_mobile_message(client_sns=app_state.client_sns, mobile=oq["mobile"], message=str(otp))}
+    app_state.client_sns.publish(PhoneNumber=oq["mobile"], Message=str(otp))
+    return {"status": 1, "message": "done"}
 
 @router.post("/public/otp-send-mobile-sns-template")
 async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("mobile", "str", 1, None, None), ("message", "str", 1, None, None), ("template_id", "str", 1, None, None), ("entity_id", "str", 1, None, None), ("sender_id", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=ob["mobile"], email=None)
-    return {"status": 1, "message": app_state.func_sns_send_mobile_message_template(client_sns=app_state.client_sns, mobile=ob["mobile"], message=ob["message"].replace("{otp}", str(otp)), template_id=ob["template_id"], entity_id=ob["entity_id"], sender_id=ob["sender_id"])}
+    app_state.client_sns.publish(PhoneNumber=ob["mobile"], Message=ob["message"].replace("{otp}", str(otp)), MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": ob["sender_id"]}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": ob["template_id"]}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": ob["entity_id"]}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
+    return {"status": 1, "message": "done"}
 
 @router.post("/public/otp-send-mobile-fast2sms")
 async def func_api_public_otp_send_mobile_fast2sms(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mobile", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=oq["mobile"], email=None)
-    return {"status": 1, "message": app_state.func_fast2sms_send_otp_mobile(config_fast2sms_url=app_state.config_fast2sms_url, config_fast2sms_key=app_state.config_fast2sms_key, mobile=oq["mobile"], otp_code=str(otp))}
+    params = {"authorization": app_state.config_fast2sms_key, "route": "otp", "variables_values": str(otp), "numbers": oq["mobile"]}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(app_state.config_fast2sms_url, params=params)
+        return {"status": 1, "message": response.json()}
 
 @router.post("/public/jira-worklog-export")
 async def func_api_public_jira_worklog_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("url", "str", 1, None, None), ("email", "str", 1, None, None), ("api_token", "str", 1, None, None), ("start_date", "str", 1, None, None), ("end_date", "str", 1, None, None)])
-    import uuid; output_path = f"tmp/{uuid.uuid4().hex}.csv"
-    import asyncio; await asyncio.to_thread(app_state.func_jira_worklog_export, url=ob["url"], email=ob["email"], api_token=ob["api_token"], start_date=ob["start_date"], end_date=ob["end_date"], output_path=output_path)
-    return await app_state.func_client_download_file(file_path=output_path, is_delete_after=1, chunk_size=1048576)
+    output_path = f"tmp/{uuid.uuid4().hex}.csv"
+    from jira import JIRA; from pathlib import Path; import pandas as pd; import os
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    def _export():
+        jira_client = JIRA(server=ob["url"], basic_auth=(ob["email"], ob["api_token"]))
+        log_rows = []; people = set(); jql = f"worklogDate >= '{ob['start_date']}' AND worklogDate <= '{ob['end_date']}'"
+        all_issues = jira_client.enhanced_search_issues(jql, maxResults=0)
+        for issue in all_issues:
+            if getattr(issue.fields, "assignee", None): people.add(issue.fields.assignee.displayName)
+            for worklog in jira_client.worklogs(issue.id):
+                started_at = worklog.started[:10]
+                if ob["start_date"] <= started_at <= ob["end_date"]:
+                    author_name = worklog.author.displayName; people.add(author_name)
+                    log_rows.append((author_name, started_at, worklog.timeSpentSeconds / 3600))
+        date_range = pd.date_range(start=ob["start_date"], end=ob["end_date"]).strftime("%Y-%m-%d").tolist()
+        if not log_rows:
+            df = pd.DataFrame(index=sorted(list(people)), columns=date_range).fillna(0).astype(int) if people else pd.DataFrame(columns=date_range)
+        else:
+            df = pd.DataFrame(log_rows, columns=["author", "date", "hours"]).pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(index=sorted(list(people)), columns=date_range, fill_value=0).round(0).astype(int)
+        df.to_csv(output_path); return output_path
+    await asyncio.to_thread(_export)
+    def iterfile():
+        with open(output_path, mode="rb") as f:
+            while chunk := f.read(1048576): yield chunk
+        os.remove(output_path)
+    return responses.StreamingResponse(iterfile(), media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{os.path.basename(output_path)}"' })
 
 @router.get("/public/table-tag-read")
 async def func_api_public_table_tag_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("column", "str", 1, app_state.cache_postgres_schema_columns, None), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1), ("filter_column", "str", 0, app_state.cache_postgres_schema_columns, None), ("filter_value", "str", 0, None, None)])
-    val = (await app_state.func_postgres_serialize(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=[{oq["filter_column"]: oq["filter_value"]}], is_base=0))[0][oq["filter_column"]] if oq["filter_column"] and oq["filter_value"] else None
-    return {"status": 1, "message": await app_state.func_table_tag_read(client_postgres_pool=app_state.client_postgres_pool, table=oq["table"], column=oq["column"], limit=oq["limit"], page=oq["page"], filter_column=oq["filter_column"], filter_value=val)}
+    table, column, filter_column, filter_value = oq["table"], oq["column"], oq["filter_column"], (await app_state.func_postgres_serialize(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=[{oq["filter_column"]: oq["filter_value"]}], is_base=0))[0][oq["filter_column"]] if oq["filter_column"] and oq["filter_value"] else None
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column)) or (filter_column and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_column))): raise Exception("invalid identifier")
+    where_clause = f"WHERE x.{filter_column}=$1" if filter_column and filter_value is not None else ""; query_args = [filter_value] if filter_column and filter_value is not None else []
+    query = f"SELECT tag_item, count(*) FROM {table} x CROSS JOIN LATERAL unnest(x.{column}) tag_item {where_clause} GROUP BY tag_item ORDER BY count(*) DESC LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']}"
+    async with app_state.client_postgres_pool.acquire() as conn:
+        rows = await conn.fetch(query, *query_args)
+        return {"status": 1, "message": [{"tag": row["tag_item"], "count": row["count"]} for row in rows]}

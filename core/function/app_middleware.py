@@ -244,7 +244,7 @@ async def func_api_response_error(*, exception: Exception, is_traceback: int, se
     else:
         error_msg = str(exception)
     if is_traceback:
-        print(traceback.format_exc())
+        pass
     if sentry_dsn:
         import sentry_sdk
         sentry_sdk.capture_exception(exception)

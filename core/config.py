@@ -141,6 +141,7 @@ config_api={
 "/admin/postgres-runner":{"id":6,"user_role_check":["realtime",[1]]},
 "/admin/postgres-export":{"id":7,"user_role_check":["inmemory",[1]]},
 "/admin/postgres-import":{"id":8,"user_role_check":["realtime",[1]]},
+"/admin/postgres-clean":{"id":20,"user_role_check":["realtime",[1]]},
 "/admin/redis-import":{"id":9,"user_role_check":["token",[1]]},
 "/admin/mongodb-import":{"id":11,"user_role_check":["token",[1]]},
 "/admin/blob-container-read":{"id":10,"user_role_check":["inmemory",[1]]},

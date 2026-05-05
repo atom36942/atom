@@ -12,15 +12,17 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
     user_id = request.state.user["id"]
-    user = await app_state.func_user_single_read(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
-    metadata = {}
-    queries_metadata = app_state.config_sql.get("profile_metadata")
-    if queries_metadata:
-        async with app_state.client_postgres_pool.acquire() as conn:
+    async with app_state.client_postgres_pool.acquire() as conn:
+        record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", user_id)
+        if not record: raise Exception("user not found")
+        user = dict(record)
+        metadata = {}
+        queries_metadata = app_state.config_sql.get("profile_metadata")
+        if queries_metadata:
             for key, sql_query in queries_metadata.items():
                 records = await conn.fetch(sql_query, user_id)
                 metadata[key] = [dict(record) for record in records]
-    asyncio.create_task(app_state.client_postgres_pool.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
+        await conn.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id)
     profile = {**user, **metadata}
     token = await app_state.func_token_encode(user=profile, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
     return {"status": 1, "message": profile | {"token": token}}
@@ -28,7 +30,10 @@ async def func_api_my_profile(*, request: Request):
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
-    user = await app_state.func_user_single_read(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"])
+    async with app_state.client_postgres_pool.acquire() as conn:
+        record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", request.state.user["id"])
+        if not record: raise Exception("user not found")
+        user = dict(record)
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
     return {"status": 1, "message": token}
 
@@ -70,10 +75,7 @@ async def func_api_my_message_received(*, request: Request):
         if obj_list:
             mark_read_ids = [r["id"] for r in obj_list if r.get("is_read") != 1]
             if mark_read_ids:
-                async def _mark_read():
-                    async with app_state.client_postgres_pool.acquire() as conn:
-                        await conn.execute(f"UPDATE message SET is_read=1 WHERE id IN ({','.join(map(str, mark_read_ids))})")
-                asyncio.create_task(_mark_read())
+                await conn.execute(f"UPDATE message SET is_read=1 WHERE id IN ({','.join(map(str, mark_read_ids))})")
     return {"status": 1, "message": obj_list}
 
 @router.get("/my/message-inbox")
@@ -97,10 +99,7 @@ async def func_api_my_message_thread(*, request: Request):
     async with app_state.client_postgres_pool.acquire() as conn:
         records = await conn.fetch(query, user_one_id, oq["user_id"])
         obj_list = [dict(r) for r in records]
-    async def _mark_read_task():
-        async with app_state.client_postgres_pool.acquire() as conn:
-            await conn.execute("UPDATE message SET is_read=1 WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
-    asyncio.create_task(_mark_read_task())
+        await conn.execute("UPDATE message SET is_read=1 WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": obj_list}
 
 @router.delete("/my/message-delete-single")
@@ -135,7 +134,10 @@ async def func_api_my_message_delete_bulk(*, request: Request):
 async def func_api_my_parent_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("parent_table", "str", 1, app_state.cache_postgres_schema_tables, None), ("parent_column", "str", 1, app_state.cache_postgres_schema_columns, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1)])
-    output = await app_state.func_parent_read(client_postgres_pool=app_state.client_postgres_pool, table=oq["table"], parent_column=oq["parent_column"], parent_table=oq["parent_table"], created_by_id=request.state.user["id"], order=oq["order"], limit=oq["limit"], page=oq["page"])
+    query = f"SELECT x.* FROM {oq['table']} x JOIN {oq['parent_table']} p ON x.{oq['parent_column']} = p.id WHERE p.created_by_id = $1 ORDER BY x.{oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    async with app_state.client_postgres_pool.acquire() as conn:
+        records = await conn.fetch(query, request.state.user["id"])
+        output = [dict(r) for r in records]
     return {"status": 1, "message": output}
 
 @router.post("/my/ids-delete")
@@ -175,5 +177,6 @@ async def func_api_my_object_create_mongodb(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("database", "str", 1, None, None), ("table", "str", 1, None, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = app_state.func_request_obj_list_read(obj_body=ob)
-    output = await app_state.func_mongodb_object_create(client_mongodb=app_state.client_mongodb, database=oq["database"], table=oq["table"], obj_list=obj_list)
+    res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
+    output = [str(id) for id in res.inserted_ids]
     return {"status": 1, "message": output}

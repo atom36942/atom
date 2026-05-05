@@ -13,19 +13,11 @@ async def func_lifespan(app:FastAPI):
    #logging start
    start_journey = time.perf_counter()
    import sys, platform
-   print("----------------------------------------------------------------------")
-   print(f"                         🚀 ATOM FRAMEWORK ")
-   print("----------------------------------------------------------------------")
-   print(f"🚀 {'main.py start':<30} : ✅ done")
-   print(f"🚀 {'app initialization':<30} : ✅ started")
-   print(f"💻 {'system information':<30} : {platform.system()} {platform.release()} ({sys.version.split()[0]})")
    #structure
    func_structure_create(directories=["tmp","secret"], files=[".env"])
    #client init
    client_password_hasher=PasswordHasher()
-   print(f"🔑 {'password hasher':<30} : ✅ initialized")
    client_http=httpx.AsyncClient()
-   print(f"🌐 {'http client':<30} : ✅ connected")
    client_postgres_pool = await func_client_read_postgres(config_postgres={"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection})
    client_redis = await func_client_read_redis(config_redis_url=config_redis_url)
    client_redis_ratelimiter = await func_client_read_redis(config_redis_url=config_redis_url_ratelimiter, event_name="🔴 redis ratelimiter")
@@ -54,19 +46,14 @@ async def func_lifespan(app:FastAPI):
    cache_ratelimiter = {}
    cache_api_response = {}
    cache_postgres_buffer = {}
-   print(f"📦 {'cache initialization':<30} : ✅ done")
    #misc
    func_app_state_add(app_obj=app, dict_context={**globals(),**locals()}, prefix_list=("client_","cache_","func_","config_"))
-   print(f"🛣️  {'router discovery':<30} : ✅ {len(app.routes)} routes")
    app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
-   print(f"📖 {'openapi documentation':<30} : ✅ generated")
    await func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth, client_postgres_pool=client_postgres_pool)
    #ready
    duration = (time.perf_counter() - start_journey) * 1000
-   print(f"✨ {'atom server is ready':<30} : ✅ {duration:.2f} ms")
    #app shutdown
    yield
-   print(f"🛑 {'application shutdown':<30} : 🚀 started")
    if client_postgres_pool:
       await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=None)
    await client_http.aclose()
@@ -94,7 +81,6 @@ async def func_lifespan(app:FastAPI):
       await client_sftp.wait_closed()
    if client_azure_blob:
       await client_azure_blob.close()
-   print(f"🛑 {'application shutdown':<30} : ✅ completed")
       
 #app
 app=func_app_read(func_lifespan=func_lifespan)
