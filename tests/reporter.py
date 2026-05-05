@@ -1,5 +1,5 @@
 """
-Atom Test Reporter — Custom pytest plugin.
+Custom Test Reporter — Table Format.
 
 Registered via conftest.py pytest_configure hook.
 Replaces default terminal output with a clean, minimal table.
@@ -9,7 +9,7 @@ import time
 import pytest
 from _pytest.terminal import TerminalReporter
 
-class AtomReporter(TerminalReporter):
+class TableReporter(TerminalReporter):
     def __init__(self, config, file=None):
         super().__init__(config, file)
         self._idx = 0
@@ -29,15 +29,30 @@ class AtomReporter(TerminalReporter):
         self._start = time.time()
 
     def pytest_runtest_logreport(self, report):
-        if report.when != "call" and not (report.when == "setup" and report.skipped):
+        # We want to report:
+        # 1. Any failure (setup, call, or teardown)
+        # 2. Any skip (setup or call)
+        # 3. Any passed CALL (to keep the table clean, we don't show passed setup/teardown)
+        
+        is_failure = report.failed
+        is_skip = report.skipped
+        is_passed_call = report.passed and report.when == "call"
+        
+        if not (is_failure or is_skip or is_passed_call):
             return
+            
         self._idx += 1
         parts = report.nodeid.split("::")
         module = parts[0].replace("tests/test_", "").replace(".py", "")
         name = parts[1] if len(parts) > 1 else "?"
+        
+        # Include when (setup/call/teardown) in name if not 'call'
+        display_name = f"{name} [{report.when}]" if report.when != "call" else name
+        
         if module != self._module:
             self._module = module
             self._write(f"\n  {'─' * 70}\n  📦 {module}\n  {'─' * 70}\n")
+            
         if report.passed:
             icon, remark = "✅", ""
             self._passed += 1
@@ -54,8 +69,9 @@ class AtomReporter(TerminalReporter):
             self._failed += 1
             msg = str(report.longrepr).split("\n")[-1][:50] if report.longrepr else ""
             remark = msg
-            self._errors.append(f"  {report.nodeid}: {msg}")
-        self._write(f"  {self._idx:>4}  {icon}  {name:<55} {remark}\n")
+            self._errors.append(f"  {report.nodeid} [{report.when}]: {msg}")
+            
+        self._write(f"  {self._idx:>4}  {icon}  {display_name:<55} {remark}\n")
 
     def summary_stats(self):
         elapsed = round(time.time() - self._start, 2)

@@ -25,16 +25,6 @@ def func_file_size_read(*, file_path: str) -> str:
         size /= 1024
     return f"{size:.1f} TB"
 
-def func_file_extension_read(*, filename: str) -> str:
-    """Extract the file extension from a filename."""
-    import os
-    return os.path.splitext(filename)[1].lower()
-
-def func_file_mime_read(*, filename: str) -> str:
-    """Identify the MIME type of a file based on its extension."""
-    import mimetypes
-    return mimetypes.guess_type(filename)[0] or "application/octet-stream"
-
 def func_converter_number(*, type: str, mode: str, x: any) -> any:
     """Encode strings into specific-size integers or decode them back using a custom charset."""
     type_limits = {"smallint": 2, "int": 5, "bigint": 11}
@@ -66,16 +56,19 @@ def func_converter_number(*, type: str, mode: str, x: any) -> any:
             decoded_chars.append(charset[reminder])
         return "".join(decoded_chars[::-1][1:]) if decoded_chars else ""
 
-async def func_regex_check(*, config_regex: dict, obj_list: list):
-    """Validate fields in a list of objects against regex patterns defined in config."""
-    import re
-    if not config_regex:
-        return
-    for obj in obj_list:
-        for key, regex_info in config_regex.items():
-            val = obj.get(key)
-            if val is not None:
-                pattern = regex_info[0]
-                error_msg = regex_info[1]
-                if not re.match(pattern, str(val)):
-                    raise Exception(error_msg)
+def func_folder_reset(*, folder_path: str) -> None:
+    """Safely clear all contents of a directory while maintaining the directory itself."""
+    import os, shutil
+    if os.path.exists(folder_path):
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception:
+                pass
+    else:
+        os.makedirs(folder_path, exist_ok=True)
+    return None

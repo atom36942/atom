@@ -4,7 +4,7 @@ Atom is a high-performance, modular backend framework designed for atomic data o
 | Major Feature | Description |
 | :--- | :--- |
 | **🚀 High Performance** | Low-latency backend orchestration for complex distributed systems. |
-| **🧩 Modular Design** | Decoupled architecture with clear separation of core and service layers. |
+| **🧩 Modular Design** | Decoupled architecture with clearly separated core modules. |
 | **🏗️ SOLID Principles** | Stateless functional logic layer following strict architectural standards. |
 | **⚙️ Multi-Queue Engine** | Unified task dispatching via Celery, Kafka, RabbitMQ, or Redis. |
 | **🗄️ Schema Sync** | Automatic PostgreSQL schema synchronization and maintenance on startup. |
@@ -15,7 +15,7 @@ Atom is a high-performance, modular backend framework designed for atomic data o
 | **🛠️ API Sandbox** | Native interactive tester for real-time endpoint exploration and validation. |
 | **🌐 Unified Clients** | Centralized dependency injection for Postgres, Redis, MongoDB, and S3. |
 | **📊 Observability** | Integrated Prometheus monitoring, Sentry error tracking, and logging. |
-| **☁️ Cloud Native** | Out-of-the-box integrations for AWS S3, Jira, GSheet, and Email services. |
+| **☁️ Cloud Native** | Out-of-the-box integrations for AWS S3, Jira, and Email services. |
 
 # Setup
 ```bash
@@ -56,4 +56,3 @@ config_mongodb_url="mongodb://localhost:27017"
 | **✅ Account Status** | Automated active-status enforcement (Supports: `realtime`, `token`, `inmemory`, `redis`). |
 | **⚡ Smart Caching** | High-performance response caching (Supports: `inmemory`, `redis`). |
 | **🚦 Rate Limiting** | Integrated traffic control and throttling (Supports: `inmemory`, `redis`). |
-

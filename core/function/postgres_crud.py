@@ -335,5 +335,3 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
         async with client_postgres_pool.acquire() as conn:
             await conn.execute(delete_query, created_by_id)
     return "ids deleted"
-import asyncio, asyncpg, csv, time, os, itertools, sys
-from datetime import datetime

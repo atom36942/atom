@@ -1,4 +1,3 @@
-
 async def func_client_read_postgres(*, config_postgres: dict) -> any:
     """Initialize PostgreSQL connection pool and log status."""
     if not config_postgres.get("dsn"):
@@ -198,22 +197,6 @@ def func_client_read_posthog(*, config_posthog_project_host: str, config_posthog
         return res
     except Exception as e:
         print(f"🦔 {'posthog client':<30} : ❌ error: {str(e)[:30]}")
-        return None
-
-def func_client_read_gsheet(*, config_gsheet_service_account_json_path: str, config_gsheet_scope: list) -> any:
-    """Initialize Google Sheets client and log status."""
-    if not config_gsheet_service_account_json_path:
-        print(f"📊 {'gsheet client':<30} : ❌ config missing")
-        return None
-    try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        creds = Credentials.from_service_account_file(config_gsheet_service_account_json_path, scopes=config_gsheet_scope)
-        res = gspread.authorize(creds)
-        print(f"📊 {'gsheet client':<30} : ✅ initialized")
-        return res
-    except Exception as e:
-        print(f"📊 {'gsheet client':<30} : ❌ error: {str(e)[:30]}")
         return None
 
 async def func_client_read_sftp(*, config_sftp_host: str, config_sftp_port: int, config_sftp_username: str, config_sftp_password: str, config_sftp_key_path: str, config_sftp_auth_method: str) -> any:

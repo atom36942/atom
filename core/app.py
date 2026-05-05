@@ -40,7 +40,6 @@ async def func_lifespan(app:FastAPI):
    client_kafka_producer = await func_client_read_kafka_producer(config_kafka_url=config_kafka_url, config_kafka_username=config_kafka_username, config_kafka_password=config_kafka_password)
    client_rabbitmq, client_rabbitmq_producer = await func_client_read_rabbitmq_producer(config_rabbitmq_url=config_rabbitmq_url)
    client_redis_producer = await func_client_read_redis(config_redis_url=config_redis_url_pubsub, event_name="🔴 redis producer")
-   client_gsheet = func_client_read_gsheet(config_gsheet_service_account_json_path=config_gsheet_service_account_json_path, config_gsheet_scope=config_gsheet_scope)
    client_sftp = await func_client_read_sftp(config_sftp_host=config_sftp_host, config_sftp_port=config_sftp_port, config_sftp_username=config_sftp_username, config_sftp_password=config_sftp_password, config_sftp_key_path=config_sftp_key_path, config_sftp_auth_method=config_sftp_auth_method)
    client_azure_blob = await func_client_read_azure_blob(config_azure_account_name=config_azure_account_name, config_azure_account_key=config_azure_account_key, config_azure_connection_string=config_azure_connection_string)
    #schema sync

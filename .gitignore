@@ -4,8 +4,6 @@
 # add
 !core/
 !core/**
-!service/
-!service/**
 !static/
 !static/**
 !tests/

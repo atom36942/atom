@@ -180,7 +180,7 @@ const PATH_OVERRIDES = {
     mode: 'write', 
     query: "DO $$ \nBEGIN \n  FOR i IN 1..1000 LOOP \n    INSERT INTO test (type, title, description, tag, tag_int, location, metadata, is_active, is_verified, rating) \n    VALUES (\n      (i % 10) + 1, \n      'Obj ' || i, \n      'Desc ' || i, \n      ARRAY['tag' || (i % 5), 'tag' || (i % 3)], \n      ARRAY[i % 10, (i + 1) % 10], \n      ST_SetSRID(ST_MakePoint(80.0 + (i * 0.001), 15.0 + (i * 0.001)), 4326)::geography, \n      jsonb_build_object('id', i, 'role', 'user', 'active', true), \n      1, \n      1, \n      (i % 5) + 0.5\n    ); \n  END LOOP; \nEND $$;" 
   },
-  '/admin/postgres-export': { query: 'SELECT * FROM test limit 100;' },
+  '/admin/postgres-export': { table: 'test' },
   '/admin/object-create': { table: 'test', obj_list: [{type:1,title:'Object 1'},{type:2,title:'Object 2'},{type:1,title:'Object 3'},{type:3,title:'Object 4'},{type:2,title:'Object 5'},{type:1,title:'Object 6'},{type:4,title:'Object 7'},{type:2,title:'Object 8'},{type:1,title:'Object 9'},{type:3,title:'Object 10'},{type:2,title:'Object 11'},{type:1,title:'Object 12'},{type:4,title:'Object 13'},{type:2,title:'Object 14'},{type:1,title:'Object 15'}] },
   '/admin/object-update': { id: 1, name: 'test', table: 'users' },
   '/admin/object-read': { table: 'test' },

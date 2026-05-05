@@ -46,6 +46,7 @@ async def func_s3_url_delete(*, client_s3: any, url: list) -> any:
     return "urls deleted"
 
 async def func_s3_upload_file(*, client_s3: any, bucket: str, file_list: list, config_blob_limit_kb: int, config_blob_upload_limit_count: int) -> dict:
+    """Upload multiple files to AWS S3."""
     import uuid
     if not bucket: raise Exception("bucket name required")
     if len(file_list) > config_blob_upload_limit_count:
@@ -62,6 +63,7 @@ async def func_s3_upload_file(*, client_s3: any, bucket: str, file_list: list, c
     return output
 
 def func_s3_upload_url(*, client_s3: any, config_s3_region_name: str, bucket: str, config_blob_limit_kb: int, config_blob_expire_sec: int, count: int, config_blob_upload_limit_count: int) -> list:
+    """Generate multiple presigned URLs for uploading files to AWS S3."""
     import uuid
     if not bucket: raise Exception("bucket name required")
     if count > config_blob_upload_limit_count:

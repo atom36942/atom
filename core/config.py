@@ -57,8 +57,6 @@ config_blob_expire_sec=60
 
 #integration
 config_google_login_client_id=None
-config_gsheet_service_account_json_path=None
-config_gsheet_scope=["https://www.googleapis.com/auth/spreadsheets"]
 config_fast2sms_url=None
 config_fast2sms_key=None
 config_resend_url=None

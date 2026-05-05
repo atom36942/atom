@@ -82,7 +82,7 @@ async def func_api_public_jira_worklog_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("url", "str", 1, None, None), ("email", "str", 1, None, None), ("api_token", "str", 1, None, None), ("start_date", "str", 1, None, None), ("end_date", "str", 1, None, None)])
     import uuid; output_path = f"tmp/{uuid.uuid4().hex}.csv"
-    await asyncio.to_thread(app_state.func_jira_worklog_export, url=ob["url"], email=ob["email"], api_token=ob["api_token"], start_date=ob["start_date"], end_date=ob["end_date"], output_path=output_path)
+    import asyncio; await asyncio.to_thread(app_state.func_jira_worklog_export, url=ob["url"], email=ob["email"], api_token=ob["api_token"], start_date=ob["start_date"], end_date=ob["end_date"], output_path=output_path)
     return await app_state.func_client_download_file(file_path=output_path, is_delete_after=1, chunk_size=1048576)
 
 @router.get("/public/table-tag-read")

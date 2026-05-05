@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-mail-parser
-pandas
-openpyxl
-beautifulsoup4
-python-multipart
