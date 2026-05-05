@@ -45,9 +45,8 @@ async def func_api_admin_object_read(*, request: Request):
 @router.post("/admin/ids-delete")
 async def func_api_admin_ids_delete(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None)])
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("ids", "str", 1, None, None)])
-    return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=oq["table"], ids=ob["ids"], created_by_id=None, client_postgres_conn=None)}
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("ids", "str", 1, None, None)])
+    return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=None, client_postgres_conn=None)}
 
 @router.post("/admin/postgres-runner")
 async def func_api_admin_postgres_runner(*, request: Request):

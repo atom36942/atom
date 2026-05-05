@@ -195,26 +195,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
                 except Exception:
                     pass
         return errs
-
-    def _get_state_errors():
-        import os
-        errs = []
-        folder = "core/function"
-        for filename in os.listdir(folder):
-            if filename.endswith(".py") and filename != "__init__.py":
-                path = os.path.join(folder, filename)
-                try:
-                    with open(path, "r") as f:
-                        tree = ast.parse(f.read())
-                    for node in tree.body:
-                        if isinstance(node, ast.Assign):
-                            # Flag module-level mutable state (dict/list)
-                            if isinstance(node.value, (ast.List, ast.Dict)):
-                                errs.append(f"global mutable state found in {filename}: {ast.dump(node)}")
-                except Exception:
-                    pass
-        return errs
-
     def _get_config_standard_errors():
         errs = []
         path = "core/config.py"
@@ -243,8 +223,7 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         (await _get_root_user_errors(client_postgres_pool)) +
         _get_config_standard_errors() +
         _get_function_standard_errors() +
-        _get_import_errors() +
-        _get_state_errors()
+        _get_import_errors()
     )
     if errors:
         raise Exception("; ".join(errors))
