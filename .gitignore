@@ -17,10 +17,9 @@
 !requirements.txt
 !Dockerfile
 !readme.md
-!AGENTS.md
 !/.gitignore
 !pytest.ini
-!curl.md
+!AGENTS.md
 !.dockerignore
 
 # ignore
