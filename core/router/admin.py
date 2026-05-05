@@ -6,7 +6,7 @@ router=APIRouter()
 from fastapi import Request
 
 #admin
-@router.post("/admin/sync")
+@router.get("/admin/sync")
 async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
     await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=app_state.cache_postgres_buffer, client_postgres_conn=None)
@@ -28,7 +28,7 @@ async def func_api_admin_object_create(*, request: Request):
     obj_list = app_state.func_request_obj_list_read(obj_body=ob)
     return {"status": 1, "message": await app_state.func_orchestrator_obj_create(user_id=None, api_role="admin", table=oq["table"], mode=oq["mode"], is_serialize=oq["is_serialize"], queue=oq["queue"], obj_list=obj_list, config_table_create_disable_my=app_state.config_table_create_disable_my, config_table_create_enable_public=app_state.config_table_create_enable_public, config_column_disable=app_state.config_column_disable, config_table=app_state.config_table, config_regex=app_state.config_regex, func_regex_check=app_state.func_regex_check, client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, func_orchestrator_producer=app_state.func_orchestrator_producer, func_postgres_create=app_state.func_postgres_create, client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer, client_postgres_conn=None)}
 
-@router.post("/admin/object-update")
+@router.put("/admin/object-update")
 async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("otp", "int", 0, None, None), ("queue", "str", 0, None, None)])

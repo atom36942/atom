@@ -11,7 +11,17 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
-    profile = await app_state.func_user_profile_read(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"], config_sql=app_state.config_sql, func_user_single_read=app_state.func_user_single_read)
+    user_id = request.state.user["id"]
+    user = await app_state.func_user_single_read(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
+    metadata = {}
+    queries_metadata = app_state.config_sql.get("profile_metadata")
+    if queries_metadata:
+        async with app_state.client_postgres_pool.acquire() as conn:
+            for key, sql_query in queries_metadata.items():
+                records = await conn.fetch(sql_query, user_id)
+                metadata[key] = [dict(record) for record in records]
+    asyncio.create_task(app_state.client_postgres_pool.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
+    profile = {**user, **metadata}
     token = await app_state.func_token_encode(user=profile, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
     return {"status": 1, "message": profile | {"token": token}}
 
@@ -26,51 +36,100 @@ async def func_api_my_token_refresh(*, request: Request):
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("days", "int", 1, None, None)])
-    obj_list = await app_state.func_user_api_usage_read(client_postgres_pool=app_state.client_postgres_pool, days=oq["days"], user_id=request.state.user["id"])
+    query = "SELECT api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY api LIMIT 1000;"
+    async with app_state.client_postgres_pool.acquire() as conn:
+        records = await conn.fetch(query, oq["days"], request.state.user["id"])
+        obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
 
 @router.delete("/my/account-delete")
 async def func_api_my_account_delete(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["soft", "hard"], None)])
-    output = await app_state.func_user_account_delete(mode=oq["mode"], client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"])
-    return {"status": 1, "message": output}
+    user_id = request.state.user["id"]
+    async with app_state.client_postgres_pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT role FROM users WHERE id=$1", user_id)
+        if not user: raise Exception("user not found")
+        if user["role"] is not None: raise Exception("account with role cannot be deleted")
+        if oq["mode"] == "soft": query = "UPDATE users SET is_deleted=1 WHERE id=$1"
+        elif oq["mode"] == "hard": query = "DELETE FROM users WHERE id=$1"
+        else: raise Exception(f"invalid delete mode: {oq['mode']}, allowed: soft, hard")
+        await conn.execute(query, user_id)
+    return {"status": 1, "message": "account deleted"}
 
 @router.get("/my/message-received")
 async def func_api_my_message_received(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1)])
-    obj_list = await app_state.func_message_received(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"], mode=oq["mode"], order=oq["order"], limit=oq["limit"], page=oq["page"])
+    user_id = request.state.user["id"]
+    unread_filter = "AND is_read=1" if oq["mode"] == "read" else "AND is_read IS DISTINCT FROM 1" if oq["mode"] == "unread" else ""
+    query = f"SELECT * FROM message WHERE user_id=$1 {unread_filter} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    async with app_state.client_postgres_pool.acquire() as conn:
+        records = await conn.fetch(query, user_id)
+        obj_list = [dict(r) for r in records]
+        if obj_list:
+            mark_read_ids = [r["id"] for r in obj_list if r.get("is_read") != 1]
+            if mark_read_ids:
+                async def _mark_read():
+                    async with app_state.client_postgres_pool.acquire() as conn:
+                        await conn.execute(f"UPDATE message SET is_read=1 WHERE id IN ({','.join(map(str, mark_read_ids))})")
+                asyncio.create_task(_mark_read())
     return {"status": 1, "message": obj_list}
 
 @router.get("/my/message-inbox")
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1)])
-    obj_list = await app_state.func_message_inbox(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"], mode=oq["mode"], order=oq["order"], limit=oq["limit"], page=oq["page"])
+    user_id = request.state.user["id"]
+    where_clause = "user_id=$1 AND is_read=1" if oq["mode"] == "read" else "user_id=$1 AND is_read IS DISTINCT FROM 1" if oq["mode"] == "unread" else "1=1"
+    query = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    async with app_state.client_postgres_pool.acquire() as conn:
+        records = await conn.fetch(query, user_id)
+        obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
 
 @router.get("/my/message-thread")
 async def func_api_my_message_thread(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("user_id", "int", 1, None, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1)])
-    obj_list = await app_state.func_message_thread(client_postgres_pool=app_state.client_postgres_pool, user_one_id=request.state.user["id"], user_id=oq["user_id"], order=oq["order"], limit=oq["limit"], page=oq["page"])
-    asyncio.create_task(app_state.func_message_thread_mark_read(client_postgres_pool=app_state.client_postgres_pool, current_user_id=request.state.user["id"], partner_id=oq["user_id"]))
+    user_one_id = request.state.user["id"]
+    query = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    async with app_state.client_postgres_pool.acquire() as conn:
+        records = await conn.fetch(query, user_one_id, oq["user_id"])
+        obj_list = [dict(r) for r in records]
+    async def _mark_read_task():
+        async with app_state.client_postgres_pool.acquire() as conn:
+            await conn.execute("UPDATE message SET is_read=1 WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
+    asyncio.create_task(_mark_read_task())
     return {"status": 1, "message": obj_list}
 
 @router.delete("/my/message-delete-single")
 async def func_api_my_message_delete_single(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("id", "int", 1, None, None)])
-    output = await app_state.func_message_delete_single(client_postgres_pool=app_state.client_postgres_pool, id=oq["id"], user_id=request.state.user["id"])
-    return {"status": 1, "message": output}
+    async with app_state.client_postgres_pool.acquire() as conn:
+        await conn.execute("DELETE FROM message WHERE id=$1 AND (created_by_id=$2 OR user_id=$2)", oq["id"], request.state.user["id"])
+    return {"status": 1, "message": "message deleted"}
 
 @router.delete("/my/message-delete-bulk")
 async def func_api_my_message_delete_bulk(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["sent", "received", "all"], None)])
-    output = await app_state.func_message_delete_bulk(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"], mode=oq["mode"])
-    return {"status": 1, "message": output}
+    user_id = request.state.user["id"]
+    if oq["mode"] == "sent":
+        query = "DELETE FROM message WHERE created_by_id=$1"
+        args = (user_id,)
+    elif oq["mode"] == "received":
+        query = "DELETE FROM message WHERE user_id=$1"
+        args = (user_id,)
+    elif oq["mode"] == "all":
+        query = "DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)"
+        args = (user_id,)
+    else:
+        raise Exception(f"invalid delete mode: {oq['mode']}, allowed: sent, received, all")
+    async with app_state.client_postgres_pool.acquire() as conn:
+        await conn.execute(query, *args)
+    return {"status": 1, "message": "messages deleted"}
 
 @router.get("/my/parent-read")
 async def func_api_my_parent_read(*, request: Request):
