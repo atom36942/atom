@@ -4,9 +4,14 @@ def func_app_read(*, func_lifespan: any) -> any:
     return FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
 def func_app_add_cors(*, app_obj: any, config_cors_origin: list, config_cors_method: list, config_cors_headers: list, config_cors_expose_headers: list, config_is_enable_cors_credentials: int) -> None:
-    """Add CORS middleware to the FastAPI application, exposing required headers like Content-Disposition."""
+    """Add CORS middleware to the FastAPI application, generalized to handle wildcards even with credentials enabled."""
     from fastapi.middleware.cors import CORSMiddleware
-    app_obj.add_middleware(CORSMiddleware, allow_origins=config_cors_origin, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))
+    allow_origins = config_cors_origin
+    allow_origin_regex = None
+    if "*" in config_cors_origin and config_is_enable_cors_credentials == 1:
+        allow_origins = []
+        allow_origin_regex = ".*"
+    app_obj.add_middleware(CORSMiddleware, allow_origins=allow_origins, allow_origin_regex=allow_origin_regex, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))
     return None
 
 def func_app_state_add(*, app_obj: any, dict_context: dict, prefix_list: tuple) -> None:

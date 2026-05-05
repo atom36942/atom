@@ -108,6 +108,8 @@ if config_sentry_dsn:
 #middleware
 @app.middleware("http")
 async def middleware(request, api_function):
+    if request.method == "OPTIONS":
+        return await api_function(request)
     try:
         start, type, error, request.state.user = time.perf_counter(), None, None, {}
         app_state = request.app.state

@@ -81,7 +81,7 @@ config_cors_origin=["*"]
 config_cors_method=["*"]
 config_cors_headers=["*"]
 config_cors_expose_headers=["Content-Disposition", "x-cache"]
-config_is_enable_cors_credentials=0
+config_is_enable_cors_credentials=1
 
 #switch
 config_is_enable_signup=1

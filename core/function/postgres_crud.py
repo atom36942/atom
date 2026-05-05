@@ -1,22 +1,25 @@
 async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     if mode == "flush":
-        for tbl, buffer_list in list(cache_postgres_buffer.items()):
+        for key, buffer_list in list(cache_postgres_buffer.items()):
             if buffer_list:
+                tbl = key.split("|")[0] if "|" in key else key
                 await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
-                cache_postgres_buffer[tbl] = []
+                cache_postgres_buffer[key] = []
         return "flushed"
     if not obj_list:
         return None
     serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0 if len(obj_list) > 1 else 1) if is_serialize else obj_list
     if mode == "buffer":
-        if table not in cache_postgres_buffer:
-            cache_postgres_buffer[table] = []
-        cache_postgres_buffer[table].extend(serialized_list)
-        if len(cache_postgres_buffer[table]) >= buffer_limit:
-            items = cache_postgres_buffer[table]
+        cols_key = ",".join(sorted(serialized_list[0].keys()))
+        buffer_key = f"{table}|{cols_key}"
+        if buffer_key not in cache_postgres_buffer:
+            cache_postgres_buffer[buffer_key] = []
+        cache_postgres_buffer[buffer_key].extend(serialized_list)
+        if len(cache_postgres_buffer[buffer_key]) >= buffer_limit:
+            items = cache_postgres_buffer[buffer_key]
             await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=items, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
-            cache_postgres_buffer[table] = []
+            cache_postgres_buffer[buffer_key] = []
             return "buffered released"
         return "buffered"
     if mode == "now":
@@ -239,16 +242,36 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
                 res_row[f"{target_tbl}_{action_op}"] = action_map.get(obj_id, default_val)
         return result_list
 
-async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, obj_list: list, is_serialize: int, created_by_id: int, is_return_ids: int) -> any:
-    """Update PostgreSQL records with support for owner validation, batch processing, and dynamic serialization."""
-    limit_batch = 5000
-    import re, orjson
-    if is_serialize:
-        obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
+async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, created_by_id: int, is_return_ids: int, buffer_limit: int, cache_postgres_buffer: dict) -> any:
+    """Update PostgreSQL records with support for owner validation, batch processing, buffering, and dynamic serialization."""
+    if mode == "flush":
+        for key, buffer_list in list(cache_postgres_buffer.items()):
+            if buffer_list:
+                tbl = key.split("|")[0] if "|" in key else key
+                await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, created_by_id=None, is_return_ids=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
+                cache_postgres_buffer[key] = []
+        return "flushed"
     if not obj_list:
         return "0 rows updated"
+    if is_serialize:
+        obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
+    if mode == "buffer":
+        cols_key = ",".join(sorted(obj_list[0].keys()))
+        buffer_key = f"{table}|{cols_key}"
+        if buffer_key not in cache_postgres_buffer:
+            cache_postgres_buffer[buffer_key] = []
+        cache_postgres_buffer[buffer_key].extend(obj_list)
+        if len(cache_postgres_buffer[buffer_key]) >= buffer_limit:
+            items = cache_postgres_buffer[buffer_key]
+            await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=items, is_serialize=0, created_by_id=created_by_id, is_return_ids=is_return_ids, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
+            cache_postgres_buffer[buffer_key] = []
+            return "buffered released"
+        return "buffered"
+    if mode == "now":
+        limit_batch = 5000
     if any("id" not in obj for obj in obj_list):
         raise Exception("missing required field: 'id' for update operation")
+    import re, orjson
     update_cols = []
     for c in obj_list[0]:
         if c != "id":

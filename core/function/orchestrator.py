@@ -34,13 +34,13 @@ async def func_orchestrator_obj_create(*, user_id: any, api_role: str, table: st
         results = []
         for i in range(0, len(obj_list), limit_batch):
             batch = obj_list[i : i + limit_batch]
-            payload = {"mode": "now", "table": table, "obj_list": batch, "is_serialize": is_serialize, "buffer_limit": 0}
+            payload = {"mode": mode, "table": table, "obj_list": batch, "is_serialize": is_serialize, "buffer_limit": config_table.get(table, {}).get("buffer_limit", 0)}
             res = await func_orchestrator_producer(queue=queue, func_name=func_name, payload=payload, client_celery_producer=client_celery_producer, client_kafka_producer=client_kafka_producer, client_rabbitmq_producer=client_rabbitmq_producer, client_redis_producer=client_redis_producer)
             results.append(res)
         return results if len(results) > 1 else results[0]
     return await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode=mode, table=table, obj_list=obj_list, is_serialize=is_serialize, buffer_limit=config_table.get(table, {}).get("buffer_limit", 0), cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
 
-async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: str, is_serialize: int, queue: str, otp: int, obj_list: list, config_is_enable_otp_users_update_admin: int, config_column_disable: list, config_column_enable_single_update: list, config_regex: dict, func_regex_check: callable, func_otp_verify: callable, client_postgres_pool: any, client_password_hasher: any, config_expiry_sec_otp: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_update: callable, func_postgres_serialize: callable, cache_postgres_schema: dict, client_postgres_conn: any) -> any:
+async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: str, mode: str, is_serialize: int, queue: str, otp: int, obj_list: list, config_table: dict, config_is_enable_otp_users_update_admin: int, config_column_disable: list, config_column_enable_single_update: list, config_regex: dict, func_regex_check: callable, func_otp_verify: callable, client_postgres_pool: any, client_password_hasher: any, config_expiry_sec_otp: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_update: callable, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
     """Wrapper orchestration for object updates with owner validation, OTP checks, and optional queueing. Uses explicit mandatory parameters."""
     limit_batch = 5000
     if not obj_list:
@@ -92,11 +92,11 @@ async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: st
         results = []
         for i in range(0, len(obj_list), limit_batch):
             batch = obj_list[i : i + limit_batch]
-            payload = {"table": table, "obj_list": batch, "is_serialize": is_serialize, "created_by_id": created_by_id, "is_return_ids": is_return_ids}
+            payload = {"mode": mode, "table": table, "obj_list": batch, "is_serialize": is_serialize, "created_by_id": created_by_id, "is_return_ids": is_return_ids, "buffer_limit": config_table.get(table, {}).get("buffer_limit", 0)}
             res = await func_orchestrator_producer(queue=queue, func_name=func_name, payload=payload, client_celery_producer=client_celery_producer, client_kafka_producer=client_kafka_producer, client_rabbitmq_producer=client_rabbitmq_producer, client_redis_producer=client_redis_producer)
             results.append(res)
         return results if len(results) > 1 else results[0]
-    return await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_serialize=is_serialize, created_by_id=created_by_id, is_return_ids=is_return_ids, client_postgres_conn=client_postgres_conn)
+    return await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode=mode, table=table, obj_list=obj_list, is_serialize=is_serialize, created_by_id=created_by_id, is_return_ids=is_return_ids, buffer_limit=config_table.get(table, {}).get("buffer_limit", 0), cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
 
 async def func_orchestrator_postgres_import(*, table: str, upload_file: any, mode: str, is_serialize: int, config_regex: dict, func_regex_check: callable, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, cache_postgres_buffer: dict, func_postgres_serialize: callable, func_postgres_create: callable, func_postgres_update: callable, func_postgres_delete: callable, func_api_file_to_chunks: callable) -> int:
     """Orchestrates atomic bulk PostgreSQL operations using a single transaction to ensure data integrity."""
@@ -117,7 +117,7 @@ async def func_orchestrator_postgres_import(*, table: str, upload_file: any, mod
                 if mode == "create":
                     await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=obj_list, is_serialize=is_serialize, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=conn)
                 elif mode == "update":
-                    await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_serialize=is_serialize, created_by_id=None, is_return_ids=0, client_postgres_conn=conn)
+                    await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=obj_list, is_serialize=is_serialize, created_by_id=None, is_return_ids=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=conn)
                 elif mode == "delete":
                     await func_postgres_delete(client_postgres_pool=client_postgres_pool, table=table, ids=",".join(str(obj["id"]) for obj in obj_list), created_by_id=None, client_postgres_conn=conn)
                 count += len(obj_list)
