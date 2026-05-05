@@ -14,8 +14,7 @@ def _import_recursive(package_path, package_name):
                 module = importlib.import_module(f".{module_name}", package_name)
                 # Flatten the module's public attributes into the package namespace
                 for attr_name in dir(module):
-                    if not attr_name.startswith("_"):
-                        globals()[attr_name] = getattr(module, attr_name)
+                    if not attr_name.startswith("_"): globals()[attr_name] = getattr(module, attr_name)
 
 # Start recursive import from the current directory
 _import_recursive(__path__[0], __package__)

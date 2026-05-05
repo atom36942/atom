@@ -16,86 +16,89 @@ async def func_lifespan(app:FastAPI):
    #structure
    func_structure_create(directories=["tmp","secret"], files=[".env"])
    #client init
-   client_password_hasher=PasswordHasher()
-   client_http=httpx.AsyncClient()
-   client_postgres_pool = await func_client_read_postgres(config_postgres={"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection})
-   client_redis = await func_client_read_redis(config_redis_url=config_redis_url)
-   client_redis_ratelimiter = await func_client_read_redis(config_redis_url=config_redis_url_ratelimiter, event_name="🔴 redis ratelimiter")
-   client_mongodb = await func_client_read_mongodb(config_mongodb_url=config_mongodb_url)
-   client_s3, client_s3_resource = await func_client_read_s3(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_s3_region_name=config_s3_region_name)
-   client_sns = func_client_read_sns(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_sns_region_name=config_sns_region_name)
-   client_ses = func_client_read_ses(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_ses_region_name=config_ses_region_name)
-   client_openai = func_client_read_openai(config_openai_key=config_openai_key)
-   client_gemini = func_client_read_gemini(config_gemini_key=config_gemini_key)
-   client_posthog = func_client_read_posthog(config_posthog_project_host=config_posthog_project_host, config_posthog_project_key=config_posthog_project_key)
-   client_celery_producer = func_client_read_celery_producer(config_celery_broker_url=config_celery_broker_url, config_celery_backend_url=config_celery_backend_url)
-   client_kafka_producer = await func_client_read_kafka_producer(config_kafka_url=config_kafka_url, config_kafka_username=config_kafka_username, config_kafka_password=config_kafka_password)
-   client_rabbitmq, client_rabbitmq_producer = await func_client_read_rabbitmq_producer(config_rabbitmq_url=config_rabbitmq_url)
-   client_redis_producer = await func_client_read_redis(config_redis_url=config_redis_url_pubsub, event_name="🔴 redis producer")
-   client_sftp = await func_client_read_sftp(config_sftp_host=config_sftp_host, config_sftp_port=config_sftp_port, config_sftp_username=config_sftp_username, config_sftp_password=config_sftp_password, config_sftp_key_path=config_sftp_key_path, config_sftp_auth_method=config_sftp_auth_method)
-   client_azure_blob = await func_client_read_azure_blob(config_azure_account_name=config_azure_account_name, config_azure_account_key=config_azure_account_key, config_azure_connection_string=config_azure_connection_string)
-   #schema sync
-   if client_postgres_pool and config_is_enable_postgres_init_startup == 1:
-      await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=config_postgres, config_postgres_root_user_password=config_postgres_root_user_password)
-   #cache init
-   cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
-   cache_postgres_schema_tables=list(cache_postgres_schema.keys())
-   cache_postgres_schema_columns=sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
-   cache_users_role=await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("cache_users_role")) if client_postgres_pool else {}
-   cache_users_is_active=await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
-   cache_ratelimiter = {}
-   cache_api_response = {}
-   cache_postgres_buffer = {}
-   #misc
-   func_app_state_add(app_obj=app, dict_context={**globals(),**locals()}, prefix_list=("client_","cache_","func_","config_"))
-   app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
-   await func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth, client_postgres_pool=client_postgres_pool)
+   try:
+       client_postgres_pool = client_redis = client_redis_ratelimiter = client_mongodb = client_s3 = client_s3_resource = client_sns = client_ses = client_openai = client_gemini = client_posthog = client_celery_producer = client_kafka_producer = client_rabbitmq = client_rabbitmq_producer = client_redis_producer = client_sftp = client_azure_blob = client_password_hasher = client_http = None
+       client_password_hasher = PasswordHasher()
+       client_http = httpx.AsyncClient()
+       client_postgres_pool = await func_client_read_postgres(config_postgres={"dsn":config_postgres_url,"min_size":config_postgres_min_connection,"max_size":config_postgres_max_connection})
+       client_redis = await func_client_read_redis(config_redis_url=config_redis_url)
+       client_redis_ratelimiter = await func_client_read_redis(config_redis_url=config_redis_url_ratelimiter, event_name="🔴 redis ratelimiter")
+       client_mongodb = await func_client_read_mongodb(config_mongodb_url=config_mongodb_url)
+       client_s3, client_s3_resource = await func_client_read_s3(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_s3_region_name=config_s3_region_name)
+       client_sns = func_client_read_sns(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_sns_region_name=config_sns_region_name)
+       client_ses = func_client_read_ses(config_aws_access_key_id=config_aws_access_key_id, config_aws_secret_access_key=config_aws_secret_access_key, config_ses_region_name=config_ses_region_name)
+       client_openai = func_client_read_openai(config_openai_key=config_openai_key)
+       client_gemini = func_client_read_gemini(config_gemini_key=config_gemini_key)
+       client_posthog = func_client_read_posthog(config_posthog_project_host=config_posthog_project_host, config_posthog_project_key=config_posthog_project_key)
+       client_celery_producer = func_client_read_celery_producer(config_celery_broker_url=config_celery_broker_url, config_celery_backend_url=config_celery_backend_url)
+       client_kafka_producer = await func_client_read_kafka_producer(config_kafka_url=config_kafka_url, config_kafka_username=config_kafka_username, config_kafka_password=config_kafka_password)
+       client_rabbitmq, client_rabbitmq_producer = await func_client_read_rabbitmq_producer(config_rabbitmq_url=config_rabbitmq_url)
+       client_redis_producer = await func_client_read_redis(config_redis_url=config_redis_url_pubsub, event_name="🔴 redis producer")
+       client_sftp = await func_client_read_sftp(config_sftp_host=config_sftp_host, config_sftp_port=config_sftp_port, config_sftp_username=config_sftp_username, config_sftp_password=config_sftp_password, config_sftp_key_path=config_sftp_key_path, config_sftp_auth_method=config_sftp_auth_method)
+       client_azure_blob = await func_client_read_azure_blob(config_azure_account_name=config_azure_account_name, config_azure_account_key=config_azure_account_key, config_azure_connection_string=config_azure_connection_string)
+       #schema sync
+       if client_postgres_pool and config_is_enable_postgres_init_startup == 1: await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=config_postgres, config_postgres_root_user_password=config_postgres_root_user_password)
+       #cache init
+       cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
+       cache_postgres_schema_tables=list(cache_postgres_schema.keys())
+       cache_postgres_schema_columns=sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
+       cache_users_role=await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("cache_users_role")) if client_postgres_pool else {}
+       cache_users_is_active=await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("cache_users_is_active")) if client_postgres_pool else {}
+       cache_ratelimiter, cache_api_response, cache_postgres_buffer = {}, {}, {}
+       #app state add
+       for key, val in {**globals(),**locals()}.items():
+          if key.startswith(("client_","cache_","func_","config_")): setattr(app.state, key, val)
+       app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
+       await func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth, client_postgres_pool=client_postgres_pool)
+   except Exception as e:
+       print(f"❌ startup error: {e}")
    #ready
    duration = (time.perf_counter() - start_journey) * 1000
    #app shutdown
    yield
-   if client_postgres_pool:
-      await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=None)
+   if client_postgres_pool: await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=None)
    await client_http.aclose()
-   if client_postgres_pool:
-      await client_postgres_pool.close()
-   if client_redis:
-      await client_redis.aclose()
-   if client_redis_ratelimiter:
-      await client_redis_ratelimiter.aclose()
-   if client_mongodb:
-      client_mongodb.close()
+   if client_postgres_pool: await client_postgres_pool.close()
+   if client_redis: await client_redis.aclose()
+   if client_redis_ratelimiter: await client_redis_ratelimiter.aclose()
+   if client_mongodb: client_mongodb.close()
    if client_posthog:
       client_posthog.shutdown()
       client_posthog.flush()
-   if client_kafka_producer:
-      await client_kafka_producer.stop()
-   if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed:
-      await client_rabbitmq_producer.close()
-   if client_rabbitmq and not client_rabbitmq.is_closed:
-      await client_rabbitmq.close()
-   if client_redis_producer:
-      await client_redis_producer.aclose()
+   if client_kafka_producer: await client_kafka_producer.stop()
+   if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed: await client_rabbitmq_producer.close()
+   if client_rabbitmq and not client_rabbitmq.is_closed: await client_rabbitmq.close()
+   if client_redis_producer: await client_redis_producer.aclose()
    if client_sftp:
       client_sftp.close()
       await client_sftp.wait_closed()
-   if client_azure_blob:
-      await client_azure_blob.close()
+   if client_azure_blob: await client_azure_blob.close()
       
 #app
-app=func_app_read(func_lifespan=func_lifespan)
+app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
-#app add
-func_app_add_router(app_obj=app)
-func_app_add_static(app_obj=app, folder_path="./static", route_path="/static")
+#app add router
+import importlib.util, pathlib
+for path in pathlib.Path("core/router").rglob("*.py"):
+   if not path.name.startswith(("_", ".")):
+      spec = importlib.util.spec_from_file_location(path.stem, path)
+      module = importlib.util.module_from_spec(spec)
+      spec.loader.exec_module(module)
+      if hasattr(module, "router"): app.include_router(module.router)
+
+#app add static
+from fastapi.staticfiles import StaticFiles
+app.mount("/static", StaticFiles(directory="./static"), name="static")
+
+#app add sentry
 if config_sentry_dsn:
-   func_app_add_sentry(config_sentry_dsn=config_sentry_dsn)
+   import sentry_sdk
+   from sentry_sdk.integrations.fastapi import FastApiIntegration
+   sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=True)
 
-#middleware
 @app.middleware("http")
 async def middleware(request, api_function):
-    if request.method == "OPTIONS":
-        return await api_function(request)
+    if request.method == "OPTIONS": return await api_function(request)
     try:
         start, type, error, request.state.user = time.perf_counter(), None, None, {}
         app_state = request.app.state
@@ -110,4 +113,5 @@ async def middleware(request, api_function):
     return response
     
 #cors add (must be at the end to be outermost)
-func_app_add_cors(app_obj=app, config_cors_origin=config_cors_origin, config_cors_method=config_cors_method, config_cors_headers=config_cors_headers, config_cors_expose_headers=config_cors_expose_headers, config_is_enable_cors_credentials=config_is_enable_cors_credentials)
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(CORSMiddleware, allow_origins=[] if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else config_cors_origin, allow_origin_regex=".*" if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else None, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))

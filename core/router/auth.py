@@ -12,7 +12,7 @@ from google.auth.transport import requests
 async def func_api_auth_signup_username_password(*, request:Request):
    app_state=request.app.state
    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_auth_type,None),("username","str",1,None,None),("password","str",1,None,None)])
-   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=app_state.func_request_obj_list_read(obj_body=ob))
+   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
    if app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
    if ob["type"] not in app_state.config_auth_type: raise Exception(f"authentication type {ob['type']} not allowed")
    async with app_state.client_postgres_pool.acquire() as conn:
@@ -24,7 +24,7 @@ async def func_api_auth_signup_username_password(*, request:Request):
 async def func_api_auth_login_username_password(*, request:Request):
    app_state=request.app.state
    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[["type","int",1,app_state.config_auth_type,None],["username","str",1,None,None],["password","str",1,None,None]])
-   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=app_state.func_request_obj_list_read(obj_body=ob))
+   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
    async with app_state.client_postgres_pool.acquire() as conn:
        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND username=$2 ORDER BY id DESC LIMIT 1;", ob["type"], ob["username"])
        if not records: raise Exception("username not found")
@@ -38,7 +38,7 @@ async def func_api_auth_login_username_password(*, request:Request):
 async def func_api_auth_login_email_password(*, request:Request):
    app_state=request.app.state
    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_auth_type,None),("email","str",1,None,None),("password","str",1,None,None)])
-   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=app_state.func_request_obj_list_read(obj_body=ob))
+   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
    async with app_state.client_postgres_pool.acquire() as conn:
        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", ob["type"], ob["email"])
        if not records: raise Exception("email not found")
@@ -52,7 +52,7 @@ async def func_api_auth_login_email_password(*, request:Request):
 async def func_api_auth_login_mobile_password(*, request:Request):
    app_state=request.app.state
    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_auth_type,None),("mobile","str",1,None,None),("password","str",1,None,None)])
-   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=app_state.func_request_obj_list_read(obj_body=ob))
+   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
    async with app_state.client_postgres_pool.acquire() as conn:
        records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", ob["type"], ob["mobile"])
        if not records: raise Exception("mobile not found")
@@ -66,7 +66,7 @@ async def func_api_auth_login_mobile_password(*, request:Request):
 async def func_api_auth_login_email_otp(*, request:Request):
    app_state=request.app.state
    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_auth_type,None),("email","str",1,None,None),("otp","int",1,None,None)])
-   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=app_state.func_request_obj_list_read(obj_body=ob))
+   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
    await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=ob["otp"], email=ob["email"], mobile=None, config_expiry_sec_otp=app_state.config_expiry_sec_otp)
    if ob["type"] not in app_state.config_auth_type: raise Exception(f"type not allowed: {ob['type']}, allowed: {app_state.config_auth_type}")
    async with app_state.client_postgres_pool.acquire() as conn:
@@ -79,7 +79,7 @@ async def func_api_auth_login_email_otp(*, request:Request):
 async def func_api_auth_login_mobile_otp(*, request:Request):
    app_state=request.app.state
    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_auth_type,None),("mobile","str",1,None,None),("otp","int",1,None,None)])
-   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=app_state.func_request_obj_list_read(obj_body=ob))
+   await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
    await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=ob["otp"], mobile=ob["mobile"], email=None, config_expiry_sec_otp=app_state.config_expiry_sec_otp)
    if ob["type"] not in app_state.config_auth_type: raise Exception(f"type not allowed: {ob['type']}, allowed: {app_state.config_auth_type}")
    async with app_state.client_postgres_pool.acquire() as conn:

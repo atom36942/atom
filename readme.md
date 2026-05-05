@@ -48,7 +48,7 @@ venv/bin/pytest
 | What | Description |
 | :--- | :--- |
 | **🔄 Schema Sync** | Automatic DB synchronization via `func_postgres_schema_init` on every startup. |
-| **🧪 API Sandbox** | Interactive tester for real-time endpoint validation at `static/api/index.html`. |
+| **🧪 API Sandbox** | Interactive tester for real-time endpoint validation at `static/API.html`. |
 | **📦 Global State** | Centralized access to Postgres, Redis, and S3 clients via `request.app.state`. |
 | **👤 User Context** | Injected user identity and role data accessible via `request.state.user`. |
 | **🛡️ Auth Guard** | Simple manual security enforcement: `if not request.state.user: raise Exception`. |

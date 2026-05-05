@@ -8,8 +8,7 @@ import httpx
 import orjson
 import uuid
 import re
-from datetime import datetime
-from fastapi import Request, responses, WebSocket, WebSocketDisconnect
+from fastapi import Request, responses
 
 #public
 @router.get("/public/converter-number")
@@ -42,7 +41,7 @@ async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("queue", "str", 0, None, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
-    obj_list = app_state.func_request_obj_list_read(obj_body=ob)
+    obj_list = ob.get("obj_list", [ob])
     return {"status": 1, "message": await app_state.func_orchestrator_obj_create(user_id=None, api_role="public", table=oq["table"], mode=oq["mode"], is_serialize=oq["is_serialize"], queue=oq["queue"], obj_list=obj_list, config_table_create_disable_my=app_state.config_table_create_disable_my, config_table_create_enable_public=app_state.config_table_create_enable_public, config_column_disable=app_state.config_column_disable, config_table=app_state.config_table, config_regex=app_state.config_regex, func_regex_check=app_state.func_regex_check, client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, func_orchestrator_producer=app_state.func_orchestrator_producer, func_postgres_create=app_state.func_postgres_create, client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer, client_postgres_conn=None)}
 
 @router.get("/public/object-read")
@@ -145,6 +144,7 @@ async def func_api_public_jira_worklog_export(*, request: Request):
 @router.get("/public/table-tag-read")
 async def func_api_public_table_tag_read(*, request: Request):
     app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("column", "str", 1, app_state.cache_postgres_schema_columns, None), ("filter_column", "str", 0, app_state.cache_postgres_schema_columns, None), ("filter_value", "str", 0, None, None), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1)])
     table, column, filter_column, filter_value = oq["table"], oq["column"], oq["filter_column"], (await app_state.func_postgres_serialize(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=[{oq["filter_column"]: oq["filter_value"]}], is_base=0))[0][oq["filter_column"]] if oq["filter_column"] and oq["filter_value"] else None
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column)) or (filter_column and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_column))): raise Exception("invalid identifier")
     where_clause = f"WHERE x.{filter_column}=$1" if filter_column and filter_value is not None else ""; query_args = [filter_value] if filter_column and filter_value is not None else []
