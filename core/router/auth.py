@@ -6,6 +6,7 @@ router=APIRouter()
 from fastapi import Request
 from google.oauth2 import id_token
 from google.auth.transport import requests
+import orjson
 
 #auth
 @router.post("/auth/signup-username-password")
@@ -97,6 +98,6 @@ async def func_api_auth_login_google(*, request:Request):
    if not id_info: raise Exception("invalid google token")
    async with app_state.client_postgres_pool.acquire() as conn:
        records = await conn.fetch("SELECT * FROM users WHERE google_login_id=$1 AND type=$2;", id_info["sub"], ob["type"])
-       user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, google_login_id, email, name, google_login_metadata) VALUES ($1, $2, $3, $4, $5) RETURNING *;", ob["type"], id_info["sub"], id_info.get("email"), id_info.get("name"), app_state.func_serialize(id_info).decode('utf-8')))[0])
+       user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, google_login_id, email, name, google_login_metadata) VALUES ($1, $2, $3, $4, $5) RETURNING *;", ob["type"], id_info["sub"], id_info.get("email"), id_info.get("name"), orjson.dumps(id_info).decode("utf-8")))[0])
    token=await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
    return {"status":1,"message":{"user":user,"token":token}}

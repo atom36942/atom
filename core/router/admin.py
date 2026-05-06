@@ -26,10 +26,10 @@ async def func_api_admin_sync(*, request: Request):
             if t not in schema: schema[t] = {}
             schema[t][row["column_name"]] = {"datatype": row["data_type"]}
         app_state.cache_postgres_schema = schema
-    app_state.cache_postgres_schema_tables = list(app_state.cache_postgres_schema.keys())
-    app_state.cache_postgres_schema_columns = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
-    app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("cache_users_role")) if app_state.client_postgres_pool else {}
-    app_state.cache_users_is_active = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("cache_users_is_active")) if app_state.client_postgres_pool else {}
+    app_state.cache_postgres_table_list = list(app_state.cache_postgres_schema.keys())
+    app_state.cache_postgres_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
+    app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("sql_cache_users_role")) if app_state.client_postgres_pool else {}
+    app_state.cache_users_is_active = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("sql_cache_users_is_active")) if app_state.client_postgres_pool else {}
     if app_state.config_is_enable_reset_tmp == 1:
         if os.path.exists("tmp"):
             shutil.rmtree("tmp")
@@ -50,7 +50,7 @@ async def func_api_admin_postgres_clean(*, request: Request):
 @router.post("/admin/object-create")
 async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("queue", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("queue", "str", 0, None, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     return {"status": 1, "message": await app_state.func_orchestrator_obj_create(user_id=None, api_role="admin", table=oq["table"], mode=oq["mode"], is_serialize=oq["is_serialize"], queue=oq["queue"], obj_list=obj_list, config_table_create_disable_my=app_state.config_table_create_disable_my, config_table_create_enable_public=app_state.config_table_create_enable_public, config_column_disable=app_state.config_column_disable, config_table=app_state.config_table, config_regex=app_state.config_regex, func_regex_check=app_state.func_regex_check, client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, func_orchestrator_producer=app_state.func_orchestrator_producer, func_postgres_create=app_state.func_postgres_create, client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer, client_postgres_conn=None)}
@@ -58,7 +58,7 @@ async def func_api_admin_object_create(*, request: Request):
 @router.put("/admin/object-update")
 async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("otp", "int", 0, None, None), ("queue", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("otp", "int", 0, None, None), ("queue", "str", 0, None, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     return {"status": 1, "message": await app_state.func_orchestrator_obj_update(user_id=None, api_role="admin", table=oq["table"], mode=oq["mode"], is_serialize=oq["is_serialize"], queue=oq["queue"], otp=oq["otp"], obj_list=obj_list, config_table=app_state.config_table, config_is_enable_otp_users_update_admin=app_state.config_is_enable_otp_users_update_admin, config_column_disable=app_state.config_column_disable, config_column_enable_single_update=app_state.config_column_enable_single_update, config_regex=app_state.config_regex, func_regex_check=app_state.func_regex_check, func_otp_verify=app_state.func_otp_verify, client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, config_expiry_sec_otp=app_state.config_expiry_sec_otp, client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, func_orchestrator_producer=app_state.func_orchestrator_producer, func_postgres_update=app_state.func_postgres_update, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer, client_postgres_conn=None)}
@@ -66,13 +66,13 @@ async def func_api_admin_object_update(*, request: Request):
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
     return {"status": 1, "message": await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], creator_key=oq["creator_key"], action_key=oq["action_key"])}
 
 @router.post("/admin/ids-delete")
 async def func_api_admin_ids_delete(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("ids", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "str", 1, None, None)])
     return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=None, client_postgres_conn=None)}
 
 @router.post("/admin/postgres-runner")
@@ -103,7 +103,7 @@ async def func_api_admin_postgres_export(*, request: Request):
 @router.post("/admin/postgres-import")
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None), ("table", "str", 1, app_state.cache_postgres_schema_tables, None), ("file", "file", 1, [], None), ("is_serialize", "int", 0, [0, 1], 1)])
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None), ("table", "str", 1, app_state.cache_postgres_table_list, None), ("file", "file", 1, [], None), ("is_serialize", "int", 0, [0, 1], 1)])
     count = 0; limit_batch = 5000
     async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=limit_batch):
         if of["mode"] == "create": await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="now", table=of["table"], obj_list=ol, is_serialize=of["is_serialize"], buffer_limit=0, cache_postgres_buffer=app_state.cache_postgres_buffer, client_postgres_conn=None)
@@ -209,4 +209,3 @@ async def func_api_admin_blob_url_delete(*, request: Request):
             tasks.append(app_state.client_azure_blob.get_blob_client(container=parts[0], blob=parts[1]).delete_blob())
     if tasks: await asyncio.gather(*tasks)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
-

@@ -5,7 +5,7 @@ config_postgres_max_connection=20
 config_postgres_root_user_password="atom123321"
 
 #system
-config_index_html_path=None
+config_index_html_path="static/api.html"
 config_auth_type=[1]
 config_expiry_sec_otp=600
 
@@ -103,9 +103,9 @@ config_api_roles_auth=["/my/", "/private/", "/admin/"]
 
 #dict
 config_sql={
-"cache_users_role":"select id,role from users where role is not null order by id asc limit 1000",
-"cache_users_is_active":"select id,is_active from users order by id asc limit 1000",
-"profile_metadata":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
+"sql_cache_users_role":"select id,role from users where role is not null order by id asc limit 1000",
+"sql_cache_users_is_active":"select id,is_active from users order by id asc limit 1000",
+"sql_profile_metadata":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
 }
 
 config_table={
@@ -136,7 +136,7 @@ config_api={
 "/admin/sync":{"id":1,"user_role_check":["realtime",[1]]},
 "/admin/object-create":{"id":2,"user_role_check":["token",[1]]},
 "/admin/object-update":{"id":3,"user_role_check":["token",[1]]},
-"/admin/object-read":{"id":4,"user_role_check":["inmemory",[1]]},
+"/admin/object-read":{"id":4,"user_role_check":["token",[1]]},
 "/admin/ids-delete":{"id":5,"user_role_check":["realtime",[1]],"user_is_active_check":["realtime", 1]},
 "/admin/postgres-runner":{"id":6,"user_role_check":["realtime",[1]]},
 "/admin/postgres-export":{"id":7,"user_role_check":["inmemory",[1]]},

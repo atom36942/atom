@@ -15,7 +15,8 @@ async def broker_logic_redis(channel: str, task_name: str, setup_callback: calla
     if not channel: raise Exception("channel name required")
     setup_data = await setup_callback()
     pool = setup_data[0]
-    client = await func_client_read_redis(config_redis_url=config_redis_url_pubsub)
+    import redis.asyncio as redis
+    client = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url_pubsub)) if config_redis_url_pubsub else None
     reader = client.pubsub()
     await reader.subscribe(channel)
     print(f"redis consumer started on {channel} for {task_name}", flush=True)
@@ -134,4 +135,3 @@ def run_broker(mode: str, channel: str, task_name: str, setup_callback: callable
     except Exception as e:
         print(f"critical error: {str(e)}")
         sys.exit(1)
-

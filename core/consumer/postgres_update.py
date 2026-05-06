@@ -4,13 +4,14 @@ from ..config import *
 from ..function import *
 from .base_broker import run_broker
 from argon2 import PasswordHasher
+import asyncpg
 
 #taskname
 task_name = "func_postgres_update"
 
 #setup
 async def setup():
-    pool = await func_client_read_postgres(config_postgres={"dsn": config_postgres_url, "min_size": config_postgres_min_connection, "max_size": config_postgres_max_connection})
+    pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if config_postgres_url else None
     buffer = {}
     schema = await func_postgres_schema_read(client_postgres_pool=pool)
     hasher = PasswordHasher()
@@ -43,4 +44,3 @@ if __name__ == "__main__":
     mode = sys.argv[1]
     channel = task_name
     run_broker(mode, channel, task_name, setup, execute)
-

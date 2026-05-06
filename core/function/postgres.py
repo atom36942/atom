@@ -1,3 +1,90 @@
+async def func_postgres_serialize(*, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
+    """Format and validate a list of objects based on PostgreSQL schema, including password hashing, JSON encoding, and type casting."""
+    import orjson, re
+    from datetime import datetime
+    schema = cache_postgres_schema.get(table, {})
+    if not schema: return obj_list
+    res_list = []
+    for obj in obj_list:
+        new_obj = {}
+        for col, val in obj.items():
+            if col not in schema: continue
+            dtype = schema[col]["datatype"].lower()
+            if val is None or str(val).lower() == "null":
+                new_obj[col] = None
+                continue
+            if col == "password":
+                new_obj[col] = client_password_hasher.hash(str(val))
+            elif "json" in dtype:
+                new_obj[col] = orjson.dumps(val).decode("utf-8") if not isinstance(val, str) else val
+            elif "[]" in dtype or "array" in dtype:
+                if isinstance(val, str):
+                    new_obj[col] = [x.strip() for x in val.split(",")]
+                else:
+                    new_obj[col] = val
+            elif "timestamp" in dtype:
+                if isinstance(val, str):
+                    try: new_obj[col] = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                    except: new_obj[col] = val
+                else: new_obj[col] = val
+            elif "int" in dtype or "serial" in dtype:
+                new_obj[col] = int(val)
+            elif "bool" in dtype:
+                new_obj[col] = bool(val)
+            elif "float" in dtype or "numeric" in dtype or "double" in dtype:
+                new_obj[col] = float(val)
+            else:
+                new_obj[col] = str(val)
+        if not is_base:
+            if "created_at" in schema and "created_at" not in new_obj: new_obj["created_at"] = datetime.now()
+            if "updated_at" in schema and "updated_at" not in new_obj: new_obj["updated_at"] = datetime.now()
+        res_list.append(new_obj)
+    return res_list
+
+async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
+    """Read full PostgreSQL schema from public namespace, mapping internal data types to a standard dictionary format."""
+    query = """
+        SELECT table_name, column_name, data_type, is_nullable, column_default 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        ORDER BY table_name, ordinal_position;
+    """
+    async with client_postgres_pool.acquire() as conn:
+        records = await conn.fetch(query)
+    schema = {}
+    for r in records:
+        tbl = r["table_name"]
+        if tbl not in schema: schema[tbl] = {}
+        schema[tbl][r["column_name"]] = {"datatype": r["data_type"], "is_nullable": r["is_nullable"], "default": r["column_default"]}
+    return schema
+
+async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_postgres_root_user_password: str) -> str:
+    """Initialize PostgreSQL schema from configuration, creating tables and the mandatory root user (id=1)."""
+    async with client_postgres_pool.acquire() as conn:
+        for table_name, cols in config_postgres.get("table", {}).items():
+            col_defs = []
+            for col in cols:
+                d = f"{col['name']} {col['datatype']}"
+                if col.get("is_primary"): d += " PRIMARY KEY"
+                if not col.get("is_nullable"): d += " NOT NULL"
+                if col.get("default") is not None: d += f" DEFAULT {col['default']}"
+                if col.get("is_unique"): d += " UNIQUE"
+                col_defs.append(d)
+            await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(col_defs)});")
+        if config_postgres_root_user_password:
+            res = await conn.fetchval("SELECT id FROM users WHERE id=1")
+            if not res:
+                hashed = client_password_hasher.hash(config_postgres_root_user_password)
+                await conn.execute("INSERT INTO users (id, role, password, email, is_active) VALUES (1, 1, $1, 'root@atom.com', 1) ON CONFLICT DO NOTHING", hashed)
+    return "schema initialized"
+
+async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str) -> dict:
+    """Execute a mapping SQL query and return a dictionary from the first two columns."""
+    if not config_sql: return {}
+    async with client_postgres_pool.acquire() as conn:
+        rows = await conn.fetch(config_sql)
+    return {r[0]: r[1] for r in rows}
+
 async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
@@ -492,7 +579,7 @@ async def func_postgres_csv_ingestion(*, csv_path: str, pg_dsn: str, table: str,
                         else:
                             raise ValueError("Invalid date format")
                 except Exception:
-                        if validation_mode == "strict": raise ValueError(f"Column '{col_name}' error")
+                    if validation_mode == "strict": raise ValueError(f"Column '{col_name}' error")
                     if validation_mode == "reject": raise RowReject(col_name)
                     return None
                 return v_str

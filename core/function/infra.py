@@ -1,101 +1,3 @@
-async def func_client_read_postgres(*, config_postgres: dict) -> any:
-    """Initialize PostgreSQL connection pool and log status."""
-    if not config_postgres.get("dsn"): return None
-    import asyncpg
-    return await asyncpg.create_pool(dsn=config_postgres["dsn"], min_size=config_postgres["min_size"], max_size=config_postgres["max_size"])
-
-async def func_client_read_mongodb(*, config_mongodb_url: str) -> any:
-    """Initialize MongoDB client and log status."""
-    if not config_mongodb_url: return None
-    import motor.motor_asyncio
-    return motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_url)
-
-def func_client_read_gemini(*, config_gemini_key: str) -> any:
-    """Initialize Gemini client and log status."""
-    if not config_gemini_key: return None
-    import google.generativeai as genai
-    genai.configure(api_key=config_gemini_key)
-    return genai
-
-def func_client_read_openai(*, config_openai_key: str) -> any:
-    """Initialize OpenAI client and log status."""
-    if not config_openai_key: return None
-    import openai
-    return openai.OpenAI(api_key=config_openai_key)
-
-def func_client_read_ses(*, config_aws_access_key_id: str, config_aws_secret_access_key: str, config_ses_region_name: str) -> any:
-    """Initialize AWS SES client and log status."""
-    if not config_ses_region_name: return None
-    import boto3
-    return boto3.client("ses", region_name=config_ses_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
-
-def func_client_read_sns(*, config_aws_access_key_id: str, config_aws_secret_access_key: str, config_sns_region_name: str) -> any:
-    """Initialize AWS SNS client and log status."""
-    if not config_sns_region_name: return None
-    import boto3
-    return boto3.client("sns", region_name=config_sns_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_sns_region_name)
-
-async def func_client_read_s3(*, config_aws_access_key_id: str, config_aws_secret_access_key: str, config_s3_region_name: str) -> any:
-    """Initialize AWS S3 client and resource and log status."""
-    if not config_s3_region_name: return None, None
-    import aiobotocore.session, boto3
-    client = aiobotocore.session.get_session().create_client("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
-    resource = boto3.resource("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
-    return client, resource
-
-async def func_client_read_redis(*, config_redis_url: str, event_name: str = "🔴 redis client") -> any:
-    """Initialize Redis client and log status."""
-    if not config_redis_url: return None
-    import redis.asyncio as redis
-    return redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url))
-
-def func_client_read_celery_producer(*, config_celery_broker_url: str, config_celery_backend_url: str) -> any:
-    """Initialize Celery producer client and log status."""
-    if not config_celery_broker_url: return None
-    from celery import Celery
-    return Celery("atom", broker=config_celery_broker_url, backend=config_celery_backend_url)
-
-async def func_client_read_rabbitmq_producer(*, config_rabbitmq_url: str) -> any:
-    """Initialize RabbitMQ producer connection and channel and log status."""
-    if not config_rabbitmq_url: return None, None
-    import aio_pika
-    conn = await aio_pika.connect_robust(config_rabbitmq_url)
-    channel = await conn.channel()
-    return conn, channel
-
-async def func_client_read_kafka_producer(*, config_kafka_url: str, config_kafka_username: str, config_kafka_password: str) -> any:
-    """Initialize Kafka producer client and log status."""
-    if not config_kafka_url: return None
-    from aiokafka import AIOKafkaProducer
-    p = AIOKafkaProducer(bootstrap_servers=config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaProducer(bootstrap_servers=config_kafka_url)
-    await p.start()
-    return p
-
-def func_client_read_posthog(*, config_posthog_project_host: str, config_posthog_project_key: str) -> any:
-    """Initialize PostHog client and log status."""
-    if not config_posthog_project_key: return None
-    from posthog import Posthog
-    return Posthog(config_posthog_project_key, host=config_posthog_project_host)
-
-async def func_client_read_sftp(*, config_sftp_host: str, config_sftp_port: int, config_sftp_username: str, config_sftp_password: str, config_sftp_key_path: str, config_sftp_auth_method: str) -> any:
-    """Initialize SFTP connection and log status."""
-    if not config_sftp_host: return None
-    import asyncssh
-    if config_sftp_auth_method not in ("key", "password"): raise Exception(f"invalid sftp auth mode: {config_sftp_auth_method}")
-    if config_sftp_auth_method == "key":
-        if not config_sftp_key_path: raise Exception("ssh key path missing")
-        return await asyncssh.connect(host=config_sftp_host, port=int(config_sftp_port), username=config_sftp_username, client_keys=[config_sftp_key_path], known_hosts=None)
-    else:
-        if not config_sftp_password: raise Exception("password missing")
-        return await asyncssh.connect(host=config_sftp_host, port=int(config_sftp_port), username=config_sftp_username, password=config_sftp_password, known_hosts=None)
-
-async def func_client_read_azure_blob(*, config_azure_account_name: str, config_azure_account_key: str, config_azure_connection_string: str) -> any:
-    """Initialize Azure Blob Service client (async) and log status."""
-    if not config_azure_account_name and not config_azure_connection_string: return None
-    from azure.storage.blob.aio import BlobServiceClient
-    if config_azure_connection_string: return BlobServiceClient.from_connection_string(config_azure_connection_string)
-    else: return BlobServiceClient(account_url=f"https://{config_azure_account_name}.blob.core.windows.net", credential=config_azure_account_key)
-
 async def func_authenticate(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_roles_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization")
@@ -145,8 +47,8 @@ async def func_check_is_active(*, user_dict: dict, url_path: str, config_api: di
     if active_status == "absent": raise Exception("missing is_active")
     if active_status == 0: raise Exception("user not active")
 
-async def func_check_admin(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
-    """Ensure sufficient roles to access admin endpoints using a strictly configured mode from config_api."""
+async def func_check_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+    """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     if not url_path.startswith("/admin") or not (cfg := config_api.get(url_path)) or "user_role_check" not in cfg:
         return None
     mode = cfg["user_role_check"][0]
@@ -224,12 +126,14 @@ async def func_check_cache(*, mode: str, url_path: str, query_params: dict, conf
     import gzip, base64, time
     if mode not in ["get", "set"]:
         raise Exception(f"invalid cache mode: {mode}")
-    uid = user_id if "my/" in url_path else 0
+    uid = user_id if url_path.startswith("/my/") else 0
     cache_key = f"""cache:{url_path}?{"&".join(f"{k}={v}" for k, v in sorted(query_params.items()))}:{uid}"""
     api_cfg = config_api.get(url_path, {})
     cache_mode, expire_sec = api_cfg.get("api_cache_sec", (None, None))
     if not (expire_sec is not None and expire_sec > 0):
         return None if mode == "get" else response
+    if cache_mode == "redis" and not client_redis:
+        raise Exception("redis client missing")
     if mode == "get":
         cached_data = None
         if cache_mode == "redis":
@@ -264,30 +168,23 @@ async def func_api_response_background(*, scope: dict, body_bytes: bytes, api_fu
     background_resp.background = BackgroundTask(api_task_execution)
     return background_resp
 
-async def func_api_response(*, request: any, api_function: callable, config_api: dict, client_redis: any, user_id: int, func_background: callable, func_cache: callable, cache_api_response: dict) -> tuple:
+async def func_api_response(*, request: any, api_function: callable, config_api: dict, client_redis: any, user_id: int, func_background: callable, func_cache: callable, cache_api_response: dict) -> any:
     """Orchestrate API request handling, including background task delegation and cache management."""
-    from fastapi import responses
     path = request.url.path
     query_params = dict(request.query_params)
     api_cfg = config_api.get(path, {})
     cache_sec_config = api_cfg.get("api_cache_sec")
     response = None
-    resp_type = 0
     if query_params.get("is_background") == "1":
         body_bytes = await request.body()
         response = await func_background(scope=request.scope, body_bytes=body_bytes, api_function=api_function)
-        resp_type = 1
     elif cache_sec_config:
         response = await func_cache(mode="get", url_path=path, query_params=query_params, config_api=config_api, client_redis=client_redis, user_id=user_id, response=None, cache_api_response=cache_api_response)
-        if response:
-            resp_type = 2
     if not response:
         response = await api_function(request)
-        resp_type = 3
         if cache_sec_config:
             response = await func_cache(mode="set", url_path=path, query_params=query_params, config_api=config_api, client_redis=client_redis, user_id=user_id, response=response, cache_api_response=cache_api_response)
-            resp_type = 4
-    return response, resp_type
+    return response
 
 async def func_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
@@ -326,7 +223,7 @@ async def func_api_response_error(*, exception: Exception, is_traceback: int, se
     else:
         error_msg = str(exception)
     if is_traceback:
-        pass
+        traceback.print_exception(type(exception), exception, exception.__traceback__)
     if sentry_dsn:
         import sentry_sdk
         sentry_sdk.capture_exception(exception)
@@ -350,17 +247,93 @@ async def func_api_log_create(*, config_is_enable_log_api: int, api_id: int, req
     await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0, buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=None)
     return None
 
-def func_structure_create(*, directories: list, files: list) -> None:
-    """Ensure required directory structure and files exist on startup."""
-    import os
-    for directory in directories:
-        if not os.path.exists(directory): os.makedirs(directory, exist_ok=True)
-    for file in files:
-        if not os.path.exists(file):
-            with open(file, "w") as f:
+async def func_request_param_read(*, request: any, mode: str, strict: int, config: list) -> dict:
+    """Extract, validate, and type-cast request parameters from query, form, body or headers."""
+    params_dict = {}
+    header_params = {k.lower(): v for k, v in request.headers.items()}
+    if mode == "query":
+        params_dict = dict(request.query_params)
+    elif mode == "form":
+        form_data = await request.form()
+        params_dict = {key: val for key, val in form_data.items() if isinstance(val, str)}
+        for key in form_data.keys():
+            files = [x for x in form_data.getlist(key) if not isinstance(x, str)]
+            if files:
+                params_dict[key] = files
+    elif mode == "body":
+        try:
+            json_payload = await request.json()
+        except Exception:
+            json_payload = None
+        params_dict = json_payload if isinstance(json_payload, dict) else {"body": json_payload}
+    elif mode == "header":
+        params_dict = header_params
+    else:
+        raise Exception(f"invalid mode: {mode}")
+    if config is None: return params_dict
+    import orjson
+    def smart_dict(v):
+        if v is None: return {}
+        if isinstance(v, dict): return v
+        if isinstance(v, str) and v.strip():
+            try:
+                return orjson.loads(v)
+            except Exception:
                 pass
-    return None
-    
+        return {}
+    TYPE_MAP = {
+        "int": int, "bigint": int, "smallint": int, "integer": int, "int4": int, "int8": int,
+        "float": float, "number": float, "numeric": float,
+        "str": str, "any": lambda v: v, 
+        "bool": lambda v: 1 if str(v).strip().lower() in ("1", "true", "yes", "on", "ok") else 0, 
+        "dict": smart_dict, "object": smart_dict,
+        "file": lambda v: [x for x in (v if isinstance(v, list) else [v] if v is not None else []) if hasattr(x, "file")],
+        "list": lambda v: [] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]
+    }
+    output_dict = params_dict.copy() if not strict else {}
+    for param in config:
+        if not isinstance(param, (list, tuple)): raise Exception(f"invalid configuration format: expected list or tuple, got {type(param)}")
+        param_len = len(param)
+        if param_len < 5:
+            param_key = param[0] if param_len > 0 else "unknown"
+            raise Exception(f"invalid config tuple length {param_len} for '{param_key}': (key, dtype, is_mandatory, allowed_values, default_value) are required")
+        key, dtype, is_mandatory, allowed_values, default_value = param[0], param[1], int(param[2]), param[3], param[4]
+        if dtype not in TYPE_MAP and not dtype.startswith("list:"): raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
+        if is_mandatory == 1 and default_value is not None: raise Exception(f"parameter '{key}' is mandatory, default_value must be None")
+        if default_value is not None and allowed_values and default_value not in allowed_values:
+            raise Exception(f"parameter '{key}' default '{default_value}' violating allowed_values: {allowed_values}")
+        if allowed_values is not None and not isinstance(allowed_values, (list, tuple)): raise Exception(f"parameter '{key}' allowed_values must be a list or tuple")
+        val = params_dict.get(key)
+        if val is None:
+            val = header_params.get(key.lower())
+        if val is None:
+            val = default_value
+        if isinstance(val, str) and val.lower() in ("null", "undefined"):
+            val = default_value
+        if is_mandatory == 1:
+            if val is None:
+                raise Exception(f"parameter '{key}' missing")
+            if isinstance(val, str) and not val.strip():
+                raise Exception(f"parameter '{key}' cannot be empty")
+        if val is not None:
+            try:
+                if dtype.startswith("list:") and ":" in dtype:
+                    inner_type = dtype.split(":")[1]
+                    val_list = TYPE_MAP["list"](val)
+                    val = [TYPE_MAP[inner_type](x) for x in val_list]
+                else:
+                    val = TYPE_MAP[dtype](val)
+            except Exception:
+                raise Exception(f"parameter '{key}' invalid type {dtype}")
+        if is_mandatory == 1:
+            if dtype == "file" and (not isinstance(val, list) or len(val) == 0):
+                raise Exception(f"parameter '{key}' missing or invalid file upload")
+            if dtype == "list" and (not isinstance(val, list) or len(val) == 0):
+                 raise Exception(f"parameter '{key}' missing or empty list")
+        if val is not None and allowed_values and val not in allowed_values: raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
+        output_dict[key] = val
+    return output_dict
+
 async def func_check(*, app_routes: list, current_config_api: dict, allowed_roles: list, api_roles_auth: list, client_postgres_pool: any = None) -> None:
     """Orchestrate all application consistency checks (routes, roles, modes, and database indexes)."""
     import ast
@@ -677,91 +650,37 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
             spec["paths"][path][m_lower] = op
     return spec
 
-async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
-    """Read full PostgreSQL schema from public namespace, mapping internal data types to a standard dictionary format."""
-    query = """
-        SELECT table_name, column_name, data_type, is_nullable, column_default 
-        FROM information_schema.columns 
-        WHERE table_schema = 'public' 
-        ORDER BY table_name, ordinal_position;
-    """
-    async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query)
-    schema = {}
-    for r in records:
-        tbl = r["table_name"]
-        if tbl not in schema: schema[tbl] = {}
-        schema[tbl][r["column_name"]] = {"datatype": r["data_type"], "is_nullable": r["is_nullable"], "default": r["column_default"]}
-    return schema
+def func_app_router_add(*, app: any, router_dir: any, router_order: dict) -> None:
+    """Load router modules from a directory in a configured order and include their routers."""
+    import importlib.util, pathlib
+    router_dir = pathlib.Path(router_dir)
+    router_paths = sorted(router_dir.glob("*.py"), key=lambda path: (router_order.get(path.stem, 100), path.stem))
+    for router_path in router_paths:
+        if router_path.name.startswith(("_", ".")): continue
+        spec = importlib.util.spec_from_file_location(f"core.router.{router_path.stem}", router_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        if hasattr(module, "router"): app.include_router(module.router)
+    return None
 
-async def func_postgres_serialize(*, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
-    """Format and validate a list of objects based on PostgreSQL schema, including password hashing, JSON encoding, and type casting."""
-    import orjson, re
-    from datetime import datetime
-    schema = cache_postgres_schema.get(table, {})
-    if not schema: return obj_list
-    res_list = []
-    for obj in obj_list:
-        new_obj = {}
-        for col, val in obj.items():
-            if col not in schema: continue
-            dtype = schema[col]["datatype"].lower()
-            if val is None or str(val).lower() == "null":
-                new_obj[col] = None
-                continue
-            if col == "password":
-                new_obj[col] = client_password_hasher.hash(str(val))
-            elif "json" in dtype:
-                new_obj[col] = orjson.dumps(val).decode("utf-8") if not isinstance(val, str) else val
-            elif "[]" in dtype or "array" in dtype:
-                if isinstance(val, str):
-                    new_obj[col] = [x.strip() for x in val.split(",")]
-                else:
-                    new_obj[col] = val
-            elif "timestamp" in dtype:
-                if isinstance(val, str):
-                    try: new_obj[col] = datetime.fromisoformat(val.replace("Z", "+00:00"))
-                    except: new_obj[col] = val
-                else: new_obj[col] = val
-            elif "int" in dtype or "serial" in dtype:
-                new_obj[col] = int(val)
-            elif "bool" in dtype:
-                new_obj[col] = bool(val)
-            elif "float" in dtype or "numeric" in dtype or "double" in dtype:
-                new_obj[col] = float(val)
+def func_config_override_from_env(*, global_dict: dict) -> None:
+    """Override configuration variables starting with 'config_' from environment variables and .env file."""
+    import orjson, os, ast; from dotenv import load_dotenv; from pathlib import Path
+    load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
+    for k, v in list(global_dict.items()):
+        if k.startswith("config_") and (ev := os.getenv(k)) is not None:
+            if isinstance(v, bool): global_dict[k] = 1 if ev.lower() in ("true", "1", "yes", "on", "ok") else 0
+            elif isinstance(v, (list, tuple, dict)):
+                try: global_dict[k] = orjson.loads(ev)
+                except: pass
             else:
-                new_obj[col] = str(val)
-        if not is_base:
-            if "created_at" in schema and "created_at" not in new_obj: new_obj["created_at"] = datetime.now()
-            if "updated_at" in schema and "updated_at" not in new_obj: new_obj["updated_at"] = datetime.now()
-        res_list.append(new_obj)
-    return res_list
-
-async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_postgres_root_user_password: str) -> str:
-    """Initialize PostgreSQL schema from configuration, creating tables and the mandatory root user (id=1)."""
-    async with client_postgres_pool.acquire() as conn:
-        for table_name, cols in config_postgres.get("table", {}).items():
-            col_defs = []
-            for col in cols:
-                d = f"{col['name']} {col['datatype']}"
-                if col.get("is_primary"): d += " PRIMARY KEY"
-                if not col.get("is_nullable"): d += " NOT NULL"
-                if col.get("default") is not None: d += f" DEFAULT {col['default']}"
-                if col.get("is_unique"): d += " UNIQUE"
-                col_defs.append(d)
-            await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(col_defs)});")
-        if config_postgres_root_user_password:
-            res = await conn.fetchval("SELECT id FROM users WHERE id=1")
-            if not res:
-                hashed = client_password_hasher.hash(config_postgres_root_user_password)
-                await conn.execute("INSERT INTO users (id, role, password, email, is_active) VALUES (1, 1, $1, 'root@atom.com', 1) ON CONFLICT DO NOTHING", hashed)
-    return "schema initialized"
-
-async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str) -> dict:
-    """Execute a mapping SQL query and return a dictionary from the first two columns."""
-    if not config_sql: return {}
-    async with client_postgres_pool.acquire() as conn:
-        rows = await conn.fetch(config_sql)
-    return {r[0]: r[1] for r in rows}
-
-
+                try: global_dict[k] = int(ev)
+                except: global_dict[k] = ev
+            if isinstance(global_dict[k], list): global_dict[k] = tuple(global_dict[k])
+    try:
+        with open("core/config.py") as f:
+            for n in [n for n in ast.parse(f.read()).body if isinstance(n, ast.Assign) and len(n.targets)==1 and isinstance(n.targets[0], ast.Name) and isinstance(n.value, ast.Name)]:
+                t, v = n.targets[0].id, n.value.id
+                if t.startswith("config_") and v.startswith("config_") and os.getenv(t) is None: global_dict[t] = global_dict.get(v)
+    except: pass
+    return None
