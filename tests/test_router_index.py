@@ -83,6 +83,18 @@ def test_openapi_json_returns_cached_openapi_spec(client):
     assert "/openapi.json" in body["paths"]
 
 
+def test_openapi_blob_container_ops_includes_container_default(client):
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    body = response.json()
+    params = body["paths"]["/admin/blob-container-ops"]["post"]["parameters"]
+    container = next(item for item in params if item["name"] == "container")
+    assert container["in"] == "query"
+    assert container["required"] is False
+    assert container["schema"]["default"] == client.app.state.config_blob_container_default
+
+
 def test_websocket_buffers_message(client):
     client.app.state.cache_postgres_buffer = {}
     with client.websocket_connect("/websocket") as websocket:

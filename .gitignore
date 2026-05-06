@@ -1,7 +1,7 @@
 # deny
 *
 
-# add
+# add folder
 !core/
 !core/**
 !static/
@@ -13,13 +13,13 @@
 !infra/
 !infra/**
 
+# add file
 !main.py
 !requirements.txt
 !Dockerfile
 !readme.md
 !/.gitignore
 !pytest.ini
-!AGENTS.md
 !.dockerignore
 
 # ignore

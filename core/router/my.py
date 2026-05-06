@@ -13,10 +13,10 @@ async def func_api_my_profile(*, request: Request):
     user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
     async with app_state.client_postgres_pool.acquire() as conn:
         metadata = {}
-        queries_metadata = app_state.config_sql.get("sql_profile_metadata")
+        queries_metadata = app_state.config_sql.get("profile_metadata")
         if queries_metadata:
-            for key, sql_query in queries_metadata.items():
-                records = await conn.fetch(sql_query, user_id)
+            for key, sql in queries_metadata.items():
+                records = await conn.fetch(sql, user_id)
                 metadata[key] = [dict(record) for record in records]
         await conn.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id)
     profile = {**user, **metadata}
@@ -34,9 +34,9 @@ async def func_api_my_token_refresh(*, request: Request):
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("days", "int", 1, None, None)])
-    query = "SELECT api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY api LIMIT 1000;"
+    sql = "SELECT api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY api LIMIT 1000;"
     async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, oq["days"], request.state.user["id"])
+        records = await conn.fetch(sql, oq["days"], request.state.user["id"])
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
 
@@ -57,9 +57,9 @@ async def func_api_my_message_inbox(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
     user_id = request.state.user["id"]
     where_clause = "user_id=$1 AND is_read=1" if oq["mode"] == "read" else "user_id=$1 AND is_read IS DISTINCT FROM 1" if oq["mode"] == "unread" else "1=1"
-    query = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_id)
+        records = await conn.fetch(sql, user_id)
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
 
@@ -69,9 +69,9 @@ async def func_api_my_message_received(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
     user_id = request.state.user["id"]
     unread_filter = "AND is_read=1" if oq["mode"] == "read" else "AND is_read IS DISTINCT FROM 1" if oq["mode"] == "unread" else ""
-    query = f"SELECT * FROM message WHERE user_id=$1 {unread_filter} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    sql = f"SELECT * FROM message WHERE user_id=$1 {unread_filter} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_id)
+        records = await conn.fetch(sql, user_id)
         obj_list = [dict(r) for r in records]
         if obj_list:
             mark_read_ids = [r["id"] for r in obj_list if r.get("is_read") != 1]
@@ -83,9 +83,9 @@ async def func_api_my_message_thread(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("user_id", "int", 1, None, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
     user_one_id = request.state.user["id"]
-    query = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, user_one_id, oq["user_id"])
+        records = await conn.fetch(sql, user_one_id, oq["user_id"])
         obj_list = [dict(r) for r in records]
         await conn.execute("UPDATE message SET is_read=1 WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": obj_list}
@@ -112,9 +112,9 @@ async def func_api_my_message_delete_bulk(*, request: Request):
 async def func_api_my_parent_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("parent_table", "str", 1, app_state.cache_postgres_table_list, None), ("parent_column", "str", 1, app_state.cache_postgres_column_list, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
-    query = f"SELECT x.* FROM {oq['table']} x JOIN {oq['parent_table']} p ON x.{oq['parent_column']} = p.id WHERE p.created_by_id = $1 ORDER BY x.{oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    sql = f"SELECT x.* FROM {oq['table']} x JOIN {oq['parent_table']} p ON x.{oq['parent_column']} = p.id WHERE p.created_by_id = $1 ORDER BY x.{oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, request.state.user["id"])
+        records = await conn.fetch(sql, request.state.user["id"])
         output = [dict(r) for r in records]
     return {"status": 1, "message": output}
 

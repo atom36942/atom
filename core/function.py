@@ -283,6 +283,9 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
             val = default_value
         if isinstance(val, str) and val.lower() in ("null", "undefined"):
             val = default_value
+        if dtype == "file" and isinstance(val, str):
+            hint = f" received '{val}'" if val else ""
+            raise Exception(f"parameter '{key}' expected file upload but received text field{hint}; use curl -F '{key}=@/path/to/file'")
         if is_mandatory == 1:
             if val is None:
                 raise Exception(f"parameter '{key}' missing")
@@ -404,7 +407,7 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         return errs
     async def _get_index_errors(pool):
         if not pool: return []
-        query = """
+        sql = """
             SELECT 
                 t.relname AS table_name,
                 a.attname AS column_name,
@@ -421,7 +424,7 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
             GROUP BY t.relname, a.attname, am.amname
             HAVING COUNT(ix.indexrelid) > 1;
         """
-        records = await pool.fetch(query)
+        records = await pool.fetch(sql)
         return [f"table '{r['table_name']}' has redundant non-unique {r['index_type']} indexes starting with column '{r['column_name']}' ({r['index_count']} indexes found)" for r in records]
     if api_roles_auth is not None and not isinstance(api_roles_auth, (list, tuple)): raise Exception("config_api_roles_auth must be a list")
     app_paths = {route.path for route in app_routes if hasattr(route, "path")}
@@ -452,6 +455,122 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
                                 errs.append(f"parameter '{arg.arg}' in function '{node.name}' ({filename}) is missing a type hint")
             except Exception:
                 pass
+        return errs
+    def _get_function_module_structure_errors():
+        import os
+        errs = []
+        paths = ["core/function.py"] if os.path.isfile("core/function.py") else [os.path.join("core/function", f) for f in os.listdir("core/function") if f.endswith(".py") and f != "__init__.py"]
+        for path in paths:
+            filename = os.path.basename(path)
+            try:
+                with open(path, "r") as f:
+                    tree = ast.parse(f.read())
+                for node in tree.body:
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        continue
+                    elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                        errs.append(f"global import found in {filename}")
+                    elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                        target_names = []
+                        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                        for target in targets:
+                            if isinstance(target, ast.Name):
+                                target_names.append(target.id)
+                        suffix = f": {', '.join(target_names)}" if target_names else ""
+                        errs.append(f"global variable found in {filename}{suffix}")
+                    else:
+                        errs.append(f"top-level {type(node).__name__} found in {filename}; only func_* definitions are allowed")
+            except Exception:
+                pass
+        return errs
+    def _get_router_module_structure_errors():
+        import os
+        errs = []
+        router_dir = "core/router"
+        if not os.path.isdir(router_dir): return []
+        paths = [os.path.join(router_dir, f) for f in os.listdir(router_dir) if f.endswith(".py") and f != "__init__.py"]
+        route_methods = {"get", "post", "put", "patch", "delete", "options", "head", "trace", "websocket", "api_route"}
+        def _is_router_assignment(node):
+            if not isinstance(node, ast.Assign) or len(node.targets) != 1: return False
+            if not isinstance(node.targets[0], ast.Name) or node.targets[0].id != "router": return False
+            return isinstance(node.value, ast.Call) and (getattr(node.value.func, "id", None) == "APIRouter" or getattr(node.value.func, "attr", None) == "APIRouter")
+        def _is_api_route(node):
+            if not node.name.startswith("func_api_"): return False
+            for decorator in node.decorator_list:
+                call = decorator if isinstance(decorator, ast.Call) else None
+                func = call.func if call else decorator
+                if isinstance(func, ast.Attribute) and func.attr in route_methods and isinstance(func.value, ast.Name) and func.value.id == "router":
+                    return True
+            return False
+        for path in paths:
+            filename = os.path.basename(path)
+            try:
+                with open(path, "r") as f:
+                    tree = ast.parse(f.read())
+                for node in tree.body:
+                    if isinstance(node, (ast.Import, ast.ImportFrom)):
+                        continue
+                    if _is_router_assignment(node):
+                        continue
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        if not _is_api_route(node):
+                            errs.append(f"helper function '{node.name}' in {filename} must be inside an API route or be a decorated func_api_* route")
+                        continue
+                    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                        target_names = []
+                        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                        for target in targets:
+                            if isinstance(target, ast.Name):
+                                target_names.append(target.id)
+                        suffix = f": {', '.join(target_names)}" if target_names else ""
+                        errs.append(f"global router config/state found in {filename}{suffix}")
+                    else:
+                        errs.append(f"top-level {type(node).__name__} found in {filename}; only imports, router setup, and API routes are allowed")
+            except Exception:
+                pass
+        return errs
+    def _get_request_param_config_errors():
+        import os
+        errs = []
+        router_dir = "core/router"
+        if not os.path.isdir(router_dir): return []
+        paths = [os.path.join(router_dir, f) for f in os.listdir(router_dir) if f.endswith(".py") and f != "__init__.py"]
+        for path in paths:
+            filename = os.path.basename(path)
+            try:
+                with open(path, "r") as f:
+                    tree = ast.parse(f.read())
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Call): continue
+                    func_id = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+                    if func_id != "func_request_param_read": continue
+                    config_node = None
+                    for kw in node.keywords:
+                        if kw.arg == "config":
+                            config_node = kw.value
+                            break
+                    if config_node is None: continue
+                    if not isinstance(config_node, ast.List):
+                        errs.append(f"{filename}:{config_node.lineno} func_request_param_read config must be an explicit list")
+                        continue
+                    for param in config_node.elts:
+                        if not isinstance(param, (ast.List, ast.Tuple)):
+                            errs.append(f"{filename}:{param.lineno} func_request_param_read config item must be an explicit 5-field list or tuple")
+                            continue
+                        if len(param.elts) != 5:
+                            param_name = ast.unparse(param.elts[0]) if param.elts else "unknown"
+                            errs.append(f"{filename}:{param.lineno} func_request_param_read config item {param_name} must have exactly 5 fields: (key, dtype, is_mandatory, allowed_values, default_value)")
+                            continue
+                        is_mandatory_node = param.elts[2]
+                        default_node = param.elts[4]
+                        is_mandatory = isinstance(is_mandatory_node, ast.Constant) and is_mandatory_node.value in (1, True)
+                        has_default = not (isinstance(default_node, ast.Constant) and default_node.value is None)
+                        if is_mandatory and has_default:
+                            param_name = ast.unparse(param.elts[0]) if param.elts else "unknown"
+                            default_value = ast.unparse(default_node)
+                            errs.append(f"{filename}:{param.lineno} func_request_param_read config item {param_name} is mandatory, default_value must be None; found {default_value}")
+            except Exception as e:
+                errs.append(f"{filename} request param config check failed: {e}")
         return errs
     def _get_import_errors():
         import os
@@ -505,6 +624,9 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         (await _get_root_user_errors(client_postgres_pool)) +
         _get_config_standard_errors() +
         _get_function_standard_errors() +
+        _get_function_module_structure_errors() +
+        _get_router_module_structure_errors() +
+        _get_request_param_config_errors() +
         _get_import_errors()
     )
     if errors: raise Exception("; ".join(errors))
@@ -575,7 +697,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                     if not isinstance(node, ast.Call): continue
                     func_id = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
                     if func_id != "func_request_param_read": continue
-                    hardened_funcs = ("func_regex_check", "func_orchestrator_obj_create", "func_orchestrator_obj_update", "func_orchestrator_postgres_import")
+                    hardened_funcs = ("func_regex_check", "func_orchestrator_obj_create", "func_orchestrator_obj_update")
                     is_regex_enabled = any(isinstance(n, ast.Call) and (getattr(n.func, "id", None) in hardened_funcs or getattr(n.func, "attr", None) in hardened_funcs) for n in ast.walk(tree))
                     try:
                         p_loc, p_list = None, None
@@ -663,19 +785,39 @@ async def func_regex_check(*, config_regex: dict, obj_list: list) -> None:
 
 async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
     """Read full PostgreSQL schema from public namespace, mapping internal data types to a standard dictionary format."""
-    query = """
-        SELECT table_name, column_name, data_type, is_nullable, column_default 
-        FROM information_schema.columns 
+    sql = """
+        SELECT table_name, column_name, data_type, udt_name, is_nullable, column_default 
+        FROM information_schema.columns
         WHERE table_schema = 'public' 
         ORDER BY table_name, ordinal_position;
     """
     async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query)
+        records = await conn.fetch(sql)
+    array_type_map = {
+        "_int2": "smallint[]",
+        "_int4": "integer[]",
+        "_int8": "bigint[]",
+        "_float4": "real[]",
+        "_float8": "double precision[]",
+        "_numeric": "numeric[]",
+        "_bool": "boolean[]",
+        "_text": "text[]",
+        "_varchar": "character varying[]",
+        "_bpchar": "character[]",
+        "_date": "date[]",
+        "_timestamp": "timestamp without time zone[]",
+        "_timestamptz": "timestamp with time zone[]",
+    }
     schema = {}
     for r in records:
         tbl = r["table_name"]
         if tbl not in schema: schema[tbl] = {}
-        schema[tbl][r["column_name"]] = {"datatype": r["data_type"], "is_nullable": r["is_nullable"], "default": r["column_default"]}
+        datatype = r["data_type"]
+        if str(datatype).lower() == "array":
+            datatype = array_type_map.get(r["udt_name"], f"{str(r['udt_name']).lstrip('_')}[]")
+        elif str(datatype).lower() == "user-defined":
+            datatype = r["udt_name"]
+        schema[tbl][r["column_name"]] = {"datatype": datatype, "is_nullable": r["is_nullable"], "default": r["column_default"]}
     return schema
 
 async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str) -> dict:
@@ -692,7 +834,12 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
     control = config_postgres.get("control", {})
     is_ext, is_autovacuum = control.get("is_enable_extension", 0), control.get("is_enable_autovacuum_optimize", 0)
     is_drop_schema, is_drop_table, is_truncate_table = control.get("is_disable_drop_schema", 0), control.get("is_disable_drop_table", 0), control.get("is_disable_truncate", 0)
-    bulk_blocked, table_blocked = control.get("disable_table_delete_row_bulk", []), control.get("disable_table_delete_row", [])
+    is_disable_drop_column = control.get("is_disable_drop_column", 1)
+    is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", control.get("is_enable_drop_column", 0))))
+    if is_disable_drop_column and is_enable_drop_column_mismatch:
+        raise Exception("config_postgres.control conflict: is_disable_drop_column=1 blocks is_enable_drop_column_mismatch=1")
+    bulk_blocked = control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))
+    table_blocked = control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
     for table_name, column_configs in config_postgres["table"].items():
@@ -744,6 +891,18 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                         print(f"⚠️  {f'extension {extension}':<30} : ❌ skipped (insufficient privileges)")
                     else:
                         raise e
+        try:
+            if is_disable_drop_column:
+                await conn.execute("CREATE OR REPLACE FUNCTION func_drop_column_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ DECLARE obj RECORD; BEGIN FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP IF obj.object_type = 'table column' THEN RAISE EXCEPTION 'dropping columns is disabled in configuration'; END IF; END LOOP; END; $$;")
+                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
+                await conn.execute("CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE') EXECUTE FUNCTION func_drop_column_disable();")
+            else:
+                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
+        except Exception as e:
+            if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
+                print(f"⚠️  {'drop column event trigger':<30} : ❌ skipped (insufficient privileges)")
+            else:
+                raise e
         for table_name, column_configs in config_postgres["table"].items():
             await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id BIGSERIAL PRIMARY KEY);")
             if is_autovacuum:
@@ -795,6 +954,12 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                              table_changed = True
                     elif current_default is not None:
                         await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP DEFAULT")
+                        table_changed = True
+            if is_enable_drop_column_mismatch:
+                desired_cols = {"id"} | {col_cfg["name"] for col_cfg in column_configs}
+                for col_name in list(current_cols):
+                    if col_name not in desired_cols:
+                        await conn.execute(f"ALTER TABLE {table_name} DROP COLUMN {col_name}")
                         table_changed = True
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
@@ -964,12 +1129,32 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
     import orjson
     if table not in cache_postgres_schema: return obj_list
     output_list, schema = [], cache_postgres_schema[table]
+    def normalize_dtype(t):
+        t = str(t).lower().strip()
+        array_alias_map = {
+            "_int2": "smallint[]",
+            "_int4": "integer[]",
+            "_int8": "bigint[]",
+            "_float4": "real[]",
+            "_float8": "double precision[]",
+            "_numeric": "numeric[]",
+            "_bool": "boolean[]",
+            "_text": "text[]",
+            "_varchar": "character varying[]",
+            "_bpchar": "character[]",
+            "_date": "date[]",
+            "_timestamp": "timestamp without time zone[]",
+            "_timestamptz": "timestamp with time zone[]",
+        }
+        return array_alias_map.get(t, t)
     def cast_val(v, t):
+        t = normalize_dtype(t)
         vs = str(v).strip()
         if not vs or vs.lower() == "null": return None
+        if "geography" in t or "geometry" in t: return v
         if any(x in t for x in ("int", "serial", "bigint")): return int(vs)
         if "bool" in t: return 1 if vs.lower() in ("true", "1", "yes", "on", "ok") else 0
-        if any(x in t for x in ("numeric", "float", "double")): return float(vs)
+        if any(x in t for x in ("numeric", "float", "double", "real")): return float(vs)
         if "timestamp" in t:
             from datetime import datetime
             return datetime.fromisoformat(vs.replace("Z", "+00:00")) if isinstance(v, str) else v
@@ -993,7 +1178,7 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
             if val is None:
                 new_item[col] = val
                 continue
-            dtype = schema[col]["datatype"].lower()
+            dtype = normalize_dtype(schema[col]["datatype"])
             is_json, is_array = "json" in dtype, "[]" in dtype or "array" in dtype
             base_dtype = dtype.replace("[]", "").replace("array", "").strip()
             if is_base == 1:
@@ -1047,12 +1232,12 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             columns.append(c)
         if len(serialized_list) == 1:
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
-            query = f"""INSERT INTO {table} ({",".join(columns)}) VALUES ({placeholders}) RETURNING id"""
+            sql = f"""INSERT INTO {table} ({",".join(columns)}) VALUES ({placeholders}) RETURNING id"""
             if client_postgres_conn:
-                ids = await client_postgres_conn.fetch(query, *serialized_list[0].values())
+                ids = await client_postgres_conn.fetch(sql, *serialized_list[0].values())
             else:
                 async with client_postgres_pool.acquire() as conn:
-                    ids = await conn.fetch(query, *serialized_list[0].values())
+                    ids = await conn.fetch(sql, *serialized_list[0].values())
         else:
             schema = cache_postgres_schema.get(table, {})
             col_list = ",".join(columns)
@@ -1072,8 +1257,8 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             async def _execute_bulk(connection):
                 for i in range(0, len(serialized_list), limit_chunk):
                     batch = serialized_list[i : i + limit_chunk]
-                    query = f"INSERT INTO {table} ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id"
-                    ids_batch = await connection.fetch(query, orjson.dumps(batch, default=str).decode('utf-8'))
+                    sql = f"INSERT INTO {table} ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id"
+                    ids_batch = await connection.fetch(sql, orjson.dumps(batch, default=str).decode('utf-8'))
                     all_ids.extend([dict(r) for r in ids_batch])
             if client_postgres_conn:
                 await _execute_bulk(client_postgres_conn)
@@ -1216,10 +1401,10 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
     where_statement = ""
     if conditions:
         where_statement = "WHERE " + " AND ".join(conditions)
-    final_query = f"SELECT {column_list} FROM {table} {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}"
+    sql_select = f"SELECT {column_list} FROM {table} {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}"
     values.extend([limit, (page - 1) * limit])
     async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(final_query, *values)
+        records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
         if creator_key and result_list:
             keys_to_fetch = creator_key.split(",") if isinstance(creator_key, str) else creator_key
@@ -1238,8 +1423,8 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             object_ids = {r.get("id") for r in result_list if r.get("id")}
             action_map = {}
             if object_ids:
-                action_query = f"SELECT {action_col} AS id, {action_op}({action_out_col}) AS value FROM {target_tbl} WHERE {action_col} = ANY($1) GROUP BY {action_col};"
-                action_rows = await client_postgres_pool.fetch(action_query, list(object_ids))
+                sql_action = f"SELECT {action_col} AS id, {action_op}({action_out_col}) AS value FROM {target_tbl} WHERE {action_col} = ANY($1) GROUP BY {action_col};"
+                action_rows = await client_postgres_pool.fetch(sql_action, list(object_ids))
                 action_map = {str(row["id"]): row["value"] for row in action_rows}
             for res_row in result_list:
                 obj_id = str(res_row.get("id"))
@@ -1290,11 +1475,11 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
                 where_clause += f" AND created_by_id=${len(params)+1}"
                 params.append(created_by_id)
             if is_return_ids == 1:
-                query = f"""UPDATE {table} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause} RETURNING id;"""
-                records = await conn.fetch(query, *params)
+                sql = f"""UPDATE {table} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause} RETURNING id;"""
+                records = await conn.fetch(sql, *params)
                 return [r["id"] for r in records]
-            query = f"""UPDATE {table} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause};"""
-            status = await conn.execute(query, *params)
+            sql = f"""UPDATE {table} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause};"""
+            status = await conn.execute(sql, *params)
             return f"{int(status.split()[-1])} rows updated"
         if client_postgres_conn:
             return await _execute_one(client_postgres_conn)
@@ -1326,11 +1511,11 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
                 if created_by_id:
                     batch_vals.append(created_by_id)
                 if is_return_ids == 1:
-                    query = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;"""
-                    returned_ids.extend([r["id"] for r in (await connection.fetch(query, *batch_vals))])
+                    sql = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;"""
+                    returned_ids.extend([r["id"] for r in (await connection.fetch(sql, *batch_vals))])
                 else:
-                    query = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause};"""
-                    total_updated += int((await connection.execute(query, *batch_vals)).split()[-1])
+                    sql = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause};"""
+                    total_updated += int((await connection.execute(sql, *batch_vals)).split()[-1])
     if client_postgres_conn:
         await _execute_update(client_postgres_conn)
     else:
@@ -1349,13 +1534,13 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
         ids_str = ",".join(str(int(x)) for x in ids)
     else:
         ids_str = ""
-    delete_query = f"DELETE FROM {table} WHERE id IN ({ids_str}) AND ($1::bigint IS NULL OR created_by_id=$1);"
+    sql_delete = f"DELETE FROM {table} WHERE id IN ({ids_str}) AND ($1::bigint IS NULL OR created_by_id=$1);"
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if client_postgres_conn:
-        await client_postgres_conn.execute(delete_query, created_by_id)
+        await client_postgres_conn.execute(sql_delete, created_by_id)
     else:
         async with client_postgres_pool.acquire() as conn:
-            await conn.execute(delete_query, created_by_id)
+            await conn.execute(sql_delete, created_by_id)
     return "ids deleted"
 
 async def func_orchestrator_obj_create(*, user_id: any, api_role: str, table: str, mode: str, is_serialize: int, queue: str, obj_list: list, config_table_create_disable_my: list, config_table_create_enable_public: list, config_column_disable: list, config_table: dict, config_regex: dict, func_regex_check: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
@@ -1478,9 +1663,9 @@ async def func_otp_generate(*, client_postgres_pool: any, email: str, mobile: st
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""
     import random
     otp = random.randint(10**(config_otp_length-1), 10**config_otp_length - 1)
-    query = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
+    sql = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
     async with client_postgres_pool.acquire() as conn:
-        await conn.execute(query, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
+        await conn.execute(sql, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
     return otp
 
 async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str, mobile: str, config_expiry_sec_otp: int) -> None:
@@ -1489,13 +1674,13 @@ async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str, mo
     if not email and not mobile: raise Exception("missing both email and mobile")
     if email and mobile: raise Exception("provide only one identifier")
     if email:
-        query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
+        sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
         identifier = email.strip().lower()
     else:
-        query = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
+        sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
         identifier = mobile.strip()
     async with client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(query, identifier)
+        records = await conn.fetch(sql, identifier)
         if not records: raise Exception("otp not found")
         if records[0]["otp"] != otp: raise Exception("invalid otp code")
         if not records[0]["is_active"]: raise Exception("otp code expired")

@@ -147,8 +147,8 @@ async def func_api_public_table_tag_read(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("column", "str", 1, app_state.cache_postgres_column_list, None), ("filter_column", "str", 0, app_state.cache_postgres_column_list, None), ("filter_value", "str", 0, None, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
     table, column, filter_column, filter_value = oq["table"], oq["column"], oq["filter_column"], (await app_state.func_postgres_serialize(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=[{oq["filter_column"]: oq["filter_value"]}], is_base=0))[0][oq["filter_column"]] if oq["filter_column"] and oq["filter_value"] else None
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column)) or (filter_column and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_column))): raise Exception("invalid identifier")
-    where_clause = f"WHERE x.{filter_column}=$1" if filter_column and filter_value is not None else ""; query_args = [filter_value] if filter_column and filter_value is not None else []
-    query = f"SELECT tag_item, count(*) FROM {table} x CROSS JOIN LATERAL unnest(x.{column}) tag_item {where_clause} GROUP BY tag_item ORDER BY count(*) DESC LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']}"
+    where_clause = f"WHERE x.{filter_column}=$1" if filter_column and filter_value is not None else ""; sql_args = [filter_value] if filter_column and filter_value is not None else []
+    sql = f"SELECT tag_item, count(*) FROM {table} x CROSS JOIN LATERAL unnest(x.{column}) tag_item {where_clause} GROUP BY tag_item ORDER BY count(*) DESC LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']}"
     async with app_state.client_postgres_pool.acquire() as conn:
-        rows = await conn.fetch(query, *query_args)
+        rows = await conn.fetch(sql, *sql_args)
         return {"status": 1, "message": [{"tag": row["tag_item"], "count": row["count"]} for row in rows]}

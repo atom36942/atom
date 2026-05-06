@@ -1,39 +1,34 @@
 #import
 from .config import *
 from .function import *
-import aio_pika
-import aiobotocore.session
-import asyncpg
-import asyncssh
-import boto3
-from google import genai
-import httpx
-import motor.motor_asyncio
-import openai
-import os
-import redis.asyncio as redis
-import sentry_sdk
-import time
-from argon2 import PasswordHasher
-from aiokafka import AIOKafkaProducer
-from azure.storage.blob.aio import BlobServiceClient
-from celery import Celery
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from posthog import Posthog
-from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 #lifespan
+from contextlib import asynccontextmanager
 @asynccontextmanager
-async def func_lifespan(app:FastAPI):
+async def func_lifespan(app:"FastAPI"):
    #logging start
+   import time
    start_journey = time.perf_counter()
    #structure
+   import os
    for directory in ("tmp", "secret", "static"):os.makedirs(directory, exist_ok=True)
    #client init
    try:
+       import aio_pika
+       import aiobotocore.session
+       import asyncpg
+       import asyncssh
+       import boto3
+       from google import genai
+       import httpx
+       import motor.motor_asyncio
+       import openai
+       import redis.asyncio as redis
+       from argon2 import PasswordHasher
+       from aiokafka import AIOKafkaProducer
+       from azure.storage.blob.aio import BlobServiceClient
+       from celery import Celery
+       from posthog import Posthog
        client_password_hasher = PasswordHasher()
        client_http = httpx.AsyncClient()
        client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if config_postgres_url else None
@@ -80,8 +75,8 @@ async def func_lifespan(app:FastAPI):
        cache_postgres_schema=await func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
        cache_postgres_table_list=list(cache_postgres_schema.keys())
        cache_postgres_column_list=sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
-       cache_users_role = await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("sql_cache_users_role")) if client_postgres_pool else {}
-       cache_users_is_active = await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("sql_cache_users_is_active")) if client_postgres_pool else {}
+       cache_users_role = await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("users_role")) if client_postgres_pool else {}
+       cache_users_is_active = await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("users_is_active")) if client_postgres_pool else {}
        cache_ratelimiter, cache_api_response, cache_postgres_buffer = {}, {}, {}
        #app state add
        for key, val in {**globals(),**locals()}.items():
@@ -115,21 +110,27 @@ async def func_lifespan(app:FastAPI):
    if client_azure_blob: await client_azure_blob.close()
 
 #app
+from fastapi import FastAPI
 app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
 #router
+import os
 func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 
 #static
+from fastapi.staticfiles import StaticFiles
 app.mount("/static", StaticFiles(directory="./static", check_dir=False), name="static")
 
 #sentry
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 if config_sentry_dsn:
    sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=True)
 
 #middleware
 @app.middleware("http")
 async def middleware(request, api_function):
+    import time
     if request.method == "OPTIONS": return await api_function(request)
     start, error, request.state.user = time.perf_counter(), None, {}
     app_state = request.app.state
@@ -145,4 +146,5 @@ async def middleware(request, api_function):
     return response
 
 #cors add (must be at the end to be outermost)
+from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware, allow_origins=[] if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else config_cors_origin, allow_origin_regex=".*" if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else None, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))

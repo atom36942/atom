@@ -106,9 +106,9 @@ config_api_roles_auth=["/my/", "/private/", "/admin/"]
 
 #dict
 config_sql={
-"sql_cache_users_role":"select id,role from users where role is not null order by id asc limit 1000",
-"sql_cache_users_is_active":"select id,is_active from users order by id asc limit 1000",
-"sql_profile_metadata":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
+"users_role":"select id,role from users where role is not null order by id asc limit 1000",
+"users_is_active":"select id,is_active from users order by id asc limit 1000",
+"profile_metadata":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
 }
 
 config_table={
@@ -120,7 +120,7 @@ config_table={
 
 config_regex={
 "username":["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
-"password":["^\\S{6,30}$", "Password must be 8-32 characters and contain no spaces"],
+"password":["^\\S{6,30}$", "Password must be 6-30 characters and contain no spaces"],
 }
 
 config_column_int_mapping = {
@@ -366,6 +366,8 @@ config_postgres={
 "is_disable_drop_schema":0,
 "is_disable_drop_table":0,
 "is_disable_truncate":0,
+"is_disable_drop_column":1,
+"is_enable_drop_column_mismatch":0,
 "is_disable_users_delete_role":1,
 "is_enable_users_delete_child_soft":1,
 "is_enable_users_delete_child_hard":0,

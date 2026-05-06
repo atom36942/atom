@@ -36,10 +36,10 @@ class InMemoryAuthConn:
         self.next_user_id = 1
         self.next_otp_id = 1
 
-    async def fetch(self, query, *args):
-        normalized = " ".join(query.lower().split())
+    async def fetch(self, sql, *args):
+        normalized = " ".join(sql.lower().split())
         if normalized.startswith("insert into users"):
-            return [self._insert_user(query, args)]
+            return [self._insert_user(sql, args)]
         if "from users where type=$1 and username=$2" in normalized:
             type_, username = args
             return self._latest_user(lambda row: row.get("type") == type_ and row.get("username") == username)
@@ -75,8 +75,8 @@ class InMemoryAuthConn:
         self.otp.append(row)
         return row
 
-    def _insert_user(self, query, args):
-        columns = query.split("(", 1)[1].split(")", 1)[0].replace(" ", "").split(",")
+    def _insert_user(self, sql, args):
+        columns = sql.split("(", 1)[1].split(")", 1)[0].replace(" ", "").split(",")
         return self.seed_user(**dict(zip(columns, args)))
 
     def _latest_user(self, predicate):

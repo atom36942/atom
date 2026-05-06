@@ -40,17 +40,17 @@ class InMemoryMyConn:
         self.child_rows = []
         self.executed = []
 
-    async def fetchrow(self, query, *args):
-        normalized = " ".join(query.lower().split())
+    async def fetchrow(self, sql, *args):
+        normalized = " ".join(sql.lower().split())
         if normalized.startswith("select * from users where id=$1"):
             user_id = args[0]
             rows = [row for row in self.users if row["id"] == user_id]
             return rows[0] if rows else None
         return None
 
-    async def fetch(self, query, *args):
-        normalized = " ".join(query.lower().split())
-        if query == "profile-test-count":
+    async def fetch(self, sql, *args):
+        normalized = " ".join(sql.lower().split())
+        if sql == "profile-test-count":
             user_id = args[0]
             return [{"count": len([row for row in self.child_rows if row.get("created_by_id") == user_id])}]
         if "from log_api" in normalized:
@@ -72,9 +72,9 @@ class InMemoryMyConn:
             return [row for row in self.child_rows if row.get("parent_id") in parent_ids]
         return []
 
-    async def execute(self, query, *args):
-        normalized = " ".join(query.lower().split())
-        self.executed.append((query, args))
+    async def execute(self, sql, *args):
+        normalized = " ".join(sql.lower().split())
+        self.executed.append((sql, args))
         if normalized.startswith("update users set last_active_at=now() where id=$1"):
             user = self._user(args[0])
             if user:
@@ -86,7 +86,7 @@ class InMemoryMyConn:
         elif normalized.startswith("delete from users where id=$1"):
             self.users = [row for row in self.users if row["id"] != args[0]]
         elif normalized.startswith("update message set is_read=1 where id in"):
-            ids = {int(x) for x in query.split("(", 1)[1].split(")", 1)[0].split(",") if x.strip()}
+            ids = {int(x) for x in sql.split("(", 1)[1].split(")", 1)[0].split(",") if x.strip()}
             for row in self.messages:
                 if row["id"] in ids:
                     row["is_read"] = 1
@@ -232,7 +232,7 @@ def my_client(my_test_client):
     test_client.app.state.client_postgres_pool = InMemoryMyPool()
     test_client.app.state.client_mongodb = FakeMongo()
     test_client.app.state.config_is_enable_log_api = 0
-    test_client.app.state.config_sql = {"sql_profile_metadata": {"test_count": "profile-test-count"}}
+    test_client.app.state.config_sql = {"profile_metadata": {"test_count": "profile-test-count"}}
     test_client.app.state.cache_postgres_table_list = ["test", "users", "message", "parent", "child"]
     test_client.app.state.cache_postgres_column_list = ["id", "created_by_id", "parent_id"]
     test_client.app.state.func_api_log_create = noop_api_log_create

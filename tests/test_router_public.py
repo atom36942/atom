@@ -37,8 +37,8 @@ class InMemoryPublicConn:
         self.next_otp_id = 1
         self.executed = []
 
-    async def fetch(self, query, *args):
-        normalized = " ".join(query.lower().split())
+    async def fetch(self, sql, *args):
+        normalized = " ".join(sql.lower().split())
         if "from otp where email=$1" in normalized:
             return self._latest_otp(lambda row: row.get("email") == args[0])
         if "from otp where mobile=$1" in normalized:
@@ -57,9 +57,9 @@ class InMemoryPublicConn:
             ]
         return []
 
-    async def execute(self, query, *args):
-        self.executed.append((query, args))
-        if query.lower().startswith("insert into otp"):
+    async def execute(self, sql, *args):
+        self.executed.append((sql, args))
+        if sql.lower().startswith("insert into otp"):
             otp, email, mobile = args
             self.seed_otp(otp=otp, email=email, mobile=mobile)
         return "OK"
