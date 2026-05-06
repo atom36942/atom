@@ -47,7 +47,7 @@ async def func_api_public_object_create(*, request: Request):
 @router.get("/public/object-read")
 async def func_api_public_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
     if app_state.config_table_read_enable_public and oq["table"] not in app_state.config_table_read_enable_public: raise Exception(f"table not allowed: {oq['table']}, allowed: {app_state.config_table_read_enable_public}")
     ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], creator_key=oq["creator_key"], action_key=oq["action_key"])
     return {"status": 1, "message": ol}
@@ -67,16 +67,16 @@ async def func_api_public_otp_verify_mobile(*, request: Request):
 @router.post("/public/otp-send-email-ses")
 async def func_api_public_otp_send_email_ses(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("sender", "str", 1, None, None), ("email", "str", 1, None, None)])
-    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None)
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("email", "str", 1, None, None), ("sender", "str", 0, None, app_state.config_email_sender_default)])
+    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None, config_otp_length=app_state.config_otp_length)
     app_state.client_ses.send_email(Source=oq["sender"], Destination={"ToAddresses": [oq["email"]]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
     return {"status": 1, "message": "done"}
 
 @router.post("/public/otp-send-email-resend")
 async def func_api_public_otp_send_email_resend(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("sender", "str", 1, None, None), ("email", "str", 1, None, None)])
-    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None)
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("email", "str", 1, None, None), ("sender", "str", 0, None, app_state.config_email_sender_default)])
+    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None, config_otp_length=app_state.config_otp_length)
     headers = {"Authorization": f"Bearer {app_state.config_resend_key}", "Content-Type": "application/json"}
     payload = {"from": oq["sender"], "to": [oq["email"]], "subject": "your otp code", "html": f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>"}
     async with httpx.AsyncClient() as client:
@@ -88,7 +88,7 @@ async def func_api_public_otp_send_email_resend(*, request: Request):
 async def func_api_public_otp_send_mobile_sns(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mobile", "str", 1, None, None)])
-    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=oq["mobile"], email=None)
+    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=oq["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     app_state.client_sns.publish(PhoneNumber=oq["mobile"], Message=str(otp))
     return {"status": 1, "message": "done"}
 
@@ -96,7 +96,7 @@ async def func_api_public_otp_send_mobile_sns(*, request: Request):
 async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("mobile", "str", 1, None, None), ("message", "str", 1, None, None), ("template_id", "str", 1, None, None), ("entity_id", "str", 1, None, None), ("sender_id", "str", 1, None, None)])
-    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=ob["mobile"], email=None)
+    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=ob["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     app_state.client_sns.publish(PhoneNumber=ob["mobile"], Message=ob["message"].replace("{otp}", str(otp)), MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": ob["sender_id"]}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": ob["template_id"]}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": ob["entity_id"]}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
     return {"status": 1, "message": "done"}
 
@@ -104,7 +104,7 @@ async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
 async def func_api_public_otp_send_mobile_fast2sms(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mobile", "str", 1, None, None)])
-    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=oq["mobile"], email=None)
+    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=oq["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     params = {"authorization": app_state.config_fast2sms_key, "route": "otp", "variables_values": str(otp), "numbers": oq["mobile"]}
     async with httpx.AsyncClient() as client:
         response = await client.get(app_state.config_fast2sms_url, params=params)
@@ -144,7 +144,7 @@ async def func_api_public_jira_worklog_export(*, request: Request):
 @router.get("/public/table-tag-read")
 async def func_api_public_table_tag_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("column", "str", 1, app_state.cache_postgres_column_list, None), ("filter_column", "str", 0, app_state.cache_postgres_column_list, None), ("filter_value", "str", 0, None, None), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("column", "str", 1, app_state.cache_postgres_column_list, None), ("filter_column", "str", 0, app_state.cache_postgres_column_list, None), ("filter_value", "str", 0, None, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
     table, column, filter_column, filter_value = oq["table"], oq["column"], oq["filter_column"], (await app_state.func_postgres_serialize(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=[{oq["filter_column"]: oq["filter_value"]}], is_base=0))[0][oq["filter_column"]] if oq["filter_column"] and oq["filter_value"] else None
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column)) or (filter_column and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_column))): raise Exception("invalid identifier")
     where_clause = f"WHERE x.{filter_column}=$1" if filter_column and filter_value is not None else ""; query_args = [filter_value] if filter_column and filter_value is not None else []

@@ -85,7 +85,7 @@ async def func_lifespan(app:FastAPI):
        cache_ratelimiter, cache_api_response, cache_postgres_buffer = {}, {}, {}
        #app state add
        for key, val in {**globals(),**locals()}.items():
-          if key.startswith(("client_","cache_","func_","config_")): setattr(app.state, key, val)
+          if key.startswith(("client_","cache_","config_","func_")): setattr(app.state, key, val)
        #openapi spec
        app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
        #check
@@ -138,7 +138,7 @@ async def middleware(request, api_function):
         await app_state.func_check_role(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_check_is_active(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_is_active=app_state.cache_users_is_active, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_check_ratelimiter(client_redis_ratelimiter=app_state.client_redis_ratelimiter, config_api=app_state.config_api, url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
-        response = await app_state.func_api_response(request=request, api_function=api_function, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=request.state.user.get("id") if request.state.user else 0, func_background=app_state.func_api_response_background, func_cache=app_state.func_check_cache, cache_api_response=app_state.cache_api_response)
+        response = await app_state.func_api_response(request=request, api_function=api_function, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=request.state.user.get("id") if request.state.user else 0, cache_api_response=app_state.cache_api_response)
     except Exception as e:
         error, response = await app_state.func_api_response_error(exception=e, is_traceback=app_state.config_is_enable_traceback, sentry_dsn=app_state.config_sentry_dsn)
     await app_state.func_api_log_create(config_is_enable_log_api=app_state.config_is_enable_log_api, api_id=app_state.config_api.get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, description=error, func_postgres_create=app_state.func_postgres_create, client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer, config_table=app_state.config_table)

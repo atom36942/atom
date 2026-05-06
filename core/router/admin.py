@@ -17,23 +17,14 @@ async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
     await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, buffer_limit=0, cache_postgres_buffer=app_state.cache_postgres_buffer, client_postgres_conn=None)
     await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, created_by_id=None, is_return_ids=0, buffer_limit=0, cache_postgres_buffer=app_state.cache_postgres_buffer, client_postgres_conn=None)
-    query_schema = "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' ORDER BY table_name, ordinal_position;"
-    async with app_state.client_postgres_pool.acquire() as conn:
-        rows = await conn.fetch(query_schema)
-        schema = {}
-        for row in rows:
-            t = row["table_name"]
-            if t not in schema: schema[t] = {}
-            schema[t][row["column_name"]] = {"datatype": row["data_type"]}
-        app_state.cache_postgres_schema = schema
+    if app_state.client_postgres_pool and app_state.config_is_enable_postgres_init_startup == 1:
+        await app_state.func_postgres_schema_init(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, config_postgres=app_state.config_postgres, config_postgres_root_user_password=app_state.config_postgres_root_user_password)
+    app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres_pool=app_state.client_postgres_pool) if app_state.client_postgres_pool else {}
     app_state.cache_postgres_table_list = list(app_state.cache_postgres_schema.keys())
     app_state.cache_postgres_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("sql_cache_users_role")) if app_state.client_postgres_pool else {}
     app_state.cache_users_is_active = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("sql_cache_users_is_active")) if app_state.client_postgres_pool else {}
-    if app_state.config_is_enable_reset_tmp == 1:
-        if os.path.exists("tmp"):
-            shutil.rmtree("tmp")
-            os.makedirs("tmp")
+    if app_state.config_is_enable_reset_tmp == 1 and os.path.exists("tmp"): shutil.rmtree("tmp"); os.makedirs("tmp")
     return {"status": 1, "message": "done"}
 
 @router.post("/admin/postgres-clean")
@@ -66,7 +57,7 @@ async def func_api_admin_object_update(*, request: Request):
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, 100), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
     return {"status": 1, "message": await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], creator_key=oq["creator_key"], action_key=oq["action_key"])}
 
 @router.post("/admin/ids-delete")

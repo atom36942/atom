@@ -11,9 +11,8 @@ from datetime import datetime, timedelta, timezone
 @router.post("/private/blob-upload-file")
 async def func_api_private_blob_upload_file(request:Request):
    app_state=request.app.state
-   of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("container", "str", 1, None, None), ("file", "file", 1, [], None)])
+   of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("file", "file", 1, [], None), ("container", "str", 0, None, app_state.config_blob_container_default)])
    container = of["container"]
-   if not container: raise Exception("container name required")
    if len(of["file"]) > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} files allowed")
    output = {}
    if of["service"] == "s3":
@@ -36,9 +35,8 @@ async def func_api_private_blob_upload_file(request:Request):
 @router.post("/private/blob-upload-url")
 async def func_api_private_blob_upload_url(request:Request):
    app_state=request.app.state
-   oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("container", "str", 1, None, None), ("count", "int", 1, None, None)])
+   oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("count", "int", 1, None, None), ("container", "str", 0, None, app_state.config_blob_container_default)])
    container = oq["container"]
-   if not container: raise Exception("container name required")
    if oq["count"] > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} allowed")
    output = []
    if oq["service"] == "s3":

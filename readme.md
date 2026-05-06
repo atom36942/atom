@@ -56,3 +56,5 @@ venv/bin/pytest
 | **✅ Account Status** | Automated active-status enforcement (Supports: `realtime`, `token`, `inmemory`, `redis`). |
 | **⚡ Smart Caching** | High-performance response caching (Supports: `inmemory`, `redis`). |
 | **🚦 Rate Limiting** | Integrated traffic control and throttling (Supports: `inmemory`, `redis`). |
+| **📅 Date Format** | Use **`YYYY-MM-DD`** for dates and **ISO 8601** (`YYYY-MM-DDTHH:MM:SSZ`) for timestamps. |
+

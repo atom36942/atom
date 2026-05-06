@@ -2,12 +2,14 @@
 config_postgres_url=None
 config_postgres_min_connection=5
 config_postgres_max_connection=20
-config_postgres_root_user_password="atom123321"
+config_postgres_root_user_password="123456"
 
 #system
 config_index_html_path="static/api.html"
 config_auth_type=[1]
 config_expiry_sec_otp=600
+config_otp_length=6
+config_query_limit_default=100
 
 #redis
 config_redis_url=None
@@ -32,7 +34,7 @@ config_redis_batch_limit=1000
 config_redis_batch_timeout_ms=1000
 
 #token
-config_token_secret_key="123"
+config_token_secret_key="atom-development-token-secret-key-32b"
 config_token_expiry_sec=10*365*24*24
 config_token_refresh_expiry_sec=100*365*24*24
 config_token_key=["id", "type", "role", "is_active"]
@@ -61,6 +63,7 @@ config_fast2sms_url=None
 config_fast2sms_key=None
 config_resend_url=None
 config_resend_key=None
+config_email_sender_default="atom@atom.com"
 config_posthog_project_host=None
 config_posthog_project_key=None
 config_mongodb_url=None
@@ -117,7 +120,7 @@ config_table={
 
 config_regex={
 "username":["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
-"password":["^\\S{8,32}$", "Password must be 8-32 characters and contain no spaces"],
+"password":["^\\S{6,30}$", "Password must be 8-32 characters and contain no spaces"],
 }
 
 config_column_int_mapping = {
