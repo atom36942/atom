@@ -15,6 +15,7 @@ from core.function import (
     func_middleware_check_ratelimiter,
     func_middleware_check_role,
     func_postgres_create,
+    func_postgres_update,
     func_regex_check,
 )
 
@@ -358,17 +359,18 @@ async def test_postgres_create_rejects_missing_or_empty_object_data():
         "mode": "now",
         "table": "test",
         "is_serialize": 0,
-        "buffer_limit": 0,
-        "cache_postgres_buffer": {},
+        "config_buffer_limit": config.config_buffer_limit,
+        "cache_postgres_buffer_create": {},
         "config_regex": config.config_regex,
         "func_regex_check": func_regex_check,
+        "config_table": config.config_table,
         "config_obj_list_limit": config.config_obj_list_limit,
     }
 
     with pytest.raises(Exception, match="object list required"):
-        await func_postgres_create(obj_list=[], **common)
+        await func_postgres_create(obj_list=[], cache_postgres_buffer_create=common["cache_postgres_buffer_create"], **{k: v for k, v in common.items() if k != "cache_postgres_buffer_create"})
     with pytest.raises(Exception, match="object data required"):
-        await func_postgres_create(obj_list=[{}], **common)
+        await func_postgres_create(obj_list=[{}], cache_postgres_buffer_create=common["cache_postgres_buffer_create"], **{k: v for k, v in common.items() if k != "cache_postgres_buffer_create"})
 
 
 @pytest.mark.asyncio
@@ -387,11 +389,93 @@ async def test_postgres_create_rejects_obj_list_over_limit():
             table="test",
             obj_list=[{"title": "one"}, {"title": "two"}],
             is_serialize=0,
-            buffer_limit=0,
-            cache_postgres_buffer={},
+            config_buffer_limit=0,
+            cache_postgres_buffer_create={},
             config_regex=config.config_regex,
             func_regex_check=func_regex_check,
+            config_table=config.config_table,
             config_obj_list_limit=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_postgres_update_rejects_missing_or_empty_object_data():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    common = {
+        "client_postgres_pool": None,
+        "client_postgres_conn": None,
+        "client_password_hasher": None,
+        "func_postgres_serialize": passthrough_serialize,
+        "cache_postgres_schema": {},
+        "mode": "now",
+        "table": "test",
+        "is_serialize": 0,
+        "created_by_id": None,
+        "config_buffer_limit": 0,
+        # "cache_postgres_buffer_update": {}, removed
+        "config_obj_list_limit": config.config_obj_list_limit,
+        "config_regex": config.config_regex,
+        "func_regex_check": func_regex_check,
+        "config_table": config.config_table,
+    }
+
+    with pytest.raises(Exception, match="object list required"):
+        await func_postgres_update(obj_list=[], **common)
+    with pytest.raises(Exception, match="object data required"):
+        await func_postgres_update(obj_list=[{}], **common)
+
+
+@pytest.mark.asyncio
+async def test_postgres_update_rejects_obj_list_over_limit():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    with pytest.raises(Exception, match="maximum 1 objects allowed"):
+        await func_postgres_update(
+            client_postgres_pool=None,
+            client_postgres_conn=None,
+            client_password_hasher=None,
+            func_postgres_serialize=passthrough_serialize,
+            cache_postgres_schema={},
+            mode="now",
+            table="test",
+            obj_list=[{"id": 1, "title": "one"}, {"id": 2, "title": "two"}],
+            is_serialize=0,
+            created_by_id=None,
+            config_buffer_limit=0,
+            # cache_postgres_buffer_update={}, removed
+            config_obj_list_limit=1,
+            config_regex=config.config_regex,
+            func_regex_check=func_regex_check,
+            config_table=config.config_table,
+        )
+
+
+@pytest.mark.asyncio
+async def test_postgres_update_validates_users_with_regex():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    with pytest.raises(Exception, match="Username must be"):
+        await func_postgres_update(
+            client_postgres_pool=None,
+            client_postgres_conn=None,
+            client_password_hasher=None,
+            func_postgres_serialize=passthrough_serialize,
+            cache_postgres_schema={},
+            mode="now",
+            table="users",
+            obj_list=[{"id": 1, "username": "BadUser"}],
+            is_serialize=0,
+            created_by_id=None,
+            config_buffer_limit=0,
+            # cache_postgres_buffer_update={}, removed
+            config_obj_list_limit=config.config_obj_list_limit,
+            config_regex=config.config_regex,
+            func_regex_check=func_regex_check,
+            config_table=config.config_table,
         )
 
 
@@ -411,11 +495,12 @@ async def test_postgres_create_validates_users_with_regex():
             table="users",
             obj_list=[{"username": "BadUser"}],
             is_serialize=0,
-            buffer_limit=0,
-            cache_postgres_buffer={},
+            config_buffer_limit=0,
+            cache_postgres_buffer_create={},
             config_regex=config.config_regex,
             func_regex_check=func_regex_check,
             config_obj_list_limit=config.config_obj_list_limit,
+            config_table=config.config_table,
         )
 
 
@@ -437,15 +522,48 @@ async def test_postgres_create_forces_users_serialization():
         table="users",
         obj_list=[{"username": "user_1", "password": "secret1"}],
         is_serialize=0,
-        buffer_limit=10,
-        cache_postgres_buffer={},
+        config_buffer_limit=10,
+        cache_postgres_buffer_create={},
         config_regex=config.config_regex,
         func_regex_check=func_regex_check,
         config_obj_list_limit=config.config_obj_list_limit,
+        config_table=config.config_table,
     )
 
     assert calls["table"] == "users"
     assert calls["obj_list"] == [{"username": "user_1", "password": "secret1"}]
+
+
+@pytest.mark.asyncio
+async def test_postgres_update_forces_users_serialization():
+    calls = {}
+
+    async def fake_serialize(**kwargs):
+        calls.update(kwargs)
+        return [{"id": 1, "username": "user_1"}]
+
+    with pytest.raises(AttributeError):
+        await func_postgres_update(
+            client_postgres_pool=None,
+            client_postgres_conn=None,
+            client_password_hasher=None,
+            func_postgres_serialize=fake_serialize,
+            cache_postgres_schema={},
+            mode="now",
+            table="users",
+            obj_list=[{"id": 1, "username": "user_1"}],
+            is_serialize=0,
+            created_by_id=None,
+            config_buffer_limit=10,
+            # cache_postgres_buffer_update={}, removed
+            config_obj_list_limit=config.config_obj_list_limit,
+            config_regex=config.config_regex,
+            func_regex_check=func_regex_check,
+            config_table=config.config_table,
+        )
+
+    assert calls["table"] == "users"
+    assert calls["obj_list"] == [{"id": 1, "username": "user_1"}]
 
 
 def test_config_regex_error_messages_match_current_password_pattern():

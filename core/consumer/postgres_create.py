@@ -25,16 +25,17 @@ async def execute(pool, payload, buffer, schema, hasher):
         client_postgres_conn=None,
         client_password_hasher=hasher,
         func_postgres_serialize=func_postgres_serialize,
+        func_regex_check=func_regex_check,
         cache_postgres_schema=schema,
+        cache_postgres_buffer_create=buffer,
+        config_regex=config_regex,
+        config_table=config_table,
+        config_obj_list_limit=config_obj_list_limit,
+        config_buffer_limit=payload.get("config_buffer_limit", config_buffer_limit),
         mode=payload.get("mode", "now"),
         table=tbl,
         obj_list=payload.get("obj_list"),
-        is_serialize=payload.get("is_serialize", 0),
-        buffer_limit=payload.get("buffer_limit", config_table.get(tbl, {}).get("buffer", 100) if tbl else 100),
-        cache_postgres_buffer=buffer,
-        config_regex=config_regex,
-        func_regex_check=func_regex_check,
-        config_obj_list_limit=config_obj_list_limit
+        is_serialize=payload.get("is_serialize", 0)
     )
 
 #init

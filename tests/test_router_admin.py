@@ -168,8 +168,11 @@ def admin_client(admin_test_client):
         "config_is_enable_traceback": test_client.app.state.config_is_enable_traceback,
         "config_redis_cache_ttl_sec": test_client.app.state.config_redis_cache_ttl_sec,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
+        "config_is_enable_otp_users_update_admin": test_client.app.state.config_is_enable_otp_users_update_admin,
         "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
-        "func_orchestrator_obj_create": test_client.app.state.func_orchestrator_obj_create,
+        "func_postgres_create": test_client.app.state.func_postgres_create,
+        "func_postgres_update": test_client.app.state.func_postgres_update,
+        "func_otp_verify": test_client.app.state.func_otp_verify,
     }
 
     async def noop_api_log_create(**_kwargs):
@@ -234,17 +237,17 @@ def test_admin_mongodb_import_update_accepts_id_or_object_id(admin_client):
     ]
 
 
-def test_admin_object_create_passes_admin_scope_to_orchestrator(admin_client):
+def test_admin_object_create_passes_admin_scope_to_postgres_create(admin_client):
     calls = {}
 
     async def fake_create(**kwargs):
         calls.update(kwargs)
         return [101, 102]
 
-    admin_client.app.state.func_orchestrator_obj_create = fake_create
+    admin_client.app.state.func_postgres_create = fake_create
 
     response = admin_client.post(
-        "/admin/object-create?table=test&mode=buffer&is_serialize=1&queue=redis",
+        "/admin/object-create?table=test&mode=buffer&is_serialize=1",
         headers=bearer_token(admin_client.app.state),
         json={"obj_list": [{"title": "one"}, {"title": "two"}]},
     )
@@ -254,8 +257,7 @@ def test_admin_object_create_passes_admin_scope_to_orchestrator(admin_client):
     assert calls["table"] == "test"
     assert calls["mode"] == "buffer"
     assert calls["is_serialize"] == 1
-    assert calls["queue"] == "redis"
-    assert calls["obj_list"] == [{"title": "one", "created_by_id": 10}, {"title": "two", "created_by_id": 10}]
+    assert calls["obj_list"] == [{"title": "one", "updated_by_id": 10}, {"title": "two", "updated_by_id": 10}]
 
 
 def test_admin_object_create_allows_restricted_field(admin_client):
@@ -265,7 +267,7 @@ def test_admin_object_create_allows_restricted_field(admin_client):
         calls.update(kwargs)
         return [1]
 
-    admin_client.app.state.func_orchestrator_obj_create = fake_create
+    admin_client.app.state.func_postgres_create = fake_create
 
     response = admin_client.post(
         "/admin/object-create?table=test",
@@ -274,7 +276,36 @@ def test_admin_object_create_allows_restricted_field(admin_client):
     )
 
     assert response.status_code == 200
-    assert calls["obj_list"] == [{"is_active": 1, "created_by_id": 10}]
+    assert calls["obj_list"] == [{"is_active": 1, "updated_by_id": 10}]
+
+
+def test_admin_object_update_verifies_otp_for_user_email_when_enabled(admin_client):
+    otp_calls = {}
+    update_calls = {}
+
+    async def fake_otp(**kwargs):
+        otp_calls.update(kwargs)
+        return None
+
+    async def fake_update(**kwargs):
+        update_calls.update(kwargs)
+        return "updated"
+
+    admin_client.app.state.config_is_enable_otp_users_update_admin = 1
+    admin_client.app.state.func_otp_verify = fake_otp
+    admin_client.app.state.func_postgres_update = fake_update
+
+    response = admin_client.put(
+        "/admin/object-update?table=users&otp=123456",
+        headers=bearer_token(admin_client.app.state),
+        json={"id": 10, "email": "new@example.com"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": "updated"}
+    assert otp_calls["otp"] == 123456
+    assert otp_calls["email"] == "new@example.com"
+    assert update_calls["obj_list"] == [{"id": 10, "email": "new@example.com", "updated_by_id": 10}]
 
 
 def test_admin_postgres_runner_rejects_forbidden_keywords(admin_client):

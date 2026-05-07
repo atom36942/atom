@@ -22,18 +22,20 @@ async def execute(pool, payload, buffer, schema, hasher):
     tbl = payload.get("table")
     return await func_postgres_update(
         client_postgres_pool=pool,
+        client_postgres_conn=None,
         client_password_hasher=hasher,
         func_postgres_serialize=func_postgres_serialize,
+        func_regex_check=func_regex_check,
         cache_postgres_schema=schema,
+        config_regex=config_regex,
+        config_table=config_table,
+        config_obj_list_limit=payload.get("config_obj_list_limit", config_obj_list_limit),
+        config_buffer_limit=payload.get("config_buffer_limit", config_buffer_limit),
         mode=payload.get("mode", "now"),
         table=tbl,
         obj_list=payload.get("obj_list"),
         is_serialize=payload.get("is_serialize", 1),
-        created_by_id=payload.get("created_by_id"),
-        is_return_ids=payload.get("is_return_ids", 0),
-        buffer_limit=payload.get("buffer_limit", config_table.get(tbl, {}).get("buffer", 100) if tbl else 100),
-        cache_postgres_buffer=buffer,
-        client_postgres_conn=None
+        created_by_id=payload.get("created_by_id")
     )
 
 #init

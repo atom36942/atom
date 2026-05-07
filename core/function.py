@@ -197,7 +197,7 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
 
-async def func_middleware_api_log_create(*, config_is_enable_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, description: str, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict, config_regex: dict, func_regex_check: callable, config_obj_list_limit: int) -> None:
+async def func_middleware_api_log_create(*, config_is_enable_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: int, description: str, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int) -> any:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
     if config_is_enable_log_api == 0 or client_postgres_pool is None: return None
     log_obj = {
@@ -212,7 +212,7 @@ async def func_middleware_api_log_create(*, config_is_enable_log_api: int, api_i
         "response_time_ms": time_ms,
         "description": description
     }
-    await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0, buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer, config_regex=config_regex, func_regex_check=func_regex_check, config_obj_list_limit=config_obj_list_limit)
+    await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, config_buffer_limit=config_buffer_limit, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0)
     return None
 
 async def func_request_param_read(*, request: any, mode: str, strict: int, config: list) -> dict:
@@ -645,7 +645,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                     if not isinstance(node, ast.Call): continue
                     func_id = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
                     if func_id != "func_request_param_read": continue
-                    hardened_funcs = ("func_regex_check", "func_orchestrator_obj_create", "func_orchestrator_obj_update")
+                    hardened_funcs = ("func_regex_check", "func_postgres_create", "func_postgres_update")
                     is_regex_enabled = any(isinstance(n, ast.Call) and (getattr(n.func, "id", None) in hardened_funcs or getattr(n.func, "attr", None) in hardened_funcs) for n in ast.walk(tree))
                     try:
                         p_loc, p_list = None, None
@@ -1147,15 +1147,17 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
         output_list.append(new_item)
     return output_list
 
-async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict, config_regex: dict, func_regex_check: callable, config_obj_list_limit: int) -> any:
+async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int, mode: str, table: str, obj_list: list, is_serialize: int) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
+    if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
     if mode == "flush":
-        for key, buffer_list in list(cache_postgres_buffer.items()):
+        for key, buffer_list in list(cache_postgres_buffer_create.items()):
             if buffer_list:
-                tbl = key.split("|")[0] if "|" in key else key
-                await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, config_regex={}, func_regex_check=func_regex_check, config_obj_list_limit=0)
-                cache_postgres_buffer[key] = []
+                parts = key.split("|")
+                tbl = parts[1] if len(parts) > 1 else key
+                await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex={}, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=0, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0)
+                cache_postgres_buffer_create[key] = []
         return "flushed"
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
@@ -1165,47 +1167,44 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
         is_serialize = 1
     serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0 if len(obj_list) > 1 else 1) if is_serialize else obj_list
     if mode == "buffer":
-        key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
-        cache_postgres_buffer.setdefault(key, []).extend(serialized_list)
-        if len(cache_postgres_buffer[key]) >= buffer_limit:
-            items = cache_postgres_buffer[key]
-            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=items, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, config_regex={}, func_regex_check=func_regex_check, config_obj_list_limit=0)
-            cache_postgres_buffer[key] = []
+        key = f"create|{table}|{','.join(sorted(serialized_list[0].keys()))}"
+        cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
+        if len(cache_postgres_buffer_create[key]) >= config_buffer_limit:
+            items = cache_postgres_buffer_create[key]
+            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex={}, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=0, mode="now", table=table, obj_list=items, is_serialize=0)
+            cache_postgres_buffer_create[key] = []
             return "buffered released"
         return "buffered"
     if mode == "now":
-        columns = []
-        for c in serialized_list[0]:
-            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)): raise Exception(f"invalid identifier {c}")
-            columns.append(c)
+        columns = [c for c in serialized_list[0] if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}"))]
+        cols_sql = ",".join([f'"{c}"' for c in columns])
         if len(serialized_list) == 1:
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
-            sql = f"""INSERT INTO {table} ({",".join(columns)}) VALUES ({placeholders}) RETURNING id"""
-            if client_postgres_conn:
-                ids = await client_postgres_conn.fetch(sql, *serialized_list[0].values())
+            sql = f'INSERT INTO "{table}" ({cols_sql}) VALUES ({placeholders}) RETURNING id;'
+            args = [serialized_list[0][c] for c in columns]
+            if client_postgres_conn: ids = await client_postgres_conn.fetch(sql, *args)
             else:
-                async with client_postgres_pool.acquire() as conn:
-                    ids = await conn.fetch(sql, *serialized_list[0].values())
+                async with client_postgres_pool.acquire() as conn: ids = await conn.fetch(sql, *args)
         else:
             schema = cache_postgres_schema.get(table, {})
-            col_list = ",".join(columns)
-            def_list = ",".join([f"{c} jsonb" for c in columns])
+            col_list = ",".join([f'"{c}"' for c in columns])
+            def_list = ",".join([f'"{c}" jsonb' for c in columns])
             cast_parts = []
             for c in columns:
                 col_dtype = schema.get(c, {}).get("datatype", "text")
                 if "[]" in col_dtype:
-                    cast_parts.append(f"(SELECT ARRAY(SELECT jsonb_array_elements_text({c})))::{col_dtype}")
+                    cast_parts.append(f'(SELECT ARRAY(SELECT jsonb_array_elements_text("{c}")))::{col_dtype}')
                 elif "jsonb" in col_dtype:
-                    cast_parts.append(f"{c}::{col_dtype}")
+                    cast_parts.append(f'"{c}"::{col_dtype}')
                 else:
-                    cast_parts.append(f"({c}->>0)::{col_dtype}")
+                    cast_parts.append(f'("{c}"->>0)::{col_dtype}')
             cast_list = ",".join(cast_parts)
             all_ids = []
             limit_chunk = 5000
             async def _execute_bulk(connection):
                 for i in range(0, len(serialized_list), limit_chunk):
                     batch = serialized_list[i : i + limit_chunk]
-                    sql = f"INSERT INTO {table} ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id"
+                    sql = f'INSERT INTO "{table}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'
                     ids_batch = await connection.fetch(sql, orjson.dumps(batch, default=str).decode('utf-8'))
                     all_ids.extend([dict(r) for r in ids_batch])
             if client_postgres_conn:
@@ -1214,8 +1213,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
                 async with client_postgres_pool.acquire() as conn:
                     await _execute_bulk(conn)
             ids = all_ids
-        return [r["id"] for r in ids] if ids and "id" in ids[0] else "bulk created"
-    return "unsupported mode"
+        return [r["id"] for r in ids] if ids and "id" in ids[0] else "created"
     
 async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter_obj: dict, limit: int, page: int, order: str, column: str, creator_key: any, action_key: any) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
@@ -1228,7 +1226,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(p[0])): raise Exception(f"invalid identifier {p[0]}")
             col = p[0]
             direction = p[1].upper() if len(p) > 1 and p[1].lower() in ("asc", "desc") else "ASC"
-            order_list.append(f"{col} {direction}")
+            order_list.append(f'"{col}" {direction}')
     order_clause = ", ".join(order_list)
     column_list = "*"
     if column != "*":
@@ -1237,7 +1235,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             c_strip = c.strip()
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
             cols.append(c_strip)
-        column_list = ",".join(cols)
+        column_list = ",".join([f'"{c}"' for c in cols])
     filters = {k: v for k, v in filter_obj.items() if k not in ("table", "order", "limit", "page", "column", "creator_key", "action_key")}
     async def serialize_filter(col, val, is_base_type=None):
         is_base_type = is_base_type if is_base_type is not None else 0
@@ -1255,7 +1253,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         if expression.lower().startswith("point,"):
             _, coords = expression.split(",", 1)
             lon, lat, min_meter, max_meter = [float(x) for x in coords.split("|")]
-            conditions.append(f"ST_Distance({filter_key}, ST_Point(${bind_idx}, ${bind_idx+1})::geography) BETWEEN ${bind_idx+2} AND ${bind_idx+3}")
+            conditions.append(f'ST_Distance("{filter_key}", ST_Point(${bind_idx}, ${bind_idx+1})::geography) BETWEEN ${bind_idx+2} AND ${bind_idx+3}')
             values.extend([lon, lat, min_meter, max_meter])
             bind_idx += 4
             continue
@@ -1316,62 +1314,69 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         if serialized_val is None:
             if operator not in ("is", "is not", "is distinct from", "is not distinct from"):
                 raise Exception(f"null requires is/distinct for {filter_key}")
-            conditions.append(f"{filter_key} {v_ops[operator]} NULL")
+            conditions.append(f'"{filter_key}" {v_ops[operator]} NULL')
         elif operator == "contains":
             values.append(serialized_val)
-            conditions.append(f"""{filter_key} @> ${bind_idx}{"::jsonb" if is_json else ""}""")
+            conditions.append(f'"{filter_key}" @> ${bind_idx}{"::jsonb" if is_json else ""}')
             bind_idx += 1
         elif operator == "exists":
             values.append(serialized_val)
-            conditions.append(f"{filter_key} ? ${bind_idx}")
+            conditions.append(f'"{filter_key}" ? ${bind_idx}')
             bind_idx += 1
         elif operator == "overlap":
             values.append(serialized_val)
-            conditions.append(f"{filter_key} && ${bind_idx}")
+            conditions.append(f'"{filter_key}" && ${bind_idx}')
             bind_idx += 1
         elif operator == "any":
             values.append(serialized_val)
-            conditions.append(f"${bind_idx} = ANY({filter_key})")
+            conditions.append(f'${bind_idx} = ANY("{filter_key}")')
             bind_idx += 1
         elif operator in ("in", "not in"):
             place_holders = [f"${bind_idx + i}" for i in range(len(serialized_val))]
             values.extend(serialized_val)
-            conditions.append(f"""{filter_key} {v_ops[operator]} ({",".join(place_holders)})""")
+            conditions.append(f'"{filter_key}" {v_ops[operator]} ({",".join(place_holders)})')
             bind_idx += len(serialized_val)
         elif operator == "between":
             values.extend(serialized_val)
-            conditions.append(f"{filter_key} BETWEEN ${bind_idx} AND ${bind_idx+1}")
+            conditions.append(f'"{filter_key}" BETWEEN ${bind_idx} AND ${bind_idx+1}')
             bind_idx += 2
         else:
-            conditions.append(f"{filter_key} {(v_ops.get(operator) or s_ops.get(operator))} ${bind_idx}")
+            conditions.append(f'"{filter_key}" {(v_ops.get(operator) or s_ops.get(operator))} ${bind_idx}')
             values.append(serialized_val)
             bind_idx += 1
     where_statement = ""
     if conditions:
         where_statement = "WHERE " + " AND ".join(conditions)
-    sql_select = f"SELECT {column_list} FROM {table} {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}"
+    sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
     values.extend([limit, (page - 1) * limit])
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
         if creator_key and result_list:
-            keys_to_fetch = creator_key.split(",") if isinstance(creator_key, str) else creator_key
+            keys_to_fetch = [k.strip() for k in (creator_key.split(",") if isinstance(creator_key, str) else creator_key)]
             user_ids = {str(r["created_by_id"]) for r in result_list if r.get("created_by_id")}
             user_map = {}
             if user_ids:
-                user_rows = await client_postgres_pool.fetch("SELECT * FROM users WHERE id = ANY($1);", list(map(int, user_ids)))
+                safe_keys = [k for k in keys_to_fetch if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", k)]
+                if "id" not in safe_keys: safe_keys.append("id")
+                cols = ",".join([f'"{k}"' for k in safe_keys])
+                user_rows = await client_postgres_pool.fetch(f"SELECT {cols} FROM users WHERE id = ANY($1);", list(map(int, user_ids)))
                 user_map = {str(u["id"]): dict(u) for u in user_rows}
             for res_row in result_list:
                 uid = str(res_row.get("created_by_id"))
                 for k in keys_to_fetch:
                     res_row[f"creator_{k}"] = user_map[uid].get(k) if uid in user_map else None
         if action_key and result_list:
-            action_parts = action_key.split(",") if isinstance(action_key, str) else action_key
+            action_parts = [p.strip() for p in (action_key.split(",") if isinstance(action_key, str) else action_key)]
+            if len(action_parts) != 4: raise Exception("action_key must have 4 parts: target_tbl,action_col,action_op,action_out_col")
             target_tbl, action_col, action_op, action_out_col = action_parts
+            for p in action_parts:
+                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", p): raise Exception(f"invalid identifier in action_key: {p}")
+            if action_op.lower() not in ("count", "sum", "avg", "min", "max"): raise Exception(f"invalid action operator: {action_op}")
             object_ids = {r.get("id") for r in result_list if r.get("id")}
             action_map = {}
             if object_ids:
-                sql_action = f"SELECT {action_col} AS id, {action_op}({action_out_col}) AS value FROM {target_tbl} WHERE {action_col} = ANY($1) GROUP BY {action_col};"
+                sql_action = f'SELECT "{action_col}" AS id, {action_op}("{action_out_col}") AS value FROM "{target_tbl}" WHERE "{action_col}" = ANY($1) GROUP BY "{action_col}";'
                 action_rows = await client_postgres_pool.fetch(sql_action, list(object_ids))
                 action_map = {str(row["id"]): row["value"] for row in action_rows}
             for res_row in result_list:
@@ -1380,96 +1385,62 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
                 res_row[f"{target_tbl}_{action_op}"] = action_map.get(obj_id, default_val)
         return result_list
 
-async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, created_by_id: int, is_return_ids: int, buffer_limit: int, cache_postgres_buffer: dict) -> any:
-    """Update PostgreSQL records with support for owner validation, batch processing, buffering, and dynamic serialization."""
+async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, is_serialize: int, created_by_id: int) -> any:
+    """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     import re
-    if mode == "flush":
-        for key, buffer_list in list(cache_postgres_buffer.items()):
-            if buffer_list:
-                tbl = key.split("|")[0] if "|" in key else key
-                await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, created_by_id=None, is_return_ids=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
-                cache_postgres_buffer[key] = []
-        return "flushed"
-    if not obj_list: return "0 rows updated"
+    if not obj_list: raise Exception("object list required")
+    if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
+    if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
+    if table == "users":
+        await func_regex_check(config_regex=config_regex, obj_list=obj_list)
+        is_serialize = 1
     if is_serialize:
         obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
-    if mode == "buffer":
-        key = f"{table}|{','.join(sorted(obj_list[0].keys()))}"
-        cache_postgres_buffer.setdefault(key, []).extend(obj_list)
-        if len(cache_postgres_buffer[key]) >= buffer_limit:
-            items = cache_postgres_buffer[key]
-            await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=items, is_serialize=0, created_by_id=created_by_id, is_return_ids=is_return_ids, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
-            cache_postgres_buffer[key] = []
-            return "buffered released"
-        return "buffered"
-    if mode == "now":
-        limit_batch = 5000
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
-    update_cols = []
-    for c in obj_list[0]:
-        if c == "id":
-            continue
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)): raise Exception(f"invalid identifier {c}")
-        update_cols.append(c)
-    if not update_cols: return "0 rows updated"
-    actual_batch_size = min(limit_batch, 65535 // (len(update_cols) + (2 if created_by_id else 1)))
+    update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
     returned_ids = []
     if len(obj_list) == 1:
-        async def _execute_one(conn):
+        async def _execute_one(connection):
             obj = obj_list[0]
-            params = [obj[c] for c in update_cols] + [obj["id"]]
-            where_clause = f"id=${len(params)}"
+            batch_vals = [obj[col] for col in update_cols]
+            set_clause = ", ".join([f'"{col}"=${i+1}' for i, col in enumerate(update_cols)])
+            where_clause = f'"id"=${len(batch_vals)+1}'
+            batch_vals.append(obj["id"])
             if created_by_id:
-                where_clause += f" AND created_by_id=${len(params)+1}"
-                params.append(created_by_id)
-            if is_return_ids == 1:
-                sql = f"""UPDATE {table} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause} RETURNING id;"""
-                records = await conn.fetch(sql, *params)
-                return [r["id"] for r in records]
-            sql = f"""UPDATE {table} SET {",".join(f"{c}=${i+1}" for i,c in enumerate(update_cols))} WHERE {where_clause};"""
-            status = await conn.execute(sql, *params)
-            return f"{int(status.split()[-1])} rows updated"
-        if client_postgres_conn:
-            return await _execute_one(client_postgres_conn)
-        async with client_postgres_pool.acquire() as conn:
-            return await _execute_one(conn)
-    total_updated = 0
+                where_clause += f' AND "created_by_id"=${len(batch_vals)+1}'
+                batch_vals.append(created_by_id)
+            sql = f'UPDATE "{table}" SET {set_clause} WHERE {where_clause} RETURNING id;'
+            ids = await connection.fetch(sql, *batch_vals)
+            return [r["id"] for r in ids] if ids else []
+        if client_postgres_conn: return await _execute_one(client_postgres_conn)
+        async with client_postgres_pool.acquire() as conn: return await _execute_one(conn)
+    limit_batch = 5000
+    actual_batch_size = max(1, limit_batch // (len(update_cols) + (2 if created_by_id else 1)))
     async def _execute_update(connection):
-        nonlocal total_updated
         async with connection.transaction():
             for i in range(0, len(obj_list), actual_batch_size):
                 batch = obj_list[i:i+actual_batch_size]
-                batch_vals = []
-                set_clauses = []
+                batch_vals, set_clauses = [], []
                 for col in update_cols:
                     case_statements = []
                     for obj in batch:
                         batch_vals.extend([obj["id"], obj[col]])
                         if created_by_id:
                             batch_vals.append(created_by_id)
-                            case_statements.append(f"WHEN id=${len(batch_vals)-2}::bigint AND created_by_id=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}")
-                        else:
-                            case_statements.append(f"WHEN id=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}")
-                    set_clauses.append(f"""{col} = CASE {" ".join(case_statements)} ELSE {col} END""")
+                            case_statements.append(f'WHEN "id"=${len(batch_vals)-2}::bigint AND "created_by_id"=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}')
+                        else: case_statements.append(f'WHEN "id"=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}')
+                    set_clauses.append(f'"{col}" = CASE {" ".join(case_statements)} ELSE "{col}" END')
                 id_list = [obj["id"] for obj in batch]
-                where_clause = f"""id IN ({",".join(f"${len(batch_vals)+j+1}::bigint" for j in range(len(id_list)))})"""
-                if created_by_id:
-                    where_clause += f" AND created_by_id=${len(batch_vals)+len(id_list)+1}"
+                where_clause = f'"id" IN ({",".join(f"${len(batch_vals)+j+1}::bigint" for j in range(len(id_list)))})'
+                if created_by_id: where_clause += f' AND "created_by_id"=${len(batch_vals)+len(id_list)+1}'
                 batch_vals.extend(id_list)
-                if created_by_id:
-                    batch_vals.append(created_by_id)
-                if is_return_ids == 1:
-                    sql = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;"""
-                    returned_ids.extend([r["id"] for r in (await connection.fetch(sql, *batch_vals))])
-                else:
-                    sql = f"""UPDATE {table} SET {", ".join(set_clauses)} WHERE {where_clause};"""
-                    total_updated += int((await connection.execute(sql, *batch_vals)).split()[-1])
-    if client_postgres_conn:
-        await _execute_update(client_postgres_conn)
+                if created_by_id: batch_vals.append(created_by_id)
+                sql = f'UPDATE "{table}" SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;'
+                returned_ids.extend([r["id"] for r in (await connection.fetch(sql, *batch_vals))])
+    if client_postgres_conn: await _execute_update(client_postgres_conn)
     else:
-        async with client_postgres_pool.acquire() as conn:
-            await _execute_update(conn)
-    return returned_ids if is_return_ids == 1 else f"{total_updated} rows updated"
+        async with client_postgres_pool.acquire() as conn: await _execute_update(conn)
+    return returned_ids if returned_ids else "updated"
 
 async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, table: str, ids: any, created_by_id: int) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
@@ -1482,7 +1453,7 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
         ids_str = ",".join(str(int(x)) for x in ids)
     else:
         ids_str = ""
-    sql_delete = f"DELETE FROM {table} WHERE id IN ({ids_str}) AND ($1::bigint IS NULL OR created_by_id=$1);"
+    sql_delete = f'DELETE FROM "{table}" WHERE "id" IN ({ids_str}) AND ($1::bigint IS NULL OR "created_by_id"=$1);'
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if client_postgres_conn:
         await client_postgres_conn.execute(sql_delete, created_by_id)
@@ -1490,62 +1461,6 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
         async with client_postgres_pool.acquire() as conn:
             await conn.execute(sql_delete, created_by_id)
     return "ids deleted"
-
-async def func_orchestrator_obj_create(*, table: str, mode: str, is_serialize: int, queue: str, obj_list: list, config_table: dict, config_regex: dict, func_regex_check: callable, config_obj_list_limit: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
-    """Wrapper orchestration for object creation with owner validation, regex checks, and optional queueing. Uses explicit mandatory parameters."""
-    if queue:
-        func_name = func_postgres_create.__name__
-        payload = {"mode": mode, "table": table, "obj_list": obj_list, "is_serialize": is_serialize, "buffer_limit": config_table.get(table, {}).get("buffer_limit", 0)}
-        return await func_orchestrator_producer(queue=queue, func_name=func_name, payload=payload, client_celery_producer=client_celery_producer, client_kafka_producer=client_kafka_producer, client_rabbitmq_producer=client_rabbitmq_producer, client_redis_producer=client_redis_producer)
-    return await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode=mode, table=table, obj_list=obj_list, is_serialize=is_serialize, buffer_limit=config_table.get(table, {}).get("buffer_limit", 0), cache_postgres_buffer=cache_postgres_buffer, config_regex=config_regex, func_regex_check=func_regex_check, config_obj_list_limit=config_obj_list_limit)
-
-async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: str, mode: str, is_serialize: int, queue: str, otp: int, obj_list: list, config_table: dict, config_is_enable_otp_users_update_admin: int, config_column_disable_non_admin: list, config_column_enable_single_update: list, config_regex: dict, func_regex_check: callable, func_otp_verify: callable, client_postgres_pool: any, client_password_hasher: any, config_expiry_sec_otp: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_update: callable, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
-    """Wrapper orchestration for object updates with owner validation, OTP checks, and optional queueing. Uses explicit mandatory parameters."""
-    limit_batch = 5000
-    if not obj_list: raise Exception("object list required")
-    if table == "users":
-        await func_regex_check(config_regex=config_regex, obj_list=obj_list)
-    if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
-    created_by_id = user_id
-    if table == "users":
-        is_serialize = 1
-        created_by_id = None
-    if api_role not in ("my", "admin"): raise Exception(f"role not allowed for update: {api_role}")
-    for item in obj_list:
-        for key in item:
-            if key in config_column_disable_non_admin: raise Exception(f"unauthorized update to restricted field: {key}")
-    async def _func_otp_check(item: dict) -> None:
-        if any(key in item for key in ("email", "mobile")):
-            if len(obj_list) > 1: raise Exception("multi-object user update restricted")
-            if len(item) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")
-            await func_otp_verify(client_postgres_pool=client_postgres_pool, otp=otp, email=item.get("email"), mobile=item.get("mobile"), config_expiry_sec_otp=config_expiry_sec_otp)
-        return None
-    if api_role == "my":
-        if table == "users":
-            if len(obj_list) > 1: raise Exception("multi-object user update restricted")
-            item = obj_list[0]
-            if str(item.get("id")) != str(user_id): raise Exception("ownership issue: cannot update other users")
-            for key in item:
-                if key in config_column_enable_single_update and len(item) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")
-            await _func_otp_check(item)
-    elif api_role == "admin":
-        created_by_id = None
-        if table == "users" and config_is_enable_otp_users_update_admin == 1:
-            await _func_otp_check(obj_list[0])
-    if user_id:
-        for item in obj_list:
-            item["updated_by_id"] = user_id
-    is_return_ids = 0
-    if queue:
-        func_name = func_postgres_update.__name__
-        results = []
-        for i in range(0, len(obj_list), limit_batch):
-            batch = obj_list[i : i + limit_batch]
-            payload = {"mode": mode, "table": table, "obj_list": batch, "is_serialize": is_serialize, "created_by_id": created_by_id, "is_return_ids": is_return_ids, "buffer_limit": config_table.get(table, {}).get("buffer_limit", 0)}
-            res = await func_orchestrator_producer(queue=queue, func_name=func_name, payload=payload, client_celery_producer=client_celery_producer, client_kafka_producer=client_kafka_producer, client_rabbitmq_producer=client_rabbitmq_producer, client_redis_producer=client_redis_producer)
-            results.append(res)
-        return results if len(results) > 1 else results[0]
-    return await func_postgres_update(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode=mode, table=table, obj_list=obj_list, is_serialize=is_serialize, created_by_id=created_by_id, is_return_ids=is_return_ids, buffer_limit=config_table.get(table, {}).get("buffer_limit", 0), cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
 
 async def func_orchestrator_producer(*, queue: str, func_name: str, payload: dict, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any) -> any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""

@@ -223,8 +223,9 @@ def my_client(my_test_client):
         "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
         "func_postgres_delete": test_client.app.state.func_postgres_delete,
         "func_postgres_read": test_client.app.state.func_postgres_read,
-        "func_orchestrator_obj_create": test_client.app.state.func_orchestrator_obj_create,
-        "func_orchestrator_obj_update": test_client.app.state.func_orchestrator_obj_update,
+        "func_postgres_create": test_client.app.state.func_postgres_create,
+        "func_postgres_update": test_client.app.state.func_postgres_update,
+        "func_otp_verify": test_client.app.state.func_otp_verify,
     }
 
     async def noop_api_log_create(**_kwargs):
@@ -408,14 +409,14 @@ def test_my_ids_delete_passes_user_scope_to_delete_helper(my_client, auth_header
     assert calls["created_by_id"] == 10
 
 
-def test_my_object_create_passes_authenticated_user_to_orchestrator(my_client, auth_headers):
+def test_my_object_create_passes_authenticated_user_to_postgres_create(my_client, auth_headers):
     calls = {}
 
     async def fake_create(**kwargs):
         calls.update(kwargs)
         return [101]
 
-    my_client.app.state.func_orchestrator_obj_create = fake_create
+    my_client.app.state.func_postgres_create = fake_create
 
     response = my_client.post(
         "/my/object-create?table=test&mode=now&is_serialize=0",
@@ -451,14 +452,14 @@ def test_my_object_create_rejects_restricted_field_at_api(my_client, auth_header
     assert response.json()["message"] == "unauthorized creation of restricted field: is_active"
 
 
-def test_my_object_update_passes_otp_and_payload_to_orchestrator(my_client, auth_headers):
+def test_my_object_update_passes_otp_and_payload_to_postgres_update(my_client, auth_headers):
     calls = {}
 
     async def fake_update(**kwargs):
         calls.update(kwargs)
         return "updated"
 
-    my_client.app.state.func_orchestrator_obj_update = fake_update
+    my_client.app.state.func_postgres_update = fake_update
 
     response = my_client.put(
         "/my/object-update?table=test&otp=123456",
@@ -468,9 +469,77 @@ def test_my_object_update_passes_otp_and_payload_to_orchestrator(my_client, auth
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "updated"}
-    assert calls["user_id"] == 10
-    assert calls["otp"] == 123456
-    assert calls["obj_list"] == [{"id": 1, "title": "changed"}]
+    assert calls["created_by_id"] == 10
+    assert calls["obj_list"] == [{"id": 1, "title": "changed", "updated_by_id": 10}]
+
+
+def test_my_object_update_rejects_restricted_field_at_api(my_client, auth_headers):
+    response = my_client.put(
+        "/my/object-update?table=test",
+        headers=auth_headers,
+        json={"id": 1, "is_active": 1},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "unauthorized update to restricted field: is_active"
+
+
+def test_my_object_update_rejects_multi_user_update_at_api(my_client, auth_headers):
+    response = my_client.put(
+        "/my/object-update?table=users",
+        headers=auth_headers,
+        json={"obj_list": [{"id": 10, "username": "user_1"}, {"id": 10, "username": "user_2"}]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "multi-object user update restricted"
+
+
+def test_my_object_update_rejects_other_user_at_api(my_client, auth_headers):
+    response = my_client.put(
+        "/my/object-update?table=users",
+        headers=auth_headers,
+        json={"id": 11, "username": "user_1"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "ownership issue: cannot update other users"
+
+
+def test_my_object_update_rejects_combined_sensitive_user_field_at_api(my_client, auth_headers):
+    response = my_client.put(
+        "/my/object-update?table=users",
+        headers=auth_headers,
+        json={"id": 10, "username": "user_1", "title": "extra"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "sensitive fields must be updated individually (item length 2 required)"
+
+
+def test_my_object_update_verifies_otp_for_user_email_at_api(my_client, auth_headers):
+    otp_calls = {}
+
+    async def fake_otp(**kwargs):
+        otp_calls.update(kwargs)
+        return None
+
+    async def fake_update(**_kwargs):
+        return "updated"
+
+    my_client.app.state.func_otp_verify = fake_otp
+    my_client.app.state.func_postgres_update = fake_update
+
+    response = my_client.put(
+        "/my/object-update?table=users&otp=123456",
+        headers=auth_headers,
+        json={"id": 10, "email": "new@example.com"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": "updated"}
+    assert otp_calls["otp"] == 123456
+    assert otp_calls["email"] == "new@example.com"
 
 
 def test_my_object_read_filters_by_authenticated_user(my_client, auth_headers):

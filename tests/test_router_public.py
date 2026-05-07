@@ -157,10 +157,11 @@ def public_client(public_test_client, monkeypatch):
         "config_table_read_enable_public": test_client.app.state.config_table_read_enable_public,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
         "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
-        "func_orchestrator_obj_create": test_client.app.state.func_orchestrator_obj_create,
+        "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_read": test_client.app.state.func_postgres_read,
         "func_postgres_serialize": test_client.app.state.func_postgres_serialize,
         "func_otp_generate": test_client.app.state.func_otp_generate,
+        "func_otp_verify": test_client.app.state.func_otp_verify,
     }
 
     async def noop_api_log_create(**_kwargs):
@@ -216,14 +217,14 @@ def test_public_converter_number_rejects_invalid_character(public_client):
     assert response.json() == {"status": 0, "message": "invalid character in input"}
 
 
-def test_public_object_create_passes_public_scope_to_orchestrator(public_client):
+def test_public_object_create_passes_public_scope_to_postgres_create(public_client):
     calls = {}
 
     async def fake_create(**kwargs):
         calls.update(kwargs)
         return [1]
 
-    public_client.app.state.func_orchestrator_obj_create = fake_create
+    public_client.app.state.func_postgres_create = fake_create
 
     response = public_client.post(
         "/public/object-create?table=test&mode=now&is_serialize=0",
@@ -243,7 +244,7 @@ def test_public_object_create_sets_owner_when_token_present(public_client):
         calls.update(kwargs)
         return [1]
 
-    public_client.app.state.func_orchestrator_obj_create = fake_create
+    public_client.app.state.func_postgres_create = fake_create
 
     response = public_client.post(
         "/public/object-create?table=test",

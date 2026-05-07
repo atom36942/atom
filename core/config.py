@@ -10,6 +10,8 @@ config_auth_type=[1]
 config_expiry_sec_otp=600
 config_otp_length=6
 config_query_limit_default=100
+config_buffer_limit=100
+config_obj_list_limit=1000
 
 #redis
 config_redis_url=None
@@ -94,7 +96,6 @@ config_is_enable_reset_tmp=0
 config_is_enable_index_html=0
 config_is_enable_otp_users_update_admin=0
 config_is_enable_postgres_init_startup=1
-config_obj_list_limit=1000
 
 #enum
 config_table_create_disable_my=["users", "log_api", "log_users_password", "otp"]

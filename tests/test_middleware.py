@@ -24,7 +24,7 @@ def middleware_client(middleware_test_client):
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "config_table_read_enable_public": test_client.app.state.config_table_read_enable_public,
         "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
-        "func_orchestrator_obj_create": test_client.app.state.func_orchestrator_obj_create,
+        "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_read": test_client.app.state.func_postgres_read,
     }
 
@@ -50,7 +50,7 @@ def test_middleware_runs_api_normally_without_background_query(middleware_client
         calls.append(kwargs)
         return ["created-now"]
 
-    middleware_client.app.state.func_orchestrator_obj_create = fake_create
+    middleware_client.app.state.func_postgres_create = fake_create
 
     response = middleware_client.post(
         "/public/object-create?table=test",
@@ -70,7 +70,7 @@ def test_middleware_background_query_returns_accepted_response_and_runs_api(midd
         calls.append(kwargs)
         return ["created-background"]
 
-    middleware_client.app.state.func_orchestrator_obj_create = fake_create
+    middleware_client.app.state.func_postgres_create = fake_create
 
     response = middleware_client.post(
         "/public/object-create?table=test&is_background=1",
@@ -91,7 +91,7 @@ def test_middleware_background_query_does_not_skip_authentication(middleware_cli
         calls.append(kwargs)
         return ["should-not-run"]
 
-    middleware_client.app.state.func_orchestrator_obj_create = fake_create
+    middleware_client.app.state.func_postgres_create = fake_create
 
     response = middleware_client.post(
         "/my/object-create?table=test&is_background=1",

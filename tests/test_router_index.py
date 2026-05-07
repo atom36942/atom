@@ -96,7 +96,7 @@ def test_openapi_blob_container_ops_includes_container_default(client):
 
 
 def test_websocket_buffers_message(client):
-    client.app.state.cache_postgres_buffer = {}
+    client.app.state.cache_postgres_buffer_create = {}
     with client.websocket_connect("/websocket") as websocket:
         websocket.send_text("hello")
         assert websocket.receive_text() == "buffered"
