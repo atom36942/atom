@@ -53,7 +53,7 @@ venv/bin/pytest
 | **👤 User Context** | Injected user identity and role data accessible via `request.state.user`. |
 | **🛡️ Auth Guard** | Simple manual security enforcement: `if not request.state.user: raise Exception`. |
 | **🔑 RBAC Control** | Built-in role-based access control (Supports: `realtime`, `token`, `inmemory`, `redis`). |
-| **✅ Account Status** | Automated active-status enforcement (Supports: `realtime`, `token`, `inmemory`, `redis`). |
+| **✅ User Active** | User active enforcement (Supports: `realtime`, `token`, `inmemory`, `redis`). |
 | **⚡ Smart Caching** | High-performance response caching (Supports: `inmemory`, `redis`). |
 | **🚦 Rate Limiting** | Integrated traffic control and throttling (Supports: `inmemory`, `redis`). |
 | **📅 Date Format** | Use **`YYYY-MM-DD`** for dates and **ISO 8601** (`YYYY-MM-DDTHH:MM:SSZ`) for timestamps. |
