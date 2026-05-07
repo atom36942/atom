@@ -471,6 +471,8 @@ def test_my_object_update_passes_otp_and_payload_to_postgres_update(my_client, a
     assert response.json() == {"status": 1, "message": "updated"}
     assert calls["created_by_id"] == 10
     assert calls["obj_list"] == [{"id": 1, "title": "changed", "updated_by_id": 10}]
+    assert "mode" not in calls
+    assert "config_buffer_limit" not in calls
 
 
 def test_my_object_update_rejects_restricted_field_at_api(my_client, auth_headers):

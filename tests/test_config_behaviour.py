@@ -409,12 +409,9 @@ async def test_postgres_update_rejects_missing_or_empty_object_data():
         "client_password_hasher": None,
         "func_postgres_serialize": passthrough_serialize,
         "cache_postgres_schema": {},
-        "mode": "now",
         "table": "test",
         "is_serialize": 0,
         "created_by_id": None,
-        "config_buffer_limit": 0,
-        # "cache_postgres_buffer_update": {}, removed
         "config_obj_list_limit": config.config_obj_list_limit,
         "config_regex": config.config_regex,
         "func_regex_check": func_regex_check,
@@ -439,18 +436,150 @@ async def test_postgres_update_rejects_obj_list_over_limit():
             client_password_hasher=None,
             func_postgres_serialize=passthrough_serialize,
             cache_postgres_schema={},
-            mode="now",
             table="test",
             obj_list=[{"id": 1, "title": "one"}, {"id": 2, "title": "two"}],
             is_serialize=0,
             created_by_id=None,
-            config_buffer_limit=0,
-            # cache_postgres_buffer_update={}, removed
             config_obj_list_limit=1,
             config_regex=config.config_regex,
             func_regex_check=func_regex_check,
             config_table=config.config_table,
         )
+
+
+@pytest.mark.asyncio
+async def test_postgres_update_rejects_invalid_table_or_missing_update_fields():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    common = {
+        "client_postgres_pool": None,
+        "client_postgres_conn": None,
+        "client_password_hasher": None,
+        "func_postgres_serialize": passthrough_serialize,
+        "cache_postgres_schema": {},
+        "is_serialize": 0,
+        "created_by_id": None,
+        "config_obj_list_limit": config.config_obj_list_limit,
+        "config_regex": config.config_regex,
+        "func_regex_check": func_regex_check,
+        "config_table": config.config_table,
+    }
+
+    with pytest.raises(Exception, match="invalid identifier"):
+        await func_postgres_update(table="bad-table", obj_list=[{"id": 1, "title": "one"}], **common)
+    with pytest.raises(Exception, match="object data invalid"):
+        await func_postgres_update(table="test", obj_list=[{"id": 1, "title": "one"}, 2], **common)
+    with pytest.raises(Exception, match="update field required"):
+        await func_postgres_update(table="test", obj_list=[{"id": 1}], **common)
+
+
+@pytest.mark.asyncio
+async def test_postgres_update_rejects_mismatched_object_keys():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    with pytest.raises(Exception, match="object keys mismatch"):
+        await func_postgres_update(
+            client_postgres_pool=None,
+            client_postgres_conn=None,
+            client_password_hasher=None,
+            func_postgres_serialize=passthrough_serialize,
+            cache_postgres_schema={},
+            table="test",
+            obj_list=[{"id": 1, "title": "one"}, {"id": 2, "name": "two"}],
+            is_serialize=0,
+            created_by_id=None,
+            config_obj_list_limit=config.config_obj_list_limit,
+            config_regex=config.config_regex,
+            func_regex_check=func_regex_check,
+            config_table=config.config_table,
+        )
+
+
+@pytest.mark.asyncio
+async def test_postgres_update_uses_zero_created_by_id_for_owner_filter():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    class FakeConn:
+        def __init__(self):
+            self.sql = None
+            self.args = None
+
+        async def fetch(self, sql, *args):
+            self.sql = sql
+            self.args = args
+            return [{"id": 1}]
+
+    conn = FakeConn()
+    output = await func_postgres_update(
+        client_postgres_pool=None,
+        client_postgres_conn=conn,
+        client_password_hasher=None,
+        func_postgres_serialize=passthrough_serialize,
+        cache_postgres_schema={},
+        table="test",
+        obj_list=[{"id": 1, "title": "one"}],
+        is_serialize=0,
+        created_by_id=0,
+        config_obj_list_limit=config.config_obj_list_limit,
+        config_regex=config.config_regex,
+        func_regex_check=func_regex_check,
+        config_table=config.config_table,
+    )
+
+    assert output == [1]
+    assert '"created_by_id"=$3' in conn.sql
+    assert conn.args == ("one", 1, 0)
+
+
+@pytest.mark.asyncio
+async def test_postgres_update_bulk_owner_filter_uses_correct_case_placeholders():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    class FakeTransaction:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeConn:
+        def __init__(self):
+            self.sql = None
+            self.args = None
+
+        def transaction(self):
+            return FakeTransaction()
+
+        async def fetch(self, sql, *args):
+            self.sql = sql
+            self.args = args
+            return [{"id": 1}, {"id": 2}]
+
+    conn = FakeConn()
+    output = await func_postgres_update(
+        client_postgres_pool=None,
+        client_postgres_conn=conn,
+        client_password_hasher=None,
+        func_postgres_serialize=passthrough_serialize,
+        cache_postgres_schema={},
+        table="test",
+        obj_list=[{"id": 1, "title": "one"}, {"id": 2, "title": "two"}],
+        is_serialize=0,
+        created_by_id=10,
+        config_obj_list_limit=config.config_obj_list_limit,
+        config_regex=config.config_regex,
+        func_regex_check=func_regex_check,
+        config_table=config.config_table,
+    )
+
+    assert output == [1, 2]
+    assert 'WHEN "id"=$1::bigint AND "created_by_id"=$3::bigint THEN $2' in conn.sql
+    assert 'WHEN "id"=$4::bigint AND "created_by_id"=$6::bigint THEN $5' in conn.sql
+    assert conn.args == (1, "one", 10, 2, "two", 10, 1, 2, 10)
 
 
 @pytest.mark.asyncio
@@ -465,13 +594,10 @@ async def test_postgres_update_validates_users_with_regex():
             client_password_hasher=None,
             func_postgres_serialize=passthrough_serialize,
             cache_postgres_schema={},
-            mode="now",
             table="users",
             obj_list=[{"id": 1, "username": "BadUser"}],
             is_serialize=0,
             created_by_id=None,
-            config_buffer_limit=0,
-            # cache_postgres_buffer_update={}, removed
             config_obj_list_limit=config.config_obj_list_limit,
             config_regex=config.config_regex,
             func_regex_check=func_regex_check,
@@ -549,13 +675,10 @@ async def test_postgres_update_forces_users_serialization():
             client_password_hasher=None,
             func_postgres_serialize=fake_serialize,
             cache_postgres_schema={},
-            mode="now",
             table="users",
             obj_list=[{"id": 1, "username": "user_1"}],
             is_serialize=0,
             created_by_id=None,
-            config_buffer_limit=10,
-            # cache_postgres_buffer_update={}, removed
             config_obj_list_limit=config.config_obj_list_limit,
             config_regex=config.config_regex,
             func_regex_check=func_regex_check,

@@ -50,7 +50,7 @@ async def func_api_admin_object_create(*, request: Request):
 @router.put("/admin/object-update")
 async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("otp", "int", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("is_serialize", "int", 0, [0, 1], 0), ("otp", "int", 0, None, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if oq["table"] == "users" and app_state.config_is_enable_otp_users_update_admin == 1 and any(key in obj_list[0] for key in ("email", "mobile")): len(obj_list) <= 1 or (_ for _ in ()).throw(Exception("multi-object user update restricted")); len(obj_list[0]) == 2 or (_ for _ in ()).throw(Exception("sensitive fields must be updated individually (item length 2 required)")); await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=obj_list[0].get("email"), mobile=obj_list[0].get("mobile"), config_expiry_sec_otp=app_state.config_expiry_sec_otp)

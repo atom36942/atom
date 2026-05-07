@@ -306,6 +306,8 @@ def test_admin_object_update_verifies_otp_for_user_email_when_enabled(admin_clie
     assert otp_calls["otp"] == 123456
     assert otp_calls["email"] == "new@example.com"
     assert update_calls["obj_list"] == [{"id": 10, "email": "new@example.com", "updated_by_id": 10}]
+    assert "mode" not in update_calls
+    assert "config_buffer_limit" not in update_calls
 
 
 def test_admin_postgres_runner_rejects_forbidden_keywords(admin_client):

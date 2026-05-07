@@ -1390,7 +1390,9 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
     import re
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
+    if any(not isinstance(obj, dict) for obj in obj_list): raise Exception("object data invalid")
     if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "users":
         await func_regex_check(config_regex=config_regex, obj_list=obj_list)
         is_serialize = 1
@@ -1398,6 +1400,8 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
         obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
     update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
+    if not update_cols: raise Exception("update field required")
+    if any(set(obj.keys()) != set(obj_list[0].keys()) for obj in obj_list): raise Exception("object keys mismatch")
     returned_ids = []
     if len(obj_list) == 1:
         async def _execute_one(connection):
@@ -1406,7 +1410,7 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
             set_clause = ", ".join([f'"{col}"=${i+1}' for i, col in enumerate(update_cols)])
             where_clause = f'"id"=${len(batch_vals)+1}'
             batch_vals.append(obj["id"])
-            if created_by_id:
+            if created_by_id is not None:
                 where_clause += f' AND "created_by_id"=${len(batch_vals)+1}'
                 batch_vals.append(created_by_id)
             sql = f'UPDATE "{table}" SET {set_clause} WHERE {where_clause} RETURNING id;'
@@ -1415,7 +1419,7 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
         if client_postgres_conn: return await _execute_one(client_postgres_conn)
         async with client_postgres_pool.acquire() as conn: return await _execute_one(conn)
     limit_batch = 5000
-    actual_batch_size = max(1, limit_batch // (len(update_cols) + (2 if created_by_id else 1)))
+    actual_batch_size = max(1, limit_batch // (len(update_cols) + (2 if created_by_id is not None else 1)))
     async def _execute_update(connection):
         async with connection.transaction():
             for i in range(0, len(obj_list), actual_batch_size):
@@ -1425,16 +1429,16 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
                     case_statements = []
                     for obj in batch:
                         batch_vals.extend([obj["id"], obj[col]])
-                        if created_by_id:
+                        if created_by_id is not None:
                             batch_vals.append(created_by_id)
-                            case_statements.append(f'WHEN "id"=${len(batch_vals)-2}::bigint AND "created_by_id"=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}')
+                            case_statements.append(f'WHEN "id"=${len(batch_vals)-2}::bigint AND "created_by_id"=${len(batch_vals)}::bigint THEN ${len(batch_vals)-1}')
                         else: case_statements.append(f'WHEN "id"=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}')
                     set_clauses.append(f'"{col}" = CASE {" ".join(case_statements)} ELSE "{col}" END')
                 id_list = [obj["id"] for obj in batch]
                 where_clause = f'"id" IN ({",".join(f"${len(batch_vals)+j+1}::bigint" for j in range(len(id_list)))})'
-                if created_by_id: where_clause += f' AND "created_by_id"=${len(batch_vals)+len(id_list)+1}'
+                if created_by_id is not None: where_clause += f' AND "created_by_id"=${len(batch_vals)+len(id_list)+1}'
                 batch_vals.extend(id_list)
-                if created_by_id: batch_vals.append(created_by_id)
+                if created_by_id is not None: batch_vals.append(created_by_id)
                 sql = f'UPDATE "{table}" SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;'
                 returned_ids.extend([r["id"] for r in (await connection.fetch(sql, *batch_vals))])
     if client_postgres_conn: await _execute_update(client_postgres_conn)
@@ -1462,16 +1466,15 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
             await conn.execute(sql_delete, created_by_id)
     return "ids deleted"
 
-async def func_orchestrator_producer(*, queue: str, func_name: str, payload: dict, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any) -> any:
+async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
     import orjson
     if not queue: raise Exception("invalid queue format: queue missing")
-    channel = func_name
     allowed_queue = ["redis", "rabbitmq", "kafka", "celery"]
     if queue not in allowed_queue: raise Exception(f"invalid queue: {queue}. allowed: {allowed_queue}")
     if queue == "celery":
         if not client_celery_producer: raise Exception("celery producer not initialized")
-        return client_celery_producer.send_task(func_name, kwargs=payload, queue=channel).id
+        return client_celery_producer.send_task(channel, kwargs=payload, queue=channel).id
     elif queue == "rabbitmq":
         import aio_pika
         if not client_rabbitmq_producer: raise Exception("rabbitmq producer not initialized")

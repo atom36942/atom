@@ -31,7 +31,7 @@ async def execute(pool, payload, buffer, schema, hasher):
         config_regex=config_regex,
         config_table=config_table,
         config_obj_list_limit=config_obj_list_limit,
-        config_buffer_limit=payload.get("config_buffer_limit", config_buffer_limit),
+        config_buffer_limit=config_table.get(tbl, {}).get("buffer", config_buffer_limit),
         mode=payload.get("mode", "now"),
         table=tbl,
         obj_list=payload.get("obj_list"),
