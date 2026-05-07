@@ -167,7 +167,8 @@ def admin_client(admin_test_client):
         "config_is_enable_log_api": test_client.app.state.config_is_enable_log_api,
         "config_is_enable_traceback": test_client.app.state.config_is_enable_traceback,
         "config_redis_cache_ttl_sec": test_client.app.state.config_redis_cache_ttl_sec,
-        "func_api_log_create": test_client.app.state.func_api_log_create,
+        "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
+        "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
         "func_orchestrator_obj_create": test_client.app.state.func_orchestrator_obj_create,
     }
 
@@ -183,7 +184,7 @@ def admin_client(admin_test_client):
     test_client.app.state.config_is_enable_log_api = 0
     test_client.app.state.config_is_enable_traceback = 0
     test_client.app.state.config_redis_cache_ttl_sec = 60
-    test_client.app.state.func_api_log_create = noop_api_log_create
+    test_client.app.state.func_middleware_api_log_create = noop_api_log_create
     try:
         yield test_client
     finally:
@@ -250,13 +251,30 @@ def test_admin_object_create_passes_admin_scope_to_orchestrator(admin_client):
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": [101, 102]}
-    assert calls["user_id"] is None
-    assert calls["api_role"] == "admin"
     assert calls["table"] == "test"
     assert calls["mode"] == "buffer"
     assert calls["is_serialize"] == 1
     assert calls["queue"] == "redis"
-    assert calls["obj_list"] == [{"title": "one"}, {"title": "two"}]
+    assert calls["obj_list"] == [{"title": "one", "created_by_id": 10}, {"title": "two", "created_by_id": 10}]
+
+
+def test_admin_object_create_allows_restricted_field(admin_client):
+    calls = {}
+
+    async def fake_create(**kwargs):
+        calls.update(kwargs)
+        return [1]
+
+    admin_client.app.state.func_orchestrator_obj_create = fake_create
+
+    response = admin_client.post(
+        "/admin/object-create?table=test",
+        headers=bearer_token(admin_client.app.state),
+        json={"is_active": 1},
+    )
+
+    assert response.status_code == 200
+    assert calls["obj_list"] == [{"is_active": 1, "created_by_id": 10}]
 
 
 def test_admin_postgres_runner_rejects_forbidden_keywords(admin_client):

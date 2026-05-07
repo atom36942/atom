@@ -90,7 +90,7 @@ def private_client(private_test_client, monkeypatch):
         "config_azure_account_name": test_client.app.state.config_azure_account_name,
         "config_azure_account_key": test_client.app.state.config_azure_account_key,
         "config_is_enable_log_api": test_client.app.state.config_is_enable_log_api,
-        "func_api_log_create": test_client.app.state.func_api_log_create,
+        "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
     }
 
     async def noop_api_log_create(**_kwargs):
@@ -124,7 +124,7 @@ def private_client(private_test_client, monkeypatch):
     test_client.app.state.config_azure_account_name = "acct"
     test_client.app.state.config_azure_account_key = "account-key"
     test_client.app.state.config_is_enable_log_api = 0
-    test_client.app.state.func_api_log_create = noop_api_log_create
+    test_client.app.state.func_middleware_api_log_create = noop_api_log_create
     test_client.app.state.fake_generate_blob_sas = fake_generate_blob_sas
     try:
         yield test_client

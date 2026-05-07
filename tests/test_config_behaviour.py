@@ -10,10 +10,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import config
 from core.app import app
 from core.function import (
-    func_api_response,
-    func_check_is_active,
-    func_check_ratelimiter,
-    func_check_role,
+    func_middleware_api_response,
+    func_middleware_check_is_active,
+    func_middleware_check_ratelimiter,
+    func_middleware_check_role,
+    func_postgres_create,
     func_regex_check,
 )
 
@@ -147,7 +148,7 @@ async def test_config_api_cache_inmemory_sets_and_hits_cached_response():
     cache = {}
     cfg = {"/cached": {"api_cache_sec": ["inmemory", 30]}}
 
-    first = await func_api_response(
+    first = await func_middleware_api_response(
         request=make_request("/cached", query_string=b"a=1"),
         api_function=api_function,
         config_api=cfg,
@@ -155,7 +156,7 @@ async def test_config_api_cache_inmemory_sets_and_hits_cached_response():
         user_id=0,
         cache_api_response=cache,
     )
-    second = await func_api_response(
+    second = await func_middleware_api_response(
         request=make_request("/cached", query_string=b"a=1"),
         api_function=api_function,
         config_api=cfg,
@@ -181,7 +182,7 @@ async def test_config_api_cache_redis_sets_and_hits_cached_response():
 
     cfg = {"/cached": {"api_cache_sec": ["redis", 15]}}
 
-    first = await func_api_response(
+    first = await func_middleware_api_response(
         request=make_request("/cached"),
         api_function=api_function,
         config_api=cfg,
@@ -189,7 +190,7 @@ async def test_config_api_cache_redis_sets_and_hits_cached_response():
         user_id=0,
         cache_api_response={},
     )
-    second = await func_api_response(
+    second = await func_middleware_api_response(
         request=make_request("/cached"),
         api_function=api_function,
         config_api=cfg,
@@ -209,14 +210,14 @@ async def test_config_api_ratelimiter_inmemory_allows_until_limit_then_blocks():
     cache = {}
     cfg = {"/limited": {"api_ratelimiting_times_sec": ["inmemory", 2, 60]}}
 
-    await func_check_ratelimiter(
+    await func_middleware_check_ratelimiter(
         client_redis_ratelimiter=None,
         config_api=cfg,
         url_path="/limited",
         identifier="user-1",
         cache_ratelimiter=cache,
     )
-    await func_check_ratelimiter(
+    await func_middleware_check_ratelimiter(
         client_redis_ratelimiter=None,
         config_api=cfg,
         url_path="/limited",
@@ -224,7 +225,7 @@ async def test_config_api_ratelimiter_inmemory_allows_until_limit_then_blocks():
         cache_ratelimiter=cache,
     )
     with pytest.raises(Exception, match="ratelimiter exceeded"):
-        await func_check_ratelimiter(
+        await func_middleware_check_ratelimiter(
             client_redis_ratelimiter=None,
             config_api=cfg,
             url_path="/limited",
@@ -238,7 +239,7 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
     redis = FakeRedis()
     cfg = {"/limited": {"api_ratelimiting_times_sec": ["redis", 2, 60]}}
 
-    await func_check_ratelimiter(
+    await func_middleware_check_ratelimiter(
         client_redis_ratelimiter=redis,
         config_api=cfg,
         url_path="/limited",
@@ -250,7 +251,7 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
 
     redis.store["ratelimiter:/limited:user-1"] = "2"
     with pytest.raises(Exception, match="ratelimiter exceeded"):
-        await func_check_ratelimiter(
+        await func_middleware_check_ratelimiter(
             client_redis_ratelimiter=redis,
             config_api=cfg,
             url_path="/limited",
@@ -272,7 +273,7 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
 async def test_config_api_user_role_check_all_supported_modes_allow_role_one(mode, kwargs):
     cfg = {"/admin/protected": {"user_role_check": [mode, [1]]}}
 
-    await func_check_role(
+    await func_middleware_check_role(
         user_dict=kwargs["user_dict"],
         url_path="/admin/protected",
         config_api=cfg,
@@ -288,11 +289,11 @@ async def test_config_api_user_role_check_rejects_missing_invalid_and_denied_rol
     cfg = {"/admin/protected": {"user_role_check": ["token", [1]]}}
 
     with pytest.raises(Exception, match="user role missing"):
-        await func_check_role(user_dict={"id": 1}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_role(user_dict={"id": 1}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
     with pytest.raises(Exception, match="invalid user role type"):
-        await func_check_role(user_dict={"id": 1, "role": "abc"}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_role(user_dict={"id": 1, "role": "abc"}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
     with pytest.raises(Exception, match="access denied"):
-        await func_check_role(user_dict={"id": 1, "role": 2}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_role(user_dict={"id": 1, "role": 2}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
@@ -308,7 +309,7 @@ async def test_config_api_user_role_check_rejects_missing_invalid_and_denied_rol
 async def test_config_api_user_active_check_all_supported_modes_allow_active_user(mode, kwargs):
     cfg = {"/admin/protected": {"user_is_active_check": [mode, 1]}}
 
-    await func_check_is_active(
+    await func_middleware_check_is_active(
         user_dict=kwargs["user_dict"],
         url_path="/admin/protected",
         config_api=cfg,
@@ -325,9 +326,9 @@ async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled
     disabled_cfg = {"/admin/protected": {"user_is_active_check": ["token", 0]}}
 
     with pytest.raises(Exception, match="user not active"):
-        await func_check_is_active(user_dict={"id": 1, "is_active": 0}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_active={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_is_active(user_dict={"id": 1, "is_active": 0}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_active={}, config_redis_cache_ttl_sec=60)
 
-    await func_check_is_active(user_dict={"id": 1, "is_active": 0}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_active={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_is_active(user_dict={"id": 1, "is_active": 0}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_active={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
@@ -341,6 +342,110 @@ async def test_config_regex_accepts_valid_username_password_and_rejects_invalid_
         await func_regex_check(config_regex=config.config_regex, obj_list=[{"username": "BadUser"}])
     with pytest.raises(Exception, match="Password must be"):
         await func_regex_check(config_regex=config.config_regex, obj_list=[{"password": "bad pass"}])
+
+
+@pytest.mark.asyncio
+async def test_postgres_create_rejects_missing_or_empty_object_data():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    common = {
+        "client_postgres_pool": None,
+        "client_postgres_conn": None,
+        "client_password_hasher": None,
+        "func_postgres_serialize": passthrough_serialize,
+        "cache_postgres_schema": {},
+        "mode": "now",
+        "table": "test",
+        "is_serialize": 0,
+        "buffer_limit": 0,
+        "cache_postgres_buffer": {},
+        "config_regex": config.config_regex,
+        "func_regex_check": func_regex_check,
+        "config_obj_list_limit": config.config_obj_list_limit,
+    }
+
+    with pytest.raises(Exception, match="object list required"):
+        await func_postgres_create(obj_list=[], **common)
+    with pytest.raises(Exception, match="object data required"):
+        await func_postgres_create(obj_list=[{}], **common)
+
+
+@pytest.mark.asyncio
+async def test_postgres_create_rejects_obj_list_over_limit():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    with pytest.raises(Exception, match="maximum 1 objects allowed"):
+        await func_postgres_create(
+            client_postgres_pool=None,
+            client_postgres_conn=None,
+            client_password_hasher=None,
+            func_postgres_serialize=passthrough_serialize,
+            cache_postgres_schema={},
+            mode="now",
+            table="test",
+            obj_list=[{"title": "one"}, {"title": "two"}],
+            is_serialize=0,
+            buffer_limit=0,
+            cache_postgres_buffer={},
+            config_regex=config.config_regex,
+            func_regex_check=func_regex_check,
+            config_obj_list_limit=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_postgres_create_validates_users_with_regex():
+    async def passthrough_serialize(**kwargs):
+        return kwargs["obj_list"]
+
+    with pytest.raises(Exception, match="Username must be"):
+        await func_postgres_create(
+            client_postgres_pool=None,
+            client_postgres_conn=None,
+            client_password_hasher=None,
+            func_postgres_serialize=passthrough_serialize,
+            cache_postgres_schema={},
+            mode="now",
+            table="users",
+            obj_list=[{"username": "BadUser"}],
+            is_serialize=0,
+            buffer_limit=0,
+            cache_postgres_buffer={},
+            config_regex=config.config_regex,
+            func_regex_check=func_regex_check,
+            config_obj_list_limit=config.config_obj_list_limit,
+        )
+
+
+@pytest.mark.asyncio
+async def test_postgres_create_forces_users_serialization():
+    calls = {}
+
+    async def fake_serialize(**kwargs):
+        calls.update(kwargs)
+        return [{"username": "user_1", "password": "secret1"}]
+
+    await func_postgres_create(
+        client_postgres_pool=None,
+        client_postgres_conn=None,
+        client_password_hasher=None,
+        func_postgres_serialize=fake_serialize,
+        cache_postgres_schema={},
+        mode="buffer",
+        table="users",
+        obj_list=[{"username": "user_1", "password": "secret1"}],
+        is_serialize=0,
+        buffer_limit=10,
+        cache_postgres_buffer={},
+        config_regex=config.config_regex,
+        func_regex_check=func_regex_check,
+        config_obj_list_limit=config.config_obj_list_limit,
+    )
+
+    assert calls["table"] == "users"
+    assert calls["obj_list"] == [{"username": "user_1", "password": "secret1"}]
 
 
 def test_config_regex_error_messages_match_current_password_pattern():

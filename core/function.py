@@ -1,4 +1,4 @@
-async def func_authenticate(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_roles_auth: list) -> dict:
+async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_roles_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
@@ -12,7 +12,7 @@ async def func_authenticate(*, headers: dict, url_path: str, config_token_secret
             raise Exception("authorization token missing")
     return user_obj
 
-async def func_check_is_active(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_is_active: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_is_active(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_is_active: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is active using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_is_active_check")
     if not cfg or not user_dict: return None
@@ -47,7 +47,7 @@ async def func_check_is_active(*, user_dict: dict, url_path: str, config_api: di
     if active_status == "absent": raise Exception("missing is_active")
     if active_status == 0: raise Exception("user not active")
 
-async def func_check_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     if not url_path.startswith("/admin") or not (cfg := config_api.get(url_path)) or "user_role_check" not in cfg:
         return None
@@ -89,7 +89,7 @@ async def func_check_role(*, user_dict: dict, url_path: str, config_api: dict, c
             raise Exception("invalid user role type")
     if user_role not in roles: raise Exception("access denied")
 
-async def func_check_ratelimiter(*, client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
+async def func_middleware_check_ratelimiter(*, client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     import time
     api_cfg = config_api.get(url_path, {})
@@ -120,19 +120,17 @@ async def func_check_ratelimiter(*, client_redis_ratelimiter: any, config_api: d
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_api_response(*, request: any, api_function: callable, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict) -> any:
+async def func_middleware_api_response(*, request: any, api_function: callable, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict) -> any:
     """Orchestrate API request handling, including background task delegation and cache management."""
     from fastapi import Request, Response, responses
     from starlette.background import BackgroundTask
     import gzip, base64, time
-
     async def func_background(scope: dict, body_bytes: bytes, api_func: callable):
         async def receive(): return {"type": "http.request", "body": body_bytes}
         async def task(): await api_func(Request(scope=scope, receive=receive))
         resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
         resp.background = BackgroundTask(task)
         return resp
-
     async def func_cache(mode: str, path: str, params: dict, response: any = None):
         cfg = config_api.get(path, {}).get("api_cache_sec")
         if not cfg or cfg[1] <= 0: return None if mode == "get" else response
@@ -146,11 +144,9 @@ async def func_api_response(*, request: any, api_function: callable, config_api:
         if cfg[0] == "redis": await client_redis.setex(key, cfg[1], comp)
         else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + cfg[1]}
         return Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
-
     path, query_params = request.url.path, dict(request.query_params)
     if query_params.get("is_background") == "1":
         return await func_background(scope=request.scope, body_bytes=await request.body(), api_func=api_function)
-    
     response = await func_cache("get", path, query_params) if config_api.get(path, {}).get("api_cache_sec") else None
     if not response:
         response = await api_function(request)
@@ -158,8 +154,7 @@ async def func_api_response(*, request: any, api_function: callable, config_api:
             response = await func_cache("set", path, query_params, response)
     return response
 
-
-async def func_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
+async def func_middleware_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
     import traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
     from fastapi import responses
@@ -202,7 +197,7 @@ async def func_api_response_error(*, exception: Exception, is_traceback: int, se
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
 
-async def func_api_log_create(*, config_is_enable_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, description: str, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict) -> None:
+async def func_middleware_api_log_create(*, config_is_enable_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: any, description: str, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_table: dict, config_regex: dict, func_regex_check: callable, config_obj_list_limit: int) -> None:
     """Log API request details asynchronously if enabled in config (identifier validated)."""
     if config_is_enable_log_api == 0 or client_postgres_pool is None: return None
     log_obj = {
@@ -217,7 +212,7 @@ async def func_api_log_create(*, config_is_enable_log_api: int, api_id: int, req
         "response_time_ms": time_ms,
         "description": description
     }
-    await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0, buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=None)
+    await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0, buffer_limit=config_table.get("log_api", {}).get("buffer", 100), cache_postgres_buffer=cache_postgres_buffer, config_regex=config_regex, func_regex_check=func_regex_check, config_obj_list_limit=config_obj_list_limit)
     return None
 
 async def func_request_param_read(*, request: any, mode: str, strict: int, config: list) -> dict:
@@ -483,52 +478,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
             except Exception:
                 pass
         return errs
-    def _get_router_module_structure_errors():
-        import os
-        errs = []
-        router_dir = "core/router"
-        if not os.path.isdir(router_dir): return []
-        paths = [os.path.join(router_dir, f) for f in os.listdir(router_dir) if f.endswith(".py") and f != "__init__.py"]
-        route_methods = {"get", "post", "put", "patch", "delete", "options", "head", "trace", "websocket", "api_route"}
-        def _is_router_assignment(node):
-            if not isinstance(node, ast.Assign) or len(node.targets) != 1: return False
-            if not isinstance(node.targets[0], ast.Name) or node.targets[0].id != "router": return False
-            return isinstance(node.value, ast.Call) and (getattr(node.value.func, "id", None) == "APIRouter" or getattr(node.value.func, "attr", None) == "APIRouter")
-        def _is_api_route(node):
-            if not node.name.startswith("func_api_"): return False
-            for decorator in node.decorator_list:
-                call = decorator if isinstance(decorator, ast.Call) else None
-                func = call.func if call else decorator
-                if isinstance(func, ast.Attribute) and func.attr in route_methods and isinstance(func.value, ast.Name) and func.value.id == "router":
-                    return True
-            return False
-        for path in paths:
-            filename = os.path.basename(path)
-            try:
-                with open(path, "r") as f:
-                    tree = ast.parse(f.read())
-                for node in tree.body:
-                    if isinstance(node, (ast.Import, ast.ImportFrom)):
-                        continue
-                    if _is_router_assignment(node):
-                        continue
-                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                        if not _is_api_route(node):
-                            errs.append(f"helper function '{node.name}' in {filename} must be inside an API route or be a decorated func_api_* route")
-                        continue
-                    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
-                        target_names = []
-                        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                        for target in targets:
-                            if isinstance(target, ast.Name):
-                                target_names.append(target.id)
-                        suffix = f": {', '.join(target_names)}" if target_names else ""
-                        errs.append(f"global router config/state found in {filename}{suffix}")
-                    else:
-                        errs.append(f"top-level {type(node).__name__} found in {filename}; only imports, router setup, and API routes are allowed")
-            except Exception:
-                pass
-        return errs
     def _get_request_param_config_errors():
         import os
         errs = []
@@ -625,7 +574,6 @@ async def func_check(*, app_routes: list, current_config_api: dict, allowed_role
         _get_config_standard_errors() +
         _get_function_standard_errors() +
         _get_function_module_structure_errors() +
-        _get_router_module_structure_errors() +
         _get_request_param_config_errors() +
         _get_import_errors()
     )
@@ -786,9 +734,9 @@ async def func_regex_check(*, config_regex: dict, obj_list: list) -> None:
 async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
     """Read full PostgreSQL schema from public namespace, mapping internal data types to a standard dictionary format."""
     sql = """
-        SELECT table_name, column_name, data_type, udt_name, is_nullable, column_default 
+        SELECT table_name, column_name, data_type, udt_name, is_nullable, column_default
         FROM information_schema.columns
-        WHERE table_schema = 'public' 
+        WHERE table_schema = 'public'
         ORDER BY table_name, ordinal_position;
     """
     async with client_postgres_pool.acquire() as conn:
@@ -808,16 +756,16 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
         "_timestamp": "timestamp without time zone[]",
         "_timestamptz": "timestamp with time zone[]",
     }
+    def normalize_datatype(r):
+        datatype = str(r["data_type"]).lower()
+        if datatype == "array":
+            return array_type_map.get(r["udt_name"], f"{str(r['udt_name']).lstrip('_')}[]")
+        if datatype == "user-defined":
+            return r["udt_name"]
+        return r["data_type"]
     schema = {}
     for r in records:
-        tbl = r["table_name"]
-        if tbl not in schema: schema[tbl] = {}
-        datatype = r["data_type"]
-        if str(datatype).lower() == "array":
-            datatype = array_type_map.get(r["udt_name"], f"{str(r['udt_name']).lstrip('_')}[]")
-        elif str(datatype).lower() == "user-defined":
-            datatype = r["udt_name"]
-        schema[tbl][r["column_name"]] = {"datatype": datatype, "is_nullable": r["is_nullable"], "default": r["column_default"]}
+        schema.setdefault(r["table_name"], {})[r["column_name"]] = {"datatype": normalize_datatype(r), "is_nullable": r["is_nullable"], "default": r["column_default"]}
     return schema
 
 async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str) -> dict:
@@ -1166,6 +1114,23 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
         if isinstance(v, (list, tuple)): return [cast_val(x, base_dtype) for x in v]
         v_arr = str(v).strip().strip("{}")
         return [cast_val(x.strip(), base_dtype) for x in v_arr.split(",")] if v_arr else []
+    def serialize_val(val, dtype):
+        dtype = normalize_dtype(dtype)
+        is_json, is_array = "json" in dtype, "[]" in dtype or "array" in dtype
+        base_dtype = dtype.replace("[]", "").replace("array", "").strip()
+
+        if is_json:
+            if is_base == 1:
+                return orjson.dumps(val).decode("utf-8") if not isinstance(val, str) else val
+            if isinstance(val, str):
+                val_str = val.strip()
+                return orjson.loads(val_str) if val_str.startswith(("{", "[")) else val_str
+            return val
+        if is_array:
+            return array_val(val, base_dtype)
+        if is_base != 1 and "bytea" in dtype:
+            return val.encode() if isinstance(val, str) else val
+        return cast_val(val, dtype)
     for item in obj_list:
         new_item = {}
         for col, val in item.items():
@@ -1178,50 +1143,33 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
             if val is None:
                 new_item[col] = val
                 continue
-            dtype = normalize_dtype(schema[col]["datatype"])
-            is_json, is_array = "json" in dtype, "[]" in dtype or "array" in dtype
-            base_dtype = dtype.replace("[]", "").replace("array", "").strip()
-            if is_base == 1:
-                if is_json:
-                    new_item[col] = orjson.dumps(val).decode('utf-8') if not isinstance(val, str) else val
-                elif is_array:
-                    new_item[col] = array_val(val, base_dtype)
-                else:
-                    new_item[col] = cast_val(val, dtype)
-            else:
-                if is_json:
-                    if isinstance(val, str):
-                        val_str = val.strip()
-                        new_item[col] = orjson.loads(val_str) if val_str.startswith(("{", "[")) else val_str
-                    else:
-                        new_item[col] = val
-                elif is_array:
-                    new_item[col] = array_val(val, base_dtype)
-                elif "bytea" in dtype:
-                    new_item[col] = val.encode() if isinstance(val, str) else val
-                else:
-                    new_item[col] = cast_val(val, dtype)
+            new_item[col] = serialize_val(val, schema[col]["datatype"])
         output_list.append(new_item)
     return output_list
 
-async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict) -> any:
+async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, mode: str, table: str, obj_list: list, is_serialize: int, buffer_limit: int, cache_postgres_buffer: dict, config_regex: dict, func_regex_check: callable, config_obj_list_limit: int) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
     if mode == "flush":
         for key, buffer_list in list(cache_postgres_buffer.items()):
             if buffer_list:
                 tbl = key.split("|")[0] if "|" in key else key
-                await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
+                await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, config_regex={}, func_regex_check=func_regex_check, config_obj_list_limit=0)
                 cache_postgres_buffer[key] = []
         return "flushed"
-    if not obj_list: return None
+    if not obj_list: raise Exception("object list required")
+    if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
+    if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
+    if table == "users":
+        await func_regex_check(config_regex=config_regex, obj_list=obj_list)
+        is_serialize = 1
     serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0 if len(obj_list) > 1 else 1) if is_serialize else obj_list
     if mode == "buffer":
         key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
         cache_postgres_buffer.setdefault(key, []).extend(serialized_list)
         if len(cache_postgres_buffer[key]) >= buffer_limit:
             items = cache_postgres_buffer[key]
-            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=items, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
+            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode="now", table=table, obj_list=items, is_serialize=0, buffer_limit=0, cache_postgres_buffer=cache_postgres_buffer, config_regex={}, func_regex_check=func_regex_check, config_obj_list_limit=0)
             cache_postgres_buffer[key] = []
             return "buffered released"
         return "buffered"
@@ -1543,42 +1491,15 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
             await conn.execute(sql_delete, created_by_id)
     return "ids deleted"
 
-async def func_orchestrator_obj_create(*, user_id: any, api_role: str, table: str, mode: str, is_serialize: int, queue: str, obj_list: list, config_table_create_disable_my: list, config_table_create_enable_public: list, config_column_disable: list, config_table: dict, config_regex: dict, func_regex_check: callable, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
+async def func_orchestrator_obj_create(*, table: str, mode: str, is_serialize: int, queue: str, obj_list: list, config_table: dict, config_regex: dict, func_regex_check: callable, config_obj_list_limit: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
     """Wrapper orchestration for object creation with owner validation, regex checks, and optional queueing. Uses explicit mandatory parameters."""
-    limit_batch = 5000
-    if not obj_list: raise Exception("object list required")
-    if table == "users":
-        await func_regex_check(config_regex=config_regex, obj_list=obj_list)
-    if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
-    created_by_id = user_id
-    if table == "users":
-        is_serialize = 1
-        created_by_id = None
-    if api_role == "my":
-        if table in config_table_create_disable_my: raise Exception(f"table not allowed for creation: {table}")
-    elif api_role == "public":
-        if table not in config_table_create_enable_public: raise Exception(f"table not allowed for creation: {table}")
-        created_by_id = None
-    elif api_role == "admin": created_by_id = None
-    else: raise Exception(f"role not allowed for creation: {api_role}")
-    for item in obj_list:
-        for key in item:
-            if key in config_column_disable: raise Exception(f"unauthorized creation of restricted field: {key}")
-    if user_id:
-        for item in obj_list:
-            item["created_by_id"] = user_id
     if queue:
         func_name = func_postgres_create.__name__
-        results = []
-        for i in range(0, len(obj_list), limit_batch):
-            batch = obj_list[i : i + limit_batch]
-            payload = {"mode": mode, "table": table, "obj_list": batch, "is_serialize": is_serialize, "buffer_limit": config_table.get(table, {}).get("buffer_limit", 0)}
-            res = await func_orchestrator_producer(queue=queue, func_name=func_name, payload=payload, client_celery_producer=client_celery_producer, client_kafka_producer=client_kafka_producer, client_rabbitmq_producer=client_rabbitmq_producer, client_redis_producer=client_redis_producer)
-            results.append(res)
-        return results if len(results) > 1 else results[0]
-    return await func_postgres_create(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode=mode, table=table, obj_list=obj_list, is_serialize=is_serialize, buffer_limit=config_table.get(table, {}).get("buffer_limit", 0), cache_postgres_buffer=cache_postgres_buffer, client_postgres_conn=client_postgres_conn)
+        payload = {"mode": mode, "table": table, "obj_list": obj_list, "is_serialize": is_serialize, "buffer_limit": config_table.get(table, {}).get("buffer_limit", 0)}
+        return await func_orchestrator_producer(queue=queue, func_name=func_name, payload=payload, client_celery_producer=client_celery_producer, client_kafka_producer=client_kafka_producer, client_rabbitmq_producer=client_rabbitmq_producer, client_redis_producer=client_redis_producer)
+    return await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, mode=mode, table=table, obj_list=obj_list, is_serialize=is_serialize, buffer_limit=config_table.get(table, {}).get("buffer_limit", 0), cache_postgres_buffer=cache_postgres_buffer, config_regex=config_regex, func_regex_check=func_regex_check, config_obj_list_limit=config_obj_list_limit)
 
-async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: str, mode: str, is_serialize: int, queue: str, otp: int, obj_list: list, config_table: dict, config_is_enable_otp_users_update_admin: int, config_column_disable: list, config_column_enable_single_update: list, config_regex: dict, func_regex_check: callable, func_otp_verify: callable, client_postgres_pool: any, client_password_hasher: any, config_expiry_sec_otp: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_update: callable, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
+async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: str, mode: str, is_serialize: int, queue: str, otp: int, obj_list: list, config_table: dict, config_is_enable_otp_users_update_admin: int, config_column_disable_non_admin: list, config_column_enable_single_update: list, config_regex: dict, func_regex_check: callable, func_otp_verify: callable, client_postgres_pool: any, client_password_hasher: any, config_expiry_sec_otp: int, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, func_orchestrator_producer: callable, func_postgres_update: callable, func_postgres_serialize: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, client_postgres_conn: any) -> any:
     """Wrapper orchestration for object updates with owner validation, OTP checks, and optional queueing. Uses explicit mandatory parameters."""
     limit_batch = 5000
     if not obj_list: raise Exception("object list required")
@@ -1592,7 +1513,7 @@ async def func_orchestrator_obj_update(*, user_id: any, api_role: str, table: st
     if api_role not in ("my", "admin"): raise Exception(f"role not allowed for update: {api_role}")
     for item in obj_list:
         for key in item:
-            if key in config_column_disable: raise Exception(f"unauthorized update to restricted field: {key}")
+            if key in config_column_disable_non_admin: raise Exception(f"unauthorized update to restricted field: {key}")
     async def _func_otp_check(item: dict) -> None:
         if any(key in item for key in ("email", "mobile")):
             if len(obj_list) > 1: raise Exception("multi-object user update restricted")

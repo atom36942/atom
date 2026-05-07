@@ -219,7 +219,8 @@ def my_client(my_test_client):
         "config_sql": test_client.app.state.config_sql,
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "cache_postgres_column_list": test_client.app.state.cache_postgres_column_list,
-        "func_api_log_create": test_client.app.state.func_api_log_create,
+        "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
+        "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
         "func_postgres_delete": test_client.app.state.func_postgres_delete,
         "func_postgres_read": test_client.app.state.func_postgres_read,
         "func_orchestrator_obj_create": test_client.app.state.func_orchestrator_obj_create,
@@ -235,7 +236,7 @@ def my_client(my_test_client):
     test_client.app.state.config_sql = {"profile_metadata": {"test_count": "profile-test-count"}}
     test_client.app.state.cache_postgres_table_list = ["test", "users", "message", "parent", "child"]
     test_client.app.state.cache_postgres_column_list = ["id", "created_by_id", "parent_id"]
-    test_client.app.state.func_api_log_create = noop_api_log_create
+    test_client.app.state.func_middleware_api_log_create = noop_api_log_create
     try:
         yield test_client
     finally:
@@ -424,10 +425,30 @@ def test_my_object_create_passes_authenticated_user_to_orchestrator(my_client, a
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": [101]}
-    assert calls["user_id"] == 10
-    assert calls["api_role"] == "my"
     assert calls["table"] == "test"
-    assert calls["obj_list"] == [{"title": "one"}]
+    assert calls["obj_list"] == [{"title": "one", "created_by_id": 10}]
+
+
+def test_my_object_create_rejects_disabled_table_at_api(my_client, auth_headers):
+    response = my_client.post(
+        "/my/object-create?table=users",
+        headers=auth_headers,
+        json={"email": "a@example.com"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "table not allowed for creation: users"
+
+
+def test_my_object_create_rejects_restricted_field_at_api(my_client, auth_headers):
+    response = my_client.post(
+        "/my/object-create?table=test",
+        headers=auth_headers,
+        json={"is_active": 1},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "unauthorized creation of restricted field: is_active"
 
 
 def test_my_object_update_passes_otp_and_payload_to_orchestrator(my_client, auth_headers):

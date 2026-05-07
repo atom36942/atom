@@ -1,7 +1,10 @@
 import sys
+import time
 import types
 from pathlib import Path
 
+import jwt
+import orjson
 import pytest
 from fastapi.testclient import TestClient
 
@@ -9,6 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.app import app
 from core.router import public as public_router
+
+
+def bearer_token(app_state, user):
+    payload = orjson.dumps(user, default=str).decode("utf-8")
+    token = jwt.encode({"exp": int(time.time()) + 3600, "data": payload, "type": "access"}, app_state.config_token_secret_key)
+    return {"Authorization": f"Bearer {token}"}
 
 
 class FakeAcquire:
@@ -146,7 +155,8 @@ def public_client(public_test_client, monkeypatch):
         "cache_postgres_column_list": test_client.app.state.cache_postgres_column_list,
         "cache_api_response": test_client.app.state.cache_api_response,
         "config_table_read_enable_public": test_client.app.state.config_table_read_enable_public,
-        "func_api_log_create": test_client.app.state.func_api_log_create,
+        "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
+        "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
         "func_orchestrator_obj_create": test_client.app.state.func_orchestrator_obj_create,
         "func_postgres_read": test_client.app.state.func_postgres_read,
         "func_postgres_serialize": test_client.app.state.func_postgres_serialize,
@@ -172,7 +182,7 @@ def public_client(public_test_client, monkeypatch):
     test_client.app.state.cache_postgres_column_list = ["id", "type", "tag", "category"]
     test_client.app.state.cache_api_response = {}
     test_client.app.state.config_table_read_enable_public = ["test", "post"]
-    test_client.app.state.func_api_log_create = noop_api_log_create
+    test_client.app.state.func_middleware_api_log_create = noop_api_log_create
     test_client.app.state.func_postgres_serialize = passthrough_serialize
     FakeAsyncClient.response = FakeHttpResponse()
     FakeAsyncClient.post_calls = []
@@ -222,10 +232,41 @@ def test_public_object_create_passes_public_scope_to_orchestrator(public_client)
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": [1]}
-    assert calls["user_id"] is None
-    assert calls["api_role"] == "public"
     assert calls["table"] == "test"
     assert calls["obj_list"] == [{"title": "public item"}]
+
+
+def test_public_object_create_sets_owner_when_token_present(public_client):
+    calls = {}
+
+    async def fake_create(**kwargs):
+        calls.update(kwargs)
+        return [1]
+
+    public_client.app.state.func_orchestrator_obj_create = fake_create
+
+    response = public_client.post(
+        "/public/object-create?table=test",
+        headers=bearer_token(public_client.app.state, {"id": 99, "type": 1, "role": 1, "is_active": 1}),
+        json={"title": "public item"},
+    )
+
+    assert response.status_code == 200
+    assert calls["obj_list"] == [{"title": "public item", "created_by_id": 99}]
+
+
+def test_public_object_create_rejects_disallowed_table_at_api(public_client):
+    response = public_client.post("/public/object-create?table=users", json={"email": "a@example.com"})
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "table not allowed for creation: users"
+
+
+def test_public_object_create_rejects_restricted_field_at_api(public_client):
+    response = public_client.post("/public/object-create?table=test", json={"is_active": 1})
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "unauthorized creation of restricted field: is_active"
 
 
 def test_public_object_read_allows_configured_table(public_client):

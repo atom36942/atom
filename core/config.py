@@ -94,12 +94,13 @@ config_is_enable_reset_tmp=0
 config_is_enable_index_html=0
 config_is_enable_otp_users_update_admin=0
 config_is_enable_postgres_init_startup=1
+config_obj_list_limit=1000
 
 #enum
 config_table_create_disable_my=["users", "log_api", "log_users_password", "otp"]
 config_table_create_enable_public=["test", "support"]
 config_table_read_enable_public=["test", "post"]
-config_column_disable=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
+config_column_disable_non_admin=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
 config_column_enable_single_update=["username", "password", "email", "mobile"]
 config_api_roles=["index", "auth", "my", "public", "private", "admin"]
 config_api_roles_auth=["/my/", "/private/", "/admin/"]

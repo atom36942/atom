@@ -22,6 +22,7 @@ async def execute(pool, payload, buffer, schema, hasher):
     tbl = payload.get("table")
     return await func_postgres_create(
         client_postgres_pool=pool,
+        client_postgres_conn=None,
         client_password_hasher=hasher,
         func_postgres_serialize=func_postgres_serialize,
         cache_postgres_schema=schema,
@@ -31,7 +32,9 @@ async def execute(pool, payload, buffer, schema, hasher):
         is_serialize=payload.get("is_serialize", 0),
         buffer_limit=payload.get("buffer_limit", config_table.get(tbl, {}).get("buffer", 100) if tbl else 100),
         cache_postgres_buffer=buffer,
-        client_postgres_conn=None
+        config_regex=config_regex,
+        func_regex_check=func_regex_check,
+        config_obj_list_limit=config_obj_list_limit
     )
 
 #init
