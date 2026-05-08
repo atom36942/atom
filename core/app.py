@@ -1,6 +1,7 @@
 #import
 from .config import *
 from .function import *
+import asyncio
 
 #lifespan
 from contextlib import asynccontextmanager
@@ -31,16 +32,16 @@ async def func_lifespan(app:"FastAPI"):
        from posthog import Posthog
        client_password_hasher = PasswordHasher()
        client_http = httpx.AsyncClient()
-       client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if config_postgres_url else None
-       client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url)) if config_redis_url else None
-       client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url_ratelimiter)) if config_redis_url_ratelimiter else None
-       client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url_pubsub)) if config_redis_url_pubsub else None
-       client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(config_mongodb_url) if config_mongodb_url else None
-       client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key) if config_s3_region_name else None
-       client_s3_resource = boto3.resource("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key) if config_s3_region_name else None
-       client_sns = boto3.client("sns", region_name=config_sns_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key) if config_sns_region_name else None
-       client_ses = boto3.client("ses", region_name=config_ses_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key) if config_ses_region_name else None
-       client_openai = openai.OpenAI(api_key=config_openai_key) if config_openai_key else None
+       client_postgres_pool = await asyncpg.create_pool(dsn=getattr(app.state, "config_postgres_url", config_postgres_url), min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if getattr(app.state, "config_postgres_url", config_postgres_url) else None
+       client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url", config_redis_url))) if getattr(app.state, "config_redis_url", config_redis_url) else None
+       client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url_ratelimiter", config_redis_url_ratelimiter))) if getattr(app.state, "config_redis_url_ratelimiter", config_redis_url_ratelimiter) else None
+       client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url_pubsub", config_redis_url_pubsub))) if getattr(app.state, "config_redis_url_pubsub", config_redis_url_pubsub) else None
+       client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(getattr(app.state, "config_mongodb_url", config_mongodb_url)) if getattr(app.state, "config_mongodb_url", config_mongodb_url) else None
+       client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=getattr(app.state, "config_s3_region_name", config_s3_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_s3_region_name else None
+       client_s3_resource = boto3.resource("s3", region_name=getattr(app.state, "config_s3_region_name", config_s3_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_s3_region_name else None
+       client_sns = boto3.client("sns", region_name=getattr(app.state, "config_sns_region_name", config_sns_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_sns_region_name else None
+       client_ses = boto3.client("ses", region_name=getattr(app.state, "config_ses_region_name", config_ses_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_ses_region_name else None
+       client_openai = openai.OpenAI(api_key=getattr(app.state, "config_openai_key", config_openai_key)) if getattr(app.state, "config_openai_key", config_openai_key) else None
        if config_gemini_key:
           client_gemini = genai.Client(api_key=config_gemini_key)
        else:
@@ -70,7 +71,7 @@ async def func_lifespan(app:"FastAPI"):
           client_sftp = None
        client_azure_blob = BlobServiceClient.from_connection_string(config_azure_connection_string) if config_azure_connection_string else BlobServiceClient(account_url=f"https://{config_azure_account_name}.blob.core.windows.net", credential=config_azure_account_key) if config_azure_account_name else None
        #postges schema init
-       if client_postgres_pool and config_is_enable_postgres_init_startup == 1: await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=config_postgres, config_postgres_root_user_password=config_postgres_root_user_password)
+       if client_postgres_pool and config_is_enable_postgres_init_startup == 1: await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=getattr(app.state, "config_postgres", config_postgres), config_postgres_root_user_password=config_postgres_root_user_password)
        #cache init
        cache_postgres_schema = await func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
        cache_postgres_table_list = list(cache_postgres_schema.keys())
@@ -78,6 +79,7 @@ async def func_lifespan(app:"FastAPI"):
        cache_users_role = await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("users_role")) if client_postgres_pool else {}
        cache_users_is_active = await func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=config_sql.get("users_is_active")) if client_postgres_pool else {}
        cache_ratelimiter, cache_api_response, cache_postgres_buffer_create = {}, {}, {}
+       app.state.flush_lock = asyncio.Lock()
        #app state add
        for key, val in {**globals(),**locals()}.items():
           if key.startswith(("client_","cache_","config_","func_")): setattr(app.state, key, val)
@@ -89,13 +91,13 @@ async def func_lifespan(app:"FastAPI"):
        print(f"❌ startup error: {e}")
        raise
    #postgres buffer flush loop
-   import asyncio
    async def pulse_flush():
       while True:
          try:
             await asyncio.sleep(60)
             if client_postgres_pool:
-                await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex={}, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
+                async with app.state.flush_lock:
+                    await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
          except asyncio.CancelledError: break
          except Exception as e: print(f"❌ pulse flush error: {e}")
    if getattr(app.state, "config_is_enable_background_workers", 1) == 1:
@@ -108,7 +110,8 @@ async def func_lifespan(app:"FastAPI"):
        except asyncio.CancelledError: pass
    #postgres buffer flush final
    if client_postgres_pool:
-      await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
+      async with app.state.flush_lock:
+          await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
    #client disconnect
    if client_http: await client_http.aclose()
    if client_postgres_pool: await client_postgres_pool.close()
@@ -130,6 +133,10 @@ async def func_lifespan(app:"FastAPI"):
 #app
 from fastapi import FastAPI
 app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
+
+#state pre-population (ensures func_* are available even before lifespan)
+for _k, _v in list(globals().items()):
+   if _k.startswith(("func_", "config_")): setattr(app.state, _k, _v)
 
 #router
 import os
@@ -153,14 +160,15 @@ async def middleware(request, api_function):
     start, error, request.state.user = time.perf_counter(), None, {}
     app_state = request.app.state
     try:
-        request.state.user = await app_state.func_middleware_check_auth(headers=request.headers, url_path=request.url.path, config_token_secret_key=app_state.config_token_secret_key, config_api_roles_auth=app_state.config_api_roles_auth)
-        await app_state.func_middleware_check_role(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_is_active(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_is_active=app_state.cache_users_is_active, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_ratelimiter(client_redis_ratelimiter=app_state.client_redis_ratelimiter, config_api=app_state.config_api, url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
-        response = await app_state.func_middleware_api_response(request=request, api_function=api_function, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=request.state.user.get("id") if request.state.user else 0, cache_api_response=app_state.cache_api_response)
+        request.state.user = await getattr(app_state, "func_middleware_check_auth", func_middleware_check_auth)(headers=request.headers, url_path=request.url.path, config_token_secret_key=getattr(app_state, "config_token_secret_key", config_token_secret_key), config_api_roles_auth=getattr(app_state, "config_api_roles_auth", config_api_roles_auth))
+        await getattr(app_state, "func_middleware_check_role", func_middleware_check_role)(user_dict=request.state.user, url_path=request.url.path, config_api=getattr(app_state, "config_api", config_api), client_postgres_pool=getattr(app_state, "client_postgres_pool", None), client_redis=getattr(app_state, "client_redis", None), cache_users_role=getattr(app_state, "cache_users_role", {}), config_redis_cache_ttl_sec=getattr(app_state, "config_redis_cache_ttl_sec", config_redis_cache_ttl_sec))
+        await getattr(app_state, "func_middleware_check_is_active", func_middleware_check_is_active)(user_dict=request.state.user, url_path=request.url.path, config_api=getattr(app_state, "config_api", config_api), client_postgres_pool=getattr(app_state, "client_postgres_pool", None), client_redis=getattr(app_state, "client_redis", None), cache_users_is_active=getattr(app_state, "cache_users_is_active", {}), config_redis_cache_ttl_sec=getattr(app_state, "config_redis_cache_ttl_sec", config_redis_cache_ttl_sec))
+        await getattr(app_state, "func_middleware_check_ratelimiter", func_middleware_check_ratelimiter)(client_redis_ratelimiter=getattr(app_state, "client_redis_ratelimiter", None), config_api=getattr(app_state, "config_api", config_api), url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=getattr(app_state, "cache_ratelimiter", {}))
+        response = await getattr(app_state, "func_middleware_api_response", func_middleware_api_response)(request=request, api_function=api_function, config_api=getattr(app_state, "config_api", config_api), client_redis=getattr(app_state, "client_redis", None), user_id=request.state.user.get("id") if request.state.user else 0, cache_api_response=getattr(app_state, "cache_api_response", {}))
     except Exception as e:
-        error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=app_state.config_is_enable_traceback, sentry_dsn=app_state.config_sentry_dsn)
-    await app_state.func_middleware_api_log_create(config_is_enable_log_api=app_state.config_is_enable_log_api, api_id=app_state.config_api.get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, description=error, func_postgres_create=app_state.func_postgres_create, client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, config_buffer_limit=app_state.config_buffer_limit)
+        
+        error, response = await getattr(app_state, "func_middleware_api_response_error", func_middleware_api_response_error)(exception=e, is_traceback=getattr(app_state, "config_is_enable_traceback", config_is_enable_traceback), sentry_dsn=getattr(app_state, "config_sentry_dsn", config_sentry_dsn))
+    await getattr(app_state, "func_middleware_api_log_create", func_middleware_api_log_create)(config_is_enable_log_api=getattr(app_state, "config_is_enable_log_api", config_is_enable_log_api), api_id=getattr(app_state, "config_api", {}).get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, description=error, func_postgres_create=getattr(app_state, "func_postgres_create", func_postgres_create), client_postgres_pool=getattr(app_state, "client_postgres_pool", None), client_password_hasher=getattr(app_state, "client_password_hasher", None), func_postgres_serialize=getattr(app_state, "func_postgres_serialize", func_postgres_serialize), func_regex_check=getattr(app_state, "func_regex_check", func_regex_check), cache_postgres_schema=getattr(app_state, "cache_postgres_schema", {}), cache_postgres_buffer_create=getattr(app_state, "cache_postgres_buffer_create", {}), config_regex=getattr(app_state, "config_regex", config_regex), config_table=getattr(app_state, "config_table", config_table), config_obj_list_limit=getattr(app_state, "config_obj_list_limit", config_obj_list_limit), config_buffer_limit=getattr(app_state, "config_buffer_limit", config_buffer_limit))
     return response
 
 #cors

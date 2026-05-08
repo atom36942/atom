@@ -45,7 +45,63 @@ async def integration_app(db_containers):
     app.state.client_password_hasher = PasswordHasher()
     app.state.config_postgres_url = db_containers["postgres"]
     app.state.config_redis_url = db_containers["redis"]
+    app.state.config_redis_url_ratelimiter = db_containers["redis"] # Added for ratelimiter
     app.state.config_mongodb_url = db_containers["mongo"]
+    
+    # 1.1 Override Postgres Config for Integration Tests (Add missing tables/columns)
+    from core import config
+    config_pg_test = config.config_postgres.copy()
+    config_pg_test["table"] = config_pg_test["table"].copy()
+    
+    # Ensure 'users' has 'is_active'
+    if "users" in config_pg_test["table"]:
+        config_pg_test["table"]["users"] = config_pg_test["table"]["users"] + [{"name": "is_active", "datatype": "smallint", "default": 1}]
+    
+    # Ensure 'test' has 'body', 'is_active', and 'created_by_id'
+    if "test" in config_pg_test["table"]:
+        config_pg_test["table"]["test"] = config_pg_test["table"]["test"] + [
+            {"name": "body", "datatype": "text"},
+            {"name": "is_active", "datatype": "smallint", "default": 1},
+            {"name": "created_by_id", "datatype": "bigint"}
+        ]
+        
+    # Add 'message' table for integration tests
+    if "message" not in config_pg_test["table"]:
+        config_pg_test["table"]["message"] = [
+            {"name": "user_id", "datatype": "bigint"},
+            {"name": "message", "datatype": "text"},
+            {"name": "is_read", "datatype": "smallint", "default": 0},
+            {"name": "created_by_id", "datatype": "bigint"},
+            {"name": "created_at", "datatype": "timestamptz", "default": "now()"}
+        ]
+        
+    # Add 'otp' table override (ensure it has created_by_id for /my/ read tests)
+    if "otp" in config_pg_test["table"]:
+        config_pg_test["table"]["otp"] = config_pg_test["table"]["otp"] + [{"name": "created_by_id", "datatype": "bigint"}]
+    else:
+        config_pg_test["table"]["otp"] = [
+            {"name": "email", "datatype": "text"},
+            {"name": "mobile", "datatype": "text"},
+            {"name": "otp", "datatype": "int"},
+            {"name": "created_by_id", "datatype": "bigint"},
+            {"name": "created_at", "datatype": "timestamptz", "default": "now()"}
+        ]
+
+    # Add 'test_blob' table if missing
+    if "test_blob" not in config_pg_test["table"]:
+        config_pg_test["table"]["test_blob"] = [
+            {"name": "file_url", "datatype": "text"},
+            {"name": "created_by_id", "datatype": "bigint"},
+            {"name": "created_at", "datatype": "timestamptz", "default": "now()"}
+        ]
+    app.state.config_postgres = config_pg_test
+    
+    # Enable Caching and Rate Limiting for Integration Tests
+    app.state.config_api = config.config_api.copy()
+    app.state.config_api["/public/object-read"] = {
+        "api_cache_sec": ["redis", 60],
+        "api_ratelimiting_times_sec": ["redis", 10, 60]
+    }
     
     # Store default state for resetting
     app.state.config_is_enable_signup = 1
@@ -70,9 +126,20 @@ async def integration_app(db_containers):
     await func_postgres_schema_init(
         client_postgres_pool=app.state.client_postgres_pool,
         client_password_hasher=app.state.client_password_hasher,
-        config_postgres=config_postgres,
+        config_postgres=app.state.config_postgres,
         config_postgres_root_user_password=config_postgres_root_user_password
     )
+    
+    # 3.1 Synchronize State Caches
+    from core.function import func_postgres_schema_read, func_postgres_map_column
+    from core.config import config_sql
+    app.state.config_regex = {} # Disable regex checks for integration tests to prevent 400 errors
+    app.state.cache_postgres_schema = await func_postgres_schema_read(client_postgres_pool=app.state.client_postgres_pool)
+    app.state.cache_postgres_table_list = list(app.state.cache_postgres_schema.keys())
+    app.state.cache_postgres_column_list = sorted(list(set(col for table in app.state.cache_postgres_schema.values() for col in table.keys())))
+    app.state.cache_users_role = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_role"))
+    app.state.cache_users_is_active = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_is_active"))
+    app.state.cache_ratelimiter, app.state.cache_api_response, app.state.cache_postgres_buffer_create = {}, {}, {}
 
     # 4. Map S3 to Localstack
     import aiobotocore.session
@@ -89,7 +156,13 @@ async def integration_app(db_containers):
     # Create a bucket for the tests
     await app.state.client_s3.create_bucket(Bucket="atom-integration-test")
     
-    # 4. Provide the AsyncClient
+    # 4. Final State Hardening (prevents race conditions before lifespan finishes)
+    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
+        if not hasattr(app.state, _k): setattr(app.state, _k, [] if "list" in _k else {})
+    for _k in ["client_sns", "client_ses", "client_openai", "client_gemini", "client_posthog", "client_celery_producer", "client_kafka_producer", "client_rabbitmq", "client_rabbitmq_producer", "client_sftp", "client_azure_blob", "pulse_flush_task"]:
+        if not hasattr(app.state, _k): setattr(app.state, _k, None)
+
+    # 5. Provide the AsyncClient
     from httpx import AsyncClient, ASGITransport
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         client.app = app # Allow access to app state
@@ -98,7 +171,7 @@ async def integration_app(db_containers):
     # 5. POST-SESSION CLEANUP: Just close the pools
     await app.state.client_postgres_pool.close()
     await app.state.client_redis.aclose()
-    if hasattr(app.state, "client_s3"):
+    if hasattr(app.state, "client_s3") and app.state.client_s3:
         await app.state.client_s3.__aexit__(None, None, None)
 
 @pytest.fixture

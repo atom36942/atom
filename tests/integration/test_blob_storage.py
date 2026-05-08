@@ -14,8 +14,7 @@ async def test_private_blob_upload_to_localstack(integration_app, auth_client):
     # We use 'atom-integration-test' bucket which we created in conftest.py
     params = {"service": "s3", "container": "atom-integration-test"}
     res = await admin.post("/private/blob-upload-file", data=params, files=files)
-    
-    assert res.status_code == 200
+    assert res.status_code == 200, f"Upload failed: {res.text}"
     blob_id = res.json()["message"]
     print(f"\n✅ Blob: Uploaded to Localstack S3 (ID: {blob_id})")
     

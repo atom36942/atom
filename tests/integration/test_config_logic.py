@@ -10,7 +10,7 @@ async def test_config_signup_switch(integration_app):
     payload = {"type": 1, "username": "switch_test", "password": "Password123!"}
     response = await integration_app.post("/auth/signup-username-password", json=payload)
     
-    assert response.status_code == 200 # App returns error in message
+    assert response.status_code == 400 # App correctly returns 400 for logic exceptions
     assert "disabled" in response.json()["message"].lower()
     print("\n✅ Config: Signup switch (Disabled) verified.")
     
@@ -49,6 +49,7 @@ async def test_config_traceback_sanitization(integration_app):
     
     # 2. Trigger a known error (invalid table name) with mandatory params
     response = await integration_app.get("/public/object-read?table=invalid&limit=10&page=1&order=id desc")
+    assert response.status_code == 400 # Invalid table should return 400
     
     # Verify the message is clean
     message = str(response.json()["message"]).lower()

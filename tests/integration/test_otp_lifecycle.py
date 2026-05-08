@@ -17,11 +17,13 @@ async def test_otp_verification_lifecycle(integration_app, auth_client):
     
     # 2. Check /my/ object read for otp (Admin only)
     res = await admin.get("/my/object-read?table=otp&limit=10&page=1&order=id desc")
+    assert res.status_code == 200, f"Read failed: {res.text}"
     assert any(row["email"] == email for row in res.json()["message"])
     print("\n✅ OTP: Seeded and verified in database.")
     
     # 3. Use it to login
     payload = {"type": 1, "email": email, "otp": 999888}
     res_login = await integration_app.post("/auth/login-email-otp", json=payload)
+    assert res_login.status_code == 200, f"Login failed: {res_login.text}"
     assert res_login.json()["status"] == 1
     print("✅ OTP: Login successful using seeded OTP.")
