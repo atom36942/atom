@@ -5,7 +5,7 @@ config_postgres_max_connection=20
 config_postgres_root_user_password="123456"
 
 #system
-config_index_html_path="static/api.html"
+config_index_html_path="core/api.html"
 config_auth_type=[1]
 config_expiry_sec_otp=600
 config_otp_length=6
@@ -152,9 +152,7 @@ config_api={
 "/admin/blob-container-read":{"id":10,"user_role_check":["inmemory",[1]]},
 "/admin/blob-container-ops":{"id":12,"user_role_check":["token",[1]]},
 "/admin/blob-url-delete":{"id":13,"user_role_check":["token",[1]]},
-"/public/object-read":{"id":14,"api_cache_sec":["inmemory",1]},
-"/my/profile":{"id":15,"api_cache_sec":["inmemory",10]},
-"/my/object-read":{"id":16,"api_cache_sec":["inmemory",1]},
+"/public/object-read":{"id":14,"api_cache_sec":["inmemory",30]},
 "/info":{"id":17,"api_cache_sec":["inmemory",100]},
 "/public/table-tag-read":{"id":18,"api_cache_sec":["inmemory",10]},
 "/public/jira-worklog-export":{"id":19,"api_ratelimiting_times_sec":["inmemory",10,60]},

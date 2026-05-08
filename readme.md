@@ -17,7 +17,7 @@ Atom is a high-performance, modular backend framework designed for atomic data o
 | **📊 Observability** | Integrated Prometheus monitoring, Sentry error tracking, and logging. |
 | **☁️ Cloud Native** | Out-of-the-box integrations for AWS S3, Jira, and Email services. |
 
-# Setup
+# Commands
 ```bash
 #Direct Deployment
 git clone https://github.com/atom36942/atom.git
@@ -34,14 +34,21 @@ venv/bin/uvicorn main:app --reload
 docker build -t atom .
 docker run --rm -p 8000:8000 atom
 
-# Sample .env
+# Test
+venv/bin/pytest
+
+# Consumer Start
+venv/bin/python -m core.consumer.<filename> [redis|rabbitmq|kafka|celery]
+```
+
+# Env
+```bash
 config_postgres_url="postgresql://atom@127.0.0.1/postgres?sslmode=disable"
 config_redis_url="redis://localhost:6379"
 config_rabbitmq_url="amqp://guest:guest@localhost:5672"
 config_mongodb_url="mongodb://localhost:27017"
-
-# Test
-venv/bin/pytest
+config_postgres_root_user_password="123456"
+config_token_secret_key="atom-development-token-secret-key-32b"
 ```
 
 ###  FAQ
@@ -57,4 +64,3 @@ venv/bin/pytest
 | **⚡ Smart Caching** | High-performance response caching (Supports: `inmemory`, `redis`). |
 | **🚦 Rate Limiting** | Integrated traffic control and throttling (Supports: `inmemory`, `redis`). |
 | **📅 Date Format** | Use **`YYYY-MM-DD`** for dates and **ISO 8601** (`YYYY-MM-DDTHH:MM:SSZ`) for timestamps. |
-
