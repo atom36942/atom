@@ -1,128 +1,128 @@
 #postgres
-config_postgres_url=None
-config_postgres_min_connection=5
-config_postgres_max_connection=20
-config_postgres_root_user_password="123456"
+config_postgres_url = None
+config_postgres_min_connection = 5
+config_postgres_max_connection = 20
+config_postgres_root_user_password = "123456"
 
 #system
-config_index_html_path="core/api.html"
-config_auth_type=[1]
-config_expiry_sec_otp=600
-config_otp_length=6
-config_query_limit_default=100
-config_buffer_limit=100
-config_obj_list_limit=1000
+config_index_html_path = "core/api.html"
+config_auth_type = [1]
+config_expiry_sec_otp = 600
+config_otp_length = 6
+config_query_limit_default = 100
+config_buffer_limit = 100
+config_obj_list_limit = 1000
 
 #redis
-config_redis_url=None
-config_redis_url_ratelimiter=config_redis_url
-config_redis_cache_ttl_sec=3600
+config_redis_url = None
+config_redis_url_ratelimiter = config_redis_url
+config_redis_cache_ttl_sec = 3600
 
 #queue
-config_redis_url_pubsub=config_redis_url
-config_rabbitmq_url=None
-config_celery_broker_url=config_redis_url
-config_celery_backend_url=config_celery_broker_url
-config_kafka_url=None
-config_kafka_username=None
-config_kafka_password=None
-config_kafka_group_id="group_1"
-config_kafka_is_auto_commit=1
-config_kafka_batch_limit=100
-config_kafka_batch_timeout_ms=1000
-config_rabbitmq_batch_limit=1000
-config_rabbitmq_batch_timeout_ms=1000
-config_redis_batch_limit=1000
-config_redis_batch_timeout_ms=1000
+config_redis_url_pubsub = config_redis_url
+config_rabbitmq_url = None
+config_celery_broker_url = config_redis_url
+config_celery_backend_url = config_celery_broker_url
+config_kafka_url = None
+config_kafka_username = None
+config_kafka_password = None
+config_kafka_group_id = "group_1"
+config_kafka_is_auto_commit = 1
+config_kafka_batch_limit = 100
+config_kafka_batch_timeout_ms = 1000
+config_rabbitmq_batch_limit = 1000
+config_rabbitmq_batch_timeout_ms = 1000
+config_redis_batch_limit = 1000
+config_redis_batch_timeout_ms = 1000
 
 #token
-config_token_secret_key="atom-development-token-secret-key-32b"
-config_token_expiry_sec=10*365*24*24
-config_token_refresh_expiry_sec=100*365*24*24
-config_token_key=["id", "type", "role", "is_active"]
+config_token_secret_key = "atom-development-token-secret-key-32b"
+config_token_expiry_sec = 10*365*24*24
+config_token_refresh_expiry_sec = 100*365*24*24
+config_token_key = ["id", "type", "role", "is_active"]
 
 #aws
-config_aws_access_key_id=None
-config_aws_secret_access_key=None
-config_s3_region_name=None
-config_sns_region_name=None
-config_ses_region_name=None
+config_aws_access_key_id = None
+config_aws_secret_access_key = None
+config_s3_region_name = None
+config_sns_region_name = None
+config_ses_region_name = None
 
 #azure
-config_azure_account_name=None
-config_azure_account_key=None
-config_azure_connection_string=None
+config_azure_account_name = None
+config_azure_account_key = None
+config_azure_connection_string = None
 
 #blob
-config_blob_container_default="atom"
-config_blob_limit_kb=100
-config_blob_upload_limit_count=10
-config_blob_expire_sec=60
+config_blob_container_default = "atom"
+config_blob_limit_kb = 100
+config_blob_upload_limit_count = 10
+config_blob_expire_sec = 60
 
 #integration
-config_google_login_client_id=None
-config_fast2sms_url=None
-config_fast2sms_key=None
-config_resend_url=None
-config_resend_key=None
-config_email_sender_default="atom@atom.com"
-config_posthog_project_host=None
-config_posthog_project_key=None
-config_mongodb_url=None
-config_openai_key=None
-config_gemini_key=None
-config_sentry_dsn=None
+config_google_login_client_id = None
+config_fast2sms_url = None
+config_fast2sms_key = None
+config_resend_url = None
+config_resend_key = None
+config_email_sender_default = "atom@atom.com"
+config_posthog_project_host = None
+config_posthog_project_key = None
+config_mongodb_url = None
+config_openai_key = None
+config_gemini_key = None
+config_sentry_dsn = None
 
 #sftp
-config_sftp_auth_method="password"
-config_sftp_host=None
-config_sftp_port=None
-config_sftp_username=None
-config_sftp_password=None
-config_sftp_key_path=None
+config_sftp_auth_method = "password"
+config_sftp_host = None
+config_sftp_port = None
+config_sftp_username = None
+config_sftp_password = None
+config_sftp_key_path = None
 
 #cors
-config_cors_origin=["*"]
-config_cors_method=["*"]
-config_cors_headers=["*"]
-config_cors_expose_headers=["Content-Disposition", "x-cache"]
-config_is_enable_cors_credentials=1
+config_cors_origin = ["*"]
+config_cors_method = ["*"]
+config_cors_headers = ["*"]
+config_cors_expose_headers = ["Content-Disposition", "x-cache"]
+config_is_enable_cors_credentials = 1
 
 #switch
-config_is_enable_signup=1
-config_is_enable_log_api=1
-config_is_enable_traceback=1
-config_is_enable_reset_tmp=0
-config_is_enable_index_html=0
-config_is_enable_otp_users_update_admin=0
-config_is_enable_postgres_init_startup=1
+config_is_enable_signup = 1
+config_is_enable_log_api = 1
+config_is_enable_traceback = 1
+config_is_enable_reset_tmp = 0
+config_is_enable_index_html = 0
+config_is_enable_otp_users_update_admin = 0
+config_is_enable_postgres_init_startup = 1
 
 #enum
-config_table_create_disable_my=["users", "log_api", "log_users_password", "otp"]
-config_table_create_enable_public=["test", "support"]
-config_table_read_enable_public=["test", "post"]
-config_column_disable_non_admin=["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
-config_column_enable_single_update=["username", "password", "email", "mobile"]
-config_api_roles=["index", "auth", "my", "public", "private", "admin"]
-config_api_roles_auth=["/my/", "/private/", "/admin/"]
+config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp"]
+config_table_create_enable_public = ["test", "support"]
+config_table_read_enable_public = ["test", "post"]
+config_column_disable_non_admin = ["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
+config_column_enable_single_update = ["username", "password", "email", "mobile"]
+config_api_roles = ["index", "auth", "my", "public", "private", "admin"]
+config_api_roles_auth = ["/my/", "/private/", "/admin/"]
 
 #dict
-config_sql={
-"users_role":"select id,role from users where role is not null order by id asc limit 1000",
-"users_is_active":"select id,is_active from users order by id asc limit 1000",
-"profile_metadata":{"test_count":"select count(*) from test where created_by_id=$1","test_object":"select * from test where created_by_id=$1 limit 1"},
+config_sql = {
+"users_role": "select id,role from users where role is not null order by id asc limit 1000",
+"users_is_active": "select id,is_active from users order by id asc limit 1000",
+"profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
 }
 
-config_table={
-"test":{"buffer":100},
-"log_api":{"retention_day":30,"buffer":10},
-"log_users_password":{"retention_day":90},
-"otp":{"retention_day":365},
+config_table = {
+"test": {"buffer": 100},
+"log_api": {"retention_day": 30, "buffer": 10},
+"log_users_password": {"retention_day": 90},
+"otp": {"retention_day": 365},
 }
 
-config_regex={
-"username":["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
-"password":["^\\S{6,30}$", "Password must be 6-30 characters and contain no spaces"],
+config_regex = {
+"username": ["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
+"password": ["^\\S{6,30}$", "Password must be 6-30 characters and contain no spaces"],
 }
 
 config_column_int_mapping = {
@@ -137,28 +137,28 @@ config_column_int_mapping = {
 "interview_status": {1: "Scheduled", 2: "Completed", 3: "Cancelled", 4: "Rescheduled"},
 }
 
-config_api={
-"/admin/sync":{"id":1,"user_role_check":["realtime",[1]]},
-"/admin/object-create":{"id":2,"user_role_check":["token",[1]]},
-"/admin/object-update":{"id":3,"user_role_check":["token",[1]]},
-"/admin/object-read":{"id":4,"user_role_check":["token",[1]]},
-"/admin/ids-delete":{"id":5,"user_role_check":["realtime",[1]],"user_is_active_check":["realtime", 1]},
-"/admin/postgres-runner":{"id":6,"user_role_check":["realtime",[1]]},
-"/admin/postgres-export":{"id":7,"user_role_check":["inmemory",[1]]},
-"/admin/postgres-import":{"id":8,"user_role_check":["realtime",[1]]},
-"/admin/postgres-clean":{"id":20,"user_role_check":["realtime",[1]]},
-"/admin/redis-import":{"id":9,"user_role_check":["token",[1]]},
-"/admin/mongodb-import":{"id":11,"user_role_check":["token",[1]]},
-"/admin/blob-container-read":{"id":10,"user_role_check":["inmemory",[1]]},
-"/admin/blob-container-ops":{"id":12,"user_role_check":["token",[1]]},
-"/admin/blob-url-delete":{"id":13,"user_role_check":["token",[1]]},
-"/public/object-read":{"id":14,"api_cache_sec":["inmemory",30]},
-"/info":{"id":17,"api_cache_sec":["inmemory",100]},
-"/public/table-tag-read":{"id":18,"api_cache_sec":["inmemory",10]},
-"/public/jira-worklog-export":{"id":19,"api_ratelimiting_times_sec":["inmemory",10,60]},
+config_api = {
+"/admin/sync": {"id": 1, "user_role_check": ["realtime", [1]]},
+"/admin/object-create": {"id": 2, "user_role_check": ["token", [1]]},
+"/admin/object-update": {"id": 3, "user_role_check": ["token", [1]]},
+"/admin/object-read": {"id": 4, "user_role_check": ["token", [1]]},
+"/admin/ids-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_is_active_check": ["realtime", 1]},
+"/admin/postgres-runner": {"id": 6, "user_role_check": ["realtime", [1]]},
+"/admin/postgres-export": {"id": 7, "user_role_check": ["inmemory", [1]]},
+"/admin/postgres-import": {"id": 8, "user_role_check": ["realtime", [1]]},
+"/admin/postgres-clean": {"id": 20, "user_role_check": ["realtime", [1]]},
+"/admin/redis-import": {"id": 9, "user_role_check": ["token", [1]]},
+"/admin/mongodb-import": {"id": 11, "user_role_check": ["token", [1]]},
+"/admin/blob-container-read": {"id": 10, "user_role_check": ["inmemory", [1]]},
+"/admin/blob-container-ops": {"id": 12, "user_role_check": ["token", [1]]},
+"/admin/blob-url-delete": {"id": 13, "user_role_check": ["token", [1]]},
+"/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 30]},
+"/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
+"/public/table-tag-read": {"id": 18, "api_cache_sec": ["inmemory", 10]},
+"/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 }
 
-config_postgres={
+config_postgres = {
 "extension": ["postgis", "pg_trgm", "btree_gin",],
 "table":{
 "test":[

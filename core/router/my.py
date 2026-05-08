@@ -115,7 +115,7 @@ async def func_api_my_parent_read(*, request: Request):
     sql = f"SELECT x.* FROM {oq['table']} x JOIN {oq['parent_table']} p ON x.{oq['parent_column']} = p.id WHERE p.created_by_id = $1 ORDER BY x.{oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
         records = await conn.fetch(sql, request.state.user["id"])
-        output = [dict(r) for r in records]
+    output = [dict(r) for r in records]
     return {"status": 1, "message": output}
 
 @router.post("/my/ids-delete")
@@ -168,7 +168,7 @@ async def func_api_my_object_create_mongodb(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
-    output = [str(id) for id in res.inserted_ids]
+    output=[str(id) for id in res.inserted_ids]
     return {"status": 1, "message": output}
-    output = [str(id) for id in res.inserted_ids]
+    output=[str(id) for id in res.inserted_ids]
     return {"status": 1, "message": output}
