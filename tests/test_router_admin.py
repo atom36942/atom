@@ -360,6 +360,38 @@ def test_admin_postgres_export_streams_csv(admin_client):
     assert response.text == 'id,title\n"1","one ""quoted"""\n"2",\n'
 
 
+def test_admin_postgres_import_create_processes_csv(admin_client):
+    calls = []
+    async def fake_create(**kwargs):
+        calls.append(kwargs)
+        return [1, 2]
+    admin_client.app.state.func_postgres_create = fake_create
+    
+    response = admin_client.post(
+        "/admin/postgres-import",
+        headers=bearer_token(admin_client.app.state),
+        data={"mode": "create", "table": "test", "is_serialize": 1},
+        files={"file": ("test.csv", b"title\none\ntwo\n", "text/csv")}
+    )
+    
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": "2 rows processed"}
+    assert len(calls) == 1
+    assert calls[0]["obj_list"] == [{"title": "one"}, {"title": "two"}]
+    assert calls[0]["table"] == "test"
+    assert calls[0]["is_serialize"] == 1
+
+def test_admin_postgres_import_update_requires_id_column(admin_client):
+    response = admin_client.post(
+        "/admin/postgres-import",
+        headers=bearer_token(admin_client.app.state),
+        data={"mode": "update", "table": "test", "is_serialize": 1},
+        files={"file": ("test.csv", b"title\nnew\n", "text/csv")}
+    )
+    assert response.status_code == 400
+    assert "requires 'id' column" in response.json()["message"]
+
+
 def test_admin_redis_import_create_validates_required_columns(admin_client):
     response = admin_client.post(
         "/admin/redis-import",
