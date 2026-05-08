@@ -35,7 +35,7 @@ docker build -t atom .
 docker run --rm -p 8000:8000 atom
 
 # Test
-venv/bin/pytest
+venv/bin/pytest -s -v
 
 # Consumer Start
 venv/bin/python -m core.consumer.<filename> [redis|rabbitmq|kafka|celery]

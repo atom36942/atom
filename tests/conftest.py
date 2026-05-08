@@ -13,19 +13,24 @@ from motor.motor_asyncio import AsyncIOMotorClient
 @pytest.fixture(scope="session")
 def db_containers():
     print("\n🏗️  Spinning up Shared Integration Environment...")
-    with PostgresContainer("postgres:16-alpine") as postgres, \
+    from testcontainers.localstack import LocalStackContainer
+    
+    with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres, \
          RedisContainer("redis:7-alpine") as redis_cont, \
-         MongoDbContainer("mongo:6") as mongo_cont:
+         MongoDbContainer("mongo:6") as mongo_cont, \
+         LocalStackContainer("localstack/localstack:3.0.2").with_services("s3") as localstack:
         
         # Connection URLs
-        pg_url = postgres.get_connection_url().replace("psycopg2", "postgresql")
+        # testcontainers returns 'postgresql+psycopg2://', we need just 'postgresql://'
+        pg_url = postgres.get_connection_url().replace("+psycopg2", "")
         redis_url = f"redis://{redis_cont.get_container_host_ip()}:{redis_cont.get_exposed_port(6379)}"
         mongo_url = mongo_cont.get_connection_url()
         
         yield {
             "postgres": pg_url,
             "redis": redis_url,
-            "mongo": mongo_url
+            "mongo": mongo_url,
+            "s3_url": localstack.get_url()
         }
 
 # This fixture provides an initialized FastAPI app pointing to real containers
@@ -33,11 +38,26 @@ def db_containers():
 async def integration_app(db_containers):
     from core.app import app
     from core.function import func_postgres_schema_init
+    from argon2 import PasswordHasher
     
     # 1. Override App State with Real Container URLs
+    from argon2 import PasswordHasher
+    app.state.client_password_hasher = PasswordHasher()
     app.state.config_postgres_url = db_containers["postgres"]
     app.state.config_redis_url = db_containers["redis"]
     app.state.config_mongodb_url = db_containers["mongo"]
+    
+    # Store default state for resetting
+    app.state.config_is_enable_signup = 1
+    app.state.config_is_enable_log_api = 0
+    app.state.config_is_enable_background_workers = 0
+    app.state.config_is_enable_traceback = 0
+    
+    app.state._default_config = {
+        "config_is_enable_signup": 1,
+        "config_is_enable_log_api": 0, # Disabled for tests to avoid contention
+        "config_is_enable_traceback": 0 # Disabled to keep console clean for expected failures
+    }
     
     # 2. Initialize Real Clients
     app.state.client_postgres_pool = await asyncpg.create_pool(dsn=app.state.config_postgres_url)
@@ -49,34 +69,82 @@ async def integration_app(db_containers):
     from core.config import config_postgres, config_postgres_root_user_password
     await func_postgres_schema_init(
         client_postgres_pool=app.state.client_postgres_pool,
-        client_password_hasher=None,
+        client_password_hasher=app.state.client_password_hasher,
         config_postgres=config_postgres,
         config_postgres_root_user_password=config_postgres_root_user_password
     )
+
+    # 4. Map S3 to Localstack
+    import aiobotocore.session
+    session = aiobotocore.session.get_session()
+    # We use a context manager to ensure the client is closed correctly
+    app.state.client_s3 = await session.create_client(
+        's3', 
+        region_name='us-east-1', 
+        endpoint_url=db_containers["s3_url"],
+        aws_access_key_id='test',
+        aws_secret_access_key='test'
+    ).__aenter__()
     
-    # 4. Provide the TestClient
-    with TestClient(app) as client:
+    # Create a bucket for the tests
+    await app.state.client_s3.create_bucket(Bucket="atom-integration-test")
+    
+    # 4. Provide the AsyncClient
+    from httpx import AsyncClient, ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        client.app = app # Allow access to app state
         yield client
     
-    # Cleanup
+    # 5. POST-SESSION CLEANUP: Just close the pools
     await app.state.client_postgres_pool.close()
     await app.state.client_redis.aclose()
+    if hasattr(app.state, "client_s3"):
+        await app.state.client_s3.__aexit__(None, None, None)
 
 @pytest.fixture
 def auth_client(integration_app):
-    """Returns a function to get an authenticated client for a specific user."""
+    """Returns a function to get a FRESH authenticated client for a specific user."""
     import jwt
     from core.config import config_token_secret_key
+    from fastapi.testclient import TestClient
+    from core.app import app
     
     def _get_client(user_id=1, role=1, is_active=1):
-        payload = {
-            "id": user_id,
-            "role": role,
-            "is_active": is_active,
-            "type": 1
-        }
+        import orjson
+        from httpx import AsyncClient, ASGITransport
+        user_data = {"id": user_id, "role": role, "is_active": is_active, "type": 1}
+        payload = {"data": orjson.dumps(user_data).decode("utf-8")}
         token = jwt.encode(payload, config_token_secret_key, algorithm="HS256")
-        integration_app.headers.update({"Authorization": f"Bearer {token}"})
-        return integration_app
+        client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+        client.headers.update({"Authorization": f"Bearer {token}"})
+        client.app = app
+        return client
         
     return _get_client
+
+@pytest.fixture(autouse=True)
+async def reset_state(integration_app):
+    """Resets the app state and ensures background tasks are settled."""
+    from core.app import app
+    import asyncio
+    
+    # 1. Reset configuration
+    if hasattr(app.state, "_default_config"):
+        for key, value in app.state._default_config.items():
+            setattr(app.state, key, value)
+    
+    yield
+    
+    # 2. POST-TEST CLEANUP: Cancel all tasks except the current one
+    # This specifically kills pulse_flush and any func_background tasks
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+    
+    # Give tasks a moment to settle
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Reset any buffers
+    if hasattr(app.state, "cache_postgres_buffer_create"):
+        app.state.cache_postgres_buffer_create.clear()

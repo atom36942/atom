@@ -83,12 +83,12 @@ async def func_lifespan(app:"FastAPI"):
           if key.startswith(("client_","cache_","config_","func_")): setattr(app.state, key, val)
        #openapi spec
        app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
-       #check
+       #startup check
        await func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth, client_postgres_pool=client_postgres_pool)
    except Exception as e:
        print(f"❌ startup error: {e}")
        raise
-   #flush
+   #postgres buffer flush loop
    import asyncio
    async def pulse_flush():
       while True:
@@ -98,14 +98,18 @@ async def func_lifespan(app:"FastAPI"):
                 await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex={}, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
          except asyncio.CancelledError: break
          except Exception as e: print(f"❌ pulse flush error: {e}")
-   pulse_task = asyncio.create_task(pulse_flush())
-   #app shutdown
+   if getattr(app.state, "config_is_enable_background_workers", 1) == 1:
+        app.state.pulse_flush_task = asyncio.create_task(pulse_flush())
+   #background task stop
    yield
-   pulse_task.cancel()
-   try: await pulse_task
-   except asyncio.CancelledError: pass
+   if getattr(app.state, "pulse_flush_task", None):
+       app.state.pulse_flush_task.cancel()
+       try: await app.state.pulse_flush_task
+       except asyncio.CancelledError: pass
+   #postgres buffer flush final
    if client_postgres_pool:
       await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
+   #client disconnect
    if client_http: await client_http.aclose()
    if client_postgres_pool: await client_postgres_pool.close()
    if client_redis: await client_redis.aclose()
@@ -159,6 +163,6 @@ async def middleware(request, api_function):
     await app_state.func_middleware_api_log_create(config_is_enable_log_api=app_state.config_is_enable_log_api, api_id=app_state.config_api.get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, description=error, func_postgres_create=app_state.func_postgres_create, client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, config_buffer_limit=app_state.config_buffer_limit)
     return response
 
-#cors add (must be at the end to be outermost)
+#cors
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware, allow_origins=[] if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else config_cors_origin, allow_origin_regex=".*" if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else None, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))

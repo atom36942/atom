@@ -96,6 +96,7 @@ config_is_enable_reset_tmp = 0
 config_is_enable_index_html = 0
 config_is_enable_otp_users_update_admin = 0
 config_is_enable_postgres_init_startup = 1
+config_is_enable_background_workers = 1
 
 #enum
 config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp"]
@@ -114,7 +115,7 @@ config_sql = {
 }
 
 config_table = {
-"test": {"buffer": 100},
+"test": {"buffer": 10},
 "log_api": {"retention_day": 30, "buffer": 10},
 "log_users_password": {"retention_day": 90},
 "otp": {"retention_day": 365},

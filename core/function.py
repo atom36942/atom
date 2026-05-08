@@ -833,7 +833,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             extensions = config_postgres.get("extension", [])
             for extension in extensions:
                 try:
-                    await conn.execute(f"CREATE EXTENSION IF NOT EXISTS {extension};")
+                    await conn.execute(f'CREATE EXTENSION IF NOT EXISTS "{extension}";')
                 except Exception as e:
                     if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")) or "pg_cron" in extension:
                         print(f"⚠️  {f'extension {extension}':<30} : ❌ skipped (insufficient privileges)")
@@ -1155,7 +1155,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
         for key, buffer_list in list(cache_postgres_buffer_create.items()):
             if buffer_list:
                 parts = key.split("|")
-                tbl = parts[1] if len(parts) > 1 else key
+                tbl = parts[0]
                 await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex={}, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=0, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0)
                 cache_postgres_buffer_create[key] = []
         return "flushed"
@@ -1167,7 +1167,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
         is_serialize = 1
     serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0 if len(obj_list) > 1 else 1) if is_serialize else obj_list
     if mode == "buffer":
-        key = f"create|{table}|{','.join(sorted(serialized_list[0].keys()))}"
+        key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
         cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
         if len(cache_postgres_buffer_create[key]) >= config_buffer_limit:
             items = cache_postgres_buffer_create[key]

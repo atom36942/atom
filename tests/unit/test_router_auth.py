@@ -109,13 +109,16 @@ def auth_client():
     with TestClient(app) as test_client:
         original_pool = test_client.app.state.client_postgres_pool
         original_log = test_client.app.state.config_is_enable_log_api
+        original_traceback = test_client.app.state.config_is_enable_traceback
         test_client.app.state.client_postgres_pool = InMemoryAuthPool()
         test_client.app.state.config_is_enable_log_api = 0
+        test_client.app.state.config_is_enable_traceback = 0
         try:
             yield test_client
         finally:
             test_client.app.state.client_postgres_pool = original_pool
             test_client.app.state.config_is_enable_log_api = original_log
+            test_client.app.state.config_is_enable_traceback = original_traceback
 
 
 def assert_auth_success(response, *, expected_user, app_state):

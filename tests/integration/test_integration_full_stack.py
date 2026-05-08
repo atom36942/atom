@@ -12,12 +12,12 @@ async def test_full_stack_client_integration():
     # 1. Initialize Containers
     print("\n🚀 Starting Full Stack Containers (Postgres, Redis, Mongo)...")
     
-    with PostgresContainer("postgres:16-alpine") as postgres, \
+    with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres, \
          RedisContainer("redis:7-alpine") as redis_cont, \
          MongoDbContainer("mongo:6") as mongo_cont:
         
         # --- POSTGRES SETUP ---
-        pg_url = postgres.get_connection_url().replace("psycopg2", "postgresql")
+        pg_url = postgres.get_connection_url().replace("+psycopg2", "")
         pg_pool = await asyncpg.create_pool(dsn=pg_url)
         
         # --- REDIS SETUP ---

@@ -269,7 +269,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
         assert table in pool.conn.tables
         for column in columns:
             assert column["name"] in pool.conn.tables[table]
-    assert "CREATE EXTENSION IF NOT EXISTS postgis;" in sql
+    assert 'CREATE EXTENSION IF NOT EXISTS "postgis";' in sql
     assert "CREATE INDEX idx_test_tag_gin ON test USING gin(tag);" in sql
     assert "ALTER TABLE test ADD CONSTRAINT unique_test_code_type UNIQUE (code,type);" in sql
     assert "ALTER TABLE test ADD CONSTRAINT unique_test_code_slug UNIQUE (code,slug);" in sql
@@ -487,8 +487,8 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
 @pytest.mark.parametrize(
     ("control", "extension", "expected_sql", "unexpected_sql"),
     [
-        ({"is_enable_extension": 1}, ["pg_trgm"], "CREATE EXTENSION IF NOT EXISTS pg_trgm;", None),
-        ({}, ["pg_trgm"], None, "CREATE EXTENSION IF NOT EXISTS pg_trgm;"),
+        ({"is_enable_extension": 1}, ["pg_trgm"], 'CREATE EXTENSION IF NOT EXISTS "pg_trgm";', None),
+        ({}, ["pg_trgm"], None, 'CREATE EXTENSION IF NOT EXISTS "pg_trgm";'),
         ({"is_enable_autovacuum_optimize": 1}, None, "ALTER TABLE demo SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);", None),
         ({}, None, None, "ALTER TABLE demo SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);"),
     ],
