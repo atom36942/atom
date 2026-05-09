@@ -118,6 +118,7 @@ async def integration_app(db_containers):
     # 2. Initialize Real Clients
     app.state.client_postgres_pool = await asyncpg.create_pool(dsn=app.state.config_postgres_url)
     app.state.client_redis = redis.from_url(app.state.config_redis_url)
+    app.state.client_redis_ratelimiter = redis.from_url(app.state.config_redis_url_ratelimiter) # Manually init ratelimiter client
     app.state.client_mongodb = AsyncIOMotorClient(app.state.config_mongodb_url)
     
     # 3. Run Real Schema Migration

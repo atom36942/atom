@@ -33,8 +33,8 @@ async def func_lifespan(app:"FastAPI"):
        client_password_hasher = PasswordHasher()
        client_http = httpx.AsyncClient()
        client_postgres_pool = await asyncpg.create_pool(dsn=getattr(app.state, "config_postgres_url", config_postgres_url), min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if getattr(app.state, "config_postgres_url", config_postgres_url) else None
-       client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url", config_redis_url))) if getattr(app.state, "config_redis_url", config_redis_url) else None
-       client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url_ratelimiter", config_redis_url_ratelimiter))) if getattr(app.state, "config_redis_url_ratelimiter", config_redis_url_ratelimiter) else None
+       client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url", config_redis_url))) if (getattr(app.state, "config_redis_url", None) or config_redis_url) else None
+       client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url_ratelimiter", config_redis_url_ratelimiter))) if (getattr(app.state, "config_redis_url_ratelimiter", None) or config_redis_url_ratelimiter) else None
        client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url_pubsub", config_redis_url_pubsub))) if getattr(app.state, "config_redis_url_pubsub", config_redis_url_pubsub) else None
        client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(getattr(app.state, "config_mongodb_url", config_mongodb_url)) if getattr(app.state, "config_mongodb_url", config_mongodb_url) else None
        client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=getattr(app.state, "config_s3_region_name", config_s3_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_s3_region_name else None
@@ -94,7 +94,7 @@ async def func_lifespan(app:"FastAPI"):
    async def pulse_flush():
       while True:
          try:
-            await asyncio.sleep(60)
+            await asyncio.sleep(config_buffer_flush_interval_sec)
             if client_postgres_pool:
                 async with app.state.flush_lock:
                     await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)

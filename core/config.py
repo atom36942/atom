@@ -12,6 +12,7 @@ config_otp_length = 6
 config_query_limit_default = 100
 config_buffer_limit = 100
 config_obj_list_limit = 1000
+config_buffer_flush_interval_sec = 60
 
 #redis
 config_redis_url = None
