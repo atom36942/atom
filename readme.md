@@ -14,7 +14,7 @@ Atom is a high-performance, modular backend framework designed for atomic data o
 | **🧩 CRUD Orchestrator** | Role-based object management with owner validation and OTP security. |
 | **🛠️ API Sandbox** | Native interactive tester for real-time endpoint exploration and validation. |
 | **🌐 Unified Clients** | Centralized dependency injection for Postgres, Redis, MongoDB, and S3. |
-| **📊 Observability** | Integrated Prometheus monitoring, Sentry error tracking, and logging. |
+| **📊 Observability** | Integrated api logging in db with core info, Sentry error tracking. |
 | **☁️ Cloud Native** | Out-of-the-box integrations for AWS S3, Jira, and Email services. |
 
 # Commands
