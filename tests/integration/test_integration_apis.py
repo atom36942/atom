@@ -4,7 +4,6 @@ import pytest
 async def test_api_signup_integration(integration_app):
     # Tests real Signup with real containers
     payload = {
-        "email": "integration_user@example.com",
         "username": "int_user",
         "password": "Password123!",
         "type": 1
@@ -12,7 +11,8 @@ async def test_api_signup_integration(integration_app):
     
     # Clean up
     pool = integration_app.app.state.client_postgres_pool
-    await pool.execute("DELETE FROM users WHERE username = $1", payload["username"])
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE username = $1", payload["username"])
     
     # 1. Call Signup
     response = await integration_app.post("/auth/signup-username-password", json=payload)
@@ -20,9 +20,10 @@ async def test_api_signup_integration(integration_app):
     data = response.json()
     assert data["status"] == 1
     
-    # 2. Verify in DB
-    user = await pool.fetchrow("SELECT * FROM users WHERE email = $1", payload["email"])
-    assert user is not None
+    # 2. Verify in DB — signup stores (type, username, password), NOT email
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT * FROM users WHERE username = $1", payload["username"])
+    assert user is not None, "User not found by username after signup"
     assert user["username"] == payload["username"]
     print(f"\n✅ Verified: User '{user['username']}' exists in real Postgres.")
 

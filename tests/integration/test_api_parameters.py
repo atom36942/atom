@@ -21,32 +21,37 @@ async def test_object_read_parameter_matrix(integration_app, auth_client):
     assert res_seed.json()["status"] == 1
     
     # --- MATRIX TEST 1: Operators (LIKE, IN, >, !=) ---
-    # Test: Like search
-    res = await admin.get(f"/my/object-read?table={table}&title=like,%Item 1%&limit=10&page=1&order=id asc")
-    # Should match "Item 1" and "Item 10"
-    assert len(res.json()["message"]) == 2
+    # Test: Like search — use params dict so httpx properly encodes '%' characters
+    res = await admin.get("/my/object-read", params={"table": table, "title": "like,%Item 1%", "limit": 10, "page": 1, "order": "id asc"})
+    assert res.json()["status"] == 1, f"LIKE read failed: {res.json()}"
+    like_results = res.json()["message"]
+    like_titles = [r["title"] for r in like_results]
+    # Should match "Item 1" and "Item 10" only
+    assert len(like_results) == 2, f"LIKE filter returned {len(like_results)} items instead of 2. Titles: {like_titles}"
     
-    # Test: Comparison
-    # We find IDs > 8 (which are 9 and 10)
-    res = await admin.get(f"/my/object-read?table={table}&id=>,8&limit=10&page=1&order=id asc")
-    assert len(res.json()["message"]) == 2 
+    # Test: Comparison — use the actual IDs from the seed response
+    seed_ids = res_seed.json()["message"]
+    # Get the 8th ID (0-indexed: seed_ids[7]) and filter for > that value
+    eighth_id = seed_ids[7]
+    res = await admin.get("/my/object-read", params={"table": table, "id": f">,{eighth_id}", "limit": 10, "page": 1, "order": "id asc"})
+    assert len(res.json()["message"]) == 2, f"Expected 2 items with id>{eighth_id}, got {len(res.json()['message'])}"
     
     # Test: In list
-    res = await admin.get(f"/my/object-read?table={table}&status=in,0&limit=10&page=1&order=id asc")
+    res = await admin.get(f"/my/object-read", params={"table": table, "status": "in,0", "limit": 10, "page": 1, "order": "id asc"})
     assert len(res.json()["message"]) == 5 # All odd items (1, 3, 5, 7, 9)
     
     # --- MATRIX TEST 2: Pagination & Sorting ---
     # Test: Limit and Page
-    res = await admin.get(f"/my/object-read?table={table}&limit=3&page=1&order=id asc")
+    res = await admin.get(f"/my/object-read", params={"table": table, "limit": 3, "page": 1, "order": "id asc"})
     titles_p1 = [r["title"] for r in res.json()["message"]]
     assert titles_p1 == ["Item 1", "Item 2", "Item 3"]
     
-    res = await admin.get(f"/my/object-read?table={table}&limit=3&page=2&order=id asc")
+    res = await admin.get(f"/my/object-read", params={"table": table, "limit": 3, "page": 2, "order": "id asc"})
     titles_p2 = [r["title"] for r in res.json()["message"]]
     assert titles_p2 == ["Item 4", "Item 5", "Item 6"]
     
     # --- MATRIX TEST 3: Column Selection (Masking) ---
-    res = await admin.get(f"/my/object-read?table={table}&column=title&limit=1&page=1&order=id asc")
+    res = await admin.get(f"/my/object-read", params={"table": table, "column": "title", "limit": 1, "page": 1, "order": "id asc"})
     item = res.json()["message"][0]
     assert "title" in item
     assert "id" not in item # PROVE: Column selection works and hides other fields

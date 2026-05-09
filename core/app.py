@@ -15,16 +15,9 @@ async def func_lifespan(app:"FastAPI"):
    for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
    #client init
    try:
-       import aio_pika
-       import aiobotocore.session
-       import asyncpg
-       import asyncssh
-       import boto3
-       from google import genai
-       import httpx
-       import motor.motor_asyncio
-       import openai
+       import aio_pika, aiobotocore.session, asyncpg, asyncssh, boto3, httpx, motor.motor_asyncio, openai
        import redis.asyncio as redis
+       from google import genai
        from argon2 import PasswordHasher
        from aiokafka import AIOKafkaProducer
        from azure.storage.blob.aio import BlobServiceClient
@@ -42,23 +35,13 @@ async def func_lifespan(app:"FastAPI"):
        client_sns = boto3.client("sns", region_name=getattr(app.state, "config_sns_region_name", config_sns_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_sns_region_name else None
        client_ses = boto3.client("ses", region_name=getattr(app.state, "config_ses_region_name", config_ses_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_ses_region_name else None
        client_openai = openai.OpenAI(api_key=getattr(app.state, "config_openai_key", config_openai_key)) if getattr(app.state, "config_openai_key", config_openai_key) else None
-       if config_gemini_key:
-          client_gemini = genai.Client(api_key=config_gemini_key)
-       else:
-          client_gemini = None
+       client_gemini = genai.Client(api_key=config_gemini_key) if config_gemini_key else None
        client_posthog = Posthog(config_posthog_project_key, host=config_posthog_project_host) if config_posthog_project_key else None
        client_celery_producer = Celery("atom", broker=config_celery_broker_url, backend=config_celery_backend_url) if config_celery_broker_url else None
-       if config_kafka_url:
-          client_kafka_producer = AIOKafkaProducer(bootstrap_servers=config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaProducer(bootstrap_servers=config_kafka_url)
-          await client_kafka_producer.start()
-       else:
-          client_kafka_producer = None
-       if config_rabbitmq_url:
-          client_rabbitmq = await aio_pika.connect_robust(config_rabbitmq_url)
-          client_rabbitmq_producer = await client_rabbitmq.channel()
-       else:
-          client_rabbitmq = None
-          client_rabbitmq_producer = None
+       client_kafka_producer = (AIOKafkaProducer(bootstrap_servers=config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaProducer(bootstrap_servers=config_kafka_url)) if config_kafka_url else None
+       if client_kafka_producer: await client_kafka_producer.start()
+       client_rabbitmq = await aio_pika.connect_robust(config_rabbitmq_url) if config_rabbitmq_url else None
+       client_rabbitmq_producer = await client_rabbitmq.channel() if client_rabbitmq else None
        if config_sftp_host:
           if config_sftp_auth_method not in ("key", "password"): raise Exception(f"invalid sftp auth mode: {config_sftp_auth_method}")
           if config_sftp_auth_method == "key":
@@ -81,8 +64,7 @@ async def func_lifespan(app:"FastAPI"):
        cache_ratelimiter, cache_api_response, cache_postgres_buffer_create = {}, {}, {}
        app.state.flush_lock = asyncio.Lock()
        #app state add
-       for key, val in {**globals(),**locals()}.items():
-          if key.startswith(("client_","cache_","config_","func_")): setattr(app.state, key, val)
+       [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_", "config_", "func_"))]
        #openapi spec
        app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
        #startup check
@@ -135,8 +117,7 @@ from fastapi import FastAPI
 app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
 #state pre-population (ensures func_* are available even before lifespan)
-for _k, _v in list(globals().items()):
-   if _k.startswith(("func_", "config_")): setattr(app.state, _k, _v)
+[setattr(app.state, k, v) for k, v in globals().items() if k.startswith(("func_", "config_"))]
 
 #router
 import os
@@ -149,8 +130,7 @@ app.mount("/static", StaticFiles(directory="./static", check_dir=False), name="s
 #sentry
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-if config_sentry_dsn:
-   sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=True)
+if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=True)
 
 #middleware
 @app.middleware("http")
@@ -166,7 +146,6 @@ async def middleware(request, api_function):
         await getattr(app_state, "func_middleware_check_ratelimiter", func_middleware_check_ratelimiter)(client_redis_ratelimiter=getattr(app_state, "client_redis_ratelimiter", None), config_api=getattr(app_state, "config_api", config_api), url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=getattr(app_state, "cache_ratelimiter", {}))
         response = await getattr(app_state, "func_middleware_api_response", func_middleware_api_response)(request=request, api_function=api_function, config_api=getattr(app_state, "config_api", config_api), client_redis=getattr(app_state, "client_redis", None), user_id=request.state.user.get("id") if request.state.user else 0, cache_api_response=getattr(app_state, "cache_api_response", {}))
     except Exception as e:
-        
         error, response = await getattr(app_state, "func_middleware_api_response_error", func_middleware_api_response_error)(exception=e, is_traceback=getattr(app_state, "config_is_enable_traceback", config_is_enable_traceback), sentry_dsn=getattr(app_state, "config_sentry_dsn", config_sentry_dsn))
     await getattr(app_state, "func_middleware_api_log_create", func_middleware_api_log_create)(config_is_enable_log_api=getattr(app_state, "config_is_enable_log_api", config_is_enable_log_api), api_id=getattr(app_state, "config_api", {}).get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, description=error, func_postgres_create=getattr(app_state, "func_postgres_create", func_postgres_create), client_postgres_pool=getattr(app_state, "client_postgres_pool", None), client_password_hasher=getattr(app_state, "client_password_hasher", None), func_postgres_serialize=getattr(app_state, "func_postgres_serialize", func_postgres_serialize), func_regex_check=getattr(app_state, "func_regex_check", func_regex_check), cache_postgres_schema=getattr(app_state, "cache_postgres_schema", {}), cache_postgres_buffer_create=getattr(app_state, "cache_postgres_buffer_create", {}), config_regex=getattr(app_state, "config_regex", config_regex), config_table=getattr(app_state, "config_table", config_table), config_obj_list_limit=getattr(app_state, "config_obj_list_limit", config_obj_list_limit), config_buffer_limit=getattr(app_state, "config_buffer_limit", config_buffer_limit))
     return response

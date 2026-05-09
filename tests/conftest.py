@@ -53,39 +53,22 @@ async def integration_app(db_containers):
     config_pg_test = config.config_postgres.copy()
     config_pg_test["table"] = config_pg_test["table"].copy()
     
-    # Ensure 'users' has 'is_active'
-    if "users" in config_pg_test["table"]:
-        config_pg_test["table"]["users"] = config_pg_test["table"]["users"] + [{"name": "is_active", "datatype": "smallint", "default": 1}]
+    # Ensure 'users' has 'is_active' — already in core schema (line 203), skip
+    # (config_postgres already defines is_active for users)
     
-    # Ensure 'test' has 'body', 'is_active', and 'created_by_id'
+    # Add 'body' column to 'test' table (not in core schema)
     if "test" in config_pg_test["table"]:
         config_pg_test["table"]["test"] = config_pg_test["table"]["test"] + [
             {"name": "body", "datatype": "text"},
-            {"name": "is_active", "datatype": "smallint", "default": 1},
-            {"name": "created_by_id", "datatype": "bigint"}
         ]
+        # Note: is_active and created_by_id already exist in core test schema
         
-    # Add 'message' table for integration tests
-    if "message" not in config_pg_test["table"]:
-        config_pg_test["table"]["message"] = [
-            {"name": "user_id", "datatype": "bigint"},
-            {"name": "message", "datatype": "text"},
-            {"name": "is_read", "datatype": "smallint", "default": 0},
-            {"name": "created_by_id", "datatype": "bigint"},
-            {"name": "created_at", "datatype": "timestamptz", "default": "now()"}
-        ]
+    # Note: 'message' table already exists in core config_postgres (config.py:L254)
+    # with columns: created_by_id (mandatory), user_id (mandatory), description (mandatory), is_read
+    # No override needed — use the core schema as-is
         
-    # Add 'otp' table override (ensure it has created_by_id for /my/ read tests)
-    if "otp" in config_pg_test["table"]:
-        config_pg_test["table"]["otp"] = config_pg_test["table"]["otp"] + [{"name": "created_by_id", "datatype": "bigint"}]
-    else:
-        config_pg_test["table"]["otp"] = [
-            {"name": "email", "datatype": "text"},
-            {"name": "mobile", "datatype": "text"},
-            {"name": "otp", "datatype": "int"},
-            {"name": "created_by_id", "datatype": "bigint"},
-            {"name": "created_at", "datatype": "timestamptz", "default": "now()"}
-        ]
+    # Note: 'otp' table in core schema has: otp (mandatory), email, mobile, created_at
+    # No overrides needed — tests use direct DB queries and /auth/ routes
 
     # Add 'test_blob' table if missing
     if "test_blob" not in config_pg_test["table"]:
@@ -119,6 +102,7 @@ async def integration_app(db_containers):
     app.state.client_postgres_pool = await asyncpg.create_pool(dsn=app.state.config_postgres_url)
     app.state.client_redis = redis.from_url(app.state.config_redis_url)
     app.state.client_redis_ratelimiter = redis.from_url(app.state.config_redis_url_ratelimiter) # Manually init ratelimiter client
+    app.state.client_redis_producer = redis.from_url(app.state.config_redis_url) # Init producer for background worker tests
     app.state.client_mongodb = AsyncIOMotorClient(app.state.config_mongodb_url)
     
     # 3. Run Real Schema Migration
