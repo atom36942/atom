@@ -1484,7 +1484,7 @@ async def func_producer(*, queue: str, client_celery_producer: any, client_kafka
         return await client_kafka_producer.send_and_wait(channel, orjson.dumps(payload))
     elif queue == "redis":
         if not client_redis_producer: raise Exception("redis producer not initialized")
-        return await client_redis_producer.publish(channel, orjson.dumps(payload).decode("utf-8"))
+        return await client_redis_producer.lpush(channel, orjson.dumps(payload).decode("utf-8"))
     return None
 
 async def func_token_encode(*, user: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_token_key: list) -> dict:

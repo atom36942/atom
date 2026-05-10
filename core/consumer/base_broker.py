@@ -39,22 +39,24 @@ async def broker_logic_redis(channel: str, setup_callback: callable, execute_cal
     client_primary = setup_data[0]
     import redis.asyncio as redis
     client = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url_pubsub)) if config_redis_url_pubsub else None
-    reader = client.pubsub()
-    await reader.subscribe(channel)
     print(f"redis consumer started on {channel}", flush=True)
+    semaphore = asyncio.Semaphore(config_consumer_concurrency)
+    async def _execute(n, p):
+        async with semaphore:
+            try:
+                p_obj = orjson.loads(p)
+                await execute_callback(client_primary, p_obj, *setup_data[1:])
+                print(f"task completed #{n}: {channel}", flush=True)
+            except Exception as e:
+                func_consumer_failed_payload_log(queue="redis", channel=channel, payload=p, error=e)
+                print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
     try:
-        async for msg in reader.listen():
-            if msg["type"] == "message":
+        while True:
+            msg = await client.brpop(channel, timeout=0)
+            if msg:
                 n = next(_run_counter)
                 print(f"task started #{n}: {channel}", flush=True)
-                payload = msg["data"]
-                try:
-                    payload = orjson.loads(payload)
-                    await execute_callback(client_primary, payload, *setup_data[1:])
-                    print(f"task completed #{n}: {channel}", flush=True)
-                except Exception as e:
-                    func_consumer_failed_payload_log(queue="redis", channel=channel, payload=payload, error=e)
-                    print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
+                asyncio.create_task(_execute(n, msg[1]))
     finally:
         await client.aclose()
         if client_primary: await client_primary.close()
@@ -66,23 +68,27 @@ async def broker_logic_rabbitmq(channel: str, setup_callback: callable, execute_
     import aio_pika
     conn = await aio_pika.connect_robust(config_rabbitmq_url)
     ch = await conn.channel()
-    await ch.set_qos(prefetch_count=1)
+    await ch.set_qos(prefetch_count=config_consumer_concurrency)
     queue = await ch.declare_queue(channel, durable=True)
     print(f"rabbitmq consumer started on {channel}", flush=True)
+    semaphore = asyncio.Semaphore(config_consumer_concurrency)
+    async def _execute(n, m):
+        async with semaphore:
+            async with m.process():
+                p = m.body
+                try:
+                    p_obj = orjson.loads(p)
+                    await execute_callback(client_primary, p_obj, *setup_data[1:])
+                    print(f"task completed #{n}: {channel}", flush=True)
+                except Exception as e:
+                    func_consumer_failed_payload_log(queue="rabbitmq", channel=channel, payload=p, error=e)
+                    print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
     try:
         async with queue.iterator() as queue_iter:
             async for msg in queue_iter:
-                async with msg.process():
-                    n = next(_run_counter)
-                    print(f"task started #{n}: {channel}", flush=True)
-                    payload = msg.body
-                    try:
-                        payload = orjson.loads(payload)
-                        await execute_callback(client_primary, payload, *setup_data[1:])
-                        print(f"task completed #{n}: {channel}", flush=True)
-                    except Exception as e:
-                        func_consumer_failed_payload_log(queue="rabbitmq", channel=channel, payload=payload, error=e)
-                        print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
+                n = next(_run_counter)
+                print(f"task started #{n}: {channel}", flush=True)
+                asyncio.create_task(_execute(n, msg))
     finally:
         await conn.close()
         if client_primary: await client_primary.close()
@@ -95,22 +101,27 @@ async def broker_logic_kafka(channel: str, setup_callback: callable, execute_cal
     consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, enable_auto_commit=bool(config_kafka_is_auto_commit), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaConsumer(channel, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, enable_auto_commit=bool(config_kafka_is_auto_commit))
     await consumer.start()
     print(f"kafka consumer started on {channel}", flush=True)
+    semaphore = asyncio.Semaphore(config_consumer_concurrency)
+    async def _execute(n, p):
+        async with semaphore:
+            try:
+                p_obj = orjson.loads(p)
+                await execute_callback(client_primary, p_obj, *setup_data[1:])
+                print(f"task completed #{n}: {channel}", flush=True)
+            except Exception as e:
+                func_consumer_failed_payload_log(queue="kafka", channel=channel, payload=p, error=e)
+                print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
     try:
         while True:
             batch = await consumer.getmany(timeout_ms=config_kafka_batch_timeout_ms, max_records=config_kafka_batch_limit)
             if not batch: continue
             for tp, messages in batch.items():
+                tasks = []
                 for msg in messages:
                     n = next(_run_counter)
                     print(f"task started #{n}: {channel}", flush=True)
-                    payload = msg.value
-                    try:
-                        payload = orjson.loads(payload)
-                        await execute_callback(client_primary, payload, *setup_data[1:])
-                        print(f"task completed #{n}: {channel}", flush=True)
-                    except Exception as e:
-                        func_consumer_failed_payload_log(queue="kafka", channel=channel, payload=payload, error=e)
-                        print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
+                    tasks.append(asyncio.create_task(_execute(n, msg.value)))
+                if tasks: await asyncio.gather(*tasks)
                 if not config_kafka_is_auto_commit: await consumer.commit(tp)
     finally:
         await consumer.stop()

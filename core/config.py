@@ -35,6 +35,7 @@ config_rabbitmq_batch_limit = 1000
 config_rabbitmq_batch_timeout_ms = 1000
 config_redis_batch_limit = 1000
 config_redis_batch_timeout_ms = 1000
+config_consumer_concurrency = 10
 
 #token
 config_token_secret_key = "atom-development-token-secret-key-32b"
