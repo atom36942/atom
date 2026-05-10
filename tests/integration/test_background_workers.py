@@ -9,27 +9,22 @@ async def test_background_consumer_flow_redis(integration_app, auth_client):
     table = "test"
     pool = app_state.client_postgres_pool
     
-    # 1. Subscribe to the channel BEFORE the API call publishes
-    redis_sub = app_state.client_redis_producer
-    pubsub = redis_sub.pubsub()
-    await pubsub.subscribe("func_postgres_create")
-    # Consume the subscription confirmation message
-    await pubsub.get_message(timeout=1)
+    # 1. Clear any existing items in the queue
+    redis_client = app_state.client_redis_producer
+    await redis_client.delete("func_postgres_create")
     
     # 2. Trigger API with 'queue=redis'
     payload = {"obj_list": [{"title": "Background Item"}]}
     res = await user.post(f"/my/object-create?table={table}&queue=redis&mode=now", json=payload)
     assert res.json()["status"] == 1
-    print("\n✅ Background: Task published to Redis channel.")
+    print("\n✅ Background: Task pushed to Redis list.")
     
-    # 3. Receive the published message
-    message = await pubsub.get_message(timeout=5)
-    assert message is not None and message["type"] == "message", f"No message received from pub/sub: {message}"
-    
+    # 3. Receive the pushed message from the list (FIFO)
+    # We use rpop because we used lpush in the producer
     import orjson
-    task_data = orjson.loads(message["data"])
-    await pubsub.unsubscribe("func_postgres_create")
-    await pubsub.aclose()
+    message = await redis_client.rpop("func_postgres_create")
+    assert message is not None, "No message received from Redis list"
+    task_data = orjson.loads(message)
     
     # 4. Run the Consumer 'execute' logic using test infrastructure
     from core.consumer.postgres_create import execute
