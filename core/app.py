@@ -67,8 +67,6 @@ async def func_lifespan(app:"FastAPI"):
        [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_", "config_", "func_"))]
        #openapi spec
        app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
-       #startup check
-       await func_check(app_routes=app.routes, current_config_api=config_api, allowed_roles=config_api_roles, api_roles_auth=config_api_roles_auth, client_postgres_pool=client_postgres_pool)
    except Exception as e:
        print(f"❌ startup error: {e}")
        raise
