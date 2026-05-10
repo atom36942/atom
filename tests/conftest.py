@@ -45,7 +45,6 @@ async def integration_app(db_containers):
     app.state.client_password_hasher = PasswordHasher()
     app.state.config_postgres_url = db_containers["postgres"]
     app.state.config_redis_url = db_containers["redis"]
-    app.state.config_redis_url_ratelimiter = db_containers["redis"] # Added for ratelimiter
     app.state.config_mongodb_url = db_containers["mongo"]
     
     # 1.1 Override Postgres Config for Integration Tests (Add missing tables/columns)
@@ -101,18 +100,17 @@ async def integration_app(db_containers):
     # 2. Initialize Real Clients
     app.state.client_postgres_pool = await asyncpg.create_pool(dsn=app.state.config_postgres_url)
     app.state.client_redis = redis.from_url(app.state.config_redis_url)
-    app.state.client_redis_ratelimiter = redis.from_url(app.state.config_redis_url_ratelimiter) # Manually init ratelimiter client
     app.state.client_redis_producer = redis.from_url(app.state.config_redis_url) # Init producer for background worker tests
     app.state.client_mongodb = AsyncIOMotorClient(app.state.config_mongodb_url)
     
     # 3. Run Real Schema Migration
     # Using your actual core config
-    from core.config import config_postgres, config_postgres_root_user_password
+    from core.config import config_postgres, config_root_user_password
     await func_postgres_schema_init(
         client_postgres_pool=app.state.client_postgres_pool,
         client_password_hasher=app.state.client_password_hasher,
         config_postgres=app.state.config_postgres,
-        config_postgres_root_user_password=config_postgres_root_user_password
+        config_root_user_password=config_root_user_password
     )
     
     # 3.1 Synchronize State Caches

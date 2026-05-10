@@ -33,7 +33,7 @@ async def test_postgres_integration_lifecycle():
                 client_postgres_pool=pool,
                 client_password_hasher=hasher,
                 config_postgres=config_postgres,
-                config_postgres_root_user_password="password"
+                config_root_user_password="password"
             )
             
             # Fetch the schema so that serialization knows the types

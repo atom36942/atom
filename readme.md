@@ -43,12 +43,12 @@ venv/bin/python -m core.consumer.<filename> [redis|rabbitmq|kafka|celery]
 
 # Env
 ```bash
-config_postgres_url="postgresql://atom@127.0.0.1/postgres?sslmode=disable"
-config_redis_url="redis://localhost:6379"
-config_rabbitmq_url="amqp://guest:guest@localhost:5672"
-config_mongodb_url="mongodb://localhost:27017"
-config_postgres_root_user_password="123456"
-config_token_secret_key="atom-development-token-secret-key-32b"
+config_postgres_url=postgresql://atom@127.0.0.1/postgres?sslmode=disable
+config_redis_url=redis://localhost:6379
+config_mongodb_url=mongodb://localhost:27017
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_celery_url=redis://localhost:6379
+config_redis_queue_url=redis://localhost:6379
 ```
 
 ###  FAQ

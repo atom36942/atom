@@ -260,7 +260,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=config.config_postgres,
-        config_postgres_root_user_password=config.config_postgres_root_user_password,
+        config_root_user_password=config.config_root_user_password,
     )
 
     sql = all_sql(pool.conn)
@@ -314,7 +314,7 @@ async def test_config_postgres_schema_init_renames_updates_defaults_and_notnull_
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     sql = all_sql(pool.conn)
@@ -364,7 +364,7 @@ async def test_config_postgres_schema_init_removes_stale_indexes_constraints_and
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=first_config,
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     assert "idx_demo_status_btree" in pool.conn.meta["demo"]
@@ -379,7 +379,7 @@ async def test_config_postgres_schema_init_removes_stale_indexes_constraints_and
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=second_config,
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     assert "idx_demo_status_btree" not in pool.conn.meta["demo"]
@@ -420,7 +420,7 @@ async def test_config_postgres_schema_init_recreates_changed_index_and_constrain
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=first_config,
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
     first_check = next(name for name in pool.conn.meta["demo"] if name.startswith("check_demo_status_in_"))
     assert "idx_demo_status_btree" in pool.conn.meta["demo"]
@@ -430,7 +430,7 @@ async def test_config_postgres_schema_init_recreates_changed_index_and_constrain
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=second_config,
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     second_checks = [name for name in pool.conn.meta["demo"] if name.startswith("check_demo_status_in_")]
@@ -462,7 +462,7 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
-        config_postgres_root_user_password="root-secret",
+        config_root_user_password="root-secret",
     )
 
     sql = all_sql(pool.conn)
@@ -500,7 +500,7 @@ async def test_config_postgres_schema_init_extension_and_autovacuum_controls(con
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control, extension=extension),
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     sql = all_sql(pool.conn)
@@ -527,7 +527,7 @@ async def test_config_postgres_schema_init_drop_schema_table_controls(control, e
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control),
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     sql = all_sql(pool.conn)
@@ -554,7 +554,7 @@ async def test_config_postgres_schema_init_drop_column_db_guard_control(control,
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control),
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     sql = all_sql(pool.conn)
@@ -582,7 +582,7 @@ async def test_config_postgres_schema_init_does_not_drop_omitted_columns_without
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     assert "legacy_data" in pool.conn.tables["demo"]
@@ -610,7 +610,7 @@ async def test_config_postgres_schema_init_drops_omitted_columns_only_when_expli
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     assert "legacy_data" not in pool.conn.tables["demo"]
@@ -630,7 +630,7 @@ async def test_config_postgres_schema_init_rejects_conflicting_drop_column_contr
             client_postgres_pool=FakeSchemaPool(),
             client_password_hasher=FakePasswordHasher(),
             config_postgres=pg_config,
-            config_postgres_root_user_password="",
+            config_root_user_password="",
         )
 
 
@@ -655,7 +655,7 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
             client_postgres_pool=pool,
             client_password_hasher=FakePasswordHasher(),
             config_postgres=pg_config,
-            config_postgres_root_user_password="",
+            config_root_user_password="",
         )
 
         assert "legacy_data" not in pool.conn.tables["demo"]
@@ -704,7 +704,7 @@ async def test_config_postgres_schema_init_users_delete_controls_require_switche
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control, users_columns=users_columns),
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     users_triggers = pool.conn.triggers.get("users", set())
@@ -735,7 +735,7 @@ async def test_config_postgres_schema_init_table_operation_controls(control, exp
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control),
-        config_postgres_root_user_password="",
+        config_root_user_password="",
     )
 
     actual = set().union(*pool.conn.triggers.values())
@@ -765,5 +765,5 @@ async def test_config_postgres_schema_init_rejects_invalid_configurations(pg_con
             client_postgres_pool=FakeSchemaPool(),
             client_password_hasher=FakePasswordHasher(),
             config_postgres=pg_config,
-            config_postgres_root_user_password="",
+            config_root_user_password="",
         )

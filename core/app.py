@@ -27,8 +27,7 @@ async def func_lifespan(app:"FastAPI"):
        client_http = httpx.AsyncClient()
        client_postgres_pool = await asyncpg.create_pool(dsn=getattr(app.state, "config_postgres_url", config_postgres_url), min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if getattr(app.state, "config_postgres_url", config_postgres_url) else None
        client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url", config_redis_url))) if (getattr(app.state, "config_redis_url", None) or config_redis_url) else None
-       client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url_ratelimiter", config_redis_url_ratelimiter))) if (getattr(app.state, "config_redis_url_ratelimiter", None) or config_redis_url_ratelimiter) else None
-       client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_url_pubsub", config_redis_url_pubsub))) if getattr(app.state, "config_redis_url_pubsub", config_redis_url_pubsub) else None
+       client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(getattr(app.state, "config_redis_queue_url", config_redis_queue_url))) if getattr(app.state, "config_redis_queue_url", config_redis_queue_url) else None
        client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(getattr(app.state, "config_mongodb_url", config_mongodb_url)) if getattr(app.state, "config_mongodb_url", config_mongodb_url) else None
        client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=getattr(app.state, "config_s3_region_name", config_s3_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_s3_region_name else None
        client_s3_resource = boto3.resource("s3", region_name=getattr(app.state, "config_s3_region_name", config_s3_region_name), aws_access_key_id=getattr(app.state, "config_aws_access_key_id", config_aws_access_key_id), aws_secret_access_key=getattr(app.state, "config_aws_secret_access_key", config_aws_secret_access_key)) if config_s3_region_name else None
@@ -37,24 +36,13 @@ async def func_lifespan(app:"FastAPI"):
        client_openai = openai.OpenAI(api_key=getattr(app.state, "config_openai_key", config_openai_key)) if getattr(app.state, "config_openai_key", config_openai_key) else None
        client_gemini = genai.Client(api_key=config_gemini_key) if config_gemini_key else None
        client_posthog = Posthog(config_posthog_project_key, host=config_posthog_project_host) if config_posthog_project_key else None
-       client_celery_producer = Celery("atom", broker=config_celery_broker_url, backend=config_celery_backend_url) if config_celery_broker_url else None
-       client_kafka_producer = (AIOKafkaProducer(bootstrap_servers=config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaProducer(bootstrap_servers=config_kafka_url)) if config_kafka_url else None
-       if client_kafka_producer: await client_kafka_producer.start()
-       client_rabbitmq = await aio_pika.connect_robust(config_rabbitmq_url) if config_rabbitmq_url else None
-       client_rabbitmq_producer = await client_rabbitmq.channel() if client_rabbitmq else None
-       if config_sftp_host:
-          if config_sftp_auth_method not in ("key", "password"): raise Exception(f"invalid sftp auth mode: {config_sftp_auth_method}")
-          if config_sftp_auth_method == "key":
-             if not config_sftp_key_path: raise Exception("ssh key path missing")
-             client_sftp = await asyncssh.connect(host=config_sftp_host, port=int(config_sftp_port), username=config_sftp_username, client_keys=[config_sftp_key_path], known_hosts=None)
-          else:
-             if not config_sftp_password: raise Exception("password missing")
-             client_sftp = await asyncssh.connect(host=config_sftp_host, port=int(config_sftp_port), username=config_sftp_username, password=config_sftp_password, known_hosts=None)
-       else:
-          client_sftp = None
-       client_azure_blob = BlobServiceClient.from_connection_string(config_azure_connection_string) if config_azure_connection_string else BlobServiceClient(account_url=f"https://{config_azure_account_name}.blob.core.windows.net", credential=config_azure_account_key) if config_azure_account_name else None
+       client_celery_producer = Celery("atom", broker=config_celery_url, backend=config_celery_url) if config_celery_url else None
+       client_kafka_producer = (AIOKafkaProducer(bootstrap_servers=config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaProducer(bootstrap_servers=config_kafka_url)) if config_kafka_url else None; await client_kafka_producer.start() if client_kafka_producer else None
+       client_rabbitmq = await aio_pika.connect_robust(config_rabbitmq_url) if config_rabbitmq_url else None; client_rabbitmq_producer = await client_rabbitmq.channel() if client_rabbitmq else None
+       client_sftp = await asyncssh.connect(host=config_sftp_host, port=int(config_sftp_port), username=config_sftp_username, password=config_sftp_password, known_hosts=None) if config_sftp_host else None
+       client_azure_blob = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={config_azure_account_name};AccountKey={config_azure_account_key};EndpointSuffix=core.windows.net") if (config_azure_account_name and config_azure_account_key) else None
        #postges schema init
-       if client_postgres_pool and config_is_enable_postgres_init_startup == 1: await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=getattr(app.state, "config_postgres", config_postgres), config_postgres_root_user_password=config_postgres_root_user_password)
+       if client_postgres_pool and getattr(app.state, "config_is_enable_postgres_init_startup", config_is_enable_postgres_init_startup) == 1: await func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=getattr(app.state, "config_postgres", config_postgres), config_root_user_password=getattr(app.state, "config_root_user_password", config_root_user_password))
        #cache init
        cache_postgres_schema = await func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
        cache_postgres_table_list = list(cache_postgres_schema.keys())
@@ -96,7 +84,6 @@ async def func_lifespan(app:"FastAPI"):
    if client_http: await client_http.aclose()
    if client_postgres_pool: await client_postgres_pool.close()
    if client_redis: await client_redis.aclose()
-   if client_redis_ratelimiter: await client_redis_ratelimiter.aclose()
    if client_mongodb: client_mongodb.close()
    if client_posthog:
       client_posthog.shutdown()
@@ -141,7 +128,7 @@ async def middleware(request, api_function):
         request.state.user = await getattr(app_state, "func_middleware_check_auth", func_middleware_check_auth)(headers=request.headers, url_path=request.url.path, config_token_secret_key=getattr(app_state, "config_token_secret_key", config_token_secret_key), config_api_roles_auth=getattr(app_state, "config_api_roles_auth", config_api_roles_auth))
         await getattr(app_state, "func_middleware_check_role", func_middleware_check_role)(user_dict=request.state.user, url_path=request.url.path, config_api=getattr(app_state, "config_api", config_api), client_postgres_pool=getattr(app_state, "client_postgres_pool", None), client_redis=getattr(app_state, "client_redis", None), cache_users_role=getattr(app_state, "cache_users_role", {}), config_redis_cache_ttl_sec=getattr(app_state, "config_redis_cache_ttl_sec", config_redis_cache_ttl_sec))
         await getattr(app_state, "func_middleware_check_is_active", func_middleware_check_is_active)(user_dict=request.state.user, url_path=request.url.path, config_api=getattr(app_state, "config_api", config_api), client_postgres_pool=getattr(app_state, "client_postgres_pool", None), client_redis=getattr(app_state, "client_redis", None), cache_users_is_active=getattr(app_state, "cache_users_is_active", {}), config_redis_cache_ttl_sec=getattr(app_state, "config_redis_cache_ttl_sec", config_redis_cache_ttl_sec))
-        await getattr(app_state, "func_middleware_check_ratelimiter", func_middleware_check_ratelimiter)(client_redis_ratelimiter=getattr(app_state, "client_redis_ratelimiter", None), config_api=getattr(app_state, "config_api", config_api), url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=getattr(app_state, "cache_ratelimiter", {}))
+        await getattr(app_state, "func_middleware_check_ratelimiter", func_middleware_check_ratelimiter)(client_redis=getattr(app_state, "client_redis", None), config_api=getattr(app_state, "config_api", config_api), url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=getattr(app_state, "cache_ratelimiter", {}))
         response = await getattr(app_state, "func_middleware_api_response", func_middleware_api_response)(request=request, api_function=api_function, config_api=getattr(app_state, "config_api", config_api), client_redis=getattr(app_state, "client_redis", None), user_id=request.state.user.get("id") if request.state.user else 0, cache_api_response=getattr(app_state, "cache_api_response", {}))
     except Exception as e:
         error, response = await getattr(app_state, "func_middleware_api_response_error", func_middleware_api_response_error)(exception=e, is_traceback=getattr(app_state, "config_is_enable_traceback", config_is_enable_traceback), sentry_dsn=getattr(app_state, "config_sentry_dsn", config_sentry_dsn))

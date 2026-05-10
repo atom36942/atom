@@ -89,7 +89,7 @@ async def func_middleware_check_role(*, user_dict: dict, url_path: str, config_a
             raise Exception("invalid user role type")
     if user_role not in roles: raise Exception("access denied")
 
-async def func_middleware_check_ratelimiter(*, client_redis_ratelimiter: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
+async def func_middleware_check_ratelimiter(*, client_redis: any, config_api: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     import time
     api_cfg = config_api.get(url_path, {})
@@ -98,11 +98,11 @@ async def func_middleware_check_ratelimiter(*, client_redis_ratelimiter: any, co
     mode, limit, window = rl_config
     cache_key = f"ratelimiter:{url_path}:{identifier}"
     if mode == "redis":
-        if not client_redis_ratelimiter: raise Exception("redis client missing")
-        current_count = await client_redis_ratelimiter.get(cache_key)
+        if not client_redis: raise Exception("redis client missing")
+        current_count = await client_redis.get(cache_key)
         if current_count and int(current_count) + 1 > limit:
             raise Exception("ratelimiter exceeded")
-        pipeline = client_redis_ratelimiter.pipeline()
+        pipeline = client_redis.pipeline()
         pipeline.incr(cache_key)
         if not current_count:
             pipeline.expire(cache_key, window)
@@ -501,7 +501,7 @@ async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str
         rows = await conn.fetch(config_sql)
     return {r[0]: r[1] for r in rows}
 
-async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_postgres_root_user_password: str) -> str:
+async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_root_user_password: str) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
     if not config_postgres: raise Exception("config_postgres missing")
     if "table" not in config_postgres: raise Exception("config_postgres.table missing")
@@ -694,7 +694,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             catalog["tg"].add("trigger_protect_root_users")
             await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; ELSIF TG_OP = 'UPDATE' THEN IF OLD.id = 1 THEN IF NEW.type IS DISTINCT FROM OLD.type OR NEW.username IS DISTINCT FROM OLD.username OR NEW.role IS DISTINCT FROM OLD.role OR NEW.is_active IS DISTINCT FROM OLD.is_active THEN RAISE EXCEPTION 'Updates to type, username, role, or is_active are not allowed for root user (id=1)'; END IF; END IF; RETURN NEW; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
             if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
-                root_user_password_hash = client_password_hasher.hash(config_postgres_root_user_password)
+                root_user_password_hash = client_password_hasher.hash(config_root_user_password)
                 await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', $1, 1, 1) ON CONFLICT (username, type) DO UPDATE SET role = 1, is_active = 1 WHERE users.role IS DISTINCT FROM 1 OR users.is_active IS DISTINCT FROM 1;", root_user_password_hash)
             if "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")

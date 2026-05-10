@@ -212,14 +212,14 @@ async def test_config_api_ratelimiter_inmemory_allows_until_limit_then_blocks():
     cfg = {"/limited": {"api_ratelimiting_times_sec": ["inmemory", 2, 60]}}
 
     await func_middleware_check_ratelimiter(
-        client_redis_ratelimiter=None,
+        client_redis=None,
         config_api=cfg,
         url_path="/limited",
         identifier="user-1",
         cache_ratelimiter=cache,
     )
     await func_middleware_check_ratelimiter(
-        client_redis_ratelimiter=None,
+        client_redis=None,
         config_api=cfg,
         url_path="/limited",
         identifier="user-1",
@@ -227,7 +227,7 @@ async def test_config_api_ratelimiter_inmemory_allows_until_limit_then_blocks():
     )
     with pytest.raises(Exception, match="ratelimiter exceeded"):
         await func_middleware_check_ratelimiter(
-            client_redis_ratelimiter=None,
+            client_redis=None,
             config_api=cfg,
             url_path="/limited",
             identifier="user-1",
@@ -241,7 +241,7 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
     cfg = {"/limited": {"api_ratelimiting_times_sec": ["redis", 2, 60]}}
 
     await func_middleware_check_ratelimiter(
-        client_redis_ratelimiter=redis,
+        client_redis=redis,
         config_api=cfg,
         url_path="/limited",
         identifier="user-1",
@@ -253,7 +253,7 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
     redis.store["ratelimiter:/limited:user-1"] = "2"
     with pytest.raises(Exception, match="ratelimiter exceeded"):
         await func_middleware_check_ratelimiter(
-            client_redis_ratelimiter=redis,
+            client_redis=redis,
             config_api=cfg,
             url_path="/limited",
             identifier="user-1",

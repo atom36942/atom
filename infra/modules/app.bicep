@@ -68,10 +68,8 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'PYTHONUNBUFFERED', value: '1' }
         { name: 'config_postgres_url', value: pgUrlRef }
         { name: 'config_redis_url', value: redisUrlRef }
-        { name: 'config_redis_url_ratelimiter', value: redisUrlRef }
-        { name: 'config_redis_url_pubsub', value: redisUrlRef }
-        { name: 'config_celery_broker_url', value: redisUrlRef }
-        { name: 'config_celery_backend_url', value: redisUrlRef }
+        { name: 'config_redis_queue_url', value: redisUrlRef }
+        { name: 'config_celery_url', value: redisUrlRef }
         { name: 'config_token_secret_key', value: tokenSecretRef }
         { name: 'config_is_postgres_init_startup', value: '1' }
         { name: 'config_is_signup', value: '1' }

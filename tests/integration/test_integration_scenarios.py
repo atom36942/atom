@@ -6,7 +6,7 @@ async def test_scenario_rate_limiting(integration_app):
     # SCENARIO: Verify that the Redis rate limiter blocks excessive requests
     
     # 1. Ensure the limiter is clean
-    redis = integration_app.app.state.client_redis_ratelimiter
+    redis = integration_app.app.state.client_redis
     await redis.flushdb()
     
     # 2. Hammer the 'object-read' API (which has rate limits: 10 requests / 60 sec)
@@ -59,7 +59,7 @@ async def test_scenario_db_state_matching(integration_app, auth_client):
 async def test_scenario_redis_cache_integrity(integration_app):
     # SCENARIO: Verify that Redis cache actually stores and returns data
     # Flush rate limiter keys first to avoid interference
-    await integration_app.app.state.client_redis_ratelimiter.flushdb()
+    await integration_app.app.state.client_redis.flushdb()
     
     url = "/public/object-read?table=test&limit=10&page=1&order=id desc"
     await integration_app.get(url)

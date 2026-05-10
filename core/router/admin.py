@@ -16,9 +16,6 @@ import uuid
 async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
     await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table="", obj_list=[], is_serialize=0, config_buffer_limit=0, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, func_regex_check=app_state.func_regex_check, config_obj_list_limit=app_state.config_obj_list_limit, config_table=app_state.config_table)
-    # Update flush removed because buffering is disabled for updates
-    if app_state.client_postgres_pool and app_state.config_is_enable_postgres_init_startup == 1:
-        await app_state.func_postgres_schema_init(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, config_postgres=app_state.config_postgres, config_postgres_root_user_password=app_state.config_postgres_root_user_password)
     app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres_pool=app_state.client_postgres_pool) if app_state.client_postgres_pool else {}
     app_state.cache_postgres_table_list = list(app_state.cache_postgres_schema.keys())
     app_state.cache_postgres_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))

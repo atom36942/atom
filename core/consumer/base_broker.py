@@ -38,7 +38,7 @@ async def broker_logic_redis(channel: str, setup_callback: callable, execute_cal
     setup_data = await setup_callback()
     client_primary = setup_data[0]
     import redis.asyncio as redis
-    client = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_url_pubsub)) if config_redis_url_pubsub else None
+    client = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_redis_queue_url)) if config_redis_queue_url else None
     print(f"redis consumer started on {channel}", flush=True)
     semaphore = asyncio.Semaphore(config_consumer_concurrency)
     async def _execute(n, p):
@@ -131,7 +131,7 @@ def broker_logic_celery(channel: str, setup_callback: callable, execute_callback
     if not channel: raise Exception("channel name required")
     from celery import signals
     from celery import Celery
-    app = Celery("atom", broker=config_celery_broker_url, backend=config_celery_backend_url)
+    app = Celery("atom", broker=config_celery_url, backend=config_celery_url)
     app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
     setup_data, worker_loop = None, None
     @signals.worker_process_init.connect

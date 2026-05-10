@@ -44,7 +44,7 @@ async def test_func_postgres_schema_init_basic_table_creation():
         client_postgres_pool=client_postgres_pool,
         client_password_hasher=client_password_hasher,
         config_postgres=config_postgres,
-        config_postgres_root_user_password="password"
+        config_root_user_password="password"
     )
     
     # Verify extensions were created
@@ -86,7 +86,7 @@ async def test_func_postgres_schema_init_adds_missing_column():
         client_postgres_pool=client_postgres_pool,
         client_password_hasher=client_password_hasher,
         config_postgres=config_postgres,
-        config_postgres_root_user_password="password"
+        config_root_user_password="password"
     )
     
     # Verify ALTER TABLE was called to add new_col
@@ -108,5 +108,5 @@ async def test_func_postgres_schema_init_raises_on_reserved_keyword():
             client_postgres_pool=client_postgres_pool,
             client_password_hasher=MagicMock(),
             config_postgres=config_postgres,
-            config_postgres_root_user_password="password"
+            config_root_user_password="password"
         )

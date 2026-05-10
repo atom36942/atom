@@ -43,7 +43,7 @@ async def test_public_read_whitelist_security(integration_app):
     # Tests that /public/object-read only allows whitelisted tables
     
     # Flush the rate limiter to prevent it from firing before the whitelist check
-    await integration_app.app.state.client_redis_ratelimiter.flushdb()
+    await integration_app.app.state.client_redis.flushdb()
     
     res = await integration_app.get("/public/object-read?table=users&limit=10&page=1&order=id desc")
     
