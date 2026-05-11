@@ -7,14 +7,14 @@ import asyncio
 from contextlib import asynccontextmanager
 @asynccontextmanager
 async def func_lifespan(app:"FastAPI"):
-   #logging start
-   import time
-   start_journey = time.perf_counter()
-   #structure
-   import os
-   for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
-   #client init
    try:
+       #start
+       import time
+       start_journey = time.perf_counter()
+       #structure
+       import os
+       for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
+       #client init
        import aio_pika, aiobotocore.session, asyncpg, asyncssh, boto3, httpx, motor.motor_asyncio, openai
        import redis.asyncio as redis
        from google import genai
@@ -55,47 +55,46 @@ async def func_lifespan(app:"FastAPI"):
        [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_", "config_", "func_"))]
        #openapi spec
        app.state.cache_openapi=func_openapi_spec_generate(app_routes=app.routes, config_api_roles_auth=config_api_roles_auth, app_state=app.state)
+       #postgres buffer flush loop
+       async def pulse_flush():
+          while True:
+             try:
+                await asyncio.sleep(config_buffer_flush_interval_sec)
+                if client_postgres_pool:
+                    async with app.state.flush_lock:
+                        await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
+             except asyncio.CancelledError: break
+             except Exception as e: print(f"❌ pulse flush error: {e}")
+       if getattr(app.state, "config_is_enable_background_workers", 1) == 1:
+            app.state.pulse_flush_task = asyncio.create_task(pulse_flush())
    except Exception as e:
        print(f"❌ startup error: {e}")
        raise
-   #postgres buffer flush loop
-   async def pulse_flush():
-      while True:
-         try:
-            await asyncio.sleep(config_buffer_flush_interval_sec)
-            if client_postgres_pool:
-                async with app.state.flush_lock:
-                    await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
-         except asyncio.CancelledError: break
-         except Exception as e: print(f"❌ pulse flush error: {e}")
-   if getattr(app.state, "config_is_enable_background_workers", 1) == 1:
-        app.state.pulse_flush_task = asyncio.create_task(pulse_flush())
-   #background task stop
    yield
-   if getattr(app.state, "pulse_flush_task", None):
-       app.state.pulse_flush_task.cancel()
-       try: await app.state.pulse_flush_task
-       except asyncio.CancelledError: pass
-   #postgres buffer flush final
-   if client_postgres_pool:
-      async with app.state.flush_lock:
-          await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
-   #client disconnect
-   if client_http: await client_http.aclose()
-   if client_postgres_pool: await client_postgres_pool.close()
-   if client_redis: await client_redis.aclose()
-   if client_mongodb: client_mongodb.close()
-   if client_posthog:
-      client_posthog.shutdown()
-      client_posthog.flush()
-   if client_kafka_producer: await client_kafka_producer.stop()
-   if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed: await client_rabbitmq_producer.close()
-   if client_rabbitmq and not client_rabbitmq.is_closed: await client_rabbitmq.close()
-   if client_redis_producer: await client_redis_producer.aclose()
-   if client_sftp:
-      client_sftp.close()
-      await client_sftp.wait_closed()
-   if client_azure_blob: await client_azure_blob.close()
+   try:
+       #background task stop
+       if getattr(app.state, "pulse_flush_task", None):
+           app.state.pulse_flush_task.cancel()
+           try: await app.state.pulse_flush_task
+           except asyncio.CancelledError: pass
+       #postgres buffer flush final
+       if client_postgres_pool:
+          async with app.state.flush_lock:
+              await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, config_buffer_limit=config_buffer_limit, mode="flush", table="", obj_list=[], is_serialize=0)
+       #client disconnect
+       if client_http: await client_http.aclose()
+       if client_postgres_pool: await client_postgres_pool.close()
+       if client_redis: await client_redis.aclose()
+       if client_mongodb: client_mongodb.close()
+       if client_posthog: client_posthog.shutdown(); client_posthog.flush()
+       if client_kafka_producer: await client_kafka_producer.stop()
+       if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed: await client_rabbitmq_producer.close()
+       if client_rabbitmq and not client_rabbitmq.is_closed: await client_rabbitmq.close()
+       if client_redis_producer: await client_redis_producer.aclose()
+       if client_sftp: client_sftp.close(); await client_sftp.wait_closed()
+       if client_azure_blob: await client_azure_blob.close()
+   except Exception as e:
+       print(f"❌ shutdown error: {e}")
 
 #app
 from fastapi import FastAPI
@@ -132,7 +131,8 @@ async def middleware(request, api_function):
         response = await getattr(app_state, "func_middleware_api_response", func_middleware_api_response)(request=request, api_function=api_function, config_api=getattr(app_state, "config_api", config_api), client_redis=getattr(app_state, "client_redis", None), user_id=request.state.user.get("id") if request.state.user else 0, cache_api_response=getattr(app_state, "cache_api_response", {}))
     except Exception as e:
         error, response = await getattr(app_state, "func_middleware_api_response_error", func_middleware_api_response_error)(exception=e, is_traceback=getattr(app_state, "config_is_enable_traceback", config_is_enable_traceback), sentry_dsn=getattr(app_state, "config_sentry_dsn", config_sentry_dsn))
-    await getattr(app_state, "func_middleware_api_log_create", func_middleware_api_log_create)(config_is_enable_log_api=getattr(app_state, "config_is_enable_log_api", config_is_enable_log_api), api_id=getattr(app_state, "config_api", {}).get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, description=error, func_postgres_create=getattr(app_state, "func_postgres_create", func_postgres_create), client_postgres_pool=getattr(app_state, "client_postgres_pool", None), client_password_hasher=getattr(app_state, "client_password_hasher", None), func_postgres_serialize=getattr(app_state, "func_postgres_serialize", func_postgres_serialize), func_regex_check=getattr(app_state, "func_regex_check", func_regex_check), cache_postgres_schema=getattr(app_state, "cache_postgres_schema", {}), cache_postgres_buffer_create=getattr(app_state, "cache_postgres_buffer_create", {}), config_regex=getattr(app_state, "config_regex", config_regex), config_table=getattr(app_state, "config_table", config_table), config_obj_list_limit=getattr(app_state, "config_obj_list_limit", config_obj_list_limit), config_buffer_limit=getattr(app_state, "config_buffer_limit", config_buffer_limit))
+    from contextlib import suppress
+    with suppress(Exception): await getattr(app_state, "func_middleware_api_log_create", func_middleware_api_log_create)(config_is_enable_log_api=getattr(app_state, "config_is_enable_log_api", config_is_enable_log_api), api_id=getattr(app_state, "config_api", {}).get(request.url.path, {}).get("id"), request=request, response=response, time_ms=int((time.perf_counter() - start) * 1000), user_id=request.state.user.get("id") if getattr(request.state, "user", None) else None, description=error, func_postgres_create=getattr(app_state, "func_postgres_create", func_postgres_create), client_postgres_pool=getattr(app_state, "client_postgres_pool", None), client_password_hasher=getattr(app_state, "client_password_hasher", None), func_postgres_serialize=getattr(app_state, "func_postgres_serialize", func_postgres_serialize), func_regex_check=getattr(app_state, "func_regex_check", func_regex_check), cache_postgres_schema=getattr(app_state, "cache_postgres_schema", {}), cache_postgres_buffer_create=getattr(app_state, "cache_postgres_buffer_create", {}), config_regex=getattr(app_state, "config_regex", config_regex), config_table=getattr(app_state, "config_table", config_table), config_obj_list_limit=getattr(app_state, "config_obj_list_limit", config_obj_list_limit), config_buffer_limit=getattr(app_state, "config_buffer_limit", config_buffer_limit))
     return response
 
 #cors
