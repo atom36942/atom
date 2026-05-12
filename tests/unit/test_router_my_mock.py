@@ -220,7 +220,6 @@ def my_client(my_test_client):
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "cache_postgres_column_list": test_client.app.state.cache_postgres_column_list,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
-        "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
         "func_postgres_delete": test_client.app.state.func_postgres_delete,
         "func_postgres_read": test_client.app.state.func_postgres_read,
         "func_postgres_create": test_client.app.state.func_postgres_create,
@@ -228,8 +227,6 @@ def my_client(my_test_client):
         "func_otp_verify": test_client.app.state.func_otp_verify,
     }
 
-    async def noop_api_log_create(**_kwargs):
-        return None
 
     test_client.app.state.client_postgres_pool = InMemoryMyPool()
     test_client.app.state.client_mongodb = FakeMongo()
@@ -237,7 +234,6 @@ def my_client(my_test_client):
     test_client.app.state.config_sql = {"profile_metadata": {"test_count": "profile-test-count"}}
     test_client.app.state.cache_postgres_table_list = ["test", "users", "message", "parent", "child"]
     test_client.app.state.cache_postgres_column_list = ["id", "created_by_id", "parent_id"]
-    test_client.app.state.func_middleware_api_log_create = noop_api_log_create
     try:
         yield test_client
     finally:

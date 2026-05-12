@@ -30,8 +30,11 @@ config_rabbitmq_url = None
 config_celery_url = None
 config_redis_queue_url = None
 
-#defult
+#default
 config_index_html_path = "core/api.html"
+config_router_path = "core/router"
+config_config_path = "core/config.py"
+config_function_path = "core/function.py"
 config_root_user_password = "123456"
 config_token_secret_key = "atom-development-token-secret-key-32b"
 config_email_sender_default = "atom@atom.com"
@@ -59,7 +62,7 @@ config_cors_expose_headers = ["Content-Disposition", "x-cache"]
 config_is_enable_cors_credentials = 1
 config_is_enable_signup = 1
 config_is_enable_log_api = 1
-config_is_enable_traceback = 1
+config_is_enable_traceback = 0
 config_is_enable_reset_tmp = 0
 config_is_enable_index_html = 0
 config_is_enable_otp_users_update_admin = 0
@@ -75,7 +78,13 @@ config_table_create_enable_public = ["test", "support"]
 config_table_read_enable_public = ["test", "post"]
 config_column_disable_non_admin = ["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
 config_column_enable_single_update = ["username", "password", "email", "mobile"]
-config_api_roles_auth = ["/my/", "/private/", "/admin/"]
+config_api_namespace = ["/auth/", "/my/", "/public/", "/private/", "/admin/"]
+config_api_namespace_auth = ["/my/", "/private/", "/admin/"]
+config_api_namespace_user = ["/my/"]
+config_mode_user = ["token", "realtime", "redis", "inmemory"]
+config_mode_api = ["redis", "inmemory"]
+
+#dict
 config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_is_active": "select id,is_active from users order by id asc limit 1000",

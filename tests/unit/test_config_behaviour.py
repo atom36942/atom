@@ -8,9 +8,8 @@ from fastapi import Request, responses
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core import config
-from core.app import app
+from core.app import app, middleware
 from core.function import (
-    func_middleware_api_response,
     func_middleware_check_is_active,
     func_middleware_check_ratelimiter,
     func_middleware_check_role,
@@ -18,6 +17,14 @@ from core.function import (
     func_postgres_update,
     func_regex_check,
 )
+
+
+@pytest.fixture(autouse=True)
+def restore_app_state():
+    old_state = app.state._state.copy()
+    yield
+    app.state._state = old_state
+
 
 
 class FakeAcquire:
@@ -91,8 +98,11 @@ class FakeRedis:
     def pipeline(self):
         return FakeRedisPipeline(self)
 
+    async def aclose(self):
+        pass
 
-def make_request(path, *, query_string=b"", method="GET", body=b""):
+
+def make_request(path, *, query_string=b"", method="GET", body=b"", app=None):
     async def receive():
         return {"type": "http.request", "body": body}
 
@@ -106,6 +116,7 @@ def make_request(path, *, query_string=b"", method="GET", body=b""):
         "client": ("testclient", 50000),
         "server": ("testserver", 80),
         "scheme": "http",
+        "app": app,
     }
     return Request(scope, receive=receive)
 
@@ -149,21 +160,20 @@ async def test_config_api_cache_inmemory_sets_and_hits_cached_response():
     cache = {}
     cfg = {"/cached": {"api_cache_sec": ["inmemory", 30]}}
 
-    first = await func_middleware_api_response(
-        request=make_request("/cached", query_string=b"a=1"),
+    app.state.config_api = cfg
+    app.state.client_redis = None
+    app.state.cache_api_response = cache
+    app.state.config_is_enable_log_api = 0
+    app.state.config_api_namespace_user = []
+    app.state.config_api_namespace_auth = []
+
+    first = await middleware(
+        request=make_request("/cached", query_string=b"a=1", app=app),
         api_function=api_function,
-        config_api=cfg,
-        client_redis=None,
-        user_id=0,
-        cache_api_response=cache,
     )
-    second = await func_middleware_api_response(
-        request=make_request("/cached", query_string=b"a=1"),
+    second = await middleware(
+        request=make_request("/cached", query_string=b"a=1", app=app),
         api_function=api_function,
-        config_api=cfg,
-        client_redis=None,
-        user_id=0,
-        cache_api_response=cache,
     )
 
     assert first.status_code == 200
@@ -183,21 +193,20 @@ async def test_config_api_cache_redis_sets_and_hits_cached_response():
 
     cfg = {"/cached": {"api_cache_sec": ["redis", 15]}}
 
-    first = await func_middleware_api_response(
-        request=make_request("/cached"),
+    app.state.config_api = cfg
+    app.state.client_redis = redis
+    app.state.cache_api_response = {}
+    app.state.config_is_enable_log_api = 0
+    app.state.config_api_namespace_user = []
+    app.state.config_api_namespace_auth = []
+
+    first = await middleware(
+        request=make_request("/cached", app=app),
         api_function=api_function,
-        config_api=cfg,
-        client_redis=redis,
-        user_id=0,
-        cache_api_response={},
     )
-    second = await func_middleware_api_response(
-        request=make_request("/cached"),
+    second = await middleware(
+        request=make_request("/cached", app=app),
         api_function=api_function,
-        config_api=cfg,
-        client_redis=redis,
-        user_id=0,
-        cache_api_response={},
     )
 
     assert first.status_code == 200

@@ -170,5 +170,3 @@ async def func_api_my_object_create_mongodb(*, request: Request):
     res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
     output=[str(id) for id in res.inserted_ids]
     return {"status": 1, "message": output}
-    output=[str(id) for id in res.inserted_ids]
-    return {"status": 1, "message": output}

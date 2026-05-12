@@ -132,6 +132,9 @@ class FakeRedis:
         self.transaction = transaction
         return FakeRedisPipeline(self)
 
+    async def aclose(self):
+        pass
+
 
 class FakeS3Admin:
     def __init__(self):
@@ -169,14 +172,11 @@ def admin_client(admin_test_client):
         "config_redis_cache_ttl_sec": test_client.app.state.config_redis_cache_ttl_sec,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
         "config_is_enable_otp_users_update_admin": test_client.app.state.config_is_enable_otp_users_update_admin,
-        "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
         "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_update": test_client.app.state.func_postgres_update,
         "func_otp_verify": test_client.app.state.func_otp_verify,
     }
 
-    async def noop_api_log_create(**_kwargs):
-        return None
 
     test_client.app.state.cache_postgres_table_list = ["test", "users"]
     test_client.app.state.cache_users_role = {10: 1}
@@ -187,7 +187,6 @@ def admin_client(admin_test_client):
     test_client.app.state.config_is_enable_log_api = 0
     test_client.app.state.config_is_enable_traceback = 0
     test_client.app.state.config_redis_cache_ttl_sec = 60
-    test_client.app.state.func_middleware_api_log_create = noop_api_log_create
     try:
         yield test_client
     finally:

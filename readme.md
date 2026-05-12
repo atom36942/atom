@@ -1,21 +1,18 @@
 ### About
-Atom is a high-performance, modular backend framework designed for atomic data orchestration and scalable distributed systems.
+Atom is a high-performance, developer-centric ASGI orchestrator designed for atomic data orchestration and scalable distributed systems.
 
-| Major Feature | Description |
+| Feature | Description |
 | :--- | :--- |
-| **🚀 High Performance** | Low-latency backend orchestration for complex distributed systems. |
-| **🧩 Modular Design** | Decoupled architecture with clearly separated core modules. |
-| **🏗️ SOLID Principles** | Stateless functional logic layer following strict architectural standards. |
-| **⚙️ Multi-Queue Engine** | Unified task dispatching via Celery, Kafka, RabbitMQ, or Redis. |
-| **🗄️ Schema Sync** | Automatic PostgreSQL schema synchronization and maintenance on startup. |
-| **⚡ Smart Routing** | Integrated parameter extraction, validation, and multi-backend caching. |
-| **🛡️ Argon2id Security** | Hardened authentication with built-in RBAC and account status checks. |
-| **🚀 Stage & Cast** | High-performance bulk ingestion with support for complex data types. |
-| **🧩 CRUD Orchestrator** | Role-based object management with owner validation and OTP security. |
-| **🛠️ API Sandbox** | Native interactive tester for real-time endpoint exploration and validation. |
-| **🌐 Unified Clients** | Centralized dependency injection for Postgres, Redis, MongoDB, and S3. |
-| **📊 Observability** | Integrated api logging in db with core info, Sentry error tracking. |
-| **☁️ Cloud Native** | Out-of-the-box integrations for AWS S3, Jira, and Email services. |
+| **🚀 ASGI Kernel** | High-density orchestrator for low-latency distributed services. |
+| **🧩 Modular Core** | Decoupled architecture with stateless functional logic layer. |
+| **🔄 Auto Schema** | Automated PostgreSQL schema synchronization and maintenance. |
+| **🌐 Unified IO** | Centralized async clients for Postgres, Redis, Mongo, and S3. |
+| **⚙️ Task Engine** | Unified multi-queue dispatching via Celery, Kafka, and RabbitMQ. |
+| **🛡️ Auth Guard** | Hardened Argon2id security with built-in RBAC and status checks. |
+| **⚡ Smart Cache** | Multi-backend response caching and integrated rate limiting. |
+| **🛠️ API Sandbox** | Native interactive tester for real-time endpoint exploration. |
+| **📊 Monitoring** | Integrated DB-level API logging and Sentry error tracking. |
+| **☁️ Cloud Native** | Out-of-the-box integrations for AWS, Azure, and Google Cloud. |
 
 # Commands
 ```bash
@@ -55,7 +52,7 @@ config_redis_queue_url=redis://localhost:6379
 | What | Description |
 | :--- | :--- |
 | **🔄 Schema Sync** | Automatic DB synchronization via `func_postgres_schema_init` on every startup. |
-| **🧪 API Sandbox** | Interactive tester for real-time endpoint validation at `static/API.html`. |
+| **🧪 API Sandbox** | Interactive tester for real-time endpoint validation at `/`. |
 | **📦 Global State** | Centralized access to Postgres, Redis, and S3 clients via `request.app.state`. |
 | **👤 User Context** | Injected user identity and role data accessible via `request.state.user`. |
 | **🛡️ Auth Guard** | Simple manual security enforcement: `if not request.state.user: raise Exception`. |

@@ -156,7 +156,6 @@ def public_client(public_test_client, monkeypatch):
         "cache_api_response": test_client.app.state.cache_api_response,
         "config_table_read_enable_public": test_client.app.state.config_table_read_enable_public,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
-        "func_middleware_api_log_create": test_client.app.state.func_middleware_api_log_create,
         "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_read": test_client.app.state.func_postgres_read,
         "func_postgres_serialize": test_client.app.state.func_postgres_serialize,
@@ -164,8 +163,6 @@ def public_client(public_test_client, monkeypatch):
         "func_otp_verify": test_client.app.state.func_otp_verify,
     }
 
-    async def noop_api_log_create(**_kwargs):
-        return None
 
     async def passthrough_serialize(**kwargs):
         return kwargs["obj_list"]
@@ -183,7 +180,6 @@ def public_client(public_test_client, monkeypatch):
     test_client.app.state.cache_postgres_column_list = ["id", "type", "tag", "category"]
     test_client.app.state.cache_api_response = {}
     test_client.app.state.config_table_read_enable_public = ["test", "post"]
-    test_client.app.state.func_middleware_api_log_create = noop_api_log_create
     test_client.app.state.func_postgres_serialize = passthrough_serialize
     FakeAsyncClient.response = FakeHttpResponse()
     FakeAsyncClient.post_calls = []

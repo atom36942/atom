@@ -1,4 +1,4 @@
-async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_roles_auth: list) -> dict:
+async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_namespace_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
@@ -8,7 +8,7 @@ async def func_middleware_check_auth(*, headers: dict, url_path: str, config_tok
         user_obj = orjson.loads(decoded_payload["data"])
     else:
         user_obj = {}
-        if url_path.startswith(tuple(config_api_roles_auth)):
+        if url_path.startswith(tuple(config_api_namespace_auth)):
             raise Exception("authorization token missing")
     return user_obj
 
@@ -120,39 +120,40 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, config_api: di
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_middleware_api_response(*, request: any, api_function: callable, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict) -> any:
-    """Orchestrate API request handling, including background task delegation and cache management."""
-    from fastapi import Request, Response, responses
-    from starlette.background import BackgroundTask
+async def func_middleware_api_cache_get(*, path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict, config_api_namespace_user: list) -> any:
+    """Check for cached response in Redis or in-memory. Returns a Response object if hit, else None."""
+    from fastapi import Response
     import gzip, base64, time
-    async def func_background(scope: dict, body_bytes: bytes, api_func: callable):
-        async def receive(): return {"type": "http.request", "body": body_bytes}
-        async def task(): await api_func(Request(scope=scope, receive=receive))
-        resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
-        resp.background = BackgroundTask(task)
-        return resp
-    async def func_cache(mode: str, path: str, params: dict, response: any = None):
-        cfg = config_api.get(path, {}).get("api_cache_sec")
-        if not cfg or cfg[1] <= 0: return None if mode == "get" else response
-        uid = user_id if path.startswith("/my/") else 0
-        key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(params.items()))}:{uid}"
-        if mode == "get":
-            data = await client_redis.get(key) if cfg[0] == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
-            return Response(content=gzip.decompress(base64.b64decode(data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
-        body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
-        comp = base64.b64encode(gzip.compress(body)).decode()
-        if cfg[0] == "redis": await client_redis.setex(key, cfg[1], comp)
-        else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + cfg[1]}
-        return Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
-    path, query_params = request.url.path, dict(request.query_params)
-    if query_params.get("is_background") == "1":
-        return await func_background(scope=request.scope, body_bytes=await request.body(), api_func=api_function)
-    response = await func_cache("get", path, query_params) if config_api.get(path, {}).get("api_cache_sec") else None
-    if not response:
-        response = await api_function(request)
-        if config_api.get(path, {}).get("api_cache_sec"):
-            response = await func_cache("set", path, query_params, response)
-    return response
+    cfg = config_api.get(path, {}).get("api_cache_sec")
+    if not cfg or cfg[1] <= 0: return None
+    uid = user_id if path.startswith(tuple(config_api_namespace_user)) else 0
+    key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
+    data = await client_redis.get(key) if cfg[0] == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
+    return Response(content=gzip.decompress(base64.b64decode(data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
+
+async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> any:
+    """Delegate the request execution to a background task and return a standard acknowledgment."""
+    from fastapi import Request, responses
+    from starlette.background import BackgroundTask
+    async def receive(): return {"type": "http.request", "body": body_bytes}
+    async def task(): await api_function(Request(scope=scope, receive=receive))
+    resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
+    resp.background = BackgroundTask(task)
+    return resp
+
+async def func_middleware_api_cache_set(*, path: str, query_params: dict, response: any, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict, config_api_namespace_user: list) -> any:
+    """Compress and store the response in the configured cache (Redis or in-memory)."""
+    from fastapi import Response
+    import gzip, base64, time
+    cfg = config_api.get(path, {}).get("api_cache_sec")
+    if not cfg or cfg[1] <= 0: return response
+    body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
+    comp = base64.b64encode(gzip.compress(body)).decode()
+    uid = user_id if path.startswith(tuple(config_api_namespace_user)) else 0
+    key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
+    if cfg[0] == "redis": await client_redis.setex(key, cfg[1], comp)
+    else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + cfg[1]}
+    return Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
 
 async def func_middleware_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
@@ -196,25 +197,7 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         import sentry_sdk
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
-
-async def func_middleware_api_log_create(*, config_is_enable_log_api: int, api_id: int, request: any, response: any, time_ms: int, user_id: int, description: str, func_postgres_create: callable, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int) -> any:
-    """Log API request details asynchronously if enabled in config (identifier validated)."""
-    if config_is_enable_log_api == 0 or client_postgres_pool is None: return None
-    log_obj = {
-        "created_by_id": user_id,
-        "type": 1,
-        "ip_address": request.client.host if request.client else None,
-        "api": request.url.path,
-        "api_id": api_id,
-        "method": request.method,
-        "query_param": str(request.query_params),
-        "status_code": response.status_code if hasattr(response, "status_code") else None,
-        "response_time_ms": time_ms,
-        "description": description
-    }
-    await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, config_buffer_limit=config_buffer_limit, mode="buffer", table="log_api", obj_list=[log_obj], is_serialize=0)
-    return None
-
+    
 async def func_request_param_read(*, request: any, mode: str, strict: int, config: list) -> dict:
     """Extract, validate, and type-cast request parameters from query, form, body or headers."""
     params_dict = {}
@@ -306,7 +289,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
     return output_dict
 
 
-def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list, app_state: any) -> dict:
+def func_openapi_spec_generate(*, app_routes: list, config_api_namespace_auth: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
     TYPE_MAP = {
@@ -350,7 +333,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
             m_lower = method.lower()
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
-            if any(path.startswith(x) for x in config_api_roles_auth):
+            if any(path.startswith(x) for x in config_api_namespace_auth):
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
             for p in re.findall(r"\{(\w+)\}", path):
@@ -371,8 +354,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_roles_auth: list,
                     if not isinstance(node, ast.Call): continue
                     func_id = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
                     if func_id != "func_request_param_read": continue
-                    hardened_funcs = ("func_regex_check", "func_postgres_create", "func_postgres_update")
-                    is_regex_enabled = any(isinstance(n, ast.Call) and (getattr(n.func, "id", None) in hardened_funcs or getattr(n.func, "attr", None) in hardened_funcs) for n in ast.walk(tree))
+                    is_regex_enabled = any(isinstance(n, ast.Call) and (getattr(n.func, "id", None) == "func_regex_check" or getattr(n.func, "attr", None) == "func_regex_check") for n in ast.walk(tree))
                     try:
                         p_loc, p_list = None, None
                         for kw in node.keywords:
@@ -1265,3 +1247,51 @@ async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> d
     if not record: raise Exception("user not found")
     return dict(record)
 
+def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_mode_user: list, config_mode_api: list) -> None:
+    """Check that all added routes, configuration variables, functions, and router modules follow the required prefix patterns and naming conventions."""
+    import ast, pathlib
+    #api
+    api_ids = []
+    for path, cfg in config_api.items():
+        if (api_id := cfg.get("id")):
+            if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
+            api_ids.append(api_id)
+        for key in ("user_role_check", "user_is_active_check"):
+            if (mode_cfg := cfg.get(key)) and mode_cfg[0] not in config_mode_user: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} ({key}), allowed: {config_mode_user}")
+        for key in ("api_ratelimiting_times_sec", "api_cache_sec"):
+            if (mode_cfg := cfg.get(key)) and mode_cfg[0] not in config_mode_api: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} ({key}), allowed: {config_mode_api}")
+    #route
+    for route in app_routes:
+        if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
+        path, endpoint_name = route.path, route.endpoint.__name__
+        if path.startswith("/admin"):
+            if path not in config_api: raise Exception(f"admin route '{path}' missing in config_api")
+            if "user_role_check" not in config_api[path]: raise Exception(f"admin route '{path}' missing 'user_role_check' in config_api")
+            if 1 not in config_api[path]["user_role_check"][1]: raise Exception(f"admin route '{path}' must allow role 1")
+        if not (path == "/" or path.startswith(tuple(config_api_namespace)) or path.count("/") == 1): raise Exception(f"invalid route: {path}")
+        if not endpoint_name.startswith("func_api_"): raise Exception(f"invalid endpoint function name: {endpoint_name} in {path}")
+    #config
+    if config_config_path:
+        with open(config_config_path if config_config_path.endswith(".py") else f"{config_config_path}.py", "r") as f: tree = ast.parse(f.read())
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    targets_to_check = [target]
+                    while targets_to_check:
+                        t = targets_to_check.pop()
+                        if isinstance(t, ast.Name) and not t.id.startswith("config_"): raise Exception(f"invalid config variable name: {t.id}")
+                        if isinstance(t, (ast.Tuple, ast.List)): targets_to_check.extend(t.elts)
+            elif isinstance(node, ast.AnnAssign):
+                if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
+    #function
+    if config_function_path:
+        with open(config_function_path if config_function_path.endswith(".py") else f"{config_function_path}.py", "r") as f: tree = ast.parse(f.read())
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
+    #router
+    if config_router_path:
+        router_dir = pathlib.Path(config_router_path)
+        for router_path in router_dir.glob("*.py"):
+            if router_path.name.startswith(("_", ".")): continue
+            with open(router_path, "r") as f: tree = ast.parse(f.read())
+            if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
