@@ -422,25 +422,18 @@ def func_app_router_add(*, app: any, router_dir: any, router_order: dict) -> Non
     return None
 
 def func_config_override_from_env(*, global_dict: dict) -> None:
-    """Override configuration variables starting with 'config_' from environment variables and .env file."""
-    import orjson, os, ast; from dotenv import load_dotenv; from pathlib import Path
-    load_dotenv(dotenv_path=Path.cwd() / ".env")
+    import orjson, os, ast, contextlib; from dotenv import load_dotenv
+    load_dotenv(".env")
     for k, v in list(global_dict.items()):
         if k.startswith("config_") and (ev := os.getenv(k)) is not None:
             if isinstance(v, bool): global_dict[k] = 1 if ev.lower() in ("true", "1", "yes", "on", "ok") else 0
             elif isinstance(v, (list, tuple, dict)):
-                try: global_dict[k] = orjson.loads(ev)
-                except: pass
-            else:
-                try: global_dict[k] = int(ev)
-                except: global_dict[k] = ev
+                with contextlib.suppress(Exception): global_dict[k] = orjson.loads(ev)
+            else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev
             if isinstance(global_dict[k], list): global_dict[k] = tuple(global_dict[k])
-    try:
-        with open("core/config.py") as f:
-            for n in [n for n in ast.parse(f.read()).body if isinstance(n, ast.Assign) and len(n.targets)==1 and isinstance(n.targets[0], ast.Name) and isinstance(n.value, ast.Name)]:
-                t, v = n.targets[0].id, n.value.id
-                if t.startswith("config_") and v.startswith("config_") and os.getenv(t) is None: global_dict[t] = global_dict.get(v)
-    except: pass
+    with contextlib.suppress(Exception):
+        for n in ast.parse(open("core/config.py").read()).body:
+            if isinstance(n, ast.Assign) and len(n.targets)==1 and (t:=getattr(n.targets[0], "id", "")).startswith("config_") and (v:=getattr(n.value, "id", "")).startswith("config_") and os.getenv(t) is None: global_dict[t] = global_dict.get(v)
     return None
 
 async def func_regex_check(*, config_regex: dict, obj_list: list) -> None:
