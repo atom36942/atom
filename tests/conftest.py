@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 import os
+import copy
 from fastapi.testclient import TestClient
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
@@ -8,6 +9,28 @@ from testcontainers.mongodb import MongoDbContainer
 import asyncpg
 import redis.asyncio as redis
 from motor.motor_asyncio import AsyncIOMotorClient
+
+# This fixture ensures app.state has all required attributes even if lifespan doesn't run
+@pytest.fixture(scope="session", autouse=True)
+def setup_app_state_placeholders():
+    from core import app as core_app
+    from core import config
+    app = core_app.app
+    for _k in ["config_postgres_url", "config_redis_url", "config_redis_queue_url", "config_mongodb_url", "config_rabbitmq_url", "config_celery_url", "config_kafka_url", "config_sftp_host", "config_s3_region_name", "config_sns_region_name", "config_ses_region_name", "config_openai_key", "config_gemini_key", "config_posthog_project_key", "config_azure_account_name", "config_sentry_dsn"]:
+        setattr(app.state, _k, None)
+        if hasattr(core_app, _k): setattr(core_app, _k, None)
+    app.state.config_is_enable_background_workers = 0
+    if hasattr(core_app, "config_is_enable_background_workers"): core_app.config_is_enable_background_workers = 0
+    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
+        if not hasattr(app.state, _k): setattr(app.state, _k, [] if "list" in _k else {})
+    for _k in ["client_postgres_pool", "client_redis", "client_redis_producer", "client_mongodb", "client_s3", "client_s3_resource", "client_sns", "client_ses", "client_openai", "client_gemini", "client_posthog", "client_celery_producer", "client_kafka_producer", "client_rabbitmq", "client_rabbitmq_producer", "client_sftp", "client_azure_blob", "pulse_flush_task", "flush_lock"]:
+        if not hasattr(app.state, _k): setattr(app.state, _k, None)
+    app.state._test_default_config = {
+        "config_api": copy.deepcopy(config.config_api),
+        "config_api_namespace": copy.deepcopy(config.config_api_namespace),
+        "config_api_namespace_auth": copy.deepcopy(config.config_api_namespace_auth),
+        "config_api_namespace_user": copy.deepcopy(config.config_api_namespace_user),
+    }
 
 # This fixture starts the databases once for the entire test session
 @pytest.fixture(scope="session")
@@ -94,7 +117,11 @@ async def integration_app(db_containers):
     app.state._default_config = {
         "config_is_enable_signup": 1,
         "config_is_enable_log_api": 0, # Disabled for tests to avoid contention
-        "config_is_enable_traceback": 0 # Disabled to keep console clean for expected failures
+        "config_is_enable_traceback": 0, # Disabled to keep console clean for expected failures
+        "config_api": copy.deepcopy(app.state.config_api),
+        "config_api_namespace": copy.deepcopy(app.state.config_api_namespace),
+        "config_api_namespace_auth": copy.deepcopy(app.state.config_api_namespace_auth),
+        "config_api_namespace_user": copy.deepcopy(app.state.config_api_namespace_user),
     }
     
     # 2. Initialize Real Clients
@@ -179,18 +206,26 @@ def auth_client(integration_app):
     return _get_client
 
 @pytest.fixture(autouse=True)
-async def reset_state(integration_app):
+async def reset_state():
     """Resets the app state and ensures background tasks are settled."""
     from core.app import app
     import asyncio
-    
-    # 1. Reset configuration
-    if hasattr(app.state, "_default_config"):
-        for key, value in app.state._default_config.items():
-            setattr(app.state, key, value)
-    
+
+    def restore_config():
+        # Integration tests install _default_config; unit tests use the core test defaults.
+        defaults = getattr(app.state, "_default_config", None) or getattr(app.state, "_test_default_config", {})
+        for key, value in defaults.items():
+            setattr(app.state, key, copy.deepcopy(value))
+        if hasattr(app.state, "cache_api_response"):
+            app.state.cache_api_response.clear()
+
+    # 1. Reset configuration before tests that mutate app.state directly.
+    restore_config()
+
     yield
-    
+
+    restore_config()
+
     # 2. POST-TEST CLEANUP: Cancel all tasks except the current one
     # This specifically kills pulse_flush and any func_background tasks
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]

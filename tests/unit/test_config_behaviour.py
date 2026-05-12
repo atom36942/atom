@@ -149,6 +149,70 @@ def test_config_api_paths_modes_ids_and_admin_roles_match_app_routes():
             assert 1 in entry["user_role_check"][1]
 
 
+def test_config_namespaces_are_normalized_and_auth_scopes_are_nested():
+    namespaces = config.config_api_namespace
+    auth_namespaces = config.config_api_namespace_auth
+    user_namespaces = config.config_api_namespace_user
+
+    assert len(namespaces) == len(set(namespaces))
+    assert all(item.startswith("/") and item.endswith("/") for item in namespaces)
+    assert all(item in namespaces for item in auth_namespaces)
+    assert all(item in auth_namespaces for item in user_namespaces)
+    assert "/public/" in namespaces
+    assert "/public/" not in auth_namespaces
+    assert "/admin/" in auth_namespaces
+
+
+def test_config_table_lists_reference_known_tables_and_sensitive_columns():
+    table_names = set(config.config_postgres["table"])
+    user_columns = {"id"} | {column["name"] for column in config.config_postgres["table"]["users"]}
+    all_columns = {
+        column["name"]
+        for columns in config.config_postgres["table"].values()
+        for column in columns
+    }
+
+    assert set(config.config_table).issubset(table_names)
+    assert set(config.config_table_create_disable_my).issubset(table_names)
+    assert set(config.config_table_create_enable_public).issubset(table_names)
+    assert set(config.config_table_read_enable_public).issubset(table_names)
+    assert set(config.config_column_disable_non_admin).issubset(all_columns)
+    assert set(config.config_column_enable_single_update).issubset(user_columns)
+    assert set(config.config_token_key).issubset(user_columns)
+
+
+def test_config_defaults_have_sane_bounds_and_required_security_settings():
+    assert config.config_otp_length >= 4
+    assert config.config_expiry_sec_otp > 0
+    assert config.config_query_limit_default > 0
+    assert config.config_buffer_limit > 0
+    assert config.config_obj_list_limit >= config.config_buffer_limit
+    assert config.config_blob_limit_kb > 0
+    assert config.config_blob_upload_limit_count > 0
+    assert config.config_blob_expire_sec > 0
+    assert config.config_postgres_min_connection > 0
+    assert config.config_postgres_max_connection >= config.config_postgres_min_connection
+    assert len(config.config_token_secret_key) >= 32
+    assert config.config_cors_expose_headers == list(dict.fromkeys(config.config_cors_expose_headers))
+    assert "x-cache" in {header.lower() for header in config.config_cors_expose_headers}
+
+
+def test_config_sql_queries_match_required_cache_and_profile_schema():
+    table_columns = {
+        table: {"id"} | {column["name"] for column in columns}
+        for table, columns in config.config_postgres["table"].items()
+    }
+
+    assert {"users_role", "users_is_active", "profile_metadata"} <= set(config.config_sql)
+    assert {"id", "role", "is_active"} <= table_columns["users"]
+    assert {"id", "created_by_id"} <= table_columns["test"]
+    assert isinstance(config.config_sql["profile_metadata"], dict)
+    assert set(config.config_sql["profile_metadata"]) == {"test_count", "test_object"}
+    assert "from users" in config.config_sql["users_role"].lower()
+    assert "from users" in config.config_sql["users_is_active"].lower()
+    assert all("created_by_id=$1" in query for query in config.config_sql["profile_metadata"].values())
+
+
 @pytest.mark.asyncio
 async def test_config_api_cache_inmemory_sets_and_hits_cached_response():
     calls = []
