@@ -47,17 +47,3 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_celery_url=redis://localhost:6379
 config_redis_queue_url=redis://localhost:6379
 ```
-
-###  FAQ
-| What | Description |
-| :--- | :--- |
-| **🔄 Schema Sync** | Automatic DB synchronization via `func_postgres_schema_init` on every startup. |
-| **🧪 API Sandbox** | Interactive tester for real-time endpoint validation at `/`. |
-| **📦 Global State** | Centralized access to Postgres, Redis, and S3 clients via `request.app.state`. |
-| **👤 User Context** | Injected user identity and role data accessible via `request.state.user`. |
-| **🛡️ Auth Guard** | Simple manual security enforcement: `if not request.state.user: raise Exception`. |
-| **🔑 RBAC Control** | Built-in role-based access control (Supports: `realtime`, `token`, `inmemory`, `redis`). |
-| **✅ User Active** | User active enforcement (Supports: `realtime`, `token`, `inmemory`, `redis`). |
-| **⚡ Smart Caching** | High-performance response caching (Supports: `inmemory`, `redis`). |
-| **🚦 Rate Limiting** | Integrated traffic control and throttling (Supports: `inmemory`, `redis`). |
-| **📅 Date Format** | Use **`YYYY-MM-DD`** for dates and **ISO 8601** (`YYYY-MM-DDTHH:MM:SSZ`) for timestamps. |
