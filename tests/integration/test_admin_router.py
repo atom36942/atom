@@ -6,7 +6,7 @@ async def test_admin_postgres_runner_and_security(integration_app, auth_client):
     admin = auth_client(role=1) # Admin role
     
     # 1. Valid Read Operation
-    res = await admin.post("/admin/postgres-runner", json={"mode": "read", "sql": "SELECT 1 as val"})
+    res = await admin.post("/admin/postgres-sql-runner", json={"mode": "read", "sql": "SELECT 1 as val"})
     data = res.json()
     if data["status"] != 1:
         print(f"❌ Admin Runner failed: {data['message']}")
@@ -14,7 +14,7 @@ async def test_admin_postgres_runner_and_security(integration_app, auth_client):
     assert data["message"][0]["val"] == 1
     
     # 2. Security: Block forbidden keywords
-    res = await admin.post("/admin/postgres-runner", json={"mode": "write", "sql": "DROP TABLE users"})
+    res = await admin.post("/admin/postgres-sql-runner", json={"mode": "write", "sql": "DROP TABLE users"})
     assert "forbidden" in res.json()["message"].lower()
     print("\n✅ Admin: Postgres Runner security (DROP blocking) verified.")
 
@@ -40,7 +40,7 @@ async def test_admin_import_export_loop(integration_app, auth_client):
     print("✅ Admin: Postgres Export successful.")
 
     # 3. WIPE the table
-    await admin.post("/admin/postgres-runner", json={"mode": "write", "sql": f"DELETE FROM {table}"})
+    await admin.post("/admin/postgres-sql-runner", json={"mode": "write", "sql": f"DELETE FROM {table}"})
     
     # 4. IMPORT the CSV back
     files = {"file": ("test.csv", csv_content, "text/csv")}

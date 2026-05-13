@@ -5,7 +5,7 @@ import re
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.function import func_postgres_read, func_postgres_serialize
+from core.function import func_postgres_read, func_postgres_serialize, func_postgres_where_build
 
 class FakeAcquire:
     def __init__(self, conn):
@@ -34,6 +34,7 @@ async def test_postgres_read_identifier_quoting_and_basic_logic():
         client_postgres_pool=pool,
         client_password_hasher=None,
         func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
         cache_postgres_schema=schema,
         table="users",
         filter_obj={"id": "=,1"},
@@ -75,6 +76,7 @@ async def test_postgres_read_creator_key_optimization():
         client_postgres_pool=pool,
         client_password_hasher=None,
         func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
         cache_postgres_schema=schema,
         table="posts",
         filter_obj={},
@@ -102,6 +104,7 @@ async def test_postgres_read_action_key_validation_and_security():
         client_postgres_pool=pool,
         client_password_hasher=None,
         func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
         cache_postgres_schema=schema,
         table="posts",
         filter_obj={},
@@ -124,6 +127,7 @@ async def test_postgres_read_action_key_validation_and_security():
             client_postgres_pool=pool,
             client_password_hasher=None,
             func_postgres_serialize=func_postgres_serialize,
+            func_postgres_where_build=func_postgres_where_build,
             cache_postgres_schema=schema,
             table="posts",
             filter_obj={},
@@ -142,6 +146,7 @@ async def test_postgres_read_action_key_validation_and_security():
             client_postgres_pool=pool,
             client_password_hasher=None,
             func_postgres_serialize=func_postgres_serialize,
+            func_postgres_where_build=func_postgres_where_build,
             cache_postgres_schema=schema,
             table="posts",
             filter_obj={},
@@ -169,6 +174,7 @@ async def test_postgres_read_complex_filters():
         client_postgres_pool=pool,
         client_password_hasher=None,
         func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
         cache_postgres_schema=schema,
         table="test",
         filter_obj={"tags": "any,python"},
@@ -182,6 +188,7 @@ async def test_postgres_read_complex_filters():
         client_postgres_pool=pool,
         client_password_hasher=None,
         func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
         cache_postgres_schema=schema,
         table="test",
         filter_obj={"meta": "exists,role"},
@@ -195,6 +202,7 @@ async def test_postgres_read_complex_filters():
         client_postgres_pool=pool,
         client_password_hasher=None,
         func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
         cache_postgres_schema=schema,
         table="test",
         filter_obj={"loc": "point,80|15|0|1000"},

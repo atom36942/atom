@@ -61,7 +61,7 @@ class InMemoryPublicConn:
                 for tag in row.get("tag", []):
                     counts[tag] = counts.get(tag, 0) + 1
             return [
-                {"tag_item": tag, "count": count}
+                {"item_col": tag, "agg_val": count}
                 for tag, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
             ]
         return []
@@ -154,6 +154,7 @@ def public_client(public_test_client, monkeypatch):
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "cache_postgres_column_list": test_client.app.state.cache_postgres_column_list,
         "cache_api_response": test_client.app.state.cache_api_response,
+        "cache_postgres_schema": test_client.app.state.cache_postgres_schema,
         "config_table_read_enable_public": test_client.app.state.config_table_read_enable_public,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
         "func_postgres_create": test_client.app.state.func_postgres_create,
@@ -161,6 +162,7 @@ def public_client(public_test_client, monkeypatch):
         "func_postgres_serialize": test_client.app.state.func_postgres_serialize,
         "func_otp_generate": test_client.app.state.func_otp_generate,
         "func_otp_verify": test_client.app.state.func_otp_verify,
+        "config_query_limit_default": getattr(test_client.app.state, "config_query_limit_default", 100),
     }
 
 
@@ -179,7 +181,9 @@ def public_client(public_test_client, monkeypatch):
     test_client.app.state.cache_postgres_table_list = ["test", "post", "users"]
     test_client.app.state.cache_postgres_column_list = ["id", "type", "tag", "category"]
     test_client.app.state.cache_api_response = {}
-    test_client.app.state.config_table_read_enable_public = ["test", "post"]
+    test_client.app.state.cache_postgres_schema = {"test": {"id": {"datatype": "int"}, "type": {"datatype": "text"}, "tag": {"datatype": "text[]"}, "category": {"datatype": "text"}}}
+    test_client.app.state.config_table_read_enable_public = ["*"]
+    test_client.app.state.config_query_limit_default = 100
     test_client.app.state.func_postgres_serialize = passthrough_serialize
     FakeAsyncClient.response = FakeHttpResponse()
     FakeAsyncClient.post_calls = []
@@ -256,7 +260,7 @@ def test_public_object_create_rejects_disallowed_table_at_api(public_client):
     response = public_client.post("/public/object-create?table=users", json={"email": "a@example.com"})
 
     assert response.status_code == 400
-    assert response.json()["message"] == "table not allowed for creation: users"
+    assert "value not allowed" in response.json()["message"]
 
 
 def test_public_object_create_rejects_restricted_field_at_api(public_client):
@@ -283,11 +287,25 @@ def test_public_object_read_allows_configured_table(public_client):
     assert calls["filter_obj"]["type"] == "=,1"
 
 
-def test_public_object_read_rejects_disallowed_table(public_client):
+def test_public_object_read_rejects_disallowed_table_when_wildcard_not_set(public_client):
+    public_client.app.state.config_table_read_enable_public = ["test", "post"]
     response = public_client.get("/public/object-read?table=users")
-
     assert response.status_code == 400
-    assert response.json()["message"] == "table not allowed: users, allowed: ['test', 'post']"
+    assert "value not allowed" in response.json()["message"]
+
+
+def test_public_object_read_allows_all_tables_when_wildcard_set(public_client):
+    public_client.app.state.config_table_read_enable_public = ["*"]
+    calls = {}
+
+    async def fake_read(**kwargs):
+        calls.update(kwargs)
+        return [{"id": 1}]
+
+    public_client.app.state.func_postgres_read = fake_read
+    response = public_client.get("/public/object-read?table=users")
+    assert response.status_code == 200
+    assert calls["table"] == "users"
 
 
 def test_public_otp_verify_email_uses_seeded_otp(public_client):
@@ -471,7 +489,7 @@ def test_public_jira_worklog_export_streams_csv(public_client, monkeypatch):
     assert "Bob" in response.text
 
 
-def test_public_table_tag_read_counts_tags_with_filter(public_client):
+def test_public_table_groupby_counts_with_filter(public_client):
     public_client.app.state.client_postgres_pool.conn.tag_rows.extend(
         [
             {"id": 1, "type": "news", "tag": ["python", "api"]},
@@ -481,18 +499,18 @@ def test_public_table_tag_read_counts_tags_with_filter(public_client):
     )
 
     response = public_client.get(
-        "/public/table-tag-read?table=test&column=tag&filter_column=type&filter_value=news"
+        "/public/table-groupby?table=test&col=tag&type==,news"
     )
 
     assert response.status_code == 200
-    assert response.json()["message"] == [{"tag": "python", "count": 2}, {"tag": "api", "count": 1}]
+    assert response.json()["message"] == [{"item": "python", "value": 2}, {"item": "api", "value": 1}]
 
 
-def test_public_table_tag_read_rejects_invalid_identifier(public_client):
+def test_public_table_groupby_rejects_invalid_identifier(public_client):
     original_tables = public_client.app.state.cache_postgres_table_list
     public_client.app.state.cache_postgres_table_list = ["bad-table"]
     try:
-        response = public_client.get("/public/table-tag-read?table=bad-table&column=tag")
+        response = public_client.get("/public/table-groupby?table=bad-table&col=tag")
     finally:
         public_client.app.state.cache_postgres_table_list = original_tables
 

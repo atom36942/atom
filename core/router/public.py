@@ -39,8 +39,7 @@ async def func_api_public_converter_number(*, request: Request):
 @router.post("/public/object-create")
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0)])
-    if oq["table"] not in app_state.config_table_create_enable_public: raise Exception(f"table not allowed for creation: {oq['table']}")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.config_table_create_enable_public if app_state.config_table_create_enable_public and app_state.config_table_create_enable_public != ["*"] else app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0)])
     ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_disable_non_admin), None): raise Exception(f"unauthorized creation of restricted field: {restricted_key}")
@@ -50,9 +49,8 @@ async def func_api_public_object_create(*, request: Request):
 @router.get("/public/object-read")
 async def func_api_public_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
-    if app_state.config_table_read_enable_public and oq["table"] not in app_state.config_table_read_enable_public: raise Exception(f"table not allowed: {oq['table']}, allowed: {app_state.config_table_read_enable_public}")
-    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], creator_key=oq["creator_key"], action_key=oq["action_key"])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.config_table_read_enable_public if app_state.config_table_read_enable_public and app_state.config_table_read_enable_public != ["*"] else app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
+    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], creator_key=oq["creator_key"], action_key=oq["action_key"])
     return {"status": 1, "message": ol}
 
 @router.get("/public/otp-verify-email")
@@ -144,14 +142,19 @@ async def func_api_public_jira_worklog_export(*, request: Request):
         os.remove(output_path)
     return responses.StreamingResponse(iterfile(), media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{os.path.basename(output_path)}"' })
 
-@router.get("/public/table-tag-read")
-async def func_api_public_table_tag_read(*, request: Request):
+@router.get("/public/table-groupby")
+async def func_api_public_table_groupby(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("column", "str", 1, app_state.cache_postgres_column_list, None), ("filter_column", "str", 0, app_state.cache_postgres_column_list, None), ("filter_value", "str", 0, None, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
-    table, column, filter_column, filter_value = oq["table"], oq["column"], oq["filter_column"], (await app_state.func_postgres_serialize(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=[{oq["filter_column"]: oq["filter_value"]}], is_base=0))[0][oq["filter_column"]] if oq["filter_column"] and oq["filter_value"] else None
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(column)) or (filter_column and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_column))): raise Exception("invalid identifier")
-    where_clause = f"WHERE x.{filter_column}=$1" if filter_column and filter_value is not None else ""; sql_args = [filter_value] if filter_column and filter_value is not None else []
-    sql = f"SELECT tag_item, count(*) FROM {table} x CROSS JOIN LATERAL unnest(x.{column}) tag_item {where_clause} GROUP BY tag_item ORDER BY count(*) DESC LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']}"
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.config_table_read_enable_public if app_state.config_table_read_enable_public and app_state.config_table_read_enable_public != ["*"] else app_state.cache_postgres_table_list, None), ("col", "str", 1, app_state.cache_postgres_column_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("agg_func", "str", 0, ["count", "sum", "avg", "min", "max"], "count"), ("agg_col", "str", 0, ["*"] + list(app_state.cache_postgres_column_list), "*"), ("order", "str", 0, ["count desc", "count asc", "item asc", "item desc"], "count desc")])
+    table, col, limit, page, agg, a_col, order = oq["table"], oq["col"], oq["limit"], oq["page"], oq["agg_func"], oq["agg_col"], oq["order"]
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(col)) or (a_col != "*" and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(a_col))): raise Exception("invalid identifier")
+    filters = {k: v for k, v in request.query_params.items() if k not in ("table", "col", "limit", "page", "agg_func", "agg_col", "order")}
+    values = []; where_clause, bind_idx = await app_state.func_postgres_where_build(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=table, filter_obj=filters, bind_idx=1, values=values, prefix="x.")
+    is_array = "[]" in (dt := app_state.cache_postgres_schema.get(table, {}).get(col, {}).get("datatype", "text").lower()) or "array" in dt
+    agg_sql = f'{agg}(*)' if agg == "count" and a_col == "*" else f'{agg}("{a_col}")'
+    order_sql = (("agg_val" if agg != "count" else "count(*)") if "count" in order else "item_col") + (" DESC" if "desc" in order else " ASC")
+    q_col = f'"{col}"'; sql = f'SELECT {"item_col" if is_array else "x."+q_col+" AS item_col"}, {agg_sql} AS agg_val FROM "{table}" x {f"CROSS JOIN LATERAL unnest(x."+q_col+") item_col" if is_array else ""} {where_clause} GROUP BY item_col ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
+    values.extend([limit, (page - 1) * limit])
     async with app_state.client_postgres_pool.acquire() as conn:
-        rows = await conn.fetch(sql, *sql_args)
-        return {"status": 1, "message": [{"tag": row["tag_item"], "count": row["count"]} for row in rows]}
+        rows = await conn.fetch(sql, *values)
+        return {"status": 1, "message": [{"item": row["item_col"], "value": row["agg_val"]} for row in rows]}

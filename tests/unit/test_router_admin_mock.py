@@ -311,7 +311,7 @@ def test_admin_object_update_verifies_otp_for_user_email_when_enabled(admin_clie
 
 def test_admin_postgres_runner_rejects_forbidden_keywords(admin_client):
     response = admin_client.post(
-        "/admin/postgres-runner",
+        "/admin/postgres-sql-runner",
         headers=bearer_token(admin_client.app.state),
         json={"mode": "read", "sql": "DELETE FROM test"},
     )
@@ -324,7 +324,7 @@ def test_admin_postgres_runner_read_returns_rows(admin_client):
     admin_client.app.state.client_postgres_pool.conn.fetch_rows = [{"id": 1, "title": "one"}]
 
     response = admin_client.post(
-        "/admin/postgres-runner",
+        "/admin/postgres-sql-runner",
         headers=bearer_token(admin_client.app.state),
         json={"mode": "read", "sql": "select id, title from test"},
     )

@@ -304,6 +304,23 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_namespace_auth: l
         if hasattr(ast, "NameConstant") and isinstance(n, ast.NameConstant): return n.value
         if isinstance(n, (ast.List, ast.Tuple)): return [eval_node(e) for e in n.elts]
         if isinstance(n, ast.Attribute) and hasattr(n.value, "id") and n.value.id == "app_state" and app_state: return getattr(app_state, n.attr, None)
+        if isinstance(n, ast.IfExp): return eval_node(n.body) if eval_node(n.test) else eval_node(n.orelse)
+        if isinstance(n, ast.Compare):
+            left = eval_node(n.left)
+            for op, r_node in zip(n.ops, n.comparators):
+                right = eval_node(r_node)
+                if isinstance(op, ast.NotEq) and not (left != right): return False
+                if isinstance(op, ast.Eq) and not (left == right): return False
+            return True
+        if isinstance(n, ast.BoolOp):
+            vals = [eval_node(v) for v in n.values]
+            return all(vals) if isinstance(n.op, ast.And) else any(vals)
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Add):
+            l, r = eval_node(n.left), eval_node(n.right)
+            if l is not None and r is not None: return l + r
+        if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "list" and len(n.args) > 0:
+            v = eval_node(n.args[0])
+            if v is not None: return list(v)
         return None
     def ast_to_schema(n):
         if isinstance(n, ast.Dict):
@@ -848,6 +865,68 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
         output_list.append(new_item)
     return output_list
 
+async def func_postgres_where_build(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter_obj: dict, bind_idx: int, values: list, prefix: str = "") -> tuple:
+    """Build a SQL WHERE clause and populate values from a filter dictionary with support for complex operators."""
+    import re, orjson
+    async def serialize_filter(col, val, is_base_type=0):
+        if str(val).lower() == "null": return None
+        serialized = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=[{col: val}], is_base=is_base_type)
+        return serialized[0][col]
+    conditions, v_ops, s_ops = [], {"=":"=","==":"=","!=":"!=","<>":"<>",">":">","<":"<",">=":">=","<=":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}, {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
+    table_schema = cache_postgres_schema.get(table, {})
+    for filter_key, expression in filter_obj.items():
+        if filter_key not in table_schema: raise Exception(f"invalid filter column: {filter_key} for table: {table}")
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_key)): raise Exception(f"invalid identifier {filter_key}")
+        if str(expression).lower().startswith("point,"):
+            _, coords = expression.split(",", 1)
+            lon, lat, min_meter, max_meter = [float(x) for x in coords.split("|")]
+            conditions.append(f'ST_Distance({prefix}"{filter_key}", ST_Point(${bind_idx}, ${bind_idx+1})::geography) BETWEEN ${bind_idx+2} AND ${bind_idx+3}')
+            values.extend([lon, lat, min_meter, max_meter]); bind_idx += 4; continue
+        if "," not in str(expression): continue
+        datatype = cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower()
+        is_json, is_array = "json" in datatype, "[]" in datatype or "array" in datatype
+        operator, raw_val = [x.strip() for x in expression.split(",", 1)]
+        operator = operator.lower()
+        allowed_ops = list(v_ops.keys())
+        if any(x in datatype for x in ("text", "char", "varchar")): allowed_ops += list(s_ops.keys())
+        if is_array: allowed_ops += ["contains", "overlap", "any"]
+        if is_json: allowed_ops += ["contains", "exists"]
+        if operator not in allowed_ops: raise Exception(f"invalid operator: {operator} for {filter_key}")
+        serialized_val = None
+        if operator == "contains":
+            if is_json:
+                if "|" in raw_val and not (raw_val.startswith("{") or raw_val.startswith("[")):
+                    parts = raw_val.split("|"); k, vr, t = parts[0], parts[1], parts[2].lower() if len(parts) > 2 else "str"
+                    v = int(vr) if t == "int" else (vr.lower() == "true" if t == "bool" else float(vr) if t == "float" else vr)
+                    serialized_val = orjson.dumps({k: v}).decode('utf-8')
+                else:
+                    try: serialized_val = orjson.dumps(orjson.loads(raw_val)).decode('utf-8')
+                    except: serialized_val = raw_val
+            elif is_array:
+                parts = raw_val.split("|"); elem_type = datatype.replace("[]", "").replace("array", "").replace("int4", "int").replace("_", "").strip()
+                fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": elem_type}}}
+                serialized_val = [(await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: x.strip()}], is_base=1))[0][filter_key] for x in parts]
+            else: serialized_val = await serialize_filter(filter_key, raw_val)
+        elif operator == "overlap":
+            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": datatype.replace("[]", "").replace("array", "").strip()}}}
+            serialized_val = [(await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: x.strip()}], is_base=1))[0][filter_key] for x in raw_val.split("|")]
+        elif operator in ("in", "not in", "between"): serialized_val = [await serialize_filter(filter_key, x.strip(), 1 if is_array else 0) for x in raw_val.split("|")]
+        elif operator == "any":
+            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": datatype.replace("[]", "").replace("array", "").strip()}}}
+            serialized_val = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: raw_val}], is_base=1))[0][filter_key]
+        else: serialized_val = await serialize_filter(filter_key, raw_val, 1 if is_json and operator == "exists" else 0)
+        if serialized_val is None:
+            if operator in ("is", "is not", "is distinct from", "is not distinct from"): conditions.append(f'{prefix}"{filter_key}" {v_ops[operator]} NULL')
+        elif operator == "contains": values.append(serialized_val); conditions.append(f'{prefix}"{filter_key}" @> ${bind_idx}{"::jsonb" if is_json else ""}'); bind_idx += 1
+        elif operator == "exists": values.append(serialized_val); conditions.append(f'{prefix}"{filter_key}" ? ${bind_idx}'); bind_idx += 1
+        elif operator == "overlap": values.append(serialized_val); conditions.append(f'{prefix}"{filter_key}" && ${bind_idx}'); bind_idx += 1
+        elif operator == "any": values.append(serialized_val); conditions.append(f'${bind_idx} = ANY({prefix}"{filter_key}")'); bind_idx += 1
+        elif operator in ("in", "not in"):
+            placeholders = [f"${bind_idx + i}" for i in range(len(serialized_val))]; values.extend(serialized_val); conditions.append(f'{prefix}"{filter_key}" {v_ops[operator]} ({",".join(placeholders)})'); bind_idx += len(serialized_val)
+        elif operator == "between": values.extend(serialized_val); conditions.append(f'{prefix}"{filter_key}" BETWEEN ${bind_idx} AND ${bind_idx+1}'); bind_idx += 2
+        else: conditions.append(f'{prefix}"{filter_key}" {(v_ops.get(operator) or s_ops.get(operator))} ${bind_idx}'); values.append(serialized_val); bind_idx += 1
+    return ("WHERE " + " AND ".join(conditions)) if conditions else "", bind_idx
+
 async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int, mode: str, table: str, obj_list: list, is_serialize: int) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
@@ -916,7 +995,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             ids = all_ids
         return [r["id"] for r in ids] if ids and "id" in ids[0] else "created"
     
-async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter_obj: dict, limit: int, page: int, order: str, column: str, creator_key: any, action_key: any) -> list:
+async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, cache_postgres_schema: dict, table: str, filter_obj: dict, limit: int, page: int, order: str, column: str, creator_key: any, action_key: any) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re, orjson
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -938,116 +1017,8 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             cols.append(c_strip)
         column_list = ",".join([f'"{c}"' for c in cols])
     filters = {k: v for k, v in filter_obj.items() if k not in ("table", "order", "limit", "page", "column", "creator_key", "action_key")}
-    async def serialize_filter(col, val, is_base_type=None):
-        is_base_type = is_base_type if is_base_type is not None else 0
-        if str(val).lower() == "null":
-            return None
-        serialized = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=[{col: val}], is_base=is_base_type)
-        return serialized[0][col]
-    conditions = []
     values = []
-    bind_idx = 1
-    v_ops = {"=":"=","==":"=","!=":"!=","<>":"<>",">":">","<":"<",">=":">=","<=":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
-    s_ops = {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
-    for filter_key, expression in filters.items():
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_key)): raise Exception(f"invalid identifier {filter_key}")
-        if expression.lower().startswith("point,"):
-            _, coords = expression.split(",", 1)
-            lon, lat, min_meter, max_meter = [float(x) for x in coords.split("|")]
-            conditions.append(f'ST_Distance("{filter_key}", ST_Point(${bind_idx}, ${bind_idx+1})::geography) BETWEEN ${bind_idx+2} AND ${bind_idx+3}')
-            values.extend([lon, lat, min_meter, max_meter])
-            bind_idx += 4
-            continue
-        datatype = cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower()
-        is_json = "json" in datatype
-        is_array = "[]" in datatype or "array" in datatype
-        if "," not in expression: raise Exception(f"invalid format for {filter_key}: {expression}")
-        operator, raw_val = expression.split(",", 1)
-        operator = operator.strip().lower()
-        allowed_ops = list(v_ops.keys())
-        if any(x in datatype for x in ("text", "char", "varchar")):
-            allowed_ops += list(s_ops.keys())
-        if is_array:
-            allowed_ops += ["contains", "overlap", "any"]
-        if is_json:
-            allowed_ops += ["contains", "exists"]
-        if operator not in allowed_ops: raise Exception(f"""invalid operator: {operator} for {filter_key}, allowed: {", ".join(allowed_ops)}""")
-        serialized_val = None
-        if operator == "contains":
-            if is_json:
-                if "|" in raw_val and not (raw_val.startswith("{") or raw_val.startswith("[")):
-                    parts = raw_val.split("|")
-                    k = parts[0]
-                    vr = parts[1]
-                    t = parts[2].lower() if len(parts) > 2 else "str"
-                    v = int(vr) if t == "int" else (vr.lower() == "true" if t == "bool" else float(vr) if t == "float" else vr)
-                    serialized_val = orjson.dumps({k: v}).decode('utf-8')
-                else:
-                    try:
-                        serialized_val = orjson.dumps(orjson.loads(raw_val)).decode('utf-8')
-                    except Exception:
-                        serialized_val = raw_val
-            elif is_array:
-                parts = raw_val.split("|")
-                dtype = cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower()
-                elem_type = dtype.replace("[]", "").replace("array", "").replace("int4", "int").replace("_", "").strip()
-                fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": elem_type}}}
-                async def serialize_element(v):
-                    res = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: v}], is_base=1))[0][filter_key]
-                    return res
-                serialized_val = [(await serialize_element(x.strip())) for x in parts]
-            else:
-                serialized_val = await serialize_filter(filter_key, raw_val)
-        elif operator == "overlap":
-            parts = raw_val.split("|")
-            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower().replace("[]", "").replace("array", "").strip()}}}
-            async def serialize_element(v):
-                res = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: v}], is_base=1))[0][filter_key]
-                return res
-            serialized_val = [(await serialize_element(x.strip())) for x in parts]
-        elif operator in ("in", "not in", "between"):
-            serialized_val = [await serialize_filter(filter_key, x.strip(), 1 if is_array else 0) for x in raw_val.split("|")]
-        elif operator == "any":
-            fake_schema = {table: {**cache_postgres_schema.get(table, {}), filter_key: {"datatype": cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower().replace("[]", "").replace("array", "").strip()}}}
-            serialized_val = (await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=fake_schema, table=table, obj_list=[{filter_key: raw_val}], is_base=1))[0][filter_key]
-        else:
-            serialized_val = await serialize_filter(filter_key, raw_val, 1 if is_json and operator == "exists" else 0)
-        if serialized_val is None:
-            if operator not in ("is", "is not", "is distinct from", "is not distinct from"):
-                raise Exception(f"null requires is/distinct for {filter_key}")
-            conditions.append(f'"{filter_key}" {v_ops[operator]} NULL')
-        elif operator == "contains":
-            values.append(serialized_val)
-            conditions.append(f'"{filter_key}" @> ${bind_idx}{"::jsonb" if is_json else ""}')
-            bind_idx += 1
-        elif operator == "exists":
-            values.append(serialized_val)
-            conditions.append(f'"{filter_key}" ? ${bind_idx}')
-            bind_idx += 1
-        elif operator == "overlap":
-            values.append(serialized_val)
-            conditions.append(f'"{filter_key}" && ${bind_idx}')
-            bind_idx += 1
-        elif operator == "any":
-            values.append(serialized_val)
-            conditions.append(f'${bind_idx} = ANY("{filter_key}")')
-            bind_idx += 1
-        elif operator in ("in", "not in"):
-            place_holders = [f"${bind_idx + i}" for i in range(len(serialized_val))]
-            values.extend(serialized_val)
-            conditions.append(f'"{filter_key}" {v_ops[operator]} ({",".join(place_holders)})')
-            bind_idx += len(serialized_val)
-        elif operator == "between":
-            values.extend(serialized_val)
-            conditions.append(f'"{filter_key}" BETWEEN ${bind_idx} AND ${bind_idx+1}')
-            bind_idx += 2
-        else:
-            conditions.append(f'"{filter_key}" {(v_ops.get(operator) or s_ops.get(operator))} ${bind_idx}')
-            values.append(serialized_val)
-            bind_idx += 1
-    where_statement = ""
-    if conditions:
-        where_statement = "WHERE " + " AND ".join(conditions)
+    where_statement, bind_idx = await func_postgres_where_build(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter_obj=filters, bind_idx=1, values=values, prefix="")
     sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
     values.extend([limit, (page - 1) * limit])
     async with client_postgres_pool.acquire() as conn:

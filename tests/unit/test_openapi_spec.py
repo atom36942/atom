@@ -74,3 +74,46 @@ def item_create(request):
     assert "name" in content["schema"]["properties"]
     assert content["schema"]["properties"]["name"]["type"] == "string"
     assert "name" in content["schema"]["required"]
+
+def test_func_openapi_spec_generate_with_ternary():
+    route = MagicMock()
+    route.path = "/public/test-ternary"
+    route.methods = ["GET"]
+    
+    def ternary_read(request):
+        params = func_request_param_read(
+            request=request, 
+            mode="query", 
+            config=[("table", "str", 1, app_state.config_table_read_enable_public if app_state.config_table_read_enable_public and app_state.config_table_read_enable_public != ["*"] else app_state.cache_postgres_table_list, None)]
+        )
+        return {"ok": 1}
+    
+    route.endpoint = ternary_read
+    app_routes = [route]
+    
+    app_state = MagicMock()
+    app_state.config_table_read_enable_public = ["*"]
+    app_state.cache_postgres_table_list = ["table_a", "table_b"]
+    app_state.config_regex = {}
+    
+    source_code = """
+def ternary_read(request):
+    params = func_request_param_read(
+        request=request, 
+        mode="query", 
+        config=[("table", "str", 1, app_state.config_table_read_enable_public if app_state.config_table_read_enable_public and app_state.config_table_read_enable_public != ["*"] else app_state.cache_postgres_table_list, None)]
+    )
+    return {"ok": 1}
+"""
+    with patch("inspect.getsource", return_value=source_code):
+        spec = func_openapi_spec_generate(
+            app_routes=app_routes,
+            config_api_namespace_auth=[],
+            app_state=app_state
+        )
+    
+    params = spec["paths"]["/public/test-ternary"]["get"]["parameters"]
+    table_param = next(p for p in params if p["name"] == "table")
+    # Should resolve to cache_postgres_table_list because config is ["*"]
+    assert table_param["schema"]["enum"] == ["table_a", "table_b"]
+

@@ -434,7 +434,7 @@ def test_my_object_create_rejects_disabled_table_at_api(my_client, auth_headers)
     )
 
     assert response.status_code == 400
-    assert response.json()["message"] == "table not allowed for creation: users"
+    assert "value not allowed" in response.json()["message"]
 
 
 def test_my_object_create_rejects_restricted_field_at_api(my_client, auth_headers):

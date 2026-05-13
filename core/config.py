@@ -75,7 +75,7 @@ config_kafka_batch_timeout_ms = 1000
 config_consumer_concurrency = 10
 config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp"]
 config_table_create_enable_public = ["test", "support"]
-config_table_read_enable_public = ["test", "post"]
+config_table_read_enable_public = ["*"]
 config_column_disable_non_admin = ["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
 config_column_enable_single_update = ["username", "password", "email", "mobile"]
 config_api_namespace = ["/auth/", "/my/", "/public/", "/private/", "/admin/"]
@@ -117,7 +117,7 @@ config_api = {
 "/admin/object-update": {"id": 3, "user_role_check": ["token", [1]]},
 "/admin/object-read": {"id": 4, "user_role_check": ["token", [1]]},
 "/admin/ids-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_is_active_check": ["realtime", 1]},
-"/admin/postgres-runner": {"id": 6, "user_role_check": ["realtime", [1]]},
+"/admin/postgres-sql-runner": {"id": 6, "user_role_check": ["realtime", [1]]},
 "/admin/postgres-export": {"id": 7, "user_role_check": ["inmemory", [1]]},
 "/admin/postgres-import": {"id": 8, "user_role_check": ["realtime", [1]]},
 "/admin/postgres-clean": {"id": 20, "user_role_check": ["realtime", [1]]},
@@ -128,7 +128,7 @@ config_api = {
 "/admin/blob-url-delete": {"id": 13, "user_role_check": ["token", [1]]},
 "/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 30]},
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
-"/public/table-tag-read": {"id": 18, "api_cache_sec": ["inmemory", 10]},
+"/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 }
 config_postgres = {

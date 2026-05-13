@@ -18,25 +18,52 @@ async def test_public_converter_roundtrip(integration_app):
     print(f"\n✅ Public: Number {num} ➔ {encoded} ➔ {decoded} roundtrip successful.")
 
 @pytest.mark.asyncio
-async def test_public_tag_aggregation(integration_app):
-    # Tests the Postgres 'unnest' tagging logic
+async def test_public_table_groupby(integration_app):
+    # Tests the generic groupby logic with new dynamic operations
     pool = integration_app.app.state.client_postgres_pool
     
-    # 0. Clean up
+    # 0. Clean up and Seed data
     await pool.execute("DELETE FROM test")
-    
-    # 1. Seed data
-    await pool.execute("INSERT INTO test (title, tag) VALUES ('Tag Test', ARRAY['alpha', 'beta'])")
+    await pool.execute("INSERT INTO test (type, title, tag, rating, price) VALUES (1, 'Obj 1', ARRAY['a'], 4.0, 10.0)")
+    await pool.execute("INSERT INTO test (type, title, tag, rating, price) VALUES (1, 'Obj 2', ARRAY['a', 'b'], 5.0, 20.0)")
+    await pool.execute("INSERT INTO test (type, title, tag, rating, price) VALUES (2, 'Obj 3', ARRAY['b'], 3.0, 30.0)")
         
-    # 2. Call the tag aggregation API
-    res = await integration_app.get("/public/table-tag-read?table=test&column=tag")
+    # 1. Test Default (count, array unnest, count desc)
+    res = await integration_app.get("/public/table-groupby?table=test&col=tag")
     assert res.status_code == 200
-    tags = res.json()["message"]
+    items = res.json()["message"]
+    # 'a' appears twice, 'b' appears twice
+    assert any(t["item"] == "a" and t["value"] == 2 for t in items)
+    assert any(t["item"] == "b" and t["value"] == 2 for t in items)
     
-    # Verify our tags are in the aggregation
-    assert any(t["tag"] == "alpha" for t in tags)
-    assert any(t["tag"] == "beta" for t in tags)
-    print("✅ Public: Tag aggregation (unnest) verified.")
+    # 2. Test Sum operation (sum(price) grouped by type, item asc)
+    res = await integration_app.get("/public/table-groupby?table=test&col=type&agg_func=sum&agg_col=price&order=item asc")
+    assert res.status_code == 200
+    items = res.json()["message"]
+    # type 1: 10 + 20 = 30
+    # type 2: 30
+    assert items[0]["item"] == 1 and float(items[0]["value"]) == 30.0
+    assert items[1]["item"] == 2 and float(items[1]["value"]) == 30.0
+    
+    # 3. Test Avg operation (avg(rating) grouped by type, count asc)
+    res = await integration_app.get("/public/table-groupby?table=test&col=type&agg_func=avg&agg_col=rating&order=count asc")
+    assert res.status_code == 200
+    items = res.json()["message"]
+    # type 1: (4+5)/2 = 4.5
+    # type 2: 3.0
+    # ordered by count asc: type 2 (1 row) then type 1 (2 rows)
+    assert items[0]["item"] == 2 and float(items[0]["value"]) == 3.0
+    assert items[1]["item"] == 1 and float(items[1]["value"]) == 4.5
+    
+    # 4. Test filtering logic (only where price > 15)
+    res = await integration_app.get("/public/table-groupby?table=test&col=type&price=>,15")
+    assert res.status_code == 200
+    items = res.json()["message"]
+    # price > 15: Obj 2 (type 1), Obj 3 (type 2)
+    assert len(items) == 2
+    assert all(t["value"] == 1 for t in items)
+    
+    print("✅ Public: Table GroupBy (dynamic ops, ordering, filtering) verified.")
 
 @pytest.mark.asyncio
 async def test_public_read_whitelist_security(integration_app):
