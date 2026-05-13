@@ -99,6 +99,12 @@ async def integration_app(db_containers):
             {"name": "created_by_id", "datatype": "bigint"},
             {"name": "created_at", "datatype": "timestamptz", "default": "now()"}
         ]
+    # Add 'test_action' table if missing (needed for relation tests)
+    if "test_action" not in config_pg_test["table"]:
+        config_pg_test["table"]["test_action"] = [
+            {"name": "test_id", "datatype": "bigint", "is_mandatory": 1, "index": "btree(test_id)"},
+            {"name": "title", "datatype": "text", "is_mandatory": 1},
+        ]
     app.state.config_postgres = config_pg_test
     
     # Enable Caching and Rate Limiting for Integration Tests

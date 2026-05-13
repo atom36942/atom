@@ -260,7 +260,7 @@ def test_public_object_create_rejects_disallowed_table_at_api(public_client):
     response = public_client.post("/public/object-create?table=users", json={"email": "a@example.com"})
 
     assert response.status_code == 400
-    assert "value not allowed" in response.json()["message"]
+    assert "creation disabled for table: users" in response.json()["message"]
 
 
 def test_public_object_create_rejects_restricted_field_at_api(public_client):
@@ -291,7 +291,7 @@ def test_public_object_read_rejects_disallowed_table_when_wildcard_not_set(publi
     public_client.app.state.config_table_read_enable_public = ["test", "post"]
     response = public_client.get("/public/object-read?table=users")
     assert response.status_code == 400
-    assert "value not allowed" in response.json()["message"]
+    assert "read disabled for table: users" in response.json()["message"]
 
 
 def test_public_object_read_allows_all_tables_when_wildcard_set(public_client):

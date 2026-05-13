@@ -170,7 +170,7 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         error_msg = (column[0].replace("_", " ") + " invalid reference") if column else "invalid reference"
     elif isinstance(exception, asyncpg.exceptions.NotNullViolationError):
         column = re.findall(r"\"(.*?)\"", exception.message or "")
-        error_msg = (column[-1].replace("_", " ") + " required") if column else "missing required field"
+        error_msg = (column[0].replace("_", " ") + " required") if column else "missing required field"
     elif isinstance(exception, asyncpg.exceptions.InvalidTextRepresentationError):
         error_msg = "invalid database input text format"
     elif isinstance(exception, asyncpg.exceptions.NumericValueOutOfRangeError):
@@ -226,12 +226,20 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
     def smart_dict(v):
         if v is None: return {}
         if isinstance(v, dict): return v
-        if isinstance(v, str) and v.strip():
-            try:
-                return orjson.loads(v)
-            except Exception:
-                pass
+        if isinstance(v, str):
+            v = v.strip()
+            if not v: return {}
+            if v.startswith("{"): return orjson.loads(v)
         return {}
+    def smart_list(v):
+        if v is None: return []
+        if isinstance(v, list): return v
+        if isinstance(v, str):
+            v = v.strip()
+            if not v: return []
+            if v.startswith("["): return orjson.loads(v)
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return [v]
     TYPE_MAP = {
         "int": int, "bigint": int, "smallint": int, "integer": int, "int4": int, "int8": int,
         "float": float, "number": float, "numeric": float,
@@ -239,7 +247,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
         "bool": lambda v: 1 if str(v).strip().lower() in ("1", "true", "yes", "on", "ok") else 0, 
         "dict": smart_dict, "object": smart_dict,
         "file": lambda v: [x for x in (v if isinstance(v, list) else [v] if v is not None else []) if hasattr(x, "file")],
-        "list": lambda v: [] if v is None else v if isinstance(v, list) else [] if (isinstance(v, str) and not v.strip()) else [x.strip() for x in v.split(",") if x.strip()] if isinstance(v, str) else [v]
+        "list": smart_list
     }
     output_dict = params_dict.copy() if not strict else {}
     for param in config:
@@ -311,7 +319,23 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_namespace_auth: l
                 right = eval_node(r_node)
                 if isinstance(op, ast.NotEq) and not (left != right): return False
                 if isinstance(op, ast.Eq) and not (left == right): return False
+                if isinstance(op, ast.In) and not (left in right): return False
+                if isinstance(op, ast.NotIn) and not (left not in right): return False
             return True
+        if isinstance(n, ast.ListComp) and len(n.generators) == 1:
+            gen = n.generators[0]
+            items = eval_node(gen.iter)
+            if items is None or not isinstance(items, list): return None
+            if not gen.ifs: return items
+            if len(gen.ifs) == 1 and isinstance(gen.ifs[0], ast.Compare):
+                comp = gen.ifs[0]
+                if isinstance(comp.left, ast.Name) and comp.left.id == gen.target.id:
+                    if len(comp.ops) == 1 and len(comp.comparators) == 1:
+                        other = eval_node(comp.comparators[0])
+                        if other is not None and isinstance(other, (list, tuple, set)):
+                            if isinstance(comp.ops[0], ast.NotIn): return [it for it in items if it not in other]
+                            if isinstance(comp.ops[0], ast.In): return [it for it in items if it in other]
+            return items
         if isinstance(n, ast.BoolOp):
             vals = [eval_node(v) for v in n.values]
             return all(vals) if isinstance(n.op, ast.And) else any(vals)
@@ -450,40 +474,29 @@ async def func_regex_check(*, config_regex: dict, obj_list: list) -> None:
     return None
 
 async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
-    """Read full PostgreSQL schema from public namespace, mapping internal data types to a standard dictionary format."""
+    """Read full PostgreSQL schema (including tables, views, and materialized views) from public namespace."""
     sql = """
-        SELECT table_name, column_name, data_type, udt_name, is_nullable, column_default
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-        ORDER BY table_name, ordinal_position;
+        SELECT 
+            c.relname AS table_name,
+            a.attname AS column_name,
+            format_type(a.atttypid, a.atttypmod) AS data_type,
+            CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
+            pg_get_expr(d.adbin, d.adrelid) AS column_default
+        FROM pg_class c
+        JOIN pg_attribute a ON c.oid = a.attrelid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
+        WHERE n.nspname = 'public' 
+          AND c.relkind IN ('r', 'v', 'm')
+          AND a.attnum > 0 
+          AND NOT a.attisdropped
+        ORDER BY c.relname, a.attnum;
     """
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(sql)
-    array_type_map = {
-        "_int2": "smallint[]",
-        "_int4": "integer[]",
-        "_int8": "bigint[]",
-        "_float4": "real[]",
-        "_float8": "double precision[]",
-        "_numeric": "numeric[]",
-        "_bool": "boolean[]",
-        "_text": "text[]",
-        "_varchar": "character varying[]",
-        "_bpchar": "character[]",
-        "_date": "date[]",
-        "_timestamp": "timestamp without time zone[]",
-        "_timestamptz": "timestamp with time zone[]",
-    }
-    def normalize_datatype(r):
-        datatype = str(r["data_type"]).lower()
-        if datatype == "array":
-            return array_type_map.get(r["udt_name"], f"{str(r['udt_name']).lstrip('_')}[]")
-        if datatype == "user-defined":
-            return r["udt_name"]
-        return r["data_type"]
     schema = {}
     for r in records:
-        schema.setdefault(r["table_name"], {})[r["column_name"]] = {"datatype": normalize_datatype(r), "is_nullable": r["is_nullable"], "default": r["column_default"]}
+        schema.setdefault(r["table_name"], {})[r["column_name"]] = {"datatype": r["data_type"], "is_nullable": r["is_nullable"], "default": r["column_default"]}
     return schema
 
 async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str) -> dict:
@@ -942,6 +955,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
     if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
+    if table == "spatial_ref_sys": raise Exception("system table protected")
     if table == "users":
         await func_regex_check(config_regex=config_regex, obj_list=obj_list)
         is_serialize = 1
@@ -995,9 +1009,55 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             ids = all_ids
         return [r["id"] for r in ids] if ids and "id" in ids[0] else "created"
     
-async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, cache_postgres_schema: dict, table: str, filter_obj: dict, limit: int, page: int, order: str, column: str, creator_key: any, action_key: any) -> list:
+async def func_postgres_relation(*, client_postgres_pool: any, obj_list: list, relation: list, config_relation_fetch_limit_max: int) -> list:
+    """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
+    if not relation or not obj_list: return obj_list
+    import re
+    from collections import defaultdict
+    relations = relation if isinstance(relation, (list, tuple)) else [relation]
+    for rel_str in relations:
+        if not rel_str: continue
+        parts = [p.strip() for p in rel_str.split(",", 4)]
+        if len(parts) < 5: raise Exception("relation must have 5 parts: source_col,target_table,target_col,op,val")
+        source_col, target_table, target_col, op, val = parts
+        op_parts = op.split("|")
+        op_main = op_parts[0].lower()
+        for p in (source_col, target_table, target_col, op_main):
+             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", p): raise Exception(f"invalid identifier in relation: {p}")
+        if val != "*" and not all(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", v.strip()) for v in val.split(",")): raise Exception(f"invalid value in relation: {val}")
+        source_ids = {r.get(source_col) for r in obj_list if r.get(source_col) is not None}
+        if not source_ids: continue
+        if op_main in ("count", "sum", "avg", "min", "max"):
+            val_sql = "*" if val == "*" else f'"{val}"'
+            sql = f'SELECT "{target_col}" AS id, {op_main}({val_sql}) AS value FROM "{target_table}" WHERE "{target_col}" = ANY($1) GROUP BY "{target_col}";'
+            rows = await client_postgres_pool.fetch(sql, list(source_ids))
+            mapping = {str(r["id"]): r["value"] for r in rows}
+            for obj in obj_list:
+                sid = str(obj.get(source_col))
+                obj[f"{target_table}_{op_main}"] = mapping.get(sid, 0 if op_main == "count" else None)
+        elif op_main == "fetch":
+            if len(op_parts) < 2 or not op_parts[1].isdigit(): raise Exception("explicit limit required in relation fetch (e.g. fetch|10)")
+            custom_limit = int(op_parts[1])
+            if custom_limit > config_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_relation_fetch_limit_max}")
+            cols_sql = "*" if val == "*" else ",".join([f'"{v.strip()}"' for v in val.split(",")])
+            if val != "*" and "id" not in val.split(",") and target_col != "id": cols_sql += f',"{target_col}"'
+            sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'
+            rows = await client_postgres_pool.fetch(sql, list(source_ids), custom_limit)
+            mapping = defaultdict(list)
+            for r in rows:
+                d = dict(r)
+                d.pop("rn", None); rid = str(d.pop("relation_id", None))
+                mapping[rid].append(d)
+            for obj in obj_list:
+                sid = str(obj.get(source_col))
+                if target_col == "id": obj[target_table] = mapping[sid][0] if mapping[sid] else None
+                else: obj[target_table] = mapping[sid]
+        else: raise Exception(f"invalid operator: {op}")
+    return obj_list
+
+async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_relation_fetch_limit_max: int, table: str, filter_obj: dict, limit: int, page: int, order: str, column: str, relation: any) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
-    import re, orjson
+    import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     order_list = []
     for part in order.split(","):
@@ -1016,7 +1076,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
             cols.append(c_strip)
         column_list = ",".join([f'"{c}"' for c in cols])
-    filters = {k: v for k, v in filter_obj.items() if k not in ("table", "order", "limit", "page", "column", "creator_key", "action_key")}
+    filters = {k: v for k, v in filter_obj.items() if k not in ("table", "order", "limit", "page", "column", "relation")}
     values = []
     where_statement, bind_idx = await func_postgres_where_build(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter_obj=filters, bind_idx=1, values=values, prefix="")
     sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
@@ -1024,37 +1084,8 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
-        if creator_key and result_list:
-            keys_to_fetch = [k.strip() for k in (creator_key.split(",") if isinstance(creator_key, str) else creator_key)]
-            user_ids = {str(r["created_by_id"]) for r in result_list if r.get("created_by_id")}
-            user_map = {}
-            if user_ids:
-                safe_keys = [k for k in keys_to_fetch if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", k)]
-                if "id" not in safe_keys: safe_keys.append("id")
-                cols = ",".join([f'"{k}"' for k in safe_keys])
-                user_rows = await client_postgres_pool.fetch(f"SELECT {cols} FROM users WHERE id = ANY($1);", list(map(int, user_ids)))
-                user_map = {str(u["id"]): dict(u) for u in user_rows}
-            for res_row in result_list:
-                uid = str(res_row.get("created_by_id"))
-                for k in keys_to_fetch:
-                    res_row[f"creator_{k}"] = user_map[uid].get(k) if uid in user_map else None
-        if action_key and result_list:
-            action_parts = [p.strip() for p in (action_key.split(",") if isinstance(action_key, str) else action_key)]
-            if len(action_parts) != 4: raise Exception("action_key must have 4 parts: target_tbl,action_col,action_op,action_out_col")
-            target_tbl, action_col, action_op, action_out_col = action_parts
-            for p in action_parts:
-                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", p): raise Exception(f"invalid identifier in action_key: {p}")
-            if action_op.lower() not in ("count", "sum", "avg", "min", "max"): raise Exception(f"invalid action operator: {action_op}")
-            object_ids = {r.get("id") for r in result_list if r.get("id")}
-            action_map = {}
-            if object_ids:
-                sql_action = f'SELECT "{action_col}" AS id, {action_op}("{action_out_col}") AS value FROM "{target_tbl}" WHERE "{action_col}" = ANY($1) GROUP BY "{action_col}";'
-                action_rows = await client_postgres_pool.fetch(sql_action, list(object_ids))
-                action_map = {str(row["id"]): row["value"] for row in action_rows}
-            for res_row in result_list:
-                obj_id = str(res_row.get("id"))
-                default_val = 0 if action_op == "count" else None
-                res_row[f"{target_tbl}_{action_op}"] = action_map.get(obj_id, default_val)
+        if relation and result_list:
+            result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, obj_list=result_list, relation=relation, config_relation_fetch_limit_max=config_relation_fetch_limit_max)
         return result_list
 
 async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, is_serialize: int, created_by_id: int) -> any:
@@ -1065,6 +1096,7 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
     if any(not isinstance(obj, dict) for obj in obj_list): raise Exception("object data invalid")
     if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
+    if table == "spatial_ref_sys": raise Exception("system table protected")
     if table == "users":
         await func_regex_check(config_regex=config_regex, obj_list=obj_list)
         is_serialize = 1
@@ -1118,17 +1150,15 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
         async with client_postgres_pool.acquire() as conn: await _execute_update(conn)
     return returned_ids if returned_ids else "updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, table: str, ids: any, created_by_id: int) -> str:
+async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, table: str, ids: list, created_by_id: int) -> str:
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "users": raise Exception("users table not allowed")
-    if isinstance(ids, str):
-        ids_str = ",".join(str(int(x.strip())) for x in ids.split(",") if x.strip())
-    elif isinstance(ids, (list, tuple)):
+    if ids and isinstance(ids, (list, tuple)):
         ids_str = ",".join(str(int(x)) for x in ids)
     else:
-        ids_str = ""
+        ids_str = "0" # Safe fallback that matches nothing if list is empty or invalid
     sql_delete = f'DELETE FROM "{table}" WHERE "id" IN ({ids_str}) AND ($1::bigint IS NULL OR "created_by_id"=$1);'
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if client_postgres_conn:

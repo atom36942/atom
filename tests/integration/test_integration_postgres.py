@@ -64,19 +64,22 @@ async def test_postgres_integration_lifecycle():
             new_id = created_ids[0]
             
             # 5. Perform a real READ
+            from core.function import func_postgres_where_build, func_postgres_relation
             rows = await func_postgres_read(
                 client_postgres_pool=pool,
                 client_password_hasher=hasher,
                 func_postgres_serialize=func_postgres_serialize, 
+                func_postgres_where_build=func_postgres_where_build,
+                func_postgres_relation=func_postgres_relation,
                 cache_postgres_schema=schema_cache,
+                config_relation_fetch_limit_max=1000,
                 table="test_integration",
                 filter_obj={"id": f"=,{int(new_id)}"},
                 limit=10,
                 page=1,
                 order="id desc",
                 column="*",
-                creator_key=None,
-                action_key=None
+                relation=None
             )
             
             assert len(rows) == 1

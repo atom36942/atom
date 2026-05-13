@@ -42,6 +42,7 @@ config_auth_type = [1]
 config_expiry_sec_otp = 600
 config_otp_length = 6
 config_query_limit_default = 100
+config_relation_fetch_limit_max = 100
 config_buffer_limit = 100
 config_obj_list_limit = 1000
 config_buffer_flush_interval_sec = 60
@@ -73,7 +74,7 @@ config_kafka_is_auto_commit = 1
 config_kafka_batch_limit = 100
 config_kafka_batch_timeout_ms = 1000
 config_consumer_concurrency = 10
-config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp"]
+config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_create_enable_public = ["test", "support"]
 config_table_read_enable_public = ["*"]
 config_column_disable_non_admin = ["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
@@ -237,6 +238,13 @@ config_postgres = {
 {"name":"is_deleted","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_deleted)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"unique":"created_by_id,test_id"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"}
+],
+"comment_test":[
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"is_deleted","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_deleted)"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory":1},
+{"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
+{"name":"description","datatype":"text","is_mandatory":1},
 ],
 "rating_test":[
 {"name":"created_at","datatype":"timestamptz","default":"now()"},

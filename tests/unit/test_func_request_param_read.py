@@ -89,3 +89,20 @@ async def test_func_request_param_read_header_fallback():
     # Mode is query, but should fallback to header if not found in query
     res = await func_request_param_read(request=req, mode="query", strict=1, config=config)
     assert res["x-api-key"] == "secret"
+
+@pytest.mark.asyncio
+async def test_func_request_param_read_explicit_json():
+    # Test JSON list in query param
+    req_list = FakeRequest(query_params={"data": "[10, 20, 30]"})
+    res_list = await func_request_param_read(request=req_list, mode="query", strict=1, config=[("data", "list:int", 1, None, None)])
+    assert res_list["data"] == [10, 20, 30]
+
+    # Test JSON dict in query param
+    req_dict = FakeRequest(query_params={"data": '{"a": 1}'})
+    res_dict = await func_request_param_read(request=req_dict, mode="query", strict=1, config=[("data", "dict", 1, None, None)])
+    assert res_dict["data"] == {"a": 1}
+
+    # Test invalid JSON starts with [ but is broken (should now raise error)
+    req_bad = FakeRequest(query_params={"data": "[1, 2"})
+    with pytest.raises(Exception):
+        await func_request_param_read(request=req_bad, mode="query", strict=1, config=[("data", "list", 1, None, None)])

@@ -373,18 +373,6 @@ def test_my_message_delete_bulk_deletes_received_messages(my_client, auth_header
     assert [row["id"] for row in conn.messages] == [2]
 
 
-def test_my_parent_read_returns_children_for_owned_parent(my_client, auth_headers):
-    conn = my_client.app.state.client_postgres_pool.conn
-    conn.parent_rows.extend([{"id": 1, "created_by_id": 10}, {"id": 2, "created_by_id": 20}])
-    conn.child_rows.extend([{"id": 11, "parent_id": 1}, {"id": 12, "parent_id": 2}])
-
-    response = my_client.get(
-        "/my/parent-read?table=child&parent_table=parent&parent_column=parent_id",
-        headers=auth_headers,
-    )
-
-    assert response.status_code == 200
-    assert response.json()["message"] == [{"id": 11, "parent_id": 1}]
 
 
 def test_my_ids_delete_passes_user_scope_to_delete_helper(my_client, auth_headers):
@@ -396,12 +384,12 @@ def test_my_ids_delete_passes_user_scope_to_delete_helper(my_client, auth_header
 
     my_client.app.state.func_postgres_delete = fake_delete
 
-    response = my_client.post("/my/ids-delete", headers=auth_headers, json={"table": "test", "ids": "1,2"})
+    response = my_client.post("/my/ids-delete", headers=auth_headers, json={"table": "test", "ids": [1, 2]})
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "deleted"}
     assert calls["table"] == "test"
-    assert calls["ids"] == "1,2"
+    assert calls["ids"] == [1, 2]
     assert calls["created_by_id"] == 10
 
 
@@ -434,7 +422,7 @@ def test_my_object_create_rejects_disabled_table_at_api(my_client, auth_headers)
     )
 
     assert response.status_code == 400
-    assert "value not allowed" in response.json()["message"]
+    assert "creation disabled for table: users" in response.json()["message"]
 
 
 def test_my_object_create_rejects_restricted_field_at_api(my_client, auth_headers):

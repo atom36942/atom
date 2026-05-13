@@ -108,27 +108,18 @@ async def func_api_my_message_delete_bulk(*, request: Request):
         elif oq["mode"] == "all": await conn.execute("DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)", user_id)
     return {"status": 1, "message": "messages deleted"}
 
-@router.get("/my/parent-read")
-async def func_api_my_parent_read(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("parent_table", "str", 1, app_state.cache_postgres_table_list, None), ("parent_column", "str", 1, app_state.cache_postgres_column_list, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
-    sql = f"SELECT x.* FROM {oq['table']} x JOIN {oq['parent_table']} p ON x.{oq['parent_column']} = p.id WHERE p.created_by_id = $1 ORDER BY x.{oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(sql, request.state.user["id"])
-    output = [dict(r) for r in records]
-    return {"status": 1, "message": output}
-
 @router.post("/my/ids-delete")
 async def func_api_my_ids_delete(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
     output = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=request.state.user.get("id", 0), client_postgres_conn=None)
     return {"status": 1, "message": output}
 
 @router.post("/my/object-create")
 async def func_api_my_object_create(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, [] if app_state.config_table_create_disable_my == ["*"] else [t for t in app_state.cache_postgres_table_list if t not in app_state.config_table_create_disable_my], None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("queue", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0), ("queue", "str", 0, None, None)])
+    if "*" in app_state.config_table_create_disable_my or oq["table"] in app_state.config_table_create_disable_my: raise Exception(f"creation disabled for table: {oq['table']}")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_disable_non_admin), None): raise Exception(f"unauthorized creation of restricted field: {restricted_key}")
@@ -155,9 +146,9 @@ async def func_api_my_object_update(*, request: Request):
 @router.get("/my/object-read")
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, None)])
     oq["created_by_id"] = f"""=,{request.state.user["id"]}"""
-    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], creator_key=oq["creator_key"], action_key=oq["action_key"])
+    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_relation_fetch_limit_max=app_state.config_relation_fetch_limit_max, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     return {"status": 1, "message": ol}
 
 @router.post("/my/object-create-mongodb")

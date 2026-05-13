@@ -39,7 +39,8 @@ async def func_api_public_converter_number(*, request: Request):
 @router.post("/public/object-create")
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.config_table_create_enable_public if app_state.config_table_create_enable_public and app_state.config_table_create_enable_public != ["*"] else app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("is_serialize", "int", 0, [0, 1], 0)])
+    if "*" not in app_state.config_table_create_enable_public and oq["table"] not in app_state.config_table_create_enable_public: raise Exception(f"creation disabled for table: {oq['table']}")
     ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_disable_non_admin), None): raise Exception(f"unauthorized creation of restricted field: {restricted_key}")
@@ -49,8 +50,9 @@ async def func_api_public_object_create(*, request: Request):
 @router.get("/public/object-read")
 async def func_api_public_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.config_table_read_enable_public if app_state.config_table_read_enable_public and app_state.config_table_read_enable_public != ["*"] else app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("creator_key", "str", 0, None, None), ("action_key", "str", 0, None, None)])
-    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], creator_key=oq["creator_key"], action_key=oq["action_key"])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, None)])
+    if "*" not in app_state.config_table_read_enable_public and oq["table"] not in app_state.config_table_read_enable_public: raise Exception(f"read disabled for table: {oq['table']}")
+    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_relation_fetch_limit_max=app_state.config_relation_fetch_limit_max, table=oq["table"], filter_obj=oq, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     return {"status": 1, "message": ol}
 
 @router.get("/public/otp-verify-email")
@@ -145,7 +147,8 @@ async def func_api_public_jira_worklog_export(*, request: Request):
 @router.get("/public/table-groupby")
 async def func_api_public_table_groupby(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.config_table_read_enable_public if app_state.config_table_read_enable_public and app_state.config_table_read_enable_public != ["*"] else app_state.cache_postgres_table_list, None), ("col", "str", 1, app_state.cache_postgres_column_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("agg_func", "str", 0, ["count", "sum", "avg", "min", "max"], "count"), ("agg_col", "str", 0, ["*"] + list(app_state.cache_postgres_column_list), "*"), ("order", "str", 0, ["count desc", "count asc", "item asc", "item desc"], "count desc")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("col", "str", 1, app_state.cache_postgres_column_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("agg_func", "str", 0, ["count", "sum", "avg", "min", "max"], "count"), ("agg_col", "str", 0, ["*"] + list(app_state.cache_postgres_column_list), "*"), ("order", "str", 0, ["count desc", "count asc", "item asc", "item desc"], "count desc")])
+    if "*" not in app_state.config_table_read_enable_public and oq["table"] not in app_state.config_table_read_enable_public: raise Exception(f"read disabled for table: {oq['table']}")
     table, col, limit, page, agg, a_col, order = oq["table"], oq["col"], oq["limit"], oq["page"], oq["agg_func"], oq["agg_col"], oq["order"]
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(col)) or (a_col != "*" and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(a_col))): raise Exception("invalid identifier")
     filters = {k: v for k, v in request.query_params.items() if k not in ("table", "col", "limit", "page", "agg_func", "agg_col", "order")}

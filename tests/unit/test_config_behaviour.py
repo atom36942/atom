@@ -164,7 +164,7 @@ def test_config_namespaces_are_normalized_and_auth_scopes_are_nested():
 
 
 def test_config_table_lists_reference_known_tables_and_sensitive_columns():
-    table_names = set(config.config_postgres["table"])
+    table_names = set(config.config_postgres["table"]) | {"spatial_ref_sys"}
     user_columns = {"id"} | {column["name"] for column in config.config_postgres["table"]["users"]}
     all_columns = {
         column["name"]

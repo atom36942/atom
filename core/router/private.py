@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 @router.post("/private/blob-upload-file")
 async def func_api_private_blob_upload_file(request:Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("file", "file", 1, [], None), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("file", "file", 1, None, None), ("container", "str", 0, None, app_state.config_blob_container_default)])
     container = of["container"]
     if len(of["file"]) > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} files allowed")
     output = {}

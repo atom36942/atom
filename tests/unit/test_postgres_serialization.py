@@ -200,8 +200,7 @@ async def test_postgres_schema_read_preserves_array_element_datatype():
                 {
                     "table_name": "test",
                     "column_name": "tag_int",
-                    "data_type": "ARRAY",
-                    "udt_name": "_int4",
+                    "data_type": "integer[]",
                     "is_nullable": "YES",
                     "column_default": None,
                 }
@@ -219,8 +218,7 @@ async def test_postgres_schema_read_maps_user_defined_datatype_to_udt_name():
                 {
                     "table_name": "test",
                     "column_name": "location",
-                    "data_type": "USER-DEFINED",
-                    "udt_name": "geography",
+                    "data_type": "geography",
                     "is_nullable": "YES",
                     "column_default": None,
                 }

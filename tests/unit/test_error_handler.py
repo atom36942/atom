@@ -30,7 +30,7 @@ async def test_error_handler_not_null_violation():
     
     msg, resp = await func_middleware_api_response_error(exception=exc, is_traceback=0, sentry_dsn=None)
     
-    assert "users required" in msg # Matches current code behavior (column[-1])
+    assert "username required" in msg # Matches current code behavior (column[0])
     assert resp.status_code == 400
 
 @pytest.mark.asyncio

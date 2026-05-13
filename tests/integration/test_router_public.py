@@ -68,6 +68,8 @@ async def test_public_table_groupby(integration_app):
 @pytest.mark.asyncio
 async def test_public_read_whitelist_security(integration_app):
     # Tests that /public/object-read only allows whitelisted tables
+    # We explicitly set a whitelist for this test to verify the logic
+    integration_app.app.state.config_table_read_enable_public = ["test"]
     
     # Flush the rate limiter to prevent it from firing before the whitelist check
     await integration_app.app.state.client_redis.flushdb()
@@ -75,5 +77,5 @@ async def test_public_read_whitelist_security(integration_app):
     res = await integration_app.get("/public/object-read?table=users&limit=10&page=1&order=id desc")
     
     assert res.json()["status"] == 0
-    assert "not allowed" in res.json()["message"].lower()
-    print("✅ Public: Security whitelist blocked public access to 'users' table.")
+    assert "read disabled for table: users" in res.json()["message"].lower()
+    print("✅ Public: Security whitelist blocked public access to 'users' table (when restricted).")
