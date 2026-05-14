@@ -39,7 +39,7 @@ async def test_postgres_read_identifier_quoting_and_basic_logic():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="users",
-        filter_obj={"id": "=,1"},
+        filter={"id": "=,1"},
         limit=10,
         page=1,
         order="id desc",
@@ -77,7 +77,7 @@ async def test_postgres_read_relation_fetch_one_to_one():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
-        filter_obj={},
+        filter={},
         limit=10,
         page=1,
         order="id",
@@ -105,7 +105,7 @@ async def test_postgres_read_relation_aggregate():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
-        filter_obj={},
+        filter={},
         limit=10,
         page=1,
         order="id",
@@ -160,7 +160,7 @@ async def test_postgres_read_complex_filters():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
-        filter_obj={"tags": "any,python"},
+        filter={"tags": "any,python"},
         limit=10, page=1, order="id", column="*",
         relation=None
     )
@@ -176,7 +176,7 @@ async def test_postgres_read_complex_filters():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
-        filter_obj={"meta": "exists,role"},
+        filter={"meta": "exists,role"},
         limit=10, page=1, order="id", column="*",
         relation=None
     )
@@ -192,8 +192,61 @@ async def test_postgres_read_complex_filters():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
-        filter_obj={"loc": "point,80|15|0|1000"},
+        filter={"loc": "point,80|15|0|1000"},
         limit=10, page=1, order="id", column="*",
         relation=None
     )
     assert 'ST_Distance("loc", ST_Point($1, $2)::geography) BETWEEN $3 AND $4' in pool.queries[-1][0]
+
+@pytest.mark.asyncio
+async def test_postgres_read_json_and_logical_filters():
+    import orjson
+    pool = FakePool(fetch_responses=[[]])
+    schema = {"posts": {"id": {"datatype": "integer"}, "status": {"datatype": "text"}, "category": {"datatype": "text"}}}
+    
+    # Test JSON string 'filter' parameter
+    complex_filter = {
+        "status": "in,active|pending",
+        "_or": [
+            {"category": "=,news"},
+            {"id": ">,100"}
+        ]
+    }
+    
+    await func_postgres_read(
+        client_postgres_pool=pool,
+        client_password_hasher=None,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
+        cache_postgres_schema=schema,
+        config_relation_fetch_limit_max=100,
+        table="posts",
+        filter={"filter": orjson.dumps(complex_filter).decode()},
+        limit=10, page=1, order="id", column="*",
+        relation=None
+    )
+    
+    sql, args = pool.queries[-1]
+    # Check for both conditions and the logical grouping
+    assert '"status" IN ($1,$2)' in sql
+    assert '("category" = $3  OR  "id" > $4)' in sql
+    assert args == ("active", "pending", "news", 100, 10, 0)
+
+    
+    # Test explicit operator requirement (Failure case)
+    with pytest.raises(Exception, match="Expected 'operator,value'"):
+        await func_postgres_read(
+            client_postgres_pool=pool,
+            client_password_hasher=None,
+            func_postgres_serialize=func_postgres_serialize,
+            func_postgres_where_build=func_postgres_where_build,
+            func_postgres_relation=func_postgres_relation,
+            cache_postgres_schema=schema,
+            config_relation_fetch_limit_max=100,
+            table="posts",
+            filter={"status": "active"}, # MISSING COMMA
+            limit=10, page=1, order="id", column="*",
+            relation=None
+        )
+

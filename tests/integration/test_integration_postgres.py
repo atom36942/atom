@@ -74,7 +74,7 @@ async def test_postgres_integration_lifecycle():
                 cache_postgres_schema=schema_cache,
                 config_relation_fetch_limit_max=1000,
                 table="test_integration",
-                filter_obj={"id": f"=,{int(new_id)}"},
+                filter={"id": f"=,{int(new_id)}"},
                 limit=10,
                 page=1,
                 order="id desc",

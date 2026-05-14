@@ -284,7 +284,7 @@ def test_public_object_read_allows_configured_table(public_client):
     assert response.status_code == 200
     assert response.json()["message"] == [{"id": 1, "title": "public"}]
     assert calls["table"] == "test"
-    assert calls["filter_obj"]["type"] == "=,1"
+    assert calls["filter"]["type"] == "=,1"
 
 
 def test_public_object_read_rejects_disallowed_table_when_wildcard_not_set(public_client):

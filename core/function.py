@@ -878,16 +878,26 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
         output_list.append(new_item)
     return output_list
 
-async def func_postgres_where_build(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter_obj: dict, bind_idx: int, values: list, prefix: str = "") -> tuple:
-    """Build a SQL WHERE clause and populate values from a filter dictionary with support for complex operators."""
+async def func_postgres_where_build(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter: dict, bind_idx: int, values: list, prefix: str = "", is_root: bool = True) -> tuple:
+    """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), and explicit operator syntax."""
     import re, orjson
     async def serialize_filter(col, val, is_base_type=0):
         if str(val).lower() == "null": return None
         serialized = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=[{col: val}], is_base=is_base_type)
         return serialized[0][col]
-    conditions, v_ops, s_ops = [], {"=":"=","==":"=","!=":"!=","<>":"<>",">":">","<":"<",">=":">=","<=":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}, {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
+    conditions, v_ops, s_ops = [], {"=":"=","==":"=","eq":"=","!=":"!=","<>":"!=","neq":"!=","!=": "!=", ">":">","gt":">","<":"<","lt":"<",">=":">=","gte":">=","<=":"<=","lte":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}, {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
     table_schema = cache_postgres_schema.get(table, {})
-    for filter_key, expression in filter_obj.items():
+    for filter_key, expression in filter.items():
+        if filter_key in ("_or", "_and"):
+            if not isinstance(expression, list): raise Exception(f"{filter_key} must be a list of objects")
+            inner_conditions = []
+            for sub_filter in expression:
+                sub_where, bind_idx = await func_postgres_where_build(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=sub_filter, bind_idx=bind_idx, values=values, prefix=prefix, is_root=False)
+                if sub_where: inner_conditions.append(sub_where)
+            if inner_conditions:
+                logic_op = " OR " if filter_key == "_or" else " AND "
+                conditions.append(f"({(f' {logic_op} ').join(inner_conditions)})")
+            continue
         if filter_key not in table_schema: raise Exception(f"invalid filter column: {filter_key} for table: {table}")
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_key)): raise Exception(f"invalid identifier {filter_key}")
         if str(expression).lower().startswith("point,"):
@@ -895,8 +905,8 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
             lon, lat, min_meter, max_meter = [float(x) for x in coords.split("|")]
             conditions.append(f'ST_Distance({prefix}"{filter_key}", ST_Point(${bind_idx}, ${bind_idx+1})::geography) BETWEEN ${bind_idx+2} AND ${bind_idx+3}')
             values.extend([lon, lat, min_meter, max_meter]); bind_idx += 4; continue
-        if "," not in str(expression): continue
-        datatype = cache_postgres_schema.get(table, {}).get(filter_key, {}).get("datatype", "text").lower()
+        if "," not in str(expression): raise Exception(f"invalid expression for {filter_key}: {expression}. Expected 'operator,value'")
+        datatype = table_schema.get(filter_key, {}).get("datatype", "text").lower()
         is_json, is_array = "json" in datatype, "[]" in datatype or "array" in datatype
         operator, raw_val = [x.strip() for x in expression.split(",", 1)]
         operator = operator.lower()
@@ -938,7 +948,10 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
             placeholders = [f"${bind_idx + i}" for i in range(len(serialized_val))]; values.extend(serialized_val); conditions.append(f'{prefix}"{filter_key}" {v_ops[operator]} ({",".join(placeholders)})'); bind_idx += len(serialized_val)
         elif operator == "between": values.extend(serialized_val); conditions.append(f'{prefix}"{filter_key}" BETWEEN ${bind_idx} AND ${bind_idx+1}'); bind_idx += 2
         else: conditions.append(f'{prefix}"{filter_key}" {(v_ops.get(operator) or s_ops.get(operator))} ${bind_idx}'); values.append(serialized_val); bind_idx += 1
-    return ("WHERE " + " AND ".join(conditions)) if conditions else "", bind_idx
+    prefix_sql = "WHERE " if is_root else ""
+    return (prefix_sql + " AND ".join(conditions)) if conditions else "", bind_idx
+
+
 
 async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int, mode: str, table: str, obj_list: list, is_serialize: int) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
@@ -1055,7 +1068,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, obj_list: list, r
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_relation_fetch_limit_max: int, table: str, filter_obj: dict, limit: int, page: int, order: str, column: str, relation: any) -> list:
+async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_relation_fetch_limit_max: int, table: str, filter: dict, limit: int, page: int, order: str, column: str, relation: any) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -1076,9 +1089,17 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
             cols.append(c_strip)
         column_list = ",".join([f'"{c}"' for c in cols])
-    filters = {k: v for k, v in filter_obj.items() if k not in ("table", "order", "limit", "page", "column", "relation")}
+    raw_filter = filter.get("filter")
+    if raw_filter and isinstance(raw_filter, str):
+        import orjson
+        try: filters = orjson.loads(raw_filter)
+        except: raise Exception("invalid JSON in filter parameter")
+    else: filters = {k: v for k, v in filter.items() if k not in ("table", "order", "limit", "page", "column", "relation", "filter")}
+    for key in filter:
+        if key in ("created_by_id", "user_id"): filters[key] = filter[key]
     values = []
-    where_statement, bind_idx = await func_postgres_where_build(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter_obj=filters, bind_idx=1, values=values, prefix="")
+    where_statement, bind_idx = await func_postgres_where_build(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, bind_idx=1, values=values, prefix="")
+
     sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
     values.extend([limit, (page - 1) * limit])
     async with client_postgres_pool.acquire() as conn:
