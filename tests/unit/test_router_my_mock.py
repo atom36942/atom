@@ -541,7 +541,7 @@ def test_my_object_read_filters_by_authenticated_user(my_client, auth_headers):
 
     assert response.status_code == 200
     assert response.json()["message"] == [{"id": 1, "created_by_id": 10}]
-    assert calls["filter"]["created_by_id"] == "=,10"
+    assert "created_by_id = 10" in str(calls["filter"])
 
 
 def test_my_object_create_mongodb_uses_mocked_client(my_client, auth_headers):

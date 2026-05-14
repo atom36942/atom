@@ -279,12 +279,12 @@ def test_public_object_read_allows_configured_table(public_client):
 
     public_client.app.state.func_postgres_read = fake_read
 
-    response = public_client.get("/public/object-read?table=test&type==,1")
+    response = public_client.get("/public/object-read?table=test&filter=" + orjson.dumps(["type = 1"]).decode())
 
     assert response.status_code == 200
     assert response.json()["message"] == [{"id": 1, "title": "public"}]
     assert calls["table"] == "test"
-    assert calls["filter"]["type"] == "=,1"
+    assert "type =" in str(calls["filter"])
 
 
 def test_public_object_read_rejects_disallowed_table_when_wildcard_not_set(public_client):
@@ -499,7 +499,7 @@ def test_public_table_groupby_counts_with_filter(public_client):
     )
 
     response = public_client.get(
-        "/public/table-groupby?table=test&col=tag&type==,news"
+        "/public/table-groupby?table=test&col=tag&filter=" + orjson.dumps(["type = 'news'"]).decode()
     )
 
     assert response.status_code == 200

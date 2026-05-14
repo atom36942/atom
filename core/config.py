@@ -127,7 +127,7 @@ config_api = {
 "/admin/blob-container-read": {"id": 10, "user_role_check": ["inmemory", [1]]},
 "/admin/blob-container-ops": {"id": 12, "user_role_check": ["token", [1]]},
 "/admin/blob-url-delete": {"id": 13, "user_role_check": ["token", [1]]},
-"/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 30]},
+"/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 100]},
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
@@ -158,7 +158,13 @@ config_postgres = {
 {"name":"tag_bigint","datatype":"bigint[]","index":"gin(tag_bigint)"},
 {"name":"rating","datatype":"numeric(3,1)","check":"rating >= 0 AND rating <= 5"},
 {"name":"price","datatype":"numeric(10,2)","check":"price > 0"},
-{"name":"remark","datatype":"text"},
+{"name":"Full Name","datatype":"text"},
+{"name":"Price (USD)","datatype":"numeric(10,2)"},
+{"name":"User Category","datatype":"text"},
+{"name":"Last Login","datatype":"timestamptz"},
+{"name":"Is Premium?","datatype":"smallint","in":(0,1)},
+{"name":"Total Score","datatype":"integer"},
+{"name":"identity number","datatype":"text"},
 {"name":"location","datatype":"geography(point)","index":"gist(location)"},
 {"name":"place","datatype":"text"},
 {"name":"dob","datatype":"date"},
@@ -237,7 +243,8 @@ config_postgres = {
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"is_deleted","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_deleted)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"unique":"created_by_id,test_id"},
-{"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"}
+{"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
+{"name":"description","datatype":"text"}
 ],
 "comment_test":[
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -251,7 +258,8 @@ config_postgres = {
 {"name":"is_deleted","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_deleted)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
-{"name":"rating","datatype":"numeric(3,1)","is_mandatory":1}
+{"name":"rating","datatype":"numeric(3,1)","is_mandatory":1},
+{"name":"description","datatype":"text"}
 ],
 "support":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
@@ -288,7 +296,10 @@ config_postgres = {
 {"name":"is_verified","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_verified)"},
 {"name":"is_deleted","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_deleted)"},
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_protected)"},
-{"name":"title","datatype":"text","is_mandatory":1,"index":"btree(title)|gin(title)"},
+{"name":"country","datatype":"text","is_mandatory":1,"index":"btree(country)|gin(country)"},
+{"name":"department","datatype":"text","is_mandatory":1,"index":"btree(department)|gin(department)"},
+{"name":"profile","datatype":"text","is_mandatory":1,"index":"btree(profile)|gin(profile)"},
+{"name":"total","datatype":"bigint","is_mandatory":1},
 {"name":"description","datatype":"text","index":"gin(description)"},
 {"name":"salary","datatype":"text"},
 {"name":"experience","datatype":"text"},

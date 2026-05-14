@@ -1,4 +1,5 @@
 import pytest
+import json
 
 @pytest.mark.asyncio
 async def test_public_converter_roundtrip(integration_app):
@@ -56,7 +57,7 @@ async def test_public_table_groupby(integration_app):
     assert items[1]["item"] == 1 and float(items[1]["value"]) == 4.5
     
     # 4. Test filtering logic (only where price > 15)
-    res = await integration_app.get("/public/table-groupby?table=test&col=type&price=>,15")
+    res = await integration_app.get("/public/table-groupby?table=test&col=type&filter=" + json.dumps(["price > 15"]))
     assert res.status_code == 200
     items = res.json()["message"]
     # price > 15: Obj 2 (type 1), Obj 3 (type 2)

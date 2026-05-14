@@ -1,4 +1,5 @@
 import pytest
+import json
 
 @pytest.mark.asyncio
 async def test_object_read_parameter_matrix(integration_app, auth_client):
@@ -21,8 +22,8 @@ async def test_object_read_parameter_matrix(integration_app, auth_client):
     assert res_seed.json()["status"] == 1
     
     # --- MATRIX TEST 1: Operators (LIKE, IN, >, !=) ---
-    # Test: Like search — use params dict so httpx properly encodes '%' characters
-    res = await admin.get("/my/object-read", params={"table": table, "title": "like,%Item 1%", "limit": 10, "page": 1, "order": "id asc"})
+    # Test: Like search
+    res = await admin.get("/my/object-read", params={"table": table, "filter": json.dumps(["title LIKE '%Item 1%'"]), "limit": 10, "page": 1, "order": "id asc"})
     assert res.json()["status"] == 1, f"LIKE read failed: {res.json()}"
     like_results = res.json()["message"]
     like_titles = [r["title"] for r in like_results]
@@ -33,11 +34,11 @@ async def test_object_read_parameter_matrix(integration_app, auth_client):
     seed_ids = res_seed.json()["message"]
     # Get the 8th ID (0-indexed: seed_ids[7]) and filter for > that value
     eighth_id = seed_ids[7]
-    res = await admin.get("/my/object-read", params={"table": table, "id": f">,{eighth_id}", "limit": 10, "page": 1, "order": "id asc"})
+    res = await admin.get("/my/object-read", params={"table": table, "filter": json.dumps([f"id > {eighth_id}"]), "limit": 10, "page": 1, "order": "id asc"})
     assert len(res.json()["message"]) == 2, f"Expected 2 items with id>{eighth_id}, got {len(res.json()['message'])}"
     
     # Test: In list
-    res = await admin.get(f"/my/object-read", params={"table": table, "status": "in,0", "limit": 10, "page": 1, "order": "id asc"})
+    res = await admin.get(f"/my/object-read", params={"table": table, "filter": json.dumps(["status = 0"]), "limit": 10, "page": 1, "order": "id asc"})
     assert len(res.json()["message"]) == 5 # All odd items (1, 3, 5, 7, 9)
     
     # --- MATRIX TEST 2: Pagination & Sorting ---

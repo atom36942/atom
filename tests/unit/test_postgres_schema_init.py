@@ -53,7 +53,7 @@ async def test_func_postgres_schema_init_basic_table_creation():
     # Verify table was created
     create_table_call = [call for call in conn.execute.call_args_list if "CREATE TABLE IF NOT EXISTS" in call.args[0]]
     assert len(create_table_call) > 0
-    assert 'test_table' in create_table_call[0].args[0]
+    assert '"test_table"' in create_table_call[0].args[0]
 
 @pytest.mark.asyncio
 async def test_func_postgres_schema_init_adds_missing_column():
@@ -90,7 +90,7 @@ async def test_func_postgres_schema_init_adds_missing_column():
     )
     
     # Verify ALTER TABLE was called to add new_col
-    conn.execute.assert_any_call('ALTER TABLE test_table ADD COLUMN new_col text  ')
+    conn.execute.assert_any_call('ALTER TABLE "test_table" ADD COLUMN "new_col" text  ')
 
 @pytest.mark.asyncio
 async def test_func_postgres_schema_init_raises_on_reserved_keyword():

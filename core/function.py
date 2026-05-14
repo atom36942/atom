@@ -237,7 +237,9 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
         if isinstance(v, str):
             v = v.strip()
             if not v: return []
-            if v.startswith("["): return orjson.loads(v)
+            if v.startswith("[") or v.startswith("{"):
+                parsed = orjson.loads(v)
+                return parsed if isinstance(parsed, list) else [parsed]
             return [x.strip() for x in v.split(",") if x.strip()]
         return [v]
     TYPE_MAP = {
@@ -583,9 +585,9 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             else:
                 raise e
         for table_name, column_configs in config_postgres["table"].items():
-            await conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (id BIGSERIAL PRIMARY KEY);")
+            await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" (id BIGSERIAL PRIMARY KEY);')
             if is_autovacuum:
-                await conn.execute(f"ALTER TABLE {table_name} SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);")
+                await conn.execute(f'ALTER TABLE "{table_name}" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);')
             rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
             current_cols = {r[0]: r[1] for r in rows}
             current_notnulls = {r[0]: r[2] for r in rows}
@@ -600,14 +602,14 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 if col_name not in current_cols:
                     old_name = col_cfg.get("old")
                     if old_name and old_name in current_cols:
-                        await conn.execute(f"ALTER TABLE {table_name} RENAME COLUMN {old_name} TO {col_name}")
+                        await conn.execute(f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{col_name}"')
                         current_cols[col_name] = current_cols.pop(old_name)
                         current_notnulls[col_name] = current_notnulls.pop(old_name)
                         table_changed = True
                     else:
                         default_val = f"""DEFAULT {col_cfg["default"]}""" if "default" in col_cfg else ""
                         mandatory_val = "NOT NULL" if col_cfg.get("is_mandatory") == 1 else ""
-                        await conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type} {default_val} {mandatory_val}")
+                        await conn.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} {default_val} {mandatory_val}')
                         current_cols[col_name] = col_type.split("(")[0].lower()
                         current_notnulls[col_name] = (col_cfg.get("is_mandatory") == 1)
                         table_changed = True
@@ -616,29 +618,29 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                     current_type = type_map.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0])
                     target_type = type_map.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0])
                     if current_type != target_type:
-                        await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} TYPE {col_type} USING {col_name}::{col_type}")
+                        await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" TYPE {col_type} USING "{col_name}"::{col_type}')
                         table_changed = True
                     target_notnull = (col_cfg.get("is_mandatory") == 1)
                     if current_notnulls[col_name] != target_notnull:
                         if target_notnull:
-                            await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} SET NOT NULL")
+                            await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" SET NOT NULL')
                         else:
-                            await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP NOT NULL")
+                            await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP NOT NULL')
                         table_changed = True
                     target_default = str(col_cfg.get("default")).strip() if "default" in col_cfg else None
                     current_default = current_defaults.get(col_name)
                     if target_default:
                         if current_default is None or target_default not in current_default:
-                             await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} SET DEFAULT {target_default}")
+                             await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" SET DEFAULT {target_default}')
                              table_changed = True
                     elif current_default is not None:
-                        await conn.execute(f"ALTER TABLE {table_name} ALTER COLUMN {col_name} DROP DEFAULT")
+                        await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP DEFAULT')
                         table_changed = True
             if is_enable_drop_column_mismatch:
                 desired_cols = {"id"} | {col_cfg["name"] for col_cfg in column_configs}
                 for col_name in list(current_cols):
                     if col_name not in desired_cols:
-                        await conn.execute(f"ALTER TABLE {table_name} DROP COLUMN {col_name}")
+                        await conn.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{col_name}"')
                         table_changed = True
             for col_cfg in column_configs:
                 col_name = col_cfg["name"]
@@ -658,27 +660,28 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                                         ops = "gin_trgm_ops"
                                 cols_joined = ", ".join(index_cols)
                                 if ops:
-                                    await conn.execute(f"CREATE INDEX {idx_name} ON {table_name} USING {index_type}({index_cols[0]} {ops});")
+                                    await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}("{index_cols[0]}" {ops});')
                                 else:
-                                    await conn.execute(f"CREATE INDEX {idx_name} ON {table_name} USING {index_type}({cols_joined});")
+                                    cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
+                                    await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
                                 table_changed = True
                 if "in" in col_cfg:
                     chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"
                     catalog["chk"].add(chk_name)
                     if chk_name not in existing_meta:
-                        await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {chk_name} CHECK ({col_name} IN {col_cfg["in"]});""")
+                        await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN {col_cfg["in"]});')
                         table_changed = True
                 if "regex" in col_cfg:
                     regex_name = f"check_{table_name}_{col_name}_regex_{get_hash(col_cfg['regex'])}"
                     catalog["chk"].add(regex_name)
                     if regex_name not in existing_meta:
-                        await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {regex_name} CHECK ({col_name} ~ '{col_cfg["regex"]}');""")
+                        await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{regex_name}" CHECK ("{col_name}" ~ \'{col_cfg["regex"]}\');')
                         table_changed = True
                 if "check" in col_cfg:
                     vld_name = f"check_{table_name}_{col_name}_vld_{get_hash(col_cfg['check'])}"
                     catalog["chk"].add(vld_name)
                     if vld_name not in existing_meta:
-                        await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {vld_name} CHECK ({col_cfg["check"]});""")
+                        await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{vld_name}" CHECK ({col_cfg["check"]});')
                         table_changed = True
                 if col_cfg.get("unique"):
                     for group in col_cfg["unique"].split("|"):
@@ -686,10 +689,11 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                         uni_name = f"""unique_{table_name}_{"_".join(unique_cols)}"""
                         catalog["uni"].add(uni_name)
                         if uni_name not in existing_meta:
-                            await conn.execute(f"""ALTER TABLE {table_name} ADD CONSTRAINT {uni_name} UNIQUE ({",".join(unique_cols)});""")
+                            cols_quoted = ",".join([f'"{x}"' for x in unique_cols])
+                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{uni_name}" UNIQUE ({cols_quoted});')
                             table_changed = True
             if table_changed:
-                await conn.execute(f"ANALYZE {table_name};")
+                await conn.execute(f'ANALYZE "{table_name}";')
         db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
         db_tables = {}
         for row in db_schema_rows:
@@ -878,13 +882,42 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
         output_list.append(new_item)
     return output_list
 
-async def func_postgres_where_build(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter: dict, bind_idx: int, values: list, prefix: str = "", is_root: bool = True) -> tuple:
-    """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), and explicit operator syntax."""
+async def func_postgres_where_build(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter: list, bind_idx: int, values: list, prefix: str = "", is_root: bool = True) -> tuple:
+    """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), flat SQL strings, and explicit operator syntax."""
     import re, orjson
     async def serialize_filter(col, val, is_base_type=0):
         if str(val).lower() == "null": return None
         serialized = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=[{col: val}], is_base=is_base_type)
         return serialized[0][col]
+    if not filter: return "", bind_idx
+    if isinstance(filter, list) and is_root:
+        converted_filters = {}
+        for item in filter:
+            if isinstance(item, dict):
+                converted_filters.update(item)
+                continue
+            if not isinstance(item, str): continue
+            or_parts = re.split(r"\s+OR\s+", item, flags=re.IGNORECASE)
+            if len(or_parts) > 1:
+                sub_or = []
+                for part in or_parts:
+                    match = re.match(r'^((?:"[^"]+")|[a-zA-Z_][a-zA-Z0-9_]*)\s+(=|==|!=|<>|>|<|>=|<=|eq|neq|gt|lt|gte|lte|is|is\s+not|in|not\s+in|between|is\s+distinct\s+from|is\s+not\s+distinct\s+from|like|ilike|~|~\*|contains|exists|overlap|any|point)\s+(.*)$', part.strip(), re.IGNORECASE)
+                    if not match: continue
+                    col, op, val = match.groups()
+                    col = col.strip('"') # Strip quotes for internal dict storage
+                    val = val.strip().strip("'").strip('"').strip("(").strip(")")
+                    val = val.replace(" AND ", "|").replace(",", "|") if op.lower() in ("between", "in", "not in", "overlap", "contains") else val
+                    sub_or.append({col: f"{op.lower()},{val}"})
+                if sub_or: converted_filters.setdefault("_and", []).append({"_or": sub_or})
+            else:
+                match = re.match(r'^((?:"[^"]+")|[a-zA-Z_][a-zA-Z0-9_]*)\s+(=|==|!=|<>|>|<|>=|<=|eq|neq|gt|lt|gte|lte|is|is\s+not|in|not\s+in|between|is\s+distinct\s+from|is\s+not\s+distinct\s+from|like|ilike|~|~\*|contains|exists|overlap|any|point)\s+(.*)$', item.strip(), re.IGNORECASE)
+                if match:
+                    col, op, val = match.groups()
+                    col = col.strip('"') # Strip quotes for internal dict storage
+                    val = val.strip().strip("'").strip('"').strip("(").strip(")")
+                    val = val.replace(" AND ", "|").replace(",", "|") if op.lower() in ("between", "in", "not in", "overlap", "contains") else val
+                    converted_filters[col] = f"{op.lower()},{val}"
+        filter = converted_filters
     conditions, v_ops, s_ops = [], {"=":"=","==":"=","eq":"=","!=":"!=","<>":"!=","neq":"!=","!=": "!=", ">":">","gt":">","<":"<","lt":"<",">=":">=","gte":">=","<=":"<=","lte":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}, {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
     table_schema = cache_postgres_schema.get(table, {})
     for filter_key, expression in filter.items():
@@ -899,9 +932,11 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
                 conditions.append(f"({(f' {logic_op} ').join(inner_conditions)})")
             continue
         if filter_key not in table_schema: raise Exception(f"invalid filter column: {filter_key} for table: {table}")
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(filter_key)): raise Exception(f"invalid identifier {filter_key}")
-        if str(expression).lower().startswith("point,"):
-            _, coords = expression.split(",", 1)
+        if not re.match(r"^[a-zA-Z0-9_\s]+$", str(filter_key)): raise Exception(f"invalid identifier {filter_key}")
+        clean_expr = str(expression)
+        if clean_expr.lower().startswith("=,"): clean_expr = clean_expr[2:]
+        if clean_expr.lower().startswith("point,"):
+            _, coords = clean_expr.split(",", 1)
             lon, lat, min_meter, max_meter = [float(x) for x in coords.split("|")]
             conditions.append(f'ST_Distance({prefix}"{filter_key}", ST_Point(${bind_idx}, ${bind_idx+1})::geography) BETWEEN ${bind_idx+2} AND ${bind_idx+3}')
             values.extend([lon, lat, min_meter, max_meter]); bind_idx += 4; continue
@@ -951,7 +986,51 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
     prefix_sql = "WHERE " if is_root else ""
     return (prefix_sql + " AND ".join(conditions)) if conditions else "", bind_idx
 
-
+async def func_postgres_relation(*, client_postgres_pool: any, obj_list: list, relation: list, config_relation_fetch_limit_max: int) -> list:
+    """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
+    if not relation or not obj_list: return obj_list
+    import re
+    from collections import defaultdict
+    relations = relation if isinstance(relation, (list, tuple)) else [relation]
+    for rel_str in relations:
+        if not rel_str: continue
+        parts = [p.strip() for p in rel_str.split(",", 4)]
+        if len(parts) < 5: raise Exception("relation must have 5 parts: source_col,target_table,target_col,op,val")
+        source_col, target_table, target_col, op, val = parts
+        op_parts = op.split("|")
+        op_main = op_parts[0].lower()
+        for p in (source_col, target_table, target_col, op_main):
+             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", p): raise Exception(f"invalid identifier in relation: {p}")
+        if val != "*" and not all(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", v.strip()) for v in val.split(",")): raise Exception(f"invalid value in relation: {val}")
+        source_ids = {r.get(source_col) for r in obj_list if r.get(source_col) is not None}
+        if not source_ids: continue
+        if op_main in ("count", "sum", "avg", "min", "max"):
+            val_sql = "*" if val == "*" else f'"{val}"'
+            sql = f'SELECT "{target_col}" AS id, {op_main}({val_sql}) AS value FROM "{target_table}" WHERE "{target_col}" = ANY($1) GROUP BY "{target_col}";'
+            rows = await client_postgres_pool.fetch(sql, list(source_ids))
+            mapping = {str(r["id"]): r["value"] for r in rows}
+            for obj in obj_list:
+                sid = str(obj.get(source_col))
+                obj[f"{target_table}_{op_main}"] = mapping.get(sid, 0 if op_main == "count" else None)
+        elif op_main == "fetch":
+            if len(op_parts) < 2 or not op_parts[1].isdigit(): raise Exception("explicit limit required in relation fetch (e.g. fetch|10)")
+            custom_limit = int(op_parts[1])
+            if custom_limit > config_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_relation_fetch_limit_max}")
+            cols_sql = "*" if val == "*" else ",".join([f'"{v.strip()}"' for v in val.split(",")])
+            if val != "*" and "id" not in val.split(",") and target_col != "id": cols_sql += f',"{target_col}"'
+            sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'
+            rows = await client_postgres_pool.fetch(sql, list(source_ids), custom_limit)
+            mapping = defaultdict(list)
+            for r in rows:
+                d = dict(r)
+                d.pop("rn", None); rid = str(d.pop("relation_id", None))
+                mapping[rid].append(d)
+            for obj in obj_list:
+                sid = str(obj.get(source_col))
+                if target_col == "id": obj[target_table] = mapping[sid][0] if mapping[sid] else None
+                else: obj[target_table] = mapping[sid]
+        else: raise Exception(f"invalid operator: {op}")
+    return obj_list
 
 async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int, mode: str, table: str, obj_list: list, is_serialize: int) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
@@ -1021,54 +1100,8 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
                     await _execute_bulk(conn)
             ids = all_ids
         return [r["id"] for r in ids] if ids and "id" in ids[0] else "created"
-    
-async def func_postgres_relation(*, client_postgres_pool: any, obj_list: list, relation: list, config_relation_fetch_limit_max: int) -> list:
-    """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
-    if not relation or not obj_list: return obj_list
-    import re
-    from collections import defaultdict
-    relations = relation if isinstance(relation, (list, tuple)) else [relation]
-    for rel_str in relations:
-        if not rel_str: continue
-        parts = [p.strip() for p in rel_str.split(",", 4)]
-        if len(parts) < 5: raise Exception("relation must have 5 parts: source_col,target_table,target_col,op,val")
-        source_col, target_table, target_col, op, val = parts
-        op_parts = op.split("|")
-        op_main = op_parts[0].lower()
-        for p in (source_col, target_table, target_col, op_main):
-             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", p): raise Exception(f"invalid identifier in relation: {p}")
-        if val != "*" and not all(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", v.strip()) for v in val.split(",")): raise Exception(f"invalid value in relation: {val}")
-        source_ids = {r.get(source_col) for r in obj_list if r.get(source_col) is not None}
-        if not source_ids: continue
-        if op_main in ("count", "sum", "avg", "min", "max"):
-            val_sql = "*" if val == "*" else f'"{val}"'
-            sql = f'SELECT "{target_col}" AS id, {op_main}({val_sql}) AS value FROM "{target_table}" WHERE "{target_col}" = ANY($1) GROUP BY "{target_col}";'
-            rows = await client_postgres_pool.fetch(sql, list(source_ids))
-            mapping = {str(r["id"]): r["value"] for r in rows}
-            for obj in obj_list:
-                sid = str(obj.get(source_col))
-                obj[f"{target_table}_{op_main}"] = mapping.get(sid, 0 if op_main == "count" else None)
-        elif op_main == "fetch":
-            if len(op_parts) < 2 or not op_parts[1].isdigit(): raise Exception("explicit limit required in relation fetch (e.g. fetch|10)")
-            custom_limit = int(op_parts[1])
-            if custom_limit > config_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_relation_fetch_limit_max}")
-            cols_sql = "*" if val == "*" else ",".join([f'"{v.strip()}"' for v in val.split(",")])
-            if val != "*" and "id" not in val.split(",") and target_col != "id": cols_sql += f',"{target_col}"'
-            sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'
-            rows = await client_postgres_pool.fetch(sql, list(source_ids), custom_limit)
-            mapping = defaultdict(list)
-            for r in rows:
-                d = dict(r)
-                d.pop("rn", None); rid = str(d.pop("relation_id", None))
-                mapping[rid].append(d)
-            for obj in obj_list:
-                sid = str(obj.get(source_col))
-                if target_col == "id": obj[target_table] = mapping[sid][0] if mapping[sid] else None
-                else: obj[target_table] = mapping[sid]
-        else: raise Exception(f"invalid operator: {op}")
-    return obj_list
 
-async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_relation_fetch_limit_max: int, table: str, filter: dict, limit: int, page: int, order: str, column: str, relation: any) -> list:
+async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -1076,7 +1109,8 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
     for part in order.split(","):
         p = part.strip().split()
         if p:
-            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(p[0])): raise Exception(f"invalid identifier {p[0]}")
+            # Allow alphanumeric, underscores, and spaces (for quoted identifiers)
+            if not re.match(r"^[a-zA-Z0-9_\s]+$", str(p[0])): raise Exception(f"invalid identifier {p[0]}")
             col = p[0]
             direction = p[1].upper() if len(p) > 1 and p[1].lower() in ("asc", "desc") else "ASC"
             order_list.append(f'"{col}" {direction}')
@@ -1086,20 +1120,12 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         cols = []
         for c in column.split(","):
             c_strip = c.strip()
-            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
+            if not re.match(r"^[a-zA-Z0-9_\s]+$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
             cols.append(c_strip)
         column_list = ",".join([f'"{c}"' for c in cols])
-    raw_filter = filter.get("filter")
-    if raw_filter and isinstance(raw_filter, str):
-        import orjson
-        try: filters = orjson.loads(raw_filter)
-        except: raise Exception("invalid JSON in filter parameter")
-    else: filters = {k: v for k, v in filter.items() if k not in ("table", "order", "limit", "page", "column", "relation", "filter")}
-    for key in filter:
-        if key in ("created_by_id", "user_id"): filters[key] = filter[key]
+    filters = filter
     values = []
     where_statement, bind_idx = await func_postgres_where_build(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, bind_idx=1, values=values, prefix="")
-
     sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
     values.extend([limit, (page - 1) * limit])
     async with client_postgres_pool.acquire() as conn:
@@ -1269,7 +1295,7 @@ async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> d
     if not record: raise Exception("user not found")
     return dict(record)
 
-def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_mode_user: list, config_mode_api: list) -> None:
+def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_mode_user: list, config_mode_api: list, config_postgres: dict) -> None:
     """Check that all added routes, configuration variables, functions, and router modules follow the required prefix patterns and naming conventions."""
     import ast, pathlib
     #api
@@ -1317,3 +1343,42 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
             if router_path.name.startswith(("_", ".")): continue
             with open(router_path, "r") as f: tree = ast.parse(f.read())
             if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
+    #postgres
+    if config_postgres and "table" in config_postgres:
+        for table_name, columns in config_postgres["table"].items():
+            column_names = {col["name"] for col in columns if "name" in col}
+            btrees, others = [], [] # btrees: (cols_list, is_unique, origin_col), others: (type, cols_list, origin_col)
+            for col in columns:
+                col_name = col.get("name")
+                if (col_unique := col.get("unique")):
+                    for group in (x.strip() for x in col_unique.split("|")):
+                        u_cols = [c.strip() for c in group.split(",")]
+                        for uc in u_cols:
+                            if uc not in column_names: raise Exception(f"unique constraint in {table_name}.{col_name} references non-existent column '{uc}'")
+                        if col_name not in u_cols: raise Exception(f"unique constraint in {table_name}.{col_name} does not include '{col_name}' itself")
+                        btrees.append((u_cols, True, col_name))
+                if (col_index := col.get("index")):
+                    for group in (x.strip() for x in col_index.split("|")):
+                        if "(" in group and group.endswith(")"):
+                            idx_type, cols_str = group[:-1].split("(", 1)
+                            idx_type, idx_cols = idx_type.strip().lower(), [c.strip() for c in cols_str.split(",")]
+                            for ic in idx_cols:
+                                if ic not in column_names: raise Exception(f"index in {table_name}.{col_name} references non-existent column '{ic}'")
+                            if col_name not in idx_cols: raise Exception(f"index in {table_name}.{col_name} does not include '{col_name}' itself")
+                            if idx_type == "btree": btrees.append((idx_cols, False, col_name))
+                            else: others.append((idx_type, idx_cols, col_name))
+                        else: raise Exception(f"invalid index syntax '{group}' in {table_name}.{col_name}")
+            # redundancy: btree/unique
+            for i, (c1, u1, o1) in enumerate(btrees):
+                for j, (c2, u2, o2) in enumerate(btrees):
+                    if i == j: continue
+                    if c1 == c2 and u1 == u2: raise Exception(f"duplicate {'unique' if u1 else 'btree index'} on {table_name}: {c1}")
+                    if not u1 and c2[:len(c1)] == c1: raise Exception(f"redundant btree index on {table_name}.{o1}({','.join(c1)}) covered by {'unique' if u2 else 'btree'} on {o2}({','.join(c2)})")
+                    if u1 and u2 and c1[:len(c2)] == c2: raise Exception(f"redundant unique constraint on {table_name}.{o1}({','.join(c1)}) - {o2}({','.join(c2)}) is already unique")
+            # redundancy: others (gin/gist/etc)
+            for i, (t1, c1, o1) in enumerate(others):
+                for j, (t2, c2, o2) in enumerate(others):
+                    if i == j: continue
+                    if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
+    return None
+

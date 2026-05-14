@@ -39,7 +39,7 @@ async def test_postgres_read_identifier_quoting_and_basic_logic():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="users",
-        filter={"id": "=,1"},
+        filter=[{"id": "=,1"}],
         limit=10,
         page=1,
         order="id desc",
@@ -77,7 +77,7 @@ async def test_postgres_read_relation_fetch_one_to_one():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
-        filter={},
+        filter=[],
         limit=10,
         page=1,
         order="id",
@@ -105,7 +105,7 @@ async def test_postgres_read_relation_aggregate():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
-        filter={},
+        filter=[],
         limit=10,
         page=1,
         order="id",
@@ -160,7 +160,7 @@ async def test_postgres_read_complex_filters():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
-        filter={"tags": "any,python"},
+        filter=[{"tags": "any,python"}],
         limit=10, page=1, order="id", column="*",
         relation=None
     )
@@ -176,7 +176,7 @@ async def test_postgres_read_complex_filters():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
-        filter={"meta": "exists,role"},
+        filter=[{"meta": "exists,role"}],
         limit=10, page=1, order="id", column="*",
         relation=None
     )
@@ -192,7 +192,7 @@ async def test_postgres_read_complex_filters():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
-        filter={"loc": "point,80|15|0|1000"},
+        filter=[{"loc": "point,80|15|0|1000"}],
         limit=10, page=1, order="id", column="*",
         relation=None
     )
@@ -222,7 +222,7 @@ async def test_postgres_read_json_and_logical_filters():
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
-        filter={"filter": orjson.dumps(complex_filter).decode()},
+        filter=[complex_filter],
         limit=10, page=1, order="id", column="*",
         relation=None
     )
@@ -245,8 +245,42 @@ async def test_postgres_read_json_and_logical_filters():
             cache_postgres_schema=schema,
             config_relation_fetch_limit_max=100,
             table="posts",
-            filter={"status": "active"}, # MISSING COMMA
+            filter=[{"status": "active"}], # MISSING COMMA (still fails but now it's a list)
             limit=10, page=1, order="id", column="*",
             relation=None
         )
+
+@pytest.mark.asyncio
+async def test_postgres_read_flat_list_filters():
+    pool = FakePool(fetch_responses=[[]])
+    schema = {"posts": {"id": {"datatype": "integer"}, "status": {"datatype": "text"}, "title": {"datatype": "text"}}}
+    
+    # Test flat list filter
+    flat_filter = [
+        "id > 100",
+        "status = 'active'",
+        "title ILIKE '%apple%' OR title ILIKE '%samsung%'"
+    ]
+    
+    from core.function import func_postgres_read, func_postgres_serialize, func_postgres_where_build, func_postgres_relation
+    await func_postgres_read(
+        client_postgres_pool=pool,
+        client_password_hasher=None,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
+        cache_postgres_schema=schema,
+        config_relation_fetch_limit_max=100,
+        table="posts",
+        filter=flat_filter,
+        limit=10, page=1, order="id", column="*",
+        relation=None
+    )
+    
+    sql, args = pool.queries[-1]
+    assert '"id" > $1' in sql
+    assert '"status" = $2' in sql
+    assert '("title" ILIKE $3  OR  "title" ILIKE $4)' in sql
+    assert args == (100, "active", "%apple%", "%samsung%", 10, 0)
+
 

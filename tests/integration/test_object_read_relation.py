@@ -43,7 +43,7 @@ async def test_object_read_relation_full_flow(integration_app):
     relation_2 = "id,test_action,test_id,fetch|2,id,title"
     res = await integration_app.get(
         "/public/object-read",
-        params={"table": "test", "relation": json.dumps([relation_2]), "id": f"=,{t1_id}"},
+        params={"table": "test", "relation": json.dumps([relation_2]), "filter": json.dumps([f"id = {t1_id}"])},
     )
     assert res.status_code == 200
     item = res.json()["message"][0]

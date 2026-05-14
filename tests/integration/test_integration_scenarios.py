@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+import json
 
 @pytest.mark.asyncio
 async def test_scenario_rate_limiting(integration_app):
@@ -40,7 +41,7 @@ async def test_scenario_db_state_matching(integration_app, auth_client):
     new_id = res_create.json()["message"][0]
     
     # 2. Read via API — use filter format "operator,value" as required by func_postgres_read
-    res_read = await user.get(f"/my/object-read", params={"table": table, "id": f"=,{new_id}", "limit": 1, "page": 1, "order": "id desc"})
+    res_read = await user.get(f"/my/object-read", params={"table": table, "filter": json.dumps([f"id = {new_id}"]), "limit": 1, "page": 1, "order": "id desc"})
     assert res_read.status_code == 200, f"Read failed: {res_read.text}"
     api_data = res_read.json()["message"]
     assert len(api_data) > 0, f"API returned no data for id={new_id}"

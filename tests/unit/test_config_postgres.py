@@ -83,16 +83,20 @@ class FakeSchemaConn:
     def _apply(self, sql):
         self._apply_cleanup(sql)
 
-        create_table = re.search(r"CREATE TABLE IF NOT EXISTS (\w+) \(id BIGSERIAL PRIMARY KEY\)", sql)
+        create_table = re.search(r'CREATE TABLE IF NOT EXISTS (?:"([^"]+)"|(\w+)) \(id BIGSERIAL PRIMARY KEY\)', sql)
         if create_table:
-            self.tables.setdefault(create_table.group(1), {}).setdefault(
+            table = create_table.group(1) or create_table.group(2)
+            self.tables.setdefault(table, {}).setdefault(
                 "id", {"type": "bigserial", "notnull": True, "default": None}
             )
             return
 
-        add_col = re.search(r"ALTER TABLE (\w+) ADD COLUMN (\w+) ([^ ]+(?:\([^)]*\))?)", sql)
+        add_col = re.search(r'ALTER TABLE (?:"([^"]+)"|(\w+)) ADD COLUMN (?:"([^"]+)"|(\w+)) ([^ ]+(?:\([^)]*\))?)', sql)
         if add_col:
-            table, column, dtype = add_col.groups()
+            groups = add_col.groups()
+            table = groups[0] or groups[1]
+            column = groups[2] or groups[3]
+            dtype = groups[4]
             self.tables.setdefault(table, {})[column] = {
                 "type": dtype,
                 "notnull": "NOT NULL" in sql,
@@ -100,66 +104,66 @@ class FakeSchemaConn:
             }
             return
 
-        rename_col = re.search(r"ALTER TABLE (\w+) RENAME COLUMN (\w+) TO (\w+)", sql)
+        rename_col = re.search(r'ALTER TABLE "?(\w+)"? RENAME COLUMN "?(\w+)"? TO "?(\w+)"?', sql)
         if rename_col:
             table, old, new = rename_col.groups()
             self.tables[table][new] = self.tables[table].pop(old)
             return
 
-        type_change = re.search(r"ALTER TABLE (\w+) ALTER COLUMN (\w+) TYPE ([^ ]+)", sql)
+        type_change = re.search(r'ALTER TABLE "?(\w+)"? ALTER COLUMN "?(\w+)"? TYPE ([^ ]+)', sql)
         if type_change:
             table, column, dtype = type_change.groups()
             self.tables[table][column]["type"] = dtype
             return
 
-        set_not_null = re.search(r"ALTER TABLE (\w+) ALTER COLUMN (\w+) SET NOT NULL", sql)
+        set_not_null = re.search(r'ALTER TABLE "?(\w+)"? ALTER COLUMN "?(\w+)"? SET NOT NULL', sql)
         if set_not_null:
             table, column = set_not_null.groups()
             self.tables[table][column]["notnull"] = True
             return
 
-        drop_not_null = re.search(r"ALTER TABLE (\w+) ALTER COLUMN (\w+) DROP NOT NULL", sql)
+        drop_not_null = re.search(r'ALTER TABLE "?(\w+)"? ALTER COLUMN "?(\w+)"? DROP NOT NULL', sql)
         if drop_not_null:
             table, column = drop_not_null.groups()
             self.tables[table][column]["notnull"] = False
             return
 
-        set_default = re.search(r"ALTER TABLE (\w+) ALTER COLUMN (\w+) SET DEFAULT (.+)", sql)
+        set_default = re.search(r'ALTER TABLE "?(\w+)"? ALTER COLUMN "?(\w+)"? SET DEFAULT (.+)', sql)
         if set_default:
             table, column, default = set_default.groups()
             self.tables[table][column]["default"] = default
             return
 
-        drop_default = re.search(r"ALTER TABLE (\w+) ALTER COLUMN (\w+) DROP DEFAULT", sql)
+        drop_default = re.search(r'ALTER TABLE "?(\w+)"? ALTER COLUMN "?(\w+)"? DROP DEFAULT', sql)
         if drop_default:
             table, column = drop_default.groups()
             self.tables[table][column]["default"] = None
             return
 
-        drop_column = re.search(r"ALTER TABLE (\w+) DROP COLUMN (\w+)", sql)
+        drop_column = re.search(r'ALTER TABLE "?(\w+)"? DROP COLUMN "?(\w+)"?', sql)
         if drop_column:
             table, column = drop_column.groups()
             self.tables.get(table, {}).pop(column, None)
             return
 
-        create_index = re.search(r"CREATE INDEX (\w+) ON (\w+)", sql)
+        create_index = re.search(r'CREATE INDEX "?(\w+)"? ON "?(\w+)"?', sql)
         if create_index:
             name, table = create_index.groups()
             self.meta.setdefault(table, set()).add(name)
             return
 
-        add_constraint = re.search(r"ALTER TABLE (\w+) ADD CONSTRAINT (\w+)", sql)
+        add_constraint = re.search(r'ALTER TABLE "?(\w+)"? ADD CONSTRAINT "?(\w+)"?', sql)
         if add_constraint:
             table, name = add_constraint.groups()
             self.meta.setdefault(table, set()).add(name)
             return
 
-        drop_trigger = re.search(r"DROP TRIGGER IF EXISTS (\w+) ON (\w+)", sql)
+        drop_trigger = re.search(r'DROP TRIGGER IF EXISTS "?(\w+)"? ON "?(\w+)"?', sql)
         if drop_trigger:
             trigger, table = drop_trigger.groups()
             self.triggers.setdefault(table, set()).discard(trigger)
 
-        create_trigger = re.search(r"CREATE TRIGGER (\w+) .*? ON (\w+)", sql)
+        create_trigger = re.search(r'CREATE TRIGGER "?(\w+)"? .*? ON "?(\w+)"?', sql)
         if create_trigger:
             trigger, table = create_trigger.groups()
             self.triggers.setdefault(table, set()).add(trigger)
@@ -270,12 +274,12 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
         for column in columns:
             assert column["name"] in pool.conn.tables[table]
     assert 'CREATE EXTENSION IF NOT EXISTS "postgis";' in sql
-    assert "CREATE INDEX idx_test_tag_gin ON test USING gin(tag);" in sql
-    assert "ALTER TABLE test ADD CONSTRAINT unique_test_code_type UNIQUE (code,type);" in sql
-    assert "ALTER TABLE test ADD CONSTRAINT unique_test_code_slug UNIQUE (code,slug);" in sql
-    assert "CHECK (is_active IN (0, 1));" in sql
-    assert "CHECK (email ~ '^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$');" in sql
-    assert "ALTER TABLE test SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);" in sql
+    assert 'CREATE INDEX "idx_test_tag_gin" ON "test" USING gin("tag");' in sql
+    assert 'ALTER TABLE "test" ADD CONSTRAINT "unique_test_code_type" UNIQUE ("code","type");' in sql
+    assert 'ALTER TABLE "test" ADD CONSTRAINT "unique_test_code_slug" UNIQUE ("code","slug");' in sql
+    assert 'CHECK ("is_active" IN (0, 1));' in sql
+    assert 'CHECK ("email" ~ \'^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$\');' in sql
+    assert 'ALTER TABLE "test" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);' in sql
     assert config.config_postgres["control"]["is_disable_drop_column"] == 1
     assert config.config_postgres["control"]["is_enable_drop_column_mismatch"] == 0
     assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" in sql
@@ -318,13 +322,13 @@ async def test_config_postgres_schema_init_renames_updates_defaults_and_notnull_
     )
 
     sql = all_sql(pool.conn)
-    assert "ALTER TABLE demo RENAME COLUMN adress TO address" in sql
-    assert "ALTER TABLE demo ALTER COLUMN title TYPE text USING title::text" in sql
-    assert "ALTER TABLE demo ALTER COLUMN title SET NOT NULL" in sql
-    assert "ALTER TABLE demo ALTER COLUMN title SET DEFAULT 'new'" in sql
-    assert "ALTER TABLE demo ALTER COLUMN count TYPE bigint USING count::bigint" in sql
-    assert "ALTER TABLE demo ALTER COLUMN count DROP NOT NULL" in sql
-    assert "ALTER TABLE demo ALTER COLUMN count DROP DEFAULT" in sql
+    assert 'ALTER TABLE "demo" RENAME COLUMN "adress" TO "address"' in sql
+    assert 'ALTER TABLE "demo" ALTER COLUMN "title" TYPE text USING "title"::text' in sql
+    assert 'ALTER TABLE "demo" ALTER COLUMN "title" SET NOT NULL' in sql
+    assert 'ALTER TABLE "demo" ALTER COLUMN "title" SET DEFAULT \'new\'' in sql
+    assert 'ALTER TABLE "demo" ALTER COLUMN "count" TYPE bigint USING "count"::bigint' in sql
+    assert 'ALTER TABLE "demo" ALTER COLUMN "count" DROP NOT NULL' in sql
+    assert 'ALTER TABLE "demo" ALTER COLUMN "count" DROP DEFAULT' in sql
     assert "address" in pool.conn.tables["demo"]
     assert "adress" not in pool.conn.tables["demo"]
     assert pool.conn.tables["demo"]["title"]["notnull"] is True
@@ -489,8 +493,8 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
     [
         ({"is_enable_extension": 1}, ["pg_trgm"], 'CREATE EXTENSION IF NOT EXISTS "pg_trgm";', None),
         ({}, ["pg_trgm"], None, 'CREATE EXTENSION IF NOT EXISTS "pg_trgm";'),
-        ({"is_enable_autovacuum_optimize": 1}, None, "ALTER TABLE demo SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);", None),
-        ({}, None, None, "ALTER TABLE demo SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);"),
+        ({"is_enable_autovacuum_optimize": 1}, None, 'ALTER TABLE "demo" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);', None),
+        ({}, None, None, 'ALTER TABLE "demo" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);'),
     ],
 )
 async def test_config_postgres_schema_init_extension_and_autovacuum_controls(control, extension, expected_sql, unexpected_sql):
@@ -615,7 +619,7 @@ async def test_config_postgres_schema_init_drops_omitted_columns_only_when_expli
 
     assert "legacy_data" not in pool.conn.tables["demo"]
     assert "DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable" in all_sql(pool.conn)
-    assert "ALTER TABLE demo DROP COLUMN legacy_data" in all_sql(pool.conn)
+    assert 'ALTER TABLE "demo" DROP COLUMN "legacy_data"' in all_sql(pool.conn)
 
 
 @pytest.mark.asyncio
@@ -659,7 +663,7 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
         )
 
         assert "legacy_data" not in pool.conn.tables["demo"]
-        assert "ALTER TABLE demo DROP COLUMN legacy_data" in all_sql(pool.conn)
+        assert 'ALTER TABLE "demo" DROP COLUMN "legacy_data"' in all_sql(pool.conn)
 
 
 @pytest.mark.asyncio
