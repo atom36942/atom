@@ -170,7 +170,7 @@ config_postgres = {
 {"name":"dob","datatype":"date"},
 {"name":"description","datatype":"text","index":"btree(description)|gin(description)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status,type)"},
-{"name":"address","datatype":"smallint","old":"adress"},
+{"name":"address","datatype":"text","old":"adress"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
 "users":[

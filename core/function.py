@@ -932,7 +932,7 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
                 conditions.append(f"({(f' {logic_op} ').join(inner_conditions)})")
             continue
         if filter_key not in table_schema: raise Exception(f"invalid filter column: {filter_key} for table: {table}")
-        if not re.match(r"^[a-zA-Z0-9_\s]+$", str(filter_key)): raise Exception(f"invalid identifier {filter_key}")
+        if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(filter_key)): raise Exception(f"invalid identifier {filter_key}")
         clean_expr = str(expression)
         if clean_expr.lower().startswith("=,"): clean_expr = clean_expr[2:]
         if clean_expr.lower().startswith("point,"):
@@ -999,9 +999,11 @@ async def func_postgres_relation(*, client_postgres_pool: any, obj_list: list, r
         source_col, target_table, target_col, op, val = parts
         op_parts = op.split("|")
         op_main = op_parts[0].lower()
-        for p in (source_col, target_table, target_col, op_main):
+        for p in (target_table, op_main):
              if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", p): raise Exception(f"invalid identifier in relation: {p}")
-        if val != "*" and not all(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", v.strip()) for v in val.split(",")): raise Exception(f"invalid value in relation: {val}")
+        for p in (source_col, target_col):
+             if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", p): raise Exception(f"invalid identifier in relation: {p}")
+        if val != "*" and not all(re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", v.strip()) for v in val.split(",")): raise Exception(f"invalid value in relation: {val}")
         source_ids = {r.get(source_col) for r in obj_list if r.get(source_col) is not None}
         if not source_ids: continue
         if op_main in ("count", "sum", "avg", "min", "max"):
@@ -1062,7 +1064,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             return "buffered released"
         return "buffered"
     if mode == "now":
-        columns = [c for c in serialized_list[0] if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}"))]
+        columns = [c for c in serialized_list[0] if re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}"))]
         cols_sql = ",".join([f'"{c}"' for c in columns])
         if len(serialized_list) == 1:
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
@@ -1110,7 +1112,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         p = part.strip().split()
         if p:
             # Allow alphanumeric, underscores, and spaces (for quoted identifiers)
-            if not re.match(r"^[a-zA-Z0-9_\s]+$", str(p[0])): raise Exception(f"invalid identifier {p[0]}")
+            if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(p[0])): raise Exception(f"invalid identifier {p[0]}")
             col = p[0]
             direction = p[1].upper() if len(p) > 1 and p[1].lower() in ("asc", "desc") else "ASC"
             order_list.append(f'"{col}" {direction}')
@@ -1120,7 +1122,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         cols = []
         for c in column.split(","):
             c_strip = c.strip()
-            if not re.match(r"^[a-zA-Z0-9_\s]+$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
+            if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
             cols.append(c_strip)
         column_list = ",".join([f'"{c}"' for c in cols])
     filters = filter
@@ -1150,7 +1152,7 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
     if is_serialize:
         obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
-    update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
+    update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
     if not update_cols: raise Exception("update field required")
     if any(set(obj.keys()) != set(obj_list[0].keys()) for obj in obj_list): raise Exception("object keys mismatch")
     returned_ids = []
@@ -1308,6 +1310,10 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
             if (mode_cfg := cfg.get(key)) and mode_cfg[0] not in config_mode_user: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} ({key}), allowed: {config_mode_user}")
         for key in ("api_ratelimiting_times_sec", "api_cache_sec"):
             if (mode_cfg := cfg.get(key)) and mode_cfg[0] not in config_mode_api: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} ({key}), allowed: {config_mode_api}")
+    #api unused config check
+    route_paths = {route.path for route in app_routes if hasattr(route, "path")}
+    for path in config_api.keys():
+        if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
     #route
     for route in app_routes:
         if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
@@ -1345,11 +1351,24 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
             if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
     #postgres
     if config_postgres and "table" in config_postgres:
+        global_column_types = {}
         for table_name, columns in config_postgres["table"].items():
-            column_names = {col["name"] for col in columns if "name" in col}
+            if not table_name or not table_name.strip(): raise Exception("table name cannot be empty")
+            column_names_list = [col.get("name") for col in columns if "name" in col]
+            if len(column_names_list) != len(set(column_names_list)):
+                seen = set()
+                for name in column_names_list:
+                    if name in seen: raise Exception(f"duplicate column name '{name}' in table '{table_name}'")
+                    seen.add(name)
+            column_names = set(column_names_list)
             btrees, others = [], [] # btrees: (cols_list, is_unique, origin_col), others: (type, cols_list, origin_col)
             for col in columns:
-                col_name = col.get("name")
+                col_name, col_type = col.get("name"), col.get("datatype")
+                if not col_name or not col_name.strip(): raise Exception(f"column name in {table_name} cannot be empty")
+                if not col_type or not col_type.strip(): raise Exception(f"datatype in {table_name}.{col_name} cannot be empty")
+                if col_name in global_column_types and global_column_types[col_name] != col_type:
+                    raise Exception(f"datatype mismatch for column '{col_name}': '{col_type}' in {table_name} vs '{global_column_types[col_name]}' elsewhere")
+                global_column_types[col_name] = col_type
                 if (col_unique := col.get("unique")):
                     for group in (x.strip() for x in col_unique.split("|")):
                         u_cols = [c.strip() for c in group.split(",")]
