@@ -298,7 +298,7 @@ config_postgres = {
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_protected)"},
 {"name":"country","datatype":"text","is_mandatory":0,"index":"btree(country)|gin(country)"},
 {"name":"department","datatype":"text","is_mandatory":0,"index":"btree(department)|gin(department)"},
-{"name":"profile","datatype":"text","is_mandatory":0,"index":"btree(profile)|gin(profile)"},
+{"name":"profile","datatype":"text","index":"btree(profile)|gin(profile)"},
 {"name":"quantity","datatype":"bigint","is_mandatory":0},
 {"name":"description","datatype":"text","index":"gin(description)"},
 {"name":"salary","datatype":"text"},
