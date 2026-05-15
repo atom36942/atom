@@ -1,5 +1,6 @@
 #env
 config_postgres_url = None
+config_postgres_read_url = None
 config_redis_url = None
 config_azure_account_name = None
 config_azure_account_key = None
@@ -11,6 +12,7 @@ config_resend_key = None
 config_posthog_project_host = None
 config_posthog_project_key = None
 config_mongodb_url = None
+config_mssql_url = None
 config_openai_key = None
 config_gemini_key = None
 config_sentry_dsn = None
@@ -131,6 +133,7 @@ config_api = {
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
+"/admin/mssql-sql-runner": {"id": 21, "user_role_check": ["realtime", [1]]},
 }
 config_postgres = {
 "extension": ["postgis", "pg_trgm", "btree_gin",],

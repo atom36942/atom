@@ -17,7 +17,7 @@ async def func_lifespan(app:"FastAPI"):
         import os
         for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
         #client init
-        import aio_pika, aiobotocore.session, asyncpg, asyncssh, boto3, httpx, motor.motor_asyncio, openai
+        import aio_pika, aiobotocore.session, asyncpg, asyncssh, boto3, httpx, motor.motor_asyncio, openai, aioodbc
         import redis.asyncio as redis
         from google import genai
         from argon2 import PasswordHasher
@@ -28,13 +28,15 @@ async def func_lifespan(app:"FastAPI"):
         client_password_hasher = PasswordHasher()
         client_http = httpx.AsyncClient()
         client_postgres_pool = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=app.state.config_postgres_min_connection, max_size=app.state.config_postgres_max_connection) if app.state.config_postgres_url else None
+        client_postgres_pool_read = await asyncpg.create_pool(dsn=app.state.config_postgres_read_url, min_size=app.state.config_postgres_min_connection, max_size=app.state.config_postgres_max_connection) if app.state.config_postgres_read_url else None
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_queue_url)) if app.state.config_redis_queue_url else None
         client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(app.state.config_mongodb_url) if app.state.config_mongodb_url else None
+        client_mssql = await aioodbc.create_pool(dsn=app.state.config_mssql_url) if app.state.config_mssql_url else None
         client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=app.state.config_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_s3_region_name else None
         client_s3_resource = boto3.resource("s3", region_name=app.state.config_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_s3_region_name else None
         client_sns = boto3.client("sns", region_name=app.state.config_sns_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_sns_region_name else None
-        client_ses = boto3.client("ses", region_name=app.state.config_ses_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_ses_region_name else None
+        client_ses = boto3.client("ses", region_name=app.state.config_ses_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_ses_region_name) if app.state.config_ses_region_name else None
         client_openai = openai.OpenAI(api_key=app.state.config_openai_key) if app.state.config_openai_key else None
         client_gemini = genai.Client(api_key=app.state.config_gemini_key) if app.state.config_gemini_key else None
         client_posthog = Posthog(app.state.config_posthog_project_key, host=app.state.config_posthog_project_host) if app.state.config_posthog_project_key else None
@@ -88,8 +90,10 @@ async def func_lifespan(app:"FastAPI"):
         #client disconnect
         if client_http: await client_http.aclose()
         if client_postgres_pool: await client_postgres_pool.close()
+        if client_postgres_pool_read: await client_postgres_pool_read.close()
         if client_redis: await client_redis.aclose()
         if client_mongodb: client_mongodb.close()
+        if client_mssql: await client_mssql.close()
         if client_posthog: client_posthog.shutdown(); client_posthog.flush()
         if client_kafka_producer: await client_kafka_producer.stop()
         if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed: await client_rabbitmq_producer.close()

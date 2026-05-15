@@ -16,14 +16,14 @@ def setup_app_state_placeholders():
     from core import app as core_app
     from core import config
     app = core_app.app
-    for _k in ["config_postgres_url", "config_redis_url", "config_redis_queue_url", "config_mongodb_url", "config_rabbitmq_url", "config_celery_url", "config_kafka_url", "config_sftp_host", "config_s3_region_name", "config_sns_region_name", "config_ses_region_name", "config_openai_key", "config_gemini_key", "config_posthog_project_key", "config_azure_account_name", "config_sentry_dsn"]:
+    for _k in ["config_postgres_url", "config_postgres_read_url", "config_redis_url", "config_redis_queue_url", "config_mongodb_url", "config_rabbitmq_url", "config_celery_url", "config_kafka_url", "config_sftp_host", "config_s3_region_name", "config_sns_region_name", "config_ses_region_name", "config_openai_key", "config_gemini_key", "config_posthog_project_key", "config_azure_account_name", "config_sentry_dsn"]:
         setattr(app.state, _k, None)
         if hasattr(core_app, _k): setattr(core_app, _k, None)
     app.state.config_is_enable_background_workers = 0
     if hasattr(core_app, "config_is_enable_background_workers"): core_app.config_is_enable_background_workers = 0
     for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, [] if "list" in _k else {})
-    for _k in ["client_postgres_pool", "client_redis", "client_redis_producer", "client_mongodb", "client_s3", "client_s3_resource", "client_sns", "client_ses", "client_openai", "client_gemini", "client_posthog", "client_celery_producer", "client_kafka_producer", "client_rabbitmq", "client_rabbitmq_producer", "client_sftp", "client_azure_blob", "pulse_flush_task", "flush_lock"]:
+    for _k in ["client_postgres_pool", "client_postgres_pool_read", "client_redis", "client_redis_producer", "client_mongodb", "client_s3", "client_s3_resource", "client_sns", "client_ses", "client_openai", "client_gemini", "client_posthog", "client_celery_producer", "client_kafka_producer", "client_rabbitmq", "client_rabbitmq_producer", "client_sftp", "client_azure_blob", "pulse_flush_task", "flush_lock"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, None)
     app.state._test_default_config = {
         "config_api": copy.deepcopy(config.config_api),
@@ -132,6 +132,7 @@ async def integration_app(db_containers):
     
     # 2. Initialize Real Clients
     app.state.client_postgres_pool = await asyncpg.create_pool(dsn=app.state.config_postgres_url)
+    app.state.client_postgres_pool_read = app.state.client_postgres_pool
     app.state.client_redis = redis.from_url(app.state.config_redis_url)
     app.state.client_redis_producer = redis.from_url(app.state.config_redis_url) # Init producer for background worker tests
     app.state.client_mongodb = AsyncIOMotorClient(app.state.config_mongodb_url)

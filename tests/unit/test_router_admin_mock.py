@@ -164,6 +164,7 @@ def admin_client(admin_test_client):
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "cache_users_role": test_client.app.state.cache_users_role,
         "client_postgres_pool": test_client.app.state.client_postgres_pool,
+        "client_postgres_pool_read": test_client.app.state.client_postgres_pool_read,
         "client_redis": test_client.app.state.client_redis,
         "client_s3": test_client.app.state.client_s3,
         "client_mongodb": test_client.app.state.client_mongodb,
@@ -181,6 +182,7 @@ def admin_client(admin_test_client):
     test_client.app.state.cache_postgres_table_list = ["test", "users"]
     test_client.app.state.cache_users_role = {10: 1}
     test_client.app.state.client_postgres_pool = FakePostgresPool()
+    test_client.app.state.client_postgres_pool_read = FakePostgresPool()
     test_client.app.state.client_redis = FakeRedis()
     test_client.app.state.client_s3 = FakeS3Admin()
     test_client.app.state.client_mongodb = FakeMongo()
@@ -321,7 +323,7 @@ def test_admin_postgres_runner_rejects_forbidden_keywords(admin_client):
 
 
 def test_admin_postgres_runner_read_returns_rows(admin_client):
-    admin_client.app.state.client_postgres_pool.conn.fetch_rows = [{"id": 1, "title": "one"}]
+    admin_client.app.state.client_postgres_pool_read.conn.fetch_rows = [{"id": 1, "title": "one"}]
 
     response = admin_client.post(
         "/admin/postgres-sql-runner",
@@ -331,6 +333,21 @@ def test_admin_postgres_runner_read_returns_rows(admin_client):
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": [{"id": 1, "title": "one"}]}
+    assert admin_client.app.state.client_postgres_pool.conn.fetched_sql == []
+    assert admin_client.app.state.client_postgres_pool_read.conn.fetched_sql[0][0] == "select id, title from test"
+
+
+def test_admin_postgres_runner_read_requires_read_pool(admin_client):
+    admin_client.app.state.client_postgres_pool_read = None
+
+    response = admin_client.post(
+        "/admin/postgres-sql-runner",
+        headers=bearer_token(admin_client.app.state),
+        json={"mode": "read", "sql": "select id from test"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"status": 0, "message": "postgres read client not initialized"}
 
 
 def test_admin_postgres_export_rejects_mutating_sql(admin_client):

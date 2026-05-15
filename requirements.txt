@@ -31,3 +31,5 @@ starlette==0.52.1
 testcontainers==4.14.2
 uvicorn==0.46.0
 pytest-asyncio
+pyodbc==5.2.0
+aioodbc==0.4.1

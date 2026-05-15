@@ -75,10 +75,31 @@ async def func_api_admin_postgres_sql_runner(*, request: Request):
     ql = ob["sql"].lower().strip()
     if any(re.search(rf"\b{k}\b", ql) for k in ("drop", "truncate", "delete")): raise Exception("forbidden keyword in sql")
     if ob["mode"] == "read" and not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read mode restricted")
+    if ob["mode"] == "read":
+        if not app_state.client_postgres_pool_read: raise Exception("postgres read client not initialized")
+        async with app_state.client_postgres_pool_read.acquire() as conn:
+            return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
     async with app_state.client_postgres_pool.acquire() as conn:
-        if ob["mode"] == "read" or ql.startswith(("select", "with", "explain", "show", "describe")) or "returning" in ql:
+        if ql.startswith(("select", "with", "explain", "show", "describe")) or "returning" in ql:
             return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
         return {"status": 1, "message": await conn.execute(ob["sql"], timeout=15)}
+
+@router.post("/admin/mssql-sql-runner")
+async def func_api_admin_mssql_sql_runner(*, request: Request):
+    app_state = request.app.state
+    if not app_state.client_mssql: raise Exception("MSSQL client not initialized")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("mode", "str", 0, ["read", "write"], "read"), ("sql", "str", 1, None, None)])
+    ql = ob["sql"].lower().strip()
+    if any(re.search(rf"\b{k}\b", ql) for k in ("drop", "truncate", "delete")): raise Exception("forbidden keyword in sql")
+    if ob["mode"] == "read" and not ql.startswith(("select", "with")): raise Exception("read mode restricted")
+    async with app_state.client_mssql.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(ob["sql"])
+        if ob["mode"] == "read" or ql.startswith(("select", "with")):
+            columns = [column[0] for column in cursor.description]
+            return {"status": 1, "message": [dict(zip(columns, row)) for row in await cursor.fetchall()]}
+        await conn.commit()
+        return {"status": 1, "message": "done"}
 
 @router.post("/admin/postgres-export")
 async def func_api_admin_postgres_export(*, request: Request):
