@@ -25,6 +25,20 @@ class FakePool:
             return self.fetch_responses.pop(0)
         return []
 
+class ExplodingPool:
+    async def fetch(self, *args):
+        raise AssertionError("pool fetch should not be used when a relation connection is provided")
+
+class RecordingConn:
+    def __init__(self, fetch_responses=None):
+        self.fetch_responses = fetch_responses or []
+        self.queries = []
+    async def fetch(self, sql, *args):
+        self.queries.append((sql, args))
+        if self.fetch_responses:
+            return self.fetch_responses.pop(0)
+        return []
+
 @pytest.mark.asyncio
 async def test_postgres_read_identifier_quoting_and_basic_logic():
     pool = FakePool(fetch_responses=[[{"id": 1, "name": "test"}]])
@@ -116,6 +130,57 @@ async def test_postgres_read_relation_aggregate():
     sql, args = pool.queries[1]
     assert 'SELECT "post_id" AS id, count("id") AS value FROM "comments"' in sql
     assert result[0]["comments_count"] == 5
+
+@pytest.mark.asyncio
+async def test_postgres_read_empty_order_defaults_to_id_desc():
+    pool = FakePool(fetch_responses=[[]])
+    schema = {"posts": {"id": {"datatype": "integer"}}}
+
+    await func_postgres_read(
+        client_postgres_pool=pool,
+        client_password_hasher=None,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
+        cache_postgres_schema=schema,
+        config_relation_fetch_limit_max=100,
+        table="posts",
+        filter=[],
+        limit=10,
+        page=1,
+        order="",
+        column="*",
+        relation=None
+    )
+
+    assert 'ORDER BY "id" DESC' in pool.queries[0][0]
+
+@pytest.mark.asyncio
+async def test_postgres_relation_requires_selected_source_column():
+    pool = FakePool()
+
+    with pytest.raises(Exception, match="relation source column missing from selected columns: created_by_id"):
+        await func_postgres_relation(
+            client_postgres_pool=pool,
+            obj_list=[{"id": 1, "title": "hello"}],
+            relation="created_by_id,users,id,fetch|1,name",
+            config_relation_fetch_limit_max=100
+        )
+
+@pytest.mark.asyncio
+async def test_postgres_relation_uses_provided_connection():
+    conn = RecordingConn(fetch_responses=[[{"id": 1, "value": 2}]])
+
+    result = await func_postgres_relation(
+        client_postgres_pool=ExplodingPool(),
+        client_postgres_conn=conn,
+        obj_list=[{"id": 1}],
+        relation="id,comments,post_id,count,id",
+        config_relation_fetch_limit_max=100
+    )
+
+    assert len(conn.queries) == 1
+    assert result[0]["comments_count"] == 2
 
 @pytest.mark.asyncio
 async def test_postgres_relation_validation():
@@ -282,5 +347,4 @@ async def test_postgres_read_flat_list_filters():
     assert '"status" = $2' in sql
     assert '("title" ILIKE $3  OR  "title" ILIKE $4)' in sql
     assert args == (100, "active", "%apple%", "%samsung%", 10, 0)
-
 

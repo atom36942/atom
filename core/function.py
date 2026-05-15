@@ -986,7 +986,7 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
     prefix_sql = "WHERE " if is_root else ""
     return (prefix_sql + " AND ".join(conditions)) if conditions else "", bind_idx
 
-async def func_postgres_relation(*, client_postgres_pool: any, obj_list: list, relation: list, config_relation_fetch_limit_max: int) -> list:
+async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_relation_fetch_limit_max: int) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     import re
@@ -1004,12 +1004,14 @@ async def func_postgres_relation(*, client_postgres_pool: any, obj_list: list, r
         for p in (source_col, target_col):
              if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", p): raise Exception(f"invalid identifier in relation: {p}")
         if val != "*" and not all(re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", v.strip()) for v in val.split(",")): raise Exception(f"invalid value in relation: {val}")
+        if any(source_col not in r for r in obj_list): raise Exception(f"relation source column missing from selected columns: {source_col}")
         source_ids = {r.get(source_col) for r in obj_list if r.get(source_col) is not None}
         if not source_ids: continue
+        client = client_postgres_conn or client_postgres_pool
         if op_main in ("count", "sum", "avg", "min", "max"):
             val_sql = "*" if val == "*" else f'"{val}"'
             sql = f'SELECT "{target_col}" AS id, {op_main}({val_sql}) AS value FROM "{target_table}" WHERE "{target_col}" = ANY($1) GROUP BY "{target_col}";'
-            rows = await client_postgres_pool.fetch(sql, list(source_ids))
+            rows = await client.fetch(sql, list(source_ids))
             mapping = {str(r["id"]): r["value"] for r in rows}
             for obj in obj_list:
                 sid = str(obj.get(source_col))
@@ -1021,7 +1023,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, obj_list: list, r
             cols_sql = "*" if val == "*" else ",".join([f'"{v.strip()}"' for v in val.split(",")])
             if val != "*" and "id" not in val.split(",") and target_col != "id": cols_sql += f',"{target_col}"'
             sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'
-            rows = await client_postgres_pool.fetch(sql, list(source_ids), custom_limit)
+            rows = await client.fetch(sql, list(source_ids), custom_limit)
             mapping = defaultdict(list)
             for r in rows:
                 d = dict(r)
@@ -1107,6 +1109,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
+    order = str(order or "").strip() or "id desc"
     order_list = []
     for part in order.split(","):
         p = part.strip().split()
@@ -1134,7 +1137,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
         if relation and result_list:
-            result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, obj_list=result_list, relation=relation, config_relation_fetch_limit_max=config_relation_fetch_limit_max)
+            result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_relation_fetch_limit_max=config_relation_fetch_limit_max)
         return result_list
 
 async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, is_serialize: int, created_by_id: int) -> any:
@@ -1400,4 +1403,3 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                     if i == j: continue
                     if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
     return None
-

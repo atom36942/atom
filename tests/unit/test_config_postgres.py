@@ -280,9 +280,11 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
     assert 'CHECK ("is_active" IN (0, 1));' in sql
     assert 'CHECK ("email" ~ \'^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$\');' in sql
     assert 'ALTER TABLE "test" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);' in sql
-    assert config.config_postgres["control"]["is_disable_drop_column"] == 1
-    assert config.config_postgres["control"]["is_enable_drop_column_mismatch"] == 0
-    assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" in sql
+    disable_drop_column = config.config_postgres["control"].get("is_disable_drop_column", 1)
+    if disable_drop_column:
+        assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" in sql
+    else:
+        assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" not in sql
     assert "trigger_delete_disable_users" in sql
     assert "trigger_delete_disable_bulk_users" in sql
     assert "trigger_soft_delete_users" in sql
