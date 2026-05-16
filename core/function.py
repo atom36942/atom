@@ -1050,6 +1050,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
         return "flushed"
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
+    obj_list = [dict(item) for item in obj_list]; [item.pop("id", None) for item in obj_list]
     if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if table == "users":

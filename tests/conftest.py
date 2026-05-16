@@ -16,7 +16,7 @@ def setup_app_state_placeholders():
     from core import app as core_app
     from core import config
     app = core_app.app
-    for _k in ["config_postgres_url", "config_postgres_read_url", "config_redis_url", "config_redis_queue_url", "config_mongodb_url", "config_rabbitmq_url", "config_celery_url", "config_kafka_url", "config_sftp_host", "config_s3_region_name", "config_sns_region_name", "config_ses_region_name", "config_openai_key", "config_gemini_key", "config_posthog_project_key", "config_azure_account_name", "config_sentry_dsn"]:
+    for _k in ["config_postgres_url", "config_postgres_url_read", "config_redis_url", "config_redis_queue_url", "config_mongodb_url", "config_rabbitmq_url", "config_celery_url", "config_kafka_url", "config_sftp_host", "config_s3_region_name", "config_sns_region_name", "config_ses_region_name", "config_openai_key", "config_gemini_key", "config_posthog_project_key", "config_azure_account_name", "config_sentry_dsn"]:
         setattr(app.state, _k, None)
         if hasattr(core_app, _k): setattr(core_app, _k, None)
     app.state.config_is_enable_background_workers = 0

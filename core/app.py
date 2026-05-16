@@ -28,7 +28,7 @@ async def func_lifespan(app:"FastAPI"):
         client_password_hasher = PasswordHasher()
         client_http = httpx.AsyncClient()
         client_postgres_pool = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=app.state.config_postgres_min_connection, max_size=app.state.config_postgres_max_connection) if app.state.config_postgres_url else None
-        client_postgres_pool_read = await asyncpg.create_pool(dsn=app.state.config_postgres_read_url, min_size=app.state.config_postgres_min_connection, max_size=app.state.config_postgres_max_connection) if app.state.config_postgres_read_url else None
+        client_postgres_pool_read = await asyncpg.create_pool(dsn=app.state.config_postgres_url_read, min_size=app.state.config_postgres_min_connection, max_size=app.state.config_postgres_max_connection) if app.state.config_postgres_url_read else None
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_queue_url)) if app.state.config_redis_queue_url else None
         client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(app.state.config_mongodb_url) if app.state.config_mongodb_url else None

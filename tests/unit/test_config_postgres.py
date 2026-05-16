@@ -761,7 +761,7 @@ async def test_config_postgres_schema_init_table_operation_controls(control, exp
         ({"table": {"bad": [{"name": "tags", "datatype": "text[]", "regex": "x"}]}}, "Regex constraint is not supported"),
         ({"table": {"bad": [{"name": "title", "datatype": "text", "index": "gin(missing)"}]}}, "references non-existent column"),
         ({"table": {"bad": [{"name": "rating", "datatype": "integer", "index": "gin(rating)"}]}}, "GIN index is not compatible"),
-        ({"table": {"bad": [{"name": "location", "datatype": "geography(point)", "index": "btree(location)"}]}}, "Spatial column"),
+        ({"table": {"bad": [{"name": "coordinate", "datatype": "geography(Point, 4326)", "index": "btree(coordinate)"}]}}, "Spatial column"),
         ({"table": {"bad": [{"name": "code", "datatype": "text", "unique": "missing"}]}}, "Unique constraint"),
     ],
 )

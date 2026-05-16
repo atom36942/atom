@@ -1,6 +1,6 @@
 #env
 config_postgres_url = None
-config_postgres_read_url = None
+config_postgres_url_read = None
 config_redis_url = None
 config_azure_account_name = None
 config_azure_account_key = None
@@ -113,6 +113,8 @@ config_column_int_mapping = {
 "job_status": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
 "candidate_status": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold"},
 "interview_status": {1: "Scheduled", 2: "Rescheduled", 3: "In Progress", 4: "Completed", 5: "Feedback Pending", 6: "Feedback Submitted", 7: "No Show - Candidate", 8: "No Show - Interviewer", 9: "Cancelled", 10: "On Hold"},
+"gender": {1: "Male", 2: "Female", 3: "Other", 4: "Prefer not to say"},
+"employment_type": {1: "Full-time", 2: "Part-time", 3: "Contract", 4: "Internship", 5: "Freelance"},
 }
 config_api = {
 "/admin/sync": {"id": 1, "user_role_check": ["realtime", [1]]},
@@ -168,7 +170,7 @@ config_postgres = {
 {"name":"Is Premium?","datatype":"smallint","in":(0,1)},
 {"name":"Total Score","datatype":"integer"},
 {"name":"identity number","datatype":"text"},
-{"name":"location","datatype":"geography(point)","index":"gist(location)"},
+{"name":"coordinate","datatype":"geography(Point, 4326)","index":"gist(coordinate)"},
 {"name":"place","datatype":"text"},
 {"name":"dob","datatype":"date"},
 {"name":"description","datatype":"text","index":"gin(description)"},
@@ -307,8 +309,9 @@ config_postgres = {
 {"name":"description","datatype":"text","index":"gin(description)"},
 {"name":"salary","datatype":"text"},
 {"name":"experience","datatype":"text"},
-{"name":"address","datatype":"text","index":"btree(address)"},
+{"name":"location","datatype":"text","index":"btree(location)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
+{"name":"employment_type","datatype":"smallint","index":"btree(employment_type)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
 "candidate":[
@@ -328,11 +331,23 @@ config_postgres = {
 {"name":"college","datatype":"text"},
 {"name":"resume_url","datatype":"text"},
 {"name":"skills","datatype":"text","index":"gin(skills)"},
+{"name":"total_exp","datatype":"numeric(4,1)","index":"btree(total_exp)"},
 {"name":"current_company","datatype":"text"},
+{"name":"current_ctc","datatype":"numeric(12,2)"},
+{"name":"expected_ctc","datatype":"numeric(12,2)"},
+{"name":"notice_period","datatype":"integer"},
+{"name":"location","datatype":"text","index":"btree(location)"},
+{"name":"preferred_location","datatype":"text[]"},
+{"name":"highest_qualification","datatype":"text"},
+{"name":"source","datatype":"text","index":"btree(source)"},
+{"name":"linkedin_url","datatype":"text"},
+{"name":"gender","datatype":"smallint"},
+{"name":"dob","datatype":"date"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
+{"name":"employment_type","datatype":"smallint","index":"btree(employment_type)"},
+{"name":"remark","datatype":"text"},
 {"name":"ai_rating","datatype":"numeric(3,1)"},
 {"name":"ai_remark","datatype":"text"},
-{"name":"remark","datatype":"text"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
 "interview":[

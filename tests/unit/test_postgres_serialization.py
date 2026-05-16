@@ -55,7 +55,7 @@ def schema_for(types):
         ("text", "hello", "hello"),
         ("character varying", "hello", "hello"),
         ("character", "x", "x"),
-        ("geography(point)", "POINT(80 15)", "POINT(80 15)"),
+        ("geography(Point, 4326)", "POINT(80 15)", "POINT(80 15)"),
     ],
 )
 async def test_postgres_serialize_casts_scalar_datatypes(datatype, raw, expected):
@@ -217,7 +217,7 @@ async def test_postgres_schema_read_maps_user_defined_datatype_to_udt_name():
             [
                 {
                     "table_name": "test",
-                    "column_name": "location",
+                    "column_name": "coordinate",
                     "data_type": "geography",
                     "is_nullable": "YES",
                     "column_default": None,
@@ -226,7 +226,7 @@ async def test_postgres_schema_read_maps_user_defined_datatype_to_udt_name():
         )
     )
 
-    assert schema["test"]["location"]["datatype"] == "geography"
+    assert schema["test"]["coordinate"]["datatype"] == "geography"
 
 
 async def test_postgres_serialize_casts_integer_arrays_from_csv_values():
