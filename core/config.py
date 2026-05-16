@@ -51,7 +51,7 @@ config_buffer_flush_interval_sec = 60
 config_redis_cache_ttl_sec = 3600
 config_token_expiry_sec = 10*365*24*60*60
 config_token_refresh_expiry_sec = 100*365*24*60*60
-config_token_key = ["id", "type", "role", "is_active"]
+config_token_key = ["id", "type", "role", "is_active", "id_ext"]
 config_blob_container_default = "atom"
 config_blob_limit_kb = 100
 config_blob_upload_limit_count = 10
@@ -205,6 +205,7 @@ config_postgres = {
 {"name":"description","datatype":"text"},
 {"name":"dob","datatype":"date"},
 {"name":"gender","datatype":"smallint"},
+{"name":"id_ext","datatype":"text"},
 ],
 "log_api":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
