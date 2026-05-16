@@ -457,7 +457,7 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
             else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev
             if isinstance(global_dict[k], list): global_dict[k] = tuple(global_dict[k])
     with contextlib.suppress(Exception):
-        for n in ast.parse(open("core/config.py").read()).body:
+        for n in ast.parse(open("core/config.py", encoding="utf-8").read()).body:
             if isinstance(n, ast.Assign) and len(n.targets)==1 and (t:=getattr(n.targets[0], "id", "")).startswith("config_") and (v:=getattr(n.value, "id", "")).startswith("config_") and os.getenv(t) is None: global_dict[t] = global_dict.get(v)
     return None
 
@@ -1329,7 +1329,7 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
         if not endpoint_name.startswith("func_api_"): raise Exception(f"invalid endpoint function name: {endpoint_name} in {path}")
     #config
     if config_config_path:
-        with open(config_config_path if config_config_path.endswith(".py") else f"{config_config_path}.py", "r") as f: tree = ast.parse(f.read())
+        with open(config_config_path if config_config_path.endswith(".py") else f"{config_config_path}.py", "r", encoding="utf-8") as f: tree = ast.parse(f.read())
         for node in tree.body:
             if isinstance(node, ast.Assign):
                 for target in node.targets:
@@ -1342,7 +1342,7 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                 if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
     #function
     if config_function_path:
-        with open(config_function_path if config_function_path.endswith(".py") else f"{config_function_path}.py", "r") as f: tree = ast.parse(f.read())
+        with open(config_function_path if config_function_path.endswith(".py") else f"{config_function_path}.py", "r", encoding="utf-8") as f: tree = ast.parse(f.read())
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
     #router
@@ -1350,7 +1350,7 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
         router_dir = pathlib.Path(config_router_path)
         for router_path in router_dir.glob("*.py"):
             if router_path.name.startswith(("_", ".")): continue
-            with open(router_path, "r") as f: tree = ast.parse(f.read())
+            with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
             if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
     #postgres
     if config_postgres and "table" in config_postgres:
