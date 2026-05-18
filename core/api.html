@@ -314,11 +314,6 @@
             <h3 style="margin:0">API Master</h3>
           </div>
           <div class="modal-actions" style="display:flex;align-items:center;gap:8px">
-            <!-- Compact Search bar before Auth button -->
-            <div class="toolbar-search header-search" style="margin-bottom:0 !important;position:relative;display:flex;align-items:center;background:#14171c;border:1px solid rgba(255,255,255,0.08);border-radius:6px;box-sizing:border-box;width:240px;max-width:320px;height:34px;padding:2px 8px;gap:6px;transition:border-color 0.2s" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='rgba(255,255,255,0.08)'">
-              <input type="text" id="apiInfoSearch" placeholder="Search APIs..." style="padding:4px 20px 4px 4px !important;font-size:13px !important;background:transparent !important;border:none !important;color:#e6eef3 !important;flex:1 !important;min-width:60px !important;height:100% !important;box-sizing:border-box !important;outline:none !important;border-radius:0 !important;box-shadow:none !important" />
-              <button type="button" id="apiInfoSearchClear" class="clear-api-btn" title="Clear Search" style="right:8px;font-size:15px;position:absolute">×</button>
-            </div>
             <button type="button" class="icon-btn" id="infoToggleBtn" title="View Documentation (D)" onclick="showModal('infoModal');renderAnalytics();setupIcons();"></button>
             <button type="button" class="icon-btn" id="pathFiltersToggleBtn" title="Tag Filters (F)" onclick="showModal('tagFiltersModal');setupIcons();"></button>
             <button type="button" class="icon-btn" id="storageToggleBtn" title="Local Storage State (S)" onclick="showModal('storageModal');renderStorage();setupIcons();"></button>
@@ -330,7 +325,13 @@
           </div>
         </div>
         <div class="modal-body" style="padding:20px;max-height:none;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden">
-          <div class="test-summary" id="testSummary" style="display:flex;margin-top:0"></div>
+          <div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:20px;flex-shrink:0">
+            <div class="toolbar-search header-search" style="position:relative;display:flex;align-items:center;background:#14171c;border:1px solid rgba(255,255,255,0.08);border-radius:6px;box-sizing:border-box;height:42px;padding:2px 10px;gap:6px;transition:border-color 0.2s;flex:1 1 320px;min-width:280px" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='rgba(255,255,255,0.08)'">
+              <input type="text" id="apiInfoSearch" placeholder="Search APIs..." style="padding:4px 20px 4px 4px !important;font-size:13px !important;background:transparent !important;border:none !important;color:#e6eef3 !important;flex:1 !important;min-width:60px !important;height:100% !important;box-sizing:border-box !important;outline:none !important;border-radius:0 !important;box-shadow:none !important" />
+              <button type="button" id="apiInfoSearchClear" class="clear-api-btn" title="Clear Search" style="right:8px;font-size:15px;position:absolute">×</button>
+            </div>
+            <div class="test-summary" id="testSummary" style="display:flex;margin:0;flex:1 1 320px;min-width:280px;height:42px;padding:0 10px;box-sizing:border-box;gap:8px;flex-wrap:nowrap;overflow:hidden"></div>
+          </div>
 
           <div class="modal-card panel-shell" style="flex:1;display:flex;flex-direction:column;min-height:0;margin-bottom:0">
             <div class="modal-card-body" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0">
@@ -449,6 +450,7 @@
       expand:s=>SVG(s,'<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>'),
       collapse:s=>SVG(s,'<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="10" y1="14" x2="3" y2="21"/>'),
       chart:s=>SVG(s,'<path d="M18 20V10M12 20V4M6 20v-6"/>'),
+      clock:s=>SVG(s,'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
       download:s=>SVG(s,'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
       downloadCsv:s=>SVG(s,'<rect x="4" y="12" width="16" height="8" rx="1"/><line x1="4" y1="16" x2="20" y2="16"/><line x1="12" y1="12" x2="12" y2="20"/><polyline points="8 4 12 8 16 4"/><line x1="12" y1="8" x2="12" y2="1"/>'),
       downloadJson:s=>SVG(s,'<polyline points="17 12 21 16 17 20"/><polyline points="7 20 3 16 7 12"/><polyline points="8 4 12 8 16 4"/><line x1="12" y1="8" x2="12" y2="1"/>',"#4299e1"),
@@ -754,7 +756,7 @@
           exportBtn.style.cursor=stats.hasResults?"pointer":"default"
         }
       }else{
-        UI("testSummary").innerHTML=`\n<div class="test-summary-stats"><span class="clickable ${activeMasterResultFilter==="all"?"active":""}" data-type="all">Total: <strong style="color:#e6eef3">${stats.total}</strong></span><span class="clickable ${activeMasterResultFilter==="pass"&&stats.hasResults?"active":""} ${isDisabled}" data-type="pass">Passed: <strong style="color:var(--primary)">${valuePassed}</strong></span><span class="clickable ${activeMasterResultFilter==="fail"&&stats.hasResults?"active":""} ${isDisabled}" data-type="fail">Failed: <strong style="color:var(--delete)">${valueFailed}</strong></span></div><div class="test-summary-actions"><div class="test-summary-avg-slot"><span class="test-summary-avg-pill">Avg: <strong style="color:var(--primary)">${valueAvg}</strong></span></div><div class="test-summary-export-slot"><button type="button" class="icon-btn" id="testAllExportCsv" title="Export Visible Results CSV" style="padding:8px" ${stats.hasResults?"":"disabled"}>${ICON.download(18)}</button></div><div class="test-summary-run-slot"><button type="button" class="icon-btn save ${testRunning?'running':''}" id="testRunBtn" title="${runBtnTitle}" style="padding:8px" ${runBtnDisabled}>${runBtnContent}</button></div></div>\n`
+        UI("testSummary").innerHTML=`\n<div class="test-summary-stats" style="gap:6px;min-width:0;flex-wrap:nowrap"><span class="clickable ${activeMasterResultFilter==="all"?"active":""}" data-type="all" style="display:flex;align-items:center;gap:4px;padding:4px 6px;white-space:nowrap">${ICON.list(13)}<strong style="color:#e6eef3">${stats.total}</strong></span><span class="clickable ${activeMasterResultFilter==="pass"&&stats.hasResults?"active":""} ${isDisabled}" data-type="pass" style="display:flex;align-items:center;gap:4px;padding:4px 6px;white-space:nowrap">${ICON.check(13)}<strong style="color:var(--primary)">${valuePassed}</strong></span><span class="clickable ${activeMasterResultFilter==="fail"&&stats.hasResults?"active":""} ${isDisabled}" data-type="fail" style="display:flex;align-items:center;gap:4px;padding:4px 6px;white-space:nowrap">${ICON.cross(13)}<strong style="color:var(--delete)">${valueFailed}</strong></span></div><div class="test-summary-actions" style="gap:6px;flex-shrink:0"><div class="test-summary-avg-slot"><span class="test-summary-avg-pill" style="display:flex;align-items:center;gap:4px;padding:4px 6px">${ICON.clock(13)}<strong style="color:var(--primary)">${valueAvg}</strong></span></div><div class="test-summary-export-slot"><button type="button" class="icon-btn" id="testAllExportCsv" title="Export Visible Results CSV" style="padding:6px" ${stats.hasResults?"":"disabled"}>${ICON.download(18)}</button></div><div class="test-summary-run-slot"><button type="button" class="icon-btn save ${testRunning?'running':''}" id="testRunBtn" title="${runBtnTitle}" style="padding:6px" ${runBtnDisabled}>${runBtnContent}</button></div></div>\n`
         ;const exportBtn=d.getElementById("testAllExportCsv");if(exportBtn){exportBtn.style.opacity=stats.hasResults?"1":"0.35"
 ;exportBtn.style.cursor=stats.hasResults?"pointer":"default";exportBtn.disabled=!stats.hasResults};clearIconTooltips(summaryEl)
       }};const updateLoginIndicator=()=>{const ind=UI("loginIndicator");if(!ind)return;const tUser=Store.token;if(tUser){
