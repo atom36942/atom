@@ -104,9 +104,9 @@ async def func_api_admin_mssql_sql_runner(*, request: Request):
 @router.post("/admin/postgres-export")
 async def func_api_admin_postgres_export(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("sql", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     from fastapi.responses import StreamingResponse
-    sql = oq["sql"]
+    sql = ob["sql"]
     ql = sql.lower().strip()
     if re.search(r"\bdrop\b", ql): raise Exception("keyword drop forbidden")
     if re.search(r"\btruncate\b", ql): raise Exception("keyword truncate forbidden")

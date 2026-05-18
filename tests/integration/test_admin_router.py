@@ -33,7 +33,7 @@ async def test_admin_import_export_loop(integration_app, auth_client):
     assert res_seed.json()["status"] == 1
     
     # 2. EXPORT data to CSV
-    export_res = await admin.post(f"/admin/postgres-export?sql=SELECT title FROM {table}")
+    export_res = await admin.post("/admin/postgres-export", json={"sql": f"SELECT title FROM {table}"})
     assert export_res.status_code == 200
     csv_content = export_res.content
     assert b"Row 0" in csv_content

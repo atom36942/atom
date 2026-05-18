@@ -352,8 +352,9 @@ def test_admin_postgres_runner_read_requires_read_pool(admin_client):
 
 def test_admin_postgres_export_rejects_mutating_sql(admin_client):
     response = admin_client.post(
-        "/admin/postgres-export?sql=update%20test%20set%20title='x'",
+        "/admin/postgres-export",
         headers=bearer_token(admin_client.app.state),
+        json={"sql": "update test set title='x'"},
     )
 
     assert response.status_code == 400
@@ -367,13 +368,24 @@ def test_admin_postgres_export_streams_csv(admin_client):
     ]
 
     response = admin_client.post(
-        "/admin/postgres-export?sql=select%20id,title%20from%20test",
+        "/admin/postgres-export",
         headers=bearer_token(admin_client.app.state),
+        json={"sql": "select id,title from test"},
     )
 
     assert response.status_code == 200
     assert response.headers["content-disposition"] == "attachment; filename=postgres_export.csv"
     assert response.text == 'id,title\n"1","one ""quoted"""\n"2",\n'
+
+
+def test_admin_postgres_export_rejects_missing_sql(admin_client):
+    response = admin_client.post(
+        "/admin/postgres-export",
+        headers=bearer_token(admin_client.app.state),
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"status": 0, "message": "parameter 'sql' missing"}
 
 
 def test_admin_postgres_import_create_processes_csv(admin_client):
