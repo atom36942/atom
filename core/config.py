@@ -76,6 +76,7 @@ config_kafka_is_auto_commit = 1
 config_kafka_batch_limit = 100
 config_kafka_batch_timeout_ms = 1000
 config_consumer_concurrency = 10
+config_queue = ["redis", "rabbitmq", "kafka", "celery"]
 config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_create_enable_public = ["test", "support"]
 config_table_read_enable_public = ["*"]

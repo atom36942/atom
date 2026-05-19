@@ -118,7 +118,7 @@ async def func_api_my_ids_delete(*, request: Request):
 @router.post("/my/object-create")
 async def func_api_my_object_create(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("queue", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("queue", "str", 0, app_state.config_queue, None)])
     if "*" in app_state.config_table_create_disable_my or oq["table"] in app_state.config_table_create_disable_my: raise Exception(f"creation disabled for table: {oq['table']}")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
@@ -130,7 +130,7 @@ async def func_api_my_object_create(*, request: Request):
 @router.put("/my/object-update")
 async def func_api_my_object_update(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("otp", "int", 0, None, None), ("queue", "str", 0, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("otp", "int", 0, None, None), ("queue", "str", 0, app_state.config_queue, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_disable_non_admin), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")

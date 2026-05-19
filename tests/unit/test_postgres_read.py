@@ -348,3 +348,71 @@ async def test_postgres_read_flat_list_filters():
     assert '("title" ILIKE $3  OR  "title" ILIKE $4)' in sql
     assert args == (100, "active", "%apple%", "%samsung%", 10, 0)
 
+@pytest.mark.asyncio
+async def test_postgres_read_flat_list_preserves_repeated_columns():
+    pool = FakePool(fetch_responses=[[]])
+    schema = {"posts": {"status": {"datatype": "integer"}, "title": {"datatype": "text"}}}
+    flat_filter = [
+        "status = 1",
+        "status in 1|2|3",
+        "title ILIKE %apple%",
+    ]
+
+    await func_postgres_read(
+        client_postgres_pool=pool,
+        client_password_hasher=None,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
+        cache_postgres_schema=schema,
+        config_relation_fetch_limit_max=100,
+        table="posts",
+        filter=flat_filter,
+        limit=10, page=1, order="id", column="*",
+        relation=None
+    )
+
+    sql, args = pool.queries[-1]
+    assert '"status" = $1' in sql
+    assert '"status" IN ($2,$3,$4)' in sql
+    assert '"title" ILIKE $5' in sql
+    assert args == (1, 1, 2, 3, "%apple%", 10, 0)
+
+@pytest.mark.asyncio
+async def test_postgres_read_flat_list_prefers_longer_operator_matches():
+    pool = FakePool(fetch_responses=[[]])
+    schema = {
+        "posts": {
+            "published_at": {"datatype": "timestamptz"},
+            "owner_id": {"datatype": "integer"},
+            "price": {"datatype": "numeric(10,2)"},
+            "slug": {"datatype": "text"},
+        }
+    }
+    flat_filter = [
+        "published_at is not null",
+        "owner_id is not distinct from 1",
+        "price >= 100",
+        "slug ~* ^post-",
+    ]
+
+    await func_postgres_read(
+        client_postgres_pool=pool,
+        client_password_hasher=None,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
+        cache_postgres_schema=schema,
+        config_relation_fetch_limit_max=100,
+        table="posts",
+        filter=flat_filter,
+        limit=10, page=1, order="id", column="*",
+        relation=None
+    )
+
+    sql, args = pool.queries[-1]
+    assert '"published_at" IS NOT NULL' in sql
+    assert '"owner_id" IS NOT DISTINCT FROM $1' in sql
+    assert '"price" >= $2' in sql
+    assert '"slug" ~* $3' in sql
+    assert args == (1, 100.0, "^post-", 10, 0)

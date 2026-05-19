@@ -835,8 +835,8 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
         vs = str(v).strip()
         if not vs or vs.lower() == "null": return None
         if "geography" in t or "geometry" in t: return v
+        if "bool" in t: return vs.lower() in ("true", "1", "yes", "on", "ok")
         if any(x in t for x in ("int", "serial", "bigint")): return int(vs)
-        if "bool" in t: return 1 if vs.lower() in ("true", "1", "yes", "on", "ok") else 0
         if any(x in t for x in ("numeric", "float", "double", "real")): return float(vs)
         if "timestamp" in t:
             from datetime import datetime
@@ -885,7 +885,7 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
     """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), flat SQL strings, and explicit operator syntax."""
     import re, orjson
     values = []
-    filter_pattern = r'^((?:"[^"]+")|[a-zA-Z_][a-zA-Z0-9_]*)\s+(=|==|!=|<>|>|<|>=|<=|eq|neq|gt|lt|gte|lte|is|is\s+not|in|not\s+in|between|is\s+distinct\s+from|is\s+not\s+distinct\s+from|like|ilike|~|~\*|contains|exists|overlap|any|point)\s+(.*)$'
+    filter_pattern = r'^((?:"[^"]+")|[a-zA-Z_][a-zA-Z0-9_]*)\s+(is\s+not\s+distinct\s+from|is\s+distinct\s+from|is\s+not|not\s+in|>=|<=|==|!=|<>|~\*|=|>|<|eq|neq|gt|lt|gte|lte|is|in|between|like|ilike|~|contains|exists|overlap|any|point)\s+(.*)$'
     value_ops = {"=":"=","==":"=","eq":"=","!=":"!=","<>":"!=","neq":"!=","!=": "!=", ">":">","gt":">","<":"<","lt":"<",">=":">=","gte":">=","<=":"<=","lte":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
     string_ops = {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
     table_schema = cache_postgres_schema.get(table, {})
@@ -900,6 +900,16 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
         return {col.strip('"'): f"{operator},{normalize_filter_value(operator, raw_val)}"}
     def parse_filter_list(filter_list):
         converted_filters = {}
+        def add_parsed_filter(parsed):
+            if not parsed: return
+            key = next(iter(parsed))
+            if key in converted_filters:
+                converted_filters.setdefault("_and", []).append({key: converted_filters.pop(key)})
+                converted_filters["_and"].append(parsed)
+            elif "_and" in converted_filters:
+                converted_filters["_and"].append(parsed)
+            else:
+                converted_filters.update(parsed)
         for item in filter_list:
             if isinstance(item, dict):
                 converted_filters.update(item)
@@ -911,7 +921,7 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
                 if sub_or: converted_filters.setdefault("_and", []).append({"_or": sub_or})
                 continue
             parsed = parse_filter_item(item)
-            if parsed: converted_filters.update(parsed)
+            add_parsed_filter(parsed)
         return converted_filters
     def bind_next(val):
         bind_idx = len(values) + 1
