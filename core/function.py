@@ -1071,48 +1071,21 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int, mode: str, table: str, obj_list: list, is_serialize: int) -> any:
+async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
-    if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
-    if mode == "flush":
-        for key, buffer_list in list(cache_postgres_buffer_create.items()):
-            if buffer_list:
-                parts = key.split("|")
-                tbl = parts[0]
-                await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex={}, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=0, mode="now", table=tbl, obj_list=buffer_list, is_serialize=0)
-                cache_postgres_buffer_create[key] = []
-        return "flushed"
-    if not obj_list: raise Exception("object list required")
-    if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
-    obj_list = [dict(item) for item in obj_list]; [item.pop("id", None) for item in obj_list]
-    if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
-    if table == "spatial_ref_sys": raise Exception("system table protected")
-    if table == "users":
-        await func_regex_check(config_regex=config_regex, obj_list=obj_list)
-        is_serialize = 1
-    serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0 if len(obj_list) > 1 else 1) if is_serialize else obj_list
-    if mode == "buffer":
-        key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
-        cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
-        if len(cache_postgres_buffer_create[key]) >= config_buffer_limit:
-            items = cache_postgres_buffer_create[key]
-            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=client_postgres_conn, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex={}, config_table=config_table, config_obj_list_limit=0, config_buffer_limit=0, mode="now", table=table, obj_list=items, is_serialize=0)
-            cache_postgres_buffer_create[key] = []
-            return "buffered released"
-        return "buffered"
-    if mode == "now":
+    async def insert_serialized(tbl, serialized_list):
         columns = [c for c in serialized_list[0] if re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}"))]
         cols_sql = ",".join([f'"{c}"' for c in columns])
         if len(serialized_list) == 1:
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
-            sql = f'INSERT INTO "{table}" ({cols_sql}) VALUES ({placeholders}) RETURNING id;'
+            sql = f'INSERT INTO "{tbl}" ({cols_sql}) VALUES ({placeholders}) RETURNING id;'
             args = [serialized_list[0][c] for c in columns]
             if client_postgres_conn: ids = await client_postgres_conn.fetch(sql, *args)
             else:
                 async with client_postgres_pool.acquire() as conn: ids = await conn.fetch(sql, *args)
         else:
-            schema = cache_postgres_schema.get(table, {})
+            schema = cache_postgres_schema.get(tbl, {})
             col_list = ",".join([f'"{c}"' for c in columns])
             def_list = ",".join([f'"{c}" jsonb' for c in columns])
             cast_parts = []
@@ -1130,7 +1103,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             async def _execute_bulk(connection):
                 for i in range(0, len(serialized_list), limit_chunk):
                     batch = serialized_list[i : i + limit_chunk]
-                    sql = f'INSERT INTO "{table}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'
+                    sql = f'INSERT INTO "{tbl}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'
                     ids_batch = await connection.fetch(sql, orjson.dumps(batch, default=str).decode('utf-8'))
                     all_ids.extend([dict(r) for r in ids_batch])
             if client_postgres_conn:
@@ -1140,6 +1113,33 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
                     await _execute_bulk(conn)
             ids = all_ids
         return [r["id"] for r in ids] if ids and "id" in ids[0] else "created"
+    if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
+    if mode == "flush":
+        for key, buffer_list in list(cache_postgres_buffer_create.items()):
+            if buffer_list:
+                parts = key.split("|")
+                tbl = parts[0]
+                await insert_serialized(tbl, buffer_list)
+                cache_postgres_buffer_create[key] = []
+        return "flushed"
+    if not obj_list: raise Exception("object list required")
+    if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
+    obj_list = [dict(item) for item in obj_list]; [item.pop("id", None) for item in obj_list]
+    if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
+    if table == "spatial_ref_sys": raise Exception("system table protected")
+    if table == "users": await func_regex_check(config_regex=config_regex, obj_list=obj_list)
+    serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0 if len(obj_list) > 1 else 1)
+    if mode == "buffer":
+        key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
+        cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
+        if len(cache_postgres_buffer_create[key]) >= config_buffer_limit:
+            items = cache_postgres_buffer_create[key]
+            await insert_serialized(table, items)
+            cache_postgres_buffer_create[key] = []
+            return "buffered released"
+        return "buffered"
+    if mode == "now":
+        return await insert_serialized(table, serialized_list)
 
 async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
@@ -1176,7 +1176,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_relation_fetch_limit_max=config_relation_fetch_limit_max)
         return result_list
 
-async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, is_serialize: int, created_by_id: int) -> any:
+async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, created_by_id: int) -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     import re
     if not obj_list: raise Exception("object list required")
@@ -1185,11 +1185,8 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
     if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
-    if table == "users":
-        await func_regex_check(config_regex=config_regex, obj_list=obj_list)
-        is_serialize = 1
-    if is_serialize:
-        obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
+    if table == "users": await func_regex_check(config_regex=config_regex, obj_list=obj_list)
+    obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
     update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
     if not update_cols: raise Exception("update field required")

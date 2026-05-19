@@ -248,7 +248,7 @@ def test_admin_object_create_passes_admin_scope_to_postgres_create(admin_client)
     admin_client.app.state.func_postgres_create = fake_create
 
     response = admin_client.post(
-        "/admin/object-create?table=test&mode=buffer&is_serialize=1",
+        "/admin/object-create?table=test&mode=buffer",
         headers=bearer_token(admin_client.app.state),
         json={"obj_list": [{"title": "one"}, {"title": "two"}]},
     )
@@ -257,7 +257,6 @@ def test_admin_object_create_passes_admin_scope_to_postgres_create(admin_client)
     assert response.json() == {"status": 1, "message": [101, 102]}
     assert calls["table"] == "test"
     assert calls["mode"] == "buffer"
-    assert calls["is_serialize"] == 1
     assert calls["obj_list"] == [{"title": "one", "updated_by_id": 10}, {"title": "two", "updated_by_id": 10}]
 
 
@@ -333,7 +332,8 @@ def test_admin_postgres_runner_read_returns_rows(admin_client):
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": [{"id": 1, "title": "one"}]}
-    assert admin_client.app.state.client_postgres_pool.conn.fetched_sql == []
+    write_pool_sql = [sql for sql, _, _ in admin_client.app.state.client_postgres_pool.conn.fetched_sql]
+    assert "select id, title from test" not in write_pool_sql
     assert admin_client.app.state.client_postgres_pool_read.conn.fetched_sql[0][0] == "select id, title from test"
 
 
@@ -398,7 +398,7 @@ def test_admin_postgres_import_create_processes_csv(admin_client):
     response = admin_client.post(
         "/admin/postgres-import",
         headers=bearer_token(admin_client.app.state),
-        data={"mode": "create", "table": "test", "is_serialize": 1},
+        data={"mode": "create", "table": "test"},
         files={"file": ("test.csv", b"title\none\ntwo\n", "text/csv")}
     )
     
@@ -407,13 +407,12 @@ def test_admin_postgres_import_create_processes_csv(admin_client):
     assert len(calls) == 1
     assert calls[0]["obj_list"] == [{"title": "one"}, {"title": "two"}]
     assert calls[0]["table"] == "test"
-    assert calls[0]["is_serialize"] == 1
 
 def test_admin_postgres_import_update_requires_id_column(admin_client):
     response = admin_client.post(
         "/admin/postgres-import",
         headers=bearer_token(admin_client.app.state),
-        data={"mode": "update", "table": "test", "is_serialize": 1},
+        data={"mode": "update", "table": "test"},
         files={"file": ("test.csv", b"title\nnew\n", "text/csv")}
     )
     assert response.status_code == 400

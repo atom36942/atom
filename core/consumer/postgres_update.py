@@ -32,7 +32,6 @@ async def execute(client_postgres_pool, payload, cache_postgres_buffer_create, c
         config_obj_list_limit=config_obj_list_limit,
         table=table,
         obj_list=payload.get("obj_list"),
-        is_serialize=payload.get("is_serialize", 1),
         created_by_id=payload.get("created_by_id")
     )
 

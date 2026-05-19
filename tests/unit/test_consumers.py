@@ -17,8 +17,7 @@ async def test_postgres_create_consumer_execute_calls_core_function():
     payload = {
         "table": "test_table",
         "mode": "buffer",
-        "obj_list": [{"id": 1, "data": "test"}],
-        "is_serialize": 1
+        "obj_list": [{"id": 1, "data": "test"}]
     }
     cache_postgres_buffer_create = {}
     cache_postgres_schema = {"test_table": {"id": {"datatype": "int"}}}
@@ -41,7 +40,6 @@ async def test_postgres_create_consumer_execute_calls_core_function():
         assert args["table"] == "test_table"
         assert args["mode"] == "buffer"
         assert args["obj_list"] == [{"id": 1, "data": "test"}]
-        assert args["is_serialize"] == 1
 
 @pytest.mark.asyncio
 async def test_postgres_update_consumer_execute_calls_core_function():
@@ -49,7 +47,6 @@ async def test_postgres_update_consumer_execute_calls_core_function():
     payload = {
         "table": "test_table",
         "obj_list": [{"id": 1, "data": "updated"}],
-        "is_serialize": 0,
         "created_by_id": 10
     }
     cache_postgres_buffer_create = {}
@@ -72,7 +69,6 @@ async def test_postgres_update_consumer_execute_calls_core_function():
         args = mock_func_update.call_args.kwargs
         assert args["table"] == "test_table"
         assert args["obj_list"] == [{"id": 1, "data": "updated"}]
-        assert args["is_serialize"] == 0
         assert args["created_by_id"] == 10
 
 def test_func_consumer_failed_payload_log_writes_to_file():

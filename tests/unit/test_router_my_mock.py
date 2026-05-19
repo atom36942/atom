@@ -403,7 +403,7 @@ def test_my_object_create_passes_authenticated_user_to_postgres_create(my_client
     my_client.app.state.func_postgres_create = fake_create
 
     response = my_client.post(
-        "/my/object-create?table=test&mode=now&is_serialize=0",
+        "/my/object-create?table=test&mode=now",
         headers=auth_headers,
         json={"obj_list": [{"title": "one"}]},
     )

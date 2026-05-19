@@ -431,7 +431,6 @@ async def test_postgres_create_rejects_missing_or_empty_object_data():
         "cache_postgres_schema": {},
         "mode": "now",
         "table": "test",
-        "is_serialize": 0,
         "config_buffer_limit": config.config_buffer_limit,
         "cache_postgres_buffer_create": {},
         "config_regex": config.config_regex,
@@ -461,7 +460,6 @@ async def test_postgres_create_rejects_obj_list_over_limit():
             mode="now",
             table="test",
             obj_list=[{"title": "one"}, {"title": "two"}],
-            is_serialize=0,
             config_buffer_limit=0,
             cache_postgres_buffer_create={},
             config_regex=config.config_regex,
@@ -469,6 +467,46 @@ async def test_postgres_create_rejects_obj_list_over_limit():
             config_table=config.config_table,
             config_obj_list_limit=1,
         )
+
+
+@pytest.mark.asyncio
+async def test_postgres_create_serializes_before_buffering_and_releases_without_reserializing():
+    calls = []
+
+    async def fake_serialize(**kwargs):
+        calls.append(kwargs)
+        return [dict(item, title=f"serialized:{item['title']}") for item in kwargs["obj_list"]]
+
+    class FakeConn:
+        async def fetch(self, sql, *args):
+            return [{"id": 1}, {"id": 2}]
+
+    buffer = {}
+    common = {
+        "client_postgres_pool": None,
+        "client_postgres_conn": FakeConn(),
+        "client_password_hasher": None,
+        "func_postgres_serialize": fake_serialize,
+        "cache_postgres_schema": {},
+        "mode": "buffer",
+        "table": "test",
+        "config_buffer_limit": 2,
+        "cache_postgres_buffer_create": buffer,
+        "config_regex": config.config_regex,
+        "func_regex_check": func_regex_check,
+        "config_table": config.config_table,
+        "config_obj_list_limit": config.config_obj_list_limit,
+    }
+
+    assert await func_postgres_create(obj_list=[{"title": "one"}], **common) == "buffered"
+    assert len(calls) == 1
+    assert calls[0]["obj_list"] == [{"title": "one"}]
+    assert buffer["test|title"] == [{"title": "serialized:one"}]
+
+    assert await func_postgres_create(obj_list=[{"title": "two"}], **common) == "buffered released"
+    assert len(calls) == 2
+    assert calls[1]["obj_list"] == [{"title": "two"}]
+    assert buffer["test|title"] == []
 
 
 @pytest.mark.asyncio
@@ -483,7 +521,6 @@ async def test_postgres_update_rejects_missing_or_empty_object_data():
         "func_postgres_serialize": passthrough_serialize,
         "cache_postgres_schema": {},
         "table": "test",
-        "is_serialize": 0,
         "created_by_id": None,
         "config_obj_list_limit": config.config_obj_list_limit,
         "config_regex": config.config_regex,
@@ -511,7 +548,6 @@ async def test_postgres_update_rejects_obj_list_over_limit():
             cache_postgres_schema={},
             table="test",
             obj_list=[{"id": 1, "title": "one"}, {"id": 2, "title": "two"}],
-            is_serialize=0,
             created_by_id=None,
             config_obj_list_limit=1,
             config_regex=config.config_regex,
@@ -531,7 +567,6 @@ async def test_postgres_update_rejects_invalid_table_or_missing_update_fields():
         "client_password_hasher": None,
         "func_postgres_serialize": passthrough_serialize,
         "cache_postgres_schema": {},
-        "is_serialize": 0,
         "created_by_id": None,
         "config_obj_list_limit": config.config_obj_list_limit,
         "config_regex": config.config_regex,
@@ -561,7 +596,6 @@ async def test_postgres_update_rejects_mismatched_object_keys():
             cache_postgres_schema={},
             table="test",
             obj_list=[{"id": 1, "title": "one"}, {"id": 2, "name": "two"}],
-            is_serialize=0,
             created_by_id=None,
             config_obj_list_limit=config.config_obj_list_limit,
             config_regex=config.config_regex,
@@ -594,7 +628,6 @@ async def test_postgres_update_uses_zero_created_by_id_for_owner_filter():
         cache_postgres_schema={},
         table="test",
         obj_list=[{"id": 1, "title": "one"}],
-        is_serialize=0,
         created_by_id=0,
         config_obj_list_limit=config.config_obj_list_limit,
         config_regex=config.config_regex,
@@ -641,7 +674,6 @@ async def test_postgres_update_bulk_owner_filter_uses_correct_case_placeholders(
         cache_postgres_schema={},
         table="test",
         obj_list=[{"id": 1, "title": "one"}, {"id": 2, "title": "two"}],
-        is_serialize=0,
         created_by_id=10,
         config_obj_list_limit=config.config_obj_list_limit,
         config_regex=config.config_regex,
@@ -669,7 +701,6 @@ async def test_postgres_update_validates_users_with_regex():
             cache_postgres_schema={},
             table="users",
             obj_list=[{"id": 1, "username": "BadUser"}],
-            is_serialize=0,
             created_by_id=None,
             config_obj_list_limit=config.config_obj_list_limit,
             config_regex=config.config_regex,
@@ -693,7 +724,6 @@ async def test_postgres_create_validates_users_with_regex():
             mode="now",
             table="users",
             obj_list=[{"username": "BadUser"}],
-            is_serialize=0,
             config_buffer_limit=0,
             cache_postgres_buffer_create={},
             config_regex=config.config_regex,
@@ -711,16 +741,19 @@ async def test_postgres_create_forces_users_serialization():
         calls.update(kwargs)
         return [{"username": "user_1", "password": "secret1"}]
 
+    class FakeConn:
+        async def fetch(self, sql, *args):
+            return [{"id": 1}]
+
     await func_postgres_create(
         client_postgres_pool=None,
-        client_postgres_conn=None,
+        client_postgres_conn=FakeConn(),
         client_password_hasher=None,
         func_postgres_serialize=fake_serialize,
         cache_postgres_schema={},
-        mode="buffer",
+        mode="now",
         table="users",
         obj_list=[{"username": "user_1", "password": "secret1"}],
-        is_serialize=0,
         config_buffer_limit=10,
         cache_postgres_buffer_create={},
         config_regex=config.config_regex,
@@ -750,7 +783,6 @@ async def test_postgres_update_forces_users_serialization():
             cache_postgres_schema={},
             table="users",
             obj_list=[{"id": 1, "username": "user_1"}],
-            is_serialize=0,
             created_by_id=None,
             config_obj_list_limit=config.config_obj_list_limit,
             config_regex=config.config_regex,

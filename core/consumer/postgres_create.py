@@ -34,8 +34,7 @@ async def execute(client_postgres_pool, payload, cache_postgres_buffer_create, c
         config_buffer_limit=config_table.get(table, {}).get("buffer", config_buffer_limit),
         mode=payload.get("mode", "now"),
         table=table,
-        obj_list=payload.get("obj_list"),
-        is_serialize=payload.get("is_serialize", 0)
+        obj_list=payload.get("obj_list")
     )
 
 #init

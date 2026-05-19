@@ -227,7 +227,7 @@ def test_public_object_create_passes_public_scope_to_postgres_create(public_clie
     public_client.app.state.func_postgres_create = fake_create
 
     response = public_client.post(
-        "/public/object-create?table=test&mode=now&is_serialize=0",
+        "/public/object-create?table=test&mode=now",
         json={"obj_list": [{"title": "public item"}]},
     )
 

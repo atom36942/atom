@@ -44,7 +44,7 @@ async def test_admin_import_export_loop(integration_app, auth_client):
     
     # 4. IMPORT the CSV back
     files = {"file": ("test.csv", csv_content, "text/csv")}
-    data = {"table": table, "mode": "create", "is_serialize": 0}
+    data = {"table": table, "mode": "create"}
     import_res = await admin.post("/admin/postgres-import", data=data, files=files)
     
     if import_res.json()["status"] != 1:

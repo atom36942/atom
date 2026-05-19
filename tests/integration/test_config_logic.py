@@ -50,7 +50,6 @@ async def test_config_api_logging_observability(integration_app, auth_client):
         mode="flush",
         table="",
         obj_list=[],
-        is_serialize=0
     )
     
     # 4. Check the real log_api table

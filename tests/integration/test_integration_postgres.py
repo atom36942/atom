@@ -56,8 +56,7 @@ async def test_postgres_integration_lifecycle():
                 config_buffer_limit=100,
                 mode="now",
                 table="test_integration",
-                obj_list=[{"title": "Integration Test Row"}],
-                is_serialize=0
+                obj_list=[{"title": "Integration Test Row"}]
             )
             
             assert len(created_ids) == 1
