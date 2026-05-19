@@ -773,3 +773,52 @@ async def test_config_postgres_schema_init_rejects_invalid_configurations(pg_con
             config_postgres=pg_config,
             config_root_user_password="",
         )
+
+
+def test_func_check_cascading_soft_delete_integrity():
+    from core.function import func_check
+
+    # 1. Test case: table has created_by_id and is_deleted -> Passes
+    config_pass = {
+        "table": {
+            "child_tbl": [
+                {"name": "id", "datatype": "bigserial"},
+                {"name": "created_by_id", "datatype": "bigint"},
+                {"name": "is_deleted", "datatype": "smallint"}
+            ]
+        }
+    }
+    # This should pass without raising any Exception
+    func_check(
+        app_routes=[],
+        config_config_path=None,
+        config_function_path=None,
+        config_api_namespace=[],
+        config_router_path=None,
+        config_api={},
+        config_mode_user=[],
+        config_mode_api=[],
+        config_postgres=config_pass
+    )
+
+    # 2. Test case: table has created_by_id but NO is_deleted -> Raises Exception
+    config_fail = {
+        "table": {
+            "child_tbl": [
+                {"name": "id", "datatype": "bigserial"},
+                {"name": "created_by_id", "datatype": "bigint"}
+            ]
+        }
+    }
+    with pytest.raises(Exception, match="has 'created_by_id' or 'user_id' but is missing the 'is_deleted' column"):
+        func_check(
+            app_routes=[],
+            config_config_path=None,
+            config_function_path=None,
+            config_api_namespace=[],
+            config_router_path=None,
+            config_api={},
+            config_mode_user=[],
+            config_mode_api=[],
+            config_postgres=config_fail
+        )

@@ -711,7 +711,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
             if control.get("is_enable_users_delete_child_soft", 0) and "is_deleted" in users_cols:
                 catalog["tg"].add("trigger_soft_delete_users")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_soft_delete_users() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; v INTEGER; BEGIN v := (CASE WHEN NEW.is_deleted=1 THEN 1 ELSE NULL END); FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'is_deleted') THEN EXECUTE format('UPDATE %I.%I SET is_deleted = $1 WHERE %I = $2', r.table_schema, r.table_name, r.column_name) USING v, NEW.id; END IF; END LOOP; RETURN NEW; END; $$;")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_soft_delete_users() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE r RECORD; v INTEGER; BEGIN v := (CASE WHEN NEW.is_deleted=1 THEN 1 ELSE 0 END); FOR r IN SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE column_name IN ('created_by_id', 'user_id') AND table_name NOT IN ('users', 'spatial_ref_sys') AND table_schema NOT IN ('information_schema', 'pg_catalog') LOOP IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'is_deleted') THEN EXECUTE format('UPDATE %I.%I SET is_deleted = $1 WHERE %I = $2', r.table_schema, r.table_name, r.column_name) USING v, NEW.id; END IF; END LOOP; RETURN NEW; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_soft_delete_users ON users; CREATE TRIGGER trigger_soft_delete_users AFTER UPDATE ON users FOR EACH ROW WHEN (OLD.is_deleted IS DISTINCT FROM NEW.is_deleted) EXECUTE FUNCTION func_soft_delete_users();")
             if control.get("is_enable_users_delete_child_hard", 0):
                 catalog["tg"].add("trigger_hard_delete_users")
@@ -1445,4 +1445,13 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                 for j, (t2, c2, o2) in enumerate(others):
                     if i == j: continue
                     if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
+    # postgres soft delete cascading integrity check
+    if config_postgres and "table" in config_postgres:
+        for table_name, columns in config_postgres["table"].items():
+            if table_name == "users":
+                continue
+            column_names = {col.get("name") for col in columns if "name" in col}
+            if "created_by_id" in column_names or "user_id" in column_names:
+                if "is_deleted" not in column_names:
+                    raise Exception(f"Table '{table_name}' has 'created_by_id' or 'user_id' but is missing the 'is_deleted' column required for soft deletes.")
     return None
