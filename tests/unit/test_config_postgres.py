@@ -287,9 +287,20 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
         assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" not in sql
     assert "trigger_delete_disable_users" in sql
     assert "trigger_delete_disable_bulk_users" in sql
-    assert "trigger_soft_delete_users" in sql
+    
+    is_soft = config.config_postgres["control"].get("is_enable_users_delete_child_soft", 0)
+    if is_soft:
+        assert "trigger_soft_delete_users" in sql
+    else:
+        assert "trigger_soft_delete_users" not in sql
+        
+    is_hard = config.config_postgres["control"].get("is_enable_users_delete_child_hard", 0)
+    if is_hard:
+        assert "trigger_hard_delete_users" in sql
+    else:
+        assert "trigger_hard_delete_users" not in sql
+
     assert "trigger_delete_disable_role_users" in sql
-    assert "trigger_hard_delete_users" not in sql
     assert "INSERT INTO users (type, username, password, role, is_active)" in sql
 
 

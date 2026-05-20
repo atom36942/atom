@@ -93,7 +93,7 @@ async def func_lifespan(app:"FastAPI"):
         if client_postgres_pool_read: await client_postgres_pool_read.close()
         if client_redis: await client_redis.aclose()
         if client_mongodb: client_mongodb.close()
-        if client_mssql: await client_mssql.close()
+        if client_mssql: client_mssql.close(); await client_mssql.wait_closed()
         if client_posthog: client_posthog.shutdown(); client_posthog.flush()
         if client_kafka_producer: await client_kafka_producer.stop()
         if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed: await client_rabbitmq_producer.close()
