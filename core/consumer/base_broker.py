@@ -98,7 +98,7 @@ async def broker_logic_kafka(channel: str, setup_callback: callable, execute_cal
     setup_data = await setup_callback()
     client_primary = setup_data[0]
     from aiokafka import AIOKafkaConsumer
-    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, enable_auto_commit=bool(config_kafka_is_auto_commit), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaConsumer(channel, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, enable_auto_commit=bool(config_kafka_is_auto_commit))
+    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, enable_auto_commit=bool(config_kafka_is_enable_auto_commit), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_kafka_username, sasl_plain_password=config_kafka_password) if config_kafka_username else AIOKafkaConsumer(channel, bootstrap_servers=config_kafka_url, group_id=config_kafka_group_id, enable_auto_commit=bool(config_kafka_is_enable_auto_commit))
     await consumer.start()
     print(f"kafka consumer started on {channel}", flush=True)
     semaphore = asyncio.Semaphore(config_consumer_concurrency)
@@ -122,7 +122,7 @@ async def broker_logic_kafka(channel: str, setup_callback: callable, execute_cal
                     print(f"task started #{n}: {channel}", flush=True)
                     tasks.append(asyncio.create_task(_execute(n, msg.value)))
                 if tasks: await asyncio.gather(*tasks)
-                if not config_kafka_is_auto_commit: await consumer.commit(tp)
+                if not config_kafka_is_enable_auto_commit: await consumer.commit(tp)
     finally:
         await consumer.stop()
         if client_primary: await client_primary.close()
