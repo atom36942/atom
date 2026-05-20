@@ -548,17 +548,27 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
     if not config_postgres: raise Exception("config_postgres missing")
     if "table" not in config_postgres: raise Exception("config_postgres.table missing")
     control = config_postgres.get("control", {})
+    def get_control_switch(key: str, default: int = 0, legacy_keys: tuple = ()) -> int:
+        if key in control:
+            return control.get(key)
+        for legacy_key in legacy_keys:
+            if legacy_key in control:
+                return control.get(legacy_key)
+        return default
     is_ext, is_autovacuum = control.get("is_enable_extension", 0), control.get("is_enable_autovacuum_optimize", 0)
-    is_drop_schema, is_drop_table, is_truncate_table = control.get("is_disable_drop_schema", 0), control.get("is_disable_drop_table", 0), control.get("is_disable_truncate", 0)
-    is_disable_drop_column = control.get("is_disable_drop_column", 1)
-    is_enable_users_protect_root = control.get("is_enable_users_protect_root", 1)
-    is_enable_users_root_upsert = control.get("is_enable_users_root_upsert", 1)
-    is_enable_users_password_log = control.get("is_enable_users_password_log", 1)
-    is_enable_delete_disable_is_protected = control.get("is_enable_delete_disable_is_protected", 1)
-    is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
+    is_drop_schema = get_control_switch("is_enable_drop_schema_disable", 0, ("is_disable_drop_schema",))
+    is_drop_table = get_control_switch("is_enable_drop_table_disable", 0, ("is_disable_drop_table",))
+    is_truncate_table = get_control_switch("is_enable_truncate_disable", 0, ("is_disable_truncate",))
+    is_enable_drop_column_disable = get_control_switch("is_enable_drop_column_disable", 1, ("is_disable_drop_column",))
+    is_enable_users_protect_root = get_control_switch("is_enable_users_protect_root", 1)
+    is_enable_users_root_upsert = get_control_switch("is_enable_users_root_upsert", 1)
+    is_enable_users_password_log = get_control_switch("is_enable_users_password_log", 1)
+    is_enable_delete_disable_is_protected = get_control_switch("is_enable_delete_disable_is_protected", 1)
+    is_enable_updated_at_set = get_control_switch("is_enable_updated_at_set", 1)
+    is_enable_users_delete_role_disable = get_control_switch("is_enable_users_delete_role_disable", 0, ("is_disable_users_delete_role",))
     is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", control.get("is_enable_drop_column", 0))))
-    if is_disable_drop_column and is_enable_drop_column_mismatch:
-        raise Exception("config_postgres.control conflict: is_disable_drop_column=1 blocks is_enable_drop_column_mismatch=1")
+    if is_enable_drop_column_disable and is_enable_drop_column_mismatch:
+        raise Exception("config_postgres.control conflict: is_enable_drop_column_disable=1 blocks is_enable_drop_column_mismatch=1")
     bulk_blocked = control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))
     table_blocked = control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
@@ -619,7 +629,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                     else:
                         raise e
         try:
-            if is_disable_drop_column:
+            if is_enable_drop_column_disable:
                 await conn.execute("CREATE OR REPLACE FUNCTION func_drop_column_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ DECLARE obj RECORD; BEGIN FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP IF obj.object_type = 'table column' THEN RAISE EXCEPTION 'dropping columns is disabled in configuration'; END IF; END LOOP; END; $$;")
                 await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
                 await conn.execute("CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE') EXECUTE FUNCTION func_drop_column_disable();")
@@ -756,7 +766,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
-            if control.get("is_disable_users_delete_role", 0) and "role" in users_cols:
+            if is_enable_users_delete_role_disable and "role" in users_cols:
                 catalog["tg"].add("trigger_delete_disable_role_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users ON users; CREATE TRIGGER trigger_delete_disable_role_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users();")

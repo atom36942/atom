@@ -282,7 +282,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
     assert 'CHECK ("is_active" IN (0, 1));' in sql
     assert 'CHECK ("email" ~ \'^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$\');' in sql
     assert 'ALTER TABLE "test" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);' in sql
-    disable_drop_column = config.config_postgres["control"].get("is_disable_drop_column", 1)
+    disable_drop_column = config.config_postgres["control"].get("is_enable_drop_column_disable", 1)
     if disable_drop_column:
         assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" in sql
     else:
@@ -456,10 +456,10 @@ async def test_config_postgres_schema_init_recreates_changed_index_and_constrain
 async def test_config_postgres_schema_init_control_toggles_are_reflected_in_generated_state():
     pg_config = control_pg_config(
         control={
-            "is_disable_drop_schema": 1,
-            "is_disable_drop_table": 1,
-            "is_disable_truncate": 1,
-            "is_disable_users_delete_role": 1,
+            "is_enable_drop_schema_disable": 1,
+            "is_enable_drop_table_disable": 1,
+            "is_enable_truncate_disable": 1,
+            "is_enable_users_delete_role_disable": 1,
 
             "table_delete_disable_row": ["*"],
             "table_delete_disable_row_bulk": [["*", 3]],
@@ -489,6 +489,33 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
     assert "trigger_delete_disable_is_protected_demo" in pool.conn.triggers["demo"]
     assert "trigger_updated_at_set_demo" in pool.conn.triggers["demo"]
     assert "func_delete_disable_bulk(3)" in sql
+
+
+@pytest.mark.asyncio
+async def test_config_postgres_schema_init_accepts_legacy_disable_control_switch_names():
+    pg_config = control_pg_config(
+        control={
+            "is_disable_drop_schema": 1,
+            "is_disable_drop_table": 1,
+            "is_disable_truncate": 1,
+            "is_disable_users_delete_role": 1,
+            "is_disable_drop_column": 0,
+        },
+    )
+    pool = FakeSchemaPool()
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=pg_config,
+        config_root_user_password="root-secret",
+    )
+
+    sql = all_sql(pool.conn)
+    assert "CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ('DROP SCHEMA','DROP TABLE')" in sql
+    assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" not in sql
+    assert "trigger_truncate_disable_demo" in pool.conn.triggers["demo"]
+    assert "trigger_delete_disable_role_users" in pool.conn.triggers["users"]
 
 
 @pytest.mark.asyncio
@@ -523,9 +550,9 @@ async def test_config_postgres_schema_init_extension_and_autovacuum_controls(con
     ("control", "expected_tags"),
     [
         ({}, None),
-        ({"is_disable_drop_schema": 1}, "('DROP SCHEMA')"),
-        ({"is_disable_drop_table": 1}, "('DROP TABLE')"),
-        ({"is_disable_drop_schema": 1, "is_disable_drop_table": 1}, "('DROP SCHEMA','DROP TABLE')"),
+        ({"is_enable_drop_schema_disable": 1}, "('DROP SCHEMA')"),
+        ({"is_enable_drop_table_disable": 1}, "('DROP TABLE')"),
+        ({"is_enable_drop_schema_disable": 1, "is_enable_drop_table_disable": 1}, "('DROP SCHEMA','DROP TABLE')"),
     ],
 )
 async def test_config_postgres_schema_init_drop_schema_table_controls(control, expected_tags):
@@ -551,8 +578,8 @@ async def test_config_postgres_schema_init_drop_schema_table_controls(control, e
     ("control", "creates_guard"),
     [
         ({}, True),
-        ({"is_disable_drop_column": 1}, True),
-        ({"is_disable_drop_column": 0}, False),
+        ({"is_enable_drop_column_disable": 1}, True),
+        ({"is_enable_drop_column_disable": 0}, False),
     ],
 )
 async def test_config_postgres_schema_init_drop_column_db_guard_control(control, creates_guard):
@@ -602,7 +629,7 @@ async def test_config_postgres_schema_init_does_not_drop_omitted_columns_without
 async def test_config_postgres_schema_init_drops_omitted_columns_only_when_explicitly_enabled():
     pg_config = {
         "table": {"demo": [{"name": "kept", "datatype": "text"}]},
-        "control": {"is_disable_drop_column": 0, "is_enable_drop_column_mismatch": 1},
+        "control": {"is_enable_drop_column_disable": 0, "is_enable_drop_column_mismatch": 1},
     }
     pool = FakeSchemaPool(
         tables={
@@ -630,10 +657,10 @@ async def test_config_postgres_schema_init_drops_omitted_columns_only_when_expli
 async def test_config_postgres_schema_init_rejects_conflicting_drop_column_controls():
     pg_config = {
         "table": {"demo": [{"name": "kept", "datatype": "text"}]},
-        "control": {"is_disable_drop_column": 1, "is_enable_drop_column_mismatch": 1},
+        "control": {"is_enable_drop_column_disable": 1, "is_enable_drop_column_mismatch": 1},
     }
 
-    with pytest.raises(Exception, match="is_disable_drop_column=1 blocks is_enable_drop_column_mismatch=1"):
+    with pytest.raises(Exception, match="is_enable_drop_column_disable=1 blocks is_enable_drop_column_mismatch=1"):
         await func_postgres_schema_init(
             client_postgres_pool=FakeSchemaPool(),
             client_password_hasher=FakePasswordHasher(),
@@ -647,7 +674,7 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
     for legacy_key in ("is_drop_column_mismatch_db", "is_drop_column_mismatch", "is_enable_drop_column"):
         pg_config = {
             "table": {"demo": [{"name": "kept", "datatype": "text"}]},
-            "control": {"is_disable_drop_column": 0, legacy_key: 1},
+            "control": {"is_enable_drop_column_disable": 0, legacy_key: 1},
         }
         pool = FakeSchemaPool(
             tables={
@@ -674,10 +701,10 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
 @pytest.mark.parametrize(
     ("control", "users_columns", "expected", "unexpected"),
     [
-        ({"is_disable_users_delete_role": 1}, None, "trigger_delete_disable_role_users", None),
+        ({"is_enable_users_delete_role_disable": 1}, None, "trigger_delete_disable_role_users", None),
         ({}, None, None, "trigger_delete_disable_role_users"),
         (
-            {"is_disable_users_delete_role": 1},
+            {"is_enable_users_delete_role_disable": 1},
             [
                 {"name": "type", "datatype": "smallint"},
                 {"name": "username", "datatype": "text"},
@@ -773,7 +800,7 @@ async def test_config_postgres_schema_init_password_log_control(control, expecte
 @pytest.mark.parametrize(
     ("control", "expected", "unexpected"),
     [
-        ({"is_disable_truncate": 1}, {"trigger_truncate_disable_users", "trigger_truncate_disable_demo"}, set()),
+        ({"is_enable_truncate_disable": 1}, {"trigger_truncate_disable_users", "trigger_truncate_disable_demo"}, set()),
         ({}, set(), {"trigger_truncate_disable_users", "trigger_truncate_disable_demo"}),
         ({"table_delete_disable_row": ["demo"]}, {"trigger_delete_disable_demo"}, {"trigger_delete_disable_users"}),
         ({"table_delete_disable_row": ["*"]}, {"trigger_delete_disable_demo", "trigger_delete_disable_users"}, set()),
@@ -1031,4 +1058,3 @@ def test_func_check_selective_toggles():
         config_postgres=config_fail,
         config_func_check={"is_check_config_postgres": 0}
     )
-
