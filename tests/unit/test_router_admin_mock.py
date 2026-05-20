@@ -257,7 +257,7 @@ def test_admin_object_create_passes_admin_scope_to_postgres_create(admin_client)
     assert response.json() == {"status": 1, "message": [101, 102]}
     assert calls["table"] == "test"
     assert calls["mode"] == "buffer"
-    assert calls["obj_list"] == [{"title": "one", "updated_by_id": 10}, {"title": "two", "updated_by_id": 10}]
+    assert calls["obj_list"] == [{"title": "one", "created_by_id": 10}, {"title": "two", "created_by_id": 10}]
 
 
 def test_admin_object_create_allows_restricted_field(admin_client):
@@ -276,7 +276,7 @@ def test_admin_object_create_allows_restricted_field(admin_client):
     )
 
     assert response.status_code == 200
-    assert calls["obj_list"] == [{"is_active": 1, "updated_by_id": 10}]
+    assert calls["obj_list"] == [{"is_active": 1, "created_by_id": 10}]
 
 
 def test_admin_object_update_verifies_otp_for_user_email_when_enabled(admin_client):

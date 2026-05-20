@@ -176,7 +176,7 @@ def test_config_table_lists_reference_known_tables_and_sensitive_columns():
     assert set(config.config_table_create_disable_my).issubset(table_names)
     assert set(config.config_table_create_enable_public).issubset(table_names)
     assert set(config.config_table_read_enable_public) == {"*"} or set(config.config_table_read_enable_public).issubset(table_names)
-    assert set(config.config_column_disable_non_admin).issubset(all_columns)
+    assert set(config.config_admin_only_fields).issubset(all_columns)
     assert set(config.config_column_enable_single_update).issubset(user_columns)
     assert set(config.config_token_key).issubset(user_columns)
 
