@@ -8,5 +8,6 @@
     "editor.guides.indentation": false,
     "editor.guides.bracketPairs": false,
     "editor.guides.bracketPairsHorizontal": false,
-    "editor.guides.highlightActiveIndentationGuide": false
+    "editor.guides.highlightActiveIndentationGuide": false,
+    "scm.diffDecorations": "none"
 }

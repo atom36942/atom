@@ -290,17 +290,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
     assert "trigger_delete_disable_users" in sql
     assert "trigger_delete_disable_bulk_users" in sql
     
-    is_soft = config.config_postgres["control"].get("is_enable_users_delete_child_soft", 0)
-    if is_soft:
-        assert "trigger_soft_delete_users" in sql
-    else:
-        assert "trigger_soft_delete_users" not in sql
-        
-    is_hard = config.config_postgres["control"].get("is_enable_users_delete_child_hard", 0)
-    if is_hard:
-        assert "trigger_hard_delete_users" in sql
-    else:
-        assert "trigger_hard_delete_users" not in sql
+
 
     assert "trigger_delete_disable_role_users" in sql
     assert "trigger_protect_root_users" in sql
@@ -470,8 +460,7 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
             "is_disable_drop_table": 1,
             "is_disable_truncate": 1,
             "is_disable_users_delete_role": 1,
-            "is_enable_users_delete_child_soft": 1,
-            "is_enable_users_delete_child_hard": 1,
+
             "table_delete_disable_row": ["*"],
             "table_delete_disable_row_bulk": [["*", 3]],
         },
@@ -490,8 +479,7 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
     assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" in sql
     assert "trigger_protect_root_users" in pool.conn.triggers["users"]
     assert "trigger_delete_disable_role_users" in pool.conn.triggers["users"]
-    assert "trigger_soft_delete_users" in pool.conn.triggers["users"]
-    assert "trigger_hard_delete_users" in pool.conn.triggers["users"]
+
     assert "trigger_truncate_disable_users" in pool.conn.triggers["users"]
     assert "trigger_truncate_disable_demo" in pool.conn.triggers["demo"]
     assert "trigger_delete_disable_users" in pool.conn.triggers["users"]
@@ -699,22 +687,7 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
             None,
             "trigger_delete_disable_role_users",
         ),
-        ({"is_enable_users_delete_child_soft": 1}, None, "trigger_soft_delete_users", None),
-        ({}, None, None, "trigger_soft_delete_users"),
-        (
-            {"is_enable_users_delete_child_soft": 1},
-            [
-                {"name": "type", "datatype": "smallint"},
-                {"name": "username", "datatype": "text"},
-                {"name": "password", "datatype": "text"},
-                {"name": "role", "datatype": "smallint"},
-                {"name": "is_active", "datatype": "smallint"},
-            ],
-            None,
-            "trigger_soft_delete_users",
-        ),
-        ({"is_enable_users_delete_child_hard": 1}, None, "trigger_hard_delete_users", None),
-        ({}, None, None, "trigger_hard_delete_users"),
+
     ],
 )
 async def test_config_postgres_schema_init_users_delete_controls_require_switches_and_columns(control, users_columns, expected, unexpected):

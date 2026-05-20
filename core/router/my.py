@@ -97,23 +97,14 @@ async def func_api_my_message_delete_bulk(*, request: Request):
         elif oq["mode"] == "all": await conn.execute("DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)", user_id)
     return {"status": 1, "message": "messages deleted"}
 
-
-    
-
-@router.delete("/my/account-delete")
-async def func_api_my_account_delete(*, request: Request):
-    app_state, user_id = request.app.state, request.state.user["id"]
-    user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
-    if user["role"] is not None and app_state.config_is_disable_role_user_delete_hard == 1: raise Exception("account with role cannot be deleted")
-    async with app_state.client_postgres_pool.acquire() as conn:
-        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
-    return {"status": 1, "message": "account deleted"}
-
-@router.post("/my/ids-delete")
-async def func_api_my_ids_delete(*, request: Request):
+@router.post("/my/object-create-mongodb")
+async def func_api_my_object_create_mongodb(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
-    output = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=request.state.user.get("id", 0), client_postgres_conn=None)
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("database", "str", 1, None, None), ("table", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
+    obj_list = ob.get("obj_list", [ob])
+    res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
+    output=[str(id) for id in res.inserted_ids]
     return {"status": 1, "message": output}
 
 @router.post("/my/object-create")
@@ -147,6 +138,22 @@ async def func_api_my_object_update(*, request: Request):
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, channel="func_postgres_update", payload={"table": oq["table"], "obj_list": obj_list, "created_by_id": created_by_id})}
     return {"status": 1, "message": await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None)}
 
+@router.delete("/my/account-delete")
+async def func_api_my_account_delete(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
+    if user["role"] is not None and app_state.config_is_disable_role_user_delete_hard == 1: raise Exception("account with role cannot be deleted")
+    async with app_state.client_postgres_pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
+    return {"status": 1, "message": "account deleted"}
+
+@router.post("/my/ids-delete")
+async def func_api_my_ids_delete(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
+    output = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=request.state.user.get("id", 0), client_postgres_conn=None)
+    return {"status": 1, "message": output}
+
 @router.get("/my/object-read")
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
@@ -157,13 +164,3 @@ async def func_api_my_object_read(*, request: Request):
     filters = oq["filter"] + [f"""created_by_id = {request.state.user["id"]}"""]
     ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_relation_fetch_limit_max=app_state.config_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     return {"status": 1, "message": ol}
-
-@router.post("/my/object-create-mongodb")
-async def func_api_my_object_create_mongodb(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("database", "str", 1, None, None), ("table", "str", 1, None, None)])
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
-    obj_list = ob.get("obj_list", [ob])
-    res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
-    output=[str(id) for id in res.inserted_ids]
-    return {"status": 1, "message": output}

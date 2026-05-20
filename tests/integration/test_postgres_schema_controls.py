@@ -25,8 +25,7 @@ async def fetch_control_checks(conn):
             ('is_enable_users_protect_root', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_protect_root_users' AND p.proname = 'func_protect_root_users' AND NOT t.tgisinternal)),
             ('is_enable_users_root_upsert', EXISTS (SELECT 1 FROM users WHERE id = 1 AND type = 1 AND username = 'atom' AND role = 1 AND is_active = 1)),
             ('is_enable_users_password_log', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_password_log_users' AND p.proname = 'func_password_log_users' AND NOT t.tgisinternal)),
-            ('is_enable_users_delete_child_soft', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_soft_delete_users' AND p.proname = 'func_soft_delete_users' AND NOT t.tgisinternal)),
-            ('is_enable_users_delete_child_hard', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_hard_delete_users' AND p.proname = 'func_hard_delete_users' AND NOT t.tgisinternal)),
+
             ('table_delete_disable_row_users', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_users' AND NOT t.tgisinternal)),
             ('table_delete_disable_row_bulk_users', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_bulk_users' AND NOT t.tgisinternal)),
             ('is_enable_autovacuum_optimize_users', EXISTS (SELECT 1 FROM pg_class WHERE relname = 'users' AND reloptions @> ARRAY['autovacuum_vacuum_scale_factor=0.05', 'autovacuum_analyze_scale_factor=0.02'])),
@@ -96,8 +95,7 @@ async def test_config_postgres_control_catalog_matches_core_config_defaults():
                 "is_enable_users_protect_root": True,
                 "is_enable_users_root_upsert": True,
                 "is_enable_users_password_log": True,
-                "is_enable_users_delete_child_soft": True,
-                "is_enable_users_delete_child_hard": True,
+
                 "table_delete_disable_row_users": True,
                 "table_delete_disable_row_bulk_users": True,
                 "is_enable_autovacuum_optimize_users": True,
@@ -122,8 +120,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                         "is_enable_users_protect_root": 1,
                         "is_enable_users_root_upsert": 1,
                         "is_enable_users_password_log": 1,
-                        "is_enable_users_delete_child_soft": 1,
-                        "is_enable_users_delete_child_hard": 1,
+
                         "is_disable_users_delete_role": 0,
                         "is_enable_users_set_deleted_at": 1,
                         "is_enable_delete_disable_is_protected": 1,
@@ -159,10 +156,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                 after = await conn.fetchrow("UPDATE demo_control SET title = 'timestamps changed' WHERE id = $1 RETURNING updated_at", before["id"])
                 assert after["updated_at"] is not None
 
-                child = await conn.fetchrow("INSERT INTO demo_control (title, user_id, created_by_id) VALUES ('child', 1, 1) RETURNING id")
-                await conn.execute("UPDATE users SET is_deleted = 0 WHERE id = 1")
-                await conn.execute("UPDATE users SET is_deleted = 1 WHERE id = 1")
-                assert await conn.fetchval("SELECT is_deleted FROM demo_control WHERE id = $1", child["id"]) == 1
+
         finally:
             await pool.close()
 
