@@ -365,7 +365,7 @@ def test_my_ids_delete_passes_user_scope_to_delete_helper(my_client, auth_header
 
     my_client.app.state.func_postgres_delete = fake_delete
 
-    response = my_client.post("/my/ids-delete", headers=auth_headers, json={"table": "test", "ids": [1, 2]})
+    response = my_client.post("/my/object-delete", headers=auth_headers, json={"table": "test", "ids": [1, 2]})
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "deleted"}

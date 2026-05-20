@@ -31,7 +31,7 @@ async def test_my_bulk_creation_and_ownership(integration_app, auth_client):
 
     # 4. User 2 tries to DELETE User 1's object (Security Violation)
     delete_payload = {"table": table, "ids": [u1_ids[1]]}
-    delete_res = await user_2.post("/my/ids-delete", json=delete_payload)
+    delete_res = await user_2.post("/my/object-delete", json=delete_payload)
     
     # Verify by reading as User 1 with mandatory paging
     read_res = await user_1.get(f"/my/object-read?table={table}&limit=10&page=1&order=id desc")
