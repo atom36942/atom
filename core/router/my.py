@@ -119,6 +119,17 @@ async def func_api_my_object_create(*, request: Request):
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, channel="func_postgres_create", payload={"mode": oq["mode"], "table": oq["table"], "obj_list": obj_list})}
     return {"status": 1, "message": await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, config_buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer", app_state.config_buffer_limit), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
 
+@router.get("/my/object-read")
+async def func_api_my_object_read(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
+    for rel in oq["relation"]:
+        parts = [p.strip() for p in rel.split(",", 4)]
+        if len(parts) >= 2 and "*" not in app_state.config_table_read_enable_public and parts[1] not in app_state.config_table_read_enable_public: raise Exception(f"relation read disabled for table: {parts[1]}")
+    filters = oq["filter"] + [f"""created_by_id = {request.state.user["id"]}"""]
+    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_relation_fetch_limit_max=app_state.config_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    return {"status": 1, "message": ol}
+
 @router.put("/my/object-update")
 async def func_api_my_object_update(*, request: Request):
     app_state = request.app.state
@@ -135,13 +146,6 @@ async def func_api_my_object_update(*, request: Request):
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, channel="func_postgres_update", payload={"table": oq["table"], "obj_list": obj_list, "created_by_id": created_by_id})}
     return {"status": 1, "message": await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None)}
 
-@router.delete("/my/account-delete")
-async def func_api_my_account_delete(*, request: Request):
-    app_state, user_id = request.app.state, request.state.user["id"]
-    async with app_state.client_postgres_pool.acquire() as conn:
-        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
-    return {"status": 1, "message": "account deleted"}
-
 @router.post("/my/ids-delete")
 async def func_api_my_ids_delete(*, request: Request):
     app_state = request.app.state
@@ -149,13 +153,9 @@ async def func_api_my_ids_delete(*, request: Request):
     output = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=request.state.user.get("id", 0), client_postgres_conn=None)
     return {"status": 1, "message": output}
 
-@router.get("/my/object-read")
-async def func_api_my_object_read(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
-    for rel in oq["relation"]:
-        parts = [p.strip() for p in rel.split(",", 4)]
-        if len(parts) >= 2 and "*" not in app_state.config_table_read_enable_public and parts[1] not in app_state.config_table_read_enable_public: raise Exception(f"relation read disabled for table: {parts[1]}")
-    filters = oq["filter"] + [f"""created_by_id = {request.state.user["id"]}"""]
-    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_relation_fetch_limit_max=app_state.config_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
-    return {"status": 1, "message": ol}
+@router.delete("/my/account-delete")
+async def func_api_my_account_delete(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    async with app_state.client_postgres_pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
+    return {"status": 1, "message": "account deleted"}

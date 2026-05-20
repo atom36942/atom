@@ -1315,13 +1315,11 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
     """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
-    if table == "users": raise Exception("users table not allowed")
     if ids and isinstance(ids, (list, tuple)):
         ids_str = ",".join(str(int(x)) for x in ids)
     else:
         ids_str = "0" # Safe fallback that matches nothing if list is empty or invalid
     sql_delete = f'DELETE FROM "{table}" WHERE "id" IN ({ids_str}) AND ($1::bigint IS NULL OR "created_by_id"=$1);'
-    if table == "spatial_ref_sys": raise Exception("system table protected")
     if client_postgres_conn:
         await client_postgres_conn.execute(sql_delete, created_by_id)
     else:
