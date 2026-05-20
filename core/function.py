@@ -1356,116 +1356,116 @@ async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> d
     if not record: raise Exception("user not found")
     return dict(record)
 
-def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_mode_user: list, config_mode_api: list, config_postgres: dict) -> None:
-    """Check that all added routes, configuration variables, functions, and router modules follow the required prefix patterns and naming conventions."""
-    import ast, pathlib
-    #api
-    api_ids = []
-    for path, cfg in config_api.items():
-        if (api_id := cfg.get("id")):
-            if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
-            api_ids.append(api_id)
-        for key in ("user_role_check", "user_is_active_check"):
-            if (mode_cfg := cfg.get(key)) and mode_cfg[0] not in config_mode_user: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} ({key}), allowed: {config_mode_user}")
-        for key in ("api_ratelimiting_times_sec", "api_cache_sec"):
-            if (mode_cfg := cfg.get(key)) and mode_cfg[0] not in config_mode_api: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} ({key}), allowed: {config_mode_api}")
-    #api unused config check
-    route_paths = {route.path for route in app_routes if hasattr(route, "path")}
-    for path in config_api.keys():
-        if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
-    #route
-    for route in app_routes:
-        if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
-        path, endpoint_name = route.path, route.endpoint.__name__
-        if path.startswith("/admin"):
-            if path not in config_api: raise Exception(f"admin route '{path}' missing in config_api")
-            if "user_role_check" not in config_api[path]: raise Exception(f"admin route '{path}' missing 'user_role_check' in config_api")
-            if 1 not in config_api[path]["user_role_check"][1]: raise Exception(f"admin route '{path}' must allow role 1")
-        if not (path == "/" or path.startswith(tuple(config_api_namespace)) or path.count("/") == 1): raise Exception(f"invalid route: {path}")
-        if not endpoint_name.startswith("func_api_"): raise Exception(f"invalid endpoint function name: {endpoint_name} in {path}")
-    #config
-    if config_config_path:
-        with open(config_config_path if config_config_path.endswith(".py") else f"{config_config_path}.py", "r", encoding="utf-8") as f: tree = ast.parse(f.read())
-        for node in tree.body:
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    targets_to_check = [target]
-                    while targets_to_check:
-                        t = targets_to_check.pop()
-                        if isinstance(t, ast.Name) and not t.id.startswith("config_"): raise Exception(f"invalid config variable name: {t.id}")
-                        if isinstance(t, (ast.Tuple, ast.List)): targets_to_check.extend(t.elts)
-            elif isinstance(node, ast.AnnAssign):
-                if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
-    #function
-    if config_function_path:
-        with open(config_function_path if config_function_path.endswith(".py") else f"{config_function_path}.py", "r", encoding="utf-8") as f: tree = ast.parse(f.read())
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
-    #router
-    if config_router_path:
-        router_dir = pathlib.Path(config_router_path)
-        for router_path in router_dir.glob("*.py"):
-            if router_path.name.startswith(("_", ".")): continue
-            with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
-            if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
-    #postgres
-    if config_postgres and "table" in config_postgres:
-        global_column_types = {}
-        for table_name, columns in config_postgres["table"].items():
-            if not table_name or not table_name.strip(): raise Exception("table name cannot be empty")
-            column_names_list = [col.get("name") for col in columns if "name" in col]
-            if len(column_names_list) != len(set(column_names_list)):
-                seen = set()
-                for name in column_names_list:
-                    if name in seen: raise Exception(f"duplicate column name '{name}' in table '{table_name}'")
-                    seen.add(name)
-            column_names = set(column_names_list)
-            btrees, others = [], [] # btrees: (cols_list, is_unique, origin_col), others: (type, cols_list, origin_col)
-            for col in columns:
-                col_name, col_type = col.get("name"), col.get("datatype")
-                if not col_name or not col_name.strip(): raise Exception(f"column name in {table_name} cannot be empty")
-                if not col_type or not col_type.strip(): raise Exception(f"datatype in {table_name}.{col_name} cannot be empty")
-                if col_name in global_column_types and global_column_types[col_name] != col_type:
-                    raise Exception(f"datatype mismatch for column '{col_name}': '{col_type}' in {table_name} vs '{global_column_types[col_name]}' elsewhere")
-                global_column_types[col_name] = col_type
-                if (col_unique := col.get("unique")):
-                    for group in (x.strip() for x in col_unique.split("|")):
-                        u_cols = [c.strip() for c in group.split(",")]
-                        for uc in u_cols:
-                            if uc not in column_names: raise Exception(f"unique constraint in {table_name}.{col_name} references non-existent column '{uc}'")
-                        if col_name not in u_cols: raise Exception(f"unique constraint in {table_name}.{col_name} does not include '{col_name}' itself")
-                        btrees.append((u_cols, True, col_name))
-                if (col_index := col.get("index")):
-                    for group in (x.strip() for x in col_index.split("|")):
-                        if "(" in group and group.endswith(")"):
-                            idx_type, cols_str = group[:-1].split("(", 1)
-                            idx_type, idx_cols = idx_type.strip().lower(), [c.strip() for c in cols_str.split(",")]
-                            for ic in idx_cols:
-                                if ic not in column_names: raise Exception(f"index in {table_name}.{col_name} references non-existent column '{ic}'")
-                            if col_name not in idx_cols: raise Exception(f"index in {table_name}.{col_name} does not include '{col_name}' itself")
-                            if idx_type == "btree": btrees.append((idx_cols, False, col_name))
-                            else: others.append((idx_type, idx_cols, col_name))
-                        else: raise Exception(f"invalid index syntax '{group}' in {table_name}.{col_name}")
-            # redundancy: btree/unique
-            for i, (c1, u1, o1) in enumerate(btrees):
-                for j, (c2, u2, o2) in enumerate(btrees):
-                    if i == j: continue
-                    if c1 == c2 and u1 == u2: raise Exception(f"duplicate {'unique' if u1 else 'btree index'} on {table_name}: {c1}")
-                    if not u1 and c2[:len(c1)] == c1: raise Exception(f"redundant btree index on {table_name}.{o1}({','.join(c1)}) covered by {'unique' if u2 else 'btree'} on {o2}({','.join(c2)})")
-                    if u1 and u2 and c1[:len(c2)] == c2: raise Exception(f"redundant unique constraint on {table_name}.{o1}({','.join(c1)}) - {o2}({','.join(c2)}) is already unique")
-            # redundancy: others (gin/gist/etc)
-            for i, (t1, c1, o1) in enumerate(others):
-                for j, (t2, c2, o2) in enumerate(others):
-                    if i == j: continue
-                    if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
-    # postgres soft delete cascading integrity check
-    if config_postgres and "table" in config_postgres:
-        for table_name, columns in config_postgres["table"].items():
-            if table_name == "users":
-                continue
-            column_names = {col.get("name") for col in columns if "name" in col}
-            if "created_by_id" in column_names or "user_id" in column_names:
-                if "is_deleted" not in column_names:
-                    raise Exception(f"Table '{table_name}' has 'created_by_id' or 'user_id' but is missing the 'is_deleted' column required for soft deletes.")
+def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_mode_user: list, config_mode_api: list, config_postgres: dict, config_func_check: dict = None, config_table_create_disable_my: list = None) -> None:
+    if config_func_check is None:
+        config_func_check = {}
+    if config_func_check.get("is_check_config_api", 1) == 1:
+        api_ids = []
+        for path, cfg in config_api.items():
+            if (api_id := cfg.get("id")):
+                if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
+                api_ids.append(api_id)
+            for key in ("user_role_check", "user_is_active_check"):
+                if (mode_cfg := cfg.get(key)) and mode_cfg[0] not in config_mode_user: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} ({key}), allowed: {config_mode_user}")
+            for key in ("api_ratelimiting_times_sec", "api_cache_sec"):
+                if (mode_cfg := cfg.get(key)) and mode_cfg[0] not in config_mode_api: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} ({key}), allowed: {config_mode_api}")
+        route_paths = {route.path for route in app_routes if hasattr(route, "path")}
+        for path in config_api.keys():
+            if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
+    if config_func_check.get("is_check_route_admin_rules", 1) == 1:
+        for route in app_routes:
+            if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
+            path = route.path
+            if path.startswith("/admin"):
+                if path not in config_api: raise Exception(f"admin route '{path}' missing in config_api")
+                if "user_role_check" not in config_api[path]: raise Exception(f"admin route '{path}' missing 'user_role_check' in config_api")
+                if 1 not in config_api[path]["user_role_check"][1]: raise Exception(f"admin route '{path}' must allow role 1")
+    if config_func_check.get("is_check_route_namespace_rules", 1) == 1:
+        for route in app_routes:
+            if not hasattr(route, "path"): continue
+            path = route.path
+            if not (path == "/" or path.startswith(tuple(config_api_namespace)) or path.count("/") == 1): raise Exception(f"invalid route: {path}")
+    if config_func_check.get("is_check_route_endpoint_naming", 1) == 1:
+        for route in app_routes:
+            if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
+            path, endpoint_name = route.path, route.endpoint.__name__
+            if not endpoint_name.startswith("func_api_"): raise Exception(f"invalid endpoint function name: {endpoint_name} in {path}")
+    if config_func_check.get("is_check_config_naming", 1) == 1:
+        import ast
+        if config_config_path:
+            with open(config_config_path if config_config_path.endswith(".py") else f"{config_config_path}.py", "r", encoding="utf-8") as f: tree = ast.parse(f.read())
+            for node in tree.body:
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        targets_to_check = [target]
+                        while targets_to_check:
+                            t = targets_to_check.pop()
+                            if isinstance(t, ast.Name) and not t.id.startswith("config_"): raise Exception(f"invalid config variable name: {t.id}")
+                            if isinstance(t, (ast.Tuple, ast.List)): targets_to_check.extend(t.elts)
+                elif isinstance(node, ast.AnnAssign):
+                    if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
+    if config_func_check.get("is_check_function_naming", 1) == 1:
+        import ast
+        if config_function_path:
+            with open(config_function_path if config_function_path.endswith(".py") else f"{config_function_path}.py", "r", encoding="utf-8") as f: tree = ast.parse(f.read())
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
+    if config_func_check.get("is_check_router_declaration", 1) == 1:
+        import ast, pathlib
+        if config_router_path:
+            router_dir = pathlib.Path(config_router_path)
+            for router_path in router_dir.glob("*.py"):
+                if router_path.name.startswith(("_", ".")): continue
+                with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
+                if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
+    if config_func_check.get("is_check_config_postgres", 1) == 1:
+        if config_postgres and "table" in config_postgres:
+            global_column_types = {}
+            for table_name, columns in config_postgres["table"].items():
+                if not table_name or not table_name.strip(): raise Exception("table name cannot be empty")
+                column_names_list = [col.get("name") for col in columns if "name" in col]
+                if len(column_names_list) != len(set(column_names_list)):
+                    seen = set()
+                    for name in column_names_list:
+                        if name in seen: raise Exception(f"duplicate column name '{name}' in table '{table_name}'")
+                        seen.add(name)
+                column_names = set(column_names_list)
+                if table_name not in (config_table_create_disable_my or []) and ("created_by_id" in column_names or "user_id" in column_names) and "is_deleted" not in column_names: raise Exception(f"Table '{table_name}' has 'created_by_id' or 'user_id' but is missing the 'is_deleted' column required for soft deletes.")
+                btrees, others = [], []
+                for col in columns:
+                    col_name, col_type = col.get("name"), col.get("datatype")
+                    if not col_name or not col_name.strip(): raise Exception(f"column name in {table_name} cannot be empty")
+                    if not col_type or not col_type.strip(): raise Exception(f"datatype in {table_name}.{col_name} cannot be empty")
+                    if col_name in global_column_types and global_column_types[col_name] != col_type:
+                        raise Exception(f"datatype mismatch for column '{col_name}': '{col_type}' in {table_name} vs '{global_column_types[col_name]}' elsewhere")
+                    global_column_types[col_name] = col_type
+                    if (col_unique := col.get("unique")):
+                        for group in (x.strip() for x in col_unique.split("|")):
+                            u_cols = [c.strip() for c in group.split(",")]
+                            for uc in u_cols:
+                                if uc not in column_names: raise Exception(f"unique constraint in {table_name}.{col_name} references non-existent column '{uc}'")
+                            if col_name not in u_cols: raise Exception(f"unique constraint in {table_name}.{col_name} does not include '{col_name}' itself")
+                            btrees.append((u_cols, True, col_name))
+                    if (col_index := col.get("index")):
+                        for group in (x.strip() for x in col_index.split("|")):
+                            if "(" in group and group.endswith(")"):
+                                idx_type, cols_str = group[:-1].split("(", 1)
+                                idx_type, idx_cols = idx_type.strip().lower(), [c.strip() for c in cols_str.split(",")]
+                                for ic in idx_cols:
+                                    if ic not in column_names: raise Exception(f"index in {table_name}.{col_name} references non-existent column '{ic}'")
+                                if col_name not in idx_cols: raise Exception(f"index in {table_name}.{col_name} does not include '{col_name}' itself")
+                                if idx_type == "btree": btrees.append((idx_cols, False, col_name))
+                                else: others.append((idx_type, idx_cols, col_name))
+                            else: raise Exception(f"invalid index syntax '{group}' in {table_name}.{col_name}")
+                for i, (c1, u1, o1) in enumerate(btrees):
+                    for j, (c2, u2, o2) in enumerate(btrees):
+                        if i == j: continue
+                        if c1 == c2 and u1 == u2: raise Exception(f"duplicate {'unique' if u1 else 'btree index'} on {table_name}: {c1}")
+                        if not u1 and c2[:len(c1)] == c1: raise Exception(f"redundant btree index on {table_name}.{o1}({','.join(c1)}) covered by {'unique' if u2 else 'btree'} on {o2}({','.join(c2)})")
+                        if u1 and u2 and c1[:len(c2)] == c2: raise Exception(f"redundant unique constraint on {table_name}.{o1}({','.join(c1)}) - {o2}({','.join(c2)}) is already unique")
+                for i, (t1, c1, o1) in enumerate(others):
+                    for j, (t2, c2, o2) in enumerate(others):
+                        if i == j: continue
+                        if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
     return None
 

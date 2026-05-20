@@ -89,6 +89,16 @@ config_mode_user = ["token", "realtime", "redis", "inmemory"]
 config_mode_api = ["redis", "inmemory"]
 
 #dict
+config_func_check = {
+"is_check_config_api": 1,
+"is_check_route_admin_rules": 1,
+"is_check_route_namespace_rules": 1,
+"is_check_route_endpoint_naming": 1,
+"is_check_config_naming": 1,
+"is_check_function_naming": 1,
+"is_check_router_declaration": 1,
+"is_check_config_postgres": 1,
+}
 config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_is_active": "select id,is_active from users order by id asc limit 1000",
