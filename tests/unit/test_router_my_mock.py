@@ -225,8 +225,6 @@ def my_client(my_test_client):
         "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_update": test_client.app.state.func_postgres_update,
         "func_otp_verify": test_client.app.state.func_otp_verify,
-        "config_is_disable_role_user_delete_soft": getattr(test_client.app.state, "config_is_disable_role_user_delete_soft", 0),
-        "config_is_disable_role_user_delete_hard": getattr(test_client.app.state, "config_is_disable_role_user_delete_hard", 0),
     }
 
 
@@ -236,8 +234,6 @@ def my_client(my_test_client):
     test_client.app.state.config_sql = {"profile_metadata": {"test_count": "profile-test-count"}}
     test_client.app.state.cache_postgres_table_list = ["test", "users", "message", "parent", "child"]
     test_client.app.state.cache_postgres_column_list = ["id", "created_by_id", "parent_id"]
-    test_client.app.state.config_is_disable_role_user_delete_soft = 1
-    test_client.app.state.config_is_disable_role_user_delete_hard = 1
     try:
         yield test_client
     finally:
@@ -582,47 +578,8 @@ def test_my_account_delete_hard_deletes_user(my_client, auth_headers):
     assert conn._user(10) is None
 
 
-def test_my_object_update_soft_delete_rejects_role_user_at_api(my_client):
+def test_my_object_update_soft_delete_allows_role_user_at_api(my_client):
     my_client.app.state.client_postgres_pool.conn.seed_user(id=20, role=1)
-    headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "is_active": 1})
-
-    response = my_client.put(
-        "/my/object-update?table=users",
-        headers=headers,
-        json={"id": 20, "is_deleted": 1},
-    )
-
-    assert response.status_code == 400
-    assert response.json()["message"] == "account with role cannot be deleted"
-
-
-def test_my_object_update_soft_delete_rejects_role_user_with_string_payload(my_client):
-    my_client.app.state.client_postgres_pool.conn.seed_user(id=20, role=1)
-    headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "is_active": 1})
-
-    response = my_client.put(
-        "/my/object-update?table=users",
-        headers=headers,
-        json={"id": 20, "is_deleted": "1"},
-    )
-
-    assert response.status_code == 400
-    assert response.json()["message"] == "account with role cannot be deleted"
-
-def test_my_account_delete_rejects_role_user(my_client):
-    my_client.app.state.client_postgres_pool.conn.seed_user(id=20, role=1)
-    headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "is_active": 1})
-
-    response = my_client.delete("/my/account-delete", headers=headers)
-
-    assert response.status_code == 400
-    assert response.json()["message"] == "account with role cannot be deleted"
-
-
-def test_my_object_update_soft_delete_allows_role_user_if_config_enabled(my_client):
-    my_client.app.state.client_postgres_pool.conn.seed_user(id=20, role=1)
-    my_client.app.state.config_is_disable_role_user_delete_soft = 0
-    
     headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "is_active": 1})
 
     calls = {}
@@ -640,11 +597,12 @@ def test_my_object_update_soft_delete_allows_role_user_if_config_enabled(my_clie
 
     assert response.status_code == 200
     assert response.json()["message"] == "updated"
+    assert calls["obj_list"] == [{"id": 20, "is_deleted": 1, "updated_by_id": 20}]
 
 
-def test_my_account_delete_allows_role_user_if_config_enabled(my_client):
-    my_client.app.state.client_postgres_pool.conn.seed_user(id=20, role=1)
-    my_client.app.state.config_is_disable_role_user_delete_hard = 0
+def test_my_account_delete_allows_role_user(my_client):
+    conn = my_client.app.state.client_postgres_pool.conn
+    conn.seed_user(id=20, role=1)
 
     headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "is_active": 1})
 
@@ -652,3 +610,4 @@ def test_my_account_delete_allows_role_user_if_config_enabled(my_client):
 
     assert response.status_code == 200
     assert response.json()["message"] == "account deleted"
+    assert conn._user(20) is None
