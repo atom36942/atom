@@ -173,6 +173,7 @@ def admin_client(admin_test_client):
         "config_redis_cache_ttl_sec": test_client.app.state.config_redis_cache_ttl_sec,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
         "config_is_enable_otp_users_update_admin": test_client.app.state.config_is_enable_otp_users_update_admin,
+        "config_is_enable_postgres_sql_runner_write": test_client.app.state.config_is_enable_postgres_sql_runner_write,
         "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_update": test_client.app.state.func_postgres_update,
         "func_otp_verify": test_client.app.state.func_otp_verify,
@@ -348,6 +349,32 @@ def test_admin_postgres_runner_read_requires_read_pool(admin_client):
 
     assert response.status_code == 400
     assert response.json() == {"status": 0, "message": "postgres read client not initialized"}
+
+
+def test_admin_postgres_runner_write_requires_config(admin_client):
+    response = admin_client.post(
+        "/admin/postgres-sql-runner",
+        headers=bearer_token(admin_client.app.state),
+        json={"mode": "write", "sql": "update test set title='one' where id=1"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"status": 0, "message": "postgres sql runner write mode disabled"}
+    assert admin_client.app.state.client_postgres_pool.conn.executed == []
+
+
+def test_admin_postgres_runner_write_runs_when_enabled(admin_client):
+    admin_client.app.state.config_is_enable_postgres_sql_runner_write = 1
+
+    response = admin_client.post(
+        "/admin/postgres-sql-runner",
+        headers=bearer_token(admin_client.app.state),
+        json={"mode": "write", "sql": "update test set title='one' where id=1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": "UPDATE 1"}
+    assert admin_client.app.state.client_postgres_pool.conn.executed[0][0] == "update test set title='one' where id=1"
 
 
 def test_admin_postgres_export_rejects_mutating_sql(admin_client):

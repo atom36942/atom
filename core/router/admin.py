@@ -76,6 +76,7 @@ async def func_api_admin_postgres_sql_runner(*, request: Request):
     ql = ob["sql"].lower().strip()
     if any(re.search(rf"\b{k}\b", ql) for k in ("drop", "truncate", "delete")): raise Exception("forbidden keyword in sql")
     if ob["mode"] == "read" and not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read mode restricted")
+    if ob["mode"] == "write" and app_state.config_is_enable_postgres_sql_runner_write != 1: raise Exception("postgres sql runner write mode disabled")
     if ob["mode"] == "read":
         if not app_state.client_postgres_pool_read: raise Exception("postgres read client not initialized")
         async with app_state.client_postgres_pool_read.acquire() as conn:

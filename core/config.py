@@ -70,6 +70,7 @@ config_is_enable_reset_tmp = 0
 config_is_enable_index_html = 0
 config_is_enable_otp_users_update_admin = 0
 config_is_enable_postgres_init_startup = 1
+config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_background_workers = 1
 config_is_disable_role_user_delete_soft = 1
 config_is_disable_role_user_delete_hard = 1
