@@ -379,7 +379,7 @@ config_postgres = {
 "is_enable_drop_column_mismatch":1,
 "is_disable_users_delete_role":1,
 "is_enable_users_delete_child_soft":1,
-"is_enable_users_delete_child_hard":0,
+"is_enable_users_delete_child_hard":1,
 "table_delete_disable_row":["users"],
 "table_delete_disable_row_bulk":[["users",1]],
 "is_enable_autovacuum_optimize":1
