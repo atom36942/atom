@@ -146,9 +146,11 @@ class FakeSchemaConn:
             self.tables.get(table, {}).pop(column, None)
             return
 
-        create_index = re.search(r'CREATE INDEX "?(\w+)"? ON "?(\w+)"?', sql)
+        create_index = re.search(r'CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|(\w+))\s+ON\s+(?:"([^"]+)"|(\w+))', sql, re.IGNORECASE)
         if create_index:
-            name, table = create_index.groups()
+            groups = create_index.groups()
+            name = groups[0] or groups[1]
+            table = groups[2] or groups[3]
             self.meta.setdefault(table, set()).add(name)
             return
 
@@ -833,3 +835,114 @@ def test_func_check_cascading_soft_delete_integrity():
             config_mode_api=[],
             config_postgres=config_fail
         )
+
+
+@pytest.mark.asyncio
+async def test_config_postgres_custom_sql_index_lifecycle():
+    initial_config = {
+        "table": {
+            "users": [
+                {"name": "is_active", "datatype": "smallint", "default": 1}
+            ]
+        },
+        "sql": {
+            "index_idx_users_inactive": "CREATE INDEX IF NOT EXISTS idx_users_inactive ON users (id) WHERE is_active = 0",
+            "other_custom_query": "SELECT 1"
+        }
+    }
+
+    pool = FakeSchemaPool(
+        tables={"users": {"id": {"type": "bigserial"}, "is_active": {"type": "smallint"}}},
+        meta={"users": set()},
+        triggers={}
+    )
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=initial_config,
+        config_root_user_password="",
+    )
+
+    assert "idx_users_inactive" in pool.conn.meta["users"]
+    assert any("idx_users_inactive" in q[0] for q in pool.conn.queries)
+    assert any("SELECT 1" in q[0] for q in pool.conn.queries)
+
+    second_config = {
+        "table": {
+            "users": [
+                {"name": "is_active", "datatype": "smallint", "default": 1}
+            ]
+        },
+        "sql": {
+            "other_custom_query": "SELECT 1"
+        }
+    }
+
+    pool.conn.queries = []
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=second_config,
+        config_root_user_password="",
+    )
+
+    assert "idx_users_inactive" not in pool.conn.meta["users"]
+
+
+@pytest.mark.asyncio
+async def test_config_postgres_nested_sql_index_lifecycle():
+    initial_config = {
+        "table": {
+            "users": [
+                {"name": "is_active", "datatype": "smallint", "default": 1}
+            ]
+        },
+        "sql": {
+            "index": {
+                "idx_users_inactive": "CREATE INDEX IF NOT EXISTS idx_users_inactive ON users (id) WHERE is_active = 0"
+            },
+            "other_custom_query": "SELECT 1"
+        }
+    }
+
+    pool = FakeSchemaPool(
+        tables={"users": {"id": {"type": "bigserial"}, "is_active": {"type": "smallint"}}},
+        meta={"users": set()},
+        triggers={}
+    )
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=initial_config,
+        config_root_user_password="",
+    )
+
+    assert "idx_users_inactive" in pool.conn.meta["users"]
+    assert any("idx_users_inactive" in q[0] for q in pool.conn.queries)
+    assert any("SELECT 1" in q[0] for q in pool.conn.queries)
+
+    second_config = {
+        "table": {
+            "users": [
+                {"name": "is_active", "datatype": "smallint", "default": 1}
+            ]
+        },
+        "sql": {
+            "other_custom_query": "SELECT 1"
+        }
+    }
+
+    pool.conn.queries = []
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=second_config,
+        config_root_user_password="",
+    )
+
+    assert "idx_users_inactive" not in pool.conn.meta["users"]
+

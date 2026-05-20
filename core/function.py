@@ -522,6 +522,12 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
     bulk_blocked = control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))
     table_blocked = control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
+    for key, val in config_postgres.get("sql", {}).items():
+        if key == "index" and isinstance(val, dict):
+            for idx_name in val.keys():
+                catalog["idx"].add(idx_name)
+        elif isinstance(key, str) and key.startswith("index_"):
+            catalog["idx"].add(key[6:])
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
     for table_name, column_configs in config_postgres["table"].items():
         column_names = {col["name"] for col in column_configs if "name" in col}
@@ -805,6 +811,13 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 drop_vars = "record.relname, record.conname"
                 like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
+        for key, query in config_postgres.get("sql", {}).items():
+            if key == "index" and isinstance(query, dict):
+                for idx_name, idx_query in query.items():
+                    if isinstance(idx_query, str) and idx_query.strip():
+                        await conn.execute(idx_query)
+            elif isinstance(query, str) and query.strip():
+                await conn.execute(query)
     return "database init done"
 
 async def func_postgres_serialize(*, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
