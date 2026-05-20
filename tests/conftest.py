@@ -97,6 +97,7 @@ async def integration_app(db_containers):
         config_pg_test["table"]["test_blob"] = [
             {"name": "file_url", "datatype": "text"},
             {"name": "created_by_id", "datatype": "bigint"},
+            {"name": "is_deleted", "datatype": "smallint", "default": 0, "in": (0, 1)},
             {"name": "created_at", "datatype": "timestamptz", "default": "now()"}
         ]
     # Add 'test_action' table if missing (needed for relation tests)
