@@ -1356,7 +1356,7 @@ async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> d
     if not record: raise Exception("user not found")
     return dict(record)
 
-def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_mode_user: list, config_mode_api: list, config_postgres: dict, config_func_check: dict = None, config_table_create_disable_my: list = None) -> None:
+def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_mode_user: list, config_mode_api: list, config_postgres: dict, config_func_check: dict = None) -> None:
     if config_func_check is None:
         config_func_check = {}
     if config_func_check.get("is_check_config_api", 1) == 1:
@@ -1438,7 +1438,7 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                         if name in seen: raise Exception(f"duplicate column name '{name}' in table '{table_name}'")
                         seen.add(name)
                 column_names = set(column_names_list)
-                if table_name not in (config_table_create_disable_my or []) and ("created_by_id" in column_names or "user_id" in column_names) and "is_deleted" not in column_names: raise Exception(f"Table '{table_name}' has 'created_by_id' or 'user_id' but is missing the 'is_deleted' column required for soft deletes.")
+                if ("created_by_id" in column_names or "user_id" in column_names) and "is_deleted" not in column_names: raise Exception(f"Table '{table_name}' has 'created_by_id' or 'user_id' but is missing the 'is_deleted' column required for soft deletes.")
                 btrees, others = [], []
                 for col in columns:
                     col_name, col_type = col.get("name"), col.get("datatype")

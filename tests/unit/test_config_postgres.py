@@ -836,19 +836,6 @@ def test_func_check_cascading_soft_delete_integrity():
             config_postgres=config_fail
         )
 
-    # 3. Test case: table has created_by_id, NO is_deleted but is excluded via config_table_create_disable_my -> Passes
-    func_check(
-        app_routes=[],
-        config_config_path=None,
-        config_function_path=None,
-        config_api_namespace=[],
-        config_router_path=None,
-        config_api={},
-        config_mode_user=[],
-        config_mode_api=[],
-        config_postgres=config_fail,
-        config_table_create_disable_my=["child_tbl"]
-    )
 
 
 @pytest.mark.asyncio
