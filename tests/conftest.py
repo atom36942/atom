@@ -21,7 +21,7 @@ def setup_app_state_placeholders():
         if hasattr(core_app, _k): setattr(core_app, _k, None)
     app.state.config_is_enable_background_workers = 0
     if hasattr(core_app, "config_is_enable_background_workers"): core_app.config_is_enable_background_workers = 0
-    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
+    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_users_is_deleted", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, [] if "list" in _k else {})
     for _k in ["client_postgres_pool", "client_postgres_pool_read", "client_redis", "client_redis_producer", "client_mongodb", "client_s3", "client_s3_resource", "client_sns", "client_ses", "client_openai", "client_gemini", "client_posthog", "client_celery_producer", "client_kafka_producer", "client_rabbitmq", "client_rabbitmq_producer", "client_sftp", "client_azure_blob", "pulse_flush_task", "flush_lock"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, None)
@@ -157,6 +157,7 @@ async def integration_app(db_containers):
     app.state.cache_postgres_column_list = sorted(list(set(col for table in app.state.cache_postgres_schema.values() for col in table.keys())))
     app.state.cache_users_role = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_role"))
     app.state.cache_users_is_active = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_is_active"))
+    app.state.cache_users_is_deleted = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_is_deleted"))
     app.state.cache_ratelimiter, app.state.cache_api_response, app.state.cache_postgres_buffer_create = {}, {}, {}
 
     # 4. Map S3 to Localstack
@@ -175,7 +176,7 @@ async def integration_app(db_containers):
     await app.state.client_s3.create_bucket(Bucket="atom-integration-test")
     
     # 4. Final State Hardening (prevents race conditions before lifespan finishes)
-    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
+    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_users_is_deleted", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, [] if "list" in _k else {})
     for _k in ["client_sns", "client_ses", "client_openai", "client_gemini", "client_posthog", "client_celery_producer", "client_kafka_producer", "client_rabbitmq", "client_rabbitmq_producer", "client_sftp", "client_azure_blob", "pulse_flush_task"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, None)

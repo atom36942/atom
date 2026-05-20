@@ -21,6 +21,7 @@ async def func_api_admin_sync(*, request: Request):
     app_state.cache_postgres_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres_pool else {}
     app_state.cache_users_is_active = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("users_is_active")) if app_state.client_postgres_pool else {}
+    app_state.cache_users_is_deleted = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("users_is_deleted")) if app_state.client_postgres_pool else {}
     if app_state.config_is_enable_reset_tmp == 1 and os.path.exists("tmp"): shutil.rmtree("tmp"); os.makedirs("tmp")
     return {"status": 1, "message": "done"}
 

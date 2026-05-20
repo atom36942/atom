@@ -51,7 +51,7 @@ config_buffer_flush_interval_sec = 60
 config_redis_cache_ttl_sec = 3600
 config_token_expiry_sec = 10*365*24*60*60
 config_token_refresh_expiry_sec = 100*365*24*60*60
-config_token_key = ["id", "type", "role", "is_active", "id_ext"]
+config_token_key = ["id", "type", "role", "is_active", "is_deleted", "id_ext"]
 config_blob_container_default = "atom"
 config_blob_limit_kb = 100
 config_blob_upload_limit_count = 10
@@ -102,9 +102,10 @@ config_func_check = {
 "is_check_config_postgres": 1,
 }
 config_sql = {
-"users_role": "select id,role from users where role is not null order by id asc limit 1000",
-"users_is_active": "select id,is_active from users order by id asc limit 1000",
-"profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
+    "users_role": "select id,role from users where role is not null order by id asc limit 1000",
+    "users_is_active": "select id,is_active from users order by id asc limit 1000",
+    "users_is_deleted": "select id,is_deleted from users order by id asc limit 1000",
+    "profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
 }
 config_table = {
 "test": {"buffer": 10},
@@ -135,7 +136,7 @@ config_api = {
 "/admin/object-create": {"id": 2, "user_role_check": ["token", [1]]},
 "/admin/object-update": {"id": 3, "user_role_check": ["token", [1]]},
 "/admin/object-read": {"id": 4, "user_role_check": ["token", [1]]},
-"/admin/ids-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_is_active_check": ["realtime", 1]},
+"/admin/ids-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_is_active_check": ["realtime", 1], "user_is_deleted_check": ["realtime", 1]},
 "/admin/postgres-sql-runner": {"id": 6, "user_role_check": ["realtime", [1]]},
 "/admin/postgres-export": {"id": 7, "user_role_check": ["inmemory", [1]]},
 "/admin/postgres-import": {"id": 8, "user_role_check": ["realtime", [1]]},
