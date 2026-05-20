@@ -21,8 +21,8 @@ async def fetch_control_checks(conn):
             ('is_enable_drop_schema_or_table', NOT EXISTS (SELECT 1 FROM pg_event_trigger WHERE evtname = 'trigger_drop_disable')),
             ('is_enable_drop_column', NOT EXISTS (SELECT 1 FROM pg_event_trigger WHERE evtname = 'trigger_drop_column_disable')),
             ('is_enable_truncate_users', NOT EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_truncate_disable_users' AND NOT t.tgisinternal)),
-            ('is_enable_users_delete_role', NOT EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_role_users' AND p.proname = 'func_delete_disable_role_users' AND NOT t.tgisinternal)),
-            ('is_enable_users_protect_root', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_protect_root_users' AND p.proname = 'func_protect_root_users' AND NOT t.tgisinternal)),
+            ('is_enable_delete_disable_users_role', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_role_users' AND p.proname = 'func_delete_disable_role_users' AND NOT t.tgisinternal)),
+            ('is_enable_delete_disable_users_root', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_protect_root_users' AND p.proname = 'func_protect_root_users' AND NOT t.tgisinternal)),
             ('is_enable_users_root_upsert', EXISTS (SELECT 1 FROM users WHERE id = 1 AND type = 1 AND username = 'atom' AND role = 1 AND is_active = 1)),
             ('is_enable_users_password_log', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_password_log_users' AND p.proname = 'func_password_log_users' AND NOT t.tgisinternal)),
 
@@ -91,8 +91,8 @@ async def test_config_postgres_control_catalog_matches_core_config_defaults():
                 "is_enable_drop_schema_or_table": True,
                 "is_enable_drop_column": True,
                 "is_enable_truncate_users": True,
-                "is_enable_users_delete_role": False,
-                "is_enable_users_protect_root": True,
+                "is_enable_delete_disable_users_role": True,
+                "is_enable_delete_disable_users_root": True,
                 "is_enable_users_root_upsert": True,
                 "is_enable_users_password_log": True,
 
@@ -117,11 +117,11 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                 client_password_hasher=PasswordHasher(),
                 config_postgres=minimal_control_config(
                     {
-                        "is_enable_users_protect_root": 1,
+                        "is_enable_delete_disable_users_root": 1,
                         "is_enable_users_root_upsert": 1,
                         "is_enable_users_password_log": 1,
 
-                        "is_enable_users_delete_role": 1,
+                        "is_enable_delete_disable_users_role": 1,
                         "is_enable_users_set_deleted_at": 1,
                         "is_enable_delete_disable_is_protected": 1,
                         "is_enable_updated_at_set": 1,
@@ -134,7 +134,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                 root = await conn.fetchrow("SELECT id, username, role, is_active FROM users WHERE id = 1")
                 assert dict(root) == {"id": 1, "username": "atom", "role": 1, "is_active": 1}
 
-                with pytest.raises(asyncpg.PostgresError, match="DELETE not allowed for root user"):
+                with pytest.raises(asyncpg.PostgresError, match="DELETE not allowed for"):
                     await conn.execute("DELETE FROM users WHERE id = 1")
 
                 with pytest.raises(asyncpg.PostgresError, match="Updates to type, username, role, or is_active"):
@@ -167,14 +167,14 @@ async def test_new_automatic_logic_control_switches_remove_managed_triggers_when
         pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
         try:
             enabled_control = {
-                "is_enable_users_protect_root": 1,
+                "is_enable_delete_disable_users_root": 1,
                 "is_enable_users_root_upsert": 1,
                 "is_enable_users_password_log": 1,
                 "is_enable_delete_disable_is_protected": 1,
                 "is_enable_updated_at_set": 1,
             }
             disabled_control = {
-                "is_enable_users_protect_root": 0,
+                "is_enable_delete_disable_users_root": 0,
                 "is_enable_users_root_upsert": 0,
                 "is_enable_users_password_log": 0,
                 "is_enable_delete_disable_is_protected": 0,

@@ -560,12 +560,16 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
     is_enable_drop_table = get_enable_control_switch("is_enable_drop_table", 1, ("is_enable_drop_table_disable", "is_disable_drop_table"))
     is_enable_truncate = get_enable_control_switch("is_enable_truncate", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
     is_enable_drop_column = get_enable_control_switch("is_enable_drop_column", 0, ("is_enable_drop_column_disable", "is_disable_drop_column"))
-    is_enable_users_protect_root = control.get("is_enable_users_protect_root", 1)
+    is_enable_delete_disable_users_root = control.get("is_enable_delete_disable_users_root", control.get("is_enable_users_protect_root", 1))
     is_enable_users_root_upsert = control.get("is_enable_users_root_upsert", 1)
     is_enable_users_password_log = control.get("is_enable_users_password_log", 1)
     is_enable_delete_disable_is_protected = control.get("is_enable_delete_disable_is_protected", 1)
     is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
-    is_enable_users_delete_role = get_enable_control_switch("is_enable_users_delete_role", 1, ("is_enable_users_delete_role_disable", "is_disable_users_delete_role"))
+    is_enable_delete_disable_users_role = control.get("is_enable_delete_disable_users_role", control.get("is_enable_users_protect_role", control.get("is_enable_users_protect_with_role", 0 if control.get("is_enable_users_delete_with_role", control.get("is_enable_users_delete_role", 1)) else 1)))
+    if "is_enable_users_delete_role_disable" in control:
+        is_enable_delete_disable_users_role = control.get("is_enable_users_delete_role_disable")
+    if "is_disable_users_delete_role" in control:
+        is_enable_delete_disable_users_role = control.get("is_disable_users_delete_role")
     is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", 0)))
     if not is_enable_drop_column and is_enable_drop_column_mismatch:
         raise Exception("config_postgres.control conflict: is_enable_drop_column=0 blocks is_enable_drop_column_mismatch=1")
@@ -756,7 +760,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             db_tables.setdefault(row[0], []).append(row[1])
         users_cols = db_tables.get("users", [])
         if users_cols:
-            if is_enable_users_protect_root:
+            if is_enable_delete_disable_users_root:
                 catalog["tg"].add("trigger_protect_root_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; ELSIF TG_OP = 'UPDATE' THEN IF OLD.id = 1 THEN IF NEW.type IS DISTINCT FROM OLD.type OR NEW.username IS DISTINCT FROM OLD.username OR NEW.role IS DISTINCT FROM OLD.role OR NEW.is_active IS DISTINCT FROM OLD.is_active THEN RAISE EXCEPTION 'Updates to type, username, role, or is_active are not allowed for root user (id=1)'; END IF; END IF; RETURN NEW; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
             if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
@@ -766,7 +770,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
-            if not is_enable_users_delete_role and "role" in users_cols:
+            if is_enable_delete_disable_users_role and "role" in users_cols:
                 catalog["tg"].add("trigger_delete_disable_role_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users ON users; CREATE TRIGGER trigger_delete_disable_role_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users();")

@@ -459,7 +459,7 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
             "is_enable_drop_schema": 0,
             "is_enable_drop_table": 0,
             "is_enable_truncate": 0,
-            "is_enable_users_delete_role": 0,
+            "is_enable_delete_disable_users_role": 1,
 
             "table_delete_disable_row": ["*"],
             "table_delete_disable_row_bulk": [["*", 3]],
@@ -701,10 +701,10 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
 @pytest.mark.parametrize(
     ("control", "users_columns", "expected", "unexpected"),
     [
-        ({"is_enable_users_delete_role": 0}, None, "trigger_delete_disable_role_users", None),
+        ({"is_enable_delete_disable_users_role": 1}, None, "trigger_delete_disable_role_users", None),
         ({}, None, None, "trigger_delete_disable_role_users"),
         (
-            {"is_enable_users_delete_role": 0},
+            {"is_enable_delete_disable_users_role": 1},
             [
                 {"name": "type", "datatype": "smallint"},
                 {"name": "username", "datatype": "text"},
@@ -738,8 +738,8 @@ async def test_config_postgres_schema_init_users_delete_controls_require_switche
 @pytest.mark.parametrize(
     ("control", "expected_sql", "unexpected_sql", "expected_trigger", "unexpected_trigger"),
     [
-        ({"is_enable_users_protect_root": 1}, "CREATE TRIGGER trigger_protect_root_users", None, "trigger_protect_root_users", None),
-        ({"is_enable_users_protect_root": 0}, None, "CREATE TRIGGER trigger_protect_root_users", None, "trigger_protect_root_users"),
+        ({"is_enable_delete_disable_users_root": 1}, "CREATE TRIGGER trigger_protect_root_users", None, "trigger_protect_root_users", None),
+        ({"is_enable_delete_disable_users_root": 0}, None, "CREATE TRIGGER trigger_protect_root_users", None, "trigger_protect_root_users"),
         ({"is_enable_users_root_upsert": 1}, "INSERT INTO users (type, username, password, role, is_active)", None, None, None),
         ({"is_enable_users_root_upsert": 0}, None, "INSERT INTO users (type, username, password, role, is_active)", None, None),
     ],
