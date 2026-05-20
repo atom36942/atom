@@ -103,10 +103,10 @@ config_func_check = {
 "is_check_config_postgres": 1,
 }
 config_sql = {
-    "users_role": "select id,role from users where role is not null order by id asc limit 1000",
-    "users_is_active": "select id,is_active from users order by id asc limit 1000",
-    "users_is_deleted": "select id,is_deleted from users order by id asc limit 1000",
-    "profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
+"users_role": "select id,role from users where role is not null order by id asc limit 1000",
+"users_is_active": "select id,is_active from users order by id asc limit 1000",
+"users_is_deleted": "select id,is_deleted from users order by id asc limit 1000",
+"profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
 }
 config_table = {
 "test": {"buffer": 10},
@@ -396,8 +396,8 @@ config_postgres = {
 "is_enable_users_protect_root":1,
 "is_enable_users_root_upsert":1,
 "is_enable_users_password_log":1,
-"is_enable_users_delete_child_soft":1,
-"is_enable_users_delete_child_hard":1,
+"is_enable_users_delete_child_soft":0,
+"is_enable_users_delete_child_hard":0,
 "is_enable_delete_disable_is_protected":1,
 "is_enable_updated_at_set":1,
 "table_delete_disable_row":["users"],

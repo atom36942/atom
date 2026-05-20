@@ -40,15 +40,6 @@ async def func_api_my_api_usage(*, request: Request):
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
 
-@router.delete("/my/account-delete")
-async def func_api_my_account_delete(*, request: Request):
-    app_state, user_id = request.app.state, request.state.user["id"]
-    user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
-    if user["role"] is not None and app_state.config_is_disable_role_user_delete_hard == 1: raise Exception("account with role cannot be deleted")
-    async with app_state.client_postgres_pool.acquire() as conn:
-        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
-    return {"status": 1, "message": "account deleted"}
-
 @router.get("/my/message-inbox")
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
@@ -105,6 +96,18 @@ async def func_api_my_message_delete_bulk(*, request: Request):
         elif oq["mode"] == "received": await conn.execute("DELETE FROM message WHERE user_id=$1", user_id)
         elif oq["mode"] == "all": await conn.execute("DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)", user_id)
     return {"status": 1, "message": "messages deleted"}
+
+
+    
+
+@router.delete("/my/account-delete")
+async def func_api_my_account_delete(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
+    if user["role"] is not None and app_state.config_is_disable_role_user_delete_hard == 1: raise Exception("account with role cannot be deleted")
+    async with app_state.client_postgres_pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
+    return {"status": 1, "message": "account deleted"}
 
 @router.post("/my/ids-delete")
 async def func_api_my_ids_delete(*, request: Request):
