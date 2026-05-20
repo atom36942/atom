@@ -62,8 +62,8 @@ async def test_object_read_parameter_matrix(integration_app, auth_client):
 @pytest.mark.asyncio
 async def test_api_param_strict_validation(integration_app, auth_client):
     user = auth_client(user_id=500)
-    # Testing enum validation for 'mode' parameter in account-delete
-    res = await user.delete("/my/account-delete?mode=invalid_mode")
+    # Testing enum validation for a route that declares a constrained mode parameter.
+    res = await user.delete("/my/message-delete-bulk?mode=invalid_mode")
     assert res.json()["status"] == 0
     assert "not allowed" in res.json()["message"].lower()
     print("✅ Matrix: Strict parameter validation (Enum checking) verified.")

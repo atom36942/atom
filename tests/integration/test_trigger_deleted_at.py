@@ -2,7 +2,7 @@ import pytest
 import asyncpg
 from testcontainers.postgres import PostgresContainer
 from argon2 import PasswordHasher
-from core.function import func_postgres_schema_init, func_postgres_schema_read
+from core.function import func_postgres_schema_init
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_deleted_at_set_on_soft_delete():
                             {"name": "role", "datatype": "smallint"},
                         ]
                     },
-                    "control": {"is_enable_set_deleted_at": 1},
+                    "control": {"is_enable_users_set_deleted_at": 1},
                 },
                 config_root_user_password="password",
             )
@@ -71,7 +71,7 @@ async def test_deleted_at_cleared_on_reactivation():
                             {"name": "role", "datatype": "smallint"},
                         ]
                     },
-                    "control": {"is_enable_set_deleted_at": 1},
+                    "control": {"is_enable_users_set_deleted_at": 1},
                 },
                 config_root_user_password="password",
             )
@@ -115,7 +115,7 @@ async def test_deleted_at_set_on_insert_with_is_deleted_1():
                             {"name": "role", "datatype": "smallint"},
                         ]
                     },
-                    "control": {"is_enable_set_deleted_at": 1},
+                    "control": {"is_enable_users_set_deleted_at": 1},
                 },
                 config_root_user_password="password",
             )
@@ -131,8 +131,8 @@ async def test_deleted_at_set_on_insert_with_is_deleted_1():
 
 
 @pytest.mark.asyncio
-async def test_deleted_at_works_on_non_users_table():
-    """Trigger should work on any table that has is_deleted + deleted_at columns."""
+async def test_deleted_at_not_created_on_non_users_table():
+    """The built-in deleted_at trigger is users-table specific."""
     with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
         pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
         try:
@@ -148,7 +148,7 @@ async def test_deleted_at_works_on_non_users_table():
                             {"name": "title", "datatype": "text"},
                         ]
                     },
-                    "control": {"is_enable_set_deleted_at": 1},
+                    "control": {"is_enable_users_set_deleted_at": 1},
                 },
                 config_root_user_password="password",
             )
@@ -158,14 +158,14 @@ async def test_deleted_at_works_on_non_users_table():
                 oid = row["id"]
                 assert row["deleted_at"] is None
 
-                # Soft delete
+                # Soft delete: users-only trigger should not affect this table.
                 updated = await conn.fetchrow("UPDATE orders SET is_deleted = 1 WHERE id = $1 RETURNING *", oid)
-                assert updated["deleted_at"] is not None
+                assert updated["deleted_at"] is None
 
                 # Reactivate
                 restored = await conn.fetchrow("UPDATE orders SET is_deleted = 0 WHERE id = $1 RETURNING *", oid)
                 assert restored["deleted_at"] is None
-                print("\n✅ deleted_at trigger works on non-users table (orders)")
+                print("\n✅ deleted_at trigger is not created on non-users table (orders)")
 
         finally:
             await pool.close()
@@ -173,7 +173,7 @@ async def test_deleted_at_works_on_non_users_table():
 
 @pytest.mark.asyncio
 async def test_deleted_at_not_created_when_control_disabled():
-    """When is_enable_set_deleted_at=0, the trigger should NOT be created."""
+    """When is_enable_users_set_deleted_at=0, the trigger should NOT be created."""
     with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
         pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
         try:
@@ -189,7 +189,7 @@ async def test_deleted_at_not_created_when_control_disabled():
                             {"name": "title", "datatype": "text"},
                         ]
                     },
-                    "control": {"is_enable_set_deleted_at": 0},
+                    "control": {"is_enable_users_set_deleted_at": 0},
                 },
                 config_root_user_password="password",
             )
@@ -208,8 +208,8 @@ async def test_deleted_at_not_created_when_control_disabled():
 
 
 @pytest.mark.asyncio
-async def test_deleted_at_null_to_1_transition():
-    """When is_deleted changes from NULL to 1, deleted_at should be set."""
+async def test_deleted_at_null_to_1_transition_on_users():
+    """When users.is_deleted changes from NULL to 1, deleted_at should be set."""
     with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
         pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
         try:
@@ -218,30 +218,34 @@ async def test_deleted_at_null_to_1_transition():
                 client_password_hasher=PasswordHasher(),
                 config_postgres={
                     "table": {
-                        "items": [
+                        "users": [
                             {"name": "is_deleted", "datatype": "smallint"},
                             {"name": "deleted_at", "datatype": "timestamptz"},
-                            {"name": "title", "datatype": "text"},
+                            {"name": "type", "datatype": "smallint", "is_mandatory": 1},
+                            {"name": "username", "datatype": "text", "unique": "username,type"},
+                            {"name": "password", "datatype": "text"},
+                            {"name": "role", "datatype": "smallint"},
+                            {"name": "is_active", "datatype": "smallint"},
                         ]
                     },
-                    "control": {"is_enable_set_deleted_at": 1},
+                    "control": {"is_enable_users_set_deleted_at": 1},
                 },
                 config_root_user_password="password",
             )
 
             async with pool.acquire() as conn:
                 # Insert with is_deleted = NULL (no default)
-                row = await conn.fetchrow("INSERT INTO items (title) VALUES ('item1') RETURNING *")
+                row = await conn.fetchrow("INSERT INTO users (type, username, password) VALUES (1, 'nullable_user', 'pass') RETURNING *")
                 iid = row["id"]
                 assert row["is_deleted"] is None
                 assert row["deleted_at"] is None
 
                 # NULL → 1
-                updated = await conn.fetchrow("UPDATE items SET is_deleted = 1 WHERE id = $1 RETURNING *", iid)
+                updated = await conn.fetchrow("UPDATE users SET is_deleted = 1 WHERE id = $1 RETURNING *", iid)
                 assert updated["deleted_at"] is not None
 
                 # 1 → NULL
-                restored = await conn.fetchrow("UPDATE items SET is_deleted = NULL WHERE id = $1 RETURNING *", iid)
+                restored = await conn.fetchrow("UPDATE users SET is_deleted = NULL WHERE id = $1 RETURNING *", iid)
                 assert restored["deleted_at"] is None
                 print("\n✅ deleted_at handles NULL ↔ 1 transitions correctly")
 
