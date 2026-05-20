@@ -727,6 +727,12 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 catalog["tg"].add("trigger_delete_disable_role_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users ON users; CREATE TRIGGER trigger_delete_disable_role_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users();")
+            if control.get("is_enable_users_set_deleted_at", 0) and "is_deleted" in users_cols and "deleted_at" in users_cols:
+                catalog["tg"].add("trigger_set_deleted_at_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_set_deleted_at_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.is_deleted = 1 THEN NEW.deleted_at := NOW(); ELSE NEW.deleted_at := NULL; END IF; RETURN NEW; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_set_deleted_at_users ON users; CREATE TRIGGER trigger_set_deleted_at_users BEFORE UPDATE ON users FOR EACH ROW WHEN (OLD.is_deleted IS DISTINCT FROM NEW.is_deleted) EXECUTE FUNCTION func_set_deleted_at_users();")
+                catalog["tg"].add("trigger_set_deleted_at_insert_users")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_set_deleted_at_insert_users ON users; CREATE TRIGGER trigger_set_deleted_at_insert_users BEFORE INSERT ON users FOR EACH ROW WHEN (NEW.is_deleted = 1) EXECUTE FUNCTION func_set_deleted_at_users();")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected=1 THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")

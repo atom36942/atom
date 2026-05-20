@@ -43,12 +43,10 @@ async def func_api_my_api_usage(*, request: Request):
 @router.delete("/my/account-delete")
 async def func_api_my_account_delete(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["soft", "hard"], None)])
     user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
-    if user["role"] is not None: raise Exception("account with role cannot be deleted")
+    if user["role"] is not None and app_state.config_is_disable_role_user_delete_hard == 1: raise Exception("account with role cannot be deleted")
     async with app_state.client_postgres_pool.acquire() as conn:
-        if oq["mode"] == "soft": await conn.execute("UPDATE users SET is_deleted=1 WHERE id=$1", user_id)
-        elif oq["mode"] == "hard": await conn.execute("DELETE FROM users WHERE id=$1", user_id)
+        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
     return {"status": 1, "message": "account deleted"}
 
 @router.get("/my/message-inbox")
@@ -137,6 +135,9 @@ async def func_api_my_object_update(*, request: Request):
     if oq["table"] == "users" and len(obj_list) > 1: raise Exception("multi-object user update restricted")
     if oq["table"] == "users" and str(obj_list[0].get("id")) != str(request.state.user["id"]): raise Exception("ownership issue: cannot update other users")
     if oq["table"] == "users" and any(key in app_state.config_column_enable_single_update for key in obj_list[0]) and len(obj_list[0]) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")
+    if oq["table"] == "users" and str(obj_list[0].get("is_deleted")) == "1":
+        user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"])
+        if user["role"] is not None and app_state.config_is_disable_role_user_delete_soft == 1: raise Exception("account with role cannot be deleted")
     if oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")): await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=obj_list[0].get("email"), mobile=obj_list[0].get("mobile"), config_expiry_sec_otp=app_state.config_expiry_sec_otp)
     if request.state.user.get("id"): obj_list = [dict(item, updated_by_id=request.state.user["id"]) for item in obj_list]
     created_by_id = request.state.user["id"] if oq["table"] != "users" else None

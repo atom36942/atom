@@ -71,6 +71,8 @@ config_is_enable_index_html = 0
 config_is_enable_otp_users_update_admin = 0
 config_is_enable_postgres_init_startup = 1
 config_is_enable_background_workers = 1
+config_is_disable_role_user_delete_soft = 1
+config_is_disable_role_user_delete_hard = 1
 config_kafka_group_id = "group_1"
 config_kafka_is_auto_commit = 1
 config_kafka_batch_limit = 100
@@ -81,7 +83,7 @@ config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp
 config_table_create_enable_public = ["test", "support"]
 config_table_read_enable_public = ["*"]
 config_admin_only_fields = ["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
-config_column_enable_single_update = ["username", "password", "email", "mobile"]
+config_column_enable_single_update = ["username", "password", "email", "mobile", "is_deleted"]
 config_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
 config_api_namespace_auth = ["/my/", "/private/", "/admin/"]
 config_api_namespace_user = ["/my/"]
@@ -195,6 +197,7 @@ config_postgres = {
 {"name":"is_active","datatype":"smallint","default":1,"in":(0,1)},
 {"name":"is_verified","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"is_deleted","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"deleted_at","datatype":"timestamptz"},
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
 {"name":"username","datatype":"text","unique":"username,type"},
@@ -392,7 +395,8 @@ config_postgres = {
 "is_enable_users_delete_child_hard":1,
 "table_delete_disable_row":["users"],
 "table_delete_disable_row_bulk":[["users",1]],
-"is_enable_autovacuum_optimize":1
+"is_enable_autovacuum_optimize":1,
+"is_enable_users_set_deleted_at":1
 },
 "sql":{
 "index": {
