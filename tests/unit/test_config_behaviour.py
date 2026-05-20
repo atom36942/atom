@@ -799,3 +799,52 @@ def test_config_regex_error_messages_match_current_password_pattern():
 
     assert "6,30" in pattern
     assert "6-30" in message
+
+
+class DummyRoute:
+    def __init__(self, path):
+        self.path = path
+
+
+def test_func_check_routing_namespace_rules():
+    from core.function import func_check
+    
+    valid_routes = [
+        DummyRoute("/"),
+        DummyRoute("/test"),
+        DummyRoute("/info"),
+        DummyRoute("/auth/login"),
+        DummyRoute("/my/profile"),
+    ]
+    
+    func_check(
+        app_routes=valid_routes,
+        config_config_path=None,
+        config_function_path=None,
+        config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
+        config_router_path=None,
+        config_api={},
+        config_mode_user=[],
+        config_mode_api=[],
+        config_postgres={"table": {}, "extension": []},
+        config_func_check={"is_check_route_namespace_rules": 1},
+    )
+    
+    invalid_routes = [
+        DummyRoute("/invalid/login"),
+    ]
+    
+    with pytest.raises(Exception, match="invalid route: /invalid/login"):
+        func_check(
+            app_routes=invalid_routes,
+            config_config_path=None,
+            config_function_path=None,
+            config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
+            config_router_path=None,
+            config_api={},
+            config_mode_user=[],
+            config_mode_api=[],
+            config_postgres={"table": {}, "extension": []},
+            config_func_check={"is_check_route_namespace_rules": 1},
+        )
+

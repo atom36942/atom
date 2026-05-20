@@ -1384,7 +1384,15 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
         for route in app_routes:
             if not hasattr(route, "path"): continue
             path = route.path
-            if not (path == "/" or path.startswith(tuple(config_api_namespace)) or path.count("/") == 1): raise Exception(f"invalid route: {path}")
+            segments = path.split("/")
+            if path == "/":
+                route_ns = "/"
+            elif len(segments) <= 2 or not any(segments[2:]):
+                route_ns = "/"
+            else:
+                route_ns = f"/{segments[1]}/"
+            if route_ns not in config_api_namespace:
+                raise Exception(f"invalid route: {path}")
     if config_func_check.get("is_check_route_endpoint_naming", 1) == 1:
         for route in app_routes:
             if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
