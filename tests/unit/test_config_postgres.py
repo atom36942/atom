@@ -303,6 +303,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
         assert "trigger_hard_delete_users" not in sql
 
     assert "trigger_delete_disable_role_users" in sql
+    assert "trigger_protect_root_users" in sql
     assert "INSERT INTO users (type, username, password, role, is_active)" in sql
 
 
@@ -735,6 +736,68 @@ async def test_config_postgres_schema_init_users_delete_controls_require_switche
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ("control", "expected_sql", "unexpected_sql", "expected_trigger", "unexpected_trigger"),
+    [
+        ({"is_enable_users_protect_root": 1}, "CREATE TRIGGER trigger_protect_root_users", None, "trigger_protect_root_users", None),
+        ({"is_enable_users_protect_root": 0}, None, "CREATE TRIGGER trigger_protect_root_users", None, "trigger_protect_root_users"),
+        ({"is_enable_users_root_upsert": 1}, "INSERT INTO users (type, username, password, role, is_active)", None, None, None),
+        ({"is_enable_users_root_upsert": 0}, None, "INSERT INTO users (type, username, password, role, is_active)", None, None),
+    ],
+)
+async def test_config_postgres_schema_init_root_user_controls(control, expected_sql, unexpected_sql, expected_trigger, unexpected_trigger):
+    pool = FakeSchemaPool(triggers={"users": {"trigger_protect_root_users"}})
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=control_pg_config(control=control),
+        config_root_user_password="root-secret",
+    )
+
+    sql = all_sql(pool.conn)
+    users_triggers = pool.conn.triggers.get("users", set())
+    if expected_sql:
+        assert expected_sql in sql
+    if unexpected_sql:
+        assert unexpected_sql not in sql
+    if expected_trigger:
+        assert expected_trigger in users_triggers
+    if unexpected_trigger:
+        assert unexpected_trigger not in users_triggers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("control", "expected", "unexpected"),
+    [
+        ({"is_enable_users_password_log": 1}, "trigger_password_log_users", None),
+        ({"is_enable_users_password_log": 0}, None, "trigger_password_log_users"),
+    ],
+)
+async def test_config_postgres_schema_init_password_log_control(control, expected, unexpected):
+    pg_config = control_pg_config(control=control)
+    pg_config["table"]["log_users_password"] = [
+        {"name": "user_id", "datatype": "bigint"},
+        {"name": "password", "datatype": "text"},
+    ]
+    pool = FakeSchemaPool(triggers={"users": {"trigger_password_log_users"}})
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=pg_config,
+        config_root_user_password="",
+    )
+
+    users_triggers = pool.conn.triggers.get("users", set())
+    if expected:
+        assert expected in users_triggers
+    if unexpected:
+        assert unexpected not in users_triggers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     ("control", "expected", "unexpected"),
     [
         ({"is_disable_truncate": 1}, {"trigger_truncate_disable_users", "trigger_truncate_disable_demo"}, set()),
@@ -745,10 +808,19 @@ async def test_config_postgres_schema_init_users_delete_controls_require_switche
         ({"table_delete_disable_row_bulk": [["demo", 2]]}, {"trigger_delete_disable_bulk_demo"}, {"trigger_delete_disable_bulk_users"}),
         ({"table_delete_disable_row_bulk": [["*", 4]]}, {"trigger_delete_disable_bulk_demo", "trigger_delete_disable_bulk_users"}, set()),
         ({"table_delete_disable_row_bulk": [["missing", 2]]}, set(), {"trigger_delete_disable_bulk_demo", "trigger_delete_disable_bulk_users"}),
+        ({"is_enable_delete_disable_is_protected": 0}, set(), {"trigger_delete_disable_is_protected_demo"}),
+        ({"is_enable_updated_at_set": 0}, set(), {"trigger_updated_at_set_demo"}),
     ],
 )
 async def test_config_postgres_schema_init_table_operation_controls(control, expected, unexpected):
-    pool = FakeSchemaPool()
+    pool = FakeSchemaPool(
+        triggers={
+            "demo": {
+                "trigger_delete_disable_is_protected_demo",
+                "trigger_updated_at_set_demo",
+            }
+        }
+    )
 
     await func_postgres_schema_init(
         client_postgres_pool=pool,
@@ -986,5 +1058,4 @@ def test_func_check_selective_toggles():
         config_postgres=config_fail,
         config_func_check={"is_check_config_postgres": 0}
     )
-
 

@@ -551,6 +551,11 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
     is_ext, is_autovacuum = control.get("is_enable_extension", 0), control.get("is_enable_autovacuum_optimize", 0)
     is_drop_schema, is_drop_table, is_truncate_table = control.get("is_disable_drop_schema", 0), control.get("is_disable_drop_table", 0), control.get("is_disable_truncate", 0)
     is_disable_drop_column = control.get("is_disable_drop_column", 1)
+    is_enable_users_protect_root = control.get("is_enable_users_protect_root", 1)
+    is_enable_users_root_upsert = control.get("is_enable_users_root_upsert", 1)
+    is_enable_users_password_log = control.get("is_enable_users_password_log", 1)
+    is_enable_delete_disable_is_protected = control.get("is_enable_delete_disable_is_protected", 1)
+    is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
     is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", control.get("is_enable_drop_column", 0))))
     if is_disable_drop_column and is_enable_drop_column_mismatch:
         raise Exception("config_postgres.control conflict: is_disable_drop_column=1 blocks is_enable_drop_column_mismatch=1")
@@ -741,12 +746,13 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             db_tables.setdefault(row[0], []).append(row[1])
         users_cols = db_tables.get("users", [])
         if users_cols:
-            catalog["tg"].add("trigger_protect_root_users")
-            await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; ELSIF TG_OP = 'UPDATE' THEN IF OLD.id = 1 THEN IF NEW.type IS DISTINCT FROM OLD.type OR NEW.username IS DISTINCT FROM OLD.username OR NEW.role IS DISTINCT FROM OLD.role OR NEW.is_active IS DISTINCT FROM OLD.is_active THEN RAISE EXCEPTION 'Updates to type, username, role, or is_active are not allowed for root user (id=1)'; END IF; END IF; RETURN NEW; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
-            if all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
+            if is_enable_users_protect_root:
+                catalog["tg"].add("trigger_protect_root_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; ELSIF TG_OP = 'UPDATE' THEN IF OLD.id = 1 THEN IF NEW.type IS DISTINCT FROM OLD.type OR NEW.username IS DISTINCT FROM OLD.username OR NEW.role IS DISTINCT FROM OLD.role OR NEW.is_active IS DISTINCT FROM OLD.is_active THEN RAISE EXCEPTION 'Updates to type, username, role, or is_active are not allowed for root user (id=1)'; END IF; END IF; RETURN NEW; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
+            if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
                 root_user_password_hash = client_password_hasher.hash(config_root_user_password)
                 await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', $1, 1, 1) ON CONFLICT (username, type) DO UPDATE SET role = 1, is_active = 1 WHERE users.role IS DISTINCT FROM 1 OR users.is_active IS DISTINCT FROM 1;", root_user_password_hash)
-            if "password" in users_cols and "log_users_password" in db_tables:
+            if is_enable_users_password_log and "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
@@ -798,12 +804,12 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 trunc_tg_name = f"trigger_truncate_disable_{table}"
                 catalog["tg"].add(trunc_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {trunc_tg_name} ON {table}; CREATE TRIGGER {trunc_tg_name} BEFORE TRUNCATE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_table();")
-            if "is_protected" in cols:
+            if is_enable_delete_disable_is_protected and "is_protected" in cols:
                 prot_tg_name = f"trigger_delete_disable_is_protected_{table}"
                 catalog["tg"].add(prot_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {prot_tg_name} ON {table}")
                 await conn.execute(f"CREATE TRIGGER {prot_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();")
-            if "updated_at" in cols:
+            if is_enable_updated_at_set and "updated_at" in cols:
                 upd_tg_name = f"trigger_updated_at_set_{table}"
                 catalog["tg"].add(upd_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}")
@@ -1517,4 +1523,3 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                         if i == j: continue
                         if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
     return None
-

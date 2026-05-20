@@ -352,6 +352,8 @@ def test_admin_postgres_runner_read_requires_read_pool(admin_client):
 
 
 def test_admin_postgres_runner_write_requires_config(admin_client):
+    admin_client.app.state.config_is_enable_postgres_sql_runner_write = 0
+
     response = admin_client.post(
         "/admin/postgres-sql-runner",
         headers=bearer_token(admin_client.app.state),

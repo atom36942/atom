@@ -47,4 +47,9 @@ config_mongodb_url=mongodb://localhost:27017
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_celery_url=redis://localhost:6379
 config_redis_queue_url=redis://localhost:6379
+config_root_user_password="your-secure-password"
+config_token_secret_key="your-secure-token-secret-key-here"
+config_is_enable_signup=0
+config_is_enable_postgres_sql_runner_write=0
+config_is_enable_traceback=0
 ```
