@@ -58,7 +58,7 @@ class InMemoryMyConn:
             usage = {}
             for row in self.log_api:
                 if row.get("created_by_id") == user_id:
-                    usage[row["api"]] = usage.get(row["api"], 0) + 1
+                    usage[row["path"]] = usage.get(row["path"], 0) + 1
             return [{"api": api, "count": count} for api, count in sorted(usage.items())]
         if "with chat_summary" in normalized:
             return self._message_inbox(user_id=args[0], normalized=normalized)
@@ -278,10 +278,10 @@ def test_my_api_usage_groups_logs_for_authenticated_user(my_client, auth_headers
     conn = my_client.app.state.client_postgres_pool.conn
     conn.log_api.extend(
         [
-            {"created_by_id": 10, "api": "/my/profile"},
-            {"created_by_id": 10, "api": "/my/profile"},
-            {"created_by_id": 11, "api": "/my/profile"},
-            {"created_by_id": 10, "api": "/my/object-read"},
+            {"created_by_id": 10, "path": "/my/profile"},
+            {"created_by_id": 10, "path": "/my/profile"},
+            {"created_by_id": 11, "path": "/my/profile"},
+            {"created_by_id": 10, "path": "/my/object-read"},
         ]
     )
 

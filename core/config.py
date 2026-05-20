@@ -110,6 +110,7 @@ config_column_int_mapping = {
 "is_deleted": {0: "Not Deleted", 1: "Deleted"},
 "is_protected": {0: "Not Protected", 1: "Protected"},
 "is_read": {0: "Unread", 1: "Read"},
+"response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
 "support_status": {1: "Open", 2: "In Progress", 3: "Resolved", 4: "Closed"},
 "job_status": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
 "candidate_status": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold"},
@@ -209,17 +210,16 @@ config_postgres = {
 ],
 "log_api":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,created_at)"},
 {"name":"is_deleted","datatype":"smallint","default":0,"in":(0,1),"index":"btree(is_deleted)"},
-{"name":"type","datatype":"smallint"},
+{"name":"response_type","datatype":"smallint","in":(1,2,3,4,5),"index":"btree(response_type,created_at)"},
 {"name":"ip_address","datatype":"text"},
-{"name":"api","datatype":"text","index":"btree(api)"},
-{"name":"api_id","datatype":"integer"},
+{"name":"path","datatype":"text","index":"btree(path,created_at)"},
 {"name":"method","datatype":"text"},
 {"name":"query_param","datatype":"text"},
 {"name":"status_code","datatype":"smallint","index":"btree(status_code)"},
 {"name":"response_time_ms","datatype":"integer"},
-{"name":"description","datatype":"text"}
+{"name":"error","datatype":"text"}
 ],
 "otp":[
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},

@@ -55,9 +55,9 @@ async def test_config_api_logging_observability(integration_app, auth_client):
     # 4. Check the real log_api table
     pool = app.state.client_postgres_pool
     async with pool.acquire() as conn:
-        log = await conn.fetchrow("SELECT * FROM log_api WHERE api = '/info' ORDER BY id DESC LIMIT 1")
+        log = await conn.fetchrow("SELECT * FROM log_api WHERE path = '/info' ORDER BY id DESC LIMIT 1")
         assert log is not None, "API log entry not found after flush — buffer may not have been flushed"
-        assert log["api"] == "/info"
+        assert log["path"] == "/info"
         print(f"✅ Observability: API Logging verified. Request time: {log['response_time_ms']}ms recorded.")
 
 @pytest.mark.asyncio

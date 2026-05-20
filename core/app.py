@@ -129,7 +129,7 @@ if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastA
 async def middleware(request, api_function):
     import time
     if request.method == "OPTIONS": return await api_function(request)
-    start, error, request.state.user = time.perf_counter(), None, {}
+    start, error, response_type, request.state.user = time.perf_counter(), None, 1, {}
     app_state = request.app.state
     try:
         request.state.user = await app_state.func_middleware_check_auth(headers=request.headers, url_path=request.url.path, config_token_secret_key=app_state.config_token_secret_key, config_api_namespace_auth=app_state.config_api_namespace_auth)
@@ -140,15 +140,20 @@ async def middleware(request, api_function):
         response = await app_state.func_middleware_api_cache_get(path=path, query_params=query_params, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_api_namespace_user=app_state.config_api_namespace_user)
         if not response:
             if query_params.get("is_background") == "1":
+                response_type = 3
                 response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body(), api_function=api_function)
             else:
                 response = await api_function(request)
+                if (cache_cfg := app_state.config_api.get(path, {}).get("api_cache_sec")) and cache_cfg[1] > 0: response_type = 4
                 response = await app_state.func_middleware_api_cache_set(path=path, query_params=query_params, response=response, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_api_namespace_user=app_state.config_api_namespace_user)
+        else:
+            response_type = 2
     except Exception as e:
+        response_type = 5
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=app_state.config_is_enable_traceback, sentry_dsn=app_state.config_sentry_dsn)
     from contextlib import suppress
     if app_state.config_is_enable_log_api == 1 and (pool := app_state.client_postgres_pool):
-        with suppress(Exception): await app_state.func_postgres_create(client_postgres_pool=pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "type": 1, "ip_address": request.client.host if request.client else None, "api": request.url.path, "api_id": app_state.config_api.get(request.url.path, {}).get("id"), "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "description": error}])
+        with suppress(Exception): await app_state.func_postgres_create(client_postgres_pool=pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
 
 #cors
