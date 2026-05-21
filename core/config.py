@@ -91,7 +91,6 @@ config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"
 config_allowed_api_storage_backends = ["redis", "inmemory"]
 
 #dict
-
 config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_is_active": "select id,is_active from users order by id asc limit 1000",
