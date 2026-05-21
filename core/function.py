@@ -14,7 +14,7 @@ async def func_middleware_check_auth(*, headers: dict, url_path: str, config_tok
 
 async def func_middleware_check_is_active(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_is_active: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is active using a strictly configured mode from config_api."""
-    cfg = config_api.get(url_path, {}).get("user_is_active_check")
+    cfg = config_api.get(url_path, {}).get("user_active_check")
     if not cfg or not user_dict: return None
     mode, active_flag = cfg
     if active_flag == 0: return None
@@ -49,7 +49,7 @@ async def func_middleware_check_is_active(*, user_dict: dict, url_path: str, con
 
 async def func_middleware_check_is_deleted(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_is_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
-    cfg = config_api.get(url_path, {}).get("user_is_deleted_check")
+    cfg = config_api.get(url_path, {}).get("user_deleted_check")
     if not cfg or not user_dict: return None
     mode, deleted_flag = cfg
     if deleted_flag == 0: return None
@@ -1420,7 +1420,7 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
             if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
             api_ids.append(api_id)
         if (mode_cfg := cfg.get("user_role_check")) and mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_role_check), allowed: {config_allowed_user_storage_backends}")
-        if (mode_cfg := cfg.get("user_is_active_check")) and mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_is_active_check), allowed: {config_allowed_user_storage_backends}")
+        if (mode_cfg := cfg.get("user_active_check")) and mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_active_check), allowed: {config_allowed_user_storage_backends}")
         if (mode_cfg := cfg.get("api_ratelimiting_times_sec")) and mode_cfg[0] not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_ratelimiting_times_sec), allowed: {config_allowed_api_storage_backends}")
         if (mode_cfg := cfg.get("api_cache_sec")) and mode_cfg[0] not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_cache_sec), allowed: {config_allowed_api_storage_backends}")
     route_paths = {route.path for route in app_routes if hasattr(route, "path")}

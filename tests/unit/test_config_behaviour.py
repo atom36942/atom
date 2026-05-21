@@ -129,8 +129,8 @@ def test_config_api_paths_modes_ids_and_admin_roles_match_app_routes():
     app_paths = {route.path for route in app.routes if hasattr(route, "path")}
     allowed_modes = {
         "user_role_check": {"redis", "realtime", "inmemory", "token"},
-        "user_is_active_check": {"redis", "realtime", "inmemory", "token"},
-        "user_is_deleted_check": {"redis", "realtime", "inmemory", "token"},
+        "user_active_check": {"redis", "realtime", "inmemory", "token"},
+        "user_deleted_check": {"redis", "realtime", "inmemory", "token"},
         "api_cache_sec": {"redis", "inmemory"},
         "api_ratelimiting_times_sec": {"redis", "inmemory"},
     }
@@ -386,7 +386,7 @@ async def test_config_api_user_role_check_rejects_missing_invalid_and_denied_rol
     ],
 )
 async def test_config_api_user_active_check_all_supported_modes_allow_active_user(mode, kwargs):
-    cfg = {"/admin/protected": {"user_is_active_check": [mode, 1]}}
+    cfg = {"/admin/protected": {"user_active_check": [mode, 1]}}
 
     await func_middleware_check_is_active(
         user_dict=kwargs["user_dict"],
@@ -401,8 +401,8 @@ async def test_config_api_user_active_check_all_supported_modes_allow_active_use
 
 @pytest.mark.asyncio
 async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled():
-    enabled_cfg = {"/admin/protected": {"user_is_active_check": ["token", 1]}}
-    disabled_cfg = {"/admin/protected": {"user_is_active_check": ["token", 0]}}
+    enabled_cfg = {"/admin/protected": {"user_active_check": ["token", 1]}}
+    disabled_cfg = {"/admin/protected": {"user_active_check": ["token", 0]}}
 
     with pytest.raises(Exception, match="user not active"):
         await func_middleware_check_is_active(user_dict={"id": 1, "is_active": 0}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_active={}, config_redis_cache_ttl_sec=60)
@@ -421,7 +421,7 @@ async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled
     ],
 )
 async def test_config_api_user_deleted_check_all_supported_modes_allow_non_deleted_user(mode, kwargs):
-    cfg = {"/admin/protected": {"user_is_deleted_check": [mode, 1]}}
+    cfg = {"/admin/protected": {"user_deleted_check": [mode, 1]}}
 
     await func_middleware_check_is_deleted(
         user_dict=kwargs["user_dict"],
@@ -436,8 +436,8 @@ async def test_config_api_user_deleted_check_all_supported_modes_allow_non_delet
 
 @pytest.mark.asyncio
 async def test_config_api_user_deleted_check_rejects_deleted_and_can_be_disabled():
-    enabled_cfg = {"/admin/protected": {"user_is_deleted_check": ["token", 1]}}
-    disabled_cfg = {"/admin/protected": {"user_is_deleted_check": ["token", 0]}}
+    enabled_cfg = {"/admin/protected": {"user_deleted_check": ["token", 1]}}
+    disabled_cfg = {"/admin/protected": {"user_deleted_check": ["token", 0]}}
 
     with pytest.raises(Exception, match="user is deleted"):
         await func_middleware_check_is_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_deleted={}, config_redis_cache_ttl_sec=60)
