@@ -414,8 +414,8 @@ config_postgres = {
 "is_enable_delete_disable_users_role":1,
 "is_enable_autovacuum_optimize":1,
 "is_enable_users_set_deleted_at":1,
-"table_delete_disable_row":["users"],
-"table_delete_disable_row_bulk":[["users",1]],
+"table_delete_disable_row":[],
+"table_delete_disable_row_bulk":[],
 },
 "sql":{
 "index": {
