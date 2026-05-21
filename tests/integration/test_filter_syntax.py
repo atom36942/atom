@@ -8,17 +8,17 @@ async def test_flat_list_filtering(integration_app):
     
     # 1. Seed data
     await pool.execute("DELETE FROM test")
-    await pool.execute("INSERT INTO test (title, type, is_active, rating) VALUES ('Apple iPhone', 1, 1, 4.5)")
-    await pool.execute("INSERT INTO test (title, type, is_active, rating) VALUES ('Samsung Galaxy', 1, 1, 4.8)")
-    await pool.execute("INSERT INTO test (title, type, is_active, rating) VALUES ('Nokia 3310', 2, 0, 3.0)")
-    await pool.execute("INSERT INTO test (title, type, is_active, rating) VALUES ('Google Pixel', 1, 1, 4.2)")
+    await pool.execute("INSERT INTO test (title, type, deactivated_at, rating) VALUES ('Apple iPhone', 1, 1, 4.5)")
+    await pool.execute("INSERT INTO test (title, type, deactivated_at, rating) VALUES ('Samsung Galaxy', 1, 1, 4.8)")
+    await pool.execute("INSERT INTO test (title, type, deactivated_at, rating) VALUES ('Nokia 3310', 2, 0, 3.0)")
+    await pool.execute("INSERT INTO test (title, type, deactivated_at, rating) VALUES ('Google Pixel', 1, 1, 4.2)")
 
     # 2. Test simple equality in list
     payload = {
         "table": "test",
-        "filter": ["type = 1", "is_active = 1"]
+        "filter": ["type = 1", "deactivated_at = 1"]
     }
-    res = await integration_app.get("/public/object-read", params={"table": "test", "filter": json.dumps(["type = 1", "is_active = 1"])})
+    res = await integration_app.get("/public/object-read", params={"table": "test", "filter": json.dumps(["type = 1", "deactivated_at = 1"])})
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == 1
@@ -42,7 +42,7 @@ async def test_flat_list_filtering(integration_app):
 
     # 6. Test Mixed format (Legacy Dict + Flat String)
     payload_filter = [
-        "is_active = 1",
+        "deactivated_at = 1",
         {"_or": [{"title": "ilike,%apple%"}, {"title": "ilike,%samsung%"}]}
     ]
     res = await integration_app.get("/public/object-read", params={"table": "test", "filter": json.dumps(payload_filter)})

@@ -52,7 +52,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_postgres_table_list = list(cache_postgres_schema.keys())
         cache_postgres_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
         cache_users_role = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_role")) if client_postgres_pool else {}
-        cache_users_is_active = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_is_active")) if client_postgres_pool else {}
+        cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_is_active")) if client_postgres_pool else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_pool else {}
         cache_ratelimiter, cache_api_response, cache_postgres_buffer_create = {}, {}, {}
         #lock prevents concurrent buffer flushes during background pulse and shutdown
@@ -135,7 +135,7 @@ async def middleware(request, api_function):
     try:
         request.state.user = await app_state.func_middleware_check_auth(headers=request.headers, url_path=request.url.path, config_token_secret_key=app_state.config_token_secret_key, config_api_namespace_auth=app_state.config_api_namespace_auth)
         await app_state.func_middleware_check_role(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_is_active(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_is_active=app_state.cache_users_is_active, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_deactivated(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_deleted(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis, config_api=app_state.config_api, url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
         user_id, path, query_params = (request.state.user.get("id") if request.state.user else 0), request.url.path, dict(request.query_params)

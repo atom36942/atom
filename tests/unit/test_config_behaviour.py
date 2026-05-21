@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import config
 from core.app import app, middleware
 from core.function import (
-    func_middleware_check_is_active,
+    func_middleware_check_deactivated,
     func_middleware_check_deleted,
     func_middleware_check_ratelimiter,
     func_middleware_check_role,
@@ -40,9 +40,9 @@ class FakeAcquire:
 
 
 class FakeUserConn:
-    def __init__(self, *, role=1, is_active=1, deleted_at=None):
+    def __init__(self, *, role=1, deactivated_at=None, deleted_at=None):
         self.role = role
-        self.is_active = is_active
+        self.deactivated_at = deactivated_at
         self.deleted_at = deleted_at
         self.fetch_calls = []
 
@@ -51,16 +51,16 @@ class FakeUserConn:
         normalized = " ".join(sql.lower().split())
         if "select role from users" in normalized:
             return [{"role": self.role}]
-        if "select id,is_active from users" in normalized:
-            return [{"id": args[0], "is_active": self.is_active}]
+        if "select id, deactivated_at from users" in normalized:
+            return [{"id": args[0], "deactivated_at": self.deactivated_at}]
         if "select deleted_at from users" in normalized:
             return [{"id": args[0], "deleted_at": self.deleted_at}]
         return []
 
 
 class FakeUserPool:
-    def __init__(self, *, role=1, is_active=1, deleted_at=None):
-        self.conn = FakeUserConn(role=role, is_active=is_active, deleted_at=deleted_at)
+    def __init__(self, *, role=1, deactivated_at=None, deleted_at=None):
+        self.conn = FakeUserConn(role=role, deactivated_at=deactivated_at, deleted_at=deleted_at)
 
     def acquire(self):
         return FakeAcquire(self.conn)
@@ -208,13 +208,13 @@ def test_config_sql_queries_match_required_cache_and_profile_schema():
         for table, columns in config.config_postgres["table"].items()
     }
 
-    assert {"users_role", "users_is_active", "profile_metadata"} <= set(config.config_sql)
-    assert {"id", "role", "is_active"} <= table_columns["users"]
+    assert {"users_role", "users_deactivated", "profile_metadata"} <= set(config.config_sql)
+    assert {"id", "role", "deactivated_at"} <= table_columns["users"]
     assert {"id", "created_by_id"} <= table_columns["test"]
     assert isinstance(config.config_sql["profile_metadata"], dict)
     assert set(config.config_sql["profile_metadata"]) == {"test_count", "test_object"}
     assert "from users" in config.config_sql["users_role"].lower()
-    assert "from users" in config.config_sql["users_is_active"].lower()
+    assert "from users" in config.config_sql["users_deactivated"].lower()
     assert all("created_by_id=$1" in query for query in config.config_sql["profile_metadata"].values())
 
 
@@ -379,22 +379,22 @@ async def test_config_api_user_role_check_rejects_missing_invalid_and_denied_rol
 @pytest.mark.parametrize(
     ("mode", "kwargs"),
     [
-        ("token", {"user_dict": {"id": 1, "is_active": 1}}),
-        ("inmemory", {"user_dict": {"id": 1}, "cache_users_is_active": {1: 1}}),
-        ("realtime", {"user_dict": {"id": 1}, "client_postgres_pool": FakeUserPool(is_active=1)}),
-        ("redis", {"user_dict": {"id": 1}, "client_redis": FakeRedis(), "client_postgres_pool": FakeUserPool(is_active=1)}),
+        ("token", {"user_dict": {"id": 1, "deactivated_at": None}}),
+        ("inmemory", {"user_dict": {"id": 1}, "cache_users_deactivated": {1: None}}),
+        ("realtime", {"user_dict": {"id": 1}, "client_postgres_pool": FakeUserPool(deactivated_at=None)}),
+        ("redis", {"user_dict": {"id": 1}, "client_redis": FakeRedis(), "client_postgres_pool": FakeUserPool(deactivated_at=None)}),
     ],
 )
 async def test_config_api_user_active_check_all_supported_modes_allow_active_user(mode, kwargs):
     cfg = {"/admin/protected": {"user_active_check": [mode, 1]}}
 
-    await func_middleware_check_is_active(
+    await func_middleware_check_deactivated(
         user_dict=kwargs["user_dict"],
         url_path="/admin/protected",
         config_api=cfg,
         client_postgres_pool=kwargs.get("client_postgres_pool"),
         client_redis=kwargs.get("client_redis"),
-        cache_users_is_active=kwargs.get("cache_users_is_active", {}),
+        cache_users_deactivated=kwargs.get("cache_users_deactivated", {}),
         config_redis_cache_ttl_sec=60,
     )
 
@@ -405,9 +405,9 @@ async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled
     disabled_cfg = {"/admin/protected": {"user_active_check": ["token", 0]}}
 
     with pytest.raises(Exception, match="user not active"):
-        await func_middleware_check_is_active(user_dict={"id": 1, "is_active": 0}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_active={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
-    await func_middleware_check_is_active(user_dict={"id": 1, "is_active": 0}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_active={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.parametrize("mode, kwargs", [

@@ -93,16 +93,20 @@ class InMemoryMyConn:
         elif normalized.startswith('delete from "users" where "id" = any($1::bigint[])'):
             ids = set(args[0])
             self.users = [row for row in self.users if row["id"] not in ids]
-        elif normalized.startswith("update message set is_read=1 where id in"):
-            ids = {int(x) for x in sql.split("(", 1)[1].split(")", 1)[0].split(",") if x.strip()}
+        elif normalized.startswith("update message set read_at=now() where id in"):
+            ids = {int(x) for x in sql.split("IN (", 1)[1].split(")", 1)[0].split(",") if x.strip()}
             for row in self.messages:
                 if row["id"] in ids:
-                    row["is_read"] = 1
-        elif normalized.startswith("update message set is_read=1 where created_by_id=$1 and user_id=$2"):
+                    row["read_at"] = "2026-05-21T12:00:00Z"
+        elif normalized.startswith("update message set read_at=now() where created_by_id=$1 and user_id=$2"):
+            for row in self.messages:
+                if row.get("created_by_id") == args[0] and row.get("user_id") == args[1]:
+                    row["read_at"] = "2026-05-21T12:00:00Z"
+        elif normalized.startswith("update message set read_at=1 where created_by_id=$1 and user_id=$2"):
             sender_id, user_id = args
             for row in self.messages:
                 if row.get("created_by_id") == sender_id and row.get("user_id") == user_id:
-                    row["is_read"] = 1
+                    row["read_at"] = 1
         elif normalized.startswith("delete from message where id=$1"):
             message_id, user_id = args
             self.messages = [
@@ -125,7 +129,7 @@ class InMemoryMyConn:
             "id": kwargs.pop("id", len(self.users) + 1),
             "type": kwargs.pop("type", 1),
             "role": kwargs.pop("role", None),
-            "is_active": kwargs.pop("is_active", 1),
+            "deactivated_at": kwargs.pop("deactivated_at", 1),
             "deleted_at": kwargs.pop("deleted_at", None),
             "email": kwargs.pop("email", None),
             "username": kwargs.pop("username", None),
@@ -141,7 +145,7 @@ class InMemoryMyConn:
             "created_by_id": kwargs.pop("created_by_id"),
             "user_id": kwargs.pop("user_id"),
             "description": kwargs.pop("description", "hello"),
-            "is_read": kwargs.pop("is_read", 0),
+            "read_at": kwargs.pop("read_at", 0),
         }
         row.update(kwargs)
         self.messages.append(row)
@@ -153,10 +157,10 @@ class InMemoryMyConn:
 
     def _message_received(self, *, user_id, normalized):
         rows = [row for row in self.messages if row.get("user_id") == user_id]
-        if "is_read=1" in normalized:
-            rows = [row for row in rows if row.get("is_read") == 1]
-        elif "is_read is distinct from 1" in normalized:
-            rows = [row for row in rows if row.get("is_read") != 1]
+        if "read_at is not null" in normalized:
+            rows = [row for row in rows if row.get("read_at") is not None]
+        elif "read_at is null" in normalized:
+            rows = [row for row in rows if row.get("read_at") is None]
         return sorted(rows, key=lambda row: row["id"], reverse=True)
 
     def _message_thread(self, *, user_one_id, user_two_id):
@@ -176,10 +180,10 @@ class InMemoryMyConn:
             if conversation_id not in latest_by_conversation or row["id"] > latest_by_conversation[conversation_id]["id"]:
                 latest_by_conversation[conversation_id] = row
         rows = list(latest_by_conversation.values())
-        if "user_id=$1 and is_read=1" in normalized:
-            rows = [row for row in rows if row.get("user_id") == user_id and row.get("is_read") == 1]
-        elif "user_id=$1 and is_read is distinct from 1" in normalized:
-            rows = [row for row in rows if row.get("user_id") == user_id and row.get("is_read") != 1]
+        if "user_id=$1 and read_at is not null" in normalized:
+            rows = [row for row in rows if row.get("user_id") == user_id and row.get("read_at") is not None]
+        elif "user_id=$1 and read_at is null" in normalized:
+            rows = [row for row in rows if row.get("user_id") == user_id and row.get("read_at") is None]
         return sorted(rows, key=lambda row: row["id"], reverse=True)
 
 
@@ -264,7 +268,7 @@ def auth_headers(my_client):
     user = my_client.app.state.client_postgres_pool.conn.seed_user(
         id=10, email="my-user@example.com", username="myuser"
     )
-    return bearer_token(my_client.app.state, {"id": user["id"], "type": user["type"], "role": user["role"], "is_active": 1})
+    return bearer_token(my_client.app.state, {"id": user["id"], "type": user["type"], "role": user["role"], "deactivated_at": None})
 
 
 def test_my_profile_returns_user_metadata_token_and_updates_last_active(my_client, auth_headers):
@@ -313,21 +317,21 @@ def test_my_api_usage_groups_logs_for_authenticated_user(my_client, auth_headers
 
 def test_my_message_received_returns_unread_and_marks_them_read(my_client, auth_headers):
     conn = my_client.app.state.client_postgres_pool.conn
-    conn.seed_message(id=1, created_by_id=20, user_id=10, is_read=0)
-    conn.seed_message(id=2, created_by_id=21, user_id=10, is_read=1)
+    conn.seed_message(id=1, created_by_id=20, user_id=10, read_at=None)
+    conn.seed_message(id=2, created_by_id=21, user_id=10, read_at='2026-05-21')
 
     response = my_client.get("/my/message-received?mode=unread", headers=auth_headers)
 
     assert response.status_code == 200
     assert [row["id"] for row in response.json()["message"]] == [1]
-    assert conn.messages[0]["is_read"] == 1
+    assert conn.messages[0]["read_at"] is not None
 
 
 def test_my_message_inbox_returns_latest_unread_conversations(my_client, auth_headers):
     conn = my_client.app.state.client_postgres_pool.conn
-    conn.seed_message(id=1, created_by_id=20, user_id=10, is_read=0)
-    conn.seed_message(id=2, created_by_id=10, user_id=20, is_read=0)
-    conn.seed_message(id=3, created_by_id=30, user_id=10, is_read=0)
+    conn.seed_message(id=1, created_by_id=20, user_id=10, read_at=None)
+    conn.seed_message(id=2, created_by_id=10, user_id=20, read_at=None)
+    conn.seed_message(id=3, created_by_id=30, user_id=10, read_at=None)
 
     response = my_client.get("/my/message-inbox?mode=unread", headers=auth_headers)
 
@@ -337,16 +341,16 @@ def test_my_message_inbox_returns_latest_unread_conversations(my_client, auth_he
 
 def test_my_message_thread_returns_conversation_and_marks_received_read(my_client, auth_headers):
     conn = my_client.app.state.client_postgres_pool.conn
-    conn.seed_message(id=1, created_by_id=20, user_id=10, is_read=0)
-    conn.seed_message(id=2, created_by_id=10, user_id=20, is_read=1)
-    conn.seed_message(id=3, created_by_id=30, user_id=10, is_read=0)
+    conn.seed_message(id=1, created_by_id=20, user_id=10, read_at=None)
+    conn.seed_message(id=2, created_by_id=10, user_id=20, read_at='2026-05-21')
+    conn.seed_message(id=3, created_by_id=30, user_id=10, read_at=None)
 
     response = my_client.get("/my/message-thread?user_id=20", headers=auth_headers)
 
     assert response.status_code == 200
     assert [row["id"] for row in response.json()["message"]] == [2, 1]
-    assert conn.messages[0]["is_read"] == 1
-    assert conn.messages[2]["is_read"] == 0
+    assert conn.messages[0]["read_at"] is not None
+    assert conn.messages[2]["read_at"] is None
 
 
 def test_my_message_delete_single_deletes_only_owned_message(my_client, auth_headers):
@@ -468,11 +472,11 @@ def test_my_object_create_rejects_restricted_field_at_api(my_client, auth_header
     response = my_client.post(
         "/my/object-create?table=test",
         headers=auth_headers,
-        json={"is_active": 1},
+        json={"deactivated_at": None},
     )
 
     assert response.status_code == 400
-    assert response.json()["message"] == "unauthorized creation of restricted field: is_active"
+    assert response.json()["message"] == "unauthorized creation of restricted field: deactivated_at"
 
 
 def test_my_object_update_passes_otp_and_payload_to_postgres_update(my_client, auth_headers):
@@ -502,11 +506,11 @@ def test_my_object_update_rejects_restricted_field_at_api(my_client, auth_header
     response = my_client.put(
         "/my/object-update?table=test",
         headers=auth_headers,
-        json={"id": 1, "is_active": 1},
+        json={"id": 1, "deactivated_at": None},
     )
 
     assert response.status_code == 400
-    assert response.json()["message"] == "unauthorized update to restricted field: is_active"
+    assert response.json()["message"] == "unauthorized update to restricted field: deactivated_at"
 
 
 def test_my_object_update_rejects_multi_user_update_at_api(my_client, auth_headers):
@@ -629,7 +633,7 @@ def test_my_object_create_mongodb_uses_mocked_client(my_client, auth_headers):
 
 def test_my_object_update_soft_delete_allows_role_user_at_api(my_client):
     my_client.app.state.client_postgres_pool.conn.seed_user(id=20, role=1)
-    headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "is_active": 1})
+    headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "deactivated_at": None})
 
     calls = {}
     async def fake_update(**kwargs):

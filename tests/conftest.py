@@ -21,7 +21,7 @@ def setup_app_state_placeholders():
         if hasattr(core_app, _k): setattr(core_app, _k, None)
     app.state.config_is_enable_background_workers = 0
     if hasattr(core_app, "config_is_enable_background_workers"): core_app.config_is_enable_background_workers = 0
-    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_users_deleted", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
+    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_deactivated", "cache_users_deleted", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, [] if "list" in _k else {})
     for _k in ["client_postgres_pool", "client_postgres_pool_read", "client_redis", "client_redis_producer", "client_mongodb", "client_s3", "client_s3_resource", "client_sns", "client_ses", "client_openai", "client_gemini", "client_posthog", "client_celery_producer", "client_kafka_producer", "client_rabbitmq", "client_rabbitmq_producer", "client_sftp", "client_azure_blob", "pulse_flush_task", "flush_lock"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, None)
@@ -75,18 +75,18 @@ async def integration_app(db_containers):
     config_pg_test = config.config_postgres.copy()
     config_pg_test["table"] = config_pg_test["table"].copy()
     
-    # Ensure 'users' has 'is_active' — already in core schema (line 203), skip
-    # (config_postgres already defines is_active for users)
+    # Ensure 'users' has 'deactivated_at' — already in core schema (line 203), skip
+    # (config_postgres already defines deactivated_at for users)
     
     # Add 'body' column to 'test' table (not in core schema)
     if "test" in config_pg_test["table"]:
         config_pg_test["table"]["test"] = config_pg_test["table"]["test"] + [
             {"name": "body", "datatype": "text"},
         ]
-        # Note: is_active and created_by_id already exist in core test schema
+        # Note: deactivated_at and created_by_id already exist in core test schema
         
     # Note: 'message' table already exists in core config_postgres (config.py:L254)
-    # with columns: created_by_id (mandatory), user_id (mandatory), description (mandatory), is_read
+    # with columns: created_by_id (mandatory), user_id (mandatory), description (mandatory), read_at
     # No override needed — use the core schema as-is
         
     # Note: 'otp' table in core schema has: otp (mandatory), email, mobile, created_at
@@ -156,7 +156,7 @@ async def integration_app(db_containers):
     app.state.cache_postgres_table_list = list(app.state.cache_postgres_schema.keys())
     app.state.cache_postgres_column_list = sorted(list(set(col for table in app.state.cache_postgres_schema.values() for col in table.keys())))
     app.state.cache_users_role = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_role"))
-    app.state.cache_users_is_active = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_is_active"))
+    app.state.cache_users_deactivated = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_deactivated"))
     app.state.cache_users_deleted = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_deleted"))
     app.state.cache_ratelimiter, app.state.cache_api_response, app.state.cache_postgres_buffer_create = {}, {}, {}
 
@@ -176,7 +176,7 @@ async def integration_app(db_containers):
     await app.state.client_s3.create_bucket(Bucket="atom-integration-test")
     
     # 4. Final State Hardening (prevents race conditions before lifespan finishes)
-    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_is_active", "cache_users_deleted", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
+    for _k in ["cache_postgres_table_list", "cache_postgres_column_list", "cache_postgres_schema", "cache_users_role", "cache_users_deactivated", "cache_users_deleted", "cache_ratelimiter", "cache_api_response", "cache_postgres_buffer_create", "cache_openapi"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, [] if "list" in _k else {})
     for _k in ["client_sns", "client_ses", "client_openai", "client_gemini", "client_posthog", "client_celery_producer", "client_kafka_producer", "client_rabbitmq", "client_rabbitmq_producer", "client_sftp", "client_azure_blob", "pulse_flush_task"]:
         if not hasattr(app.state, _k): setattr(app.state, _k, None)
@@ -201,10 +201,10 @@ def auth_client(integration_app):
     from fastapi.testclient import TestClient
     from core.app import app
     
-    def _get_client(user_id=1, role=1, is_active=1):
+    def _get_client(user_id=1, role=1, deactivated_at=None):
         import orjson
         from httpx import AsyncClient, ASGITransport
-        user_data = {"id": user_id, "role": role, "is_active": is_active, "type": 1}
+        user_data = {"id": user_id, "role": role, "deactivated_at": deactivated_at, "type": 1}
         payload = {"data": orjson.dumps(user_data).decode("utf-8")}
         token = jwt.encode(payload, config_token_secret_key, algorithm="HS256")
         client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")

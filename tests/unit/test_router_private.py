@@ -64,7 +64,7 @@ class FakeAzureBlobService:
 
 
 def bearer_token(app_state, user=None):
-    user = user or {"id": 10, "type": 1, "role": None, "is_active": 1}
+    user = user or {"id": 10, "type": 1, "role": None, "deactivated_at": None}
     payload = orjson.dumps(user, default=str).decode("utf-8")
     token = jwt.encode({"exp": int(time.time()) + 3600, "data": payload, "type": "access"}, app_state.config_token_secret_key)
     return {"Authorization": f"Bearer {token}"}

@@ -51,7 +51,7 @@ config_buffer_flush_interval_sec = 60
 config_redis_cache_ttl_sec = 3600
 config_token_expiry_sec = 10*365*24*60*60
 config_token_refresh_expiry_sec = 100*365*24*60*60
-config_token_key = ["id", "type", "role", "is_active", "deleted_at", "id_ext"]
+config_token_key = ["id", "type", "role", "deactivated_at", "deleted_at", "id_ext"]
 config_blob_container_default = "atom"
 config_blob_limit_kb = 100
 config_blob_upload_limit_count = 10
@@ -82,7 +82,7 @@ config_queue = ["redis", "rabbitmq", "kafka", "celery"]
 config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_create_enable_public = ["test", "support"]
 config_table_read_enable_public = ["*"]
-config_admin_only_fields = ["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
+config_admin_only_fields = ["deactivated_at", "verified_at", "role", "created_at", "updated_at", "created_by_id"]
 config_column_enable_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 config_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
 config_api_namespace_auth = ["/my/", "/private/", "/admin/"]
@@ -93,8 +93,8 @@ config_allowed_api_storage_backends = ["redis", "inmemory"]
 #dict
 config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
-"users_is_active": "select id,is_active from users order by id asc limit 1000",
-"users_is_deleted": "select id, (deleted_at IS NOT NULL)::int as is_deleted from users order by id asc limit 1000",
+"users_deactivated": "select id, deactivated_at from users order by id asc limit 1000",
+"users_deleted": "select id, deleted_at from users order by id asc limit 1000",
 "profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
 }
 config_table = {
@@ -108,11 +108,8 @@ config_regex = {
 "password": ["^\\S{6,30}$", "Password must be 6-30 characters and contain no spaces"],
 }
 config_column_int_mapping = {
-"is_active": {0: "Inactive", 1: "Active"},
-"is_verified": {0: "Pending", 1: "Verified"},
-"is_deleted": {0: "Not Deleted", 1: "Deleted"},
+
 "is_protected": {0: "Not Protected", 1: "Protected"},
-"is_read": {0: "Unread", 1: "Read"},
 "response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
 "support_status": {1: "Open", 2: "In Progress", 3: "Resolved", 4: "Closed"},
 "job_status": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
@@ -152,8 +149,8 @@ config_postgres = {
 {"name":"views","datatype":"integer","default":0},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_active","datatype":"smallint","default":1,"in":(0,1)},
-{"name":"is_verified","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"type","datatype":"smallint","index":"btree(type)"},
@@ -184,8 +181,8 @@ config_postgres = {
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_active","datatype":"smallint","default":1,"in":(0,1)},
-{"name":"is_verified","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
@@ -243,7 +240,7 @@ config_postgres = {
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id)"},
 {"name":"description","datatype":"text","is_mandatory":1},
-{"name":"is_read","datatype":"smallint","default":0}
+{"name":"read_at","datatype":"timestamptz"}
 ],
 "report_test":[
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -283,8 +280,8 @@ config_postgres = {
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_active","datatype":"smallint","default":1,"in":(0,1)},
-{"name":"is_verified","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"type","datatype":"smallint","index":"btree(type)"},
 {"name":"title","datatype":"text"},
@@ -298,8 +295,8 @@ config_postgres = {
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_active","datatype":"smallint","default":1,"in":(0,1)},
-{"name":"is_verified","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"country","datatype":"text","is_mandatory":0,"index":"btree(country)|gin(country)"},
@@ -319,8 +316,8 @@ config_postgres = {
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_active","datatype":"smallint","default":1,"in":(0,1)},
-{"name":"is_verified","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"job_id","datatype":"bigint","is_mandatory":1,"index":"btree(job_id)"},
@@ -355,8 +352,8 @@ config_postgres = {
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"is_active","datatype":"smallint","default":1,"in":(0,1)},
-{"name":"is_verified","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"candidate_id","datatype":"bigint","is_mandatory":1,"index":"btree(candidate_id)"},
@@ -391,36 +388,36 @@ config_postgres = {
 },
 "sql":{
 "index": {
-"idx_users_is_active_0": "CREATE INDEX IF NOT EXISTS idx_users_is_active_0 ON users (id) WHERE is_active = 0",
-"idx_users_is_active_1_email_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_is_active_1_email_unique ON users (email) WHERE is_active = 1",
-"idx_users_is_active_1_username_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_is_active_1_username_unique ON users (username) WHERE is_active = 1",
-"idx_test_is_verified_0": "CREATE INDEX IF NOT EXISTS idx_test_is_verified_0 ON test (id) WHERE is_verified = 0",
+"idx_users_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_users_deactivated_at_not_null ON users (id) WHERE deactivated_at IS NOT NULL",
+"idx_users_deactivated_at_null_email_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_deactivated_at_null_email_unique ON users (email) WHERE deactivated_at IS NULL",
+"idx_users_deactivated_at_null_username_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_deactivated_at_null_username_unique ON users (username) WHERE deactivated_at IS NULL",
+"idx_test_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_test_verified_at_null ON test (id) WHERE verified_at IS NULL",
 "idx_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_test_deleted_at_not_null ON test (id) WHERE deleted_at IS NOT NULL",
 "idx_test_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_test_is_protected_1 ON test (id) WHERE is_protected = 1",
-"idx_users_is_verified_0": "CREATE INDEX IF NOT EXISTS idx_users_is_verified_0 ON users (id) WHERE is_verified = 0",
+"idx_users_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_users_verified_at_null ON users (id) WHERE verified_at IS NULL",
 "idx_users_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_users_deleted_at_not_null ON users (id) WHERE deleted_at IS NOT NULL",
 "idx_users_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_users_is_protected_1 ON users (id) WHERE is_protected = 1",
 "idx_log_api_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_log_api_deleted_at_not_null ON log_api (id) WHERE deleted_at IS NOT NULL",
 "idx_log_users_password_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_log_users_password_deleted_at_not_null ON log_users_password (id) WHERE deleted_at IS NOT NULL",
 "idx_message_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_message_deleted_at_not_null ON message (id) WHERE deleted_at IS NOT NULL",
-"idx_message_is_read_0": "CREATE INDEX IF NOT EXISTS idx_message_is_read_0 ON message (user_id) WHERE is_read = 0",
+"idx_message_read_at_null": "CREATE INDEX IF NOT EXISTS idx_message_read_at_null ON message (user_id) WHERE read_at IS NULL",
 "idx_support_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_support_deleted_at_not_null ON support (id) WHERE deleted_at IS NOT NULL",
-"idx_post_is_active_0": "CREATE INDEX IF NOT EXISTS idx_post_is_active_0 ON post (id) WHERE is_active = 0",
-"idx_post_is_verified_0": "CREATE INDEX IF NOT EXISTS idx_post_is_verified_0 ON post (id) WHERE is_verified = 0",
+"idx_post_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_post_deactivated_at_not_null ON post (id) WHERE deactivated_at IS NOT NULL",
+"idx_post_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_post_verified_at_null ON post (id) WHERE verified_at IS NULL",
 "idx_post_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_post_deleted_at_not_null ON post (id) WHERE deleted_at IS NOT NULL",
-"idx_job_is_active_0": "CREATE INDEX IF NOT EXISTS idx_job_is_active_0 ON job (id) WHERE is_active = 0",
-"idx_job_is_verified_0": "CREATE INDEX IF NOT EXISTS idx_job_is_verified_0 ON job (id) WHERE is_verified = 0",
+"idx_job_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_job_deactivated_at_not_null ON job (id) WHERE deactivated_at IS NOT NULL",
+"idx_job_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_job_verified_at_null ON job (id) WHERE verified_at IS NULL",
 "idx_job_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_job_deleted_at_not_null ON job (id) WHERE deleted_at IS NOT NULL",
 "idx_job_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_job_is_protected_1 ON job (id) WHERE is_protected = 1",
-"idx_candidate_is_active_0": "CREATE INDEX IF NOT EXISTS idx_candidate_is_active_0 ON candidate (id) WHERE is_active = 0",
-"idx_candidate_is_verified_0": "CREATE INDEX IF NOT EXISTS idx_candidate_is_verified_0 ON candidate (id) WHERE is_verified = 0",
+"idx_candidate_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_candidate_deactivated_at_not_null ON candidate (id) WHERE deactivated_at IS NOT NULL",
+"idx_candidate_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_candidate_verified_at_null ON candidate (id) WHERE verified_at IS NULL",
 "idx_candidate_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_candidate_deleted_at_not_null ON candidate (id) WHERE deleted_at IS NOT NULL",
 "idx_candidate_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_candidate_is_protected_1 ON candidate (id) WHERE is_protected = 1",
-"idx_interview_is_active_0": "CREATE INDEX IF NOT EXISTS idx_interview_is_active_0 ON interview (id) WHERE is_active = 0",
-"idx_interview_is_verified_0": "CREATE INDEX IF NOT EXISTS idx_interview_is_verified_0 ON interview (id) WHERE is_verified = 0",
+"idx_interview_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_interview_deactivated_at_not_null ON interview (id) WHERE deactivated_at IS NOT NULL",
+"idx_interview_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_interview_verified_at_null ON interview (id) WHERE verified_at IS NULL",
 "idx_interview_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_interview_deleted_at_not_null ON interview (id) WHERE deleted_at IS NOT NULL",
 "idx_interview_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_interview_is_protected_1 ON interview (id) WHERE is_protected = 1",
-"idx_test_is_active_0": "CREATE INDEX IF NOT EXISTS idx_test_is_active_0 ON test (id) WHERE is_active = 0",
+"idx_test_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_test_deactivated_at_not_null ON test (id) WHERE deactivated_at IS NOT NULL",
 "idx_report_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_report_test_deleted_at_not_null ON report_test (id) WHERE deleted_at IS NOT NULL",
 "idx_comment_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_comment_test_deleted_at_not_null ON comment_test (id) WHERE deleted_at IS NOT NULL",
 "idx_rating_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_rating_test_deleted_at_not_null ON rating_test (id) WHERE deleted_at IS NOT NULL"

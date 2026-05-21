@@ -81,7 +81,7 @@ async def test_admin_postgres_import_constructed_csv(integration_app, auth_clien
     pool = integration_app.app.state.client_postgres_pool
     await pool.execute(f"DELETE FROM {table}")
 
-    csv_content = b"title,type,is_active,rating\nCSV Import 1,1,1,4.5\nCSV Import 2,2,0,3.5\n"
+    csv_content = b"title,type,views,rating\nCSV Import 1,1,1,4.5\nCSV Import 2,2,0,3.5\n"
     expected_rows = len(csv_content.decode("utf-8").splitlines()) - 1
     files = {"file": ("postgres_create.csv", csv_content, "text/csv")}
     data = {"table": table, "mode": "create"}
@@ -104,7 +104,7 @@ async def test_admin_postgres_import_update_and_delete_constructed_csv(integrati
     await pool.execute(f"DELETE FROM {table}")
     rows = await pool.fetch(
         f"""
-        INSERT INTO {table} (title, type, is_active, rating, created_by_id)
+        INSERT INTO {table} (title, type, views, rating, created_by_id)
         VALUES
             ('Before Import Update 1', 1, 1, 1.0, 1),
             ('Before Import Update 2', 1, 1, 1.0, 1)

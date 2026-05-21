@@ -73,8 +73,8 @@ class InMemoryPublicConn:
             self.seed_otp(otp=otp, email=email, mobile=mobile)
         return "OK"
 
-    def seed_otp(self, *, otp, email=None, mobile=None, is_active=True):
-        row = {"id": self.next_otp_id, "otp": otp, "email": email, "mobile": mobile, "is_active": is_active}
+    def seed_otp(self, *, otp, email=None, mobile=None, is_valid=True):
+        row = {"id": self.next_otp_id, "otp": otp, "email": email, "mobile": mobile, "is_valid": is_valid}
         self.next_otp_id += 1
         self.otp.append(row)
         return row
@@ -248,7 +248,7 @@ def test_public_object_create_sets_owner_when_token_present(public_client):
 
     response = public_client.post(
         "/public/object-create?table=test",
-        headers=bearer_token(public_client.app.state, {"id": 99, "type": 1, "role": 1, "is_active": 1}),
+        headers=bearer_token(public_client.app.state, {"id": 99, "type": 1, "role": 1, "deactivated_at": None}),
         json={"title": "public item"},
     )
 
@@ -264,10 +264,10 @@ def test_public_object_create_rejects_disallowed_table_at_api(public_client):
 
 
 def test_public_object_create_rejects_restricted_field_at_api(public_client):
-    response = public_client.post("/public/object-create?table=test", json={"is_active": 1})
+    response = public_client.post("/public/object-create?table=test", json={"deactivated_at": None})
 
     assert response.status_code == 400
-    assert response.json()["message"] == "unauthorized creation of restricted field: is_active"
+    assert response.json()["message"] == "unauthorized creation of restricted field: deactivated_at"
 
 
 def test_public_object_read_allows_configured_table(public_client):

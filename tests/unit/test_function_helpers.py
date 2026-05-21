@@ -16,7 +16,7 @@ from core.function import (
 @pytest.mark.asyncio
 async def test_middleware_check_auth_decodes_bearer_token_for_protected_route():
     secret = "test-secret-with-at-least-32-bytes"
-    payload = {"id": 42, "role": 1, "is_active": 1}
+    payload = {"id": 42, "role": 1, "deactivated_at": None}
     token = jwt.encode({"data": orjson.dumps(payload).decode("utf-8")}, secret)
 
     user = await func_middleware_check_auth(

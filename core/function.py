@@ -12,40 +12,40 @@ async def func_middleware_check_auth(*, headers: dict, url_path: str, config_tok
             raise Exception("authorization token missing")
     return user_obj
 
-async def func_middleware_check_is_active(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_is_active: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_deactivated(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is active using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_active_check")
     if not cfg or not user_dict: return None
     mode, active_flag = cfg
     if active_flag == 0: return None
-    async def fetch_is_active(uid):
+    async def fetch_deactivated_status(uid):
         if not client_postgres_pool: raise Exception("postgres client missing")
         async with client_postgres_pool.acquire() as conn:
-            rows = await conn.fetch("select id,is_active from users where id=$1", uid)
+            rows = await conn.fetch("select id, deactivated_at from users where id=$1", uid)
         if not rows: raise Exception("user not found")
-        return rows[0]["is_active"]
+        return rows[0]["deactivated_at"]
     if mode == "redis":
         if not client_redis: raise Exception("redis client missing")
         cache_key = f"""cache:user:active:{user_dict["id"]}"""
         active_status = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
-            active_status = int(cached_val)
+            active_status = cached_val if cached_val != 'None' else None
         else:
-            active_status = await fetch_is_active(user_dict["id"])
+            active_status = await fetch_deactivated_status(user_dict["id"])
             await client_redis.setex(cache_key, config_redis_cache_ttl_sec, str(active_status))
     elif mode == "realtime":
-        active_status = await fetch_is_active(user_dict["id"])
+        active_status = await fetch_deactivated_status(user_dict["id"])
     elif mode == "inmemory":
-        active_status = cache_users_is_active.get(user_dict["id"])
-        if active_status is None:
-            active_status = await fetch_is_active(user_dict["id"])
+        active_status = cache_users_deactivated.get(user_dict["id"], "absent")
+        if active_status == "absent":
+            active_status = await fetch_deactivated_status(user_dict["id"])
     elif mode == "token":
-        active_status = user_dict.get("is_active", "absent")
+        active_status = user_dict.get("deactivated_at", "absent")
     else:
         raise Exception(f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token")
-    if active_status == "absent": raise Exception("missing is_active")
-    if active_status == 0: raise Exception("user not active")
+    if active_status == "absent": raise Exception("missing deactivated_at")
+    if active_status is not None: raise Exception("user not active")
 
 async def func_middleware_check_deleted(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
@@ -762,10 +762,10 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
         if users_cols:
             if is_enable_delete_disable_users_root:
                 catalog["tg"].add("trigger_protect_root_users")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; ELSIF TG_OP = 'UPDATE' THEN IF OLD.id = 1 THEN IF NEW.type IS DISTINCT FROM OLD.type OR NEW.username IS DISTINCT FROM OLD.username OR NEW.role IS DISTINCT FROM OLD.role OR NEW.is_active IS DISTINCT FROM OLD.is_active THEN RAISE EXCEPTION 'Updates to type, username, role, or is_active are not allowed for root user (id=1)'; END IF; END IF; RETURN NEW; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
-            if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role", "is_active")):
+                await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; ELSIF TG_OP = 'UPDATE' THEN IF OLD.id = 1 THEN IF NEW.type IS DISTINCT FROM OLD.type OR NEW.username IS DISTINCT FROM OLD.username OR NEW.role IS DISTINCT FROM OLD.role OR NEW.deactivated_at IS DISTINCT FROM OLD.deactivated_at THEN RAISE EXCEPTION 'Updates to type, username, role, or deactivated_at are not allowed for root user (id=1)'; END IF; END IF; RETURN NEW; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
+            if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role")):
                 root_user_password_hash = client_password_hasher.hash(config_root_user_password)
-                await conn.execute("INSERT INTO users (type, username, password, role, is_active) VALUES (1, 'atom', $1, 1, 1) ON CONFLICT (username, type) DO UPDATE SET role = 1, is_active = 1 WHERE users.role IS DISTINCT FROM 1 OR users.is_active IS DISTINCT FROM 1;", root_user_password_hash)
+                await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'atom', $1, 1) ON CONFLICT (username, type) DO UPDATE SET role = 1 WHERE users.role IS DISTINCT FROM 1;", root_user_password_hash)
             if is_enable_users_password_log and "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
@@ -1379,16 +1379,16 @@ async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str, mo
     if not email and not mobile: raise Exception("missing both email and mobile")
     if email and mobile: raise Exception("provide only one identifier")
     if email:
-        sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
+        sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_valid FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
         identifier = email.strip().lower()
     else:
-        sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_active FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
+        sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_expiry_sec_otp}s') as is_valid FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
         identifier = mobile.strip()
     async with client_postgres_pool.acquire() as conn:
         records = await conn.fetch(sql, identifier)
         if not records: raise Exception("otp not found")
         if records[0]["otp"] != otp: raise Exception("invalid otp code")
-        if not records[0]["is_active"]: raise Exception("otp code expired")
+        if not records[0]["is_valid"]: raise Exception("otp code expired")
     return "done"
 
 async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int):

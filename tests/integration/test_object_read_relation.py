@@ -13,8 +13,8 @@ async def test_object_read_relation_full_flow(integration_app):
     await pool.execute("DELETE FROM users WHERE username IN ('cre_1', 'cre_2')")
     
     # Seed users
-    u1_id = await pool.fetchval("INSERT INTO users (username, name, is_active, type) VALUES ('cre_1', 'Creator One', 1, 1) RETURNING id")
-    u2_id = await pool.fetchval("INSERT INTO users (username, name, is_active, type) VALUES ('cre_2', 'Creator Two', 1, 1) RETURNING id")
+    u1_id = await pool.fetchval("INSERT INTO users (username, name, deactivated_at, type) VALUES ('cre_1', 'Creator One', 1, 1) RETURNING id")
+    u2_id = await pool.fetchval("INSERT INTO users (username, name, deactivated_at, type) VALUES ('cre_2', 'Creator Two', 1, 1) RETURNING id")
     
     # Seed main table
     t1_id = await pool.fetchval("INSERT INTO test (title, created_by_id) VALUES ('Main Item 1', $1) RETURNING id", u1_id)

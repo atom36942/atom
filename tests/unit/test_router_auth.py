@@ -69,8 +69,8 @@ class InMemoryAuthConn:
         self.users.append(row)
         return row
 
-    def seed_otp(self, *, otp, email=None, mobile=None, is_active=True):
-        row = {"id": self.next_otp_id, "otp": otp, "email": email, "mobile": mobile, "is_active": is_active}
+    def seed_otp(self, *, otp, email=None, mobile=None, is_valid=True):
+        row = {"id": self.next_otp_id, "otp": otp, "email": email, "mobile": mobile, "is_valid": is_valid}
         self.next_otp_id += 1
         self.otp.append(row)
         return row
@@ -98,8 +98,8 @@ class InMemoryAuthConn:
             "email": None,
             "mobile": None,
             "role": None,
-            "is_active": 1,
-            "is_verified": 0,
+            "deactivated_at": None,
+            "verified_at": 0,
             "name": None,
         }
 
@@ -142,7 +142,7 @@ def test_signup_username_password_creates_user_and_returns_tokens(auth_client):
 
     assert_auth_success(
         response,
-        expected_user={"type": 1, "username": "test_user", "is_active": 1},
+        expected_user={"type": 1, "username": "test_user", "deactivated_at": None},
         app_state=auth_client.app.state,
     )
     user = auth_client.app.state.client_postgres_pool.conn.users[0]
@@ -227,7 +227,7 @@ def test_login_email_otp_uses_seeded_otp_and_creates_missing_user(auth_client):
 
 def test_login_email_otp_rejects_expired_otp(auth_client):
     auth_client.app.state.client_postgres_pool.conn.seed_otp(
-        otp=123456, email="otp-email@example.com", is_active=False
+        otp=123456, email="otp-email@example.com", is_valid=False
     )
 
     response = auth_client.post(

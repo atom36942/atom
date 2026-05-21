@@ -217,7 +217,7 @@ def control_pg_config(control=None, users_columns=None, demo_columns=None, exten
         {"name": "username", "datatype": "text"},
         {"name": "password", "datatype": "text"},
         {"name": "role", "datatype": "smallint"},
-        {"name": "is_active", "datatype": "smallint"},
+        {"name": "deactivated_at", "datatype": "smallint"},
         {"name": "deleted_at", "datatype": "timestamptz"},
     ]
     demo_columns = demo_columns if demo_columns is not None else [
@@ -279,7 +279,6 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
     assert 'CREATE INDEX "idx_test_tag_gin" ON "test" USING gin("tag");' in sql
     assert 'ALTER TABLE "test" ADD CONSTRAINT "unique_test_code_type" UNIQUE ("code","type");' in sql
     assert 'ALTER TABLE "test" ADD CONSTRAINT "unique_test_code_slug" UNIQUE ("code","slug");' in sql
-    assert 'CHECK ("is_active" IN (0, 1));' in sql
     assert 'CHECK ("email" ~ \'^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$\');' in sql
     assert 'ALTER TABLE "test" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);' in sql
     is_enable_drop_column = config.config_postgres["control"].get("is_enable_drop_column", 0)
@@ -294,7 +293,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
 
     assert "trigger_delete_disable_role_users" in sql
     assert "trigger_protect_root_users" in sql
-    assert "INSERT INTO users (type, username, password, role, is_active)" in sql
+    assert "INSERT INTO users (type, username, password, role)" in sql
 
 
 @pytest.mark.asyncio
@@ -709,7 +708,7 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
                 {"name": "type", "datatype": "smallint"},
                 {"name": "username", "datatype": "text"},
                 {"name": "password", "datatype": "text"},
-                {"name": "is_active", "datatype": "smallint"},
+                {"name": "deactivated_at", "datatype": "smallint"},
             ],
             None,
             "trigger_delete_disable_role_users",
@@ -740,8 +739,8 @@ async def test_config_postgres_schema_init_users_delete_controls_require_switche
     [
         ({"is_enable_delete_disable_users_root": 1}, "CREATE TRIGGER trigger_protect_root_users", None, "trigger_protect_root_users", None),
         ({"is_enable_delete_disable_users_root": 0}, None, "CREATE TRIGGER trigger_protect_root_users", None, "trigger_protect_root_users"),
-        ({"is_enable_users_root_upsert": 1}, "INSERT INTO users (type, username, password, role, is_active)", None, None, None),
-        ({"is_enable_users_root_upsert": 0}, None, "INSERT INTO users (type, username, password, role, is_active)", None, None),
+        ({"is_enable_users_root_upsert": 1}, "INSERT INTO users (type, username, password, role)", None, None, None),
+        ({"is_enable_users_root_upsert": 0}, None, "INSERT INTO users (type, username, password, role)", None, None),
     ],
 )
 async def test_config_postgres_schema_init_root_user_controls(control, expected_sql, unexpected_sql, expected_trigger, unexpected_trigger):
@@ -890,17 +889,17 @@ async def test_config_postgres_custom_sql_index_lifecycle():
     initial_config = {
         "table": {
             "users": [
-                {"name": "is_active", "datatype": "smallint", "default": 1}
+                {"name": "deactivated_at", "datatype": "smallint", "default": 1}
             ]
         },
         "sql": {
-            "index_idx_users_inactive": "CREATE INDEX IF NOT EXISTS idx_users_inactive ON users (id) WHERE is_active = 0",
+            "index_idx_users_inactive": "CREATE INDEX IF NOT EXISTS idx_users_inactive ON users (id) WHERE deactivated_at = 0",
             "other_custom_query": "SELECT 1"
         }
     }
 
     pool = FakeSchemaPool(
-        tables={"users": {"id": {"type": "bigserial"}, "is_active": {"type": "smallint"}}},
+        tables={"users": {"id": {"type": "bigserial"}, "deactivated_at": {"type": "smallint"}}},
         meta={"users": set()},
         triggers={}
     )
@@ -919,7 +918,7 @@ async def test_config_postgres_custom_sql_index_lifecycle():
     second_config = {
         "table": {
             "users": [
-                {"name": "is_active", "datatype": "smallint", "default": 1}
+                {"name": "deactivated_at", "datatype": "smallint", "default": 1}
             ]
         },
         "sql": {
@@ -944,19 +943,19 @@ async def test_config_postgres_nested_sql_index_lifecycle():
     initial_config = {
         "table": {
             "users": [
-                {"name": "is_active", "datatype": "smallint", "default": 1}
+                {"name": "deactivated_at", "datatype": "smallint", "default": 1}
             ]
         },
         "sql": {
             "index": {
-                "idx_users_inactive": "CREATE INDEX IF NOT EXISTS idx_users_inactive ON users (id) WHERE is_active = 0"
+                "idx_users_inactive": "CREATE INDEX IF NOT EXISTS idx_users_inactive ON users (id) WHERE deactivated_at = 0"
             },
             "other_custom_query": "SELECT 1"
         }
     }
 
     pool = FakeSchemaPool(
-        tables={"users": {"id": {"type": "bigserial"}, "is_active": {"type": "smallint"}}},
+        tables={"users": {"id": {"type": "bigserial"}, "deactivated_at": {"type": "smallint"}}},
         meta={"users": set()},
         triggers={}
     )
@@ -975,7 +974,7 @@ async def test_config_postgres_nested_sql_index_lifecycle():
     second_config = {
         "table": {
             "users": [
-                {"name": "is_active", "datatype": "smallint", "default": 1}
+                {"name": "deactivated_at", "datatype": "smallint", "default": 1}
             ]
         },
         "sql": {

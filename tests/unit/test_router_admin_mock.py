@@ -83,8 +83,8 @@ class FakePostgresConn:
         normalized = " ".join(sql.lower().split())
         if "select role from users where id=$1" in normalized:
             return [{"role": 1}]
-        if "select id,is_active from users where id=$1" in normalized:
-            return [{"id": args[0], "is_active": 1}]
+        if "select id, deactivated_at from users where id=$1" in normalized:
+            return [{"id": args[0], "deactivated_at": None}]
         if "select deleted_at from users where id=$1" in normalized:
             return [{"id": args[0], "deleted_at": None}]
         return self.fetch_rows
@@ -148,7 +148,7 @@ class FakeS3Admin:
 
 
 def bearer_token(app_state):
-    payload = orjson.dumps({"id": 10, "type": 1, "role": 1, "is_active": 1}, default=str).decode("utf-8")
+    payload = orjson.dumps({"id": 10, "type": 1, "role": 1, "deactivated_at": None}, default=str).decode("utf-8")
     token = jwt.encode({"exp": int(time.time()) + 3600, "data": payload, "type": "access"}, app_state.config_token_secret_key)
     return {"Authorization": f"Bearer {token}"}
 
@@ -283,11 +283,11 @@ def test_admin_object_create_allows_restricted_field(admin_client):
     response = admin_client.post(
         "/admin/object-create?table=test",
         headers=bearer_token(admin_client.app.state),
-        json={"is_active": 1},
+        json={"deactivated_at": None},
     )
 
     assert response.status_code == 200
-    assert calls["obj_list"] == [{"is_active": 1, "created_by_id": 10}]
+    assert calls["obj_list"] == [{"deactivated_at": None, "created_by_id": 10}]
 
 
 def test_admin_object_update_verifies_otp_for_user_email_when_enabled(admin_client):
