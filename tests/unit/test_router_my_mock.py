@@ -84,10 +84,10 @@ class InMemoryMyConn:
             user = self._user(args[0])
             if user:
                 user["last_active_at"] = "updated"
-        elif normalized.startswith("update users set is_deleted=1 where id=$1"):
-            user = self._user(args[0])
-            if user:
-                user["is_deleted"] = 1
+        elif normalized.startswith("update users set deleted_at="):
+            for user in self.users:
+                if user["id"] == args[0]:
+                    user["deleted_at"] = "2026-05-21T12:00:00Z"
         elif normalized.startswith("delete from users where id=$1"):
             self.users = [row for row in self.users if row["id"] != args[0]]
         elif normalized.startswith('delete from "users" where "id" = any($1::bigint[])'):
@@ -126,7 +126,7 @@ class InMemoryMyConn:
             "type": kwargs.pop("type", 1),
             "role": kwargs.pop("role", None),
             "is_active": kwargs.pop("is_active", 1),
-            "is_deleted": kwargs.pop("is_deleted", 0),
+            "deleted_at": kwargs.pop("deleted_at", None),
             "email": kwargs.pop("email", None),
             "username": kwargs.pop("username", None),
             "last_active_at": kwargs.pop("last_active_at", None),
@@ -554,7 +554,7 @@ def test_my_object_update_soft_delete_marks_user_deleted_at_api(my_client, auth_
     response = my_client.put(
         "/my/object-update?table=users",
         headers=auth_headers,
-        json={"id": 10, "is_deleted": 1},
+        json={"id": 10, "deleted_at": "2026-05-21T12:00:00Z"},
     )
 
     assert response.status_code == 200
@@ -567,7 +567,7 @@ def test_my_object_update_rejects_combined_is_deleted_user_field_at_api(my_clien
     response = my_client.put(
         "/my/object-update?table=users",
         headers=auth_headers,
-        json={"id": 10, "is_deleted": 1, "title": "extra"},
+        json={"id": 10, "deleted_at": "2026-05-21T12:00:00Z", "title": "extra"},
     )
 
     assert response.status_code == 400
@@ -641,7 +641,7 @@ def test_my_object_update_soft_delete_allows_role_user_at_api(my_client):
     response = my_client.put(
         "/my/object-update?table=users",
         headers=headers,
-        json={"id": 20, "is_deleted": 1},
+        json={"id": 20, "deleted_at": "2026-05-21T12:00:00Z"},
     )
 
     assert response.status_code == 200

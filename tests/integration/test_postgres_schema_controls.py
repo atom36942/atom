@@ -59,7 +59,7 @@ def minimal_control_config(control):
             "demo_control": [
                 {"name": "user_id", "datatype": "bigint"},
                 {"name": "created_by_id", "datatype": "bigint"},
-                {"name": "is_deleted", "datatype": "smallint", "default": 0},
+                {"name": "deleted_at", "datatype": "timestamptz"},
                 {"name": "is_protected", "datatype": "smallint", "default": 0},
                 {"name": "updated_at", "datatype": "timestamptz"},
                 {"name": "title", "datatype": "text"},

@@ -47,41 +47,40 @@ async def func_middleware_check_is_active(*, user_dict: dict, url_path: str, con
     if active_status == "absent": raise Exception("missing is_active")
     if active_status == 0: raise Exception("user not active")
 
-async def func_middleware_check_is_deleted(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_is_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_deleted(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_deleted_check")
     if not cfg or not user_dict: return None
     mode, deleted_flag = cfg
     if deleted_flag == 0: return None
-    async def fetch_is_deleted(uid):
+    async def fetch_deleted(uid):
         if not client_postgres_pool: raise Exception("postgres client missing")
         async with client_postgres_pool.acquire() as conn:
-            rows = await conn.fetch("select id, (deleted_at IS NOT NULL)::int AS is_deleted from users where id=$1", uid)
+            rows = await conn.fetch("select deleted_at from users where id=$1", uid)
         if not rows: raise Exception("user not found")
-        return rows[0]["is_deleted"]
+        return rows[0]["deleted_at"]
     if mode == "redis":
         if not client_redis: raise Exception("redis client missing")
-        cache_key = f"""cache:user:deleted:{user_dict["id"]}"""
+        cache_key = f"""cache:user:deleted_at:{user_dict["id"]}"""
         deleted_status = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
-            deleted_status = int(cached_val)
+            deleted_status = cached_val if cached_val != "None" else None
         else:
-            deleted_status = await fetch_is_deleted(user_dict["id"])
+            deleted_status = await fetch_deleted(user_dict["id"])
             await client_redis.setex(cache_key, config_redis_cache_ttl_sec, str(deleted_status))
     elif mode == "realtime":
-        deleted_status = await fetch_is_deleted(user_dict["id"])
+        deleted_status = await fetch_deleted(user_dict["id"])
     elif mode == "inmemory":
-        deleted_status = cache_users_is_deleted.get(user_dict["id"])
-        if deleted_status is None:
-            deleted_status = await fetch_is_deleted(user_dict["id"])
+        deleted_status = cache_users_deleted.get(user_dict["id"], "absent")
+        if deleted_status == "absent":
+            deleted_status = await fetch_deleted(user_dict["id"])
     elif mode == "token":
-        if "deleted_at" in user_dict: deleted_status = 1 if user_dict["deleted_at"] else 0
-        else: deleted_status = user_dict.get("is_deleted", "absent")
+        deleted_status = user_dict.get("deleted_at", "absent")
     else:
         raise Exception(f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token")
-    if deleted_status == "absent": raise Exception("missing is_deleted")
-    if deleted_status == 1: raise Exception("user is deleted")
+    if deleted_status == "absent": raise Exception("missing deleted_at")
+    if deleted_status is not None: raise Exception("user is deleted")
 
 async def func_middleware_check_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
