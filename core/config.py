@@ -92,10 +92,7 @@ config_mode_api = ["redis", "inmemory"]
 #dict
 config_func_check = {
 "is_check_config_api_duplicate_id": 1,
-"is_check_config_api_user_role_invalid_mode": 1,
-"is_check_config_api_user_is_active_invalid_mode": 1,
-"is_check_config_api_api_ratelimiting_invalid_mode": 1,
-"is_check_config_api_api_cache_invalid_mode": 1,
+"is_check_config_api_mode": 1,
 "is_check_config_api_unused_route": 1,
 "is_check_route_admin_rules_missing_config": 1,
 "is_check_route_admin_rules_missing_role_check": 1,

@@ -1424,13 +1424,10 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
             if config_func_check.get("is_check_config_api_duplicate_id", 1) == 1:
                 if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
             api_ids.append(api_id)
-        if config_func_check.get("is_check_config_api_user_role_invalid_mode", 1) == 1:
+        if config_func_check.get("is_check_config_api_mode", 1) == 1:
             if (mode_cfg := cfg.get("user_role_check")) and mode_cfg[0] not in config_mode_user: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_role_check), allowed: {config_mode_user}")
-        if config_func_check.get("is_check_config_api_user_is_active_invalid_mode", 1) == 1:
             if (mode_cfg := cfg.get("user_is_active_check")) and mode_cfg[0] not in config_mode_user: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_is_active_check), allowed: {config_mode_user}")
-        if config_func_check.get("is_check_config_api_api_ratelimiting_invalid_mode", 1) == 1:
             if (mode_cfg := cfg.get("api_ratelimiting_times_sec")) and mode_cfg[0] not in config_mode_api: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_ratelimiting_times_sec), allowed: {config_mode_api}")
-        if config_func_check.get("is_check_config_api_api_cache_invalid_mode", 1) == 1:
             if (mode_cfg := cfg.get("api_cache_sec")) and mode_cfg[0] not in config_mode_api: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_cache_sec), allowed: {config_mode_api}")
     route_paths = {route.path for route in app_routes if hasattr(route, "path")}
     for path in config_api.keys():

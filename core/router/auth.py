@@ -72,6 +72,7 @@ async def func_api_auth_login_email_otp(*, request:Request):
     if ob["type"] not in app_state.config_auth_type: raise Exception(f"type not allowed: {ob['type']}, allowed: {app_state.config_auth_type}")
     async with app_state.client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", ob["type"], ob["email"])
+        if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, email) VALUES ($1, $2) RETURNING *;", ob["type"], ob["email"]))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
@@ -85,6 +86,7 @@ async def func_api_auth_login_mobile_otp(*, request:Request):
     if ob["type"] not in app_state.config_auth_type: raise Exception(f"type not allowed: {ob['type']}, allowed: {app_state.config_auth_type}")
     async with app_state.client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", ob["type"], ob["mobile"])
+        if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, mobile) VALUES ($1, $2) RETURNING *;", ob["type"], ob["mobile"]))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
@@ -98,6 +100,7 @@ async def func_api_auth_login_google(*, request:Request):
     if not id_info: raise Exception("invalid google token")
     async with app_state.client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE google_login_id=$1 AND type=$2;", id_info["sub"], ob["type"])
+        if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, google_login_id, email, name, google_login_metadata) VALUES ($1, $2, $3, $4, $5) RETURNING *;", ob["type"], id_info["sub"], id_info.get("email"), id_info.get("name"), orjson.dumps(id_info).decode("utf-8")))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
