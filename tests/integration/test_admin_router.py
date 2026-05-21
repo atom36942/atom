@@ -60,19 +60,94 @@ async def test_admin_import_export_loop(integration_app, auth_client):
     print("✅ Admin: Data integrity verified after Export/Import cycle.")
 
 @pytest.mark.asyncio
+async def test_admin_postgres_import_constructed_csv(integration_app, auth_client):
+    admin = auth_client(role=1)
+    table = "test"
+
+    pool = integration_app.app.state.client_postgres_pool
+    await pool.execute(f"DELETE FROM {table}")
+
+    csv_content = b"title,type,is_active,rating\nCSV Import 1,1,1,4.5\nCSV Import 2,2,0,3.5\n"
+    expected_rows = len(csv_content.decode("utf-8").splitlines()) - 1
+    files = {"file": ("postgres_create.csv", csv_content, "text/csv")}
+    data = {"table": table, "mode": "create"}
+
+    res = await admin.post("/admin/postgres-import", data=data, files=files)
+
+    assert res.status_code == 200
+    assert res.json()["status"] == 1
+    assert res.json()["message"] == f"{expected_rows} rows processed"
+
+    count = await pool.fetchval(f"SELECT count(*) FROM {table}")
+    assert count == expected_rows
+
+@pytest.mark.asyncio
+async def test_admin_postgres_import_update_and_delete_constructed_csv(integration_app, auth_client):
+    admin = auth_client(role=1)
+    table = "test"
+
+    pool = integration_app.app.state.client_postgres_pool
+    await pool.execute(f"DELETE FROM {table}")
+    rows = await pool.fetch(
+        f"""
+        INSERT INTO {table} (title, type, is_active, rating, created_by_id)
+        VALUES
+            ('Before Import Update 1', 1, 1, 1.0, 1),
+            ('Before Import Update 2', 1, 1, 1.0, 1)
+        RETURNING id
+        """
+    )
+    ids = [row["id"] for row in rows]
+
+    update_csv = f"id,title,rating\n{ids[0]},After Import Update 1,4.5\n{ids[1]},After Import Update 2,4.8\n".encode()
+    update_res = await admin.post(
+        "/admin/postgres-import",
+        data={"table": table, "mode": "update"},
+        files={"file": ("postgres_update.csv", update_csv, "text/csv")},
+    )
+
+    assert update_res.status_code == 200
+    assert update_res.json() == {"status": 1, "message": "2 rows processed"}
+    updated_title = await pool.fetchval(f"SELECT title FROM {table} WHERE id=$1", ids[0])
+    assert updated_title == "After Import Update 1"
+
+    delete_csv = f"id\n{ids[0]}\n{ids[1]}\n".encode()
+    delete_res = await admin.post(
+        "/admin/postgres-import",
+        data={"table": table, "mode": "delete"},
+        files={"file": ("postgres_delete.csv", delete_csv, "text/csv")},
+    )
+
+    assert delete_res.status_code == 200
+    assert delete_res.json() == {"status": 1, "message": "2 rows processed"}
+    remaining = await pool.fetchval(f"SELECT count(*) FROM {table} WHERE id = ANY($1::bigint[])", ids)
+    assert remaining == 0
+
+@pytest.mark.asyncio
 async def test_admin_redis_import(integration_app, auth_client):
     admin = auth_client(role=1)
     
-    # Create a simple CSV for Redis: key,value
-    csv_data = "key,value\nredis_int_1,val_1\nredis_int_2,val_2"
+    csv_data = b'key,value\nredis_int_1,"{""name"": ""Alice"", ""role"": ""admin""}"\nredis_int_2,plain-value\n'
     files = {"file": ("redis.csv", csv_data, "text/csv")}
     data = {"mode": "create"}
     
     res = await admin.post("/admin/redis-import", data=data, files=files)
     assert res.status_code == 200
+    assert res.json()["status"] == 1
+    assert res.json()["message"] == "2 rows processed"
     
     # Verify in real Redis
     redis_client = integration_app.app.state.client_redis
     val = await redis_client.get("redis_int_1")
-    assert b"val_1" in val
+    assert b"Alice" in val
+
+    delete_res = await admin.post(
+        "/admin/redis-import",
+        data={"mode": "delete"},
+        files={"file": ("redis_delete.csv", b"key\nredis_int_1\n", "text/csv")},
+    )
+    assert delete_res.status_code == 200
+    assert delete_res.json() == {"status": 1, "message": "1 rows processed"}
+    assert await redis_client.get("redis_int_1") is None
+    assert await redis_client.get("redis_int_2") is not None
     print("✅ Admin: Redis Bulk Import verified.")

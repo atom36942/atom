@@ -1311,20 +1311,28 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
         async with client_postgres_pool.acquire() as conn: await _execute_update(conn)
     return returned_ids if returned_ids else "updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, table: str, ids: list, created_by_id: int) -> str:
-    """Delete records by ID with optional ownership and system table restrictions (identifier validated)."""
+async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int) -> str:
+    """Delete records by ID with schema-aware optional ownership restrictions."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
-    if ids and isinstance(ids, (list, tuple)):
-        ids_str = ",".join(str(int(x)) for x in ids)
-    else:
-        ids_str = "0" # Safe fallback that matches nothing if list is empty or invalid
-    sql_delete = f'DELETE FROM "{table}" WHERE "id" IN ({ids_str}) AND ($1::bigint IS NULL OR "created_by_id"=$1);'
+    if table == "spatial_ref_sys": raise Exception("system table protected")
+    schema = (cache_postgres_schema or {}).get(table, {})
+    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"unknown table {table}")
+    if schema and "id" not in schema: raise Exception(f"table {table} missing id column")
+    if not ids or not isinstance(ids, (list, tuple)): raise Exception("ids required")
+    id_list = [int(x) for x in ids]
+    where_clause = '"id" = ANY($1::bigint[])'
+    values = [id_list]
+    if created_by_id is not None:
+        if schema and "created_by_id" not in schema: raise Exception(f"table {table} missing created_by_id column")
+        where_clause += ' AND "created_by_id"=$2::bigint'
+        values.append(created_by_id)
+    sql_delete = f'DELETE FROM "{table}" WHERE {where_clause};'
     if client_postgres_conn:
-        await client_postgres_conn.execute(sql_delete, created_by_id)
+        await client_postgres_conn.execute(sql_delete, *values)
     else:
         async with client_postgres_pool.acquire() as conn:
-            await conn.execute(sql_delete, created_by_id)
+            await conn.execute(sql_delete, *values)
     return "ids deleted"
 
 async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
@@ -1485,7 +1493,7 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                 if router_path.name.startswith(("_", ".")): continue
                 with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
                 if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
-    if config_postgres and "table" in config_postgres:
+    if config_func_check.get("is_check_config_postgres", 1) == 1 and config_postgres and "table" in config_postgres:
         global_column_types = {}
         for table_name, columns in config_postgres["table"].items():
             if config_func_check.get("is_check_config_postgres_table_name_empty", 1) == 1:
@@ -1498,7 +1506,6 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                         if name in seen: raise Exception(f"duplicate column name '{name}' in table '{table_name}'")
                         seen.add(name)
             column_names = set(column_names_list)
-
             btrees, others = [], []
             for col in columns:
                 col_name, col_type = col.get("name"), col.get("datatype")

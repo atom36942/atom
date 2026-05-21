@@ -150,12 +150,10 @@ async def func_api_my_object_update(*, request: Request):
 async def func_api_my_ids_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
-    output = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=request.state.user.get("id", 0), client_postgres_conn=None)
+    user_id = request.state.user.get("id", 0)
+    created_by_id = user_id
+    if ob["table"] == "users":
+        if len(ob["ids"]) != 1 or int(ob["ids"][0]) != int(user_id): raise Exception("users table delete allowed only for own account")
+        created_by_id = None
+    output = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
     return {"status": 1, "message": output}
-
-@router.delete("/my/account-delete")
-async def func_api_my_account_delete(*, request: Request):
-    app_state, user_id = request.app.state, request.state.user["id"]
-    async with app_state.client_postgres_pool.acquire() as conn:
-        await conn.execute("DELETE FROM users WHERE id=$1", user_id)
-    return {"status": 1, "message": "account deleted"}

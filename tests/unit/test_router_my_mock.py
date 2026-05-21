@@ -85,6 +85,9 @@ class InMemoryMyConn:
                 user["is_deleted"] = 1
         elif normalized.startswith("delete from users where id=$1"):
             self.users = [row for row in self.users if row["id"] != args[0]]
+        elif normalized.startswith('delete from "users" where "id" = any($1::bigint[])'):
+            ids = set(args[0])
+            self.users = [row for row in self.users if row["id"] not in ids]
         elif normalized.startswith("update message set is_read=1 where id in"):
             ids = {int(x) for x in sql.split("(", 1)[1].split(")", 1)[0].split(",") if x.strip()}
             for row in self.messages:
@@ -219,6 +222,7 @@ def my_client(my_test_client):
         "config_sql": test_client.app.state.config_sql,
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "cache_postgres_column_list": test_client.app.state.cache_postgres_column_list,
+        "cache_postgres_schema": test_client.app.state.cache_postgres_schema,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
         "func_postgres_delete": test_client.app.state.func_postgres_delete,
         "func_postgres_read": test_client.app.state.func_postgres_read,
@@ -234,6 +238,13 @@ def my_client(my_test_client):
     test_client.app.state.config_sql = {"profile_metadata": {"test_count": "profile-test-count"}}
     test_client.app.state.cache_postgres_table_list = ["test", "users", "message", "parent", "child"]
     test_client.app.state.cache_postgres_column_list = ["id", "created_by_id", "parent_id"]
+    test_client.app.state.cache_postgres_schema = {
+        "test": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
+        "users": {"id": {"datatype": "bigint"}},
+        "message": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
+        "parent": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
+        "child": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
+    }
     try:
         yield test_client
     finally:
@@ -372,6 +383,34 @@ def test_my_ids_delete_passes_user_scope_to_delete_helper(my_client, auth_header
     assert calls["table"] == "test"
     assert calls["ids"] == [1, 2]
     assert calls["created_by_id"] == 10
+
+
+def test_my_object_delete_allows_own_user_record(my_client, auth_headers):
+    conn = my_client.app.state.client_postgres_pool.conn
+
+    response = my_client.post("/my/object-delete", headers=auth_headers, json={"table": "users", "ids": [10]})
+
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": "ids deleted"}
+    assert conn._user(10) is None
+
+
+def test_my_object_delete_rejects_multiple_user_records(my_client, auth_headers):
+    my_client.app.state.client_postgres_pool.conn.seed_user(id=11, email="other@example.com")
+
+    response = my_client.post("/my/object-delete", headers=auth_headers, json={"table": "users", "ids": [10, 11]})
+
+    assert response.status_code == 400
+    assert "own account" in response.json()["message"]
+
+
+def test_my_object_delete_rejects_other_user_record(my_client, auth_headers):
+    my_client.app.state.client_postgres_pool.conn.seed_user(id=11, email="other@example.com")
+
+    response = my_client.post("/my/object-delete", headers=auth_headers, json={"table": "users", "ids": [11]})
+
+    assert response.status_code == 400
+    assert "own account" in response.json()["message"]
 
 
 def test_my_object_create_passes_authenticated_user_to_postgres_create(my_client, auth_headers):
@@ -568,16 +607,6 @@ def test_my_object_create_mongodb_uses_mocked_client(my_client, auth_headers):
     assert my_client.app.state.client_mongodb.collection.obj_list == [{"title": "one"}, {"title": "two"}]
 
 
-def test_my_account_delete_hard_deletes_user(my_client, auth_headers):
-    conn = my_client.app.state.client_postgres_pool.conn
-    
-    response = my_client.delete("/my/account-delete", headers=auth_headers)
-
-    assert response.status_code == 200
-    assert response.json() == {"status": 1, "message": "account deleted"}
-    assert conn._user(10) is None
-
-
 def test_my_object_update_soft_delete_allows_role_user_at_api(my_client):
     my_client.app.state.client_postgres_pool.conn.seed_user(id=20, role=1)
     headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "is_active": 1})
@@ -599,15 +628,3 @@ def test_my_object_update_soft_delete_allows_role_user_at_api(my_client):
     assert response.json()["message"] == "updated"
     assert calls["obj_list"] == [{"id": 20, "is_deleted": 1, "updated_by_id": 20}]
 
-
-def test_my_account_delete_allows_role_user(my_client):
-    conn = my_client.app.state.client_postgres_pool.conn
-    conn.seed_user(id=20, role=1)
-
-    headers = bearer_token(my_client.app.state, {"id": 20, "type": 1, "role": 1, "is_active": 1})
-
-    response = my_client.delete("/my/account-delete", headers=headers)
-
-    assert response.status_code == 200
-    assert response.json()["message"] == "account deleted"
-    assert conn._user(20) is None

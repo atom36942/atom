@@ -96,8 +96,8 @@ async def test_config_postgres_control_catalog_matches_core_config_defaults():
                 "is_enable_users_root_upsert": True,
                 "is_enable_users_password_log": True,
 
-                "table_delete_disable_row_users": True,
-                "table_delete_disable_row_bulk_users": True,
+                "table_delete_disable_row_users": False,
+                "table_delete_disable_row_bulk_users": False,
                 "is_enable_autovacuum_optimize_users": True,
                 "is_enable_users_set_deleted_at": True,
                 "is_enable_delete_disable_is_protected": True,

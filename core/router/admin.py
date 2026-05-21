@@ -55,7 +55,7 @@ async def func_api_admin_object_update(*, request: Request):
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
-    return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=None, client_postgres_conn=None)}
+    return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=None)}
 
 @router.post("/admin/postgres-clean")
 async def func_api_admin_postgres_clean(*, request: Request):
@@ -140,7 +140,7 @@ async def func_api_admin_postgres_import(*, request: Request):
                 elif of["mode"] == "update":
                     await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, table=of["table"], obj_list=ol, created_by_id=None)
                 elif of["mode"] == "delete":
-                    await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=of["table"], ids=[obj["id"] for obj in ol], created_by_id=None, client_postgres_conn=conn)
+                    await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=conn, cache_postgres_schema=app_state.cache_postgres_schema, table=of["table"], ids=[obj["id"] for obj in ol], created_by_id=None)
                 count += len(ol)
     return {"status": 1, "message": f"{count} rows processed"}
 

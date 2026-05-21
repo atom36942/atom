@@ -85,6 +85,8 @@ class FakePostgresConn:
             return [{"role": 1}]
         if "select id,is_active from users where id=$1" in normalized:
             return [{"id": args[0], "is_active": 1}]
+        if "select id,is_deleted from users where id=$1" in normalized:
+            return [{"id": args[0], "is_deleted": 0}]
         return self.fetch_rows
 
     async def execute(self, sql, *args, **kwargs):
@@ -161,6 +163,7 @@ def admin_test_client():
 def admin_client(admin_test_client):
     test_client = admin_test_client
     originals = {
+        "cache_postgres_schema": test_client.app.state.cache_postgres_schema,
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "cache_users_role": test_client.app.state.cache_users_role,
         "client_postgres_pool": test_client.app.state.client_postgres_pool,
@@ -176,6 +179,7 @@ def admin_client(admin_test_client):
         "config_is_enable_postgres_sql_runner_write": test_client.app.state.config_is_enable_postgres_sql_runner_write,
         "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_update": test_client.app.state.func_postgres_update,
+        "func_postgres_delete": test_client.app.state.func_postgres_delete,
         "func_otp_verify": test_client.app.state.func_otp_verify,
     }
 
@@ -190,6 +194,10 @@ def admin_client(admin_test_client):
     test_client.app.state.config_is_enable_log_api = 0
     test_client.app.state.config_is_enable_traceback = 0
     test_client.app.state.config_redis_cache_ttl_sec = 60
+    test_client.app.state.cache_postgres_schema = {
+        "test": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
+        "users": {"id": {"datatype": "bigint"}},
+    }
     try:
         yield test_client
     finally:
@@ -309,6 +317,29 @@ def test_admin_object_update_verifies_otp_for_user_email_when_enabled(admin_clie
     assert update_calls["obj_list"] == [{"id": 10, "email": "new@example.com", "updated_by_id": 10}]
     assert "mode" not in update_calls
     assert "config_buffer_limit" not in update_calls
+
+
+def test_admin_object_delete_passes_schema_without_user_scope(admin_client):
+    calls = {}
+
+    async def fake_delete(**kwargs):
+        calls.update(kwargs)
+        return "ids deleted"
+
+    admin_client.app.state.func_postgres_delete = fake_delete
+
+    response = admin_client.post(
+        "/admin/object-delete",
+        headers=bearer_token(admin_client.app.state),
+        json={"table": "test", "ids": [1, 2]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": "ids deleted"}
+    assert calls["cache_postgres_schema"] == admin_client.app.state.cache_postgres_schema
+    assert calls["table"] == "test"
+    assert calls["ids"] == [1, 2]
+    assert calls["created_by_id"] is None
 
 
 def test_admin_postgres_runner_rejects_forbidden_keywords(admin_client):

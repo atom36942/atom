@@ -7,6 +7,7 @@ import pytest
 from core.function import (
     func_api_file_to_chunks,
     func_middleware_check_auth,
+    func_postgres_delete,
     func_producer,
     func_token_encode,
 )
@@ -137,3 +138,84 @@ async def test_api_file_to_chunks_yields_csv_rows_in_configured_batches():
         [{"id": "1", "name": "Ada"}, {"id": "2", "name": "Grace"}],
         [{"id": "3", "name": "Linus"}],
     ]
+
+
+@pytest.mark.asyncio
+async def test_postgres_delete_uses_created_by_id_for_ownership():
+    class FakeConn:
+        def __init__(self):
+            self.calls = []
+
+        async def execute(self, sql, *values):
+            self.calls.append((sql, values))
+
+    conn = FakeConn()
+
+    result = await func_postgres_delete(
+        client_postgres_pool=None,
+        client_postgres_conn=conn,
+        cache_postgres_schema={
+            "messages": {
+                "id": {"datatype": "bigint"},
+                "created_by_id": {"datatype": "bigint"},
+                "user_id": {"datatype": "bigint"},
+            }
+        },
+        table="messages",
+        ids=[1, 2],
+        created_by_id=10,
+    )
+
+    assert result == "ids deleted"
+    assert conn.calls == [
+        (
+            'DELETE FROM "messages" WHERE "id" = ANY($1::bigint[]) AND "created_by_id"=$2::bigint;',
+            ([1, 2], 10),
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_postgres_delete_rejects_user_scoped_table_without_created_by_id():
+    with pytest.raises(Exception, match="missing created_by_id column"):
+        await func_postgres_delete(
+            client_postgres_pool=None,
+            client_postgres_conn=None,
+            cache_postgres_schema={
+                "public_items": {
+                    "id": {"datatype": "bigint"},
+                    "user_id": {"datatype": "bigint"},
+                }
+            },
+            table="public_items",
+            ids=[1],
+            created_by_id=10,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"table": "bad-table", "ids": [1]}, "invalid identifier"),
+        ({"table": "spatial_ref_sys", "ids": [1]}, "system table protected"),
+        ({"table": "missing", "ids": [1]}, "unknown table missing"),
+        ({"table": "items", "ids": []}, "ids required"),
+        ({"table": "items", "ids": "1"}, "ids required"),
+        ({"table": "no_id", "ids": [1]}, "missing id column"),
+    ],
+)
+async def test_postgres_delete_rejects_invalid_delete_requests(kwargs, message):
+    schema = {
+        "items": {"id": {"datatype": "bigint"}},
+        "no_id": {"title": {"datatype": "text"}},
+    }
+
+    with pytest.raises(Exception, match=message):
+        await func_postgres_delete(
+            client_postgres_pool=None,
+            client_postgres_conn=None,
+            cache_postgres_schema=schema,
+            created_by_id=None,
+            **kwargs,
+        )

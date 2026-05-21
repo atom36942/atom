@@ -287,8 +287,8 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
         assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" not in sql
     else:
         assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" in sql
-    assert "trigger_delete_disable_users" in sql
-    assert "trigger_delete_disable_bulk_users" in sql
+    assert "trigger_delete_disable_users" not in sql
+    assert "trigger_delete_disable_bulk_users" not in sql
     
 
 
@@ -860,20 +860,17 @@ async def test_config_postgres_schema_init_rejects_invalid_configurations(pg_con
         )
 
 
-def test_func_check_cascading_soft_delete_integrity():
+def test_func_check_allows_owner_columns_without_soft_delete_column():
     from core.function import func_check
 
-    # 1. Test case: table has created_by_id and is_deleted -> Passes
-    config_pass = {
+    config_postgres = {
         "table": {
             "child_tbl": [
                 {"name": "id", "datatype": "bigserial"},
-                {"name": "created_by_id", "datatype": "bigint"},
-                {"name": "is_deleted", "datatype": "smallint"}
+                {"name": "created_by_id", "datatype": "bigint"}
             ]
         }
     }
-    # This should pass without raising any Exception
     func_check(
         app_routes=[],
         config_config_path=None,
@@ -883,30 +880,8 @@ def test_func_check_cascading_soft_delete_integrity():
         config_api={},
         config_mode_user=[],
         config_mode_api=[],
-        config_postgres=config_pass
+        config_postgres=config_postgres
     )
-
-    # 2. Test case: table has created_by_id but NO is_deleted -> Raises Exception
-    config_fail = {
-        "table": {
-            "child_tbl": [
-                {"name": "id", "datatype": "bigserial"},
-                {"name": "created_by_id", "datatype": "bigint"}
-            ]
-        }
-    }
-    with pytest.raises(Exception, match="has 'created_by_id' or 'user_id' but is missing the 'is_deleted' column"):
-        func_check(
-            app_routes=[],
-            config_config_path=None,
-            config_function_path=None,
-            config_api_namespace=[],
-            config_router_path=None,
-            config_api={},
-            config_mode_user=[],
-            config_mode_api=[],
-            config_postgres=config_fail
-        )
 
 
 
@@ -1022,17 +997,17 @@ async def test_config_postgres_nested_sql_index_lifecycle():
 
 def test_func_check_selective_toggles():
     from core.function import func_check
-    import pytest
 
     config_fail = {
         "table": {
             "child_tbl": [
                 {"name": "id", "datatype": "bigserial"},
-                {"name": "created_by_id", "datatype": "bigint"}
+                {"name": "title", "datatype": "text"},
+                {"name": "title", "datatype": "text"}
             ]
         }
     }
-    with pytest.raises(Exception, match="has 'created_by_id' or 'user_id' but is missing the 'is_deleted' column"):
+    with pytest.raises(Exception, match="duplicate column name 'title'"):
         func_check(
             app_routes=[],
             config_config_path=None,
