@@ -72,6 +72,7 @@ config_is_enable_otp_users_update_admin = 0
 config_is_enable_postgres_init_startup = 1
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_background_workers = 1
+config_is_enable_users_hard_delete = 1
 config_kafka_group_id = "group_1"
 config_kafka_is_enable_auto_commit = 1
 config_kafka_batch_limit = 100

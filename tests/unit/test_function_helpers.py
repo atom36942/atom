@@ -164,6 +164,7 @@ async def test_postgres_delete_uses_created_by_id_for_ownership():
         table="messages",
         ids=[1, 2],
         created_by_id=10,
+        config_obj_list_limit=10,
     )
 
     assert result == "ids deleted"
@@ -173,6 +174,25 @@ async def test_postgres_delete_uses_created_by_id_for_ownership():
             ([1, 2], 10),
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_postgres_delete_rejects_users_when_hard_delete_disabled():
+    class FakeConn:
+        async def execute(self, *_args):
+            raise AssertionError("delete should not execute")
+
+    with pytest.raises(Exception, match="users hard delete disabled"):
+        await func_postgres_delete(
+            client_postgres_pool=None,
+            client_postgres_conn=FakeConn(),
+            cache_postgres_schema={"users": {"id": {"datatype": "bigint"}}},
+            table="users",
+            ids=[10],
+            created_by_id=None,
+            config_is_enable_users_hard_delete=0,
+            config_obj_list_limit=10,
+        )
 
 
 @pytest.mark.asyncio
@@ -190,6 +210,7 @@ async def test_postgres_delete_rejects_user_scoped_table_without_created_by_id()
             table="public_items",
             ids=[1],
             created_by_id=10,
+            config_obj_list_limit=10,
         )
 
 
@@ -217,5 +238,6 @@ async def test_postgres_delete_rejects_invalid_delete_requests(kwargs, message):
             client_postgres_conn=None,
             cache_postgres_schema=schema,
             created_by_id=None,
+            config_obj_list_limit=10,
             **kwargs,
         )

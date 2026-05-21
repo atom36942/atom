@@ -1311,15 +1311,17 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
         async with client_postgres_pool.acquire() as conn: await _execute_update(conn)
     return returned_ids if returned_ids else "updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int) -> str:
+async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, config_obj_list_limit: int, table: str, ids: list, created_by_id: int, config_is_enable_users_hard_delete: int = 1) -> int:
     """Delete records by ID with schema-aware optional ownership restrictions."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
+    if table == "users" and config_is_enable_users_hard_delete != 1: raise Exception("users hard delete disabled")
     schema = (cache_postgres_schema or {}).get(table, {})
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"unknown table {table}")
     if schema and "id" not in schema: raise Exception(f"table {table} missing id column")
     if not ids or not isinstance(ids, (list, tuple)): raise Exception("ids required")
+    if config_obj_list_limit and len(ids) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
     id_list = [int(x) for x in ids]
     where_clause = '"id" = ANY($1::bigint[])'
     values = [id_list]
@@ -1327,13 +1329,13 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
         if schema and "created_by_id" not in schema: raise Exception(f"table {table} missing created_by_id column")
         where_clause += ' AND "created_by_id"=$2::bigint'
         values.append(created_by_id)
-    sql_delete = f'DELETE FROM "{table}" WHERE {where_clause};'
+    sql_delete = f'DELETE FROM "{table}" WHERE {where_clause} RETURNING id;'
     if client_postgres_conn:
-        await client_postgres_conn.execute(sql_delete, *values)
+        records = await client_postgres_conn.fetch(sql_delete, *values)
     else:
         async with client_postgres_pool.acquire() as conn:
-            await conn.execute(sql_delete, *values)
-    return "ids deleted"
+            records = await conn.fetch(sql_delete, *values)
+    return len(records)
 
 async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""

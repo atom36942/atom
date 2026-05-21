@@ -55,7 +55,8 @@ async def func_api_admin_object_update(*, request: Request):
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
-    return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=None)}
+    deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=ob["table"], ids=ob["ids"], created_by_id=None, config_is_enable_users_hard_delete=app_state.config_is_enable_users_hard_delete)
+    return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
 @router.post("/admin/postgres-clean")
 async def func_api_admin_postgres_clean(*, request: Request):
@@ -73,8 +74,7 @@ async def func_api_admin_postgres_sql_runner(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("mode", "str", 0, ["read", "write"], "read"), ("sql", "str", 1, None, None)])
     if ob["mode"] not in ("read", "write"): raise Exception(f"invalid mode: {ob['mode']}")
-    ql = ob["sql"].lower().strip()
-    if any(re.search(rf"\b{k}\b", ql) for k in ("drop", "truncate", "delete")): raise Exception("forbidden keyword in sql")
+    ql = ob["sql"].lower().strip().lstrip("(").strip()
     if ob["mode"] == "read" and not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read mode restricted")
     if ob["mode"] == "write" and app_state.config_is_enable_postgres_sql_runner_write != 1: raise Exception("postgres sql runner write mode disabled")
     if ob["mode"] == "read":
@@ -86,36 +86,17 @@ async def func_api_admin_postgres_sql_runner(*, request: Request):
             return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
         return {"status": 1, "message": await conn.execute(ob["sql"], timeout=15)}
 
-@router.post("/admin/mssql-sql-runner")
-async def func_api_admin_mssql_sql_runner(*, request: Request):
-    app_state = request.app.state
-    if not app_state.client_mssql: raise Exception("MSSQL client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("mode", "str", 0, ["read", "write"], "read"), ("sql", "str", 1, None, None)])
-    ql = ob["sql"].lower().strip()
-    if any(re.search(rf"\b{k}\b", ql) for k in ("drop", "truncate", "delete")): raise Exception("forbidden keyword in sql")
-    if ob["mode"] == "read" and not ql.startswith(("select", "with")): raise Exception("read mode restricted")
-    async with app_state.client_mssql.acquire() as conn:
-        cursor = await conn.cursor()
-        await cursor.execute(ob["sql"])
-        if ob["mode"] == "read" or ql.startswith(("select", "with")):
-            columns = [column[0] for column in cursor.description]
-            return {"status": 1, "message": [dict(zip(columns, row)) for row in await cursor.fetchall()]}
-        await conn.commit()
-        return {"status": 1, "message": "done"}
-
 @router.post("/admin/postgres-export")
 async def func_api_admin_postgres_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     from fastapi.responses import StreamingResponse
     sql = ob["sql"]
-    ql = sql.lower().strip()
-    if re.search(r"\bdrop\b", ql): raise Exception("keyword drop forbidden")
-    if re.search(r"\btruncate\b", ql): raise Exception("keyword truncate forbidden")
-    if re.search(r"\bdelete\b", ql): raise Exception("keyword delete forbidden")
+    ql = sql.lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("export restricted to select/with/explain/show/describe")
+    if not app_state.client_postgres_pool_read: raise Exception("postgres read client not initialized")
     async def _iter():
-        async with app_state.client_postgres_pool.acquire() as conn:
+        async with app_state.client_postgres_pool_read.acquire() as conn:
             async with conn.transaction():
                 is_first = 1
                 async for record in conn.cursor(sql):
@@ -140,7 +121,7 @@ async def func_api_admin_postgres_import(*, request: Request):
                 elif of["mode"] == "update":
                     await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, table=of["table"], obj_list=ol, created_by_id=None)
                 elif of["mode"] == "delete":
-                    await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=conn, cache_postgres_schema=app_state.cache_postgres_schema, table=of["table"], ids=[obj["id"] for obj in ol], created_by_id=None)
+                    await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=conn, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=of["table"], ids=[obj["id"] for obj in ol], created_by_id=None, config_is_enable_users_hard_delete=app_state.config_is_enable_users_hard_delete)
                 count += len(ol)
     return {"status": 1, "message": f"{count} rows processed"}
 
@@ -246,3 +227,19 @@ async def func_api_admin_blob_url_delete(*, request: Request):
             tasks.append(app_state.client_azure_blob.get_blob_client(container=parts[0], blob=parts[1]).delete_blob())
     if tasks: await asyncio.gather(*tasks)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
+
+@router.post("/admin/mssql-sql-runner")
+async def func_api_admin_mssql_sql_runner(*, request: Request):
+    app_state = request.app.state
+    if not app_state.client_mssql: raise Exception("MSSQL client not initialized")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("mode", "str", 0, ["read", "write"], "read"), ("sql", "str", 1, None, None)])
+    ql = ob["sql"].lower().strip().lstrip("(").strip()
+    if ob["mode"] == "read" and not ql.startswith(("select", "with")): raise Exception("read mode restricted")
+    async with app_state.client_mssql.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(ob["sql"])
+        if ob["mode"] == "read" or ql.startswith(("select", "with")):
+            columns = [column[0] for column in cursor.description]
+            return {"status": 1, "message": [dict(zip(columns, row)) for row in await cursor.fetchall()]}
+        await conn.commit()
+        return {"status": 1, "message": "done"}

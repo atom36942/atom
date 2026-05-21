@@ -177,6 +177,7 @@ def admin_client(admin_test_client):
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
         "config_is_enable_otp_users_update_admin": test_client.app.state.config_is_enable_otp_users_update_admin,
         "config_is_enable_postgres_sql_runner_write": test_client.app.state.config_is_enable_postgres_sql_runner_write,
+        "config_is_enable_users_hard_delete": test_client.app.state.config_is_enable_users_hard_delete,
         "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_update": test_client.app.state.func_postgres_update,
         "func_postgres_delete": test_client.app.state.func_postgres_delete,
@@ -194,6 +195,7 @@ def admin_client(admin_test_client):
     test_client.app.state.config_is_enable_log_api = 0
     test_client.app.state.config_is_enable_traceback = 0
     test_client.app.state.config_redis_cache_ttl_sec = 60
+    test_client.app.state.config_is_enable_users_hard_delete = 1
     test_client.app.state.cache_postgres_schema = {
         "test": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
         "users": {"id": {"datatype": "bigint"}},
@@ -340,6 +342,7 @@ def test_admin_object_delete_passes_schema_without_user_scope(admin_client):
     assert calls["table"] == "test"
     assert calls["ids"] == [1, 2]
     assert calls["created_by_id"] is None
+    assert calls["config_is_enable_users_hard_delete"] == 1
 
 
 def test_admin_postgres_runner_rejects_forbidden_keywords(admin_client):
