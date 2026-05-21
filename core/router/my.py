@@ -137,6 +137,12 @@ async def func_api_my_object_update(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_admin_only_fields), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
+    if oq["table"] == "users":
+        for item in obj_list:
+            if "is_deleted" in item:
+                from datetime import datetime, timezone
+                item["deleted_at"] = datetime.now(timezone.utc).isoformat() if int(item["is_deleted"]) == 1 else None
+                del item["is_deleted"]
     if oq["table"] == "users" and len(obj_list) > 1: raise Exception("multi-object user update restricted")
     if oq["table"] == "users" and str(obj_list[0].get("id")) != str(request.state.user["id"]): raise Exception("ownership issue: cannot update other users")
     if oq["table"] == "users" and any(key in app_state.config_column_enable_single_update for key in obj_list[0]) and len(obj_list[0]) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")

@@ -51,7 +51,7 @@ config_buffer_flush_interval_sec = 60
 config_redis_cache_ttl_sec = 3600
 config_token_expiry_sec = 10*365*24*60*60
 config_token_refresh_expiry_sec = 100*365*24*60*60
-config_token_key = ["id", "type", "role", "is_active", "is_deleted", "id_ext"]
+config_token_key = ["id", "type", "role", "is_active", "deleted_at", "id_ext"]
 config_blob_container_default = "atom"
 config_blob_limit_kb = 100
 config_blob_upload_limit_count = 10
@@ -83,7 +83,7 @@ config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp
 config_table_create_enable_public = ["test", "support"]
 config_table_read_enable_public = ["*"]
 config_admin_only_fields = ["is_active", "is_verified", "role", "created_at", "updated_at", "created_by_id"]
-config_column_enable_single_update = ["username", "password", "email", "mobile", "is_deleted"]
+config_column_enable_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 config_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
 config_api_namespace_auth = ["/my/", "/private/", "/admin/"]
 config_api_namespace_user = ["/my/"]
@@ -94,7 +94,7 @@ config_allowed_api_storage_backends = ["redis", "inmemory"]
 config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_is_active": "select id,is_active from users order by id asc limit 1000",
-"users_is_deleted": "select id,is_deleted from users order by id asc limit 1000",
+"users_is_deleted": "select id, (deleted_at IS NOT NULL)::int as is_deleted from users order by id asc limit 1000",
 "profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
 }
 config_table = {
@@ -173,7 +173,7 @@ config_postgres = {
 {"name":"Price (USD)","datatype":"numeric(10,2)"},
 {"name":"coordinate","datatype":"geography(Point, 4326)","index":"gist(coordinate)"},
 {"name":"place","datatype":"text"},
-{"name":"dob","datatype":"date"},
+{"name":"date_of_birth","datatype":"date"},
 {"name":"description","datatype":"text","index":"gin(description)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status,type)"},
 {"name":"address","datatype":"text","old":"adress"},
@@ -186,7 +186,6 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"is_active","datatype":"smallint","default":1,"in":(0,1)},
 {"name":"is_verified","datatype":"smallint","default":0,"in":(0,1)},
-{"name":"is_deleted","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
 {"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
@@ -207,7 +206,7 @@ config_postgres = {
 {"name":"address","datatype":"text"},
 {"name":"title","datatype":"text"},
 {"name":"description","datatype":"text"},
-{"name":"dob","datatype":"date"},
+{"name":"date_of_birth","datatype":"date"},
 {"name":"gender","datatype":"smallint"},
 {"name":"id_ext","datatype":"text"},
 ],
@@ -343,7 +342,7 @@ config_postgres = {
 {"name":"source","datatype":"text","index":"btree(source)"},
 {"name":"linkedin_url","datatype":"text"},
 {"name":"gender","datatype":"smallint"},
-{"name":"dob","datatype":"date"},
+{"name":"date_of_birth","datatype":"date"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
 {"name":"employment_type","datatype":"smallint","index":"btree(employment_type)"},
 {"name":"remark","datatype":"text"},
@@ -387,7 +386,7 @@ config_postgres = {
 "is_enable_delete_disable_users_root":1,
 "is_enable_delete_disable_users_role":1,
 "is_enable_autovacuum_optimize":1,
-"is_enable_users_set_deleted_at":1,
+
 "table_delete_disable_row":[],
 "table_delete_disable_row_bulk":[],
 },
@@ -400,7 +399,7 @@ config_postgres = {
 "idx_test_is_deleted_1": "CREATE INDEX IF NOT EXISTS idx_test_is_deleted_1 ON test (id) WHERE is_deleted = 1",
 "idx_test_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_test_is_protected_1 ON test (id) WHERE is_protected = 1",
 "idx_users_is_verified_0": "CREATE INDEX IF NOT EXISTS idx_users_is_verified_0 ON users (id) WHERE is_verified = 0",
-"idx_users_is_deleted_1": "CREATE INDEX IF NOT EXISTS idx_users_is_deleted_1 ON users (id) WHERE is_deleted = 1",
+"idx_users_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_users_deleted_at_not_null ON users (id) WHERE deleted_at IS NOT NULL",
 "idx_users_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_users_is_protected_1 ON users (id) WHERE is_protected = 1",
 "idx_log_api_is_deleted_1": "CREATE INDEX IF NOT EXISTS idx_log_api_is_deleted_1 ON log_api (id) WHERE is_deleted = 1",
 "idx_log_users_password_is_deleted_1": "CREATE INDEX IF NOT EXISTS idx_log_users_password_is_deleted_1 ON log_users_password (id) WHERE is_deleted = 1",

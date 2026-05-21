@@ -29,7 +29,7 @@ async def fetch_control_checks(conn):
             ('table_delete_disable_row_users', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_users' AND NOT t.tgisinternal)),
             ('table_delete_disable_row_bulk_users', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_bulk_users' AND NOT t.tgisinternal)),
             ('is_enable_autovacuum_optimize_users', EXISTS (SELECT 1 FROM pg_class WHERE relname = 'users' AND reloptions @> ARRAY['autovacuum_vacuum_scale_factor=0.05', 'autovacuum_analyze_scale_factor=0.02'])),
-            ('is_enable_users_set_deleted_at', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_set_deleted_at_users' AND p.proname = 'func_set_deleted_at_users' AND NOT t.tgisinternal)),
+
             ('is_enable_delete_disable_is_protected', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_attribute a ON a.attrelid = c.oid JOIN pg_proc p ON p.oid = t.tgfoid WHERE t.tgname = 'trigger_delete_disable_is_protected_' || c.relname AND a.attname = 'is_protected' AND NOT a.attisdropped AND p.proname = 'func_delete_disable_is_protected' AND NOT t.tgisinternal)),
             ('is_enable_updated_at_set', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_attribute a ON a.attrelid = c.oid JOIN pg_proc p ON p.oid = t.tgfoid WHERE t.tgname = 'trigger_updated_at_set_' || c.relname AND a.attname = 'updated_at' AND NOT a.attisdropped AND p.proname = 'func_set_updated_at' AND NOT t.tgisinternal))
         ) AS checks(control_key, is_created)
@@ -47,7 +47,7 @@ def minimal_control_config(control):
                 {"name": "password", "datatype": "text"},
                 {"name": "role", "datatype": "smallint"},
                 {"name": "is_active", "datatype": "smallint"},
-                {"name": "is_deleted", "datatype": "smallint", "default": 0},
+
                 {"name": "deleted_at", "datatype": "timestamptz"},
                 {"name": "updated_at", "datatype": "timestamptz"},
                 {"name": "is_protected", "datatype": "smallint", "default": 0},
@@ -99,7 +99,7 @@ async def test_config_postgres_control_catalog_matches_core_config_defaults():
                 "table_delete_disable_row_users": False,
                 "table_delete_disable_row_bulk_users": False,
                 "is_enable_autovacuum_optimize_users": True,
-                "is_enable_users_set_deleted_at": True,
+
                 "is_enable_delete_disable_is_protected": True,
                 "is_enable_updated_at_set": True,
             }
@@ -122,7 +122,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                         "is_enable_users_password_log": 1,
 
                         "is_enable_delete_disable_users_role": 1,
-                        "is_enable_users_set_deleted_at": 1,
+
                         "is_enable_delete_disable_is_protected": 1,
                         "is_enable_updated_at_set": 1,
                     }
@@ -144,7 +144,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                 password_log_count = await conn.fetchval("SELECT COUNT(*) FROM log_users_password WHERE user_id = 1")
                 assert password_log_count == 1
 
-                deleted_root = await conn.fetchrow("UPDATE users SET is_deleted = 1 WHERE id = 1 RETURNING deleted_at")
+                deleted_root = await conn.fetchrow("UPDATE users SET deleted_at = NOW() WHERE id = 1 RETURNING deleted_at")
                 assert deleted_root["deleted_at"] is not None
 
                 row = await conn.fetchrow("INSERT INTO demo_control (title, is_protected) VALUES ('protected', 1) RETURNING id")

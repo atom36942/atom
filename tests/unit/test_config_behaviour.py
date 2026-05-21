@@ -53,7 +53,7 @@ class FakeUserConn:
             return [{"role": self.role}]
         if "select id,is_active from users" in normalized:
             return [{"id": args[0], "is_active": self.is_active}]
-        if "select id,is_deleted from users" in normalized:
+        if "select id, (deleted_at is not null)::int as is_deleted from users" in normalized:
             return [{"id": args[0], "is_deleted": self.is_deleted}]
         return []
 
@@ -414,7 +414,7 @@ async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled
 @pytest.mark.parametrize(
     ("mode", "kwargs"),
     [
-        ("token", {"user_dict": {"id": 1, "is_deleted": 0}}),
+        ("token", {"user_dict": {"id": 1, "deleted_at": None}}),
         ("inmemory", {"user_dict": {"id": 1}, "cache_users_is_deleted": {1: 0}}),
         ("realtime", {"user_dict": {"id": 1}, "client_postgres_pool": FakeUserPool(is_deleted=0)}),
         ("redis", {"user_dict": {"id": 1}, "client_redis": FakeRedis(), "client_postgres_pool": FakeUserPool(is_deleted=0)}),
@@ -440,9 +440,9 @@ async def test_config_api_user_deleted_check_rejects_deleted_and_can_be_disabled
     disabled_cfg = {"/admin/protected": {"user_is_deleted_check": ["token", 0]}}
 
     with pytest.raises(Exception, match="user is deleted"):
-        await func_middleware_check_is_deleted(user_dict={"id": 1, "is_deleted": 1}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_deleted={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_is_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_deleted={}, config_redis_cache_ttl_sec=60)
 
-    await func_middleware_check_is_deleted(user_dict={"id": 1, "is_deleted": 1}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_deleted={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_is_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_is_deleted={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio

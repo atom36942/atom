@@ -218,7 +218,7 @@ def control_pg_config(control=None, users_columns=None, demo_columns=None, exten
         {"name": "password", "datatype": "text"},
         {"name": "role", "datatype": "smallint"},
         {"name": "is_active", "datatype": "smallint"},
-        {"name": "is_deleted", "datatype": "smallint"},
+        {"name": "deleted_at", "datatype": "timestamptz"},
     ]
     demo_columns = demo_columns if demo_columns is not None else [
         {"name": "updated_at", "datatype": "timestamptz"},

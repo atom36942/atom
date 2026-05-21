@@ -559,7 +559,8 @@ def test_my_object_update_soft_delete_marks_user_deleted_at_api(my_client, auth_
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "updated"}
-    assert calls["obj_list"] == [{"id": 10, "is_deleted": 1, "updated_by_id": 10}]
+    assert "deleted_at" in calls["obj_list"][0]
+    assert calls["obj_list"][0]["updated_by_id"] == 10
 
 
 def test_my_object_update_rejects_combined_is_deleted_user_field_at_api(my_client, auth_headers):
@@ -645,4 +646,5 @@ def test_my_object_update_soft_delete_allows_role_user_at_api(my_client):
 
     assert response.status_code == 200
     assert response.json()["message"] == "updated"
-    assert calls["obj_list"] == [{"id": 20, "is_deleted": 1, "updated_by_id": 20}]
+    assert "deleted_at" in calls["obj_list"][0]
+    assert calls["obj_list"][0]["updated_by_id"] == 20

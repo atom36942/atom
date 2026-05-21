@@ -85,7 +85,7 @@ class FakePostgresConn:
             return [{"role": 1}]
         if "select id,is_active from users where id=$1" in normalized:
             return [{"id": args[0], "is_active": 1}]
-        if "select id,is_deleted from users where id=$1" in normalized:
+        if "select id, (deleted_at is not null)::int as is_deleted from users where id=$1" in normalized:
             return [{"id": args[0], "is_deleted": 0}]
         return self.fetch_rows
 

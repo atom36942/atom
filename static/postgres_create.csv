@@ -1,4 +1,4 @@
-is_active,type,title,description,tag,tag_int,rating,coordinate,dob,email,metadata
+is_active,type,title,description,tag,tag_int,rating,coordinate,date_of_birth,email,metadata
 1,10,Sample Title 0,This is a sample description for item 0.,"{tag1,tag7}","{5,15}",4.4,POINT(-29.012253630379234 2.3555800242206715),1977-12-05,user0@example.com,"{""key"": ""value0"", ""priority"": ""high""}"
 0,7,Sample Title 1,This is a sample description for item 1.,"{tag3,tag6}","{2,13}",4.4,POINT(-64.64541391363517 -4.318132688707408),1985-06-08,user1@example.com,"{""key"": ""value1"", ""priority"": ""high""}"
 0,1,Sample Title 2,This is a sample description for item 2.,"{tag1,tag6}","{9,14}",1.9,POINT(-15.546583250898749 -62.64582744057117),1990-11-11,user2@example.com,"{""key"": ""value2"", ""priority"": ""low""}"
