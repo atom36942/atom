@@ -91,24 +91,7 @@ config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"
 config_allowed_api_storage_backends = ["redis", "inmemory"]
 
 #dict
-config_func_check = {
-"is_check_config_api": 1,
-"is_check_route_namespace_invalid": 1,
-"is_check_route_endpoint_name_invalid": 1,
-"is_check_config_naming_assign_invalid": 1,
-"is_check_config_naming_ann_assign_invalid": 1,
-"is_check_function_naming_invalid": 1,
-"is_check_router_declaration_missing": 1,
-"is_check_config_postgres_table_name_empty": 1,
-"is_check_config_postgres_column_duplicate": 1,
-"is_check_config_postgres_column_name_empty": 1,
-"is_check_config_postgres_column_datatype_empty": 1,
-"is_check_config_postgres_column_datatype_mismatch": 1,
-"is_check_config_postgres_unique_constraint_invalid": 1,
-"is_check_config_postgres_index_constraint_invalid": 1,
-"is_check_config_postgres_index_duplicate": 1,
-"is_check_config_postgres_index_redundant": 1,
-}
+
 config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_is_active": "select id,is_active from users order by id asc limit 1000",
