@@ -878,8 +878,8 @@ def test_func_check_allows_owner_columns_without_soft_delete_column():
         config_api_namespace=[],
         config_router_path=None,
         config_api={},
-        config_mode_user=[],
-        config_mode_api=[],
+        config_allowed_user_storage_backends=[],
+        config_allowed_api_storage_backends=[],
         config_postgres=config_postgres
     )
 
@@ -1015,8 +1015,8 @@ def test_func_check_selective_toggles():
             config_api_namespace=[],
             config_router_path=None,
             config_api={},
-            config_mode_user=[],
-            config_mode_api=[],
+            config_allowed_user_storage_backends=[],
+            config_allowed_api_storage_backends=[],
             config_postgres=config_fail,
             config_func_check={"is_check_config_postgres": 1}
         )
@@ -1028,8 +1028,8 @@ def test_func_check_selective_toggles():
         config_api_namespace=[],
         config_router_path=None,
         config_api={},
-        config_mode_user=[],
-        config_mode_api=[],
+        config_allowed_user_storage_backends=[],
+        config_allowed_api_storage_backends=[],
         config_postgres=config_fail,
         config_func_check={"is_check_config_postgres": 0}
     )

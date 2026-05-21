@@ -2035,13 +2035,13 @@
     const setupEventListeners = () => {
       UI("tagCardHeader")?.addEventListener("click", toggleTagCard); UI("runnerResetBtn")?.addEventListener("click", e => {
         e.stopPropagation()
-        ; const s = ResponseView.states.runner; const idx = s.index !== null ? s.index : activeMasterRunIndex; if (idx !== null) {
-          Store.removeResponse(idx); Object.assign(s, {
-            data: null, status: null, time: null
-          }); UI("rBox")?.classList.remove("show");["rCode", "rawPre", "viewPretty", "viewTable", "viewChart"].forEach(id => { const el = UI(id); if (el) el.innerHTML = "" }); const resetBtn = UI("runnerResetBtn")
-            ; if (resetBtn) { resetBtn.disabled = true; resetBtn.style.opacity = "0.35"; resetBtn.style.pointerEvents = "none"; resetBtn.style.cursor = "default" } renderApiInfoTable(UI("apiInfoSearch")?.value || "")
-            ; toast("Response history cleared")
-        }
+          ; const s = ResponseView.states.runner; const idx = s.index !== null ? s.index : activeMasterRunIndex; if (idx !== null) {
+            Store.removeResponse(idx); Object.assign(s, {
+              data: null, status: null, time: null
+            }); UI("rBox")?.classList.remove("show");["rCode", "rawPre", "viewPretty", "viewTable", "viewChart"].forEach(id => { const el = UI(id); if (el) el.innerHTML = "" }); const resetBtn = UI("runnerResetBtn")
+              ; if (resetBtn) { resetBtn.disabled = true; resetBtn.style.opacity = "0.35"; resetBtn.style.pointerEvents = "none"; resetBtn.style.cursor = "default" } renderApiInfoTable(UI("apiInfoSearch")?.value || "")
+              ; toast("Response history cleared")
+          }
       }); UI("apiInfoSearch")?.addEventListener("input", e => {
         const v = e.target.value; UI("apiInfoSearchClear").style.display = v ? "block" : "none"
           ; d.querySelectorAll(".namespace-filter").forEach(pill => { pill.classList.toggle("active", pill.dataset.prefix === v) })
@@ -2057,14 +2057,14 @@
           UI("wsLogs").innerHTML = ""
         }); UI("wsMsgIn")?.addEventListener("keydown", e => { if (e.key === "Enter") wsSend() }); UI("apiForm")?.addEventListener("submit", e => {
           e.preventDefault()
-          ; executeCurrentApi()
+            ; executeCurrentApi()
         }); UI("paramInfoCopyBtn")?.addEventListener("click", () => {
           const txt = UI("paramInfoBody").innerText
-          ; if (txt) copyWithFeedback(UI("paramInfoCopyBtn"), txt, 20, "Details copied")
+            ; if (txt) copyWithFeedback(UI("paramInfoCopyBtn"), txt, 20, "Details copied")
         }); d.addEventListener("click", e => {
           const btn = e.target.closest(".info-icon-btn"); if (btn) {
             e.stopPropagation()
-            ; showInfoModal(btn.dataset.key || "", btn.dataset.regex || "", btn.dataset.desc || "")
+              ; showInfoModal(btn.dataset.key || "", btn.dataset.regex || "", btn.dataset.desc || "")
           }
         }); SECTIONS.forEach(([btn, sec, cont]) => {
           UI(btn)?.addEventListener("click", () => {
@@ -2073,16 +2073,16 @@
             ; UI(cont)?.addEventListener("click", e => { if (e.target.closest(".remove-btn")) setTimeout(syncParams, 0) })
         }); d.addEventListener("click", e => {
           const btn = e.target.closest(".view-btn")
-          ; if (btn) { const scope = btn.classList.contains("master-view-btn") ? "master" : "runner"; ResponseView.switchTo(scope, btn.dataset.view) }
+            ; if (btn) { const scope = btn.classList.contains("master-view-btn") ? "master" : "runner"; ResponseView.switchTo(scope, btn.dataset.view) }
         })
         ; d.addEventListener("click", e => { const btn = e.target.closest(".toggle-mode-btn"); if (btn) { const row = btn.closest(".input-row"); const wrapper = btn.closest(".input-wrapper"); const input = wrapper.querySelector(".row-val"); const isEnum = input.tagName === "SELECT"; const eData = JSON.parse(decodeURIComponent(input.dataset.enum)); const val = input.value; if (isEnum) { const newInput = d.createElement("input"); newInput.type = "text"; newInput.className = "row-val"; newInput.value = val; newInput.dataset.enum = input.dataset.enum; wrapper.replaceChild(newInput, input) } else { const newSelect = d.createElement("select"); newSelect.className = "row-val"; newSelect.dataset.enum = input.dataset.enum; let html = '<option value="">-- select --</option>'; eData.forEach(opt => { html += `<option value="${he(opt)}" ${String(val) === String(opt) ? "selected" : ""}>${he(opt)}</option>` }); newSelect.innerHTML = html; wrapper.replaceChild(newSelect, input) } btn.innerHTML = ICON.edit(12); clearIconTooltips(row); bindClear(row); syncParams() } })
         ; UI("masterRespCopy")?.addEventListener("click", () => {
           const s = ResponseView.states.master
-          ; if (s.data) copyWithFeedback(UI("masterRespCopy"), JSON.stringify(s.data, null, 2), 16, "Response copied")
+            ; if (s.data) copyWithFeedback(UI("masterRespCopy"), JSON.stringify(s.data, null, 2), 16, "Response copied")
         }); UI("masterRespCopyFull")?.addEventListener("click", () => {
           const s = ResponseView.states.master; if (s.data && s.index !== null) {
             const full = `## CURL\n${generateCurl(s.index)}\n\n## RESPONSE\n${JSON.stringify(s.data, null, 2)}`
-            ; copyWithFeedback(UI("masterRespCopyFull"), full, 16, "Curl & Response copied")
+              ; copyWithFeedback(UI("masterRespCopyFull"), full, 16, "Curl & Response copied")
           }
         }); UI("masterRespCsv")?.addEventListener("click", () => {
           const s = ResponseView.states.master; if (s.data) {
@@ -2094,7 +2094,7 @@
         ; UI("rCopyFull")?.addEventListener("click", () => {
           const s = ResponseView.states.runner; if (s.data && curr) {
             const idx = COMMANDS.indexOf(curr)
-            ; const full = `## CURL\n${generateCurl(idx)}\n\n## RESPONSE\n${JSON.stringify(s.data, null, 2)}`; copyWithFeedback(UI("rCopyFull"), full, 16, "Curl & Response copied")
+              ; const full = `## CURL\n${generateCurl(idx)}\n\n## RESPONSE\n${JSON.stringify(s.data, null, 2)}`; copyWithFeedback(UI("rCopyFull"), full, 16, "Curl & Response copied")
           }
         })
         ; UI("rCsv")?.addEventListener("click", () => {
@@ -2105,10 +2105,10 @@
           }
         }); UI("rJson")?.addEventListener("click", () => {
           const s = ResponseView.states.runner
-          ; if (s.data) downloadJson("api_response.json", s.data)
+            ; if (s.data) downloadJson("api_response.json", s.data)
         }); UI("storageDownloadAll")?.addEventListener("click", () => {
           const snapshot = getStorageSnapshot()
-          ; downloadJson("local_storage_state.json", snapshot)
+            ; downloadJson("local_storage_state.json", snapshot)
         }); UI("storageResetAll")?.addEventListener("click", () => {
           if (confirm("RESET ALL:\nPermanently delete ALL API Master keys?")) { Store.clear(); activeMasterResultFilter = "all"; refreshDebugUi(); toast("Storage cleared") }
         })
@@ -2116,27 +2116,27 @@
           if (Store.token) {
             if (confirm('LOGOUT:\nThis will delete key: "token" from localStorage. Continue?')) {
               Store.token = null
-              ; updateLoginIndicator(); toast("Logged Out")
+                ; updateLoginIndicator(); toast("Logged Out")
             }
           } else {
             const idx = COMMANDS.findIndex(c => c.p === "/auth/login-username-password" && c.m === "POST"); if (idx !== -1) {
               activeMasterRunIndex = null
-              ; showModal("apiRunnerModal"); load(idx)
+                ; showModal("apiRunnerModal"); load(idx)
             } else { toast("Login API not found") }
           }
         }); UI("apiInfoTags")?.addEventListener("click", e => {
           const tagEl = e.target.closest(".tag-filter")
-          ; if (tagEl) toggleApiTag(tagEl.dataset.tag)
+            ; if (tagEl) toggleApiTag(tagEl.dataset.tag)
         }); UI("testSummary")?.addEventListener("click", e => {
           const filterEl = e.target.closest(".clickable")
-          ; if (filterEl) toggleMasterResultFilter(filterEl.dataset.type); const runBtn = e.target.closest("#testRunBtn"); if (runBtn) testRunApis()
-            ; const exportBtn = e.target.closest("#testAllExportCsv"); if (exportBtn) exportTestCsv()
+            ; if (filterEl) toggleMasterResultFilter(filterEl.dataset.type); const runBtn = e.target.closest("#testRunBtn"); if (runBtn) testRunApis()
+              ; const exportBtn = e.target.closest("#testAllExportCsv"); if (exportBtn) exportTestCsv()
         }); UI("storageContent")?.addEventListener("click", e => {
           const viewBtn = e.target.closest(".storage-view-btn"); const copyBtn = e.target.closest(".storage-copy-btn"); const delBtn = e.target.closest(".storage-del-btn"); const getRow = btn => {
             const key = btn.dataset.key; const scope = btn.dataset.scope; return getStorageRows().find(row => row.key === key && row.scope === scope) || null
           }; if (viewBtn) {
             const row = getRow(viewBtn)
-            ; if (!row) return; openJsonResponseModal(`Storage Key: ${row.key}`, row.value)
+              ; if (!row) return; openJsonResponseModal(`Storage Key: ${row.key}`, row.value)
           } else if (copyBtn) {
             const row = getRow(copyBtn); if (!row) return
               ; const valStr = typeof row.value === "object" ? JSON.stringify(row.value, null, 2) : String(row.value); copyWithFeedback(copyBtn, valStr, 14, `Copied value for: ${row.key}`)
@@ -2154,7 +2154,7 @@
         }); d.addEventListener("click", e => {
           const toggle = e.target.closest(".tree-toggle"); if (toggle) {
             toggle.nextElementSibling.classList.toggle("show")
-            ; toggle.querySelector(".tree-arrow").classList.toggle("open")
+              ; toggle.querySelector(".tree-arrow").classList.toggle("open")
           }
         }); d.addEventListener("click", e => {
           const btn = e.target.closest(".cell-expand-btn"); if (!btn) return
@@ -2167,7 +2167,7 @@
           } if (document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
             if (e.key.toLowerCase() === "d") {
               e.preventDefault()
-              ; showModal("infoModal"); renderAnalytics(); setupIcons()
+                ; showModal("infoModal"); renderAnalytics(); setupIcons()
             } if (e.key.toLowerCase() === "s") { e.preventDefault(); showModal("storageModal"); renderStorage(); setupIcons() } if (e.key.toLowerCase() === "e") { e.preventDefault(); exportCatalogCsv() }
           }
         }); d.querySelectorAll(".namespace-filter").forEach(pill => { pill.addEventListener("click", () => { const prefix = pill.dataset.prefix; const searchInput = UI("apiInfoSearch"); if (searchInput.value === prefix) { searchInput.value = ""; UI("apiInfoSearchClear").style.display = "none"; renderApiInfoTags(); renderApiInfoTable("") } else { searchInput.value = prefix; UI("apiInfoSearchClear").style.display = "block"; renderApiInfoTags(); renderApiInfoTable(prefix); hideModal("tagFiltersModal") } }) })
@@ -2208,10 +2208,10 @@
       get responses() { return memoryResponses }, set responses(v) { memoryResponses = v || {} },
       getResponse(i) { return this.responses[String(i)] || null }, setResponse(i, val) {
         const r = this.responses
-        ; r[String(i)] = val; this.responses = r
+          ; r[String(i)] = val; this.responses = r
       }, removeResponse(i) { const r = this.responses; delete r[String(i)]; this.responses = r }, clear() {
         localStorage.removeItem(STORAGE_KEY_TOKEN)
-        ; memoryResponses = {}
+          ; memoryResponses = {}
       }
     }; const getStorageSnapshot = () => {
       const snapshot = {};[STORAGE_KEY_TOKEN].forEach(key => {
@@ -2219,12 +2219,12 @@
       }); return snapshot
     }; const getStorageRows = () => {
       const rowList = []
-      ; const snapshot = getStorageSnapshot(); if (Object.prototype.hasOwnProperty.call(snapshot, STORAGE_KEY_TOKEN)) {
-        rowList.push({
-          scope: "token", key: STORAGE_KEY_TOKEN,
-          value: snapshot[STORAGE_KEY_TOKEN], removable: 1
-        })
-      } return rowList
+        ; const snapshot = getStorageSnapshot(); if (Object.prototype.hasOwnProperty.call(snapshot, STORAGE_KEY_TOKEN)) {
+          rowList.push({
+            scope: "token", key: STORAGE_KEY_TOKEN,
+            value: snapshot[STORAGE_KEY_TOKEN], removable: 1
+          })
+        } return rowList
     }; const deleteStorageEntry = row => {
       if (row.key === STORAGE_KEY_TOKEN) { Store.token = null; return 1 }
       return 0
@@ -2274,7 +2274,7 @@
           storageResetAll: ICON.trash(18), cellPopCopy: ICON.copy(14), curlViewCopyHeaderBtn: ICON.copy(20), runnerResetBtn: ICON.trash(18), runnerOvrBtn: ICON.ovr(18), runnerCurlBtn: ICON.terminal(18), subBtnIcon: ICON.play(14)
         }; Object.entries(iconMap).forEach(([id, svg]) => {
           const el = UI(id)
-          ; if (el && svg) el.innerHTML = svg
+            ; if (el && svg) el.innerHTML = svg
         }); d.querySelectorAll('.modal-header .icon-btn[title="Close"]').forEach(btn => { btn.innerHTML = ICON.close(24) }); clearIconTooltips()
       }; const toast = msg => {
         const el = d.createElement("div"); el.className = "toast"; el.textContent = msg; d.body.appendChild(el); setTimeout(() => el.remove(), 2500)
@@ -2282,7 +2282,7 @@
         try { if (navigator.clipboard) { navigator.clipboard.writeText(text) } else { console.warn("Clipboard API not available") } } catch (err) { console.error("Failed to copy:", err) } if (msg) toast(msg)
           ; if (btn.dataset.copied === "1") return; const originalHtml = btn.innerHTML; btn.dataset.copied = "1"; btn.innerHTML = ICON.check(size); setTimeout(() => {
             btn.innerHTML = originalHtml
-            ; delete btn.dataset.copied
+              ; delete btn.dataset.copied
           }, 1500)
       }; const downloadBlob = (blob, filename) => {
         const url = window.URL.createObjectURL(blob); const a = d.createElement("a"); a.style.display = "none"; a.href = url
@@ -2295,7 +2295,7 @@
         }), filename)
       }; const csvEscape = v => {
         const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v)
-        ; return s.includes(",") || s.includes('"') || s.includes("\n") ? '"' + s.replace(/"/g, '""') + '"' : s
+          ; return s.includes(",") || s.includes('"') || s.includes("\n") ? '"' + s.replace(/"/g, '""') + '"' : s
       };
   </script>
   <script>
@@ -2314,10 +2314,10 @@
             path = path.replace(`{${x.k}}`, x.v || "null")
           }); const sanitize = v => v === "" || typeof v === "string" && v.includes("{") && v.includes("}") ? "null" : v; const h = []; hData.forEach(x => {
             let val = x.v
-            ; if (x.k.toLowerCase() === "authorization") {
-              val = Store.token || val; const sVal = sanitize(val); val = sVal !== "null" ? sVal.startsWith("Bearer ") ? sVal : `Bearer ${sVal}` : "Bearer null"
-                ; h.push(`-H "${x.k}: ${val}"`)
-            } else h.push(`-H "${x.k}: ${sanitize(val)}"`)
+              ; if (x.k.toLowerCase() === "authorization") {
+                val = Store.token || val; const sVal = sanitize(val); val = sVal !== "null" ? sVal.startsWith("Bearer ") ? sVal : `Bearer ${sVal}` : "Bearer null"
+                  ; h.push(`-H "${x.k}: ${val}"`)
+              } else h.push(`-H "${x.k}: ${sanitize(val)}"`)
           }); if (c._needsAuth && Store.token && !hData.some(x => x.k.toLowerCase() === "authorization")) {
             h.push(`-H "Authorization: Bearer ${Store.token}"`)
           }
@@ -2343,12 +2343,12 @@
           ; downloadCsv("api_master_catalog.csv", csv)
       }; const exportTestCsv = () => {
         const visibleIndexes = getVisibleMasterIndexes()
-        ; if (!visibleIndexes.length) return toast("No visible APIs to export"); const csv = ["#,Method,Path,Curl,Time(ms),Status", ...visibleIndexes.map(i => {
-          const c = COMMANDS[i]
-          ; const responseState = Store.getResponse(i)
-            ; const status = responseState ? responseState.status : "-"; const time = responseState ? responseState.time : 0
-            ; return `${i + 1},${c.m},${csvEscape(c.p)},${csvEscape(generateCurl(i))},${time},${status}`
-        })].join("\n"); downloadCsv("api_test_results.csv", csv)
+          ; if (!visibleIndexes.length) return toast("No visible APIs to export"); const csv = ["#,Method,Path,Curl,Time(ms),Status", ...visibleIndexes.map(i => {
+            const c = COMMANDS[i]
+              ; const responseState = Store.getResponse(i)
+              ; const status = responseState ? responseState.status : "-"; const time = responseState ? responseState.time : 0
+              ; return `${i + 1},${c.m},${csvEscape(c.p)},${csvEscape(generateCurl(i))},${time},${status}`
+          })].join("\n"); downloadCsv("api_test_results.csv", csv)
       }
       ; const PATH_OVERRIDES = {
         "/my/object-create-mongodb": { database: "test", table: "test", id: 1, title: "test" }, "/my/api-usage": { days: 7 },
@@ -2378,17 +2378,17 @@
       extract(container, isJson = false) {
         const rows = []; container.querySelectorAll(".input-row").forEach(r => {
           const k = r.querySelector(".row-key").value.trim()
-          ; const v = r.querySelector(".row-val"); const ts = r.querySelector(".json-type-selector"); const t = isJson && ts ? ts.value : null; if (k || v.value) rows.push({
-            k: k, v: v.value, t: t,
-            files: v.files?.length ? Array.from(v.files) : null
-          })
+            ; const v = r.querySelector(".row-val"); const ts = r.querySelector(".json-type-selector"); const t = isJson && ts ? ts.value : null; if (k || v.value) rows.push({
+              k: k, v: v.value, t: t,
+              files: v.files?.length ? Array.from(v.files) : null
+            })
         }); return rows
       }, cast(val, type, key) {
         if (val === "" || val === "null" || val === null) return null; if (type === "int" || type === "float") {
           const num = Number(val); if (isNaN(num)) throw new Error(`Field '${key}' expects numeric value`); return num
         } if (type === "bool") {
           const l = String(val).toLowerCase()
-          ; if (l !== "true" && l !== "false") throw new Error(`Field '${key}' expects boolean (true/false)`); return l === "true"
+            ; if (l !== "true" && l !== "false") throw new Error(`Field '${key}' expects boolean (true/false)`); return l === "true"
         } if (type === "null") return null; if (type === "list" || type === "object") {
           try {
             const p = typeof val === "string" ? JSON.parse(val) : val; if (type === "list" && !Array.isArray(p)) throw new Error(`Field '${key}' expects list`)
@@ -2410,18 +2410,18 @@
       } if (s.allOf) {
         const merged = {}; s.allOf.forEach(sub => {
           const resolved = resolveSchema(sub)
-          ; if (resolved.properties) Object.assign(merged, resolved.properties)
+            ; if (resolved.properties) Object.assign(merged, resolved.properties)
         }); return { ...s, properties: merged }
       } return s
     }; const mapSchemaType = schema => {
       const nextSchema = resolveSchema(schema) || {}
-      ; let typeValue = nextSchema.type; if (!typeValue && nextSchema.anyOf) { typeValue = nextSchema.anyOf.map(item => resolveSchema(item)?.type).find(item => item && item !== "null") }
+        ; let typeValue = nextSchema.type; if (!typeValue && nextSchema.anyOf) { typeValue = nextSchema.anyOf.map(item => resolveSchema(item)?.type).find(item => item && item !== "null") }
       if (!typeValue && nextSchema.oneOf) { typeValue = nextSchema.oneOf.map(item => resolveSchema(item)?.type).find(item => item && item !== "null") } if (typeValue === "string") return "str"
         ; if (typeValue === "integer") return "int"; if (typeValue === "number") return "float"; if (typeValue === "boolean") return "bool"; if (typeValue === "array") return "list"
           ; if (typeValue === "object") return "object"; return "str"
     }; const getSchemaEnum = schema => {
       const nextSchema = resolveSchema(schema) || {}
-      ; if (Array.isArray(nextSchema.enum)) return nextSchema.enum; if (nextSchema.items && Array.isArray(nextSchema.items.enum)) return nextSchema.items.enum; return null
+        ; if (Array.isArray(nextSchema.enum)) return nextSchema.enum; if (nextSchema.items && Array.isArray(nextSchema.items.enum)) return nextSchema.items.enum; return null
     }
       ; const getRequestJsonRows = bodyContent => {
         const jsonSchema = resolveSchema(bodyContent?.["application/json"]?.schema); if (!jsonSchema) return []
@@ -2465,13 +2465,13 @@
     // OpenAPI command model
     const createCommandFromOperation = (path, method, op) => {
       const command = { p: path, m: method.toUpperCase(), h: [], q: [], f: [], u: [], j: [], tag: op.tags ? op.tags[0] : "system" }
-      ; (op.parameters || []).forEach(param => {
-        const schema = resolveSchema(param.schema) || {}; const item = {
-          k: param.name, v: schema.default != null ? String(schema.default) : "",
-          e: getSchemaEnum(schema) || param.enum || null, r: schema.pattern || null, d: param.description || schema.description || null, req: !!param.required
-        }; if (param.in === "header") command.h.push(item)
-          ; if (param.in === "query") command.q.push(item); if (param.in === "path") command.u.push(item)
-      }); const bodyContent = op.requestBody?.content; command.j = getRequestJsonRows(bodyContent)
+        ; (op.parameters || []).forEach(param => {
+          const schema = resolveSchema(param.schema) || {}; const item = {
+            k: param.name, v: schema.default != null ? String(schema.default) : "",
+            e: getSchemaEnum(schema) || param.enum || null, r: schema.pattern || null, d: param.description || schema.description || null, req: !!param.required
+          }; if (param.in === "header") command.h.push(item)
+            ; if (param.in === "query") command.q.push(item); if (param.in === "path") command.u.push(item)
+        }); const bodyContent = op.requestBody?.content; command.j = getRequestJsonRows(bodyContent)
         ; command.f = getRequestFormRows(bodyContent); command._hj = command.j.length > 0 || !!bodyContent?.["application/json"]
         ; command._hf = command.f.length > 0 || !!bodyContent?.["multipart/form-data"]; command._paramBadgeH = command.h.length > 0; command._paramBadgeP = command.u.length > 0
         ; command._paramBadgeQ = command.q.length > 0; command._paramBadgeF = command._hf; command._paramBadgeB = command._hj
@@ -2482,11 +2482,11 @@
       ; const schemaToExample = (s, spec) => {
         if (!s) return null; if (s.$ref) return schemaToExample(resolveRef(s.$ref, spec), spec); if (s.allOf) {
           const combined = { type: "object", properties: {} }
-          ; s.allOf.forEach(p => { const res = resolveRef(p.$ref, spec) || p; if (res.properties) Object.assign(combined.properties, res.properties) }); return schemaToExample(combined, spec)
+            ; s.allOf.forEach(p => { const res = resolveRef(p.$ref, spec) || p; if (res.properties) Object.assign(combined.properties, res.properties) }); return schemaToExample(combined, spec)
         }
         if (s.anyOf || s.oneOf) { const a = (s.anyOf || s.oneOf).find(x => x.type !== "null") || (s.anyOf || s.oneOf)[0]; return schemaToExample(a, spec) } if (s.type === "object") {
           const res = {}
-          ; for (const [k, p] of Object.entries(s.properties || {})) { res[k] = schemaToExample(p, spec) } return res
+            ; for (const [k, p] of Object.entries(s.properties || {})) { res[k] = schemaToExample(p, spec) } return res
         } if (s.type === "array") return [schemaToExample(s.items, spec)]
           ; if (s.type === "string") return s.default || "str"; if (s.type === "integer" || s.type === "number") return s.default || 0; if (s.type === "boolean") return s.default || false; return null
       };
@@ -2515,7 +2515,7 @@
         ; const keys = [...new Set(arr.flatMap(Object.keys))]; const colW = k => Math.min(300, Math.max(120, k.length * 10 + 40))
         ; const tableRows = arr.map((row, rowIndex) => `\n<tr style="background:${rowIndex % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)"}">\n${keys.map(k => {
           const cv = row[k]
-          ; const val = cv == null ? "" : typeof cv === "object" ? JSON.stringify(cv) : String(cv); const enc = val.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+            ; const val = cv == null ? "" : typeof cv === "object" ? JSON.stringify(cv) : String(cv); const enc = val.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
             ; const isLong = val.length > 60; const display = isLong ? he(val.substring(0, 57)) + "..." : enc
             ; const viewBtn = isLong ? `<button type="button" class="icon-btn cell-expand-btn" data-raw="${encodeURIComponent(val)}" style="padding:2px;margin-left:auto">${ICON.expand(14)}</button>` : ""
             ; return `<td title="${enc}"><div style="display:flex;align-items:center;gap:8px;max-width:${colW(k)}px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${display}</span>${viewBtn}</div></td>`
@@ -2564,7 +2564,7 @@
       }, switchTo(scope, type) {
         const s = this.states.runner; s.view = type; const data = s.data;["Raw", "Pretty", "Table", "Chart"].forEach(t => {
           const btn = UI(`btn${t}`)
-          ; if (btn) btn.classList.toggle("active", t.toLowerCase() === type); const v = UI(`view${t}`); if (v) v.classList.toggle("active", t.toLowerCase() === type)
+            ; if (btn) btn.classList.toggle("active", t.toLowerCase() === type); const v = UI(`view${t}`); if (v) v.classList.toggle("active", t.toLowerCase() === type)
         }); if (type === "raw") {
           UI("rawPre").innerHTML = highlight(JSON.stringify(data, null, 2))
         } else if (type === "pretty") { UI("viewPretty").innerHTML = renderTree(data) } else if (type === "table") {
@@ -2617,7 +2617,7 @@
       const counts = {}; COMMANDS.forEach(c => { getPathTags(c.p).forEach(t => { counts[t] = (counts[t] || 0) + 1 }) })
         ; const tags = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); const renderTag = ([t, count]) => {
           const searchVal = UI("apiInfoSearch")?.value || ""
-          ; const active = searchVal === t ? "active" : ""
+            ; const active = searchVal === t ? "active" : ""
             ; return `<span class="tag-filter ${active}" data-tag="${t}">${t}<span class="tag-filter-count">(${count})</span></span>`
         }; const tot = UI("pathFilterTotal"); if (tot) tot.textContent = `(${tags.length})`
           ; const tagContainer = UI("apiInfoTags"); if (tagContainer) tagContainer.innerHTML = `<div class="tag-group">${tags.map(renderTag).join("")}</div>`
@@ -2647,7 +2647,7 @@
         }
     }; const applyMasterTableLayout = () => {
       const root = d.documentElement
-      ; const pathLengths = COMMANDS.map(c => c.p.length); const maxPathLength = pathLengths.length ? Math.max(...pathLengths) : 32; const pathWidth = Math.min(340, Math.max(220, maxPathLength * 6 + 18))
+        ; const pathLengths = COMMANDS.map(c => c.p.length); const maxPathLength = pathLengths.length ? Math.max(...pathLengths) : 32; const pathWidth = Math.min(340, Math.max(220, maxPathLength * 6 + 18))
         ; const fixedWidth = 32 + 52 + 74 + 66 + 56 * 2 + 36; const shellWidth = Math.min(1180, Math.max(920, pathWidth + fixedWidth + 48)); root.style.setProperty("--master-path-col", `${pathWidth}px`)
         ; root.style.setProperty("--master-shell-width", `${shellWidth}px`); UI("apiInfoTbl").closest(".master-table-wrap").style.opacity = "1"
     }; const renderApiInfoTable = (searchQuery = "") => {
@@ -2667,10 +2667,10 @@
         k: "f", l: "F",
         t: "Form data (OpenAPI)", f: c => !!c._paramBadgeF
       }, { k: "b", l: "B", t: "JSON body (OpenAPI)", f: c => !!c._paramBadgeB }, { k: "o", l: "O", t: "Path override (Local)", f: c => !!PATH_OVERRIDES[c.p] }]
-      ; return `<div class="param-badge-list">${mapping.map(m => {
-        const isOff = !m.f(command)
-        ; return `<span class="param-badge ${m.k} ${isOff ? "off" : ""}" title="${isOff ? "Not present" : m.t}">${m.l}</span>`
-      }).join("")}</div>`
+        ; return `<div class="param-badge-list">${mapping.map(m => {
+          const isOff = !m.f(command)
+            ; return `<span class="param-badge ${m.k} ${isOff ? "off" : ""}" title="${isOff ? "Not present" : m.t}">${m.l}</span>`
+        }).join("")}</div>`
     }; const renderRunnerEndpoint = command => {
       if (!command) return ""
         ; return `<div style="display:flex;align-items:center;gap:10px;font-family:'SF Mono',Menlo,monospace;line-height:1"><span class="method-badge ${command.m.toLowerCase()}" style="margin:0;line-height:1.2">${command.m}</span><span class="runner-endpoint-path" style="display:inline;margin:0;line-height:1">${he(command.p)}</span></div>`
@@ -2694,7 +2694,7 @@
       const keyLengthMax = rowList.reduce((max, row) => { if (row.key.length > max) return row.key.length; return max }, 0); const keyWidthCh = Math.min(Math.max(keyLengthMax + 2, 18), 30)
         ; const sizeWidthCh = 8; const rows = rowList.map((row, idx) => {
           const valStr = typeof row.value === "object" ? JSON.stringify(row.value, null, 2) : String(row.value)
-          ; const size = new Blob([valStr]).size; const sizeStr = size > 1024 ? (size / 1024).toFixed(1) + " KB" : size + " B"
+            ; const size = new Blob([valStr]).size; const sizeStr = size > 1024 ? (size / 1024).toFixed(1) + " KB" : size + " B"
             ; return `\n<tr><td style="width:40px;text-align:left!important">${idx + 1}</td><td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${row.key}">${row.key}</td><td style="width:90px;text-align:right">${sizeStr}</td><td style="width:140px;text-align:right"><div class="storage-action-wrap" style="display:flex;justify-content:flex-end;gap:8px"><button class="icon-btn storage-view-btn" data-key="${row.key}" data-scope="${row.scope}" title="View JSON">${ICON.eye(14)}</button><button class="icon-btn storage-copy-btn" data-key="${row.key}" data-scope="${row.scope}" title="Copy Value">${ICON.copy(14)}</button><button class="icon-btn delete storage-del-btn" data-key="${row.key}" data-scope="${row.scope}" title="${row.removable ? "Delete Key" : "Delete Root Key"}">${ICON.trash(14)}</button></div></td></tr>`
         }).join("")
         ; UI("storageContent").innerHTML = `\n<div class="resp-tbl-wrap"><table class="resp-tbl" style="width:100%;table-layout:fixed"><thead><tr><th style="width:40px;text-align:left!important">#</th><th style="text-align:left">Key</th><th style="width:90px;text-align:right">Size</th><th style="width:140px;text-align:right">Action</th></tr></thead><tbody>${rows}</tbody></table></div>`; clearIconTooltips(UI("storageContent"))
@@ -2736,7 +2736,7 @@
         UI("testSummary").innerHTML = `\n<div class="test-summary-stats" style="gap:6px;min-width:0;flex-wrap:nowrap"><span class="clickable ${activeMasterResultFilter === "all" ? "active" : ""}" data-type="all" style="display:flex;align-items:center;gap:4px;padding:4px 6px;white-space:nowrap">${ICON.list(13)}<strong style="color:#e6eef3">${stats.total}</strong></span><span class="clickable ${activeMasterResultFilter === "pass" && stats.hasResults ? "active" : ""} ${isDisabled}" data-type="pass" style="display:flex;align-items:center;gap:4px;padding:4px 6px;white-space:nowrap">${ICON.check(13)}<strong style="color:var(--primary)">${valuePassed}</strong></span><span class="clickable ${activeMasterResultFilter === "fail" && stats.hasResults ? "active" : ""} ${isDisabled}" data-type="fail" style="display:flex;align-items:center;gap:4px;padding:4px 6px;white-space:nowrap">${ICON.cross(13)}<strong style="color:var(--delete)">${valueFailed}</strong></span></div><div class="test-summary-actions" style="gap:6px;flex-shrink:0"><div class="test-summary-avg-slot"><span class="test-summary-avg-pill" style="display:flex;align-items:center;gap:4px;padding:4px 6px">${ICON.clock(13)}<strong style="color:var(--primary)">${valueAvg}</strong></span></div><div class="test-summary-export-slot"><button type="button" class="icon-btn" id="testAllExportCsv" title="Export Visible Results CSV" style="padding:6px" ${stats.hasResults ? "" : "disabled"}>${ICON.download(18)}</button></div><div class="test-summary-run-slot"><button type="button" class="icon-btn save ${testRunning ? 'running' : ''}" id="testRunBtn" title="${runBtnTitle}" style="padding:6px" ${runBtnDisabled}>${runBtnContent}</button></div></div>\n`
           ; const exportBtn = d.getElementById("testAllExportCsv"); if (exportBtn) {
             exportBtn.style.opacity = stats.hasResults ? "1" : "0.35"
-            ; exportBtn.style.cursor = stats.hasResults ? "pointer" : "default"; exportBtn.disabled = !stats.hasResults
+              ; exportBtn.style.cursor = stats.hasResults ? "pointer" : "default"; exportBtn.disabled = !stats.hasResults
           }; clearIconTooltips(summaryEl)
       }
     }; const updateLoginIndicator = () => {
@@ -2766,18 +2766,18 @@
         if (spec && spec.length) UI(sec).classList.add("active"); (spec || []).forEach(x => {
           let val = x.v; if (x.k.toLowerCase() === "authorization" && curr._needsAuth) {
             const lsVal = Store.token
-            ; if (lsVal) val = lsVal.startsWith("Bearer ") ? lsVal : `Bearer ${lsVal}`; else if (val && !val.startsWith("Bearer ")) val = `Bearer ${val}`
+              ; if (lsVal) val = lsVal.startsWith("Bearer ") ? lsVal : `Bearer ${lsVal}`; else if (val && !val.startsWith("Bearer ")) val = `Bearer ${val}`
           }
           mkRow(UI(cont), x.k, val, x.t || "string", x.e, x.r || null, !!spec.find(s => s.k === x.k), !!spec.find(s => s.k === x.k && s.req), x.d || null)
         })
       }; const load = i => {
         curr = i === null ? null : COMMANDS[i]
-        ; SECTIONS.forEach(([, sec, cont]) => { UI(cont).innerHTML = ""; UI(sec).classList.remove("active") }); const rBox = UI("rBox"); if (rBox) {
-          rBox.classList.remove("show")
-          ;["rCode", "rawPre", "viewPretty", "viewTable"].forEach(id => { const el = UI(id); if (el) el.innerHTML = "" })
-        } ["btnRaw", "btnPretty", "btnTable", "rCopy", "rCopyFull", "rCsv", "rJson"].forEach(id => {
-          const btn = UI(id); if (btn) { btn.disabled = true; btn.style.opacity = "0.35"; btn.style.pointerEvents = "none"; btn.style.cursor = "default" }
-        }); const pathHeader = UI("runnerPathHeader")
+          ; SECTIONS.forEach(([, sec, cont]) => { UI(cont).innerHTML = ""; UI(sec).classList.remove("active") }); const rBox = UI("rBox"); if (rBox) {
+            rBox.classList.remove("show")
+              ;["rCode", "rawPre", "viewPretty", "viewTable"].forEach(id => { const el = UI(id); if (el) el.innerHTML = "" })
+          } ["btnRaw", "btnPretty", "btnTable", "rCopy", "rCopyFull", "rCsv", "rJson"].forEach(id => {
+            const btn = UI(id); if (btn) { btn.disabled = true; btn.style.opacity = "0.35"; btn.style.pointerEvents = "none"; btn.style.cursor = "default" }
+          }); const pathHeader = UI("runnerPathHeader")
           ; if (pathHeader) pathHeader.innerHTML = curr ? renderRunnerEndpoint(curr) : ""; const hasOvr = curr && PATH_OVERRIDES[curr.p] && Object.keys(PATH_OVERRIDES[curr.p]).length > 0; const ovrBtn = UI("runnerOvrBtn"); if (ovrBtn) { ovrBtn.disabled = !hasOvr; ovrBtn.style.opacity = hasOvr ? "1" : "0.35"; ovrBtn.style.pointerEvents = hasOvr ? "auto" : "none"; ovrBtn.style.cursor = hasOvr ? "pointer" : "default" } if (!curr) return; populate("hCont", "hSec", curr.h); populate("uCont", "uSec", curr.u)
           ; populate("qCont", "qSec", curr.q); populate("fCont", "fSec", curr._hf ? curr.f : []); populate("jCont", "jSec", curr._hj ? curr.j : [], true); if (curr._hf && !UI("fCont").children.length) {
             UI("fSec").classList.add("active"); mkRow(UI("fCont"))
@@ -2810,17 +2810,17 @@
           }); const opts = { method: curr.m, headers: h }
           ; if (curr._needsAuth && Store.token && !Object.keys(h).some(k => k.toLowerCase() === "authorization")) { h["Authorization"] = `Bearer ${Store.token}` } if (params.f.length) {
             const fd = new FormData
-            ; params.f.forEach(x => { if (x.files) x.files.forEach(file => fd.append(x.k, file)); else if (x.k) fd.append(x.k, x.v || "null") }); opts.body = fd
+              ; params.f.forEach(x => { if (x.files) x.files.forEach(file => fd.append(x.k, file)); else if (x.k) fd.append(x.k, x.v || "null") }); opts.body = fd
           } else if (params.j.length || curr._hj) {
             const body = {}
-            ; try { params.j.forEach(x => { if (x.k) body[x.k] = ParamManager.cast(x.v, x.t, x.k) }); opts.body = JSON.stringify(body); h["Content-Type"] = "application/json" } catch (err) {
-              alert(err.message)
-              ; btn.disabled = false; btn.classList.remove("loading"); if (icon) icon.innerHTML = ICON.play(14); if (txt) txt.textContent = "Run"; return
-            }
+              ; try { params.j.forEach(x => { if (x.k) body[x.k] = ParamManager.cast(x.v, x.t, x.k) }); opts.body = JSON.stringify(body); h["Content-Type"] = "application/json" } catch (err) {
+                alert(err.message)
+                  ; btn.disabled = false; btn.classList.remove("loading"); if (icon) icon.innerHTML = ICON.play(14); if (txt) txt.textContent = "Run"; return
+              }
           } try {
             const r = await fetch(url, opts), ms = Math.round(performance.now() - t0); const cd = r.headers.get("Content-Disposition"); if (cd && cd.includes("attachment")) {
               const blob = await r.blob()
-              ; let filename = "download"; const m = cd.match(/filename="?([^"]+)"?/); if (m) filename = m[1]; const fileResponse = { status: 1, message: `File downloaded: ${filename}` }
+                ; let filename = "download"; const m = cd.match(/filename="?([^"]+)"?/); if (m) filename = m[1]; const fileResponse = { status: 1, message: `File downloaded: ${filename}` }
                 ; if (isAllowDownload) downloadBlob(blob, filename); toast(`File Downloaded: ${filename}`); if (isShowResponse) showResponse(fileResponse, r.status, ms); if (activeMasterRunIndex !== null) {
                   Store.setResponse(activeMasterRunIndex, { status: r.status, time: ms, data: fileResponse, updated_at: Date.now() }); renderApiInfoTable(UI("apiInfoSearch").value)
                 } return {
@@ -2846,12 +2846,12 @@
             }
           } catch (err) {
             const failMs = Math.round(performance.now() - t0)
-            ; const failResponse = { status: 0, message: err.message }; toast(`Execution Error: ${err.message}`); if (isShowResponse) showResponse(failResponse, 0, failMs); if (activeMasterRunIndex !== null) {
-              Store.setResponse(activeMasterRunIndex, { status: 0, time: failMs, data: failResponse, updated_at: Date.now() }); renderApiInfoTable(UI("apiInfoSearch").value)
-            } return {
-              status: 0, time: failMs,
-              data: failResponse
-            }
+              ; const failResponse = { status: 0, message: err.message }; toast(`Execution Error: ${err.message}`); if (isShowResponse) showResponse(failResponse, 0, failMs); if (activeMasterRunIndex !== null) {
+                Store.setResponse(activeMasterRunIndex, { status: 0, time: failMs, data: failResponse, updated_at: Date.now() }); renderApiInfoTable(UI("apiInfoSearch").value)
+              } return {
+                status: 0, time: failMs,
+                data: failResponse
+              }
           } finally { if (btn) { btn.disabled = false; btn.classList.remove("loading") } if (icon) icon.innerHTML = ICON.play(14); if (txt) txt.textContent = "Run" }
       }
       ; const runMasterApiByIndex = async index => {
@@ -2869,7 +2869,7 @@
             }); const opts = { method: c.m, headers: h }
           ; if (c._needsAuth && Store.token && !Object.keys(h).some(k => k.toLowerCase() === "authorization")) { h["Authorization"] = `Bearer ${Store.token}` } if (params.f.length) {
             const fd = new FormData
-            ; params.f.forEach(x => { if (x.k) fd.append(x.k, x.v || "null") }); opts.body = fd
+              ; params.f.forEach(x => { if (x.k) fd.append(x.k, x.v || "null") }); opts.body = fd
           } else if (params.j.length || c._hj) {
             const body = {}; try {
               params.j.forEach(x => {
@@ -2877,7 +2877,7 @@
               }); opts.body = JSON.stringify(body); h["Content-Type"] = "application/json"
             } catch (e) {
               const ms = Math.round(performance.now() - t0)
-              ; Store.setResponse(index, { status: 0, time: ms, data: { status: 0, message: e.message }, updated_at: Date.now() }); renderApiInfoTable(UI("apiInfoSearch").value); return
+                ; Store.setResponse(index, { status: 0, time: ms, data: { status: 0, message: e.message }, updated_at: Date.now() }); renderApiInfoTable(UI("apiInfoSearch").value); return
             }
           } try {
             const r = await fetch(url, opts); const ms = Math.round(performance.now() - t0); const text = await r.text(); let json; try { json = JSON.parse(text) } catch {
@@ -2930,7 +2930,7 @@
     // WebSocket runner
     let ws = null; const wsLog = (msg, type = "info") => {
       const time = (new Date).toLocaleTimeString()
-      ; const color = type === "error" ? "var(--delete)" : type === "sent" ? "var(--accent)" : type === "received" ? "var(--primary)" : "var(--muted)"
+        ; const color = type === "error" ? "var(--delete)" : type === "sent" ? "var(--accent)" : type === "received" ? "var(--primary)" : "var(--muted)"
         ; const html = `<div style="margin-bottom:4px"><span style="opacity:0.5">[${time}]</span> <span style="color:${color}">${msg}</span></div>`; const box = UI("wsLogs"); box.innerHTML += html
         ; box.scrollTop = box.scrollHeight
     }; const wsToggleConnect = () => {
@@ -2969,14 +2969,14 @@
           ; applyMasterTableLayout(); const b = UI("baseUrl"); if (b) b.textContent = window.location.origin; renderApiInfoTags(); let initialSearch = ""
           ; const urlParams = new URLSearchParams(window.location.search); const runApi = urlParams.get("api"); if (runApi) {
             const [method, path] = runApi.includes("|") ? runApi.split("|") : [null, runApi]
-            ; const idx = COMMANDS.findIndex(c => c.p === path && (!method || c.m === method.toUpperCase())); if (idx !== -1) {
-              initialSearch = path; UI("apiInfoSearch").value = path
-                ; const clearBtn = UI("apiInfoSearchClear"); if (clearBtn) clearBtn.style.display = "block"; activeMasterRunIndex = idx; setTimeout(() => {
-                  const cmd = COMMANDS[idx]; if (cmd && cmd.m === "WS") {
-                    showModal("wsRunnerModal"); loadWs(idx)
-                  } else { showModal("apiRunnerModal"); load(idx) }
-                }, 100)
-            }
+              ; const idx = COMMANDS.findIndex(c => c.p === path && (!method || c.m === method.toUpperCase())); if (idx !== -1) {
+                initialSearch = path; UI("apiInfoSearch").value = path
+                  ; const clearBtn = UI("apiInfoSearchClear"); if (clearBtn) clearBtn.style.display = "block"; activeMasterRunIndex = idx; setTimeout(() => {
+                    const cmd = COMMANDS[idx]; if (cmd && cmd.m === "WS") {
+                      showModal("wsRunnerModal"); loadWs(idx)
+                    } else { showModal("apiRunnerModal"); load(idx) }
+                  }, 100)
+              }
           } renderApiInfoTable(initialSearch); updateLoginIndicator()
           ; if (!runApi || UI("apiInfoSearch").value !== initialSearch) load(null); updateTestSummary(); setupIcons(); setupEventListeners(); updateAppLoader(100, "Ready")
       } catch (err) {

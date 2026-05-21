@@ -36,6 +36,9 @@ venv/bin/pytest -s -v
 
 # Consumer Start
 venv/bin/python -m core.consumer.<filename> [redis|rabbitmq|kafka|celery]
+
+# Daemon Start
+venv/bin/python -m core.daemon.<filename>
 ```
 
 # Env

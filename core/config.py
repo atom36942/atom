@@ -87,17 +87,12 @@ config_column_enable_single_update = ["username", "password", "email", "mobile",
 config_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
 config_api_namespace_auth = ["/my/", "/private/", "/admin/"]
 config_api_namespace_user = ["/my/"]
-config_mode_user = ["token", "realtime", "redis", "inmemory"]
-config_mode_api = ["redis", "inmemory"]
+config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
+config_allowed_api_storage_backends = ["redis", "inmemory"]
 
 #dict
 config_func_check = {
-"is_check_config_api_duplicate_id": 1,
-"is_check_config_api_mode": 1,
-"is_check_config_api_unused_route": 1,
-"is_check_route_admin_rules_missing_config": 1,
-"is_check_route_admin_rules_missing_role_check": 1,
-"is_check_route_admin_rules_allow_role_1": 1,
+"is_check_config_api": 1,
 "is_check_route_namespace_invalid": 1,
 "is_check_route_endpoint_name_invalid": 1,
 "is_check_config_naming_assign_invalid": 1,
@@ -124,7 +119,7 @@ config_table = {
 "test": {"buffer": 10},
 "log_api": {"retention_day": 30, "buffer": 10},
 "log_users_password": {"retention_day": 90},
-"otp": {"retention_day": 365},
+"otp": {"retention_day": 30},
 }
 config_regex = {
 "username": ["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
@@ -158,7 +153,6 @@ config_api = {
 "/admin/mongodb-import": {"id": 11, "user_role_check": ["token", [1]]},
 "/admin/blob-container-ops": {"id": 12, "user_role_check": ["token", [1]]},
 "/admin/blob-url-delete": {"id": 13, "user_role_check": ["token", [1]]},
-"/admin/postgres-clean": {"id": 20, "user_role_check": ["realtime", [1]]},
 "/admin/mssql-sql-runner": {"id": 21, "user_role_check": ["realtime", [1]]},
 "/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 100]},
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},

@@ -58,17 +58,6 @@ async def func_api_admin_object_delete(*, request: Request):
     deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=ob["table"], ids=ob["ids"], created_by_id=None, config_is_enable_users_hard_delete=app_state.config_is_enable_users_hard_delete)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
-@router.post("/admin/postgres-clean")
-async def func_api_admin_postgres_clean(*, request: Request):
-    app_state = request.app.state
-    if app_state.config_table:
-        for tbl, cfg in app_state.config_table.items():
-            if (retention_days := cfg.get("retention_day")) is not None:
-                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(tbl)): raise Exception(f"invalid identifier {tbl}")
-                async with app_state.client_postgres_pool.acquire() as conn:
-                    await conn.execute(f'DELETE FROM "{tbl}" WHERE "created_at" < NOW() - INTERVAL \'{retention_days} days\';')
-    return {"status": 1, "message": "done"}
-    
 @router.post("/admin/postgres-sql-runner")
 async def func_api_admin_postgres_sql_runner(*, request: Request):
     app_state = request.app.state

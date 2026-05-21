@@ -13,10 +13,24 @@ async def test_admin_postgres_runner_and_security(integration_app, auth_client):
     assert data["status"] == 1
     assert data["message"][0]["val"] == 1
     
-    # 2. Security: Block forbidden keywords
-    res = await admin.post("/admin/postgres-sql-runner", json={"mode": "write", "sql": "DROP TABLE users"})
-    assert "forbidden" in res.json()["message"].lower()
-    print("\n✅ Admin: Postgres Runner security (DROP blocking) verified.")
+    # 2. Security: Read mode blocks modifying commands
+    res = await admin.post("/admin/postgres-sql-runner", json={"mode": "read", "sql": "DROP TABLE users"})
+    assert "restricted" in res.json()["message"].lower()
+    
+    # 3. Robustness: Parentheses in read mode
+    res = await admin.post("/admin/postgres-sql-runner", json={"mode": "read", "sql": " ( SELECT 1 as val ) "})
+    assert res.json()["status"] == 1
+    assert res.json()["message"][0]["val"] == 1
+
+    # 4. Security: Write mode
+    app_state = integration_app.app.state
+    res = await admin.post("/admin/postgres-sql-runner", json={"mode": "write", "sql": "DELETE FROM test WHERE 1=0"})
+    if app_state.config_is_enable_postgres_sql_runner_write != 1:
+        assert "disabled" in res.json()["message"].lower()
+    else:
+        assert res.json()["status"] == 1
+    
+    print("\n✅ Admin: Postgres Runner security and robustness verified.")
 
 @pytest.mark.asyncio
 async def test_admin_import_export_loop(integration_app, auth_client):

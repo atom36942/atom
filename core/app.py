@@ -12,7 +12,7 @@ async def func_lifespan(app:"FastAPI"):
         import time
         start_journey = time.perf_counter()
         #check
-        app.state.func_check(app_routes=app.routes, config_config_path=app.state.config_config_path, config_function_path=app.state.config_function_path, config_api_namespace=app.state.config_api_namespace, config_router_path=app.state.config_router_path, config_api=app.state.config_api, config_mode_user=app.state.config_mode_user, config_mode_api=app.state.config_mode_api, config_postgres=app.state.config_postgres, config_func_check=app.state.config_func_check)
+        app.state.func_check(app_routes=app.routes, config_config_path=app.state.config_config_path, config_function_path=app.state.config_function_path, config_api_namespace=app.state.config_api_namespace, config_router_path=app.state.config_router_path, config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres, config_func_check=app.state.config_func_check)
         #structure
         import os
         for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)

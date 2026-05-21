@@ -1417,33 +1417,28 @@ async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> d
     if not record: raise Exception("user not found")
     return dict(record)
 
-def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_mode_user: list, config_mode_api: list, config_postgres: dict, config_func_check: dict = None) -> None:
+def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_allowed_user_storage_backends: list, config_allowed_api_storage_backends: list, config_postgres: dict, config_func_check: dict = None) -> None:
     if config_func_check is None:
         config_func_check = {}
-    api_ids = []
-    for path, cfg in config_api.items():
-        if (api_id := cfg.get("id")):
-            if config_func_check.get("is_check_config_api_duplicate_id", 1) == 1:
+    if config_func_check.get("is_check_config_api", 1) == 1:
+        api_ids = []
+        for path, cfg in config_api.items():
+            if (api_id := cfg.get("id")):
                 if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
-            api_ids.append(api_id)
-        if config_func_check.get("is_check_config_api_mode", 1) == 1:
-            if (mode_cfg := cfg.get("user_role_check")) and mode_cfg[0] not in config_mode_user: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_role_check), allowed: {config_mode_user}")
-            if (mode_cfg := cfg.get("user_is_active_check")) and mode_cfg[0] not in config_mode_user: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_is_active_check), allowed: {config_mode_user}")
-            if (mode_cfg := cfg.get("api_ratelimiting_times_sec")) and mode_cfg[0] not in config_mode_api: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_ratelimiting_times_sec), allowed: {config_mode_api}")
-            if (mode_cfg := cfg.get("api_cache_sec")) and mode_cfg[0] not in config_mode_api: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_cache_sec), allowed: {config_mode_api}")
-    route_paths = {route.path for route in app_routes if hasattr(route, "path")}
-    for path in config_api.keys():
-        if config_func_check.get("is_check_config_api_unused_route", 1) == 1:
+                api_ids.append(api_id)
+            if (mode_cfg := cfg.get("user_role_check")) and mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_role_check), allowed: {config_allowed_user_storage_backends}")
+            if (mode_cfg := cfg.get("user_is_active_check")) and mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_is_active_check), allowed: {config_allowed_user_storage_backends}")
+            if (mode_cfg := cfg.get("api_ratelimiting_times_sec")) and mode_cfg[0] not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_ratelimiting_times_sec), allowed: {config_allowed_api_storage_backends}")
+            if (mode_cfg := cfg.get("api_cache_sec")) and mode_cfg[0] not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_cache_sec), allowed: {config_allowed_api_storage_backends}")
+        route_paths = {route.path for route in app_routes if hasattr(route, "path")}
+        for path in config_api.keys():
             if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
-    for route in app_routes:
-        if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
-        path = route.path
-        if path.startswith("/admin"):
-            if config_func_check.get("is_check_route_admin_rules_missing_config", 1) == 1:
+        for route in app_routes:
+            if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
+            path = route.path
+            if path.startswith("/admin"):
                 if path not in config_api: raise Exception(f"admin route '{path}' missing in config_api")
-            if config_func_check.get("is_check_route_admin_rules_missing_role_check", 1) == 1:
                 if path in config_api and "user_role_check" not in config_api[path]: raise Exception(f"admin route '{path}' missing 'user_role_check' in config_api")
-            if config_func_check.get("is_check_route_admin_rules_allow_role_1", 1) == 1:
                 if path in config_api and "user_role_check" in config_api[path] and 1 not in config_api[path]["user_role_check"][1]: raise Exception(f"admin route '{path}' must allow role 1")
     if config_func_check.get("is_check_route_namespace_invalid", 1) == 1:
         for route in app_routes:

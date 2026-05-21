@@ -864,8 +864,8 @@ def test_func_check_routing_namespace_rules():
         config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
         config_router_path=None,
         config_api={},
-        config_mode_user=[],
-        config_mode_api=[],
+        config_allowed_user_storage_backends=[],
+        config_allowed_api_storage_backends=[],
         config_postgres={"table": {}, "extension": []},
         config_func_check={"is_check_route_namespace_rules": 1},
     )
@@ -882,8 +882,8 @@ def test_func_check_routing_namespace_rules():
             config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
             config_router_path=None,
             config_api={},
-            config_mode_user=[],
-            config_mode_api=[],
+            config_allowed_user_storage_backends=[],
+            config_allowed_api_storage_backends=[],
             config_postgres={"table": {}, "extension": []},
             config_func_check={"is_check_route_namespace_rules": 1},
         )
