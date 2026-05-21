@@ -13,8 +13,6 @@
 !.vscode/
 !infra/
 !infra/**
-!script/
-!script/**
 
 # add file
 !main.py
