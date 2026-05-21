@@ -11,7 +11,7 @@ import orjson
 import asyncio
 import uuid
 
-#admin
+#api
 @router.get("/admin/sync")
 async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
@@ -25,17 +25,6 @@ async def func_api_admin_sync(*, request: Request):
     if app_state.config_is_enable_reset_tmp == 1 and os.path.exists("tmp"): shutil.rmtree("tmp"); os.makedirs("tmp")
     return {"status": 1, "message": "done"}
 
-@router.post("/admin/postgres-clean")
-async def func_api_admin_postgres_clean(*, request: Request):
-    app_state = request.app.state
-    if app_state.config_table:
-        for tbl, cfg in app_state.config_table.items():
-            if (retention_days := cfg.get("retention_day")) is not None:
-                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(tbl)): raise Exception(f"invalid identifier {tbl}")
-                async with app_state.client_postgres_pool.acquire() as conn:
-                    await conn.execute(f'DELETE FROM "{tbl}" WHERE "created_at" < NOW() - INTERVAL \'{retention_days} days\';')
-    return {"status": 1, "message": "done"}
-
 @router.post("/admin/object-create")
 async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
@@ -44,6 +33,12 @@ async def func_api_admin_object_create(*, request: Request):
     obj_list = ob.get("obj_list", [ob])
     if request.state.user.get("id"): obj_list = [dict(item, created_by_id=request.state.user["id"]) for item in obj_list]
     return {"status": 1, "message": await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, config_buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer", app_state.config_buffer_limit), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
+
+@router.get("/admin/object-read")
+async def func_api_admin_object_read(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
+    return {"status": 1, "message": await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_relation_fetch_limit_max=app_state.config_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])}
 
 @router.put("/admin/object-update")
 async def func_api_admin_object_update(*, request: Request):
@@ -56,18 +51,23 @@ async def func_api_admin_object_update(*, request: Request):
     created_by_id = None
     return {"status": 1, "message": await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_obj_list_limit=app_state.config_obj_list_limit, config_regex=app_state.config_regex, config_table=app_state.config_table)}
 
-@router.get("/admin/object-read")
-async def func_api_admin_object_read(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
-    return {"status": 1, "message": await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_relation_fetch_limit_max=app_state.config_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])}
-
-@router.post("/admin/ids-delete")
-async def func_api_admin_ids_delete(*, request: Request):
+@router.post("/admin/object-delete")
+async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
     return {"status": 1, "message": await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, table=ob["table"], ids=ob["ids"], created_by_id=None, client_postgres_conn=None)}
 
+@router.post("/admin/postgres-clean")
+async def func_api_admin_postgres_clean(*, request: Request):
+    app_state = request.app.state
+    if app_state.config_table:
+        for tbl, cfg in app_state.config_table.items():
+            if (retention_days := cfg.get("retention_day")) is not None:
+                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(tbl)): raise Exception(f"invalid identifier {tbl}")
+                async with app_state.client_postgres_pool.acquire() as conn:
+                    await conn.execute(f'DELETE FROM "{tbl}" WHERE "created_at" < NOW() - INTERVAL \'{retention_days} days\';')
+    return {"status": 1, "message": "done"}
+    
 @router.post("/admin/postgres-sql-runner")
 async def func_api_admin_postgres_sql_runner(*, request: Request):
     app_state = request.app.state

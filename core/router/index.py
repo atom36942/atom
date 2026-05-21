@@ -5,7 +5,7 @@ router = APIRouter()
 #import
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 
-#index
+#api
 @router.get("/")
 async def func_api_index(*, request:Request):
     app_state = request.app.state

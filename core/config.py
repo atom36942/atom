@@ -151,7 +151,7 @@ config_api = {
 "/admin/object-create": {"id": 2, "user_role_check": ["token", [1]]},
 "/admin/object-update": {"id": 3, "user_role_check": ["token", [1]]},
 "/admin/object-read": {"id": 4, "user_role_check": ["token", [1]]},
-"/admin/ids-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_is_active_check": ["realtime", 1], "user_is_deleted_check": ["realtime", 1]},
+"/admin/object-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_is_active_check": ["realtime", 1], "user_is_deleted_check": ["realtime", 1]},
 "/admin/postgres-sql-runner": {"id": 6, "user_role_check": ["realtime", [1]]},
 "/admin/postgres-export": {"id": 7, "user_role_check": ["inmemory", [1]]},
 "/admin/postgres-import": {"id": 8, "user_role_check": ["realtime", [1]]},
