@@ -12,7 +12,7 @@ async def func_middleware_check_auth(*, headers: dict, url_path: str, config_tok
             raise Exception("authorization token missing")
     return user_obj
 
-async def func_middleware_check_deactivated(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deactivated(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is active using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_active_check")
     if not cfg or not user_dict: return None
@@ -47,7 +47,7 @@ async def func_middleware_check_deactivated(*, user_dict: dict, url_path: str, c
     if active_status == "absent": raise Exception("missing deactivated_at")
     if active_status is not None: raise Exception("user not active")
 
-async def func_middleware_check_deleted(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_deleted_check")
     if not cfg or not user_dict: return None
@@ -82,7 +82,7 @@ async def func_middleware_check_deleted(*, user_dict: dict, url_path: str, confi
     if deleted_status == "absent": raise Exception("missing deleted_at")
     if deleted_status is not None: raise Exception("user is deleted")
 
-async def func_middleware_check_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     if not url_path.startswith("/admin") or not (cfg := config_api.get(url_path)) or "user_role_check" not in cfg:
         return None

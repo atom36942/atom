@@ -10,10 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import config
 from core.app import app, middleware
 from core.function import (
-    func_middleware_check_deactivated,
-    func_middleware_check_deleted,
     func_middleware_check_ratelimiter,
-    func_middleware_check_role,
+    func_middleware_check_user_deactivated,
+    func_middleware_check_user_deleted,
+    func_middleware_check_user_role,
     func_postgres_create,
     func_postgres_update,
     func_regex_check,
@@ -352,7 +352,7 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
 async def test_config_api_user_role_check_all_supported_modes_allow_role_one(mode, kwargs):
     cfg = {"/admin/protected": {"user_role_check": [mode, [1]]}}
 
-    await func_middleware_check_role(
+    await func_middleware_check_user_role(
         user_dict=kwargs["user_dict"],
         url_path="/admin/protected",
         config_api=cfg,
@@ -368,11 +368,11 @@ async def test_config_api_user_role_check_rejects_missing_invalid_and_denied_rol
     cfg = {"/admin/protected": {"user_role_check": ["token", [1]]}}
 
     with pytest.raises(Exception, match="user role missing"):
-        await func_middleware_check_role(user_dict={"id": 1}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_role(user_dict={"id": 1}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
     with pytest.raises(Exception, match="invalid user role type"):
-        await func_middleware_check_role(user_dict={"id": 1, "role": "abc"}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_role(user_dict={"id": 1, "role": "abc"}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
     with pytest.raises(Exception, match="access denied"):
-        await func_middleware_check_role(user_dict={"id": 1, "role": 2}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_role(user_dict={"id": 1, "role": 2}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
@@ -388,7 +388,7 @@ async def test_config_api_user_role_check_rejects_missing_invalid_and_denied_rol
 async def test_config_api_user_active_check_all_supported_modes_allow_active_user(mode, kwargs):
     cfg = {"/admin/protected": {"user_active_check": [mode, 1]}}
 
-    await func_middleware_check_deactivated(
+    await func_middleware_check_user_deactivated(
         user_dict=kwargs["user_dict"],
         url_path="/admin/protected",
         config_api=cfg,
@@ -405,9 +405,9 @@ async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled
     disabled_cfg = {"/admin/protected": {"user_active_check": ["token", 0]}}
 
     with pytest.raises(Exception, match="user not active"):
-        await func_middleware_check_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
-    await func_middleware_check_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.parametrize("mode, kwargs", [
@@ -417,10 +417,10 @@ async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled
     ("redis", {"user_dict": {"id": 1}, "client_redis": FakeRedis(), "client_postgres_pool": FakeUserPool(deleted_at=None)}),
 ])
 @pytest.mark.asyncio
-async def test_func_middleware_check_deleted_modes(mode, kwargs):
+async def test_func_middleware_check_user_deleted_modes(mode, kwargs):
     """Test user_deleted_check configuration strictly applies the specified mode."""
     cfg = {"/admin/protected": {"user_deleted_check": [mode, 1]}}
-    await func_middleware_check_deleted(
+    await func_middleware_check_user_deleted(
         user_dict=kwargs.get("user_dict"),
         url_path="/admin/protected",
         config_api=cfg,
@@ -431,14 +431,14 @@ async def test_func_middleware_check_deleted_modes(mode, kwargs):
     )
 
 @pytest.mark.asyncio
-async def test_func_middleware_check_deleted_flag():
+async def test_func_middleware_check_user_deleted_flag():
     """Test user_deleted_check configuration flag respects 0 and 1."""
     enabled_cfg = {"/admin/protected": {"user_deleted_check": ["token", 1]}}
     disabled_cfg = {"/admin/protected": {"user_deleted_check": ["token", 0]}}
     with pytest.raises(Exception, match="user is deleted"):
-        await func_middleware_check_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
     # Should not raise
-    await func_middleware_check_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
@@ -881,4 +881,3 @@ def test_func_check_routing_namespace_rules():
             config_allowed_api_storage_backends=[],
             config_postgres={"table": {}, "extension": []},
         )
-
