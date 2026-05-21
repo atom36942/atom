@@ -867,7 +867,6 @@ def test_func_check_routing_namespace_rules():
         config_allowed_user_storage_backends=[],
         config_allowed_api_storage_backends=[],
         config_postgres={"table": {}, "extension": []},
-        config_func_check={"is_check_route_namespace_rules": 1},
     )
     
     invalid_routes = [
@@ -885,6 +884,5 @@ def test_func_check_routing_namespace_rules():
             config_allowed_user_storage_backends=[],
             config_allowed_api_storage_backends=[],
             config_postgres={"table": {}, "extension": []},
-            config_func_check={"is_check_route_namespace_rules": 1},
         )
 

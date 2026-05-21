@@ -995,7 +995,7 @@ async def test_config_postgres_nested_sql_index_lifecycle():
     assert "idx_users_inactive" not in pool.conn.meta["users"]
 
 
-def test_func_check_selective_toggles():
+def test_func_check_validates_postgres_duplicate_columns():
     from core.function import func_check
 
     config_fail = {
@@ -1017,19 +1017,5 @@ def test_func_check_selective_toggles():
             config_api={},
             config_allowed_user_storage_backends=[],
             config_allowed_api_storage_backends=[],
-            config_postgres=config_fail,
-            config_func_check={"is_check_config_postgres": 1}
+            config_postgres=config_fail
         )
-
-    func_check(
-        app_routes=[],
-        config_config_path=None,
-        config_function_path=None,
-        config_api_namespace=[],
-        config_router_path=None,
-        config_api={},
-        config_allowed_user_storage_backends=[],
-        config_allowed_api_storage_backends=[],
-        config_postgres=config_fail,
-        config_func_check={"is_check_config_postgres": 0}
-    )
