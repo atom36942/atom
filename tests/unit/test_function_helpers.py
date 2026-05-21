@@ -146,8 +146,9 @@ async def test_postgres_delete_uses_created_by_id_for_ownership():
         def __init__(self):
             self.calls = []
 
-        async def execute(self, sql, *values):
+        async def fetch(self, sql, *values):
             self.calls.append((sql, values))
+            return [{"id": 1}, {"id": 2}]
 
     conn = FakeConn()
 
@@ -167,10 +168,10 @@ async def test_postgres_delete_uses_created_by_id_for_ownership():
         config_obj_list_limit=10,
     )
 
-    assert result == "ids deleted"
+    assert result == 2
     assert conn.calls == [
         (
-            'DELETE FROM "messages" WHERE "id" = ANY($1::bigint[]) AND "created_by_id"=$2::bigint;',
+            'DELETE FROM "messages" WHERE "id" = ANY($1::bigint[]) AND "created_by_id"=$2::bigint RETURNING id;',
             ([1, 2], 10),
         )
     ]

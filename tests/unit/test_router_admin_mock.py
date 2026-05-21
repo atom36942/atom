@@ -326,7 +326,7 @@ def test_admin_object_delete_passes_schema_without_user_scope(admin_client):
 
     async def fake_delete(**kwargs):
         calls.update(kwargs)
-        return "ids deleted"
+        return 2
 
     admin_client.app.state.func_postgres_delete = fake_delete
 
@@ -337,7 +337,7 @@ def test_admin_object_delete_passes_schema_without_user_scope(admin_client):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"status": 1, "message": "ids deleted"}
+    assert response.json() == {"status": 1, "message": "2 ids deleted"}
     assert calls["cache_postgres_schema"] == admin_client.app.state.cache_postgres_schema
     assert calls["table"] == "test"
     assert calls["ids"] == [1, 2]
@@ -353,7 +353,7 @@ def test_admin_postgres_runner_rejects_forbidden_keywords(admin_client):
     )
 
     assert response.status_code == 400
-    assert response.json() == {"status": 0, "message": "forbidden keyword in sql"}
+    assert response.json() == {"status": 0, "message": "read mode restricted"}
 
 
 def test_admin_postgres_runner_read_returns_rows(admin_client):
@@ -425,7 +425,7 @@ def test_admin_postgres_export_rejects_mutating_sql(admin_client):
 
 
 def test_admin_postgres_export_streams_csv(admin_client):
-    admin_client.app.state.client_postgres_pool.conn.cursor_rows = [
+    admin_client.app.state.client_postgres_pool_read.conn.cursor_rows = [
         {"id": 1, "title": 'one "quoted"'},
         {"id": 2, "title": None},
     ]

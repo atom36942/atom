@@ -69,7 +69,7 @@ async def test_admin_import_export_loop(integration_app, auth_client):
     print("✅ Admin: Postgres Import successful.")
 
     # 5. Verify the results
-    read_res = await admin.get(f"/my/object-read?table={table}&limit=10&page=1&order=id desc")
+    read_res = await admin.get(f"/admin/object-read?table={table}&limit=10&page=1&order=id desc")
     assert len(read_res.json()["message"]) == 5
     print("✅ Admin: Data integrity verified after Export/Import cycle.")
 

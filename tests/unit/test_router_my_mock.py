@@ -50,6 +50,11 @@ class InMemoryMyConn:
 
     async def fetch(self, sql, *args):
         normalized = " ".join(sql.lower().split())
+        if normalized.startswith('delete from "users" where "id" = any($1::bigint[])'):
+            ids = set(args[0])
+            deleted_rows = [{"id": row["id"]} for row in self.users if row["id"] in ids]
+            self.users = [row for row in self.users if row["id"] not in ids]
+            return deleted_rows
         if sql == "profile-test-count":
             user_id = args[0]
             return [{"count": len([row for row in self.child_rows if row.get("created_by_id") == user_id])}]
@@ -374,14 +379,14 @@ def test_my_ids_delete_passes_user_scope_to_delete_helper(my_client, auth_header
 
     async def fake_delete(**kwargs):
         calls.update(kwargs)
-        return "deleted"
+        return 2
 
     my_client.app.state.func_postgres_delete = fake_delete
 
     response = my_client.post("/my/object-delete", headers=auth_headers, json={"table": "test", "ids": [1, 2]})
 
     assert response.status_code == 200
-    assert response.json() == {"status": 1, "message": "deleted"}
+    assert response.json() == {"status": 1, "message": "2 ids deleted"}
     assert calls["table"] == "test"
     assert calls["ids"] == [1, 2]
     assert calls["created_by_id"] == 10
@@ -394,7 +399,7 @@ def test_my_object_delete_allows_own_user_record(my_client, auth_headers):
     response = my_client.post("/my/object-delete", headers=auth_headers, json={"table": "users", "ids": [10]})
 
     assert response.status_code == 200
-    assert response.json() == {"status": 1, "message": "ids deleted"}
+    assert response.json() == {"status": 1, "message": "1 ids deleted"}
     assert conn._user(10) is None
 
 
@@ -415,7 +420,7 @@ def test_my_object_delete_rejects_multiple_user_records(my_client, auth_headers)
     response = my_client.post("/my/object-delete", headers=auth_headers, json={"table": "users", "ids": [10, 11]})
 
     assert response.status_code == 400
-    assert "own account" in response.json()["message"]
+    assert "multiple users table delete not allowed" in response.json()["message"]
 
 
 def test_my_object_delete_rejects_other_user_record(my_client, auth_headers):
