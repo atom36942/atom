@@ -6,7 +6,21 @@ import os
 import traceback
 from datetime import datetime, timezone
 from itertools import count
-from ..config import *
+
+#config
+from ..config import (
+    config_redis_queue_url,
+    config_consumer_concurrency,
+    config_rabbitmq_url,
+    config_kafka_url,
+    config_kafka_group_id,
+    config_kafka_is_enable_auto_commit,
+    config_kafka_username,
+    config_kafka_password,
+    config_kafka_batch_timeout_ms,
+    config_kafka_batch_limit,
+    config_celery_url
+)
 
 #init
 _run_counter = count(1)
@@ -48,7 +62,7 @@ async def broker_logic_redis(channel: str, setup_callback: callable, execute_cal
                 await execute_callback(client_primary, p_obj, *setup_data[1:])
                 print(f"task completed #{n}: {channel}", flush=True)
             except Exception as e:
-                func_consumer_failed_payload_log(queue="redis", channel=channel, payload=p, error=e)
+                await asyncio.to_thread(func_consumer_failed_payload_log, queue="redis", channel=channel, payload=p, error=e)
                 print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
     try:
         while True:
@@ -81,7 +95,7 @@ async def broker_logic_rabbitmq(channel: str, setup_callback: callable, execute_
                     await execute_callback(client_primary, p_obj, *setup_data[1:])
                     print(f"task completed #{n}: {channel}", flush=True)
                 except Exception as e:
-                    func_consumer_failed_payload_log(queue="rabbitmq", channel=channel, payload=p, error=e)
+                    await asyncio.to_thread(func_consumer_failed_payload_log, queue="rabbitmq", channel=channel, payload=p, error=e)
                     print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
     try:
         async with queue.iterator() as queue_iter:
@@ -109,7 +123,7 @@ async def broker_logic_kafka(channel: str, setup_callback: callable, execute_cal
                 await execute_callback(client_primary, p_obj, *setup_data[1:])
                 print(f"task completed #{n}: {channel}", flush=True)
             except Exception as e:
-                func_consumer_failed_payload_log(queue="kafka", channel=channel, payload=p, error=e)
+                await asyncio.to_thread(func_consumer_failed_payload_log, queue="kafka", channel=channel, payload=p, error=e)
                 print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
     try:
         while True:
@@ -160,6 +174,7 @@ def broker_logic_celery(channel: str, setup_callback: callable, execute_callback
     @app.task(name=channel)
     def celery_task(*args, **kwargs): return run_async(*args, **kwargs)
     return app
+
 
 #run
 def run_broker(queue: str, channel: str, setup_callback: callable, execute_callback: callable):
