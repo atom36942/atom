@@ -72,7 +72,7 @@ config_is_enable_otp_users_update_admin = 0
 config_is_enable_postgres_init_startup = 1
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_background_workers = 1
-config_is_enable_users_hard_delete = 1
+config_is_enable_user_delete = 1
 config_kafka_group_id = "group_1"
 config_kafka_is_enable_auto_commit = 1
 config_kafka_batch_limit = 100
@@ -108,8 +108,6 @@ config_regex = {
 "password": ["^\\S{6,30}$", "Password must be 6-30 characters and contain no spaces"],
 }
 config_column_int_mapping = {
-
-"is_protected": {0: "Not Protected", 1: "Protected"},
 "response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
 "support_status": {1: "Open", 2: "In Progress", 3: "Resolved", 4: "Closed"},
 "job_status": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
@@ -152,7 +150,7 @@ config_postgres = {
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
-{"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"is_protected","datatype":"boolean"},
 {"name":"type","datatype":"smallint","index":"btree(type)"},
 {"name":"title","datatype":"text","is_mandatory":1,"index":"gin(title)"},
 {"name":"code","datatype":"text","is_mandatory":0,"unique":"code,type|code,slug"},
@@ -184,7 +182,7 @@ config_postgres = {
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
-{"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"is_protected","datatype":"boolean"},
 {"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
 {"name":"username","datatype":"text","unique":"username,type"},
 {"name":"password","datatype":"text","index":"btree(password)"},
@@ -298,7 +296,7 @@ config_postgres = {
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
-{"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"is_protected","datatype":"boolean"},
 {"name":"country","datatype":"text","is_mandatory":0,"index":"btree(country)|gin(country)"},
 {"name":"department","datatype":"text","is_mandatory":0,"index":"btree(department)|gin(department)"},
 {"name":"profile","datatype":"text","index":"btree(profile)|gin(profile)"},
@@ -319,7 +317,7 @@ config_postgres = {
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
-{"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"is_protected","datatype":"boolean"},
 {"name":"job_id","datatype":"bigint","is_mandatory":1,"index":"btree(job_id)"},
 {"name":"name","datatype":"text","index":"btree(name)|gin(name)"},
 {"name":"email","datatype":"text","index":"btree(email)"},
@@ -355,7 +353,7 @@ config_postgres = {
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
 {"name":"deleted_at","datatype":"timestamptz"},
-{"name":"is_protected","datatype":"smallint","default":0,"in":(0,1)},
+{"name":"is_protected","datatype":"boolean"},
 {"name":"candidate_id","datatype":"bigint","is_mandatory":1,"index":"btree(candidate_id)"},
 {"name":"title","datatype":"text","is_mandatory":1,"index":"btree(title)|gin(title)"},
 {"name":"description","datatype":"text"},
@@ -393,10 +391,10 @@ config_postgres = {
 "idx_users_deactivated_at_null_username_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_deactivated_at_null_username_unique ON users (username) WHERE deactivated_at IS NULL",
 "idx_test_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_test_verified_at_null ON test (id) WHERE verified_at IS NULL",
 "idx_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_test_deleted_at_not_null ON test (id) WHERE deleted_at IS NOT NULL",
-"idx_test_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_test_is_protected_1 ON test (id) WHERE is_protected = 1",
+"idx_test_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_test_is_protected_1 ON test (id) WHERE is_protected IS TRUE",
 "idx_users_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_users_verified_at_null ON users (id) WHERE verified_at IS NULL",
 "idx_users_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_users_deleted_at_not_null ON users (id) WHERE deleted_at IS NOT NULL",
-"idx_users_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_users_is_protected_1 ON users (id) WHERE is_protected = 1",
+"idx_users_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_users_is_protected_1 ON users (id) WHERE is_protected IS TRUE",
 "idx_log_api_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_log_api_deleted_at_not_null ON log_api (id) WHERE deleted_at IS NOT NULL",
 "idx_log_users_password_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_log_users_password_deleted_at_not_null ON log_users_password (id) WHERE deleted_at IS NOT NULL",
 "idx_message_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_message_deleted_at_not_null ON message (id) WHERE deleted_at IS NOT NULL",
@@ -408,15 +406,15 @@ config_postgres = {
 "idx_job_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_job_deactivated_at_not_null ON job (id) WHERE deactivated_at IS NOT NULL",
 "idx_job_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_job_verified_at_null ON job (id) WHERE verified_at IS NULL",
 "idx_job_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_job_deleted_at_not_null ON job (id) WHERE deleted_at IS NOT NULL",
-"idx_job_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_job_is_protected_1 ON job (id) WHERE is_protected = 1",
+"idx_job_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_job_is_protected_1 ON job (id) WHERE is_protected IS TRUE",
 "idx_candidate_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_candidate_deactivated_at_not_null ON candidate (id) WHERE deactivated_at IS NOT NULL",
 "idx_candidate_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_candidate_verified_at_null ON candidate (id) WHERE verified_at IS NULL",
 "idx_candidate_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_candidate_deleted_at_not_null ON candidate (id) WHERE deleted_at IS NOT NULL",
-"idx_candidate_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_candidate_is_protected_1 ON candidate (id) WHERE is_protected = 1",
+"idx_candidate_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_candidate_is_protected_1 ON candidate (id) WHERE is_protected IS TRUE",
 "idx_interview_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_interview_deactivated_at_not_null ON interview (id) WHERE deactivated_at IS NOT NULL",
 "idx_interview_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_interview_verified_at_null ON interview (id) WHERE verified_at IS NULL",
 "idx_interview_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_interview_deleted_at_not_null ON interview (id) WHERE deleted_at IS NOT NULL",
-"idx_interview_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_interview_is_protected_1 ON interview (id) WHERE is_protected = 1",
+"idx_interview_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_interview_is_protected_1 ON interview (id) WHERE is_protected IS TRUE",
 "idx_test_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_test_deactivated_at_not_null ON test (id) WHERE deactivated_at IS NOT NULL",
 "idx_report_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_report_test_deleted_at_not_null ON report_test (id) WHERE deleted_at IS NOT NULL",
 "idx_comment_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_comment_test_deleted_at_not_null ON comment_test (id) WHERE deleted_at IS NOT NULL",

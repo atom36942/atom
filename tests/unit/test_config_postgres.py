@@ -222,7 +222,7 @@ def control_pg_config(control=None, users_columns=None, demo_columns=None, exten
     ]
     demo_columns = demo_columns if demo_columns is not None else [
         {"name": "updated_at", "datatype": "timestamptz"},
-        {"name": "is_protected", "datatype": "smallint"},
+        {"name": "is_protected", "datatype": "boolean"},
         {"name": "created_by_id", "datatype": "bigint"},
     ]
     pg_config = {
@@ -348,7 +348,7 @@ async def test_config_postgres_schema_init_removes_stale_indexes_constraints_and
             "demo": [
                 {"name": "created_at", "datatype": "timestamptz"},
                 {"name": "updated_at", "datatype": "timestamptz"},
-                {"name": "is_protected", "datatype": "smallint"},
+                {"name": "is_protected", "datatype": "boolean"},
                 {"name": "status", "datatype": "smallint", "in": (0, 1), "index": "btree(status)"},
                 {"name": "code", "datatype": "text", "unique": "code"},
             ]
@@ -360,7 +360,7 @@ async def test_config_postgres_schema_init_removes_stale_indexes_constraints_and
             "demo": [
                 {"name": "created_at", "datatype": "timestamptz"},
                 {"name": "updated_at", "datatype": "timestamptz"},
-                {"name": "is_protected", "datatype": "smallint"},
+                {"name": "is_protected", "datatype": "boolean"},
                 {"name": "status", "datatype": "smallint"},
                 {"name": "code", "datatype": "text"},
             ]

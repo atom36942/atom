@@ -233,7 +233,7 @@ def my_client(my_test_client):
         "cache_postgres_column_list": test_client.app.state.cache_postgres_column_list,
         "cache_postgres_schema": test_client.app.state.cache_postgres_schema,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
-        "config_is_enable_users_hard_delete": test_client.app.state.config_is_enable_users_hard_delete,
+        "config_is_enable_user_delete": test_client.app.state.config_is_enable_user_delete,
         "func_postgres_delete": test_client.app.state.func_postgres_delete,
         "func_postgres_read": test_client.app.state.func_postgres_read,
         "func_postgres_create": test_client.app.state.func_postgres_create,
@@ -245,7 +245,7 @@ def my_client(my_test_client):
     test_client.app.state.client_postgres_pool = InMemoryMyPool()
     test_client.app.state.client_mongodb = FakeMongo()
     test_client.app.state.config_is_enable_log_api = 0
-    test_client.app.state.config_is_enable_users_hard_delete = 1
+    test_client.app.state.config_is_enable_user_delete = 1
     test_client.app.state.config_sql = {"profile_metadata": {"test_count": "profile-test-count"}}
     test_client.app.state.cache_postgres_table_list = ["test", "users", "message", "parent", "child"]
     test_client.app.state.cache_postgres_column_list = ["id", "created_by_id", "parent_id"]
@@ -394,7 +394,7 @@ def test_my_ids_delete_passes_user_scope_to_delete_helper(my_client, auth_header
     assert calls["table"] == "test"
     assert calls["ids"] == [1, 2]
     assert calls["created_by_id"] == 10
-    assert calls["config_is_enable_users_hard_delete"] == 1
+    assert calls["config_is_enable_user_delete"] == 1
 
 
 def test_my_object_delete_allows_own_user_record(my_client, auth_headers):
@@ -409,7 +409,7 @@ def test_my_object_delete_allows_own_user_record(my_client, auth_headers):
 
 def test_my_object_delete_rejects_user_record_when_hard_delete_disabled(my_client, auth_headers):
     conn = my_client.app.state.client_postgres_pool.conn
-    my_client.app.state.config_is_enable_users_hard_delete = 0
+    my_client.app.state.config_is_enable_user_delete = 0
 
     response = my_client.post("/my/object-delete", headers=auth_headers, json={"table": "users", "ids": [10]})
 

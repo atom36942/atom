@@ -55,5 +55,5 @@ config_token_secret_key="your-secure-token-secret-key-here"
 config_is_enable_signup=0
 config_is_enable_postgres_sql_runner_write=0
 config_is_enable_traceback=0
-config_is_enable_users_hard_delete=0
+config_is_enable_user_delete=0
 ```

@@ -156,5 +156,5 @@ async def func_api_my_ids_delete(*, request: Request):
         if len(ob["ids"]) != 1: raise Exception("multiple users table delete not allowed")
         if int(ob["ids"][0]) != int(user_id): raise Exception("users table delete allowed only for own account")
         created_by_id = None
-    deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id, config_is_enable_users_hard_delete=app_state.config_is_enable_users_hard_delete)
+    deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id, config_is_enable_user_delete=app_state.config_is_enable_user_delete)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}

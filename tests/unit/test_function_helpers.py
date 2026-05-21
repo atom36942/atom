@@ -191,7 +191,7 @@ async def test_postgres_delete_rejects_users_when_hard_delete_disabled():
             table="users",
             ids=[10],
             created_by_id=None,
-            config_is_enable_users_hard_delete=0,
+            config_is_enable_user_delete=0,
             config_obj_list_limit=10,
         )
 

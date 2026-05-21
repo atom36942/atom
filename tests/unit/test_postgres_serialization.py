@@ -50,7 +50,9 @@ def schema_for(types):
         ("numeric(10,2)", "12.34", 12.34),
         ("real", "1.5", 1.5),
         ("double precision", "2.75", 2.75),
+        ("boolean", "TRUE", True),
         ("boolean", "yes", True),
+        ("boolean", "FaLsE", False),
         ("boolean", "off", False),
         ("text", "hello", "hello"),
         ("character varying", "hello", "hello"),
@@ -100,6 +102,7 @@ async def test_postgres_serialize_casts_temporal_datatypes(datatype):
         ("timestamp[]", "{2026-05-06T12:34:56+00:00}", [datetime(2026, 5, 6, 12, 34, 56, tzinfo=timezone.utc)]),
         ("integer[]", ["9", "14"], [9, 14]),
         ("integer[]", "{9,null,}", [9, None, None]),
+        ("boolean[]", "{TRUE,FaLsE,y,n}", [True, False, True, False]),
     ],
 )
 async def test_postgres_serialize_casts_array_datatypes(datatype, raw, expected):
@@ -113,6 +116,31 @@ async def test_postgres_serialize_casts_array_datatypes(datatype, raw, expected)
     )
 
     assert serialized == [{"value": expected}]
+
+
+@pytest.mark.parametrize("raw", ["abc", "protected", "enabled"])
+async def test_postgres_serialize_rejects_invalid_boolean_strings(raw):
+    with pytest.raises(ValueError, match="invalid boolean value"):
+        await func_postgres_serialize(
+            client_postgres_pool=None,
+            client_password_hasher=None,
+            cache_postgres_schema=schema_for({"value": "boolean"}),
+            table="test",
+            obj_list=[{"value": raw}],
+            is_base=1,
+        )
+
+
+async def test_postgres_serialize_rejects_invalid_boolean_array_values():
+    with pytest.raises(ValueError, match="invalid boolean value"):
+        await func_postgres_serialize(
+            client_postgres_pool=None,
+            client_password_hasher=None,
+            cache_postgres_schema=schema_for({"value": "boolean[]"}),
+            table="test",
+            obj_list=[{"value": "{true,abc}"}],
+            is_base=1,
+        )
 
 
 @pytest.mark.parametrize(

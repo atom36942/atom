@@ -774,8 +774,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 catalog["tg"].add("trigger_delete_disable_role_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users ON users; CREATE TRIGGER trigger_delete_disable_role_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users();")
-
-        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected=1 THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected IS TRUE THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
@@ -896,7 +895,14 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
         vs = str(v).strip()
         if not vs or vs.lower() == "null": return None
         if "geography" in t or "geometry" in t: return v
-        if "bool" in t: return vs.lower() in ("true", "1", "yes", "on", "ok")
+        if "bool" in t:
+            bool_map = {
+                "true": True, "1": True, "yes": True, "on": True, "ok": True, "t": True, "y": True,
+                "false": False, "0": False, "no": False, "off": False, "f": False, "n": False,
+            }
+            key = vs.lower()
+            if key not in bool_map: raise ValueError(f"invalid boolean value: {v}")
+            return bool_map[key]
         if any(x in t for x in ("int", "serial", "bigint")): return int(vs)
         if any(x in t for x in ("numeric", "float", "double", "real")): return float(vs)
         if "timestamp" in t:
@@ -1306,12 +1312,12 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
         async with client_postgres_pool.acquire() as conn: await _execute_update(conn)
     return returned_ids if returned_ids else "updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, config_obj_list_limit: int, table: str, ids: list, created_by_id: int, config_is_enable_users_hard_delete: int = 1) -> int:
+async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, config_obj_list_limit: int, table: str, ids: list, created_by_id: int, config_is_enable_user_delete: int = 1) -> int:
     """Delete records by ID with schema-aware optional ownership restrictions."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
-    if table == "users" and config_is_enable_users_hard_delete != 1: raise Exception("users hard delete disabled")
+    if table == "users" and config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     schema = (cache_postgres_schema or {}).get(table, {})
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"unknown table {table}")
     if schema and "id" not in schema: raise Exception(f"table {table} missing id column")

@@ -50,7 +50,7 @@ def minimal_control_config(control):
 
                 {"name": "deleted_at", "datatype": "timestamptz"},
                 {"name": "updated_at", "datatype": "timestamptz"},
-                {"name": "is_protected", "datatype": "smallint", "default": 0},
+                {"name": "is_protected", "datatype": "boolean"},
             ],
             "log_users_password": [
                 {"name": "user_id", "datatype": "bigint"},
@@ -60,7 +60,7 @@ def minimal_control_config(control):
                 {"name": "user_id", "datatype": "bigint"},
                 {"name": "created_by_id", "datatype": "bigint"},
                 {"name": "deleted_at", "datatype": "timestamptz"},
-                {"name": "is_protected", "datatype": "smallint", "default": 0},
+                {"name": "is_protected", "datatype": "boolean"},
                 {"name": "updated_at", "datatype": "timestamptz"},
                 {"name": "title", "datatype": "text"},
             ],
@@ -147,7 +147,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                 deleted_root = await conn.fetchrow("UPDATE users SET deleted_at = NOW() WHERE id = 1 RETURNING deleted_at")
                 assert deleted_root["deleted_at"] is not None
 
-                row = await conn.fetchrow("INSERT INTO demo_control (title, is_protected) VALUES ('protected', 1) RETURNING id")
+                row = await conn.fetchrow("INSERT INTO demo_control (title, is_protected) VALUES ('protected', true) RETURNING id")
                 with pytest.raises(asyncpg.PostgresError, match="DELETE not allowed for protected row"):
                     await conn.execute("DELETE FROM demo_control WHERE id = $1", row["id"])
 
