@@ -26,6 +26,7 @@ async def fetch_control_checks(conn):
             ('is_enable_delete_disable_users_root', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_protect_root_users' AND p.proname = 'func_protect_root_users' AND NOT t.tgisinternal)),
             ('is_enable_users_root_upsert', EXISTS (SELECT 1 FROM users WHERE id = 1 AND type = 1 AND username = 'atom' AND role = 1 AND deactivated_at IS NULL)),
             ('is_enable_users_password_log', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_password_log_users' AND p.proname = 'func_password_log_users' AND NOT t.tgisinternal)),
+            ('is_enable_users_delete_log', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_log_users_delete' AND p.proname = 'func_log_users_delete' AND NOT t.tgisinternal)),
 
             ('table_delete_disable_row_users', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_users' AND NOT t.tgisinternal)),
             ('table_delete_disable_row_bulk_users', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_bulk_users' AND NOT t.tgisinternal)),
@@ -58,6 +59,13 @@ def minimal_control_config(control):
                 {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "user_id", "datatype": "bigint"},
                 {"name": "password", "datatype": "text"},
+            ],
+            "log_users_delete": [
+                {"name": "id", "datatype": "bigserial", "is_primary": 1},
+                {"name": "created_at", "datatype": "timestamptz", "default": "now()"},
+                {"name": "user_id", "datatype": "bigint"},
+                {"name": "event", "datatype": "smallint"},
+                {"name": "status", "datatype": "smallint", "default": 1},
             ],
             "demo_control": [
                 {"name": "id", "datatype": "bigserial", "is_primary": 1},
@@ -100,6 +108,7 @@ async def test_config_postgres_control_catalog_matches_core_config_defaults():
                 "is_enable_delete_disable_users_root": True,
                 "is_enable_users_root_upsert": True,
                 "is_enable_users_password_log": True,
+                "is_enable_users_delete_log": True,
 
                 "table_delete_disable_row_users": False,
                 "table_delete_disable_row_bulk_users": False,
@@ -167,6 +176,47 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                 assert after["updated_at"] is not None
 
 
+        finally:
+            await pool.close()
+
+
+@pytest.mark.asyncio
+async def test_postgres_schema_init_users_delete_log_trigger_captures_events():
+    with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
+        pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
+        try:
+            await func_postgres_schema_init(
+                client_postgres_pool=pool,
+                client_password_hasher=PasswordHasher(),
+                config_postgres=minimal_control_config(
+                    {
+                        "is_enable_delete_disable_users_root": 0,
+                        "is_enable_users_root_upsert": 0,
+                        "is_enable_users_password_log": 0,
+                        "is_enable_delete_disable_users_role": 0,
+                        "is_enable_delete_disable_users_role_soft": 0,
+                    }
+                ),
+                config_root_user_password="root-password",
+            )
+
+            async with pool.acquire() as conn:
+                user_id = await conn.fetchval(
+                    "INSERT INTO users (type, username, password) VALUES (1, 'delete-log-user', 'password') RETURNING id"
+                )
+                await conn.execute("UPDATE users SET deleted_at = NOW() WHERE id = $1", user_id)
+                await conn.execute("UPDATE users SET deleted_at = NULL WHERE id = $1", user_id)
+                await conn.execute("DELETE FROM users WHERE id = $1", user_id)
+
+                events = await conn.fetch(
+                    "SELECT event, status FROM log_users_delete WHERE user_id = $1 ORDER BY id",
+                    user_id,
+                )
+                assert [dict(row) for row in events] == [
+                    {"event": 1, "status": 1},
+                    {"event": 2, "status": 1},
+                    {"event": 3, "status": 1},
+                ]
         finally:
             await pool.close()
 

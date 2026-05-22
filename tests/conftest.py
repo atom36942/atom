@@ -95,6 +95,7 @@ async def integration_app(db_containers):
     # Add 'test_blob' table if missing
     if "test_blob" not in config_pg_test["table"]:
         config_pg_test["table"]["test_blob"] = [
+            {"name": "id", "datatype": "bigserial", "is_primary": 1},
             {"name": "file_url", "datatype": "text"},
             {"name": "created_by_id", "datatype": "bigint"},
             {"name": "deleted_at", "datatype": "timestamptz"},
@@ -103,6 +104,7 @@ async def integration_app(db_containers):
     # Add 'test_action' table if missing (needed for relation tests)
     if "test_action" not in config_pg_test["table"]:
         config_pg_test["table"]["test_action"] = [
+            {"name": "id", "datatype": "bigserial", "is_primary": 1},
             {"name": "test_id", "datatype": "bigint", "is_mandatory": 1, "index": "btree(test_id)"},
             {"name": "title", "datatype": "text", "is_mandatory": 1},
         ]

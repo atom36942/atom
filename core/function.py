@@ -681,6 +681,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             existing_meta = {r[0] for r in meta_rows}
             table_changed = False
             await conn.execute(f"DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid WHERE relname = '{table_name}' AND tgname LIKE 'trigger_%%' LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{table_name}'); END LOOP; END $$;")
+            renamed_cols = {}
             for col_cfg in column_configs:
                 if col_cfg.get("is_primary") == 1:
                     continue
@@ -692,6 +693,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                         await conn.execute(f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{col_name}"')
                         current_cols[col_name] = current_cols.pop(old_name)
                         current_notnulls[col_name] = current_notnulls.pop(old_name)
+                        renamed_cols[col_name] = old_name
                         table_changed = True
                     else:
                         default_val = f"""DEFAULT {col_cfg["default"]}""" if is_enabled_col_setting(col_cfg, "default") else ""
@@ -743,44 +745,79 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                             idx_name = f"idx_{table_name}_{'_'.join(index_cols)}_{index_type}"
                             catalog["idx"].add(idx_name)
                             if idx_name not in existing_meta:
-                                ops = ""
-                                if index_type == "gin" and len(index_cols) == 1:
-                                    if index_cols[0] == col_name and "text" in col_type.lower() and "[]" not in col_type.lower():
-                                        ops = "gin_trgm_ops"
-                                cols_joined = ", ".join(index_cols)
-                                if ops:
-                                    await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}("{index_cols[0]}" {ops});')
+                                old_index_cols = [renamed_cols.get(c, c) for c in index_cols]
+                                old_idx_name = f"idx_{table_name}_{'_'.join(old_index_cols)}_{index_type}"
+                                if old_idx_name in existing_meta and old_idx_name != idx_name:
+                                    await conn.execute(f'ALTER INDEX "{old_idx_name}" RENAME TO "{idx_name}"')
+                                    existing_meta.remove(old_idx_name)
+                                    existing_meta.add(idx_name)
                                 else:
-                                    cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
-                                    await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
-                                table_changed = True
+                                    ops = ""
+                                    if index_type == "gin" and len(index_cols) == 1:
+                                        if index_cols[0] == col_name and "text" in col_type.lower() and "[]" not in col_type.lower():
+                                            ops = "gin_trgm_ops"
+                                    cols_joined = ", ".join(index_cols)
+                                    if ops:
+                                        await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}("{index_cols[0]}" {ops});')
+                                    else:
+                                        cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
+                                        await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
+                                    table_changed = True
                 if is_enabled_col_setting(col_cfg, "in"):
                     chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"
                     catalog["chk"].add(chk_name)
                     if chk_name not in existing_meta:
-                        await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN {col_cfg["in"]});')
-                        table_changed = True
+                        old_col_name = renamed_cols.get(col_name, col_name)
+                        old_chk_name = f"check_{table_name}_{old_col_name}_in_{get_hash(col_cfg['in'])}"
+                        if old_chk_name in existing_meta and old_chk_name != chk_name:
+                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_chk_name}" TO "{chk_name}"')
+                            existing_meta.remove(old_chk_name)
+                            existing_meta.add(chk_name)
+                        else:
+                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN {col_cfg["in"]});')
+                            table_changed = True
                 if is_enabled_col_setting(col_cfg, "regex"):
                     regex_name = f"check_{table_name}_{col_name}_regex_{get_hash(col_cfg['regex'])}"
                     catalog["chk"].add(regex_name)
                     if regex_name not in existing_meta:
-                        await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{regex_name}" CHECK ("{col_name}" ~ \'{col_cfg["regex"]}\');')
-                        table_changed = True
+                        old_col_name = renamed_cols.get(col_name, col_name)
+                        old_regex_name = f"check_{table_name}_{old_col_name}_regex_{get_hash(col_cfg['regex'])}"
+                        if old_regex_name in existing_meta and old_regex_name != regex_name:
+                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_regex_name}" TO "{regex_name}"')
+                            existing_meta.remove(old_regex_name)
+                            existing_meta.add(regex_name)
+                        else:
+                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{regex_name}" CHECK ("{col_name}" ~ \'{col_cfg["regex"]}\');')
+                            table_changed = True
                 if is_enabled_col_setting(col_cfg, "check"):
                     vld_name = f"check_{table_name}_{col_name}_vld_{get_hash(col_cfg['check'])}"
                     catalog["chk"].add(vld_name)
                     if vld_name not in existing_meta:
-                        await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{vld_name}" CHECK ({col_cfg["check"]});')
-                        table_changed = True
+                        old_col_name = renamed_cols.get(col_name, col_name)
+                        old_vld_name = f"check_{table_name}_{old_col_name}_vld_{get_hash(col_cfg['check'])}"
+                        if old_vld_name in existing_meta and old_vld_name != vld_name:
+                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_vld_name}" TO "{vld_name}"')
+                            existing_meta.remove(old_vld_name)
+                            existing_meta.add(vld_name)
+                        else:
+                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{vld_name}" CHECK ({col_cfg["check"]});')
+                            table_changed = True
                 if col_cfg.get("unique"):
                     for group in col_cfg["unique"].split("|"):
                         unique_cols = [x.strip() for x in group.split(",")]
                         uni_name = f"""unique_{table_name}_{"_".join(unique_cols)}"""
                         catalog["uni"].add(uni_name)
                         if uni_name not in existing_meta:
-                            cols_quoted = ",".join([f'"{x}"' for x in unique_cols])
-                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{uni_name}" UNIQUE ({cols_quoted});')
-                            table_changed = True
+                            old_unique_cols = [renamed_cols.get(c, c) for c in unique_cols]
+                            old_uni_name = f"""unique_{table_name}_{"_".join(old_unique_cols)}"""
+                            if old_uni_name in existing_meta and old_uni_name != uni_name:
+                                await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_uni_name}" TO "{uni_name}"')
+                                existing_meta.remove(old_uni_name)
+                                existing_meta.add(uni_name)
+                            else:
+                                cols_quoted = ",".join([f'"{x}"' for x in unique_cols])
+                                await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{uni_name}" UNIQUE ({cols_quoted});')
+                                table_changed = True
             if table_changed:
                 await conn.execute(f'ANALYZE "{table_name}";')
         db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
@@ -799,6 +836,10 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
+            if "deleted_at" in users_cols and "log_users_delete" in db_tables:
+                catalog["tg"].add("trigger_log_users_delete")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_log_users_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'UPDATE' THEN IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (NEW.id, 1, 1); ELSIF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NULL THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (NEW.id, 2, 1); END IF; RETURN NEW; ELSIF TG_OP = 'DELETE' THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (OLD.id, 3, 1); RETURN OLD; END IF; RETURN NULL; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_log_users_delete ON users; CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete();")
             if is_enable_delete_disable_users_role and "role" in users_cols:
                 catalog["tg"].add("trigger_delete_disable_role_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")

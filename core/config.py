@@ -97,36 +97,19 @@ config_sql = {
 "users_deleted": "select id, deleted_at from users order by id asc limit 1000",
 "profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
 }
+
 config_table = {
 "test": {"buffer": 10},
 "log_api": {"retention_day": 30, "buffer": 10},
 "log_users_password": {"retention_day": 90},
 "otp": {"retention_day": 30},
 }
+
 config_regex = {
 "username": ["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
 "password": ["^\\S{6,30}$", "Password must be 6-30 characters and contain no spaces"],
 }
-config_column_int_mapping = {
-"gender": {1: "Male", 2: "Female", 3: "Other", 4: "Prefer not to say"},
-"employment_type": {1: "Full-time", 2: "Part-time", 3: "Contract", 4: "Internship", 5: "Freelance"},
-"response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
-"role": {
-"users": {1: "Admin", 2: "Manager", 3: "User"},
-},
-"type": {
-"test": {1: "Type 1", 2: "Type 2", 3: "Type 3", 4: "Type 4", 5: "Type 5"},
-"users": {1: "Default", 2: "Internal", 3: "External"},
-"post": {1: "Article", 2: "News", 3: "Announcement"},
-},
-"status": {
-"test": {1: "Active", 2: "Inactive", 3: "Archived"},
-"support": {1: "Open", 2: "In Progress", 3: "Resolved", 4: "Closed"},
-"job": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
-"candidate": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold"},
-"interview": {1: "Scheduled", 2: "Rescheduled", 3: "In Progress", 4: "Completed", 5: "Feedback Pending", 6: "Feedback Submitted", 7: "No Show - Candidate", 8: "No Show - Interviewer", 9: "Cancelled", 10: "On Hold"},
-},
-}
+
 config_api = {
 "/admin/sync": {"id": 1, "user_role_check": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "user_role_check": ["token", [1]]},
@@ -147,6 +130,35 @@ config_api = {
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 }
+
+config_column_int_mapping = {
+"gender": {1: "Male", 2: "Female", 3: "Other", 4: "Prefer not to say"},
+"employment_type": {1: "Full-time", 2: "Part-time", 3: "Contract", 4: "Internship", 5: "Freelance"},
+"response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
+"method": {
+"log_api": {1: "GET", 2: "POST", 3: "PUT", 4: "PATCH", 5: "DELETE", 6: "OPTIONS", 7: "HEAD"},
+},
+"role": {
+"users": {1: "Admin", 2: "Manager", 3: "User"},
+},
+"type": {
+"test": {1: "Type 1", 2: "Type 2", 3: "Type 3", 4: "Type 4", 5: "Type 5"},
+"users": {1: "Default", 2: "Internal", 3: "External"},
+"post": {1: "Article", 2: "News", 3: "Announcement"},
+},
+"status": {
+"test": {1: "Active", 2: "Inactive", 3: "Archived"},
+"support": {1: "Open", 2: "In Progress", 3: "Resolved", 4: "Closed"},
+"log_users_delete": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
+"job": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
+"candidate": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold"},
+"interview": {1: "Scheduled", 2: "Rescheduled", 3: "In Progress", 4: "Completed", 5: "Feedback Pending", 6: "Feedback Submitted", 7: "No Show - Candidate", 8: "No Show - Interviewer", 9: "Cancelled", 10: "On Hold"},
+},
+"event": {
+"log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
+},
+}
+
 config_postgres = {
 "extension": ["postgis", "pg_trgm", "btree_gin",],
 "table":{
@@ -209,8 +221,8 @@ config_postgres = {
 {"name":"country","datatype":"text"},
 {"name":"state","datatype":"text"},
 {"name":"city","datatype":"text"},
-{"name":"email_communication","datatype":"text"},
-{"name":"mobile_communication","datatype":"text"},
+{"name":"email_secondary","datatype":"text","old":"email_communication"},
+{"name":"mobile_secondary","datatype":"text","old":"mobile_communication"},
 {"name":"address","datatype":"text"},
 {"name":"title","datatype":"text"},
 {"name":"description","datatype":"text"},
@@ -223,21 +235,14 @@ config_postgres = {
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,created_at)"},
 {"name":"deleted_at","datatype":"timestamptz"},
-{"name":"response_type","datatype":"smallint","in":(1,2,3,4,5),"index":"btree(response_type,created_at)"},
 {"name":"ip_address","datatype":"text"},
+{"name":"response_type","datatype":"smallint","in":(1,2,3,4,5),"index":"btree(response_type,created_at)"},
+{"name":"method","datatype":"smallint","index":"btree(method,created_at)"},
 {"name":"path","datatype":"text","index":"btree(path,created_at)"},
-{"name":"method","datatype":"text"},
 {"name":"query_param","datatype":"text"},
 {"name":"status_code","datatype":"smallint","index":"btree(status_code)"},
 {"name":"response_time_ms","datatype":"integer"},
 {"name":"error","datatype":"text"}
-],
-"otp":[
-{"name":"id","datatype":"bigserial","is_primary":1},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"otp","datatype":"integer","is_mandatory":1},
-{"name":"email","datatype":"text","index":"btree(email)"},
-{"name":"mobile","datatype":"text","index":"btree(mobile)"},
 ],
 "log_users_password":[
 {"name":"id","datatype":"bigserial","is_primary":1},
@@ -245,6 +250,25 @@ config_postgres = {
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"user_id","datatype":"bigint"},
 {"name":"password","datatype":"text"}
+],
+"log_users_delete":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"processed_at","datatype":"timestamptz"},
+{"name":"next_retry_at","datatype":"timestamptz","default":"now()"},
+{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id,created_at)"},
+{"name":"event","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(event,created_at)"},
+{"name":"status","datatype":"smallint","default":1,"is_mandatory":1,"in":(1,2,3,4),"index":"btree(status,next_retry_at,created_at)"},
+{"name":"retry_count","datatype":"integer","default":0},
+{"name":"last_error","datatype":"text"}
+],
+"otp":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"otp","datatype":"integer","is_mandatory":1},
+{"name":"email","datatype":"text","index":"btree(email)"},
+{"name":"mobile","datatype":"text","index":"btree(mobile)"},
 ],
 "message":[
 {"name":"id","datatype":"bigserial","is_primary":1},
@@ -444,7 +468,8 @@ config_postgres = {
 "idx_test_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_test_deactivated_at_not_null ON test (id) WHERE deactivated_at IS NOT NULL",
 "idx_report_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_report_test_deleted_at_not_null ON report_test (id) WHERE deleted_at IS NOT NULL",
 "idx_comment_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_comment_test_deleted_at_not_null ON comment_test (id) WHERE deleted_at IS NOT NULL",
-"idx_rating_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_rating_test_deleted_at_not_null ON rating_test (id) WHERE deleted_at IS NOT NULL"
+"idx_rating_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_rating_test_deleted_at_not_null ON rating_test (id) WHERE deleted_at IS NOT NULL",
+"idx_log_users_delete_worker": "CREATE INDEX IF NOT EXISTS idx_log_users_delete_worker ON log_users_delete (next_retry_at, created_at, id) WHERE status IN (1,4)"
 }
 },
 }

@@ -335,6 +335,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
     assert "trigger_delete_disable_role_users" in sql
     assert "trigger_delete_disable_role_users_soft" in sql
     assert "trigger_protect_root_users" in sql
+    assert "trigger_log_users_delete" in sql
     assert "INSERT INTO users (type, username, password, role)" in sql
 
 
@@ -934,6 +935,43 @@ async def test_config_postgres_schema_init_password_log_control(control, expecte
         assert expected in users_triggers
     if unexpected:
         assert unexpected not in users_triggers
+
+
+@pytest.mark.asyncio
+async def test_config_postgres_schema_init_users_delete_log_trigger_requires_log_table():
+    pg_config = control_pg_config(
+        control={},
+        users_columns=[
+            {"name": "deleted_at", "datatype": "timestamptz"},
+        ],
+    )
+    pool = FakeSchemaPool(triggers={"users": {"trigger_log_users_delete"}})
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=pg_config,
+        config_root_user_password="",
+    )
+
+    assert "trigger_log_users_delete" not in pool.conn.triggers.get("users", set())
+
+    pg_config["table"]["log_users_delete"] = [
+        PRIMARY_ID,
+        {"name": "user_id", "datatype": "bigint"},
+        {"name": "event", "datatype": "smallint"},
+        {"name": "status", "datatype": "smallint"},
+    ]
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=pg_config,
+        config_root_user_password="",
+    )
+
+    assert "trigger_log_users_delete" in pool.conn.triggers.get("users", set())
+    assert "CREATE OR REPLACE FUNCTION func_log_users_delete" in all_sql(pool.conn)
+    assert "CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users" in all_sql(pool.conn)
 
 
 @pytest.mark.asyncio
