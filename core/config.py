@@ -289,6 +289,8 @@ config_postgres = {
 "report_test":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"unique":"created_by_id,test_id"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
@@ -297,6 +299,8 @@ config_postgres = {
 "comment_test":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
@@ -305,6 +309,8 @@ config_postgres = {
 "rating_test":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},

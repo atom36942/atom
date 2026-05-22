@@ -250,11 +250,11 @@ def my_client(my_test_client):
     test_client.app.state.cache_postgres_table_list = ["test", "users", "message", "parent", "child"]
     test_client.app.state.cache_postgres_column_list = ["id", "created_by_id", "parent_id"]
     test_client.app.state.cache_postgres_schema = {
-        "test": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
-        "users": {"id": {"datatype": "bigint"}},
-        "message": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
-        "parent": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
-        "child": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
+        "test": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
+        "users": {"id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
+        "message": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
+        "parent": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
+        "child": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
     }
     try:
         yield test_client
@@ -479,6 +479,17 @@ def test_my_object_create_rejects_restricted_field_at_api(my_client, auth_header
     assert response.json()["message"] == "unauthorized creation of restricted field: deactivated_at"
 
 
+def test_my_object_create_rejects_deleted_at_at_api(my_client, auth_headers):
+    response = my_client.post(
+        "/my/object-create?table=test",
+        headers=auth_headers,
+        json={"deleted_at": "2026-05-21T12:00:00Z"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "deleted_at cannot be set on create; use deactivated_at for reversible inactive state"
+
+
 def test_my_object_update_passes_otp_and_payload_to_postgres_update(my_client, auth_headers):
     calls = {}
 
@@ -565,6 +576,17 @@ def test_my_object_update_soft_delete_marks_user_deleted_at_api(my_client, auth_
     assert response.json() == {"status": 1, "message": "updated"}
     assert "deleted_at" in calls["obj_list"][0]
     assert calls["obj_list"][0]["updated_by_id"] == 10
+
+
+def test_my_object_update_rejects_deleted_at_on_non_users_table(my_client, auth_headers):
+    response = my_client.put(
+        "/my/object-update?table=test",
+        headers=auth_headers,
+        json={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "deleted_at update allowed only for users table; use deactivated_at etc for reversible inactive state"
 
 
 def test_my_object_update_rejects_combined_is_deleted_user_field_at_api(my_client, auth_headers):

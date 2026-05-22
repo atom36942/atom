@@ -179,9 +179,9 @@ def public_client(public_test_client, monkeypatch):
     test_client.app.state.config_fast2sms_key = "fast2sms-key"
     test_client.app.state.config_email_sender_default = "sender@example.com"
     test_client.app.state.cache_postgres_table_list = ["test", "post", "users"]
-    test_client.app.state.cache_postgres_column_list = ["id", "type", "tag", "category"]
+    test_client.app.state.cache_postgres_column_list = ["id", "type", "tag", "category", "created_by_id"]
     test_client.app.state.cache_api_response = {}
-    test_client.app.state.cache_postgres_schema = {"test": {"id": {"datatype": "int"}, "type": {"datatype": "text"}, "tag": {"datatype": "text[]"}, "category": {"datatype": "text"}}}
+    test_client.app.state.cache_postgres_schema = {"test": {"id": {"datatype": "int"}, "type": {"datatype": "text"}, "tag": {"datatype": "text[]"}, "category": {"datatype": "text"}, "created_by_id": {"datatype": "bigint"}}}
     test_client.app.state.config_table_read_enable_public = ["*"]
     test_client.app.state.config_query_limit_default = 100
     test_client.app.state.func_postgres_serialize = passthrough_serialize
@@ -268,6 +268,16 @@ def test_public_object_create_rejects_restricted_field_at_api(public_client):
 
     assert response.status_code == 400
     assert response.json()["message"] == "unauthorized creation of restricted field: deactivated_at"
+
+
+def test_public_object_create_rejects_deleted_at_at_api(public_client):
+    response = public_client.post(
+        "/public/object-create?table=test",
+        json={"deleted_at": "2026-05-21T12:00:00Z"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["message"] == "deleted_at cannot be set on create; use deactivated_at for reversible inactive state"
 
 
 def test_public_object_read_allows_configured_table(public_client):
