@@ -14,7 +14,7 @@ async def test_func_postgres_schema_init_basic_table_creation():
     config_postgres = {
         "table": {
             "test_table": [
-                {"name": "id", "datatype": "serial", "is_primary": 1},
+                {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "title", "datatype": "text"}
             ]
         },
@@ -62,7 +62,7 @@ async def test_func_postgres_schema_init_adds_missing_column():
     config_postgres = {
         "table": {
             "test_table": [
-                {"name": "id", "datatype": "serial", "is_primary": 1},
+                {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "new_col", "datatype": "text"}
             ]
         }
@@ -98,6 +98,7 @@ async def test_func_postgres_schema_init_raises_on_reserved_keyword():
     config_postgres = {
         "table": {
             "test_table": [
+                {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "select", "datatype": "text"} # Reserved keyword
             ]
         }

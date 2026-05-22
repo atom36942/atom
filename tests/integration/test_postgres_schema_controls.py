@@ -43,6 +43,7 @@ def minimal_control_config(control):
     return {
         "table": {
             "users": [
+                {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "type", "datatype": "smallint", "is_mandatory": 1},
                 {"name": "username", "datatype": "text", "unique": "username,type"},
                 {"name": "password", "datatype": "text"},
@@ -54,10 +55,12 @@ def minimal_control_config(control):
                 {"name": "is_protected", "datatype": "boolean"},
             ],
             "log_users_password": [
+                {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "user_id", "datatype": "bigint"},
                 {"name": "password", "datatype": "text"},
             ],
             "demo_control": [
+                {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "user_id", "datatype": "bigint"},
                 {"name": "created_by_id", "datatype": "bigint"},
                 {"name": "deleted_at", "datatype": "timestamptz"},

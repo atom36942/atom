@@ -83,7 +83,7 @@ class FakeSchemaConn:
     def _apply(self, sql):
         self._apply_cleanup(sql)
 
-        create_table = re.search(r'CREATE TABLE IF NOT EXISTS (?:"([^"]+)"|(\w+)) \(id BIGSERIAL PRIMARY KEY\)', sql)
+        create_table = re.search(r'CREATE TABLE IF NOT EXISTS (?:"([^"]+)"|(\w+)) \("id" bigserial PRIMARY KEY\)', sql)
         if create_table:
             table = create_table.group(1) or create_table.group(2)
             self.tables.setdefault(table, {}).setdefault(
@@ -211,8 +211,16 @@ def all_sql(conn):
     return "\n".join(sql for sql, _args in conn.queries)
 
 
+PRIMARY_ID = {"name": "id", "datatype": "bigserial", "is_primary": 1}
+
+
 def control_pg_config(control=None, users_columns=None, demo_columns=None, extension=None):
+    if users_columns is not None and (not users_columns or users_columns[0] != PRIMARY_ID):
+        users_columns = [PRIMARY_ID, *users_columns]
+    if demo_columns is not None and (not demo_columns or demo_columns[0] != PRIMARY_ID):
+        demo_columns = [PRIMARY_ID, *demo_columns]
     users_columns = users_columns if users_columns is not None else [
+        PRIMARY_ID,
         {"name": "type", "datatype": "smallint"},
         {"name": "username", "datatype": "text"},
         {"name": "password", "datatype": "text"},
@@ -221,6 +229,7 @@ def control_pg_config(control=None, users_columns=None, demo_columns=None, exten
         {"name": "deleted_at", "datatype": "timestamptz"},
     ]
     demo_columns = demo_columns if demo_columns is not None else [
+        PRIMARY_ID,
         {"name": "updated_at", "datatype": "timestamptz"},
         {"name": "is_protected", "datatype": "boolean"},
         {"name": "created_by_id", "datatype": "bigint"},
@@ -334,6 +343,7 @@ async def test_config_postgres_schema_init_renames_updates_defaults_and_notnull_
     pg_config = {
         "table": {
             "demo": [
+                PRIMARY_ID,
                 {"name": "title", "datatype": "text", "is_mandatory": 1, "default": "'new'"},
                 {"name": "address", "old": "adress", "datatype": "text"},
                 {"name": "count", "datatype": "bigint"},
@@ -379,6 +389,7 @@ async def test_config_postgres_schema_init_treats_none_and_empty_optional_column
     pg_config = {
         "table": {
             "demo": [
+                PRIMARY_ID,
                 {
                     "name": "title",
                     "datatype": "text",
@@ -419,6 +430,7 @@ async def test_config_postgres_schema_init_removes_stale_indexes_constraints_and
     first_config = {
         "table": {
             "demo": [
+                PRIMARY_ID,
                 {"name": "created_at", "datatype": "timestamptz"},
                 {"name": "updated_at", "datatype": "timestamptz"},
                 {"name": "is_protected", "datatype": "boolean"},
@@ -431,6 +443,7 @@ async def test_config_postgres_schema_init_removes_stale_indexes_constraints_and
     second_config = {
         "table": {
             "demo": [
+                PRIMARY_ID,
                 {"name": "created_at", "datatype": "timestamptz"},
                 {"name": "updated_at", "datatype": "timestamptz"},
                 {"name": "is_protected", "datatype": "boolean"},
@@ -478,6 +491,7 @@ async def test_config_postgres_schema_init_recreates_changed_index_and_constrain
     first_config = {
         "table": {
             "demo": [
+                PRIMARY_ID,
                 {"name": "status", "datatype": "smallint", "in": (0, 1), "index": "btree(status)"},
                 {"name": "code", "datatype": "text", "unique": "code"},
             ]
@@ -487,6 +501,7 @@ async def test_config_postgres_schema_init_recreates_changed_index_and_constrain
     second_config = {
         "table": {
             "demo": [
+                PRIMARY_ID,
                 {"name": "status", "datatype": "smallint", "in": (1, 2)},
                 {"name": "status_text", "datatype": "text", "index": "gin(status_text)"},
                 {"name": "code", "datatype": "text"},
@@ -676,7 +691,7 @@ async def test_config_postgres_schema_init_drop_column_db_guard_control(control,
 
 @pytest.mark.asyncio
 async def test_config_postgres_schema_init_does_not_drop_omitted_columns_without_explicit_drop_control():
-    pg_config = {"table": {"demo": [{"name": "kept", "datatype": "text"}]}, "control": {}}
+    pg_config = {"table": {"demo": [PRIMARY_ID, {"name": "kept", "datatype": "text"}]}, "control": {}}
     pool = FakeSchemaPool(
         tables={
             "demo": {
@@ -702,7 +717,7 @@ async def test_config_postgres_schema_init_does_not_drop_omitted_columns_without
 @pytest.mark.asyncio
 async def test_config_postgres_schema_init_drops_omitted_columns_only_when_explicitly_enabled():
     pg_config = {
-        "table": {"demo": [{"name": "kept", "datatype": "text"}]},
+        "table": {"demo": [PRIMARY_ID, {"name": "kept", "datatype": "text"}]},
         "control": {"is_enable_drop_column": 1, "is_enable_drop_column_mismatch": 1},
     }
     pool = FakeSchemaPool(
@@ -730,7 +745,7 @@ async def test_config_postgres_schema_init_drops_omitted_columns_only_when_expli
 @pytest.mark.asyncio
 async def test_config_postgres_schema_init_rejects_conflicting_drop_column_controls():
     pg_config = {
-        "table": {"demo": [{"name": "kept", "datatype": "text"}]},
+        "table": {"demo": [PRIMARY_ID, {"name": "kept", "datatype": "text"}]},
         "control": {"is_enable_drop_column": 0, "is_enable_drop_column_mismatch": 1},
     }
 
@@ -747,7 +762,7 @@ async def test_config_postgres_schema_init_rejects_conflicting_drop_column_contr
 async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_control_names():
     for legacy_key in ("is_drop_column_mismatch_db", "is_drop_column_mismatch"):
         pg_config = {
-            "table": {"demo": [{"name": "kept", "datatype": "text"}]},
+            "table": {"demo": [PRIMARY_ID, {"name": "kept", "datatype": "text"}]},
             "control": {"is_enable_drop_column": 1, legacy_key: 1},
         }
         pool = FakeSchemaPool(
@@ -901,6 +916,7 @@ async def test_config_postgres_schema_init_root_user_controls(control, expected_
 async def test_config_postgres_schema_init_password_log_control(control, expected, unexpected):
     pg_config = control_pg_config(control=control)
     pg_config["table"]["log_users_password"] = [
+        PRIMARY_ID,
         {"name": "user_id", "datatype": "bigint"},
         {"name": "password", "datatype": "text"},
     ]
@@ -966,12 +982,12 @@ async def test_config_postgres_schema_init_table_operation_controls(control, exp
     [
         ({}, "config_postgres missing"),
         ({"extension": []}, "config_postgres.table missing"),
-        ({"table": {"bad": [{"name": "select", "datatype": "text"}]}}, "reserved keyword"),
-        ({"table": {"bad": [{"name": "tags", "datatype": "text[]", "regex": "x"}]}}, "Regex constraint is not supported"),
-        ({"table": {"bad": [{"name": "title", "datatype": "text", "index": "gin(missing)"}]}}, "references non-existent column"),
-        ({"table": {"bad": [{"name": "rating", "datatype": "integer", "index": "gin(rating)"}]}}, "GIN index is not compatible"),
-        ({"table": {"bad": [{"name": "coordinate", "datatype": "geography(Point, 4326)", "index": "btree(coordinate)"}]}}, "Spatial column"),
-        ({"table": {"bad": [{"name": "code", "datatype": "text", "unique": "missing"}]}}, "Unique constraint"),
+        ({"table": {"bad": [PRIMARY_ID, {"name": "select", "datatype": "text"}]}}, "reserved keyword"),
+        ({"table": {"bad": [PRIMARY_ID, {"name": "tags", "datatype": "text[]", "regex": "x"}]}}, "Regex constraint is not supported"),
+        ({"table": {"bad": [PRIMARY_ID, {"name": "title", "datatype": "text", "index": "gin(missing)"}]}}, "references non-existent column"),
+        ({"table": {"bad": [PRIMARY_ID, {"name": "rating", "datatype": "integer", "index": "gin(rating)"}]}}, "GIN index is not compatible"),
+        ({"table": {"bad": [PRIMARY_ID, {"name": "coordinate", "datatype": "geography(Point, 4326)", "index": "btree(coordinate)"}]}}, "Spatial column"),
+        ({"table": {"bad": [PRIMARY_ID, {"name": "code", "datatype": "text", "unique": "missing"}]}}, "Unique constraint"),
     ],
 )
 async def test_config_postgres_schema_init_rejects_invalid_configurations(pg_config, message):
@@ -980,6 +996,26 @@ async def test_config_postgres_schema_init_rejects_invalid_configurations(pg_con
             client_postgres_pool=FakeSchemaPool(),
             client_password_hasher=FakePasswordHasher(),
             config_postgres=pg_config,
+            config_root_user_password="",
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("columns", "message"),
+    [
+        ([{"name": "title", "datatype": "text"}], "first column must be exactly"),
+        ([{"name": "id", "datatype": "bigserial", "is_primary": 1, "index": "btree\\(id\\)"}], "cannot have more than 3 keys"),
+        ([PRIMARY_ID, {"name": "row_id", "datatype": "bigserial", "is_primary": 1}], "can only define one primary column"),
+        ([PRIMARY_ID, {"name": "id", "datatype": "bigint"}], "id must only be defined as the first primary column"),
+    ],
+)
+async def test_config_postgres_schema_init_requires_explicit_primary_id(columns, message):
+    with pytest.raises(Exception, match=message):
+        await func_postgres_schema_init(
+            client_postgres_pool=FakeSchemaPool(),
+            client_password_hasher=FakePasswordHasher(),
+            config_postgres={"table": {"demo": columns}},
             config_root_user_password="",
         )
 
@@ -1014,6 +1050,7 @@ async def test_config_postgres_custom_sql_index_lifecycle():
     initial_config = {
         "table": {
             "users": [
+                PRIMARY_ID,
                 {"name": "deactivated_at", "datatype": "smallint", "default": 1}
             ]
         },
@@ -1043,6 +1080,7 @@ async def test_config_postgres_custom_sql_index_lifecycle():
     second_config = {
         "table": {
             "users": [
+                PRIMARY_ID,
                 {"name": "deactivated_at", "datatype": "smallint", "default": 1}
             ]
         },
@@ -1068,6 +1106,7 @@ async def test_config_postgres_nested_sql_index_lifecycle():
     initial_config = {
         "table": {
             "users": [
+                PRIMARY_ID,
                 {"name": "deactivated_at", "datatype": "smallint", "default": 1}
             ]
         },
@@ -1099,6 +1138,7 @@ async def test_config_postgres_nested_sql_index_lifecycle():
     second_config = {
         "table": {
             "users": [
+                PRIMARY_ID,
                 {"name": "deactivated_at", "datatype": "smallint", "default": 1}
             ]
         },

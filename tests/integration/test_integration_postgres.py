@@ -19,6 +19,7 @@ async def test_postgres_integration_lifecycle():
                 "extension": ["uuid-ossp"],
                 "table": {
                     "test_integration": [
+                        {"name": "id", "datatype": "bigserial", "is_primary": 1},
                         {"name": "title", "datatype": "text", "is_mandatory": 1},
                         {"name": "status", "datatype": "smallint", "default": 1}
                     ]

@@ -596,6 +596,16 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             catalog["idx"].add(key[6:])
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
     for table_name, column_configs in config_postgres["table"].items():
+        primary_cfg = column_configs[0] if column_configs else {}
+        if len(primary_cfg) > 3:
+            raise Exception(f"{table_name}.id primary column config cannot have more than 3 keys")
+        if primary_cfg != {"name": "id", "datatype": "bigserial", "is_primary": 1}:
+            raise Exception(f"{table_name} first column must be exactly {{'name':'id','datatype':'bigserial','is_primary':1}}")
+        for col in column_configs[1:]:
+            if col.get("is_primary") == 1:
+                raise Exception(f"{table_name} can only define one primary column")
+            if col.get("name") == "id":
+                raise Exception(f"{table_name}.id must only be defined as the first primary column")
         column_names = {col["name"] for col in column_configs if "name" in col}
         for col in column_configs:
             name, dtype = col.get("name"), col.get("datatype")
@@ -659,7 +669,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             else:
                 raise e
         for table_name, column_configs in config_postgres["table"].items():
-            await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" (id BIGSERIAL PRIMARY KEY);')
+            primary_cfg = column_configs[0]
+            await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ("{primary_cfg["name"]}" {primary_cfg["datatype"]} PRIMARY KEY);')
             if is_autovacuum:
                 await conn.execute(f'ALTER TABLE "{table_name}" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);')
             rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
@@ -671,6 +682,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             table_changed = False
             await conn.execute(f"DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid WHERE relname = '{table_name}' AND tgname LIKE 'trigger_%%' LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{table_name}'); END LOOP; END $$;")
             for col_cfg in column_configs:
+                if col_cfg.get("is_primary") == 1:
+                    continue
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
                 if col_name not in current_cols:
@@ -711,12 +724,14 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                         await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP DEFAULT')
                         table_changed = True
             if is_enable_drop_column_mismatch:
-                desired_cols = {"id"} | {col_cfg["name"] for col_cfg in column_configs}
+                desired_cols = {col_cfg["name"] for col_cfg in column_configs}
                 for col_name in list(current_cols):
                     if col_name not in desired_cols:
                         await conn.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{col_name}"')
                         table_changed = True
             for col_cfg in column_configs:
+                if col_cfg.get("is_primary") == 1:
+                    continue
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
                 if col_cfg.get("index"):
