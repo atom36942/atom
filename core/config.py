@@ -108,13 +108,24 @@ config_regex = {
 "password": ["^\\S{6,30}$", "Password must be 6-30 characters and contain no spaces"],
 }
 config_column_int_mapping = {
-"response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
-"support_status": {1: "Open", 2: "In Progress", 3: "Resolved", 4: "Closed"},
-"job_status": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
-"candidate_status": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold"},
-"interview_status": {1: "Scheduled", 2: "Rescheduled", 3: "In Progress", 4: "Completed", 5: "Feedback Pending", 6: "Feedback Submitted", 7: "No Show - Candidate", 8: "No Show - Interviewer", 9: "Cancelled", 10: "On Hold"},
 "gender": {1: "Male", 2: "Female", 3: "Other", 4: "Prefer not to say"},
 "employment_type": {1: "Full-time", 2: "Part-time", 3: "Contract", 4: "Internship", 5: "Freelance"},
+"response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
+"role": {
+"users": {1: "Admin", 2: "Manager", 3: "User"},
+},
+"type": {
+"test": {1: "Type 1", 2: "Type 2", 3: "Type 3", 4: "Type 4", 5: "Type 5"},
+"users": {1: "Default", 2: "Internal", 3: "External"},
+"post": {1: "Article", 2: "News", 3: "Announcement"},
+},
+"status": {
+"test": {1: "Active", 2: "Inactive", 3: "Archived"},
+"support": {1: "Open", 2: "In Progress", 3: "Resolved", 4: "Closed"},
+"job": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
+"candidate": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold"},
+"interview": {1: "Scheduled", 2: "Rescheduled", 3: "In Progress", 4: "Completed", 5: "Feedback Pending", 6: "Feedback Submitted", 7: "No Show - Candidate", 8: "No Show - Interviewer", 9: "Cancelled", 10: "On Hold"},
+},
 }
 config_api = {
 "/admin/sync": {"id": 1, "user_role_check": ["realtime", [1]]},
