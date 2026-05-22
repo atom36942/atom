@@ -73,6 +73,11 @@ config_is_enable_postgres_init_startup = 1
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_background_workers = 1
 config_is_enable_user_delete = 1
+config_users_delete_ownership_column = ["created_by_id", "user_id"]
+config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
+config_users_delete_retention_day = 30
+config_users_delete_batch_limit = 100
+config_users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
 config_kafka_group_id = "group_1"
 config_kafka_is_enable_auto_commit = 1
 config_kafka_batch_limit = 100
@@ -173,7 +178,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"is_protected","datatype":"boolean"},
 {"name":"type","datatype":"smallint","index":"btree(type)"},
 {"name":"title","datatype":"text","is_mandatory":1,"index":"gin(title)"},
@@ -276,7 +281,7 @@ config_postgres = {
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id)"},
 {"name":"description","datatype":"text","is_mandatory":1},
 {"name":"read_at","datatype":"timestamptz"}
@@ -284,7 +289,7 @@ config_postgres = {
 "report_test":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"unique":"created_by_id,test_id"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
 {"name":"description","datatype":"text"}
@@ -292,7 +297,7 @@ config_postgres = {
 "comment_test":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
 {"name":"description","datatype":"text","is_mandatory":1},
@@ -300,7 +305,7 @@ config_postgres = {
 "rating_test":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
 {"name":"rating","datatype":"numeric(3,1)","is_mandatory":1},
@@ -310,7 +315,7 @@ config_postgres = {
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"updated_at","datatype":"timestamptz"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"description","datatype":"text","is_mandatory":1},
@@ -326,7 +331,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"type","datatype":"smallint","index":"btree(type)"},
 {"name":"title","datatype":"text"},
 {"name":"description","datatype":"text","is_mandatory":1},
@@ -342,7 +347,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"is_protected","datatype":"boolean"},
 {"name":"country","datatype":"text","is_mandatory":0,"index":"btree(country)|gin(country)"},
 {"name":"department","datatype":"text","is_mandatory":0,"index":"btree(department)|gin(department)"},
@@ -364,7 +369,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"is_protected","datatype":"boolean"},
 {"name":"job_id","datatype":"bigint","is_mandatory":1,"index":"btree(job_id)"},
 {"name":"name","datatype":"text","index":"btree(name)|gin(name)"},
@@ -401,7 +406,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"verified_at","datatype":"timestamptz"},
-{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"is_protected","datatype":"boolean"},
 {"name":"candidate_id","datatype":"bigint","is_mandatory":1,"index":"btree(candidate_id)"},
 {"name":"title","datatype":"text","is_mandatory":1,"index":"btree(title)|gin(title)"},

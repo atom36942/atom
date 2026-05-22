@@ -1014,7 +1014,8 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
             if col not in schema:
                 if col == "id":
                     new_item[col] = val
-                continue
+                    continue
+                raise Exception(f"column '{col}' does not exist in table '{table}'")
             if val is None:
                 new_item[col] = val
                 continue
