@@ -573,7 +573,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
     is_enable_drop_column = get_enable_control_switch("is_enable_drop_column", 0, ("is_enable_drop_column_disable", "is_disable_drop_column"))
     is_enable_delete_disable_users_root = control.get("is_enable_delete_disable_users_root", control.get("is_enable_users_protect_root", 1))
     is_enable_users_root_upsert = control.get("is_enable_users_root_upsert", 1)
-    is_enable_users_password_log = control.get("is_enable_users_password_log", 1)
+    is_enable_log_users_password = control.get("is_enable_log_users_password", 1)
+    is_enable_log_users_delete = control.get("is_enable_log_users_delete", 1)
     is_enable_delete_disable_is_protected = control.get("is_enable_delete_disable_is_protected", 1)
     is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
     is_enable_delete_disable_users_role = control.get("is_enable_delete_disable_users_role", control.get("is_enable_users_protect_role", control.get("is_enable_users_protect_with_role", 0 if control.get("is_enable_users_delete_with_role", control.get("is_enable_users_delete_role", 1)) else 1)))
@@ -832,11 +833,11 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role")):
                 root_user_password_hash = client_password_hasher.hash(config_root_user_password)
                 await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'atom', $1, 1) ON CONFLICT (username, type) DO UPDATE SET role = 1 WHERE users.role IS DISTINCT FROM 1;", root_user_password_hash)
-            if is_enable_users_password_log and "password" in users_cols and "log_users_password" in db_tables:
+            if is_enable_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password) VALUES (NEW.id, NEW.password); END IF; RETURN NEW; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
-            if "deleted_at" in users_cols and "log_users_delete" in db_tables:
+            if is_enable_log_users_delete and "deleted_at" in users_cols and "log_users_delete" in db_tables:
                 catalog["tg"].add("trigger_log_users_delete")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_log_users_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'UPDATE' THEN IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (NEW.id, 1, 1); ELSIF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NULL THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (NEW.id, 2, 1); END IF; RETURN NEW; ELSIF TG_OP = 'DELETE' THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (OLD.id, 3, 1); RETURN OLD; END IF; RETURN NULL; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_log_users_delete ON users; CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete();")

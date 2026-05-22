@@ -42,7 +42,7 @@ def worker_test_config():
         "control": {
             "is_enable_delete_disable_users_root": 0,
             "is_enable_users_root_upsert": 0,
-            "is_enable_users_password_log": 0,
+            "is_enable_log_users_password": 0,
             "is_enable_delete_disable_users_role": 0,
             "is_enable_delete_disable_users_role_soft": 0,
         },

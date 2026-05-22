@@ -25,8 +25,8 @@ async def fetch_control_checks(conn):
             ('is_enable_delete_disable_users_role_soft', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_role_users_soft' AND p.proname = 'func_delete_disable_role_users_soft' AND NOT t.tgisinternal)),
             ('is_enable_delete_disable_users_root', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_protect_root_users' AND p.proname = 'func_protect_root_users' AND NOT t.tgisinternal)),
             ('is_enable_users_root_upsert', EXISTS (SELECT 1 FROM users WHERE id = 1 AND type = 1 AND username = 'atom' AND role = 1 AND deactivated_at IS NULL)),
-            ('is_enable_users_password_log', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_password_log_users' AND p.proname = 'func_password_log_users' AND NOT t.tgisinternal)),
-            ('is_enable_users_delete_log', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_log_users_delete' AND p.proname = 'func_log_users_delete' AND NOT t.tgisinternal)),
+            ('is_enable_log_users_password', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_password_log_users' AND p.proname = 'func_password_log_users' AND NOT t.tgisinternal)),
+            ('is_enable_log_users_delete', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_log_users_delete' AND p.proname = 'func_log_users_delete' AND NOT t.tgisinternal)),
 
             ('table_delete_disable_row_users', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_users' AND NOT t.tgisinternal)),
             ('table_delete_disable_row_bulk_users', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_bulk_users' AND NOT t.tgisinternal)),
@@ -107,8 +107,8 @@ async def test_config_postgres_control_catalog_matches_core_config_defaults():
                 "is_enable_delete_disable_users_role_soft": True,
                 "is_enable_delete_disable_users_root": True,
                 "is_enable_users_root_upsert": True,
-                "is_enable_users_password_log": True,
-                "is_enable_users_delete_log": True,
+                "is_enable_log_users_password": True,
+                "is_enable_log_users_delete": True,
 
                 "table_delete_disable_row_users": False,
                 "table_delete_disable_row_bulk_users": False,
@@ -133,7 +133,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                     {
                         "is_enable_delete_disable_users_root": 1,
                         "is_enable_users_root_upsert": 1,
-                        "is_enable_users_password_log": 1,
+                        "is_enable_log_users_password": 1,
 
                         "is_enable_delete_disable_users_role": 1,
                         "is_enable_delete_disable_users_role_soft": 1,
@@ -192,7 +192,7 @@ async def test_postgres_schema_init_users_delete_log_trigger_captures_events():
                     {
                         "is_enable_delete_disable_users_root": 0,
                         "is_enable_users_root_upsert": 0,
-                        "is_enable_users_password_log": 0,
+                        "is_enable_log_users_password": 0,
                         "is_enable_delete_disable_users_role": 0,
                         "is_enable_delete_disable_users_role_soft": 0,
                     }
@@ -229,7 +229,8 @@ async def test_new_automatic_logic_control_switches_remove_managed_triggers_when
             enabled_control = {
                 "is_enable_delete_disable_users_root": 1,
                 "is_enable_users_root_upsert": 1,
-                "is_enable_users_password_log": 1,
+                "is_enable_log_users_password": 1,
+                "is_enable_log_users_delete": 1,
                 "is_enable_delete_disable_users_role_soft": 1,
                 "is_enable_delete_disable_is_protected": 1,
                 "is_enable_updated_at_set": 1,
@@ -237,7 +238,8 @@ async def test_new_automatic_logic_control_switches_remove_managed_triggers_when
             disabled_control = {
                 "is_enable_delete_disable_users_root": 0,
                 "is_enable_users_root_upsert": 0,
-                "is_enable_users_password_log": 0,
+                "is_enable_log_users_password": 0,
+                "is_enable_log_users_delete": 0,
                 "is_enable_delete_disable_users_role_soft": 0,
                 "is_enable_delete_disable_is_protected": 0,
                 "is_enable_updated_at_set": 0,
@@ -273,6 +275,7 @@ async def test_new_automatic_logic_control_switches_remove_managed_triggers_when
 
                 assert "trigger_protect_root_users" not in trigger_names
                 assert "trigger_password_log_users" not in trigger_names
+                assert "trigger_log_users_delete" not in trigger_names
                 assert "trigger_delete_disable_role_users_soft" not in trigger_names
                 assert "trigger_delete_disable_is_protected_users" not in trigger_names
                 assert "trigger_delete_disable_is_protected_demo_control" not in trigger_names
