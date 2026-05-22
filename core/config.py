@@ -255,12 +255,12 @@ config_postgres = {
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"updated_at","datatype":"timestamptz"},
-{"name":"processed_at","datatype":"timestamptz"},
-{"name":"next_retry_at","datatype":"timestamptz","default":"now()"},
 {"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id,created_at)"},
 {"name":"event","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(event,created_at)"},
 {"name":"status","datatype":"smallint","default":1,"is_mandatory":1,"in":(1,2,3,4),"index":"btree(status,next_retry_at,created_at)"},
 {"name":"retry_count","datatype":"integer","default":0},
+{"name":"next_retry_at","datatype":"timestamptz","default":"now()"},
+{"name":"processed_at","datatype":"timestamptz"},
 {"name":"last_error","datatype":"text"}
 ],
 "otp":[
