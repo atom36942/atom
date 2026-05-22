@@ -391,6 +391,7 @@ config_postgres = {
 "is_enable_users_root_upsert":1,
 "is_enable_delete_disable_users_root":1,
 "is_enable_delete_disable_users_role":1,
+"is_enable_delete_disable_users_role_soft":1,
 "is_enable_autovacuum_optimize":1,
 "table_delete_disable_row":[],
 "table_delete_disable_row_bulk":[],

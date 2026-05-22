@@ -292,6 +292,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
 
 
     assert "trigger_delete_disable_role_users" in sql
+    assert "trigger_delete_disable_role_users_soft" in sql
     assert "trigger_protect_root_users" in sql
     assert "INSERT INTO users (type, username, password, role)" in sql
 
@@ -459,6 +460,7 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
             "is_enable_drop_table": 0,
             "is_enable_truncate": 0,
             "is_enable_delete_disable_users_role": 1,
+            "is_enable_delete_disable_users_role_soft": 1,
 
             "table_delete_disable_row": ["*"],
             "table_delete_disable_row_bulk": [["*", 3]],
@@ -478,6 +480,7 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
     assert "CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE')" in sql
     assert "trigger_protect_root_users" in pool.conn.triggers["users"]
     assert "trigger_delete_disable_role_users" in pool.conn.triggers["users"]
+    assert "trigger_delete_disable_role_users_soft" in pool.conn.triggers["users"]
 
     assert "trigger_truncate_disable_users" in pool.conn.triggers["users"]
     assert "trigger_truncate_disable_demo" in pool.conn.triggers["demo"]
@@ -717,6 +720,56 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
     ],
 )
 async def test_config_postgres_schema_init_users_delete_controls_require_switches_and_columns(control, users_columns, expected, unexpected):
+    pool = FakeSchemaPool()
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=control_pg_config(control=control, users_columns=users_columns),
+        config_root_user_password="",
+    )
+
+    users_triggers = pool.conn.triggers.get("users", set())
+    if expected:
+        assert expected in users_triggers
+    if unexpected:
+        assert unexpected not in users_triggers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("control", "users_columns", "expected", "unexpected"),
+    [
+        ({"is_enable_delete_disable_users_role_soft": 1}, None, "trigger_delete_disable_role_users_soft", None),
+        ({}, None, None, "trigger_delete_disable_role_users_soft"),
+        (
+            {"is_enable_delete_disable_users_role_soft": 1},
+            [
+                {"name": "type", "datatype": "smallint"},
+                {"name": "username", "datatype": "text"},
+                {"name": "password", "datatype": "text"},
+                {"name": "role", "datatype": "smallint"},
+                {"name": "deactivated_at", "datatype": "smallint"},
+            ],
+            None,
+            "trigger_delete_disable_role_users_soft",
+        ),
+        (
+            {"is_enable_delete_disable_users_role_soft": 1},
+            [
+                {"name": "type", "datatype": "smallint"},
+                {"name": "username", "datatype": "text"},
+                {"name": "password", "datatype": "text"},
+                {"name": "deleted_at", "datatype": "timestamptz"},
+                {"name": "deactivated_at", "datatype": "smallint"},
+            ],
+            None,
+            "trigger_delete_disable_role_users_soft",
+        ),
+
+    ],
+)
+async def test_config_postgres_schema_init_users_soft_delete_controls_require_switches_and_columns(control, users_columns, expected, unexpected):
     pool = FakeSchemaPool()
 
     await func_postgres_schema_init(
