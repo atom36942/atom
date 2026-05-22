@@ -27,6 +27,14 @@ class FakeMongoCollection:
     async def delete_many(self, query):
         self.deleted.append(query)
 
+    async def bulk_write(self, operations, ordered=True):
+        self.bulk_write_ordered = ordered
+        for operation in operations:
+            if operation.__class__.__name__ == "UpdateOne":
+                self.updated.append((operation._filter, operation._doc))
+            elif operation.__class__.__name__ == "DeleteOne":
+                self.deleted.append(operation._filter)
+
 
 class FakeMongoDatabase:
     def __init__(self, collection):
@@ -118,8 +126,8 @@ class FakeRedisPipeline:
     def set(self, key, value):
         self.operations.append(("set", key, value))
 
-    def delete(self, key):
-        self.operations.append(("delete", key))
+    def delete(self, *keys):
+        self.operations.append(("delete", *keys))
 
     async def execute(self):
         self.client.pipeline_calls.append(self.operations)
@@ -506,8 +514,9 @@ def test_admin_redis_import_delete_removes_keys(admin_client):
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "2 rows processed"}
     assert admin_client.app.state.client_redis.pipeline_calls == [
-        [("delete", "cache:1"), ("delete", "cache:2")]
+        [("delete", "cache:1", "cache:2")]
     ]
+    assert admin_client.app.state.client_redis.transaction is False
 
 
 def test_admin_blob_url_delete_batches_s3_urls_by_bucket(admin_client):

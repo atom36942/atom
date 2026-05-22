@@ -10,6 +10,7 @@ import re
 import orjson
 import asyncio
 import uuid
+from pymongo import DeleteOne, UpdateOne
 
 #api
 @router.get("/admin/sync")
@@ -122,7 +123,7 @@ async def func_api_admin_redis_import(*, request: Request):
     async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=limit_batch):
         if of["mode"] == "create":
             if sorted(list(ol[0].keys())) != sorted(["key", "value"]): raise Exception("CSV format error: requires 'key' and 'value'")
-            async with app_state.client_redis.pipeline(transaction=True) as pipe:
+            async with app_state.client_redis.pipeline(transaction=False) as pipe:
                 for item in ol:
                     val = orjson.dumps(item["value"]).decode("utf-8")
                     if app_state.config_redis_cache_ttl_sec: pipe.setex(item["key"], app_state.config_redis_cache_ttl_sec, val)
@@ -130,8 +131,8 @@ async def func_api_admin_redis_import(*, request: Request):
                 await pipe.execute()
         elif of["mode"] == "delete":
             if list(ol[0].keys()) != ["key"]: raise Exception("CSV format error: requires 'key' column")
-            async with app_state.client_redis.pipeline(transaction=True) as pipe:
-                for item in ol: pipe.delete(item["key"])
+            async with app_state.client_redis.pipeline(transaction=False) as pipe:
+                pipe.delete(*[item["key"] for item in ol])
                 await pipe.execute()
         count += len(ol)
     return {"status": 1, "message": f"{count} rows processed"}
@@ -141,29 +142,28 @@ async def func_api_admin_mongodb_import(*, request: Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None), ("database", "str", 1, None, None), ("table", "str", 1, None, None), ("file", "file", 1, None, None)])
     count = 0; limit_batch = 5000
-    def _get_mongodb_import_ids(ol, mode):
-        if not ol: return []
-        headers = ol[0].keys()
-        if "id" not in headers and "_id" not in headers: raise Exception(f"CSV format error: MongoDB {mode} requires 'id' or '_id' column")
-        ids = [item.get("id") or item.get("_id") for item in ol]
-        if any(not oid for oid in ids): raise Exception(f"CSV format error: MongoDB {mode} requires non-empty 'id' or '_id'")
-        return ids
-    if of["mode"] == "create":
-        async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=limit_batch):
-            await app_state.client_mongodb[of["database"]][of["table"]].insert_many(ol)
-            count += len(ol)
-    elif of["mode"] == "update":
-        async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=limit_batch):
-            ids = _get_mongodb_import_ids(ol, of["mode"])
-            for oid, item in zip(ids, ol):
+    collection = app_state.client_mongodb[of["database"]][of["table"]]
+    def _mongodb_import_id(item, mode):
+        if "id" not in item and "_id" not in item: raise Exception(f"CSV format error: MongoDB {mode} requires 'id' or '_id' column")
+        oid = item.get("id") or item.get("_id")
+        if not oid: raise Exception(f"CSV format error: MongoDB {mode} requires non-empty 'id' or '_id'")
+        return oid
+    async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=limit_batch):
+        if not ol: continue
+        if of["mode"] == "create":
+            await collection.insert_many(ol)
+        elif of["mode"] == "update":
+            operations = []
+            for item in ol:
+                oid = _mongodb_import_id(item, of["mode"])
+                item = dict(item)
                 item.pop("id", None); item.pop("_id", None)
-                await app_state.client_mongodb[of["database"]][of["table"]].update_one({"_id": oid}, {"$set": item})
-            count += len(ol)
-    elif of["mode"] == "delete":
-        async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=limit_batch):
-            ids = _get_mongodb_import_ids(ol, of["mode"])
-            await app_state.client_mongodb[of["database"]][of["table"]].delete_many({"_id": {"$in": ids}})
-            count += len(ol)
+                operations.append(UpdateOne({"_id": oid}, {"$set": item}))
+            await collection.bulk_write(operations, ordered=True)
+        elif of["mode"] == "delete":
+            operations = [DeleteOne({"_id": _mongodb_import_id(item, of["mode"])}) for item in ol]
+            await collection.bulk_write(operations, ordered=True)
+        count += len(ol)
     return {"status": 1, "message": f"{count} rows processed"}
 
 @router.get("/admin/blob-container-read")

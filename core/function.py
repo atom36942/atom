@@ -1475,16 +1475,24 @@ async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str, mo
 async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int):
     """Generator: reads an uploaded CSV file in chunks and yields lists of dictionaries."""
     import csv, io
-    content = await upload_file.read()
-    f = io.StringIO(content.decode("utf-8"))
-    reader = csv.DictReader(f)
+    is_wrapped_upload = hasattr(upload_file, "file")
+    if is_wrapped_upload:
+        await upload_file.seek(0)
+        f = io.TextIOWrapper(upload_file.file, encoding="utf-8", newline="")
+    else:
+        content = await upload_file.read()
+        f = io.StringIO(content.decode("utf-8"))
     chunk = []
-    for row in reader:
-        chunk.append(row)
-        if len(chunk) >= chunk_size:
-            yield chunk
-            chunk = []
-    if chunk: yield chunk
+    try:
+        reader = csv.DictReader(f)
+        for row in reader:
+            chunk.append(row)
+            if len(chunk) >= chunk_size:
+                yield chunk
+                chunk = []
+        if chunk: yield chunk
+    finally:
+        if is_wrapped_upload: f.detach()
 
 async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> dict:
     """Read a single user by ID from PostgreSQL, raises Exception if not found."""

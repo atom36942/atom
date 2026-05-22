@@ -141,6 +141,38 @@ async def test_api_file_to_chunks_yields_csv_rows_in_configured_batches():
 
 
 @pytest.mark.asyncio
+async def test_api_file_to_chunks_streams_upload_file_object():
+    import io
+
+    class FakeUploadFile:
+        def __init__(self):
+            self.file = io.BytesIO(b"id,name\n1,Ada\n2,Grace\n")
+            self.read_called = False
+
+        async def seek(self, position):
+            self.file.seek(position)
+
+        async def read(self):
+            self.read_called = True
+            return self.file.read()
+
+    upload_file = FakeUploadFile()
+    chunks = [
+        chunk
+        async for chunk in func_api_file_to_chunks(
+            upload_file=upload_file,
+            chunk_size=1,
+        )
+    ]
+
+    assert chunks == [
+        [{"id": "1", "name": "Ada"}],
+        [{"id": "2", "name": "Grace"}],
+    ]
+    assert upload_file.read_called is False
+
+
+@pytest.mark.asyncio
 async def test_postgres_delete_uses_created_by_id_for_ownership():
     class FakeConn:
         def __init__(self):
