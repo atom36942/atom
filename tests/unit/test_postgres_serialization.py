@@ -187,9 +187,24 @@ async def test_postgres_serialize_handles_json_modes_bytea_unknowns_and_password
             "users": {"password": {"datatype": "text"}},
         },
         table="test",
-        obj_list=[{"id": "5", "metadata": {"role": "admin"}, "payload": "abc", "empty_int": "", "ignored": "drop"}],
+        obj_list=[{"id": "5", "metadata": {"role": "admin"}, "payload": "abc", "empty_int": ""}],
         is_base=1,
     )
+    with pytest.raises(Exception, match="column 'ignored' does not exist in table 'test'"):
+        await func_postgres_serialize(
+            client_postgres_pool=None,
+            client_password_hasher=FakePasswordHasher(),
+            cache_postgres_schema={
+                "test": {
+                    "metadata": {"datatype": "jsonb"},
+                    "payload": {"datatype": "bytea"},
+                    "empty_int": {"datatype": "integer"},
+                },
+            },
+            table="test",
+            obj_list=[{"ignored": "drop"}],
+            is_base=1,
+        )
     expanded_serialized = await func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,

@@ -889,6 +889,22 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 catalog["tg"].add(upd_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}")
                 await conn.execute(f"CREATE TRIGGER {upd_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();")
+            actor_tracking_column = control.get("actor_tracking_column", {})
+            if actor_tracking_column and "updated_by_id" in cols:
+                trigger_body = ""
+                for ts_col, actor_col in actor_tracking_column.items():
+                    if ts_col in cols and actor_col in cols:
+                        trigger_body += f'IF OLD."{ts_col}" IS DISTINCT FROM NEW."{ts_col}" THEN NEW."{actor_col}" = NEW."updated_by_id"; END IF; '
+                actor_func_name = f"func_actor_tracking_{table}"
+                actor_tg_name = f"trigger_actor_tracking_{table}"
+                if trigger_body:
+                    catalog["tg"].add(actor_tg_name)
+                    await conn.execute(f"CREATE OR REPLACE FUNCTION {actor_func_name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN {trigger_body} RETURN NEW; END; $$;")
+                    await conn.execute(f"DROP TRIGGER IF EXISTS {actor_tg_name} ON {table}")
+                    await conn.execute(f"CREATE TRIGGER {actor_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION {actor_func_name}();")
+                else:
+                    await conn.execute(f"DROP TRIGGER IF EXISTS {actor_tg_name} ON {table}")
+                    await conn.execute(f"DROP FUNCTION IF EXISTS {actor_func_name}()")
         if table_blocked == ["*"]:
             table_blocked = [t for t in db_tables if t != "spatial_ref_sys"]
         if bulk_blocked and bulk_blocked[0][0] == "*":

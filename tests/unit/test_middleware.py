@@ -22,6 +22,7 @@ def middleware_client(middleware_test_client):
         "config_is_enable_log_api": test_client.app.state.config_is_enable_log_api,
         "cache_api_response": test_client.app.state.cache_api_response,
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
+        "cache_postgres_schema": test_client.app.state.cache_postgres_schema,
         "config_table_read_enable_public": test_client.app.state.config_table_read_enable_public,
         "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_read": test_client.app.state.func_postgres_read,
@@ -31,6 +32,7 @@ def middleware_client(middleware_test_client):
     test_client.app.state.config_is_enable_log_api = 0
     test_client.app.state.cache_api_response = {}
     test_client.app.state.cache_postgres_table_list = ["test", "post"]
+    test_client.app.state.cache_postgres_schema = {"test": {"created_by_id": {"datatype": "bigint"}}}
     test_client.app.state.config_table_read_enable_public = ["*"]
     try:
         yield test_client

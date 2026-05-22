@@ -205,8 +205,8 @@ def admin_client(admin_test_client):
     test_client.app.state.config_redis_cache_ttl_sec = 60
     test_client.app.state.config_is_enable_user_delete = 1
     test_client.app.state.cache_postgres_schema = {
-        "test": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}},
-        "users": {"id": {"datatype": "bigint"}},
+        "test": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
+        "users": {"id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
     }
     try:
         yield test_client

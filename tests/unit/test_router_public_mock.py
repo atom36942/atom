@@ -264,10 +264,10 @@ def test_public_object_create_rejects_disallowed_table_at_api(public_client):
 
 
 def test_public_object_create_rejects_restricted_field_at_api(public_client):
-    response = public_client.post("/public/object-create?table=test", json={"deactivated_at": None})
+    response = public_client.post("/public/object-create?table=test", json={"verified_at": None})
 
     assert response.status_code == 400
-    assert response.json()["message"] == "unauthorized creation of restricted field: deactivated_at"
+    assert response.json()["message"] == "unauthorized creation of restricted field: verified_at"
 
 
 def test_public_object_create_rejects_deleted_at_at_api(public_client):

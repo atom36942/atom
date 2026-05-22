@@ -472,11 +472,11 @@ def test_my_object_create_rejects_restricted_field_at_api(my_client, auth_header
     response = my_client.post(
         "/my/object-create?table=test",
         headers=auth_headers,
-        json={"deactivated_at": None},
+        json={"verified_at": None},
     )
 
     assert response.status_code == 400
-    assert response.json()["message"] == "unauthorized creation of restricted field: deactivated_at"
+    assert response.json()["message"] == "unauthorized creation of restricted field: verified_at"
 
 
 def test_my_object_create_rejects_deleted_at_at_api(my_client, auth_headers):
@@ -517,11 +517,11 @@ def test_my_object_update_rejects_restricted_field_at_api(my_client, auth_header
     response = my_client.put(
         "/my/object-update?table=test",
         headers=auth_headers,
-        json={"id": 1, "deactivated_at": None},
+        json={"id": 1, "verified_at": None},
     )
 
     assert response.status_code == 400
-    assert response.json()["message"] == "unauthorized update to restricted field: deactivated_at"
+    assert response.json()["message"] == "unauthorized update to restricted field: verified_at"
 
 
 def test_my_object_update_rejects_multi_user_update_at_api(my_client, auth_headers):

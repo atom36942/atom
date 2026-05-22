@@ -71,7 +71,15 @@ def minimal_control_config(control):
                 {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "user_id", "datatype": "bigint"},
                 {"name": "created_by_id", "datatype": "bigint"},
+                {"name": "updated_by_id", "datatype": "bigint"},
                 {"name": "deleted_at", "datatype": "timestamptz"},
+                {"name": "deleted_by_id", "datatype": "bigint"},
+                {"name": "deactivated_at", "datatype": "timestamptz"},
+                {"name": "deactivated_by_id", "datatype": "bigint"},
+                {"name": "verified_at", "datatype": "timestamptz"},
+                {"name": "verified_by_id", "datatype": "bigint"},
+                {"name": "archived_at", "datatype": "timestamptz"},
+                {"name": "archived_by_id", "datatype": "bigint"},
                 {"name": "is_protected", "datatype": "boolean"},
                 {"name": "updated_at", "datatype": "timestamptz"},
                 {"name": "title", "datatype": "text"},
@@ -140,6 +148,12 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
 
                         "is_enable_delete_disable_is_protected": 1,
                         "is_enable_updated_at_set": 1,
+                        "actor_tracking_column": {
+                            "deleted_at": "deleted_by_id",
+                            "deactivated_at": "deactivated_by_id",
+                            "verified_at": "verified_by_id",
+                            "archived_at": "archived_by_id",
+                        },
                     }
                 ),
                 config_root_user_password="root-password",
@@ -175,6 +189,35 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
                 after = await conn.fetchrow("UPDATE demo_control SET title = 'timestamps changed' WHERE id = $1 RETURNING updated_at", before["id"])
                 assert after["updated_at"] is not None
 
+                actor_row = await conn.fetchrow("INSERT INTO demo_control (title) VALUES ('actor') RETURNING id")
+                deleted_set = await conn.fetchrow(
+                    "UPDATE demo_control SET deleted_at = '2026-05-21T12:00:00Z', updated_by_id = 10 WHERE id = $1 RETURNING deleted_at, deleted_by_id",
+                    actor_row["id"],
+                )
+                assert deleted_set["deleted_by_id"] == 10
+                deleted_changed = await conn.fetchrow(
+                    "UPDATE demo_control SET deleted_at = '2026-05-22T12:00:00Z', updated_by_id = 11 WHERE id = $1 RETURNING deleted_by_id",
+                    actor_row["id"],
+                )
+                assert deleted_changed["deleted_by_id"] == 11
+                deleted_restored = await conn.fetchrow(
+                    "UPDATE demo_control SET deleted_at = NULL, updated_by_id = 12 WHERE id = $1 RETURNING deleted_at, deleted_by_id",
+                    actor_row["id"],
+                )
+                assert deleted_restored["deleted_at"] is None
+                assert deleted_restored["deleted_by_id"] == 12
+                lifecycle_row = await conn.fetchrow(
+                    """
+                    UPDATE demo_control
+                    SET deactivated_at = NOW(), verified_at = NOW(), archived_at = NOW(), updated_by_id = 13
+                    WHERE id = $1
+                    RETURNING deactivated_by_id, verified_by_id, archived_by_id
+                    """,
+                    actor_row["id"],
+                )
+                assert lifecycle_row["deactivated_by_id"] == 13
+                assert lifecycle_row["verified_by_id"] == 13
+                assert lifecycle_row["archived_by_id"] == 13
 
         finally:
             await pool.close()
