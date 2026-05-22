@@ -16,7 +16,9 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, url_path: s
     """Check if the user is active using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_active_check")
     if not cfg or not user_dict: return None
-    mode, active_flag = cfg
+    mode = cfg[0] if isinstance(cfg, list) else cfg
+    active_flag = cfg[1] if isinstance(cfg, list) and len(cfg) > 1 else 1
+    if not mode: return None
     if active_flag == 0: return None
     async def fetch_deactivated_status(uid):
         if not client_postgres_pool: raise Exception("postgres client missing")
@@ -51,7 +53,9 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, 
     """Check if the user is deleted using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_deleted_check")
     if not cfg or not user_dict: return None
-    mode, deleted_flag = cfg
+    mode = cfg[0] if isinstance(cfg, list) else cfg
+    deleted_flag = cfg[1] if isinstance(cfg, list) and len(cfg) > 1 else 1
+    if not mode: return None
     if deleted_flag == 0: return None
     async def fetch_deleted(uid):
         if not client_postgres_pool: raise Exception("postgres client missing")
@@ -130,7 +134,10 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, config_api: di
     api_cfg = config_api.get(url_path, {})
     rl_config = api_cfg.get("api_ratelimiting_times_sec")
     if not rl_config: return None
+    mode = rl_config[0] if isinstance(rl_config, list) else rl_config
+    if not mode: return None
     mode, limit, window = rl_config
+    if limit <= 0 or window <= 0: return None
     cache_key = f"ratelimiter:{url_path}:{identifier}"
     if mode == "redis":
         if not client_redis: raise Exception("redis client missing")
@@ -160,10 +167,12 @@ async def func_middleware_api_cache_get(*, path: str, query_params: dict, config
     from fastapi import Response
     import gzip, base64, time
     cfg = config_api.get(path, {}).get("api_cache_sec")
-    if not cfg or cfg[1] <= 0: return None
+    mode = cfg[0] if isinstance(cfg, list) else cfg
+    ttl = cfg[1] if isinstance(cfg, list) and len(cfg) > 1 else 0
+    if not cfg or not mode or ttl <= 0: return None
     uid = user_id if path.startswith(tuple(config_api_namespace_user)) else 0
     key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
-    data = await client_redis.get(key) if cfg[0] == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
+    data = await client_redis.get(key) if mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
     return Response(content=gzip.decompress(base64.b64decode(data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
 
 async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> any:
@@ -181,13 +190,15 @@ async def func_middleware_api_cache_set(*, path: str, query_params: dict, respon
     from fastapi import Response
     import gzip, base64, time
     cfg = config_api.get(path, {}).get("api_cache_sec")
-    if not cfg or cfg[1] <= 0: return response
+    mode = cfg[0] if isinstance(cfg, list) else cfg
+    ttl = cfg[1] if isinstance(cfg, list) and len(cfg) > 1 else 0
+    if not cfg or not mode or ttl <= 0: return response
     body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
     comp = base64.b64encode(gzip.compress(body)).decode()
     uid = user_id if path.startswith(tuple(config_api_namespace_user)) else 0
     key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
-    if cfg[0] == "redis": await client_redis.setex(key, cfg[1], comp)
-    else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + cfg[1]}
+    if mode == "redis": await client_redis.setex(key, ttl, comp)
+    else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
     return Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
 
 async def func_middleware_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
@@ -622,6 +633,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
     import hashlib
     def get_hash(val: str) -> str:
         return hashlib.md5(str(val).encode()).hexdigest()[:4]
+    def is_enabled_col_setting(col_cfg: dict, key: str) -> bool:
+        return key in col_cfg and col_cfg.get(key) not in (None, "")
     async with client_postgres_pool.acquire() as conn:
         if is_ext:
             extensions = config_postgres.get("extension", [])
@@ -661,14 +674,14 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 col_name = col_cfg["name"]
                 col_type = col_cfg["datatype"]
                 if col_name not in current_cols:
-                    old_name = col_cfg.get("old")
+                    old_name = col_cfg.get("old") if col_cfg.get("old") not in (None, "") else None
                     if old_name and old_name in current_cols:
                         await conn.execute(f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{col_name}"')
                         current_cols[col_name] = current_cols.pop(old_name)
                         current_notnulls[col_name] = current_notnulls.pop(old_name)
                         table_changed = True
                     else:
-                        default_val = f"""DEFAULT {col_cfg["default"]}""" if "default" in col_cfg else ""
+                        default_val = f"""DEFAULT {col_cfg["default"]}""" if is_enabled_col_setting(col_cfg, "default") else ""
                         mandatory_val = "NOT NULL" if col_cfg.get("is_mandatory") == 1 else ""
                         await conn.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} {default_val} {mandatory_val}')
                         current_cols[col_name] = col_type.split("(")[0].lower()
@@ -688,7 +701,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                         else:
                             await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP NOT NULL')
                         table_changed = True
-                    target_default = str(col_cfg.get("default")).strip() if "default" in col_cfg else None
+                    target_default = str(col_cfg.get("default")).strip() if is_enabled_col_setting(col_cfg, "default") else None
                     current_default = current_defaults.get(col_name)
                     if target_default:
                         if current_default is None or target_default not in current_default:
@@ -726,19 +739,19 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                                     cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
                                     await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
                                 table_changed = True
-                if "in" in col_cfg:
+                if is_enabled_col_setting(col_cfg, "in"):
                     chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"
                     catalog["chk"].add(chk_name)
                     if chk_name not in existing_meta:
                         await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN {col_cfg["in"]});')
                         table_changed = True
-                if "regex" in col_cfg:
+                if is_enabled_col_setting(col_cfg, "regex"):
                     regex_name = f"check_{table_name}_{col_name}_regex_{get_hash(col_cfg['regex'])}"
                     catalog["chk"].add(regex_name)
                     if regex_name not in existing_meta:
                         await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{regex_name}" CHECK ("{col_name}" ~ \'{col_cfg["regex"]}\');')
                         table_changed = True
-                if "check" in col_cfg:
+                if is_enabled_col_setting(col_cfg, "check"):
                     vld_name = f"check_{table_name}_{col_name}_vld_{get_hash(col_cfg['check'])}"
                     catalog["chk"].add(vld_name)
                     if vld_name not in existing_meta:
@@ -1424,15 +1437,46 @@ async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> d
     return dict(record)
 
 def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_allowed_user_storage_backends: list, config_allowed_api_storage_backends: list, config_postgres: dict) -> None:
+    import re
+    def optional_mode(mode_cfg):
+        return mode_cfg[0] if isinstance(mode_cfg, list) else mode_cfg
+    def is_valid_postgres_datatype(datatype: str) -> bool:
+        if not isinstance(datatype, str) or not datatype.strip():
+            return False
+        dtype = re.sub(r"\s+", " ", datatype.strip().lower())
+        while dtype.endswith("[]"):
+            dtype = dtype[:-2].strip()
+        dtype = re.sub(r"\([^)]*\)", "", dtype)
+        dtype = re.sub(r"\s+", " ", dtype).strip()
+        allowed_types = {
+            "smallint", "integer", "bigint", "int2", "int4", "int8", "serial", "serial2", "serial4", "bigserial", "serial8",
+            "real", "double precision", "float4", "float8", "numeric", "decimal", "money",
+            "boolean", "bool",
+            "text", "varchar", "character varying", "char", "character",
+            "date", "time", "time without time zone", "time with time zone", "timetz",
+            "timestamp", "timestamp without time zone", "timestamp with time zone", "timestamptz", "interval",
+            "json", "jsonb", "uuid", "bytea", "xml",
+            "cidr", "inet", "macaddr", "macaddr8",
+            "point", "line", "lseg", "box", "path", "polygon", "circle",
+            "tsvector", "tsquery",
+            "bit", "bit varying", "varbit",
+            "int4range", "int8range", "numrange", "tsrange", "tstzrange", "daterange",
+            "geometry", "geography",
+        }
+        return dtype in allowed_types
     api_ids = []
     for path, cfg in config_api.items():
         if (api_id := cfg.get("id")):
             if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
             api_ids.append(api_id)
-        if (mode_cfg := cfg.get("user_role_check")) and mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_role_check), allowed: {config_allowed_user_storage_backends}")
-        if (mode_cfg := cfg.get("user_active_check")) and mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_active_check), allowed: {config_allowed_user_storage_backends}")
-        if (mode_cfg := cfg.get("api_ratelimiting_times_sec")) and mode_cfg[0] not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_ratelimiting_times_sec), allowed: {config_allowed_api_storage_backends}")
-        if (mode_cfg := cfg.get("api_cache_sec")) and mode_cfg[0] not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (api_cache_sec), allowed: {config_allowed_api_storage_backends}")
+        if mode_cfg := cfg.get("user_role_check"):
+            if not isinstance(mode_cfg, list) or len(mode_cfg) < 2: raise Exception(f"invalid user_role_check in {path}: expected [mode, roles]")
+            if not mode_cfg[0] or mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_role_check), allowed: {config_allowed_user_storage_backends}")
+            if not isinstance(mode_cfg[1], list) or 1 not in mode_cfg[1]: raise Exception(f"{path} user_role_check must allow role 1")
+        if (mode_cfg := cfg.get("user_active_check")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (user_active_check), allowed: {config_allowed_user_storage_backends}")
+        if (mode_cfg := cfg.get("user_deleted_check")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (user_deleted_check), allowed: {config_allowed_user_storage_backends}")
+        if (mode_cfg := cfg.get("api_ratelimiting_times_sec")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (api_ratelimiting_times_sec), allowed: {config_allowed_api_storage_backends}")
+        if (mode_cfg := cfg.get("api_cache_sec")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (api_cache_sec), allowed: {config_allowed_api_storage_backends}")
     route_paths = {route.path for route in app_routes if hasattr(route, "path")}
     for path in config_api.keys():
         if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
@@ -1442,7 +1486,6 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
         if path.startswith("/admin"):
             if path not in config_api: raise Exception(f"admin route '{path}' missing in config_api")
             if path in config_api and "user_role_check" not in config_api[path]: raise Exception(f"admin route '{path}' missing 'user_role_check' in config_api")
-            if path in config_api and "user_role_check" in config_api[path] and 1 not in config_api[path]["user_role_check"][1]: raise Exception(f"admin route '{path}' must allow role 1")
     for route in app_routes:
         if not hasattr(route, "path"): continue
         path = route.path
@@ -1500,6 +1543,7 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                 col_name, col_type = col.get("name"), col.get("datatype")
                 if not col_name or not col_name.strip(): raise Exception(f"column name in {table_name} cannot be empty")
                 if not col_type or not col_type.strip(): raise Exception(f"datatype in {table_name}.{col_name} cannot be empty")
+                if not is_valid_postgres_datatype(col_type): raise Exception(f"invalid datatype '{col_type}' in {table_name}.{col_name}")
                 if col_name in global_column_types and global_column_types[col_name] != col_type:
                     raise Exception(f"datatype mismatch for column '{col_name}': '{col_type}' in {table_name} vs '{global_column_types[col_name]}' elsewhere")
                 global_column_types[col_name] = col_type

@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import config
 from core.app import app, middleware
 from core.function import (
+    func_middleware_api_cache_get,
+    func_middleware_api_cache_set,
     func_middleware_check_ratelimiter,
     func_middleware_check_user_deactivated,
     func_middleware_check_user_deleted,
@@ -147,8 +149,14 @@ def test_config_api_paths_modes_ids_and_admin_roles_match_app_routes():
             if key in entry:
                 setting = entry[key]
                 assert isinstance(setting, list)
+                if key != "user_role_check" and setting[0] in ("", None):
+                    assert len(setting) >= 1
+                    continue
                 assert setting[0] in modes
-                assert len(setting) >= 2
+                if key in {"user_active_check", "user_deleted_check"}:
+                    assert len(setting) >= 1
+                else:
+                    assert len(setting) >= 2
         if path.startswith("/admin/"):
             assert "user_role_check" in entry
             assert 1 in entry["user_role_check"][1]
@@ -285,6 +293,40 @@ async def test_config_api_cache_redis_sets_and_hits_cached_response():
 
 
 @pytest.mark.asyncio
+async def test_config_api_cache_empty_or_missing_mode_is_off():
+    for cfg in [
+        {"/cached": {}},
+        {"/cached": {"api_cache_sec": [""]}},
+        {"/cached": {"api_cache_sec": ["", 30]}},
+        {"/cached": {"api_cache_sec": [None]}},
+        {"/cached": {"api_cache_sec": [None, 30]}},
+    ]:
+        cache = {"existing": "untouched"}
+        response = responses.JSONResponse({"status": 1})
+
+        assert await func_middleware_api_cache_get(path="/cached", query_params={}, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_api_namespace_user=[]) is None
+        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_api_namespace_user=[])
+
+        assert returned is response
+        assert cache == {"existing": "untouched"}
+
+
+@pytest.mark.asyncio
+async def test_config_api_cache_non_positive_ttl_is_off():
+    for cfg in [
+        {"/cached": {"api_cache_sec": ["inmemory", 0]}},
+        {"/cached": {"api_cache_sec": ["inmemory", -1]}},
+    ]:
+        cache = {}
+        response = responses.JSONResponse({"status": 1})
+
+        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_api_namespace_user=[])
+
+        assert returned is response
+        assert cache == {}
+
+
+@pytest.mark.asyncio
 async def test_config_api_ratelimiter_inmemory_allows_until_limit_then_blocks():
     cache = {}
     cfg = {"/limited": {"api_ratelimiting_times_sec": ["inmemory", 2, 60]}}
@@ -337,6 +379,49 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
             identifier="user-1",
             cache_ratelimiter={},
         )
+
+
+@pytest.mark.asyncio
+async def test_config_api_ratelimiter_empty_or_missing_mode_is_off():
+    for cfg in [
+        {"/limited": {}},
+        {"/limited": {"api_ratelimiting_times_sec": [""]}},
+        {"/limited": {"api_ratelimiting_times_sec": ["", 2, 60]}},
+        {"/limited": {"api_ratelimiting_times_sec": [None]}},
+        {"/limited": {"api_ratelimiting_times_sec": [None, 2, 60]}},
+    ]:
+        cache = {}
+
+        await func_middleware_check_ratelimiter(
+            client_redis=None,
+            config_api=cfg,
+            url_path="/limited",
+            identifier="user-1",
+            cache_ratelimiter=cache,
+        )
+
+        assert cache == {}
+
+
+@pytest.mark.asyncio
+async def test_config_api_ratelimiter_non_positive_numbers_are_off():
+    for cfg in [
+        {"/limited": {"api_ratelimiting_times_sec": ["inmemory", 0, 60]}},
+        {"/limited": {"api_ratelimiting_times_sec": ["inmemory", -1, 60]}},
+        {"/limited": {"api_ratelimiting_times_sec": ["inmemory", 10, 0]}},
+        {"/limited": {"api_ratelimiting_times_sec": ["inmemory", 10, -1]}},
+    ]:
+        cache = {}
+
+        await func_middleware_check_ratelimiter(
+            client_redis=None,
+            config_api=cfg,
+            url_path="/limited",
+            identifier="user-1",
+            cache_ratelimiter=cache,
+        )
+
+        assert cache == {}
 
 
 @pytest.mark.asyncio
@@ -410,6 +495,19 @@ async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled
     await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
 
+@pytest.mark.asyncio
+async def test_config_api_user_active_check_accepts_mode_only_and_empty_mode_off():
+    mode_only_cfg = {"/admin/protected": {"user_active_check": ["token"]}}
+    empty_mode_cfg = {"/admin/protected": {"user_active_check": [""]}}
+    none_mode_cfg = {"/admin/protected": {"user_active_check": [None]}}
+
+    with pytest.raises(Exception, match="user not active"):
+        await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=mode_only_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+
+    await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=empty_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=none_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+
+
 @pytest.mark.parametrize("mode, kwargs", [
     ("token", {"user_dict": {"id": 1, "deleted_at": None}}),
     ("inmemory", {"user_dict": {"id": 1}, "cache_users_deleted": {1: None}}),
@@ -439,6 +537,19 @@ async def test_func_middleware_check_user_deleted_flag():
         await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
     # Should not raise
     await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+
+
+@pytest.mark.asyncio
+async def test_config_api_user_deleted_check_accepts_mode_only_and_empty_mode_off():
+    mode_only_cfg = {"/admin/protected": {"user_deleted_check": ["token"]}}
+    empty_mode_cfg = {"/admin/protected": {"user_deleted_check": [""]}}
+    none_mode_cfg = {"/admin/protected": {"user_deleted_check": [None]}}
+
+    with pytest.raises(Exception, match="user is deleted"):
+        await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=mode_only_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+
+    await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=empty_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=none_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
@@ -840,6 +951,69 @@ def test_config_regex_error_messages_match_current_password_pattern():
 class DummyRoute:
     def __init__(self, path):
         self.path = path
+
+
+def test_func_check_allows_empty_modes_for_optional_config_api_settings():
+    from core.function import func_check
+
+    func_check(
+        app_routes=[DummyRoute("/public/disabled-empty"), DummyRoute("/public/disabled-none")],
+        config_config_path=None,
+        config_function_path=None,
+        config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
+        config_router_path=None,
+        config_api={
+            "/public/disabled-empty": {
+                "user_active_check": [""],
+                "user_deleted_check": [""],
+                "api_cache_sec": [""],
+                "api_ratelimiting_times_sec": [""],
+            },
+            "/public/disabled-none": {
+                "user_active_check": [None],
+                "user_deleted_check": [None],
+                "api_cache_sec": [None],
+                "api_ratelimiting_times_sec": [None],
+            },
+        },
+        config_allowed_user_storage_backends=["redis", "realtime", "inmemory", "token"],
+        config_allowed_api_storage_backends=["redis", "inmemory"],
+        config_postgres={"table": {}, "extension": []},
+    )
+
+
+def test_func_check_requires_valid_admin_user_role_check():
+    from core.function import func_check
+
+    def func_api_admin_protected():
+        pass
+
+    admin_route = DummyRoute("/admin/protected")
+    admin_route.endpoint = func_api_admin_protected
+
+    def run(config_api):
+        func_check(
+            app_routes=[admin_route],
+            config_config_path=None,
+            config_function_path=None,
+            config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
+            config_router_path=None,
+            config_api=config_api,
+            config_allowed_user_storage_backends=["redis", "realtime", "inmemory", "token"],
+            config_allowed_api_storage_backends=["redis", "inmemory"],
+            config_postgres={"table": {}, "extension": []},
+        )
+
+    with pytest.raises(Exception, match="missing in config_api"):
+        run({})
+    with pytest.raises(Exception, match="missing 'user_role_check'"):
+        run({"/admin/protected": {}})
+    with pytest.raises(Exception, match="invalid mode"):
+        run({"/admin/protected": {"user_role_check": ["", [1]]}})
+    with pytest.raises(Exception, match="must allow role 1"):
+        run({"/admin/protected": {"user_role_check": ["token", [2]]}})
+
+    run({"/admin/protected": {"user_role_check": ["token", [1]]}})
 
 
 def test_func_check_routing_namespace_rules():

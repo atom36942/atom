@@ -258,6 +258,38 @@ def test_config_postgres_all_current_columns_have_required_keys_and_valid_refere
                     assert unique_column.strip() in names
 
 
+def test_func_check_rejects_missing_or_invalid_postgres_column_datatype():
+    from core.function import func_check
+
+    base_kwargs = {
+        "app_routes": [],
+        "config_config_path": None,
+        "config_function_path": None,
+        "config_api_namespace": ["/"],
+        "config_router_path": None,
+        "config_api": {},
+        "config_allowed_user_storage_backends": [],
+        "config_allowed_api_storage_backends": [],
+    }
+
+    invalid_configs = [
+        ({"table": {"demo": [{"datatype": "text"}]}}, "column name"),
+        ({"table": {"demo": [{"name": "title"}]}}, "datatype"),
+        ({"table": {"demo": [{"name": "title", "datatype": "not_a_pg_type"}]}}, "invalid datatype"),
+    ]
+
+    for pg_config, message in invalid_configs:
+        with pytest.raises(Exception, match=message):
+            func_check(**base_kwargs, config_postgres=pg_config)
+
+    func_check(**base_kwargs, config_postgres={"table": {"demo": [
+        {"name": "title", "datatype": "text"},
+        {"name": "tags", "datatype": "text[]"},
+        {"name": "amount", "datatype": "numeric(10,2)"},
+        {"name": "place", "datatype": "geography(Point, 4326)"},
+    ]}})
+
+
 @pytest.mark.asyncio
 async def test_config_postgres_schema_init_builds_real_config_schema_and_controls():
     pool = FakeSchemaPool()
@@ -340,6 +372,46 @@ async def test_config_postgres_schema_init_renames_updates_defaults_and_notnull_
     assert pool.conn.tables["demo"]["title"]["notnull"] is True
     assert pool.conn.tables["demo"]["count"]["notnull"] is False
     assert pool.conn.tables["demo"]["count"]["default"] is None
+
+
+@pytest.mark.asyncio
+async def test_config_postgres_schema_init_treats_none_and_empty_optional_column_settings_as_off():
+    pg_config = {
+        "table": {
+            "demo": [
+                {
+                    "name": "title",
+                    "datatype": "text",
+                    "default": None,
+                    "index": "",
+                    "unique": "",
+                    "check": None,
+                    "regex": "",
+                    "in": None,
+                    "old": "",
+                },
+                {"name": "code", "datatype": "text", "default": ""},
+            ],
+        }
+    }
+    pool = FakeSchemaPool()
+
+    await func_postgres_schema_init(
+        client_postgres_pool=pool,
+        client_password_hasher=FakePasswordHasher(),
+        config_postgres=pg_config,
+        config_root_user_password="",
+    )
+
+    sql = all_sql(pool.conn)
+    assert 'ADD COLUMN "title" text  ' in sql
+    assert 'ADD COLUMN "code" text  ' in sql
+    assert "DEFAULT None" not in sql
+    assert "SET DEFAULT None" not in sql
+    assert "SET DEFAULT " not in sql
+    assert "ADD CONSTRAINT" not in sql
+    assert "CREATE INDEX" not in sql
+    assert "RENAME COLUMN" not in sql
 
 
 @pytest.mark.asyncio
