@@ -36,7 +36,7 @@ async def func_lifespan(app:"FastAPI"):
         client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=app.state.config_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_s3_region_name else None
         client_s3_resource = boto3.resource("s3", region_name=app.state.config_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_s3_region_name else None
         client_sns = boto3.client("sns", region_name=app.state.config_sns_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_sns_region_name else None
-        client_ses = boto3.client("ses", region_name=app.state.config_ses_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_ses_region_name) if app.state.config_ses_region_name else None
+        client_ses = boto3.client("ses", region_name=app.state.config_ses_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_ses_region_name else None
         client_openai = openai.OpenAI(api_key=app.state.config_openai_key) if app.state.config_openai_key else None
         client_gemini = genai.Client(api_key=app.state.config_gemini_key) if app.state.config_gemini_key else None
         client_posthog = Posthog(app.state.config_posthog_project_key, host=app.state.config_posthog_project_host) if app.state.config_posthog_project_key else None
@@ -52,7 +52,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_postgres_table_list = list(cache_postgres_schema.keys())
         cache_postgres_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
         cache_users_role = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_role")) if client_postgres_pool else {}
-        cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_is_active")) if client_postgres_pool else {}
+        cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_pool else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_pool else {}
         cache_ratelimiter, cache_api_response, cache_postgres_buffer_create = {}, {}, {}
         #lock prevents concurrent buffer flushes during background pulse and shutdown
@@ -123,7 +123,7 @@ app.mount("/static", StaticFiles(directory="./static", check_dir=False), name="s
 #sentry
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=True)
+if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=bool(config_is_enable_sentry_default_pii))
 
 #middleware
 @app.middleware("http")

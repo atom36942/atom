@@ -66,6 +66,7 @@ config_is_enable_cors_credentials = 1
 config_is_enable_signup = 1
 config_is_enable_log_api = 1
 config_is_enable_traceback = 0
+config_is_enable_sentry_default_pii = 0
 config_is_enable_reset_tmp = 0
 config_is_enable_index_html = 0
 config_is_enable_otp_users_update_admin = 0
