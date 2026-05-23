@@ -43,12 +43,12 @@ async def func_api_private_blob_upload_url(request:Request):
         for _ in range(oq["count"]):
             file_key = f"{uuid.uuid4().hex}.bin"
             presigned_post = app_state.client_s3.generate_presigned_post(Bucket=container, Key=file_key, ExpiresIn=app_state.config_blob_expire_sec, Conditions=[["content-length-range", 1, app_state.config_blob_limit_kb * 1024]])
-            output.append({"upload_url": presigned_post["url"], **presigned_post["fields"], "public_url": f"https://{container}.s3.{app_state.config_s3_region_name}.amazonaws.com/{file_key}"})
+            output.append({"upload_url": presigned_post["url"], **presigned_post["fields"], "file_url": f"https://{container}.s3.{app_state.config_s3_region_name}.amazonaws.com/{file_key}"})
     elif oq["service"] == "azure":
         from azure.storage.blob import generate_blob_sas, BlobSasPermissions
         for _ in range(oq["count"]):
             file_key = f"{uuid.uuid4().hex}.bin"
             sas_token = generate_blob_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, blob_name=file_key, permission=BlobSasPermissions(write=True, create=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_blob_expire_sec))
             sas_url = f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}?{sas_token}"
-            output.append({"upload_url": sas_url, "key": file_key, "public_url": f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}"})
+            output.append({"upload_url": sas_url, "key": file_key, "file_url": f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}"})
     return {"status":1,"message":output}
