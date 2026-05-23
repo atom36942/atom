@@ -471,7 +471,7 @@ config_postgres = {
 "is_enable_autovacuum_optimize":1,
 "table_delete_disable_row":[],
 "table_delete_disable_row_bulk":[],
-"actor_tracking_column": {"deleted_at": "deleted_by_id","deactivated_at": "deactivated_by_id","verified_at": "verified_by_id","archived_at": "archived_by_id",},
+"actor_tracking_column": {"deleted_at": "deleted_by_id","deactivated_at": "deactivated_by_id","archived_at": "archived_by_id","verified_at": "verified_by_id"},
 },
 "sql":{
 "index": {

@@ -894,7 +894,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 trigger_body = ""
                 for ts_col, actor_col in actor_tracking_column.items():
                     if ts_col in cols and actor_col in cols:
-                        trigger_body += f'IF OLD."{ts_col}" IS DISTINCT FROM NEW."{ts_col}" THEN NEW."{actor_col}" = NEW."updated_by_id"; END IF; '
+                        trigger_body += f'IF OLD."{ts_col}" IS DISTINCT FROM NEW."{ts_col}" THEN IF OLD."{actor_col}" IS NOT DISTINCT FROM NEW."{actor_col}" THEN NEW."{actor_col}" = NEW."updated_by_id"; END IF; END IF; '
                 actor_func_name = f"func_actor_tracking_{table}"
                 actor_tg_name = f"trigger_actor_tracking_{table}"
                 if trigger_body:
