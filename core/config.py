@@ -78,6 +78,7 @@ config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
 config_users_delete_retention_day = 30
 config_users_delete_batch_limit = 100
 config_users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
+config_sensitive_table = ["users", "spatial_ref_sys", "geometry_columns", "geography_columns", "raster_columns", "raster_overviews"]
 config_kafka_group_id = "group_1"
 config_kafka_is_enable_auto_commit = 1
 config_kafka_batch_limit = 100

@@ -5,7 +5,17 @@ import sys
 import asyncpg
 
 #config
-from core.config import config_postgres_url, config_table
+from core.config import config_postgres_url, config_sensitive_table, config_table
+
+
+def func_validate_postgres_cleaner_config():
+    blocked_tables = [
+        table
+        for table, cfg in config_table.items()
+        if cfg.get("retention_day") is not None and table in config_sensitive_table
+    ]
+    if blocked_tables:
+        raise Exception(f"postgres cleaner blocked for sensitive table(s): {', '.join(blocked_tables)}")
 
 #func
 async def func_postgres_cleaner():
@@ -13,6 +23,7 @@ async def func_postgres_cleaner():
     if not config_postgres_url:
         print("Error: config_postgres_url is not set in environment or config.")
         return
+    func_validate_postgres_cleaner_config()
     print("Starting Postgres Cleanup Daemon...")
     # Set application_name so we can track this daemon easily in pg_stat_activity
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={'application_name': 'atom-daemon-cleaner'})
