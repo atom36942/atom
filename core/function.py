@@ -1584,29 +1584,34 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
         if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
         path, endpoint_name = route.path, route.endpoint.__name__
         if not endpoint_name.startswith("func_api_"): raise Exception(f"invalid endpoint function name: {endpoint_name} in {path}")
-    import ast
-    if config_config_path:
-        with open(config_config_path if config_config_path.endswith(".py") else f"{config_config_path}.py", "r", encoding="utf-8") as f: tree = ast.parse(f.read())
-        for node in tree.body:
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    targets_to_check = [target]
-                    while targets_to_check:
-                        t = targets_to_check.pop()
-                        if isinstance(t, ast.Name) and not t.id.startswith("config_"): raise Exception(f"invalid config variable name: {t.id}")
-                        if isinstance(t, (ast.Tuple, ast.List)): targets_to_check.extend(t.elts)
-            elif isinstance(node, ast.AnnAssign):
-                if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
-    import ast
-    if config_function_path:
-        with open(config_function_path if config_function_path.endswith(".py") else f"{config_function_path}.py", "r", encoding="utf-8") as f: tree = ast.parse(f.read())
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
     import ast, pathlib
+    def iter_python_paths(path_cfg):
+        path = pathlib.Path(path_cfg)
+        if path.is_dir():
+            return [p for p in path.glob("*.py") if not p.name.startswith(("_", "."))]
+        if path.suffix == ".py":
+            return [path]
+        return [path.with_suffix(".py")]
+    if config_config_path:
+        for config_path in iter_python_paths(config_config_path):
+            with open(config_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
+            for node in tree.body:
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        targets_to_check = [target]
+                        while targets_to_check:
+                            t = targets_to_check.pop()
+                            if isinstance(t, ast.Name) and not t.id.startswith("config_"): raise Exception(f"invalid config variable name: {t.id}")
+                            if isinstance(t, (ast.Tuple, ast.List)): targets_to_check.extend(t.elts)
+                elif isinstance(node, ast.AnnAssign):
+                    if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
+    if config_function_path:
+        for function_path in iter_python_paths(config_function_path):
+            with open(function_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
     if config_router_path:
-        router_dir = pathlib.Path(config_router_path)
-        for router_path in router_dir.glob("*.py"):
-            if router_path.name.startswith(("_", ".")): continue
+        for router_path in iter_python_paths(config_router_path):
             with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
             if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
     if config_postgres and "table" in config_postgres:
