@@ -1,5 +1,6 @@
 import sys
 import time
+from types import SimpleNamespace
 from pathlib import Path
 
 import jwt
@@ -155,6 +156,50 @@ class FakeS3Admin:
         return {"Deleted": kwargs["Delete"]["Objects"]}
 
 
+class RecursiveAzureResult:
+    def __init__(self):
+        self.self_ref = self
+
+
+class FakeAzureAdmin:
+    def __init__(self):
+        self.created = []
+        self.deleted = []
+        self.public = []
+        self.blobs = ["one.png", "nested/two.png"]
+        self.empty_deleted = []
+
+    async def create_container(self, container):
+        self.created.append(container)
+        return RecursiveAzureResult()
+
+    async def delete_container(self, container):
+        self.deleted.append(container)
+        return RecursiveAzureResult()
+
+    def get_container_client(self, container):
+        return FakeAzureContainerAdmin(self, container)
+
+
+class FakeAzureContainerAdmin:
+    def __init__(self, service, container):
+        self.service = service
+        self.container = container
+
+    async def set_container_access_policy(self, signed_identifiers, public_access=None):
+        self.service.public.append((self.container, signed_identifiers, public_access))
+        return RecursiveAzureResult()
+
+    async def list_blobs(self):
+        for blob in self.service.blobs:
+            yield SimpleNamespace(name=blob)
+
+    async def delete_blobs(self, *blobs, **kwargs):
+        self.service.empty_deleted.extend(blobs)
+        self.service.empty_delete_kwargs = kwargs
+        return [RecursiveAzureResult() for _ in blobs]
+
+
 def bearer_token(app_state):
     payload = orjson.dumps({"id": 10, "type": 1, "role": 1, "deactivated_at": None}, default=str).decode("utf-8")
     token = jwt.encode({"exp": int(time.time()) + 3600, "data": payload, "type": "access"}, app_state.config_token_secret_key)
@@ -178,6 +223,7 @@ def admin_client(admin_test_client):
         "client_postgres_pool_read": test_client.app.state.client_postgres_pool_read,
         "client_redis": test_client.app.state.client_redis,
         "client_s3": test_client.app.state.client_s3,
+        "client_azure_blob": test_client.app.state.client_azure_blob,
         "client_mongodb": test_client.app.state.client_mongodb,
         "config_is_enable_log_api": test_client.app.state.config_is_enable_log_api,
         "config_is_enable_traceback": test_client.app.state.config_is_enable_traceback,
@@ -199,6 +245,7 @@ def admin_client(admin_test_client):
     test_client.app.state.client_postgres_pool_read = FakePostgresPool()
     test_client.app.state.client_redis = FakeRedis()
     test_client.app.state.client_s3 = FakeS3Admin()
+    test_client.app.state.client_azure_blob = FakeAzureAdmin()
     test_client.app.state.client_mongodb = FakeMongo()
     test_client.app.state.config_is_enable_log_api = 0
     test_client.app.state.config_is_enable_traceback = 0
@@ -277,6 +324,43 @@ def test_admin_object_create_passes_admin_scope_to_postgres_create(admin_client)
     assert calls["table"] == "test"
     assert calls["mode"] == "buffer"
     assert calls["obj_list"] == [{"title": "one", "created_by_id": 10}, {"title": "two", "created_by_id": 10}]
+
+
+@pytest.mark.parametrize("mode, attr", [("create", "created"), ("delete", "deleted")])
+def test_admin_blob_container_ops_azure_returns_json_safe_result(admin_client, mode, attr):
+    response = admin_client.post(
+        f"/admin/blob-container-ops?service=azure&mode={mode}&container=images",
+        headers=bearer_token(admin_client.app.state),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": {"service": "azure", "mode": mode, "container": "images"}}
+    assert getattr(admin_client.app.state.client_azure_blob, attr) == ["images"]
+
+
+def test_admin_blob_container_ops_azure_public_sets_blob_access(admin_client):
+    response = admin_client.post(
+        "/admin/blob-container-ops?service=azure&mode=public&container=images",
+        headers=bearer_token(admin_client.app.state),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": {"service": "azure", "mode": "public", "container": "images"}}
+    assert admin_client.app.state.client_azure_blob.public[0][0] == "images"
+    assert admin_client.app.state.client_azure_blob.public[0][1] == {}
+    assert str(admin_client.app.state.client_azure_blob.public[0][2]) == "PublicAccess.BLOB"
+
+
+def test_admin_blob_container_ops_azure_empty_deletes_all_blobs(admin_client):
+    response = admin_client.post(
+        "/admin/blob-container-ops?service=azure&mode=empty&container=images",
+        headers=bearer_token(admin_client.app.state),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": 1, "message": {"service": "azure", "mode": "empty", "container": "images", "deleted": 2}}
+    assert admin_client.app.state.client_azure_blob.empty_deleted == ["one.png", "nested/two.png"]
+    assert admin_client.app.state.client_azure_blob.empty_delete_kwargs == {"delete_snapshots": "include"}
 
 
 def test_admin_object_create_allows_restricted_field(admin_client):

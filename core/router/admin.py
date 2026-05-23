@@ -193,8 +193,25 @@ async def func_api_admin_blob_container_ops(*, request: Request):
         elif mode == "empty": res = app_state.client_s3_resource.Bucket(container).objects.all().delete()
         elif mode == "delete": res = await app_state.client_s3.delete_bucket(Bucket=container)
     elif service == "azure":
-        if mode == "create": res = await app_state.client_azure_blob.create_container(container)
-        elif mode == "delete": res = await app_state.client_azure_blob.delete_container(container)
+        if mode == "create":
+            await app_state.client_azure_blob.create_container(container)
+            res = {"service": service, "mode": mode, "container": container}
+        elif mode == "public":
+            from azure.storage.blob import PublicAccess
+            container_client = app_state.client_azure_blob.get_container_client(container)
+            await container_client.set_container_access_policy(signed_identifiers={}, public_access=PublicAccess.Blob)
+            res = {"service": service, "mode": mode, "container": container}
+        elif mode == "empty":
+            container_client = app_state.client_azure_blob.get_container_client(container)
+            blobs = [blob.name async for blob in container_client.list_blobs()]
+            for i in range(0, len(blobs), 256):
+                delete_responses = await container_client.delete_blobs(*blobs[i:i + 256], delete_snapshots="include")
+                if hasattr(delete_responses, "__aiter__"):
+                    async for _ in delete_responses: pass
+            res = {"service": service, "mode": mode, "container": container, "deleted": len(blobs)}
+        elif mode == "delete":
+            await app_state.client_azure_blob.delete_container(container)
+            res = {"service": service, "mode": mode, "container": container}
         else: raise Exception(f"mode {mode} not supported for azure")
     return {"status": 1, "message": res}
 
