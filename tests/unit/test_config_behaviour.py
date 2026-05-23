@@ -202,7 +202,7 @@ def test_config_defaults_have_sane_bounds_and_required_security_settings():
     assert config.config_obj_list_limit >= config.config_buffer_limit
     assert config.config_blob_limit_kb > 0
     assert config.config_blob_upload_limit_count > 0
-    assert config.config_blob_expire_sec > 0
+    assert config.config_upload_url_expire_sec > 0
     assert config.config_postgres_min_connection > 0
     assert config.config_postgres_max_connection >= config.config_postgres_min_connection
     assert len(config.config_token_secret_key) >= 32

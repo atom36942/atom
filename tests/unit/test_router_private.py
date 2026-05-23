@@ -85,7 +85,7 @@ def private_client(private_test_client, monkeypatch):
         "config_blob_container_default": test_client.app.state.config_blob_container_default,
         "config_blob_limit_kb": test_client.app.state.config_blob_limit_kb,
         "config_blob_upload_limit_count": test_client.app.state.config_blob_upload_limit_count,
-        "config_blob_expire_sec": test_client.app.state.config_blob_expire_sec,
+        "config_upload_url_expire_sec": test_client.app.state.config_upload_url_expire_sec,
         "config_s3_region_name": test_client.app.state.config_s3_region_name,
         "config_azure_account_name": test_client.app.state.config_azure_account_name,
         "config_azure_account_key": test_client.app.state.config_azure_account_key,
@@ -116,7 +116,7 @@ def private_client(private_test_client, monkeypatch):
     test_client.app.state.config_blob_container_default = "default-container"
     test_client.app.state.config_blob_limit_kb = 1
     test_client.app.state.config_blob_upload_limit_count = 2
-    test_client.app.state.config_blob_expire_sec = 60
+    test_client.app.state.config_upload_url_expire_sec = 60
     test_client.app.state.config_s3_region_name = "us-test-1"
     test_client.app.state.config_azure_account_name = "acct"
     test_client.app.state.config_azure_account_key = "account-key"
@@ -215,7 +215,7 @@ def test_private_blob_upload_url_s3_returns_presigned_fields(private_client):
     body = response.json()
     assert len(body["message"]) == 2
     assert body["message"][0]["key"].endswith(".bin")
-    assert body["message"][0]["url_final"].startswith("https://uploads.s3.us-test-1.amazonaws.com/")
+    assert body["message"][0]["file_url"].startswith("https://uploads.s3.us-test-1.amazonaws.com/")
     call = private_client.app.state.client_s3.presigned_calls[0]
     assert call["Bucket"] == "uploads"
     assert call["ExpiresIn"] == 60
@@ -230,14 +230,14 @@ def test_private_blob_upload_url_azure_returns_sas_urls(private_client):
 
     assert response.status_code == 200
     item = response.json()["message"][0]
-    assert item["url"].startswith("https://acct.blob.core.windows.net/images/")
-    assert item["url"].endswith("?fake-sas-token")
-    assert item["url_final"] == item["url"].split("?", 1)[0]
+    assert item["upload_url"].startswith("https://acct.blob.core.windows.net/images/")
+    assert item["upload_url"].endswith("?fake-sas-token")
+    assert item["file_url"] == item["upload_url"].split("?", 1)[0]
     call = private_client.app.state.fake_generate_blob_sas.calls[0]
     assert call["account_name"] == "acct"
     assert call["account_key"] == "account-key"
     assert call["container_name"] == "images"
-    assert call["blob_name"] == item["file_key"]
+    assert call["blob_name"] == item["key"]
     assert call["permission"].kwargs == {"write": True, "create": True}
 
 
