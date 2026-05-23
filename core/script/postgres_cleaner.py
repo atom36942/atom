@@ -24,7 +24,7 @@ async def func_postgres_cleaner():
         print("Error: config_postgres_url is not set in environment or config.")
         return
     func_validate_postgres_cleaner_config()
-    print("Starting Postgres Cleanup Daemon...")
+    print("Starting Postgres Cleanup Script...")
     # Set application_name so we can track this daemon easily in pg_stat_activity
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={'application_name': 'atom-daemon-cleaner'})
     try:
@@ -57,7 +57,7 @@ async def func_postgres_cleaner():
                         print(f"[{tbl}] Error during cleanup: {e}")
     finally:
         await pool.close()
-        print("Postgres Cleanup Daemon finished.")
+        print("Postgres Cleanup Script finished.")
 
 #init
 if __name__ == "__main__":

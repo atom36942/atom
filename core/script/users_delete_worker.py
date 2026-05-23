@@ -195,7 +195,7 @@ async def func_users_delete_worker():
     if not config_postgres_url:
         print("Error: config_postgres_url is not set in environment or config.")
         return
-    print("Starting Users Delete Worker Daemon...")
+    print("Starting Users Delete Worker Script...")
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={"application_name": "atom-daemon-users-delete"})
     try:
         idle_count = 0
