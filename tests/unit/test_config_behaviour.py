@@ -186,6 +186,12 @@ def test_config_table_lists_reference_known_tables_and_sensitive_columns():
     }
 
     assert set(config.config_table).issubset(table_names)
+    assert all("buffer" not in table_config for table_config in config.config_table.values())
+    assert all(
+        table_config["buffer_limit"] > 0
+        for table_config in config.config_table.values()
+        if "buffer_limit" in table_config
+    )
     assert set(config.config_table_create_disable_my).issubset(table_names)
     assert set(config.config_table_create_enable_public).issubset(table_names)
     assert set(config.config_table_read_enable_public) == {"*"} or set(config.config_table_read_enable_public).issubset(table_names)

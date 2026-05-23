@@ -103,8 +103,8 @@ config_sql = {
 }
 
 config_table = {
-"test": {"buffer": 10},
-"log_api": {"retention_day": 30, "buffer": 10},
+"test": {"buffer_limit": 10},
+"log_api": {"retention_day": 30, "buffer_limit": 10},
 "log_users_password": {"retention_day": 90},
 "otp": {"retention_day": 30},
 }
