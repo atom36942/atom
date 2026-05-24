@@ -65,18 +65,20 @@ async def func_claim_events(conn: asyncpg.Connection, batch_limit: int) -> list:
         WITH claim AS (
             SELECT id
             FROM log_users_delete
-            WHERE status IN (1,4)
-              AND next_retry_at <= NOW()
+            WHERE (
+                ((worker_status IN (1, 4) OR worker_status IS NULL) AND (worker_next_retry_at <= NOW() OR worker_next_retry_at IS NULL))
+                OR (worker_status = 2 AND updated_at < NOW() - INTERVAL '15 minutes')
+              )
             ORDER BY created_at, id
             LIMIT $1
             FOR UPDATE SKIP LOCKED
         )
         UPDATE log_users_delete l
-        SET status = 2,
+        SET worker_status = 2,
             updated_at = NOW()
         FROM claim
         WHERE l.id = claim.id
-        RETURNING l.id, l.user_id, l.event, l.retry_count
+        RETURNING l.id, l.user_id, l.event, l.worker_retry_count
         """,
         batch_limit,
     )
@@ -85,10 +87,10 @@ async def func_mark_completed(conn: asyncpg.Connection, event_id: int) -> None:
     await conn.execute(
         """
         UPDATE log_users_delete
-        SET status = 3,
+        SET worker_status = 3,
             updated_at = NOW(),
-            processed_at = NOW(),
-            last_error = NULL
+            worker_processed_at = NOW(),
+            worker_last_error = NULL
         WHERE id = $1
         """,
         event_id,
@@ -99,11 +101,11 @@ async def func_mark_failed(conn: asyncpg.Connection, event_id: int, retry_count:
     await conn.execute(
         """
         UPDATE log_users_delete
-        SET status = 4,
+        SET worker_status = 4,
             updated_at = NOW(),
-            retry_count = retry_count + 1,
-            next_retry_at = NOW() + ($2 * INTERVAL '1 second'),
-            last_error = $3
+            worker_retry_count = worker_retry_count + 1,
+            worker_next_retry_at = NOW() + ($2 * INTERVAL '1 second'),
+            worker_last_error = $3
         WHERE id = $1
         """,
         event_id,
@@ -183,7 +185,7 @@ async def func_users_delete_worker_once(pool: asyncpg.Pool) -> int:
                     print(f"[users-delete-worker] completed event_id={event['id']} user_id={event['user_id']} event={event['event']}")
                 except Exception as exc:
                     async with event_conn.transaction():
-                        await func_mark_failed(event_conn, event["id"], event["retry_count"], exc)
+                        await func_mark_failed(event_conn, event["id"], event["worker_retry_count"], exc)
                     print(f"[users-delete-worker] failed event_id={event['id']} user_id={event['user_id']} event={event['event']} error={str(exc)[:300]}")
         async with pool.acquire() as purge_conn:
             purged = await func_purge_retained_owned_rows(purge_conn, owned_tables)
@@ -207,7 +209,7 @@ async def func_users_delete_worker():
             else:
                 idle_count += 1
                 if idle_count == 1 or idle_count % 12 == 0:
-                    print("[users-delete-worker] no pending events; sleeping")
+                    print("[users-delete-worker] no pending events; sleeping...")
                 await asyncio.sleep(5)
     finally:
         await pool.close()

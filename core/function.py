@@ -759,10 +759,10 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                                             ops = "gin_trgm_ops"
                                     cols_joined = ", ".join(index_cols)
                                     if ops:
-                                        await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}("{index_cols[0]}" {ops});')
+                                        await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {index_type}("{index_cols[0]}" {ops});')
                                     else:
                                         cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
-                                        await conn.execute(f'CREATE INDEX "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
+                                        await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
                                     table_changed = True
                 if is_enabled_col_setting(col_cfg, "in"):
                     chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"

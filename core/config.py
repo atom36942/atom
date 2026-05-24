@@ -60,7 +60,7 @@ config_redis_cache_ttl_sec = 3600
 config_buffer_limit = 100
 config_buffer_flush_interval_sec = 60
 config_blob_limit_kb = 300
-config_blob_upload_limit_count = 10
+config_blob_upload_limit_count = 100
 config_upload_url_expire_sec = 3600
 config_postgres_min_connection = 5
 config_postgres_max_connection = 20
@@ -154,11 +154,11 @@ config_column_int_mapping = {
 "status": {
 "test": {1: "Active", 2: "Inactive", 3: "Archived"},
 "support": {1: "Open", 2: "In Progress", 3: "Resolved", 4: "Closed"},
-"log_users_delete": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
 "job": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
 "candidate": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold"},
 "interview": {1: "Scheduled", 2: "Rescheduled", 3: "In Progress", 4: "Completed", 5: "Feedback Pending", 6: "Feedback Submitted", 7: "No Show - Candidate", 8: "No Show - Interviewer", 9: "Cancelled", 10: "On Hold"},
 },
+"worker_status": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
 "event": {
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
 },
@@ -274,11 +274,11 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id,created_at)"},
 {"name":"event","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(event,created_at)"},
-{"name":"status","datatype":"smallint","default":1,"is_mandatory":1,"in":(1,2,3,4),"index":"btree(status,next_retry_at,created_at)"},
-{"name":"retry_count","datatype":"integer","default":0},
-{"name":"next_retry_at","datatype":"timestamptz","default":"now()"},
-{"name":"processed_at","datatype":"timestamptz"},
-{"name":"last_error","datatype":"text"}
+{"name":"worker_status","datatype":"smallint","default":1,"is_mandatory":1,"in":(1,2,3,4),"index":"btree(worker_status,worker_next_retry_at,created_at)"},
+{"name":"worker_retry_count","datatype":"integer","default":0},
+{"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()"},
+{"name":"worker_processed_at","datatype":"timestamptz"},
+{"name":"worker_last_error","datatype":"text"}
 ],
 "otp":[
 {"name":"id","datatype":"bigserial","is_primary":1},
@@ -427,6 +427,7 @@ config_postgres = {
 {"name":"skills","datatype":"text[]","index":"gin(skills)"},
 {"name":"experience","datatype":"numeric(4,1)","index":"btree(experience)"},
 {"name":"company_current","datatype":"text"},
+{"name":"company_past","datatype":"text"},
 {"name":"ctc_current","datatype":"integer","index":"btree(ctc_current)"},
 {"name":"ctc_expected","datatype":"integer","index":"btree(ctc_expected)"},
 {"name":"currency","datatype":"text"},
@@ -436,11 +437,19 @@ config_postgres = {
 {"name":"qualification_highest","datatype":"text"},
 {"name":"source","datatype":"text","index":"btree(source)"},
 {"name":"linkedin_url","datatype":"text"},
+{"name":"github_url","datatype":"text"},
+{"name":"portfolio_url","datatype":"text"},
+{"name":"languages","datatype":"text[]","index":"gin(languages)"},
 {"name":"gender","datatype":"smallint"},
 {"name":"date_of_birth","datatype":"date"},
 {"name":"remark","datatype":"text"},
 {"name":"ai_rating","datatype":"numeric(3,1)"},
 {"name":"ai_remark","datatype":"text"},
+{"name":"worker_status","datatype":"smallint","default":1,"index":"btree(worker_status)"},
+{"name":"worker_retry_count","datatype":"integer","default":0},
+{"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()","index":"btree(worker_next_retry_at)"},
+{"name":"worker_processed_at","datatype":"timestamptz"},
+{"name":"worker_last_error","datatype":"text"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
@@ -529,7 +538,7 @@ config_postgres = {
 "idx_rating_test_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_rating_test_deactivated_at_not_null ON rating_test (id) WHERE deactivated_at IS NOT NULL",
 "idx_message_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_message_deactivated_at_not_null ON message (id) WHERE deactivated_at IS NOT NULL",
 "idx_support_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_support_deactivated_at_not_null ON support (id) WHERE deactivated_at IS NOT NULL",
-"idx_log_users_delete_worker": "CREATE INDEX IF NOT EXISTS idx_log_users_delete_worker ON log_users_delete (next_retry_at, created_at, id) WHERE status IN (1,4)"
+"idx_log_users_delete_worker": "CREATE INDEX IF NOT EXISTS idx_log_users_delete_worker ON log_users_delete (worker_next_retry_at, created_at, id) WHERE worker_status IN (1,4)"
 }
 },
 }
