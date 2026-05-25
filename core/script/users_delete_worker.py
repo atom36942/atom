@@ -2,6 +2,9 @@
 import asyncio
 import asyncpg
 
+config_blob_purge_batch_limit = 5000
+config_blob_purge_azure_concurrency = 256
+
 # config
 from core.config import (
     config_aws_access_key_id,
@@ -207,9 +210,9 @@ async def func_delete_blob_storage(rows: list, clients: dict) -> None:
             response = await asyncio.to_thread(clients["s3"].delete_objects, Bucket=bucket, Delete={"Objects": keys[i:i+1000], "Quiet": True})
             if response.get("Errors"):
                 raise Exception(f"S3 blob delete failed: {response['Errors'][:3]}")
-    if azure_tasks:
+    for i in range(0, len(azure_tasks), config_blob_purge_azure_concurrency):
         from azure.core.exceptions import ResourceNotFoundError
-        results = await asyncio.gather(*azure_tasks, return_exceptions=True)
+        results = await asyncio.gather(*azure_tasks[i:i+config_blob_purge_azure_concurrency], return_exceptions=True)
         for result in results:
             if isinstance(result, ResourceNotFoundError):
                 continue
@@ -225,9 +228,10 @@ async def func_purge_retained_blob_rows(conn: asyncpg.Connection, clients: dict)
             SELECT id, service, container, blob_key
             FROM "blob"
             WHERE "deleted_at" < NOW() - ($1 * INTERVAL '1 day')
-            LIMIT 5000
+            LIMIT $2
             """,
             config_users_delete_retention_day,
+            config_blob_purge_batch_limit,
         )
         if not rows:
             deleted_count = 0
