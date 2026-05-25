@@ -317,7 +317,7 @@ async def test_config_postgres_schema_init_builds_real_config_schema_and_control
         for column in columns:
             assert column["name"] in pool.conn.tables[table]
     assert 'CREATE EXTENSION IF NOT EXISTS "postgis";' in sql
-    assert 'CREATE INDEX "idx_test_tag_gin" ON "test" USING gin("tag");' in sql
+    assert 'CREATE INDEX IF NOT EXISTS "idx_test_tag_gin" ON "test" USING gin("tag");' in sql
     assert 'ALTER TABLE "test" ADD CONSTRAINT "unique_test_code_type" UNIQUE ("code","type");' in sql
     assert 'ALTER TABLE "test" ADD CONSTRAINT "unique_test_code_slug" UNIQUE ("code","slug");' in sql
     assert 'CHECK ("email" ~ \'^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$\');' in sql

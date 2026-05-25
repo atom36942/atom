@@ -10,6 +10,46 @@ import asyncpg
 import redis.asyncio as redis
 from motor.motor_asyncio import AsyncIOMotorClient
 
+
+def _is_docker_available():
+    try:
+        import docker
+        docker.from_env().ping()
+        return True
+    except Exception:
+        return False
+
+
+def _confirm_run_without_docker(config):
+    message = "\nDocker is unavailable. Run tests without Docker and skip integration tests? [y/N]: "
+    capture_manager = config.pluginmanager.get_plugin("capturemanager")
+    if capture_manager:
+        with capture_manager.global_and_fixture_disabled():
+            answer = input(message).strip().lower()
+    else:
+        answer = input(message).strip().lower()
+    return answer in {"y", "yes"}
+
+
+def pytest_collection_modifyitems(config, items):
+    if _is_docker_available():
+        return
+
+    integration_items = [item for item in items if "tests/integration/" in str(item.path)]
+    if not integration_items:
+        return
+
+    if os.isatty(0):
+        if not _confirm_run_without_docker(config):
+            pytest.exit("Docker is unavailable; full integration test run cancelled by user.", returncode=1)
+    else:
+        print("\nDocker is unavailable; skipping testcontainers integration tests.")
+
+    skip_integration = pytest.mark.skip(reason="Docker is unavailable; skipping testcontainers integration tests")
+    for item in integration_items:
+        item.add_marker(skip_integration)
+
+
 # This fixture ensures app.state has all required attributes even if lifespan doesn't run
 @pytest.fixture(scope="session", autouse=True)
 def setup_app_state_placeholders():
