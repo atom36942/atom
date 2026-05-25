@@ -6,7 +6,7 @@ config_postgres_max_connection = 20
 
 # System
 config_root_user_password = None
-config_token_secret_key = None
+config_token_secret_key = "mysecretkey"
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_postgres_init_startup = 1
 config_is_enable_user_delete = 1

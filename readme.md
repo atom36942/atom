@@ -44,8 +44,6 @@ venv/bin/python -m core.script.<filename>
 # Env
 ```bash
 config_postgres_url=postgresql://atom@127.0.0.1/postgres?sslmode=disable
-config_root_user_password=123456
-config_token_secret_key=mysecretkey
 config_postgres_url_read=postgresql://app_readonly:123456@127.0.0.1/postgres?sslmode=disable
 config_redis_url=redis://localhost:6379
 config_mongodb_url=mongodb://localhost:27017

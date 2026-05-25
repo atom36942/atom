@@ -1,14 +1,11 @@
-def func_token_secret_prepare(*, config_token_secret_key: str) -> str:
-    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
-    return str(config_token_secret_key)
-
 async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_namespace_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
     if token:
         import jwt, orjson
-        decoded_payload = jwt.decode(token, func_token_secret_prepare(config_token_secret_key=config_token_secret_key), algorithms="HS256")
+        if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
+        decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
         user_obj = orjson.loads(decoded_payload["data"])
     else:
         user_obj = {}
@@ -1459,7 +1456,8 @@ async def func_token_encode(*, user: dict, config_token_secret_key: str, config_
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
     if user is None: return None
-    token_secret_key = func_token_secret_prepare(config_token_secret_key=config_token_secret_key)
+    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
+    token_secret_key = str(config_token_secret_key)
     payload_dict = {k: user.get(k) for k in config_token_key} if config_token_key else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
     now_ts = int(time.time())
