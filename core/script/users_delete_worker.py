@@ -1,8 +1,8 @@
-#import
+# import
 import asyncio
 import asyncpg
 
-#config
+# config
 from core.config import (
     config_postgres_url,
     config_users_delete_batch_limit,
@@ -12,7 +12,7 @@ from core.config import (
     config_users_delete_retry_delay_sec,
 )
 
-#func
+# func
 def func_quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
@@ -214,6 +214,6 @@ async def func_users_delete_worker():
     finally:
         await pool.close()
 
-#init
+# init
 if __name__ == "__main__":
     asyncio.run(func_users_delete_worker())

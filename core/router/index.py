@@ -1,11 +1,11 @@
-#router
+# router
 from fastapi import APIRouter
 router = APIRouter()
 
-#import
+# import
 from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 
-#api
+# api
 @router.get("/")
 async def func_api_index(*, request:Request):
     app_state = request.app.state

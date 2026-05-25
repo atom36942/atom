@@ -1,4 +1,4 @@
-#import
+# import
 import sys
 import os
 import json
@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from google import genai
 from google.genai import types
 
-#config
+# config
 from core.config import (
     config_postgres_url,
     config_gemini_key,
@@ -60,7 +60,7 @@ def func_get_dynamic_schema() -> dict:
         "properties": properties
     }
 
-#func
+# func
 async def func_claim_candidates(conn: asyncpg.Connection, batch_limit: int) -> list:
     # We join with the job table to get context for the AI
     return await conn.fetch(
@@ -323,6 +323,6 @@ async def func_resume_parser_worker():
     finally:
         await pool.close()
 
-#init
+# init
 if __name__ == "__main__":
     asyncio.run(func_resume_parser_worker())

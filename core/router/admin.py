@@ -1,8 +1,8 @@
-#router
+# router
 from fastapi import APIRouter
 router = APIRouter()
 
-#import
+# import
 from fastapi import Request
 import shutil
 import os
@@ -12,7 +12,7 @@ import asyncio
 import uuid
 from pymongo import DeleteOne, UpdateOne
 
-#api
+# api
 @router.get("/admin/sync")
 async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state

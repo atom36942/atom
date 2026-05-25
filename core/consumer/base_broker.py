@@ -1,4 +1,4 @@
-#import
+# import
 import sys
 import asyncio
 import orjson
@@ -7,7 +7,7 @@ import traceback
 from datetime import datetime, timezone
 from itertools import count
 
-#config
+# config
 from ..config import (
     config_redis_queue_url,
     config_consumer_concurrency,
@@ -22,10 +22,10 @@ from ..config import (
     config_celery_url
 )
 
-#init
+# init
 _run_counter = count(1)
 
-#log
+# log
 def _payload_log_value(payload: any) -> any:
     if isinstance(payload, bytes):
         try: return payload.decode("utf-8")
@@ -46,7 +46,7 @@ def func_consumer_failed_payload_log(*, queue: str, channel: str, payload: any, 
     with open("tmp/consumer_failed_payload.jsonl", "ab") as file:
         file.write(orjson.dumps(record, option=orjson.OPT_APPEND_NEWLINE))
 
-#logic
+# logic
 async def broker_logic_redis(channel: str, setup_callback: callable, execute_callback: callable):
     if not channel: raise Exception("channel name required")
     setup_data = await setup_callback()
@@ -176,7 +176,7 @@ def broker_logic_celery(channel: str, setup_callback: callable, execute_callback
     return app
 
 
-#run
+# run
 def run_broker(queue: str, channel: str, setup_callback: callable, execute_callback: callable):
     celery_app = None
     if queue == "celery": celery_app = broker_logic_celery(channel, setup_callback, execute_callback)

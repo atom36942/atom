@@ -1,100 +1,136 @@
-#external
+# Postgres
 config_postgres_url = None
 config_postgres_url_read = None
+config_postgres_min_connection = 5
+config_postgres_max_connection = 20
+
+# System
+config_is_enable_postgres_sql_runner_write = 1
+config_is_enable_postgres_init_startup = 1
+config_is_enable_background_workers = 1
+config_is_enable_user_delete = 1
+config_root_user_password = "123456"
+config_token_secret_key = "atom-development-token-secret-key-32b"
+config_is_enable_signup = 1
+config_allowed_auth_types = [1]
+config_is_enable_reset_tmp = 0
+
+# Redis
 config_redis_url = None
-config_azure_account_name = None
-config_azure_account_key = None
-config_google_login_client_id = None
-config_fast2sms_url = None
-config_fast2sms_key = None
-config_resend_url = None
-config_resend_key = None
-config_posthog_project_host = None
-config_posthog_project_key = None
+config_redis_cache_ttl_sec = 3600
+
+# Databases
 config_mongodb_url = None
 config_mssql_url = None
-config_openai_key = None
-config_gemini_key = None
-config_sentry_dsn = None
+
+# Queue
+config_queue = ["redis", "rabbitmq", "kafka", "celery"]
+config_redis_queue_url = None
+config_celery_url = None
+config_kafka_url = None
+config_kafka_username = None
+config_kafka_password = None
+config_rabbitmq_url = None
+config_consumer_concurrency = 10
+config_kafka_group_id = "group_1"
+config_kafka_is_enable_auto_commit = 1
+config_kafka_batch_limit = 100
+config_kafka_batch_timeout_ms = 1000
+
+# AWS
 config_aws_access_key_id = None
 config_aws_secret_access_key = None
 config_s3_region_name = None
 config_sns_region_name = None
 config_ses_region_name = None
+
+# Azure
+config_azure_account_name = None
+config_azure_account_key = None
+
+# Blob
+config_blob_container_default = "test"
+config_blob_limit_kb = 300
+config_blob_upload_limit_count = 100
+config_upload_url_expire_sec = 3600
+
+# SFTP
 config_sftp_host = None
 config_sftp_port = None
 config_sftp_username = None
 config_sftp_password = None
-config_kafka_url = None
-config_kafka_username = None
-config_kafka_password = None
-config_rabbitmq_url = None
-config_celery_url = None
-config_redis_queue_url = None
 
-#default
-config_root_user_password = "123456"
-config_token_secret_key = "atom-development-token-secret-key-32b"
-config_is_enable_signup = 1
-config_is_enable_postgres_sql_runner_write = 1
+# Email / SMS
+config_fast2sms_url = None
+config_fast2sms_key = None
+config_resend_url = None
+config_resend_key = None
+config_email_sender_default = "atom@atom.com"
+
+# AI Providers
+config_openai_key = None
+config_gemini_key = None
+
+# Analytics / Monitoring
 config_is_enable_traceback = 0
-config_is_enable_user_delete = 1
-config_allowed_auth_types = [1]
+config_is_enable_log_api = 1
+config_is_enable_sentry_default_pii = 0
+config_posthog_project_host = None
+config_posthog_project_key = None
+config_sentry_dsn = None
+
+# Auth
 config_token_expiry_sec = 10*365*24*60*60
 config_token_refresh_expiry_sec = 100*365*24*60*60
-config_is_enable_sentry_default_pii = 0
 config_is_enable_otp_users_update_admin = 0
-config_is_enable_postgres_init_startup = 1
-config_is_enable_index_html = 0
-config_is_enable_log_api = 1
-config_is_enable_reset_tmp = 0
-config_is_enable_background_workers = 1
-config_email_sender_default = "atom@atom.com"
-config_blob_container_default = "test"
 config_expiry_sec_otp = 600
 config_otp_length = 6
-config_query_limit_default = 100
-config_relation_fetch_limit_max = 100
-config_obj_list_limit = 1000
-config_redis_cache_ttl_sec = 3600
-config_buffer_limit = 100
-config_buffer_flush_interval_sec = 60
-config_blob_limit_kb = 300
-config_blob_upload_limit_count = 100
-config_upload_url_expire_sec = 3600
-config_postgres_min_connection = 5
-config_postgres_max_connection = 20
-config_users_delete_retention_day = 30
-config_users_delete_batch_limit = 100
-config_users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
-config_index_html_path = "core/api.html"
 config_token_key = ["id", "type", "role", "deactivated_at", "deleted_at", "id_ext"]
+config_google_login_client_id = None
+
+# HTML
+config_is_enable_index_html = 0
+config_index_html_path = "core/api.html"
+
+# API
 config_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
 config_api_namespace_auth = ["/my/", "/private/", "/admin/"]
 config_api_namespace_user = ["/my/"]
+
+# CORS
 config_cors_origin = ["*"]
 config_cors_method = ["*"]
 config_cors_headers = ["*"]
 config_is_enable_cors_credentials = 1
 config_cors_expose_headers = ["Content-Disposition", "x-cache"]
+
+# Limits / Buffers
+config_query_limit_default = 100
+config_relation_fetch_limit_max = 100
+config_obj_list_limit = 1000
+config_buffer_limit = 100
+config_buffer_flush_interval_sec = 60
+
+# User Deletion
+config_users_delete_retention_day = 30
+config_users_delete_batch_limit = 100
+config_users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
+config_users_delete_ownership_column = ["created_by_id", "user_id"]
+config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
+
+# Tables / Schema
 config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_create_enable_public = ["test", "support"]
 config_table_read_enable_public = ["*"]
 config_sensitive_table = ["users", "spatial_ref_sys", "geometry_columns", "geography_columns", "raster_columns", "raster_overviews"]
 config_admin_columns = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id", "deleted_by_id", "deactivated_by_id", "archived_by_id"]
 config_column_enable_single_update = ["username", "password", "email", "mobile", "deleted_at"]
-config_users_delete_ownership_column = ["created_by_id", "user_id"]
-config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
-config_queue = ["redis", "rabbitmq", "kafka", "celery"]
-config_consumer_concurrency = 10
-config_kafka_group_id = "group_1"
-config_kafka_is_enable_auto_commit = 1
-config_kafka_batch_limit = 100
-config_kafka_batch_timeout_ms = 1000
+
+# Storage Backends
 config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
 config_allowed_api_storage_backends = ["redis", "inmemory"]
 
-#dict
+# Dict
 config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_deactivated": "select id, deactivated_at from users order by id asc limit 1000",
@@ -543,6 +579,6 @@ config_postgres = {
 },
 }
 
-#override
+# override
 from .function import func_config_override_from_env
 func_config_override_from_env(global_dict=globals())

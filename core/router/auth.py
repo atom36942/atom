@@ -1,14 +1,14 @@
-#router
+# router
 from fastapi import APIRouter
 router = APIRouter()
 
-#import
+# import
 from fastapi import Request
 from google.oauth2 import id_token
 from google.auth.transport import requests
 import orjson
 
-#api
+# api
 @router.post("/auth/signup-username-password")
 async def func_api_auth_signup_username_password(*, request:Request):
     app_state = request.app.state

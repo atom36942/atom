@@ -1,22 +1,22 @@
-#import
+# import
 from .config import *
 from .function import *
 
-#lifespan
+# lifespan
 from contextlib import asynccontextmanager
 @asynccontextmanager
 async def func_lifespan(app:"FastAPI"):
     try:
         import asyncio
-        #start
+        # start
         import time
         start_journey = time.perf_counter()
-        #check
+        # check
         app.state.func_check(app_routes=app.routes, config_config_path="core/config.py", config_function_path="core/function.py", config_api_namespace=app.state.config_api_namespace, config_router_path="core/router", config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres)
-        #structure
+        # structure
         import os
         for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
-        #client init
+        # client init
         import aio_pika, aiobotocore.session, asyncpg, asyncssh, boto3, httpx, motor.motor_asyncio, openai, aioodbc
         import redis.asyncio as redis
         from google import genai
@@ -45,9 +45,9 @@ async def func_lifespan(app:"FastAPI"):
         client_rabbitmq = await aio_pika.connect_robust(app.state.config_rabbitmq_url) if app.state.config_rabbitmq_url else None; client_rabbitmq_producer = await client_rabbitmq.channel() if client_rabbitmq else None
         client_sftp = await asyncssh.connect(host=app.state.config_sftp_host, port=int(app.state.config_sftp_port), username=app.state.config_sftp_username, password=app.state.config_sftp_password, known_hosts=None) if app.state.config_sftp_host else None
         client_azure_blob = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={app.state.config_azure_account_name};AccountKey={app.state.config_azure_account_key};EndpointSuffix=core.windows.net") if (app.state.config_azure_account_name and app.state.config_azure_account_key) else None
-        #postges schema init
+        # postges schema init
         if client_postgres_pool and app.state.config_is_enable_postgres_init_startup == 1: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=app.state.config_postgres, config_root_user_password=app.state.config_root_user_password)
-        #cache init
+        # cache init
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
         cache_postgres_table_list = list(cache_postgres_schema.keys())
         cache_postgres_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
@@ -55,13 +55,13 @@ async def func_lifespan(app:"FastAPI"):
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_pool else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_pool else {}
         cache_ratelimiter, cache_api_response, cache_postgres_buffer_create = {}, {}, {}
-        #lock prevents concurrent buffer flushes during background pulse and shutdown
+        # lock prevents concurrent buffer flushes during background pulse and shutdown
         app.state.flush_lock, app.state.pulse_flush_task = asyncio.Lock(), None
-        #app state add
+        # app state add
         [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
-        #openapi spec
+        # openapi spec
         app.state.cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, config_api_namespace_auth=app.state.config_api_namespace_auth, app_state=app.state)
-        #postgres buffer flush loop
+        # postgres buffer flush loop
         async def pulse_flush():
             while True:
                 try:
@@ -76,19 +76,19 @@ async def func_lifespan(app:"FastAPI"):
     except Exception as e:
         print(f"❌ startup error: {e}")
         raise
-    #shutdown
+    # shutdown
     yield
     try:
-        #background task stop
+        # background task stop
         if app.state.pulse_flush_task:
             app.state.pulse_flush_task.cancel()
             try: await app.state.pulse_flush_task
             except asyncio.CancelledError: pass
-        #postgres buffer flush final
+        # postgres buffer flush final
         if client_postgres_pool:
             async with app.state.flush_lock:
                 await app.state.func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=app.state.func_postgres_serialize, func_regex_check=app.state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=app.state.config_regex, config_table=app.state.config_table, config_obj_list_limit=app.state.config_obj_list_limit, config_buffer_limit=app.state.config_buffer_limit, mode="flush", table="", obj_list=[])
-        #client disconnect
+        # client disconnect
         if client_http: await client_http.aclose()
         if client_postgres_pool: await client_postgres_pool.close()
         if client_postgres_pool_read: await client_postgres_pool_read.close()
@@ -105,27 +105,27 @@ async def func_lifespan(app:"FastAPI"):
     except Exception as e:
         print(f"❌ shutdown error: {e}")
 
-#app
+# app
 from fastapi import FastAPI
 app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
-#state pre-population (ensures func_* are available even before lifespan)
+# state pre-population (ensures func_* are available even before lifespan)
 [setattr(app.state, k, v) for k, v in globals().items() if k.startswith(("func_", "config_"))]
 
-#router
+# router
 import os
 func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 
-#static
+# static
 from fastapi.staticfiles import StaticFiles
 app.mount("/static", StaticFiles(directory="./static", check_dir=False), name="static")
 
-#sentry
+# sentry
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=bool(config_is_enable_sentry_default_pii))
 
-#middleware
+# middleware
 @app.middleware("http")
 async def middleware(request, api_function):
     import time
@@ -159,6 +159,6 @@ async def middleware(request, api_function):
         with suppress(Exception): await app_state.func_postgres_create(client_postgres_pool=pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": method_map.get(request.method), "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
 
-#cors
+# cors
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware, allow_origins=[] if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else config_cors_origin, allow_origin_regex=".*" if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else None, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))

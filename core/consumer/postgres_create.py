@@ -1,4 +1,4 @@
-#import
+# import
 import sys
 from argon2 import PasswordHasher
 import asyncpg
@@ -10,10 +10,10 @@ from ..function import (
     func_regex_check
 )
 
-#channel
+# channel
 channel = "func_postgres_create"
 
-#config
+# config
 from ..config import (
     config_postgres_url,
     config_postgres_min_connection,
@@ -24,7 +24,7 @@ from ..config import (
     config_buffer_limit
 )
 
-#func
+# func
 async def setup():
     client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if config_postgres_url else None
     cache_postgres_buffer_create = {}
@@ -51,7 +51,7 @@ async def execute(client_postgres_pool, payload, cache_postgres_buffer_create, c
         obj_list=payload.get("obj_list")
     )
 
-#init
+# init
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         sys.exit(1)

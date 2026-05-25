@@ -1,8 +1,8 @@
-#router
+# router
 from fastapi import APIRouter
 router = APIRouter()
 
-#import
+# import
 import asyncio
 import httpx
 import orjson
@@ -10,7 +10,7 @@ import uuid
 import re
 from fastapi import Request, responses
 
-#api
+# api
 @router.post("/public/object-create")
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state

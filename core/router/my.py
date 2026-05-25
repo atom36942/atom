@@ -1,11 +1,11 @@
-#router
+# router
 from fastapi import APIRouter
 router = APIRouter()
 
-#import
+# import
 from fastapi import Request
 
-#api
+# api
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
