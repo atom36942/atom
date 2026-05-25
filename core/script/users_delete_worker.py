@@ -4,7 +4,12 @@ import asyncpg
 
 # config
 from core.config import (
+    config_aws_access_key_id,
+    config_aws_secret_access_key,
+    config_azure_account_key,
+    config_azure_account_name,
     config_postgres_url,
+    config_s3_region_name,
     config_users_delete_batch_limit,
     config_users_delete_exclude_table,
     config_users_delete_ownership_column,
@@ -160,6 +165,8 @@ async def func_process_event(conn: asyncpg.Connection, event: asyncpg.Record, ow
 async def func_purge_retained_owned_rows(conn: asyncpg.Connection, owned_tables: list) -> int:
     total_deleted = 0
     for table, _ownership_columns, has_is_protected in owned_tables:
+        if table == "blob":
+            continue
         deleted_count = -1
         while deleted_count != 0:
             deleted_count = await func_purge_retained_rows(conn, table, has_is_protected)
@@ -168,7 +175,82 @@ async def func_purge_retained_owned_rows(conn: asyncpg.Connection, owned_tables:
                 await asyncio.sleep(0.05)
     return total_deleted
 
-async def func_users_delete_worker_once(pool: asyncpg.Pool) -> int:
+def func_blob_clients() -> dict:
+    clients = {"s3": None, "azure": None}
+    if config_s3_region_name:
+        import boto3
+        clients["s3"] = boto3.client("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
+    if config_azure_account_name and config_azure_account_key:
+        from azure.storage.blob.aio import BlobServiceClient
+        clients["azure"] = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={config_azure_account_name};AccountKey={config_azure_account_key};EndpointSuffix=core.windows.net")
+    return clients
+
+async def func_blob_clients_close(clients: dict) -> None:
+    if clients.get("azure"):
+        await clients["azure"].close()
+
+async def func_delete_blob_storage(rows: list, clients: dict) -> None:
+    s3_batches = {}
+    azure_tasks = []
+    for row in rows:
+        service, container, blob_key = row["service"], row["container"], row["blob_key"]
+        if service == "s3":
+            if not clients.get("s3"): raise Exception("S3 client is not configured for blob purge")
+            s3_batches.setdefault(container, []).append({"Key": blob_key})
+        elif service == "azure":
+            if not clients.get("azure"): raise Exception("Azure blob client is not configured for blob purge")
+            azure_tasks.append(clients["azure"].get_blob_client(container=container, blob=blob_key).delete_blob())
+        else:
+            raise Exception(f"unsupported blob service: {service}")
+    for bucket, keys in s3_batches.items():
+        for i in range(0, len(keys), 1000):
+            response = await asyncio.to_thread(clients["s3"].delete_objects, Bucket=bucket, Delete={"Objects": keys[i:i+1000], "Quiet": True})
+            if response.get("Errors"):
+                raise Exception(f"S3 blob delete failed: {response['Errors'][:3]}")
+    if azure_tasks:
+        from azure.core.exceptions import ResourceNotFoundError
+        results = await asyncio.gather(*azure_tasks, return_exceptions=True)
+        for result in results:
+            if isinstance(result, ResourceNotFoundError):
+                continue
+            if isinstance(result, Exception):
+                raise result
+
+async def func_purge_retained_blob_rows(conn: asyncpg.Connection, clients: dict) -> int:
+    total_deleted = 0
+    deleted_count = -1
+    while deleted_count != 0:
+        rows = await conn.fetch(
+            """
+            SELECT id, service, container, blob_key
+            FROM "blob"
+            WHERE "deleted_at" < NOW() - ($1 * INTERVAL '1 day')
+            LIMIT 5000
+            """,
+            config_users_delete_retention_day,
+        )
+        if not rows:
+            deleted_count = 0
+            continue
+        await func_delete_blob_storage(rows, clients)
+        result = await conn.execute(
+            """
+            DELETE FROM "blob"
+            WHERE id = ANY($1::bigint[])
+              AND "deleted_at" < NOW() - ($2 * INTERVAL '1 day')
+            """,
+            [row["id"] for row in rows],
+            config_users_delete_retention_day,
+        )
+        deleted_count = int(result.rsplit(" ", 1)[-1])
+        total_deleted += deleted_count
+        if deleted_count:
+            await asyncio.sleep(0.05)
+    return total_deleted
+
+async def func_users_delete_worker_once(pool: asyncpg.Pool, clients: dict = None) -> int:
+    if clients is None:
+        clients = {"s3": None, "azure": None}
     async with pool.acquire() as conn:
         schema = await func_schema_columns(conn)
         owned_tables = func_owned_tables(schema)
@@ -189,6 +271,8 @@ async def func_users_delete_worker_once(pool: asyncpg.Pool) -> int:
                     print(f"[users-delete-worker] failed event_id={event['id']} user_id={event['user_id']} event={event['event']} error={str(exc)[:300]}")
         async with pool.acquire() as purge_conn:
             purged = await func_purge_retained_owned_rows(purge_conn, owned_tables)
+            if any(table == "blob" for table, _ownership_columns, _has_is_protected in owned_tables):
+                purged += await func_purge_retained_blob_rows(purge_conn, clients)
             if purged:
                 print(f"[users-delete-worker] purged {purged} retained deleted row(s)")
         return len(events)
@@ -199,10 +283,11 @@ async def func_users_delete_worker():
         return
     print("Starting Users Delete Worker Script...")
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={"application_name": "atom-daemon-users-delete"})
+    clients = func_blob_clients()
     try:
         idle_count = 0
         while True:
-            processed = await func_users_delete_worker_once(pool)
+            processed = await func_users_delete_worker_once(pool, clients)
             if processed:
                 idle_count = 0
                 await asyncio.sleep(1)
@@ -212,6 +297,7 @@ async def func_users_delete_worker():
                     print("[users-delete-worker] no pending events; sleeping...")
                 await asyncio.sleep(5)
     finally:
+        await func_blob_clients_close(clients)
         await pool.close()
 
 # init

@@ -184,6 +184,7 @@ config_column_int_mapping = {
 "type": {
 "test": {1: "Type 1", 2: "Type 2", 3: "Type 3", 4: "Type 4", 5: "Type 5"},
 "users": {1: "Default", 2: "Internal", 3: "External"},
+"blob": {1: "Upload File", 2: "Upload URL"},
 "post": {1: "Article", 2: "News", 3: "Announcement"},
 "interview": {1: "HR", 2: "Technical", 3: "Managerial", 4: "Cultural", 5: "Assignment"},
 },
@@ -516,6 +517,20 @@ config_postgres = {
 {"name":"rating","datatype":"numeric(3,1)","check":"rating >= 1 AND rating <= 10","index":"btree(rating)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
+],
+"blob":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
+{"name":"deleted_by_id","datatype":"bigint"},
+{"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type,created_at)"},
+{"name":"service","datatype":"text","is_mandatory":1},
+{"name":"container","datatype":"text","is_mandatory":1},
+{"name":"blob_key","datatype":"text","is_mandatory":1,"unique":"service,container,blob_key"},
+{"name":"file_url","datatype":"text","is_mandatory":1}
 ]
 },
 "control":{
