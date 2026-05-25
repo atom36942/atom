@@ -307,7 +307,7 @@
     .cell-pop {
       display: none;
       position: fixed;
-      z-index: 2000;
+      z-index: 9999;
       background: #1a1d23;
       border: 1px solid var(--accent);
       border-radius: 8px;
@@ -2165,8 +2165,26 @@
           }
         }); d.addEventListener("click", e => {
           const btn = e.target.closest(".cell-expand-btn"); if (!btn) return
-            ; const raw = decodeURIComponent(btn.dataset.raw); const pop = UI("cellPop"); UI("cellPopTxt").textContent = raw; cellPopRaw = raw; const r = btn.getBoundingClientRect()
+            ; const raw = decodeURIComponent(btn.dataset.raw); const pop = UI("cellPop"); cellPopRaw = raw
+            ; try {
+                const parsed = JSON.parse(raw);
+                if (typeof parsed === "object" && parsed !== null) {
+                  UI("cellPopTxt").innerHTML = `<div class="resp-view active"><pre class="resp-pre" style="margin:0; background:transparent; padding:0; border:none; max-height:400px; overflow:auto">${highlight(JSON.stringify(parsed, null, 2))}</pre></div>`;
+                } else {
+                  UI("cellPopTxt").textContent = raw;
+                }
+              } catch(err) {
+                UI("cellPopTxt").textContent = raw;
+              }
+            ; const r = btn.getBoundingClientRect()
             ; pop.style.left = Math.min(r.left, window.innerWidth - 420) + "px"; pop.style.top = r.bottom + 4 + "px"; pop.classList.add("show")
+        }); d.addEventListener("click", e => {
+          const btn = e.target.closest(".cell-pop-copy"); if (!btn) return
+            ; copyWithFeedback(btn, cellPopRaw, 14, "Copied")
+        }); d.addEventListener("click", e => {
+          if (!e.target.closest(".cell-pop") && !e.target.closest(".cell-expand-btn")) {
+            UI("cellPop")?.classList.remove("show")
+          }
         }); d.addEventListener("keydown", e => {
           if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); UI("apiForm").requestSubmit() } if (e.key === "Escape") {
             hideModal("apiRunnerModal"); hideModal("storageModal"); hideModal("tagFiltersModal")
@@ -2525,7 +2543,8 @@
           const cv = row[k]
             ; const val = cv == null ? "" : typeof cv === "object" ? JSON.stringify(cv) : String(cv); const enc = val.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
             ; const isLong = val.length > 60; const display = isLong ? he(val.substring(0, 57)) + "..." : enc
-            ; const viewBtn = isLong ? `<button type="button" class="icon-btn cell-expand-btn" data-raw="${encodeURIComponent(val)}" style="padding:2px;margin-left:auto">${ICON.expand(14)}</button>` : ""
+            ; const isObj = cv !== null && typeof cv === "object"; const needsExpand = isLong || isObj
+            ; const viewBtn = needsExpand ? `<button type="button" class="icon-btn cell-expand-btn" data-raw="${encodeURIComponent(val)}" style="padding:2px;margin-left:auto" title="Expand">${ICON.expand(14)}</button>` : ""
             ; return `<td title="${enc}"><div style="display:flex;align-items:center;gap:8px;max-width:${colW(k)}px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${display}</span>${viewBtn}</div></td>`
         }).join("")}\n</tr>`).join("")
         ; return `\n<div class="modal-card panel-shell" style="margin:16px"><div class="modal-card-body" style="padding:0"><div class="resp-tbl-wrap master-table-wrap" style="max-height:500px;opacity:1"><table class="resp-tbl"><thead><tr>${keys.map(k => `<th style="width:${colW(k)}px;min-width:${colW(k)}px">${he(k)}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`
