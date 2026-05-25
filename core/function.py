@@ -1,10 +1,14 @@
+def func_token_secret_prepare(*, config_token_secret_key: str) -> str:
+    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
+    return str(config_token_secret_key)
+
 async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_namespace_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
     if token:
         import jwt, orjson
-        decoded_payload = jwt.decode(token, config_token_secret_key, algorithms="HS256")
+        decoded_payload = jwt.decode(token, func_token_secret_prepare(config_token_secret_key=config_token_secret_key), algorithms="HS256")
         user_obj = orjson.loads(decoded_payload["data"])
     else:
         user_obj = {}
@@ -831,7 +835,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
                 catalog["tg"].add("trigger_protect_root_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; ELSIF TG_OP = 'UPDATE' THEN IF OLD.id = 1 THEN IF NEW.type IS DISTINCT FROM OLD.type OR NEW.username IS DISTINCT FROM OLD.username OR NEW.role IS DISTINCT FROM OLD.role OR NEW.deactivated_at IS DISTINCT FROM OLD.deactivated_at THEN RAISE EXCEPTION 'Updates to type, username, role, or deactivated_at are not allowed for root user (id=1)'; END IF; END IF; RETURN NEW; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
             if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role")):
-                root_user_password_hash = client_password_hasher.hash(config_root_user_password)
+                root_user_password_hash = client_password_hasher.hash(str(config_root_user_password))
                 await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'atom', $1, 1) ON CONFLICT (username, type) DO UPDATE SET role = 1 WHERE users.role IS DISTINCT FROM 1;", root_user_password_hash)
             if is_enable_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
@@ -1455,11 +1459,12 @@ async def func_token_encode(*, user: dict, config_token_secret_key: str, config_
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
     if user is None: return None
+    token_secret_key = func_token_secret_prepare(config_token_secret_key=config_token_secret_key)
     payload_dict = {k: user.get(k) for k in config_token_key} if config_token_key else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
     now_ts = int(time.time())
-    access_token = jwt.encode({"exp": now_ts + config_token_expiry_sec, "data": serialized_payload, "type": "access"}, config_token_secret_key)
-    refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, config_token_secret_key)
+    access_token = jwt.encode({"exp": now_ts + config_token_expiry_sec, "data": serialized_payload, "type": "access"}, token_secret_key)
+    refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, token_secret_key)
     return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
 
 async def func_otp_generate(*, client_postgres_pool: any, email: str, mobile: str, config_otp_length: int) -> int:

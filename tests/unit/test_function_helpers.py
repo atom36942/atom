@@ -75,6 +75,21 @@ async def test_token_encode_filters_payload_and_sets_token_types():
 
 
 @pytest.mark.asyncio
+async def test_token_encode_accepts_numeric_looking_secret_as_string():
+    tokens = await func_token_encode(
+        user={"id": 7},
+        config_token_secret_key=123456,
+        config_token_expiry_sec=60,
+        config_token_refresh_expiry_sec=120,
+        config_token_key=["id"],
+    )
+
+    access = jwt.decode(tokens["token"], "123456", algorithms="HS256")
+
+    assert orjson.loads(access["data"]) == {"id": 7}
+
+
+@pytest.mark.asyncio
 async def test_producer_rejects_missing_or_unknown_queue():
     common = {
         "client_celery_producer": None,

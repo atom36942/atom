@@ -5,15 +5,15 @@ config_postgres_min_connection = 5
 config_postgres_max_connection = 20
 
 # System
+config_root_user_password = None
+config_token_secret_key = None
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_postgres_init_startup = 1
-config_is_enable_background_workers = 1
 config_is_enable_user_delete = 1
-config_root_user_password = "123456"
-config_token_secret_key = "atom-development-token-secret-key-32b"
 config_is_enable_signup = 1
 config_allowed_auth_types = [1]
 config_is_enable_reset_tmp = 0
+config_is_enable_background_workers = 1
 
 # Redis
 config_redis_url = None
@@ -89,7 +89,7 @@ config_token_key = ["id", "type", "role", "deactivated_at", "deleted_at", "id_ex
 config_google_login_client_id = None
 
 # HTML
-config_is_enable_index_html = 0
+config_is_enable_index_html = 1
 config_index_html_path = "core/api.html"
 
 # API
@@ -147,7 +147,7 @@ config_table = {
 
 config_regex = {
 "username": ["^(?=.{3,20}$)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?$", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
-"password": ["^\\S{6,30}$", "Password must be 6-30 characters and contain no spaces"],
+"password": ["^\\S{4,30}$", "Password must be 6-30 characters and contain no spaces"],
 }
 
 config_api = {
