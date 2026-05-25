@@ -29,7 +29,7 @@ from core.config import (
 BASE_COLUMNS = {
     "id", "created_at", "created_by_id", "updated_at", "updated_by_id",
     "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id",
-    "verified_at", "verified_by_id", "job_id", "resume_url", "status",
+    "verified_at", "verified_by_id", "job_id", "resume_url", "video_url", "status",
     "worker_status", "worker_last_error", "metadata",
     "worker_retry_count", "worker_next_retry_at", "worker_processed_at"
 }

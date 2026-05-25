@@ -460,6 +460,7 @@ config_postgres = {
 {"name":"mobile","datatype":"text","index":"btree(mobile)"},
 {"name":"college","datatype":"text"},
 {"name":"resume_url","datatype":"text"},
+{"name":"video_url","datatype":"text"},
 {"name":"skills","datatype":"text[]","index":"gin(skills)"},
 {"name":"experience","datatype":"numeric(4,1)","index":"btree(experience)"},
 {"name":"company_current","datatype":"text"},
