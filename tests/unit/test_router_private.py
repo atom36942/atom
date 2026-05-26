@@ -17,6 +17,7 @@ class FakeS3:
     def __init__(self):
         self.put_calls = []
         self.presigned_calls = []
+        self.presigned_url_calls = []
 
     async def put_object(self, **kwargs):
         self.put_calls.append(kwargs)
@@ -28,6 +29,10 @@ class FakeS3:
             "url": f"https://{kwargs['Bucket']}.s3.test/{kwargs['Key']}",
             "fields": {"key": kwargs["Key"], "policy": "policy", "signature": "signature"},
         }
+        
+    def generate_presigned_url(self, ClientMethod, Params, ExpiresIn):
+        self.presigned_url_calls.append({"ClientMethod": ClientMethod, "Params": Params, "ExpiresIn": ExpiresIn})
+        return f"https://{Params['Bucket']}.s3.test/{Params['Key']}?sig=fake"
 
 
 class FakeAzureBlobClient:
@@ -86,6 +91,7 @@ def private_client(private_test_client, monkeypatch):
         "config_blob_limit_kb": test_client.app.state.config_blob_limit_kb,
         "config_blob_upload_limit_count": test_client.app.state.config_blob_upload_limit_count,
         "config_upload_url_expire_sec": test_client.app.state.config_upload_url_expire_sec,
+        "config_preview_url_expire_sec": getattr(test_client.app.state, "config_preview_url_expire_sec", 360000),
         "config_s3_region_name": test_client.app.state.config_s3_region_name,
         "config_azure_account_name": test_client.app.state.config_azure_account_name,
         "config_azure_account_key": test_client.app.state.config_azure_account_key,
@@ -99,13 +105,25 @@ def private_client(private_test_client, monkeypatch):
 
     fake_generate_blob_sas.calls = []
 
+    def fake_generate_container_sas(**kwargs):
+        fake_generate_container_sas.calls.append(kwargs)
+        return "fake-container-sas"
+        
+    fake_generate_container_sas.calls = []
+
     class FakeBlobSasPermissions:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            
+    class FakeContainerSasPermissions:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
     fake_blob_module = types.SimpleNamespace(
         generate_blob_sas=fake_generate_blob_sas,
+        generate_container_sas=fake_generate_container_sas,
         BlobSasPermissions=FakeBlobSasPermissions,
+        ContainerSasPermissions=FakeContainerSasPermissions,
     )
     monkeypatch.setitem(sys.modules, "azure", types.SimpleNamespace())
     monkeypatch.setitem(sys.modules, "azure.storage", types.SimpleNamespace())
@@ -117,16 +135,20 @@ def private_client(private_test_client, monkeypatch):
     test_client.app.state.config_blob_limit_kb = 1
     test_client.app.state.config_blob_upload_limit_count = 2
     test_client.app.state.config_upload_url_expire_sec = 60
+    test_client.app.state.config_preview_url_expire_sec = 120
     test_client.app.state.config_s3_region_name = "us-test-1"
     test_client.app.state.config_azure_account_name = "acct"
     test_client.app.state.config_azure_account_key = "account-key"
     test_client.app.state.config_is_enable_log_api = 0
     test_client.app.state.fake_generate_blob_sas = fake_generate_blob_sas
+    test_client.app.state.fake_generate_container_sas = fake_generate_container_sas
     try:
         yield test_client
     finally:
         if hasattr(test_client.app.state, "fake_generate_blob_sas"):
             delattr(test_client.app.state, "fake_generate_blob_sas")
+        if hasattr(test_client.app.state, "fake_generate_container_sas"):
+            delattr(test_client.app.state, "fake_generate_container_sas")
         for key, value in originals.items():
             setattr(test_client.app.state, key, value)
 
@@ -249,3 +271,67 @@ def test_private_blob_upload_url_rejects_too_many(private_client):
 
     assert response.status_code == 400
     assert response.json() == {"status": 0, "message": "maximum 2 allowed"}
+
+def test_private_blob_container_sas(private_client):
+    response = private_client.get(
+        "/private/blob-container-sas?service=azure&container=images",
+        headers=bearer_token(private_client.app.state),
+    )
+    
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == 1
+    assert body["message"]["sas_token"] == "fake-container-sas"
+    assert body["message"]["expiry_sec"] == 120
+    
+    call = private_client.app.state.fake_generate_container_sas.calls[0]
+    assert call["container_name"] == "images"
+    assert call["account_name"] == "acct"
+    assert call["permission"].kwargs == {"read": True}
+
+def test_private_blob_preview_urls_s3(private_client):
+    response = private_client.post(
+        "/private/blob-preview-urls",
+        json={
+            "service": "s3", 
+            "urls": ["https://uploads.s3.amazonaws.com/folder/file.png"]
+        },
+        headers=bearer_token(private_client.app.state),
+    )
+    
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == 1
+    
+    original_url = "https://uploads.s3.amazonaws.com/folder/file.png"
+    assert original_url in body["message"]
+    assert body["message"][original_url] == "https://uploads.s3.test/folder/file.png?sig=fake"
+    
+    call = private_client.app.state.client_s3.presigned_url_calls[0]
+    assert call["ClientMethod"] == "get_object"
+    assert call["Params"] == {"Bucket": "uploads", "Key": "folder/file.png"}
+    assert call["ExpiresIn"] == 120
+
+def test_private_blob_preview_urls_azure(private_client):
+    response = private_client.post(
+        "/private/blob-preview-urls",
+        json={
+            "service": "azure", 
+            "urls": ["https://acct.blob.core.windows.net/images/docs/contract.pdf"]
+        },
+        headers=bearer_token(private_client.app.state),
+    )
+    
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == 1
+    
+    original_url = "https://acct.blob.core.windows.net/images/docs/contract.pdf"
+    assert original_url in body["message"]
+    assert body["message"][original_url] == "https://acct.blob.core.windows.net/images/docs/contract.pdf?fake-sas-token"
+    
+    call = private_client.app.state.fake_generate_blob_sas.calls[0]
+    assert call["account_name"] == "acct"
+    assert call["container_name"] == "images"
+    assert call["blob_name"] == "docs/contract.pdf"
+    assert call["permission"].kwargs == {"read": True}

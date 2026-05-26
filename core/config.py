@@ -53,6 +53,7 @@ config_blob_container_default = "test"
 config_blob_limit_kb = 300
 config_blob_upload_limit_count = 100
 config_upload_url_expire_sec = 3600
+config_preview_url_expire_sec = 360000
 
 # SFTP
 config_sftp_host = None

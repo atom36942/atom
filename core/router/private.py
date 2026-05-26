@@ -6,6 +6,7 @@ router = APIRouter()
 from fastapi import Request
 import uuid
 from datetime import datetime, timedelta, timezone
+from azure.storage.blob import generate_blob_sas, generate_container_sas, BlobSasPermissions, ContainerSasPermissions
 
 # api
 @router.post("/private/blob-upload-file")
@@ -48,7 +49,6 @@ async def func_api_private_blob_upload_url(request:Request):
             file_url = f"https://{container}.s3.{app_state.config_s3_region_name}.amazonaws.com/{file_key}"
             output.append({"upload_url": presigned_post["url"], **presigned_post["fields"], "file_url": file_url}); blob_list.append({"created_by_id": request.state.user["id"], "type": 2, "service": oq["service"], "container": container, "blob_key": file_key, "file_url": file_url})
     elif oq["service"] == "azure":
-        from azure.storage.blob import generate_blob_sas, BlobSasPermissions
         for _ in range(oq["count"]):
             file_key = f"{uuid.uuid4().hex}.bin"
             sas_token = generate_blob_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, blob_name=file_key, permission=BlobSasPermissions(write=True, create=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_upload_url_expire_sec))
@@ -56,4 +56,31 @@ async def func_api_private_blob_upload_url(request:Request):
             file_url = f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}"
             output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url}); blob_list.append({"created_by_id": request.state.user["id"], "type": 2, "service": oq["service"], "container": container, "blob_key": file_key, "file_url": file_url})
     if blob_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, config_buffer_limit=app_state.config_buffer_limit, mode="now", table="blob", obj_list=blob_list)
+    return {"status":1,"message":output}
+
+@router.post("/private/blob-container-sas")
+async def func_api_private_blob_container_sas(request:Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, ["azure"], None), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    container = oq["container"]
+    if oq["service"] == "azure":
+        sas_token = generate_container_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, permission=ContainerSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_preview_url_expire_sec))
+        return {"status":1,"message":{"sas_token": sas_token, "expiry_sec": app_state.config_preview_url_expire_sec}}
+
+@router.post("/private/blob-preview-urls")
+async def func_api_private_blob_preview_urls(request:Request):
+    app_state = request.app.state
+    of = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("urls", "list", 1, None, None)])
+    output = {}
+    if of["service"] == "s3":
+        for file_url in of["urls"]:
+            dynamic_container = file_url.split("://")[1].split(".s3")[0]
+            file_key = file_url.split(".amazonaws.com/")[1].split("?")[0]
+            url = app_state.client_s3.generate_presigned_url(ClientMethod='get_object', Params={'Bucket': dynamic_container, 'Key': file_key}, ExpiresIn=app_state.config_preview_url_expire_sec)
+            output[file_url] = url
+    elif of["service"] == "azure":
+        for file_url in of["urls"]:
+            dynamic_container, file_key = file_url.split(".net/")[1].split("?")[0].split("/", 1)
+            sas_token = generate_blob_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=dynamic_container, blob_name=file_key, permission=BlobSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_preview_url_expire_sec))
+            output[file_url] = f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{dynamic_container}/{file_key}?{sas_token}"
     return {"status":1,"message":output}
