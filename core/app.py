@@ -112,6 +112,7 @@ app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=Non
 
 # state pre-population (ensures func_* are available even before lifespan)
 [setattr(app.state, k, v) for k, v in globals().items() if k.startswith(("func_", "config_"))]
+if app.state.config_is_enable_regex_check != 1: app.state.config_regex = {}
 
 # router
 import os

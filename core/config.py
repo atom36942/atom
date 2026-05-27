@@ -11,6 +11,7 @@ config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_postgres_init_startup = 1
 config_is_enable_user_delete = 1
 config_is_enable_signup = 1
+config_is_enable_regex_check = 0
 config_allowed_auth_types = [1]
 config_is_enable_reset_tmp = 0
 config_is_enable_background_workers = 1
