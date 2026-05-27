@@ -17,7 +17,7 @@ async def func_api_auth_signup_username_password(*, request:Request):
     if app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
     if ob["type"] not in app_state.config_allowed_auth_types: raise Exception(f"authentication type {ob['type']} not allowed")
     async with app_state.client_postgres_pool.acquire() as conn:
-        user = dict((await conn.fetch("INSERT INTO users (type, username, password) VALUES ($1, $2, $3) RETURNING *;", ob["type"], ob["username"].strip().lower(), app_state.client_password_hasher.hash(str(ob["password"]))))[0])
+        user = dict((await conn.fetch("INSERT INTO users (type, username, password) VALUES ($1, $2, $3) RETURNING *;", ob["type"], ob["username"], app_state.client_password_hasher.hash(str(ob["password"]))))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
 
