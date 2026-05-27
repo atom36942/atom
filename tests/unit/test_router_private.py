@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.app import app
+import core.router.private as private_router
 
 
 class FakeS3:
@@ -96,6 +97,7 @@ def private_client(private_test_client, monkeypatch):
         "config_azure_account_name": test_client.app.state.config_azure_account_name,
         "config_azure_account_key": test_client.app.state.config_azure_account_key,
         "config_is_enable_log_api": test_client.app.state.config_is_enable_log_api,
+        "func_postgres_create": test_client.app.state.func_postgres_create,
     }
 
 
@@ -140,8 +142,24 @@ def private_client(private_test_client, monkeypatch):
     test_client.app.state.config_azure_account_name = "acct"
     test_client.app.state.config_azure_account_key = "account-key"
     test_client.app.state.config_is_enable_log_api = 0
+
+    async def fake_postgres_create(**kwargs):
+        return [1 for _ in kwargs.get("obj_list", [])]
+
+    test_client.app.state.func_postgres_create = fake_postgres_create
     test_client.app.state.fake_generate_blob_sas = fake_generate_blob_sas
     test_client.app.state.fake_generate_container_sas = fake_generate_container_sas
+    monkeypatch.setattr(private_router, "generate_blob_sas", fake_generate_blob_sas)
+    monkeypatch.setattr(private_router, "generate_container_sas", fake_generate_container_sas)
+    monkeypatch.setattr(private_router, "BlobSasPermissions", FakeBlobSasPermissions)
+    monkeypatch.setattr(private_router, "ContainerSasPermissions", FakeContainerSasPermissions)
+    for route in test_client.app.routes:
+        endpoint_globals = getattr(getattr(route, "endpoint", None), "__globals__", None)
+        if endpoint_globals and endpoint_globals.get("__name__") == "core.router.private":
+            monkeypatch.setitem(endpoint_globals, "generate_blob_sas", fake_generate_blob_sas)
+            monkeypatch.setitem(endpoint_globals, "generate_container_sas", fake_generate_container_sas)
+            monkeypatch.setitem(endpoint_globals, "BlobSasPermissions", FakeBlobSasPermissions)
+            monkeypatch.setitem(endpoint_globals, "ContainerSasPermissions", FakeContainerSasPermissions)
     try:
         yield test_client
     finally:
@@ -273,7 +291,7 @@ def test_private_blob_upload_url_rejects_too_many(private_client):
     assert response.json() == {"status": 0, "message": "maximum 2 allowed"}
 
 def test_private_blob_container_sas(private_client):
-    response = private_client.get(
+    response = private_client.post(
         "/private/blob-container-sas?service=azure&container=images",
         headers=bearer_token(private_client.app.state),
     )

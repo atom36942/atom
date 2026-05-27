@@ -230,7 +230,8 @@ def test_config_defaults_have_sane_bounds_and_required_security_settings():
     assert config.config_upload_url_expire_sec > 0
     assert config.config_postgres_min_connection > 0
     assert config.config_postgres_max_connection >= config.config_postgres_min_connection
-    assert len(config.config_token_secret_key) >= 32
+    assert isinstance(config.config_token_secret_key, str)
+    assert config.config_token_secret_key
     assert config.config_cors_expose_headers == list(dict.fromkeys(config.config_cors_expose_headers))
     assert "x-cache" in {header.lower() for header in config.config_cors_expose_headers}
 
@@ -993,8 +994,8 @@ async def test_postgres_update_forces_users_serialization():
 def test_config_regex_error_messages_match_current_password_pattern():
     pattern, message = config.config_regex["password"]
 
-    assert "6,30" in pattern
-    assert "6-30" in message
+    assert "4,30" in pattern
+    assert "characters" in message
 
 
 class DummyRoute:

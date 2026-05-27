@@ -25,12 +25,12 @@ def test_index_returns_configured_html(client):
 
 
 def test_index_returns_welcome_when_html_path_disabled(client):
-    original_path = client.app.state.config_index_html_path
-    client.app.state.config_index_html_path = None
+    original_flag = client.app.state.config_is_enable_index_html
+    client.app.state.config_is_enable_index_html = 0
     try:
         response = client.get("/")
     finally:
-        client.app.state.config_index_html_path = original_path
+        client.app.state.config_is_enable_index_html = original_flag
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "welcome to atom"}

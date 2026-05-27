@@ -24,10 +24,11 @@ def worker_test_config():
                 {"name": "user_id", "datatype": "bigint", "is_mandatory": 1},
                 {"name": "event", "datatype": "smallint", "is_mandatory": 1},
                 {"name": "status", "datatype": "smallint", "default": 1},
-                {"name": "retry_count", "datatype": "integer", "default": 0},
-                {"name": "next_retry_at", "datatype": "timestamptz", "default": "now()"},
-                {"name": "processed_at", "datatype": "timestamptz"},
-                {"name": "last_error", "datatype": "text"},
+                {"name": "worker_status", "datatype": "smallint", "default": 1},
+                {"name": "worker_retry_count", "datatype": "integer", "default": 0},
+                {"name": "worker_next_retry_at", "datatype": "timestamptz", "default": "now()"},
+                {"name": "worker_processed_at", "datatype": "timestamptz"},
+                {"name": "worker_last_error", "datatype": "text"},
             ],
             "owned_doc": [
                 {"name": "id", "datatype": "bigserial", "is_primary": 1},
@@ -72,7 +73,7 @@ async def test_users_delete_worker_processes_events_and_retention():
                       (11, 11, false, 'other owner')
                     """
                 )
-                await conn.execute("INSERT INTO log_users_delete (user_id, event, status) VALUES (10, 1, 1)")
+                await conn.execute("INSERT INTO log_users_delete (user_id, event, worker_status) VALUES (10, 1, 1)")
 
             processed = await func_users_delete_worker_once(pool)
             assert processed == 1
@@ -83,9 +84,9 @@ async def test_users_delete_worker_processes_events_and_retention():
                 assert rows[1]["deleted_at"] is not None
                 assert rows[2]["deleted_at"] is None
                 assert rows[3]["deleted_at"] is None
-                assert await conn.fetchval("SELECT status FROM log_users_delete WHERE event = 1") == 3
+                assert await conn.fetchval("SELECT worker_status FROM log_users_delete WHERE event = 1") == 3
 
-                await conn.execute("INSERT INTO log_users_delete (user_id, event, status) VALUES (10, 2, 1)")
+                await conn.execute("INSERT INTO log_users_delete (user_id, event, worker_status) VALUES (10, 2, 1)")
 
             processed = await func_users_delete_worker_once(pool)
             assert processed == 1
@@ -95,7 +96,7 @@ async def test_users_delete_worker_processes_events_and_retention():
                     "SELECT COUNT(*) FROM owned_doc WHERE title IN ('created owner', 'user owner') AND deleted_at IS NULL"
                 )
                 assert restored[0]["count"] == 2
-                assert await conn.fetchval("SELECT status FROM log_users_delete WHERE event = 2") == 3
+                assert await conn.fetchval("SELECT worker_status FROM log_users_delete WHERE event = 2") == 3
 
                 await conn.execute(
                     """

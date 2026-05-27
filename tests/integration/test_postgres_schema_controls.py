@@ -52,17 +52,21 @@ def minimal_control_config(control):
                 {"name": "deactivated_at", "datatype": "smallint"},
 
                 {"name": "deleted_at", "datatype": "timestamptz"},
+                {"name": "deleted_by_id", "datatype": "bigint"},
                 {"name": "updated_at", "datatype": "timestamptz"},
+                {"name": "updated_by_id", "datatype": "bigint"},
                 {"name": "is_protected", "datatype": "boolean"},
             ],
             "log_users_password": [
                 {"name": "id", "datatype": "bigserial", "is_primary": 1},
+                {"name": "created_by_id", "datatype": "bigint"},
                 {"name": "user_id", "datatype": "bigint"},
                 {"name": "password", "datatype": "text"},
             ],
             "log_users_delete": [
                 {"name": "id", "datatype": "bigserial", "is_primary": 1},
                 {"name": "created_at", "datatype": "timestamptz", "default": "now()"},
+                {"name": "created_by_id", "datatype": "bigint"},
                 {"name": "user_id", "datatype": "bigint"},
                 {"name": "event", "datatype": "smallint"},
                 {"name": "status", "datatype": "smallint", "default": 1},

@@ -239,7 +239,7 @@ def control_pg_config(control=None, users_columns=None, demo_columns=None, exten
             "users": users_columns,
             "demo": demo_columns,
         },
-        "control": control or {},
+        "control": {"is_enable_users_root_upsert": 0, **(control or {})},
     }
     if extension is not None:
         pg_config["extension"] = extension
