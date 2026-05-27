@@ -88,6 +88,7 @@ def private_client(private_test_client, monkeypatch):
     originals = {
         "client_s3": test_client.app.state.client_s3,
         "client_azure_blob": test_client.app.state.client_azure_blob,
+        "config_allowed_blob_services": test_client.app.state.config_allowed_blob_services,
         "config_blob_container_default": test_client.app.state.config_blob_container_default,
         "config_blob_limit_kb": test_client.app.state.config_blob_limit_kb,
         "config_blob_upload_limit_count": test_client.app.state.config_blob_upload_limit_count,
@@ -133,6 +134,7 @@ def private_client(private_test_client, monkeypatch):
 
     test_client.app.state.client_s3 = FakeS3()
     test_client.app.state.client_azure_blob = FakeAzureBlobService()
+    test_client.app.state.config_allowed_blob_services = ["s3", "azure"]
     test_client.app.state.config_blob_container_default = "default-container"
     test_client.app.state.config_blob_limit_kb = 1
     test_client.app.state.config_blob_upload_limit_count = 2
@@ -289,6 +291,20 @@ def test_private_blob_upload_url_rejects_too_many(private_client):
 
     assert response.status_code == 400
     assert response.json() == {"status": 0, "message": "maximum 2 allowed"}
+
+
+def test_private_blob_upload_url_rejects_service_not_allowed(private_client):
+    private_client.app.state.config_allowed_blob_services = ["s3"]
+
+    response = private_client.post(
+        "/private/blob-upload-url?service=azure&count=1",
+        headers=bearer_token(private_client.app.state),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["status"] == 0
+    assert "value not allowed" in response.json()["message"]
+
 
 def test_private_blob_container_sas(private_client):
     response = private_client.post(

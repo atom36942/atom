@@ -1439,12 +1439,11 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
             records = await conn.fetch(sql_delete, *values)
     return len(records)
 
-async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
+async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict, config_allowed_queue_services: list) -> any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
     import orjson
     if not queue: raise Exception("invalid queue format: queue missing")
-    allowed_queue = ["redis", "rabbitmq", "kafka", "celery"]
-    if queue not in allowed_queue: raise Exception(f"invalid queue: {queue}. allowed: {allowed_queue}")
+    if queue not in config_allowed_queue_services: raise Exception(f"invalid queue: {queue}. allowed: {config_allowed_queue_services}")
     if queue == "celery":
         if not client_celery_producer: raise Exception("celery producer not initialized")
         return client_celery_producer.send_task(channel, kwargs=payload, queue=channel).id

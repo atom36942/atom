@@ -146,11 +146,12 @@ def public_client(public_test_client, monkeypatch):
         "client_ses": test_client.app.state.client_ses,
         "client_sns": test_client.app.state.client_sns,
         "config_is_enable_log_api": test_client.app.state.config_is_enable_log_api,
+        "config_allowed_email_services": test_client.app.state.config_allowed_email_services,
+        "config_allowed_mobile_services": test_client.app.state.config_allowed_mobile_services,
         "config_resend_url": test_client.app.state.config_resend_url,
         "config_resend_key": test_client.app.state.config_resend_key,
         "config_fast2sms_url": test_client.app.state.config_fast2sms_url,
         "config_fast2sms_key": test_client.app.state.config_fast2sms_key,
-        "config_email_sender_default": test_client.app.state.config_email_sender_default,
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "cache_postgres_column_list": test_client.app.state.cache_postgres_column_list,
         "cache_api_response": test_client.app.state.cache_api_response,
@@ -173,11 +174,12 @@ def public_client(public_test_client, monkeypatch):
     test_client.app.state.client_ses = FakeSes()
     test_client.app.state.client_sns = FakeSns()
     test_client.app.state.config_is_enable_log_api = 0
+    test_client.app.state.config_allowed_email_services = ["ses", "resend"]
+    test_client.app.state.config_allowed_mobile_services = ["sns", "fast2sms"]
     test_client.app.state.config_resend_url = "https://resend.test/emails"
     test_client.app.state.config_resend_key = "resend-key"
     test_client.app.state.config_fast2sms_url = "https://fast2sms.test/send"
     test_client.app.state.config_fast2sms_key = "fast2sms-key"
-    test_client.app.state.config_email_sender_default = "sender@example.com"
     test_client.app.state.cache_postgres_table_list = ["test", "post", "users"]
     test_client.app.state.cache_postgres_column_list = ["id", "type", "tag", "category", "created_by_id"]
     test_client.app.state.cache_api_response = {}
@@ -321,7 +323,7 @@ def test_public_object_read_allows_all_tables_when_wildcard_set(public_client):
 def test_public_otp_verify_email_uses_seeded_otp(public_client):
     public_client.app.state.client_postgres_pool.conn.seed_otp(otp=123456, email="otp@example.com")
 
-    response = public_client.get("/public/otp-verify-email?email=otp@example.com&otp=123456")
+    response = public_client.get("/public/otp-verify?type=email&value=otp@example.com&otp=123456")
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "done"}
@@ -330,13 +332,13 @@ def test_public_otp_verify_email_uses_seeded_otp(public_client):
 def test_public_otp_verify_mobile_rejects_invalid_otp(public_client):
     public_client.app.state.client_postgres_pool.conn.seed_otp(otp=123456, mobile="+15550101111")
 
-    response = public_client.get("/public/otp-verify-mobile?mobile=%2B15550101111&otp=999999")
+    response = public_client.get("/public/otp-verify?type=mobile&value=%2B15550101111&otp=999999")
 
     assert response.status_code == 400
     assert response.json() == {"status": 0, "message": "invalid otp code"}
 
 
-def test_public_otp_send_email_ses_generates_otp_and_calls_ses(public_client):
+def test_public_otp_send_email_service_ses_generates_otp_and_calls_ses(public_client):
     async def fake_generate(**kwargs):
         assert kwargs["email"] == "to@example.com"
         assert kwargs["mobile"] is None
@@ -345,7 +347,7 @@ def test_public_otp_send_email_ses_generates_otp_and_calls_ses(public_client):
 
     public_client.app.state.func_otp_generate = fake_generate
 
-    response = public_client.post("/public/otp-send-email-ses?email=to@example.com")
+    response = public_client.post("/public/otp-send-email?service=ses&email=to@example.com&sender=sender@example.com")
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "done"}
@@ -355,14 +357,14 @@ def test_public_otp_send_email_ses_generates_otp_and_calls_ses(public_client):
     assert call["Message"]["Body"]["Html"]["Data"] == "111222"
 
 
-def test_public_otp_send_email_resend_posts_payload(public_client):
+def test_public_otp_send_email_service_resend_posts_payload(public_client):
     async def fake_generate(**_kwargs):
         return 333444
 
     public_client.app.state.func_otp_generate = fake_generate
 
     response = public_client.post(
-        "/public/otp-send-email-resend?email=to@example.com&sender=custom@example.com"
+        "/public/otp-send-email?service=resend&email=to@example.com&sender=custom@example.com"
     )
 
     assert response.status_code == 200
@@ -374,20 +376,30 @@ def test_public_otp_send_email_resend_posts_payload(public_client):
     assert "custom@example.com" in kwargs["data"]
 
 
-def test_public_otp_send_email_resend_reports_provider_error(public_client):
+def test_public_otp_send_email_service_resend_reports_provider_error(public_client):
     async def fake_generate(**_kwargs):
         return 333444
 
     public_client.app.state.func_otp_generate = fake_generate
     FakeAsyncClient.response = FakeHttpResponse(status_code=500, text="provider down")
 
-    response = public_client.post("/public/otp-send-email-resend?email=to@example.com")
+    response = public_client.post("/public/otp-send-email?service=resend&email=to@example.com&sender=sender@example.com")
 
     assert response.status_code == 400
     assert response.json() == {"status": 0, "message": "failed to send email: provider down"}
 
 
-def test_public_otp_send_mobile_sns_calls_publish(public_client):
+def test_public_otp_send_email_rejects_service_not_allowed(public_client):
+    public_client.app.state.config_allowed_email_services = ["ses"]
+
+    response = public_client.post("/public/otp-send-email?service=resend&email=to@example.com&sender=sender@example.com")
+
+    assert response.status_code == 400
+    assert response.json()["status"] == 0
+    assert "value not allowed" in response.json()["message"]
+
+
+def test_public_otp_send_mobile_service_sns_calls_publish(public_client):
     async def fake_generate(**kwargs):
         assert kwargs["email"] is None
         assert kwargs["mobile"] == "+15550101111"
@@ -395,7 +407,7 @@ def test_public_otp_send_mobile_sns_calls_publish(public_client):
 
     public_client.app.state.func_otp_generate = fake_generate
 
-    response = public_client.post("/public/otp-send-mobile-sns?mobile=%2B15550101111")
+    response = public_client.post("/public/otp-send-mobile?service=sns&mobile=%2B15550101111")
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": "done"}
@@ -430,14 +442,14 @@ def test_public_otp_send_mobile_sns_template_replaces_otp(public_client):
     assert call["MessageAttributes"]["AWS.MM.SMS.EntityId"]["StringValue"] == "entity-1"
 
 
-def test_public_otp_send_mobile_fast2sms_returns_provider_json(public_client):
+def test_public_otp_send_mobile_service_fast2sms_returns_provider_json(public_client):
     async def fake_generate(**_kwargs):
         return 999000
 
     public_client.app.state.func_otp_generate = fake_generate
     FakeAsyncClient.response = FakeHttpResponse(payload={"return": True, "request_id": "fast-id"})
 
-    response = public_client.post("/public/otp-send-mobile-fast2sms?mobile=15550101111")
+    response = public_client.post("/public/otp-send-mobile?service=fast2sms&mobile=15550101111")
 
     assert response.status_code == 200
     assert response.json() == {"status": 1, "message": {"return": True, "request_id": "fast-id"}}
@@ -449,6 +461,16 @@ def test_public_otp_send_mobile_fast2sms_returns_provider_json(public_client):
         "variables_values": "999000",
         "numbers": "15550101111",
     }
+
+
+def test_public_otp_send_mobile_rejects_service_not_allowed(public_client):
+    public_client.app.state.config_allowed_mobile_services = ["sns"]
+
+    response = public_client.post("/public/otp-send-mobile?service=fast2sms&mobile=15550101111")
+
+    assert response.status_code == 400
+    assert response.json()["status"] == 0
+    assert "value not allowed" in response.json()["message"]
 
 
 def test_public_jira_worklog_export_streams_csv(public_client, monkeypatch):

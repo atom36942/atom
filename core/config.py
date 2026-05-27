@@ -17,6 +17,14 @@ config_is_enable_background_workers = 1
 config_is_enable_traceback = 1
 config_is_enable_log_api = 1
 
+# Services
+config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
+config_allowed_blob_services = ["s3", "azure"]
+config_allowed_email_services = ["ses", "resend"]
+config_allowed_mobile_services = ["sns", "fast2sms"]
+config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
+config_allowed_api_storage_backends = ["redis", "inmemory"]
+
 # Redis
 config_redis_url = None
 config_redis_cache_ttl_sec = 3600
@@ -26,7 +34,6 @@ config_mongodb_url = None
 config_mssql_url = None
 
 # Queue
-config_queue = ["redis", "rabbitmq", "kafka", "celery"]
 config_redis_queue_url = None
 config_celery_url = None
 config_kafka_url = None
@@ -68,7 +75,6 @@ config_fast2sms_url = None
 config_fast2sms_key = None
 config_resend_url = None
 config_resend_key = None
-config_email_sender_default = "atom@atom.com"
 
 # AI Providers
 config_openai_key = None
@@ -126,10 +132,6 @@ config_table_read_enable_public = ["*"]
 config_sensitive_table = ["users", "spatial_ref_sys", "geometry_columns", "geography_columns", "raster_columns", "raster_overviews"]
 config_admin_columns = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id", "deleted_by_id", "deactivated_by_id", "archived_by_id"]
 config_column_enable_single_update = ["username", "password", "email", "mobile", "deleted_at"]
-
-# Storage Backends
-config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
-config_allowed_api_storage_backends = ["redis", "inmemory"]
 
 # Dict
 config_sql = {

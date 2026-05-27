@@ -228,6 +228,7 @@ def my_client(my_test_client):
         "client_postgres_pool": test_client.app.state.client_postgres_pool,
         "client_mongodb": test_client.app.state.client_mongodb,
         "config_is_enable_log_api": test_client.app.state.config_is_enable_log_api,
+        "config_allowed_queue_services": test_client.app.state.config_allowed_queue_services,
         "config_sql": test_client.app.state.config_sql,
         "cache_postgres_table_list": test_client.app.state.cache_postgres_table_list,
         "cache_postgres_column_list": test_client.app.state.cache_postgres_column_list,
@@ -245,6 +246,7 @@ def my_client(my_test_client):
     test_client.app.state.client_postgres_pool = InMemoryMyPool()
     test_client.app.state.client_mongodb = FakeMongo()
     test_client.app.state.config_is_enable_log_api = 0
+    test_client.app.state.config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
     test_client.app.state.config_is_enable_user_delete = 1
     test_client.app.state.config_sql = {"profile_metadata": {"test_count": "profile-test-count"}}
     test_client.app.state.cache_postgres_table_list = ["test", "users", "message", "parent", "child"]
@@ -455,6 +457,20 @@ def test_my_object_create_passes_authenticated_user_to_postgres_create(my_client
     assert response.json() == {"status": 1, "message": [101]}
     assert calls["table"] == "test"
     assert calls["obj_list"] == [{"title": "one", "created_by_id": 10}]
+
+
+def test_my_object_create_rejects_queue_service_not_allowed(my_client, auth_headers):
+    my_client.app.state.config_allowed_queue_services = ["redis"]
+
+    response = my_client.post(
+        "/my/object-create?table=test&mode=now&queue=kafka",
+        headers=auth_headers,
+        json={"obj_list": [{"title": "one"}]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["status"] == 0
+    assert "value not allowed" in response.json()["message"]
 
 
 def test_my_object_create_rejects_disabled_table_at_api(my_client, auth_headers):

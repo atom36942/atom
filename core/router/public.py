@@ -61,45 +61,41 @@ async def func_api_public_converter_number(*, request: Request):
             decoded_chars.append(charset[reminder])
         return {"status": 1, "message": "".join(decoded_chars[::-1][1:]) if decoded_chars else ""}
 
-@router.get("/public/otp-verify-email")
-async def func_api_public_otp_verify_email(*, request: Request):
+@router.get("/public/otp-verify")
+async def func_api_public_otp_verify(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("otp", "int", 1, None, None), ("email", "str", 1, None, None)])
-    return {"status": 1, "message": await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=oq["email"], mobile=None, config_expiry_sec_otp=app_state.config_expiry_sec_otp)}
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("type", "str", 1, ["email", "mobile"], None), ("value", "str", 1, None, None), ("otp", "int", 1, None, None)])
+    return {"status": 1, "message": await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=oq["value"] if oq["type"] == "email" else None, mobile=oq["value"] if oq["type"] == "mobile" else None, config_expiry_sec_otp=app_state.config_expiry_sec_otp)}
 
-@router.get("/public/otp-verify-mobile")
-async def func_api_public_otp_verify_mobile(*, request: Request):
+@router.post("/public/otp-send-email")
+async def func_api_public_otp_send_email(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("otp", "int", 1, None, None), ("mobile", "str", 1, None, None)])
-    return {"status": 1, "message": await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], mobile=oq["mobile"], email=None, config_expiry_sec_otp=app_state.config_expiry_sec_otp)}
-
-@router.post("/public/otp-send-email-ses")
-async def func_api_public_otp_send_email_ses(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("email", "str", 1, None, None), ("sender", "str", 0, None, app_state.config_email_sender_default)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_email_services, None), ("email", "str", 1, None, None), ("sender", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None, config_otp_length=app_state.config_otp_length)
-    app_state.client_ses.send_email(Source=oq["sender"], Destination={"ToAddresses": [oq["email"]]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
+    if oq["service"] == "ses":
+        app_state.client_ses.send_email(Source=oq["sender"], Destination={"ToAddresses": [oq["email"]]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
+    if oq["service"] == "resend":
+        headers = {"Authorization": f"Bearer {app_state.config_resend_key}", "Content-Type": "application/json"}
+        payload = {"from": oq["sender"], "to": [oq["email"]], "subject": "your otp code", "html": f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>"}
+        async with httpx.AsyncClient() as client:
+            response = await client.post(app_state.config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
+            if response.status_code != 200: raise Exception(f"failed to send email: {response.text}")
     return {"status": 1, "message": "done"}
 
-@router.post("/public/otp-send-email-resend")
-async def func_api_public_otp_send_email_resend(*, request: Request):
+@router.post("/public/otp-send-mobile")
+async def func_api_public_otp_send_mobile(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("email", "str", 1, None, None), ("sender", "str", 0, None, app_state.config_email_sender_default)])
-    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None, config_otp_length=app_state.config_otp_length)
-    headers = {"Authorization": f"Bearer {app_state.config_resend_key}", "Content-Type": "application/json"}
-    payload = {"from": oq["sender"], "to": [oq["email"]], "subject": "your otp code", "html": f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>"}
-    async with httpx.AsyncClient() as client:
-        response = await client.post(app_state.config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
-        if response.status_code != 200: raise Exception(f"failed to send email: {response.text}")
-    return {"status": 1, "message": "done"}
-
-@router.post("/public/otp-send-mobile-sns")
-async def func_api_public_otp_send_mobile_sns(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mobile", "str", 1, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_mobile_services, None), ("mobile", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=oq["mobile"], email=None, config_otp_length=app_state.config_otp_length)
-    app_state.client_sns.publish(PhoneNumber=oq["mobile"], Message=str(otp))
-    return {"status": 1, "message": "done"}
+    message = "done"
+    if oq["service"] == "sns":
+        app_state.client_sns.publish(PhoneNumber=oq["mobile"], Message=str(otp))
+    if oq["service"] == "fast2sms":
+        params={"authorization": app_state.config_fast2sms_key, "route": "otp", "variables_values": str(otp), "numbers": oq["mobile"]}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(app_state.config_fast2sms_url, params=params)
+            message = response.json()
+    return {"status": 1, "message": message}
 
 @router.post("/public/otp-send-mobile-sns-template")
 async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
@@ -108,16 +104,6 @@ async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=ob["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     app_state.client_sns.publish(PhoneNumber=ob["mobile"], Message=ob["message"].replace("{otp}", str(otp)), MessageAttributes={"AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": ob["sender_id"]}, "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": ob["template_id"]}, "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": ob["entity_id"]}, "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}})
     return {"status": 1, "message": "done"}
-
-@router.post("/public/otp-send-mobile-fast2sms")
-async def func_api_public_otp_send_mobile_fast2sms(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mobile", "str", 1, None, None)])
-    otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, mobile=oq["mobile"], email=None, config_otp_length=app_state.config_otp_length)
-    params={"authorization": app_state.config_fast2sms_key, "route": "otp", "variables_values": str(otp), "numbers": oq["mobile"]}
-    async with httpx.AsyncClient() as client:
-        response = await client.get(app_state.config_fast2sms_url, params=params)
-        return {"status": 1, "message": response.json()}
 
 @router.post("/public/jira-worklog-export")
 async def func_api_public_jira_worklog_export(*, request: Request):

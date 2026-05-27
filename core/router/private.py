@@ -12,7 +12,7 @@ from azure.storage.blob import generate_blob_sas, generate_container_sas, BlobSa
 @router.post("/private/blob-upload-file")
 async def func_api_private_blob_upload_file(request:Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("file", "file", 1, None, None), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("file", "file", 1, None, None), ("container", "str", 0, None, app_state.config_blob_container_default)])
     container = of["container"]
     if len(of["file"]) > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} files allowed")
     output = {}; blob_list = []
@@ -38,7 +38,7 @@ async def func_api_private_blob_upload_file(request:Request):
 @router.post("/private/blob-upload-url")
 async def func_api_private_blob_upload_url(request:Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("count", "int", 0, None, 1), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("count", "int", 0, None, 1), ("container", "str", 0, None, app_state.config_blob_container_default)])
     container = oq["container"]
     if oq["count"] > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} allowed")
     output = []; blob_list = []
@@ -61,7 +61,7 @@ async def func_api_private_blob_upload_url(request:Request):
 @router.post("/private/blob-container-sas")
 async def func_api_private_blob_container_sas(request:Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, ["azure"], None), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, [service for service in app_state.config_allowed_blob_services if service == "azure"], None), ("container", "str", 0, None, app_state.config_blob_container_default)])
     container = oq["container"]
     if oq["service"] == "azure":
         sas_token = generate_container_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, permission=ContainerSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_preview_url_expire_sec))
@@ -70,7 +70,7 @@ async def func_api_private_blob_container_sas(request:Request):
 @router.post("/private/blob-preview-urls")
 async def func_api_private_blob_preview_urls(request:Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, ["s3", "azure"], None), ("urls", "list", 1, None, None)])
+    of = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("urls", "list", 1, None, None)])
     output = {}
     if of["service"] == "s3":
         for file_url in of["urls"]:

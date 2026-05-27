@@ -226,6 +226,7 @@ def admin_client(admin_test_client):
         "client_azure_blob": test_client.app.state.client_azure_blob,
         "client_mongodb": test_client.app.state.client_mongodb,
         "config_is_enable_log_api": test_client.app.state.config_is_enable_log_api,
+        "config_allowed_blob_services": test_client.app.state.config_allowed_blob_services,
         "config_is_enable_traceback": test_client.app.state.config_is_enable_traceback,
         "config_redis_cache_ttl_sec": test_client.app.state.config_redis_cache_ttl_sec,
         "config_obj_list_limit": test_client.app.state.config_obj_list_limit,
@@ -248,6 +249,7 @@ def admin_client(admin_test_client):
     test_client.app.state.client_azure_blob = FakeAzureAdmin()
     test_client.app.state.client_mongodb = FakeMongo()
     test_client.app.state.config_is_enable_log_api = 0
+    test_client.app.state.config_allowed_blob_services = ["s3", "azure"]
     test_client.app.state.config_is_enable_traceback = 0
     test_client.app.state.config_redis_cache_ttl_sec = 60
     test_client.app.state.config_is_enable_user_delete = 1

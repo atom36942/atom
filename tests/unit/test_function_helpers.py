@@ -100,6 +100,7 @@ async def test_producer_rejects_missing_or_unknown_queue():
         "client_redis_producer": None,
         "channel": "jobs",
         "payload": {"id": 1},
+        "config_allowed_queue_services": ["redis", "rabbitmq", "kafka", "celery"],
     }
 
     with pytest.raises(Exception, match="queue missing"):
@@ -129,6 +130,7 @@ async def test_producer_dispatches_to_redis_as_json_string():
         client_redis_producer=producer,
         channel="postgres-create",
         payload={"table": "test", "obj_list": [{"id": 1}]},
+        config_allowed_queue_services=["redis", "rabbitmq", "kafka", "celery"],
     )
 
     assert result == 1
