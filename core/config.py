@@ -17,13 +17,16 @@ config_is_enable_background_workers = 1
 config_is_enable_traceback = 1
 config_is_enable_log_api = 1
 
-# Services
+# Allowed
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
 config_allowed_blob_services = ["s3", "azure"]
 config_allowed_email_services = ["ses", "resend"]
 config_allowed_mobile_services = ["sns", "fast2sms"]
 config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
 config_allowed_api_storage_backends = ["redis", "inmemory"]
+config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
+config_allowed_api_namespace_auth = ["/my/", "/private/", "/admin/"]
+config_allowed_api_namespace_user = ["/my/"]
 
 # Redis
 config_redis_url = None
@@ -98,11 +101,6 @@ config_google_login_client_id = None
 # HTML
 config_is_enable_index_html = 1
 config_index_html_path = "core/api.html"
-
-# API
-config_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
-config_api_namespace_auth = ["/my/", "/private/", "/admin/"]
-config_api_namespace_user = ["/my/"]
 
 # CORS
 config_cors_origin = ["*"]

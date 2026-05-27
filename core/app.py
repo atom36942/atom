@@ -12,7 +12,7 @@ async def func_lifespan(app:"FastAPI"):
         import time
         start_journey = time.perf_counter()
         # check
-        app.state.func_check(app_routes=app.routes, config_config_path="core/config.py", config_function_path="core/function.py", config_api_namespace=app.state.config_api_namespace, config_router_path="core/router", config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres)
+        app.state.func_check(app_routes=app.routes, config_config_path="core/config.py", config_function_path="core/function.py", config_allowed_api_namespace=app.state.config_allowed_api_namespace, config_router_path="core/router", config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres)
         # structure
         import os
         for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
@@ -61,7 +61,7 @@ async def func_lifespan(app:"FastAPI"):
         # app state add
         [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
         # openapi spec
-        app.state.cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, config_api_namespace_auth=app.state.config_api_namespace_auth, app_state=app.state)
+        app.state.cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, config_allowed_api_namespace_auth=app.state.config_allowed_api_namespace_auth, app_state=app.state)
         # postgres buffer flush loop
         async def pulse_flush():
             while True:
@@ -134,13 +134,13 @@ async def middleware(request, api_function):
     start, error, response_type, request.state.user = time.perf_counter(), None, 1, {}
     app_state = request.app.state
     try:
-        request.state.user = await app_state.func_middleware_check_auth(headers=request.headers, url_path=request.url.path, config_token_secret_key=app_state.config_token_secret_key, config_api_namespace_auth=app_state.config_api_namespace_auth)
+        request.state.user = await app_state.func_middleware_check_auth(headers=request.headers, url_path=request.url.path, config_token_secret_key=app_state.config_token_secret_key, config_allowed_api_namespace_auth=app_state.config_allowed_api_namespace_auth)
         await app_state.func_middleware_check_user_role(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis, config_api=app_state.config_api, url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
         user_id, path, query_params = (request.state.user.get("id") if request.state.user else 0), request.url.path, dict(request.query_params)
-        response = await app_state.func_middleware_api_cache_get(path=path, query_params=query_params, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_api_namespace_user=app_state.config_api_namespace_user)
+        response = await app_state.func_middleware_api_cache_get(path=path, query_params=query_params, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_allowed_api_namespace_user=app_state.config_allowed_api_namespace_user)
         if not response:
             if query_params.get("is_background") == "1":
                 response_type = 3
@@ -148,7 +148,7 @@ async def middleware(request, api_function):
             else:
                 response = await api_function(request)
                 if (cache_cfg := app_state.config_api.get(path, {}).get("api_cache_sec")) and cache_cfg[1] > 0: response_type = 4
-                response = await app_state.func_middleware_api_cache_set(path=path, query_params=query_params, response=response, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_api_namespace_user=app_state.config_api_namespace_user)
+                response = await app_state.func_middleware_api_cache_set(path=path, query_params=query_params, response=response, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_allowed_api_namespace_user=app_state.config_allowed_api_namespace_user)
         else:
             response_type = 2
     except Exception as e:

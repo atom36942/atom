@@ -182,9 +182,9 @@ def test_config_api_paths_modes_ids_and_admin_roles_match_app_routes():
 
 
 def test_config_namespaces_are_normalized_and_auth_scopes_are_nested():
-    namespaces = config.config_api_namespace
-    auth_namespaces = config.config_api_namespace_auth
-    user_namespaces = config.config_api_namespace_user
+    namespaces = config.config_allowed_api_namespace
+    auth_namespaces = config.config_allowed_api_namespace_auth
+    user_namespaces = config.config_allowed_api_namespace_user
 
     assert len(namespaces) == len(set(namespaces))
     assert all(item.startswith("/") and item.endswith("/") for item in namespaces)
@@ -291,8 +291,8 @@ async def test_config_api_cache_inmemory_sets_and_hits_cached_response():
     app.state.client_redis = None
     app.state.cache_api_response = cache
     app.state.config_is_enable_log_api = 0
-    app.state.config_api_namespace_user = []
-    app.state.config_api_namespace_auth = []
+    app.state.config_allowed_api_namespace_user = []
+    app.state.config_allowed_api_namespace_auth = []
 
     first = await middleware(
         request=make_request("/cached", query_string=b"a=1", app=app),
@@ -324,8 +324,8 @@ async def test_config_api_cache_redis_sets_and_hits_cached_response():
     app.state.client_redis = redis
     app.state.cache_api_response = {}
     app.state.config_is_enable_log_api = 0
-    app.state.config_api_namespace_user = []
-    app.state.config_api_namespace_auth = []
+    app.state.config_allowed_api_namespace_user = []
+    app.state.config_allowed_api_namespace_auth = []
 
     first = await middleware(
         request=make_request("/cached", app=app),
@@ -354,8 +354,8 @@ async def test_config_api_cache_empty_or_missing_mode_is_off():
         cache = {"existing": "untouched"}
         response = responses.JSONResponse({"status": 1})
 
-        assert await func_middleware_api_cache_get(path="/cached", query_params={}, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_api_namespace_user=[]) is None
-        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_api_namespace_user=[])
+        assert await func_middleware_api_cache_get(path="/cached", query_params={}, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[]) is None
+        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
 
         assert returned is response
         assert cache == {"existing": "untouched"}
@@ -370,7 +370,7 @@ async def test_config_api_cache_non_positive_ttl_is_off():
         cache = {}
         response = responses.JSONResponse({"status": 1})
 
-        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_api_namespace_user=[])
+        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
 
         assert returned is response
         assert cache == {}
@@ -1010,7 +1010,7 @@ def test_func_check_allows_empty_modes_for_optional_config_api_settings():
         app_routes=[DummyRoute("/public/disabled-empty"), DummyRoute("/public/disabled-none")],
         config_config_path=None,
         config_function_path=None,
-        config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
+        config_allowed_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
         config_router_path=None,
         config_api={
             "/public/disabled-empty": {
@@ -1046,7 +1046,7 @@ def test_func_check_requires_valid_admin_user_role_check():
             app_routes=[admin_route],
             config_config_path=None,
             config_function_path=None,
-            config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
+            config_allowed_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
             config_router_path=None,
             config_api=config_api,
             config_allowed_user_storage_backends=["redis", "realtime", "inmemory", "token"],
@@ -1081,7 +1081,7 @@ def test_func_check_routing_namespace_rules():
         app_routes=valid_routes,
         config_config_path=None,
         config_function_path=None,
-        config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
+        config_allowed_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
         config_router_path=None,
         config_api={},
         config_allowed_user_storage_backends=[],
@@ -1098,7 +1098,7 @@ def test_func_check_routing_namespace_rules():
             app_routes=invalid_routes,
             config_config_path=None,
             config_function_path=None,
-            config_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
+            config_allowed_api_namespace=["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"],
             config_router_path=None,
             config_api={},
             config_allowed_user_storage_backends=[],

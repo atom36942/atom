@@ -23,7 +23,7 @@ async def test_middleware_check_auth_decodes_bearer_token_for_protected_route():
         headers={"Authorization": f"Bearer {token}"},
         url_path="/my/profile",
         config_token_secret_key=secret,
-        config_api_namespace_auth=["/my/"],
+        config_allowed_api_namespace_auth=["/my/"],
     )
 
     assert user == payload
@@ -35,7 +35,7 @@ async def test_middleware_check_auth_allows_public_route_without_token():
         headers={},
         url_path="/public/object-read",
         config_token_secret_key="test-secret",
-        config_api_namespace_auth=["/my/", "/private/", "/admin/"],
+        config_allowed_api_namespace_auth=["/my/", "/private/", "/admin/"],
     )
 
     assert user == {}
@@ -48,7 +48,7 @@ async def test_middleware_check_auth_rejects_protected_route_without_token():
             headers={},
             url_path="/private/blob-upload-file",
             config_token_secret_key="test-secret",
-            config_api_namespace_auth=["/private/"],
+            config_allowed_api_namespace_auth=["/private/"],
         )
 
 

@@ -67,9 +67,9 @@ def setup_app_state_placeholders():
         if not hasattr(app.state, _k): setattr(app.state, _k, None)
     app.state._test_default_config = {
         "config_api": copy.deepcopy(config.config_api),
-        "config_api_namespace": copy.deepcopy(config.config_api_namespace),
-        "config_api_namespace_auth": copy.deepcopy(config.config_api_namespace_auth),
-        "config_api_namespace_user": copy.deepcopy(config.config_api_namespace_user),
+        "config_allowed_api_namespace": copy.deepcopy(config.config_allowed_api_namespace),
+        "config_allowed_api_namespace_auth": copy.deepcopy(config.config_allowed_api_namespace_auth),
+        "config_allowed_api_namespace_user": copy.deepcopy(config.config_allowed_api_namespace_user),
     }
 
 # This fixture starts the databases once for the entire test session
@@ -168,9 +168,9 @@ async def integration_app(db_containers):
         "config_is_enable_log_api": 0, # Disabled for tests to avoid contention
         "config_is_enable_traceback": 0, # Disabled to keep console clean for expected failures
         "config_api": copy.deepcopy(app.state.config_api),
-        "config_api_namespace": copy.deepcopy(app.state.config_api_namespace),
-        "config_api_namespace_auth": copy.deepcopy(app.state.config_api_namespace_auth),
-        "config_api_namespace_user": copy.deepcopy(app.state.config_api_namespace_user),
+        "config_allowed_api_namespace": copy.deepcopy(app.state.config_allowed_api_namespace),
+        "config_allowed_api_namespace_auth": copy.deepcopy(app.state.config_allowed_api_namespace_auth),
+        "config_allowed_api_namespace_user": copy.deepcopy(app.state.config_allowed_api_namespace_user),
     }
     
     # 2. Initialize Real Clients

@@ -26,7 +26,7 @@ def test_func_openapi_spec_generate_basic():
     
     spec = func_openapi_spec_generate(
         app_routes=app_routes,
-        config_api_namespace_auth=["/my/"],
+        config_allowed_api_namespace_auth=["/my/"],
         app_state=app_state
     )
     
@@ -61,7 +61,7 @@ def item_create(request):
     with patch("inspect.getsource", return_value=source_code):
         spec = func_openapi_spec_generate(
             app_routes=app_routes,
-            config_api_namespace_auth=[],
+            config_allowed_api_namespace_auth=[],
             app_state=app_state
         )
     
@@ -108,7 +108,7 @@ def ternary_read(request):
     with patch("inspect.getsource", return_value=source_code):
         spec = func_openapi_spec_generate(
             app_routes=app_routes,
-            config_api_namespace_auth=[],
+            config_allowed_api_namespace_auth=[],
             app_state=app_state
         )
     

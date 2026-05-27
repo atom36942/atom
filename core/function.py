@@ -1,4 +1,4 @@
-async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_api_namespace_auth: list) -> dict:
+async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_allowed_api_namespace_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
@@ -9,7 +9,7 @@ async def func_middleware_check_auth(*, headers: dict, url_path: str, config_tok
         user_obj = orjson.loads(decoded_payload["data"])
     else:
         user_obj = {}
-        if url_path.startswith(tuple(config_api_namespace_auth)):
+        if url_path.startswith(tuple(config_allowed_api_namespace_auth)):
             raise Exception("authorization token missing")
     return user_obj
 
@@ -163,7 +163,7 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, config_api: di
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_middleware_api_cache_get(*, path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict, config_api_namespace_user: list) -> any:
+async def func_middleware_api_cache_get(*, path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict, config_allowed_api_namespace_user: list) -> any:
     """Check for cached response in Redis or in-memory. Returns a Response object if hit, else None."""
     from fastapi import Response
     import gzip, base64, time
@@ -171,7 +171,7 @@ async def func_middleware_api_cache_get(*, path: str, query_params: dict, config
     mode = cfg[0] if isinstance(cfg, list) else cfg
     ttl = cfg[1] if isinstance(cfg, list) and len(cfg) > 1 else 0
     if not cfg or not mode or ttl <= 0: return None
-    uid = user_id if path.startswith(tuple(config_api_namespace_user)) else 0
+    uid = user_id if path.startswith(tuple(config_allowed_api_namespace_user)) else 0
     key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
     data = await client_redis.get(key) if mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
     return Response(content=gzip.decompress(base64.b64decode(data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
@@ -186,7 +186,7 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_
     resp.background = BackgroundTask(task)
     return resp
 
-async def func_middleware_api_cache_set(*, path: str, query_params: dict, response: any, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict, config_api_namespace_user: list) -> any:
+async def func_middleware_api_cache_set(*, path: str, query_params: dict, response: any, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict, config_allowed_api_namespace_user: list) -> any:
     """Compress and store the response in the configured cache (Redis or in-memory)."""
     from fastapi import Response
     import gzip, base64, time
@@ -196,7 +196,7 @@ async def func_middleware_api_cache_set(*, path: str, query_params: dict, respon
     if not cfg or not mode or ttl <= 0: return response
     body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
     comp = base64.b64encode(gzip.compress(body)).decode()
-    uid = user_id if path.startswith(tuple(config_api_namespace_user)) else 0
+    uid = user_id if path.startswith(tuple(config_allowed_api_namespace_user)) else 0
     key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
     if mode == "redis": await client_redis.setex(key, ttl, comp)
     else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
@@ -346,7 +346,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
     return output_dict
 
 
-def func_openapi_spec_generate(*, app_routes: list, config_api_namespace_auth: list, app_state: any) -> dict:
+def func_openapi_spec_generate(*, app_routes: list, config_allowed_api_namespace_auth: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
     TYPE_MAP = {
@@ -423,7 +423,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_api_namespace_auth: l
             m_lower = method.lower()
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
-            if any(path.startswith(x) for x in config_api_namespace_auth):
+            if any(path.startswith(x) for x in config_allowed_api_namespace_auth):
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
             for p in re.findall(r"\{(\w+)\}", path):
@@ -1528,7 +1528,7 @@ async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> d
     if not record: raise Exception("user not found")
     return dict(record)
 
-def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_api_namespace: list, config_router_path: str, config_api: dict, config_allowed_user_storage_backends: list, config_allowed_api_storage_backends: list, config_postgres: dict) -> None:
+def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_allowed_api_namespace: list, config_router_path: str, config_api: dict, config_allowed_user_storage_backends: list, config_allowed_api_storage_backends: list, config_postgres: dict) -> None:
     import re
     def optional_mode(mode_cfg):
         return mode_cfg[0] if isinstance(mode_cfg, list) else mode_cfg
@@ -1588,7 +1588,7 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
             route_ns = "/"
         else:
             route_ns = f"/{segments[1]}/"
-        if route_ns not in config_api_namespace:
+        if route_ns not in config_allowed_api_namespace:
             raise Exception(f"invalid route: {path}")
     for route in app_routes:
         if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
