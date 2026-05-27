@@ -275,6 +275,54 @@ def test_admin_mongodb_import_update_rejects_missing_id(admin_client):
     assert admin_client.app.state.client_mongodb.collection.updated == []
 
 
+def test_admin_sync_refreshes_config_cache_with_json_values(admin_client):
+    app_state = admin_client.app.state
+    originals = {
+        "cache_config": getattr(app_state, "cache_config", None),
+        "func_postgres_create": app_state.func_postgres_create,
+        "func_postgres_schema_read": app_state.func_postgres_schema_read,
+        "func_postgres_map_column": app_state.func_postgres_map_column,
+    }
+    calls = {}
+
+    async def fake_create(**kwargs):
+        calls["create_mode"] = kwargs["mode"]
+        return "flushed"
+
+    async def fake_schema_read(**kwargs):
+        calls["schema_pool"] = kwargs["client_postgres_pool"]
+        return {"config": {"key": {"datatype": "text"}, "value": {"datatype": "jsonb"}}}
+
+    async def fake_map_column(**kwargs):
+        calls.setdefault("map_kwargs", []).append(kwargs)
+        return {"test": "hello from db", "test_limit": 123}
+
+    try:
+        app_state.cache_config = {}
+        app_state.func_postgres_create = fake_create
+        app_state.func_postgres_schema_read = fake_schema_read
+        app_state.func_postgres_map_column = fake_map_column
+
+        response = admin_client.get("/admin/sync", headers=bearer_token(app_state))
+
+        assert response.status_code == 200
+        assert response.json() == {"status": 1, "message": "done"}
+        assert app_state.cache_config == {"test": "hello from db", "test_limit": 123}
+        assert calls["create_mode"] == "flush"
+        assert calls["schema_pool"] is app_state.client_postgres_pool
+        assert {
+            "client_postgres_pool": app_state.client_postgres_pool,
+            "config_sql": app_state.config_sql.get("config"),
+            "is_json_value": 1,
+        } in calls["map_kwargs"]
+    finally:
+        for key, value in originals.items():
+            if key == "cache_config" and value is None:
+                app_state._state.pop(key, None)
+            else:
+                setattr(app_state, key, value)
+
+
 def test_admin_mongodb_import_delete_rejects_empty_id(admin_client):
     response = admin_client.post(
         "/admin/mongodb-import",

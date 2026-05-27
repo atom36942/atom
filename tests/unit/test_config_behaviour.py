@@ -17,6 +17,7 @@ from core.function import (
     func_middleware_check_user_deleted,
     func_middleware_check_user_role,
     func_postgres_create,
+    func_postgres_map_column,
     func_postgres_update,
     func_regex_check,
 )
@@ -63,6 +64,24 @@ class FakeUserConn:
 class FakeUserPool:
     def __init__(self, *, role=1, deactivated_at=None, deleted_at=None):
         self.conn = FakeUserConn(role=role, deactivated_at=deactivated_at, deleted_at=deleted_at)
+
+    def acquire(self):
+        return FakeAcquire(self.conn)
+
+
+class FakeMapConn:
+    def __init__(self, rows):
+        self.rows = rows
+        self.fetch_calls = []
+
+    async def fetch(self, sql):
+        self.fetch_calls.append(sql)
+        return self.rows
+
+
+class FakeMapPool:
+    def __init__(self, rows):
+        self.conn = FakeMapConn(rows)
 
     def acquire(self):
         return FakeAcquire(self.conn)
@@ -222,14 +241,38 @@ def test_config_sql_queries_match_required_cache_and_profile_schema():
         for table, columns in config.config_postgres["table"].items()
     }
 
-    assert {"users_role", "users_deactivated", "profile_metadata"} <= set(config.config_sql)
+    assert {"config", "users_role", "users_deactivated", "profile_metadata"} <= set(config.config_sql)
+    assert {"id", "key", "value"} <= table_columns["config"]
     assert {"id", "role", "deactivated_at"} <= table_columns["users"]
     assert {"id", "created_by_id"} <= table_columns["test"]
+    assert config.config_sql["config"].lower() == "select key,value from config order by id asc limit 1000"
     assert isinstance(config.config_sql["profile_metadata"], dict)
     assert set(config.config_sql["profile_metadata"]) == {"test_count", "test_object"}
     assert "from users" in config.config_sql["users_role"].lower()
     assert "from users" in config.config_sql["users_deactivated"].lower()
     assert all("created_by_id=$1" in query for query in config.config_sql["profile_metadata"].values())
+
+
+@pytest.mark.asyncio
+async def test_postgres_map_column_decodes_json_values_for_config_cache():
+    pool = FakeMapPool([
+        ("test", '"hello from db"'),
+        ("test_limit", "123"),
+        ("features", '{"resume_parser": true}'),
+    ])
+
+    output = await func_postgres_map_column(
+        client_postgres_pool=pool,
+        config_sql=config.config_sql["config"],
+        is_json_value=1,
+    )
+
+    assert output == {
+        "test": "hello from db",
+        "test_limit": 123,
+        "features": {"resume_parser": True},
+    }
+    assert pool.conn.fetch_calls == [config.config_sql["config"]]
 
 
 @pytest.mark.asyncio

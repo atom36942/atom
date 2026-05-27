@@ -548,12 +548,19 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
         schema.setdefault(r["table_name"], {})[r["column_name"]] = {"datatype": r["data_type"], "is_nullable": r["is_nullable"], "default": r["column_default"]}
     return schema
 
-async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str) -> dict:
+async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str, is_json_value: int = 0) -> dict:
     """Execute a mapping SQL query and return a dictionary from the first two columns."""
     if not config_sql: return {}
     async with client_postgres_pool.acquire() as conn:
         rows = await conn.fetch(config_sql)
-    return {r[0]: r[1] for r in rows}
+    if is_json_value != 1: return {r[0]: r[1] for r in rows}
+    import orjson
+    output = {}
+    for r in rows:
+        value = r[1]
+        if isinstance(value, (str, bytes, bytearray)): value = orjson.loads(value)
+        output[r[0]] = value
+    return output
 
 async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_root_user_password: str) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""

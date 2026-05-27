@@ -133,6 +133,7 @@ config_allowed_api_storage_backends = ["redis", "inmemory"]
 
 # Dict
 config_sql = {
+"config": "select key,value from config order by id asc limit 1000",
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_deactivated": "select id, deactivated_at from users order by id asc limit 1000",
 "users_deleted": "select id, deleted_at from users order by id asc limit 1000",
@@ -532,6 +533,11 @@ config_postgres = {
 {"name":"container","datatype":"text","is_mandatory":1},
 {"name":"blob_key","datatype":"text","is_mandatory":1,"unique":"service,container,blob_key"},
 {"name":"file_url","datatype":"text","is_mandatory":1}
+],
+"config":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"key","datatype":"text","is_mandatory":1,"unique":"key"},
+{"name":"value","datatype":"jsonb","is_mandatory":1},
 ]
 },
 "control":{

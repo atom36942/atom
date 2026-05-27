@@ -49,6 +49,7 @@ async def func_lifespan(app:"FastAPI"):
         if client_postgres_pool and app.state.config_is_enable_postgres_init_startup == 1: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=app.state.config_postgres, config_root_user_password=app.state.config_root_user_password)
         # cache init
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
+        cache_config = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_pool and "config" in cache_postgres_schema else {}
         cache_postgres_table_list = list(cache_postgres_schema.keys())
         cache_postgres_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
         cache_users_role = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_role")) if client_postgres_pool else {}
