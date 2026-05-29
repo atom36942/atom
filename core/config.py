@@ -516,8 +516,8 @@ config_postgres = {
 {"name":"duration_minutes","datatype":"integer"},
 {"name":"panel","datatype":"text[]","index":"gin(panel)"},
 {"name":"feedback","datatype":"text"},
-{"name":"remark","datatype":"text"},
 {"name":"rating","datatype":"numeric(3,1)","check":"rating >= 1 AND rating <= 10","index":"btree(rating)"},
+{"name":"remark","datatype":"text"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
