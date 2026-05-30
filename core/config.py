@@ -177,7 +177,9 @@ config_api = {
 config_column_int_mapping = {
 "gender": {1: "Male", 2: "Female", 3: "Other", 4: "Prefer not to say"},
 "employment_type": {1: "Full-time", 2: "Part-time", 3: "Contract", 4: "Internship", 5: "Freelance"},
-"department": {1: "Engineering", 2: "Human Resources", 3: "Sales", 4: "Marketing", 5: "Finance", 6: "Operations", 7: "IT", 8: "Legal", 9: "Customer Support", 10: "Product Management", 11: "Research & Development", 12: "Administration", 13: "Quality Assurance", 14: "Data & Analytics", 15: "Management", 16: "Design", 17: "Procurement"},
+"department": {
+"job": {1: "Engineering", 2: "Human Resources", 3: "Sales", 4: "Marketing", 5: "Finance", 6: "Operations", 7: "IT", 8: "Legal", 9: "Customer Support", 10: "Product Management", 11: "Research & Development", 12: "Administration", 13: "Quality Assurance", 14: "Data & Analytics", 15: "Management", 16: "Design", 17: "Procurement"},
+},
 "response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
 "method": {
 "log_api": {1: "GET", 2: "POST", 3: "PUT", 4: "PATCH", 5: "DELETE", 6: "OPTIONS", 7: "HEAD"},
@@ -429,9 +431,10 @@ config_postgres = {
 {"name":"deactivated_by_id","datatype":"bigint"},
 {"name":"verified_at","datatype":"timestamptz"},
 {"name":"verified_by_id","datatype":"bigint"},
-{"name":"country","datatype":"text","is_mandatory":0,"index":"btree(country)|gin(country)"},
-{"name":"department","datatype":"smallint","index":"btree(department)"},
 {"name":"profile","datatype":"text","index":"btree(profile)|gin(profile)"},
+{"name":"description","datatype":"text","index":"gin(description)"},
+{"name":"country","datatype":"text","index":"btree(country)|gin(country)"},
+{"name":"department","datatype":"smallint","index":"btree(department)"},
 {"name":"quantity","datatype":"integer","is_mandatory":0},
 {"name":"employment_type","datatype":"smallint","index":"btree(employment_type)"},
 {"name":"is_remote","datatype":"boolean","default":False},
@@ -443,7 +446,6 @@ config_postgres = {
 {"name":"skills","datatype":"text[]","index":"gin(skills)"},
 {"name":"closing_date","datatype":"date"},
 {"name":"location","datatype":"text","index":"btree(location)"},
-{"name":"description","datatype":"text","index":"gin(description)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
