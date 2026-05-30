@@ -5,8 +5,8 @@ import pytest
 from argon2 import PasswordHasher
 from testcontainers.postgres import PostgresContainer
 
+from core.app import app
 from core import config
-from core.function import func_postgres_schema_init
 
 
 async def fetch_control_checks(conn):
@@ -98,7 +98,7 @@ async def test_config_postgres_control_catalog_matches_core_config_defaults():
     with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
         pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
         try:
-            await func_postgres_schema_init(
+            await app.state.func_postgres_schema_init(
                 client_postgres_pool=pool,
                 client_password_hasher=PasswordHasher(),
                 config_postgres=copy.deepcopy(config.config_postgres),
@@ -138,7 +138,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
     with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
         pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
         try:
-            await func_postgres_schema_init(
+            await app.state.func_postgres_schema_init(
                 client_postgres_pool=pool,
                 client_password_hasher=PasswordHasher(),
                 config_postgres=minimal_control_config(
@@ -232,7 +232,7 @@ async def test_postgres_schema_init_users_delete_log_trigger_captures_events():
     with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
         pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
         try:
-            await func_postgres_schema_init(
+            await app.state.func_postgres_schema_init(
                 client_postgres_pool=pool,
                 client_password_hasher=PasswordHasher(),
                 config_postgres=minimal_control_config(
@@ -292,13 +292,13 @@ async def test_new_automatic_logic_control_switches_remove_managed_triggers_when
                 "is_enable_updated_at_set": 0,
             }
 
-            await func_postgres_schema_init(
+            await app.state.func_postgres_schema_init(
                 client_postgres_pool=pool,
                 client_password_hasher=PasswordHasher(),
                 config_postgres=minimal_control_config(enabled_control),
                 config_root_user_password="root-password",
             )
-            await func_postgres_schema_init(
+            await app.state.func_postgres_schema_init(
                 client_postgres_pool=pool,
                 client_password_hasher=PasswordHasher(),
                 config_postgres=minimal_control_config(disabled_control),

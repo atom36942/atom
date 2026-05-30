@@ -1,3 +1,4 @@
+from core.app import app
 import pytest
 import asyncio
 
@@ -28,10 +29,9 @@ async def test_background_consumer_flow_redis(integration_app, auth_client):
     
     # 4. Run the Consumer 'execute' logic using test infrastructure
     from core.consumer.postgres_create import execute
-    from core.function import func_postgres_schema_read
     from argon2 import PasswordHasher
     
-    cache_schema = await func_postgres_schema_read(client_postgres_pool=pool)
+    cache_schema = await app.state.func_postgres_schema_read(client_postgres_pool=pool)
     cache_buf = {}
     hasher = PasswordHasher()
     

@@ -1,16 +1,10 @@
+from core.app import app
 import time
 
 import jwt
 import orjson
 import pytest
 
-from core.function import (
-    func_api_file_to_chunks,
-    func_middleware_check_auth,
-    func_postgres_delete,
-    func_producer,
-    func_token_encode,
-)
 
 
 @pytest.mark.asyncio
@@ -19,7 +13,7 @@ async def test_middleware_check_auth_decodes_bearer_token_for_protected_route():
     payload = {"id": 42, "role": 1, "deactivated_at": None}
     token = jwt.encode({"data": orjson.dumps(payload).decode("utf-8")}, secret)
 
-    user = await func_middleware_check_auth(
+    user = await app.state.func_middleware_check_auth(
         headers={"Authorization": f"Bearer {token}"},
         url_path="/my/profile",
         config_token_secret_key=secret,
@@ -31,7 +25,7 @@ async def test_middleware_check_auth_decodes_bearer_token_for_protected_route():
 
 @pytest.mark.asyncio
 async def test_middleware_check_auth_allows_public_route_without_token():
-    user = await func_middleware_check_auth(
+    user = await app.state.func_middleware_check_auth(
         headers={},
         url_path="/public/object-read",
         config_token_secret_key="test-secret",
@@ -44,7 +38,7 @@ async def test_middleware_check_auth_allows_public_route_without_token():
 @pytest.mark.asyncio
 async def test_middleware_check_auth_rejects_protected_route_without_token():
     with pytest.raises(Exception, match="authorization token missing"):
-        await func_middleware_check_auth(
+        await app.state.func_middleware_check_auth(
             headers={},
             url_path="/private/blob-upload-file",
             config_token_secret_key="test-secret",
@@ -55,7 +49,7 @@ async def test_middleware_check_auth_rejects_protected_route_without_token():
 @pytest.mark.asyncio
 async def test_token_encode_filters_payload_and_sets_token_types():
     secret = "test-secret-with-at-least-32-bytes"
-    tokens = await func_token_encode(
+    tokens = await app.state.func_token_encode(
         user={"id": 7, "role": 1, "ignored": "nope"},
         config_token_secret_key=secret,
         config_token_expiry_sec=60,
@@ -77,7 +71,7 @@ async def test_token_encode_filters_payload_and_sets_token_types():
 @pytest.mark.asyncio
 async def test_token_encode_accepts_numeric_looking_secret_as_string():
     with pytest.warns(Warning, match="HMAC key"):
-        tokens = await func_token_encode(
+        tokens = await app.state.func_token_encode(
             user={"id": 7},
             config_token_secret_key=123456,
             config_token_expiry_sec=60,
@@ -104,10 +98,10 @@ async def test_producer_rejects_missing_or_unknown_queue():
     }
 
     with pytest.raises(Exception, match="queue missing"):
-        await func_producer(queue="", **common)
+        await app.state.func_producer(queue="", **common)
 
     with pytest.raises(Exception, match="invalid queue"):
-        await func_producer(queue="sqs", **common)
+        await app.state.func_producer(queue="sqs", **common)
 
 
 @pytest.mark.asyncio
@@ -122,7 +116,7 @@ async def test_producer_dispatches_to_redis_as_json_string():
 
     producer = FakeRedisProducer()
 
-    result = await func_producer(
+    result = await app.state.func_producer(
         queue="redis",
         client_celery_producer=None,
         client_kafka_producer=None,
@@ -147,7 +141,7 @@ async def test_api_file_to_chunks_yields_csv_rows_in_configured_batches():
 
     chunks = [
         chunk
-        async for chunk in func_api_file_to_chunks(
+        async for chunk in app.state.func_api_file_to_chunks(
             upload_file=FakeUploadFile(),
             chunk_size=2,
         )
@@ -178,7 +172,7 @@ async def test_api_file_to_chunks_streams_upload_file_object():
     upload_file = FakeUploadFile()
     chunks = [
         chunk
-        async for chunk in func_api_file_to_chunks(
+        async for chunk in app.state.func_api_file_to_chunks(
             upload_file=upload_file,
             chunk_size=1,
         )
@@ -203,7 +197,7 @@ async def test_postgres_delete_uses_created_by_id_for_ownership():
 
     conn = FakeConn()
 
-    result = await func_postgres_delete(
+    result = await app.state.func_postgres_delete(
         client_postgres_pool=None,
         client_postgres_conn=conn,
         cache_postgres_schema={
@@ -235,7 +229,7 @@ async def test_postgres_delete_rejects_users_when_hard_delete_disabled():
             raise AssertionError("delete should not execute")
 
     with pytest.raises(Exception, match="users hard delete disabled"):
-        await func_postgres_delete(
+        await app.state.func_postgres_delete(
             client_postgres_pool=None,
             client_postgres_conn=FakeConn(),
             cache_postgres_schema={"users": {"id": {"datatype": "bigint"}}},
@@ -250,7 +244,7 @@ async def test_postgres_delete_rejects_users_when_hard_delete_disabled():
 @pytest.mark.asyncio
 async def test_postgres_delete_rejects_user_scoped_table_without_created_by_id():
     with pytest.raises(Exception, match="missing created_by_id column"):
-        await func_postgres_delete(
+        await app.state.func_postgres_delete(
             client_postgres_pool=None,
             client_postgres_conn=None,
             cache_postgres_schema={
@@ -285,7 +279,7 @@ async def test_postgres_delete_rejects_invalid_delete_requests(kwargs, message):
     }
 
     with pytest.raises(Exception, match=message):
-        await func_postgres_delete(
+        await app.state.func_postgres_delete(
             client_postgres_pool=None,
             client_postgres_conn=None,
             cache_postgres_schema=schema,

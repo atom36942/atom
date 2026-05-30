@@ -1,3 +1,4 @@
+from core.app import app
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -6,7 +7,6 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.function import func_postgres_schema_read, func_postgres_serialize
 
 
 class FakeAcquire:
@@ -61,7 +61,7 @@ def schema_for(types):
     ],
 )
 async def test_postgres_serialize_casts_scalar_datatypes(datatype, raw, expected):
-    serialized = await func_postgres_serialize(
+    serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,
         cache_postgres_schema=schema_for({"value": datatype}),
@@ -76,7 +76,7 @@ async def test_postgres_serialize_casts_scalar_datatypes(datatype, raw, expected
 @pytest.mark.parametrize("datatype", ["date", "timestamp", "timestamptz", "timestamp with time zone"])
 async def test_postgres_serialize_casts_temporal_datatypes(datatype):
     raw = "2026-05-06T12:34:56+00:00" if "timestamp" in datatype or "timestamptz" in datatype else "2026-05-06"
-    serialized = await func_postgres_serialize(
+    serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,
         cache_postgres_schema=schema_for({"value": datatype}),
@@ -106,7 +106,7 @@ async def test_postgres_serialize_casts_temporal_datatypes(datatype):
     ],
 )
 async def test_postgres_serialize_casts_array_datatypes(datatype, raw, expected):
-    serialized = await func_postgres_serialize(
+    serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,
         cache_postgres_schema=schema_for({"value": datatype}),
@@ -121,7 +121,7 @@ async def test_postgres_serialize_casts_array_datatypes(datatype, raw, expected)
 @pytest.mark.parametrize("raw", ["abc", "protected", "enabled"])
 async def test_postgres_serialize_rejects_invalid_boolean_strings(raw):
     with pytest.raises(ValueError, match="invalid boolean value"):
-        await func_postgres_serialize(
+        await app.state.func_postgres_serialize(
             client_postgres_pool=None,
             client_password_hasher=None,
             cache_postgres_schema=schema_for({"value": "boolean"}),
@@ -133,7 +133,7 @@ async def test_postgres_serialize_rejects_invalid_boolean_strings(raw):
 
 async def test_postgres_serialize_rejects_invalid_boolean_array_values():
     with pytest.raises(ValueError, match="invalid boolean value"):
-        await func_postgres_serialize(
+        await app.state.func_postgres_serialize(
             client_postgres_pool=None,
             client_password_hasher=None,
             cache_postgres_schema=schema_for({"value": "boolean[]"}),
@@ -162,7 +162,7 @@ async def test_postgres_serialize_rejects_invalid_boolean_array_values():
     ],
 )
 async def test_postgres_serialize_casts_postgres_array_alias_datatypes(alias, raw, expected):
-    serialized = await func_postgres_serialize(
+    serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,
         cache_postgres_schema=schema_for({"value": alias}),
@@ -175,7 +175,7 @@ async def test_postgres_serialize_casts_postgres_array_alias_datatypes(alias, ra
 
 
 async def test_postgres_serialize_handles_json_modes_bytea_unknowns_and_passwords():
-    base_serialized = await func_postgres_serialize(
+    base_serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=FakePasswordHasher(),
         cache_postgres_schema={
@@ -191,7 +191,7 @@ async def test_postgres_serialize_handles_json_modes_bytea_unknowns_and_password
         is_base=1,
     )
     with pytest.raises(Exception, match="column 'ignored' does not exist in table 'test'"):
-        await func_postgres_serialize(
+        await app.state.func_postgres_serialize(
             client_postgres_pool=None,
             client_password_hasher=FakePasswordHasher(),
             cache_postgres_schema={
@@ -205,7 +205,7 @@ async def test_postgres_serialize_handles_json_modes_bytea_unknowns_and_password
             obj_list=[{"ignored": "drop"}],
             is_base=1,
         )
-    expanded_serialized = await func_postgres_serialize(
+    expanded_serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,
         cache_postgres_schema={"test": {"metadata": {"datatype": "jsonb"}, "payload": {"datatype": "bytea"}}},
@@ -213,7 +213,7 @@ async def test_postgres_serialize_handles_json_modes_bytea_unknowns_and_password
         obj_list=[{"metadata": "{\"role\":\"admin\"}", "payload": "abc"}],
         is_base=0,
     )
-    password_serialized = await func_postgres_serialize(
+    password_serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=FakePasswordHasher(),
         cache_postgres_schema={"users": {"password": {"datatype": "text"}}},
@@ -221,7 +221,7 @@ async def test_postgres_serialize_handles_json_modes_bytea_unknowns_and_password
         obj_list=[{"password": "secret"}],
         is_base=1,
     )
-    passthrough = await func_postgres_serialize(
+    passthrough = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,
         cache_postgres_schema={},
@@ -237,7 +237,7 @@ async def test_postgres_serialize_handles_json_modes_bytea_unknowns_and_password
 
 
 async def test_postgres_schema_read_preserves_array_element_datatype():
-    schema = await func_postgres_schema_read(
+    schema = await app.state.func_postgres_schema_read(
         client_postgres_pool=FakePool(
             [
                 {
@@ -255,7 +255,7 @@ async def test_postgres_schema_read_preserves_array_element_datatype():
 
 
 async def test_postgres_schema_read_maps_user_defined_datatype_to_udt_name():
-    schema = await func_postgres_schema_read(
+    schema = await app.state.func_postgres_schema_read(
         client_postgres_pool=FakePool(
             [
                 {
@@ -273,7 +273,7 @@ async def test_postgres_schema_read_maps_user_defined_datatype_to_udt_name():
 
 
 async def test_postgres_serialize_casts_integer_arrays_from_csv_values():
-    serialized = await func_postgres_serialize(
+    serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,
         cache_postgres_schema={"test": {"tag_int": {"datatype": "integer[]"}}},
@@ -286,7 +286,7 @@ async def test_postgres_serialize_casts_integer_arrays_from_csv_values():
 
 
 async def test_postgres_serialize_casts_postgres_array_aliases():
-    serialized = await func_postgres_serialize(
+    serialized = await app.state.func_postgres_serialize(
         client_postgres_pool=None,
         client_password_hasher=None,
         cache_postgres_schema={"test": {"tag_int": {"datatype": "_int4"}}},

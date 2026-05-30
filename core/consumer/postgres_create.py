@@ -24,7 +24,7 @@ from ..config import (
     config_buffer_limit
 )
 
-# func
+# logic
 async def setup():
     client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if config_postgres_url else None
     cache_postgres_buffer_create = {}

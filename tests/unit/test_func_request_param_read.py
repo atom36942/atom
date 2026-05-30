@@ -1,3 +1,4 @@
+from core.app import app
 import sys
 from pathlib import Path
 import pytest
@@ -5,7 +6,6 @@ from unittest.mock import MagicMock, AsyncMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.function import func_request_param_read
 
 class FakeRequest:
     def __init__(self, query_params=None, headers=None, json_data=None, form_data=None):
@@ -43,7 +43,7 @@ async def test_func_request_param_read_types():
         ("g", "int", 0, None, 999) # Default value
     ]
     
-    res = await func_request_param_read(request=req, mode="query", strict=1, config=config)
+    res = await app.state.func_request_param_read(request=req, mode="query", strict=1, config=config)
     
     assert res["a"] == 123
     assert res["b"] == 1.5
@@ -58,7 +58,7 @@ async def test_func_request_param_read_list_int():
     req = FakeRequest(query_params={"ids": "1, 2, 3"})
     config = [("ids", "list:int", 1, None, None)]
     
-    res = await func_request_param_read(request=req, mode="query", strict=1, config=config)
+    res = await app.state.func_request_param_read(request=req, mode="query", strict=1, config=config)
     assert res["ids"] == [1, 2, 3]
 
 @pytest.mark.asyncio
@@ -67,19 +67,19 @@ async def test_func_request_param_read_mandatory_missing_raises():
     config = [("missing", "int", 1, None, None)]
     
     with pytest.raises(Exception, match="parameter 'missing' missing"):
-        await func_request_param_read(request=req, mode="query", strict=1, config=config)
+        await app.state.func_request_param_read(request=req, mode="query", strict=1, config=config)
 
 @pytest.mark.asyncio
 async def test_func_request_param_read_allowed_values():
     req = FakeRequest(query_params={"mode": "fast"})
     config = [("mode", "str", 1, ["fast", "slow"], None)]
     
-    res = await func_request_param_read(request=req, mode="query", strict=1, config=config)
+    res = await app.state.func_request_param_read(request=req, mode="query", strict=1, config=config)
     assert res["mode"] == "fast"
     
     req_bad = FakeRequest(query_params={"mode": "turbo"})
     with pytest.raises(Exception, match="value not allowed"):
-        await func_request_param_read(request=req_bad, mode="query", strict=1, config=config)
+        await app.state.func_request_param_read(request=req_bad, mode="query", strict=1, config=config)
 
 @pytest.mark.asyncio
 async def test_func_request_param_read_header_fallback():
@@ -87,22 +87,22 @@ async def test_func_request_param_read_header_fallback():
     config = [("x-api-key", "str", 1, None, None)]
     
     # Mode is query, but should fallback to header if not found in query
-    res = await func_request_param_read(request=req, mode="query", strict=1, config=config)
+    res = await app.state.func_request_param_read(request=req, mode="query", strict=1, config=config)
     assert res["x-api-key"] == "secret"
 
 @pytest.mark.asyncio
 async def test_func_request_param_read_explicit_json():
     # Test JSON list in query param
     req_list = FakeRequest(query_params={"data": "[10, 20, 30]"})
-    res_list = await func_request_param_read(request=req_list, mode="query", strict=1, config=[("data", "list:int", 1, None, None)])
+    res_list = await app.state.func_request_param_read(request=req_list, mode="query", strict=1, config=[("data", "list:int", 1, None, None)])
     assert res_list["data"] == [10, 20, 30]
 
     # Test JSON dict in query param
     req_dict = FakeRequest(query_params={"data": '{"a": 1}'})
-    res_dict = await func_request_param_read(request=req_dict, mode="query", strict=1, config=[("data", "dict", 1, None, None)])
+    res_dict = await app.state.func_request_param_read(request=req_dict, mode="query", strict=1, config=[("data", "dict", 1, None, None)])
     assert res_dict["data"] == {"a": 1}
 
     # Test invalid JSON starts with [ but is broken (should now raise error)
     req_bad = FakeRequest(query_params={"data": "[1, 2"})
     with pytest.raises(Exception):
-        await func_request_param_read(request=req_bad, mode="query", strict=1, config=[("data", "list", 1, None, None)])
+        await app.state.func_request_param_read(request=req_bad, mode="query", strict=1, config=[("data", "list", 1, None, None)])

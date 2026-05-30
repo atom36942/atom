@@ -7,8 +7,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from core.app import app
 from core import config
-from core.function import func_postgres_schema_init
 
 
 class Row(dict):
@@ -268,7 +268,6 @@ def test_config_postgres_all_current_columns_have_required_keys_and_valid_refere
 
 
 def test_func_check_rejects_missing_or_invalid_postgres_column_datatype():
-    from core.function import func_check
 
     base_kwargs = {
         "app_routes": [],
@@ -289,9 +288,9 @@ def test_func_check_rejects_missing_or_invalid_postgres_column_datatype():
 
     for pg_config, message in invalid_configs:
         with pytest.raises(Exception, match=message):
-            func_check(**base_kwargs, config_postgres=pg_config)
+            app.state.func_check(**base_kwargs, config_postgres=pg_config)
 
-    func_check(**base_kwargs, config_postgres={"table": {"demo": [
+    app.state.func_check(**base_kwargs, config_postgres={"table": {"demo": [
         {"name": "title", "datatype": "text"},
         {"name": "tags", "datatype": "text[]"},
         {"name": "amount", "datatype": "numeric(10,2)"},
@@ -303,7 +302,7 @@ def test_func_check_rejects_missing_or_invalid_postgres_column_datatype():
 async def test_config_postgres_schema_init_builds_real_config_schema_and_controls():
     pool = FakeSchemaPool()
 
-    result = await func_postgres_schema_init(
+    result = await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=config.config_postgres,
@@ -363,7 +362,7 @@ async def test_config_postgres_schema_init_renames_updates_defaults_and_notnull_
         }
     )
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -408,7 +407,7 @@ async def test_config_postgres_schema_init_treats_none_and_empty_optional_column
     }
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -456,7 +455,7 @@ async def test_config_postgres_schema_init_removes_stale_indexes_constraints_and
     }
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=first_config,
@@ -471,7 +470,7 @@ async def test_config_postgres_schema_init_removes_stale_indexes_constraints_and
     assert "trigger_delete_disable_is_protected_demo" in pool.conn.triggers["demo"]
     assert "trigger_updated_at_set_demo" in pool.conn.triggers["demo"]
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=second_config,
@@ -514,7 +513,7 @@ async def test_config_postgres_schema_init_recreates_changed_index_and_constrain
     }
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=first_config,
@@ -524,7 +523,7 @@ async def test_config_postgres_schema_init_recreates_changed_index_and_constrain
     assert "idx_demo_status_btree" in pool.conn.meta["demo"]
     assert "unique_demo_code" in pool.conn.meta["demo"]
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=second_config,
@@ -556,7 +555,7 @@ async def test_config_postgres_schema_init_control_toggles_are_reflected_in_gene
     )
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -594,7 +593,7 @@ async def test_config_postgres_schema_init_accepts_legacy_disable_control_switch
     )
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -621,7 +620,7 @@ async def test_config_postgres_schema_init_accepts_legacy_disable_control_switch
 async def test_config_postgres_schema_init_extension_and_autovacuum_controls(control, extension, expected_sql, unexpected_sql):
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control, extension=extension),
@@ -648,7 +647,7 @@ async def test_config_postgres_schema_init_extension_and_autovacuum_controls(con
 async def test_config_postgres_schema_init_drop_schema_table_controls(control, expected_tags):
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control),
@@ -675,7 +674,7 @@ async def test_config_postgres_schema_init_drop_schema_table_controls(control, e
 async def test_config_postgres_schema_init_drop_column_db_guard_control(control, creates_guard):
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control),
@@ -703,7 +702,7 @@ async def test_config_postgres_schema_init_does_not_drop_omitted_columns_without
         }
     )
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -731,7 +730,7 @@ async def test_config_postgres_schema_init_drops_omitted_columns_only_when_expli
         }
     )
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -751,7 +750,7 @@ async def test_config_postgres_schema_init_rejects_conflicting_drop_column_contr
     }
 
     with pytest.raises(Exception, match="is_enable_drop_column=0 blocks is_enable_drop_column_mismatch=1"):
-        await func_postgres_schema_init(
+        await app.state.func_postgres_schema_init(
             client_postgres_pool=FakeSchemaPool(),
             client_password_hasher=FakePasswordHasher(),
             config_postgres=pg_config,
@@ -776,7 +775,7 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
             }
         )
 
-        await func_postgres_schema_init(
+        await app.state.func_postgres_schema_init(
             client_postgres_pool=pool,
             client_password_hasher=FakePasswordHasher(),
             config_postgres=pg_config,
@@ -810,7 +809,7 @@ async def test_config_postgres_schema_init_accepts_legacy_drop_column_mismatch_c
 async def test_config_postgres_schema_init_users_delete_controls_require_switches_and_columns(control, users_columns, expected, unexpected):
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control, users_columns=users_columns),
@@ -860,7 +859,7 @@ async def test_config_postgres_schema_init_users_delete_controls_require_switche
 async def test_config_postgres_schema_init_users_soft_delete_controls_require_switches_and_columns(control, users_columns, expected, unexpected):
     pool = FakeSchemaPool()
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control, users_columns=users_columns),
@@ -887,7 +886,7 @@ async def test_config_postgres_schema_init_users_soft_delete_controls_require_sw
 async def test_config_postgres_schema_init_root_user_controls(control, expected_sql, unexpected_sql, expected_trigger, unexpected_trigger):
     pool = FakeSchemaPool(triggers={"users": {"trigger_protect_root_users"}})
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control),
@@ -923,7 +922,7 @@ async def test_config_postgres_schema_init_password_log_control(control, expecte
     ]
     pool = FakeSchemaPool(triggers={"users": {"trigger_password_log_users"}})
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -960,7 +959,7 @@ async def test_config_postgres_schema_init_users_delete_log_control(control, exp
     ]
     pool = FakeSchemaPool(triggers={"users": {"trigger_log_users_delete"}})
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -986,7 +985,7 @@ async def test_config_postgres_schema_init_users_delete_log_trigger_requires_log
     )
     pool = FakeSchemaPool(triggers={"users": {"trigger_log_users_delete"}})
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=pg_config,
@@ -1022,7 +1021,7 @@ async def test_config_postgres_schema_init_table_operation_controls(control, exp
         }
     )
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=control_pg_config(control=control),
@@ -1052,7 +1051,7 @@ async def test_config_postgres_schema_init_table_operation_controls(control, exp
 )
 async def test_config_postgres_schema_init_rejects_invalid_configurations(pg_config, message):
     with pytest.raises(Exception, match=message):
-        await func_postgres_schema_init(
+        await app.state.func_postgres_schema_init(
             client_postgres_pool=FakeSchemaPool(),
             client_password_hasher=FakePasswordHasher(),
             config_postgres=pg_config,
@@ -1072,7 +1071,7 @@ async def test_config_postgres_schema_init_rejects_invalid_configurations(pg_con
 )
 async def test_config_postgres_schema_init_requires_explicit_primary_id(columns, message):
     with pytest.raises(Exception, match=message):
-        await func_postgres_schema_init(
+        await app.state.func_postgres_schema_init(
             client_postgres_pool=FakeSchemaPool(),
             client_password_hasher=FakePasswordHasher(),
             config_postgres={"table": {"demo": columns}},
@@ -1081,7 +1080,6 @@ async def test_config_postgres_schema_init_requires_explicit_primary_id(columns,
 
 
 def test_func_check_allows_owner_columns_without_soft_delete_column():
-    from core.function import func_check
 
     config_postgres = {
         "table": {
@@ -1091,7 +1089,7 @@ def test_func_check_allows_owner_columns_without_soft_delete_column():
             ]
         }
     }
-    func_check(
+    app.state.func_check(
         app_routes=[],
         config_config_path=None,
         config_function_path=None,
@@ -1126,7 +1124,7 @@ async def test_config_postgres_custom_sql_index_lifecycle():
         triggers={}
     )
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=initial_config,
@@ -1151,7 +1149,7 @@ async def test_config_postgres_custom_sql_index_lifecycle():
 
     pool.conn.queries = []
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=second_config,
@@ -1184,7 +1182,7 @@ async def test_config_postgres_nested_sql_index_lifecycle():
         triggers={}
     )
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=initial_config,
@@ -1209,7 +1207,7 @@ async def test_config_postgres_nested_sql_index_lifecycle():
 
     pool.conn.queries = []
 
-    await func_postgres_schema_init(
+    await app.state.func_postgres_schema_init(
         client_postgres_pool=pool,
         client_password_hasher=FakePasswordHasher(),
         config_postgres=second_config,
@@ -1220,7 +1218,6 @@ async def test_config_postgres_nested_sql_index_lifecycle():
 
 
 def test_func_check_validates_postgres_duplicate_columns():
-    from core.function import func_check
 
     config_fail = {
         "table": {
@@ -1232,7 +1229,7 @@ def test_func_check_validates_postgres_duplicate_columns():
         }
     }
     with pytest.raises(Exception, match="duplicate column name 'title'"):
-        func_check(
+        app.state.func_check(
             app_routes=[],
             config_config_path=None,
             config_function_path=None,

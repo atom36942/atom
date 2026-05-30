@@ -128,6 +128,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=bool(config_is_enable_sentry_default_pii))
 
 # middleware
+method_map = {v: k for k, v in config_column_int_mapping.get("method", {}).get("log_api", {}).items()}
 @app.middleware("http")
 async def middleware(request, api_function):
     import time
@@ -157,7 +158,6 @@ async def middleware(request, api_function):
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=app_state.config_is_enable_traceback, sentry_dsn=app_state.config_sentry_dsn)
     from contextlib import suppress
     if app_state.config_is_enable_log_api == 1 and (pool := app_state.client_postgres_pool):
-        method_map = {"GET": 1, "POST": 2, "PUT": 3, "PATCH": 4, "DELETE": 5, "OPTIONS": 6, "HEAD": 7}
         with suppress(Exception): await app_state.func_postgres_create(client_postgres_pool=pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": method_map.get(request.method), "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
 
