@@ -7,7 +7,7 @@ import asyncpg
 # config
 from core.config import config_postgres_url, config_sensitive_table, config_table
 
-
+# func
 def func_validate_postgres_cleaner_config():
     blocked_tables = [
         table
@@ -17,7 +17,6 @@ def func_validate_postgres_cleaner_config():
     if blocked_tables:
         raise Exception(f"postgres cleaner blocked for sensitive table(s): {', '.join(blocked_tables)}")
 
-# func
 async def func_postgres_cleaner():
     import time
     if not config_postgres_url:

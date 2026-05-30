@@ -85,7 +85,7 @@ async def func_claim_candidates(conn: asyncpg.Connection, batch_limit: int) -> l
         JOIN candidate c ON c.id = claim.id
         LEFT JOIN job j ON c.job_id = j.id
         WHERE u.id = claim.id
-        RETURNING u.id, u.resume_url, j.profile as job_title, j.description as job_description, j.skills as job_skills, j.experience_min as job_experience_min, c.worker_retry_count
+        RETURNING u.id, u.resume_url, j.profile as job_profile, j.description as job_description, j.skills as job_skills, j.experience_min as job_experience_min, j.experience_max as job_experience_max, j.is_remote as job_is_remote, j.location as job_location, c.worker_retry_count
         """,
         batch_limit,
     )
@@ -147,10 +147,13 @@ async def func_process_candidate(candidate: asyncpg.Record, client_gemini: genai
     candidate_id = candidate["id"]
     resume_url = candidate["resume_url"]
     
-    job_title = candidate["job_title"] or "General Role"
+    job_profile = candidate["job_profile"] or "General Role"
     job_description = candidate["job_description"] or "No description provided."
     job_skills = candidate["job_skills"] or []
     job_experience_min = candidate["job_experience_min"] or 0
+    job_experience_max = candidate["job_experience_max"]
+    job_is_remote = candidate["job_is_remote"]
+    job_location = candidate["job_location"] or "Not specified"
     
     # Dynamically determine file extension from URL
     parsed_url = urllib.parse.urlparse(resume_url.split('?')[0])
@@ -222,9 +225,10 @@ async def func_process_candidate(candidate: asyncpg.Record, client_gemini: genai
             You are an expert HR Technical Recruiter evaluating a candidate's resume for a specific job.
             
             JOB CONTEXT:
-            Role: {job_title}
-            Required Experience: {job_experience_min}+ years
+            Role: {job_profile}
+            Required Experience: {job_experience_min}+ years {f'(up to {job_experience_max} years)' if job_experience_max else ''}
             Required Skills: {', '.join(job_skills) if job_skills else 'Not specified'}
+            Location: {job_location} {'(Remote)' if job_is_remote else ''}
             Job Description Summary: {job_description[:500]}...
             
             INSTRUCTIONS:
