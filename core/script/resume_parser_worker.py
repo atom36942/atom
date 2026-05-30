@@ -237,9 +237,10 @@ async def func_process_candidate(candidate: asyncpg.Record, client_gemini: genai
             3. For 'company_current', extract ONLY the most recent or active employer. Do not list past companies.
             4. For 'company_past', extract all past companies and combine them as a comma-separated string (e.g. "Google, Facebook").
             5. If there are multiple colleges, combine them as a comma-separated string (e.g. "MIT, Harvard").
-            6. Evaluate how well this candidate matches the JOB CONTEXT. 
-            7. Provide an objective 'ai_rating' (1.0 to 10.0) specifically indicating their fit for THIS job.
-            8. Provide an 'ai_remark' (max 2 sentences) justifying the rating and highlighting major gaps or strong fits for THIS job.
+            6. For 'profile', extract a relevant and concise professional profile or headline for the candidate (e.g. 'Software Engineer', 'Product Manager').
+            7. Evaluate how well this candidate matches the JOB CONTEXT. 
+            8. Provide an objective 'ai_rating' (1.0 to 10.0) specifically indicating their fit for THIS job.
+            9. Provide an 'ai_remark' (max 2 sentences) justifying the rating and highlighting major gaps or strong fits for THIS job.
             """
             
             import time

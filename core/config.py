@@ -462,6 +462,7 @@ config_postgres = {
 {"name":"verified_at","datatype":"timestamptz"},
 {"name":"verified_by_id","datatype":"bigint"},
 {"name":"job_id","datatype":"bigint","is_mandatory":1,"index":"btree(job_id)"},
+{"name":"profile","datatype":"text","index":"btree(profile)|gin(profile)"},
 {"name":"name","datatype":"text","index":"btree(name)|gin(name)"},
 {"name":"email","datatype":"text","index":"btree(email)"},
 {"name":"mobile","datatype":"text","index":"btree(mobile)"},
