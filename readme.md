@@ -56,3 +56,4 @@ config_redis_queue_url=redis://localhost:6379
 # Documentation
 Detailed documentation is maintained in the `docs/` directory:
 - [Architecture Overview](docs/architecture.md)
+- [PostgreSQL Schema & Setup](docs/postgres.md)
