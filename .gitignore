@@ -8,6 +8,8 @@
 !static/**
 !tests/
 !tests/**
+!docs/
+!docs/**
 !.github/
 !.github/**
 !.vscode/

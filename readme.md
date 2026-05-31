@@ -14,9 +14,9 @@ Atom is a high-performance, developer-centric ASGI orchestrator designed for ato
 | **📊 Monitoring** | Integrated DB-level API logging and Sentry error tracking. |
 | **☁️ Cloud Native** | Out-of-the-box integrations for AWS, Azure, and Google Cloud. |
 
-# Commands
+# Deployment
 ```bash
-#Direct Deployment
+#Direct
 git clone https://github.com/atom36942/atom.git
 cd atom
 rm -rf venv
@@ -27,11 +27,14 @@ venv/bin/pip install -r requirements.txt
 venv/bin/python main.py
 venv/bin/uvicorn main:app --reload
 
-# Docker Deployment
+# Docker
 docker build -t atom .
 docker run --rm -p 8000:8000 atom
+```
 
-# Test
+# Commands
+```bash
+# Test cases
 venv/bin/pytest -s -v
 
 # Script Start
@@ -50,4 +53,6 @@ config_celery_url=redis://localhost:6379
 config_redis_queue_url=redis://localhost:6379
 ```
 
-python core/script/.py
+# Documentation
+Detailed documentation is maintained in the `docs/` directory:
+- [Architecture Overview](docs/architecture.md)
