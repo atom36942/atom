@@ -1,6 +1,6 @@
 # import
-from .config import *
 from .function import *
+from .config import *
 
 # lifespan
 from contextlib import asynccontextmanager

@@ -67,6 +67,8 @@ config_blob_limit_kb = 300
 config_blob_upload_limit_count = 100
 config_upload_url_expire_sec = 3600
 config_preview_url_expire_sec = 360000
+config_blob_purge_batch_limit = 5000
+config_blob_purge_azure_concurrency = 256
 
 # SFTP
 config_sftp_host = None

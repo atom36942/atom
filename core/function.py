@@ -1801,3 +1801,125 @@ async def func_postgres_csv_ingestion(*, csv_path: str, pg_dsn: str, table: str,
         return "done"
     finally:
         await conn.close()
+
+def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_callback: callable, execute_callback: callable):
+    import sys, asyncio, orjson, os, traceback
+    from datetime import datetime, timezone
+    from itertools import count
+    if not channel: raise Exception("channel name required")
+    _run_counter = count(1)
+    def log_failure(q, p, e):
+        os.makedirs("tmp", exist_ok=True)
+        try: payload_str = p.decode("utf-8") if isinstance(p, bytes) else p
+        except Exception: payload_str = repr(p)
+        record = {"time": datetime.now(timezone.utc).isoformat(), "queue": q, "channel": channel, "payload": payload_str, "error_type": type(e).__name__, "error": str(e), "traceback": traceback.format_exc()}
+        with open("tmp/consumer_failed_payload.jsonl", "ab") as file: file.write(orjson.dumps(record, option=orjson.OPT_APPEND_NEWLINE))
+    if queue == "celery":
+        from celery import signals, Celery
+        app = Celery("atom", broker=config_broker.get("config_celery_url"), backend=config_broker.get("config_celery_url"))
+        app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
+        setup_data, worker_loop = None, None
+        @signals.worker_process_init.connect
+        def init_worker(**kwargs):
+            nonlocal worker_loop, setup_data
+            worker_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(worker_loop)
+            setup_data = worker_loop.run_until_complete(setup_callback())
+        def run_async(*args, **kwargs):
+            n = next(_run_counter)
+            print(f"task started #{n}: {channel}", flush=True)
+            nonlocal worker_loop, setup_data
+            payload = kwargs.get("payload", {}) if "payload" in kwargs else kwargs
+            if not worker_loop:
+                worker_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(worker_loop)
+                setup_data = worker_loop.run_until_complete(setup_callback())
+            try:
+                worker_loop.run_until_complete(execute_callback(payload, *setup_data))
+                print(f"task completed #{n}: {channel}", flush=True)
+                return None
+            except Exception as e:
+                log_failure("celery", payload, e)
+                print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
+                raise
+        @app.task(name=channel)
+        def celery_task(*args, **kwargs): return run_async(*args, **kwargs)
+        app.worker_main(argv=["worker", "--loglevel=info", "-Q", channel, "-n", f"celery_{channel}@%h"])
+        return
+    async def async_runner():
+        setup_data = await setup_callback()
+        client_primary = setup_data[0]
+        semaphore = asyncio.Semaphore(config_broker.get("config_consumer_concurrency", 1))
+        async def _execute(n, p):
+            async with semaphore:
+                try:
+                    p_obj = orjson.loads(p)
+                    await execute_callback(p_obj, *setup_data)
+                    print(f"task completed #{n}: {channel}", flush=True)
+                except Exception as e:
+                    await asyncio.to_thread(log_failure, queue, p, e)
+                    print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
+        try:
+            if queue == "redis":
+                import redis.asyncio as redis
+                client = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_broker.get("config_redis_queue_url"))) if config_broker.get("config_redis_queue_url") else None
+                print(f"redis consumer started on {channel}", flush=True)
+                try:
+                    while True:
+                        msg = await client.brpop(channel, timeout=0)
+                        if msg:
+                            n = next(_run_counter)
+                            print(f"task started #{n}: {channel}", flush=True)
+                            asyncio.create_task(_execute(n, msg[1]))
+                finally:
+                    await client.aclose()
+            elif queue == "rabbitmq":
+                import aio_pika
+                conn = await aio_pika.connect_robust(config_broker.get("config_rabbitmq_url"))
+                ch = await conn.channel()
+                await ch.set_qos(prefetch_count=config_broker.get("config_consumer_concurrency", 1))
+                rq = await ch.declare_queue(channel, durable=True)
+                print(f"rabbitmq consumer started on {channel}", flush=True)
+                async def _execute_rmq(n, m):
+                    async with m.process():
+                        await _execute(n, m.body)
+                try:
+                    async with rq.iterator() as queue_iter:
+                        async for msg in queue_iter:
+                            n = next(_run_counter)
+                            print(f"task started #{n}: {channel}", flush=True)
+                            asyncio.create_task(_execute_rmq(n, msg))
+                finally:
+                    await conn.close()
+            elif queue == "kafka":
+                from aiokafka import AIOKafkaConsumer
+                if config_broker.get("config_kafka_username"):
+                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_broker.get("config_kafka_url"), group_id=config_broker.get("config_kafka_group_id"), enable_auto_commit=bool(config_broker.get("config_kafka_is_enable_auto_commit")), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_broker.get("config_kafka_username"), sasl_plain_password=config_broker.get("config_kafka_password"))
+                else:
+                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_broker.get("config_kafka_url"), group_id=config_broker.get("config_kafka_group_id"), enable_auto_commit=bool(config_broker.get("config_kafka_is_enable_auto_commit")))
+                await consumer.start()
+                print(f"kafka consumer started on {channel}", flush=True)
+                try:
+                    while True:
+                        batch = await consumer.getmany(timeout_ms=config_broker.get("config_kafka_batch_timeout_ms", 100), max_records=config_broker.get("config_kafka_batch_limit", 100))
+                        if not batch: continue
+                        for tp, messages in batch.items():
+                            tasks = []
+                            for msg in messages:
+                                n = next(_run_counter)
+                                print(f"task started #{n}: {channel}", flush=True)
+                                tasks.append(asyncio.create_task(_execute(n, msg.value)))
+                            if tasks: await asyncio.gather(*tasks)
+                            if not config_broker.get("config_kafka_is_enable_auto_commit"): await consumer.commit(tp)
+                finally:
+                    await consumer.stop()
+            else:
+                print(f"unknown queue: {queue}")
+                sys.exit(1)
+        finally:
+            if client_primary: await client_primary.close()
+    try: asyncio.run(async_runner())
+    except KeyboardInterrupt: sys.exit(0)
+    except Exception as e:
+        print(f"critical error: {str(e)}")
+        sys.exit(1)

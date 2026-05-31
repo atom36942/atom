@@ -4,7 +4,9 @@ from argon2 import PasswordHasher
 from testcontainers.postgres import PostgresContainer
 
 from core.function import func_postgres_schema_init
-from core.script.users_delete_worker import func_users_delete_worker_once
+from core.script.worker_users_delete import execute
+from unittest.mock import patch
+import asyncio
 
 
 def worker_test_config():
@@ -53,7 +55,8 @@ def worker_test_config():
 @pytest.mark.asyncio
 async def test_users_delete_worker_processes_events_and_retention():
     with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
-        pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
+        db_url = postgres.get_connection_url().replace("+psycopg2", "")
+        pool = await asyncpg.create_pool(dsn=db_url)
         try:
             await func_postgres_schema_init(
                 client_postgres_pool=pool,
@@ -61,6 +64,14 @@ async def test_users_delete_worker_processes_events_and_retention():
                 config_postgres=worker_test_config(),
                 config_root_user_password="root-password",
             )
+
+            async def run_worker_once():
+                with patch("core.script.worker_users_delete.config_postgres_url", db_url):
+                    with patch("asyncio.sleep", side_effect=asyncio.CancelledError):
+                        try:
+                            await execute()
+                        except asyncio.CancelledError:
+                            pass
 
             async with pool.acquire() as conn:
                 await conn.execute(
@@ -75,8 +86,7 @@ async def test_users_delete_worker_processes_events_and_retention():
                 )
                 await conn.execute("INSERT INTO log_users_delete (user_id, event, worker_status) VALUES (10, 1, 1)")
 
-            processed = await func_users_delete_worker_once(pool)
-            assert processed == 1
+            await run_worker_once()
 
             async with pool.acquire() as conn:
                 rows = await conn.fetch("SELECT title, deleted_at FROM owned_doc ORDER BY id")
@@ -88,8 +98,7 @@ async def test_users_delete_worker_processes_events_and_retention():
 
                 await conn.execute("INSERT INTO log_users_delete (user_id, event, worker_status) VALUES (10, 2, 1)")
 
-            processed = await func_users_delete_worker_once(pool)
-            assert processed == 1
+            await run_worker_once()
 
             async with pool.acquire() as conn:
                 restored = await conn.fetch(
@@ -107,8 +116,7 @@ async def test_users_delete_worker_processes_events_and_retention():
                     """
                 )
 
-            processed = await func_users_delete_worker_once(pool)
-            assert processed == 0
+            await run_worker_once()
 
             async with pool.acquire() as conn:
                 assert await conn.fetchval("SELECT COUNT(*) FROM owned_doc WHERE title = 'old deleted'") == 0

@@ -34,11 +34,9 @@ docker run --rm -p 8000:8000 atom
 # Test
 venv/bin/pytest -s -v
 
-# Consumer Start
-venv/bin/python -m core.consumer.<filename> [redis|rabbitmq|kafka|celery]
-
 # Script Start
 venv/bin/python -m core.script.<filename>
+venv/bin/python -m core.consumer.<filename> [redis|rabbitmq|kafka|celery]
 ```
 
 # Env
@@ -51,3 +49,5 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_celery_url=redis://localhost:6379
 config_redis_queue_url=redis://localhost:6379
 ```
+
+python core/script/.py
