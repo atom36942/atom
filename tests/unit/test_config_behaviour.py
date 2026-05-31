@@ -9,6 +9,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core import config
 from core.app import app, middleware
+from core.function import (
+    func_middleware_api_cache_get,
+    func_middleware_api_cache_set,
+    func_middleware_check_ratelimiter,
+    func_middleware_check_user_deactivated,
+    func_middleware_check_user_deleted,
+    func_middleware_check_user_role,
+    func_postgres_create,
+    func_postgres_map_column,
+    func_postgres_update,
+    func_regex_check,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -250,7 +262,7 @@ async def test_postgres_map_column_decodes_json_values_for_config_cache():
         ("features", '{"resume_parser": true}'),
     ])
 
-    output = await app.state.func_postgres_map_column(
+    output = await func_postgres_map_column(
         client_postgres_pool=pool,
         config_sql=config.config_sql["config"],
         is_json_value=1,
@@ -342,8 +354,8 @@ async def test_config_api_cache_empty_or_missing_mode_is_off():
         cache = {"existing": "untouched"}
         response = responses.JSONResponse({"status": 1})
 
-        assert await app.state.func_middleware_api_cache_get(path="/cached", query_params={}, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[]) is None
-        returned = await app.state.func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
+        assert await func_middleware_api_cache_get(path="/cached", query_params={}, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[]) is None
+        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
 
         assert returned is response
         assert cache == {"existing": "untouched"}
@@ -358,7 +370,7 @@ async def test_config_api_cache_non_positive_ttl_is_off():
         cache = {}
         response = responses.JSONResponse({"status": 1})
 
-        returned = await app.state.func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
+        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
 
         assert returned is response
         assert cache == {}
@@ -369,14 +381,14 @@ async def test_config_api_ratelimiter_inmemory_allows_until_limit_then_blocks():
     cache = {}
     cfg = {"/limited": {"api_ratelimiting_times_sec": ["inmemory", 2, 60]}}
 
-    await app.state.func_middleware_check_ratelimiter(
+    await func_middleware_check_ratelimiter(
         client_redis=None,
         config_api=cfg,
         url_path="/limited",
         identifier="user-1",
         cache_ratelimiter=cache,
     )
-    await app.state.func_middleware_check_ratelimiter(
+    await func_middleware_check_ratelimiter(
         client_redis=None,
         config_api=cfg,
         url_path="/limited",
@@ -384,7 +396,7 @@ async def test_config_api_ratelimiter_inmemory_allows_until_limit_then_blocks():
         cache_ratelimiter=cache,
     )
     with pytest.raises(Exception, match="ratelimiter exceeded"):
-        await app.state.func_middleware_check_ratelimiter(
+        await func_middleware_check_ratelimiter(
             client_redis=None,
             config_api=cfg,
             url_path="/limited",
@@ -398,7 +410,7 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
     redis = FakeRedis()
     cfg = {"/limited": {"api_ratelimiting_times_sec": ["redis", 2, 60]}}
 
-    await app.state.func_middleware_check_ratelimiter(
+    await func_middleware_check_ratelimiter(
         client_redis=redis,
         config_api=cfg,
         url_path="/limited",
@@ -410,7 +422,7 @@ async def test_config_api_ratelimiter_redis_uses_pipeline_and_blocks_on_existing
 
     redis.store["ratelimiter:/limited:user-1"] = "2"
     with pytest.raises(Exception, match="ratelimiter exceeded"):
-        await app.state.func_middleware_check_ratelimiter(
+        await func_middleware_check_ratelimiter(
             client_redis=redis,
             config_api=cfg,
             url_path="/limited",
@@ -430,7 +442,7 @@ async def test_config_api_ratelimiter_empty_or_missing_mode_is_off():
     ]:
         cache = {}
 
-        await app.state.func_middleware_check_ratelimiter(
+        await func_middleware_check_ratelimiter(
             client_redis=None,
             config_api=cfg,
             url_path="/limited",
@@ -451,7 +463,7 @@ async def test_config_api_ratelimiter_non_positive_numbers_are_off():
     ]:
         cache = {}
 
-        await app.state.func_middleware_check_ratelimiter(
+        await func_middleware_check_ratelimiter(
             client_redis=None,
             config_api=cfg,
             url_path="/limited",
@@ -475,7 +487,7 @@ async def test_config_api_ratelimiter_non_positive_numbers_are_off():
 async def test_config_api_user_role_check_all_supported_modes_allow_role_one(mode, kwargs):
     cfg = {"/admin/protected": {"user_role_check": [mode, [1]]}}
 
-    await app.state.func_middleware_check_user_role(
+    await func_middleware_check_user_role(
         user_dict=kwargs["user_dict"],
         url_path="/admin/protected",
         config_api=cfg,
@@ -491,11 +503,11 @@ async def test_config_api_user_role_check_rejects_missing_invalid_and_denied_rol
     cfg = {"/admin/protected": {"user_role_check": ["token", [1]]}}
 
     with pytest.raises(Exception, match="user role missing"):
-        await app.state.func_middleware_check_user_role(user_dict={"id": 1}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_role(user_dict={"id": 1}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
     with pytest.raises(Exception, match="invalid user role type"):
-        await app.state.func_middleware_check_user_role(user_dict={"id": 1, "role": "abc"}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_role(user_dict={"id": 1, "role": "abc"}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
     with pytest.raises(Exception, match="access denied"):
-        await app.state.func_middleware_check_user_role(user_dict={"id": 1, "role": 2}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_role(user_dict={"id": 1, "role": 2}, url_path="/admin/protected", config_api=cfg, client_postgres_pool=None, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
@@ -511,7 +523,7 @@ async def test_config_api_user_role_check_rejects_missing_invalid_and_denied_rol
 async def test_config_api_user_active_check_all_supported_modes_allow_active_user(mode, kwargs):
     cfg = {"/admin/protected": {"user_active_check": [mode, 1]}}
 
-    await app.state.func_middleware_check_user_deactivated(
+    await func_middleware_check_user_deactivated(
         user_dict=kwargs["user_dict"],
         url_path="/admin/protected",
         config_api=cfg,
@@ -528,9 +540,9 @@ async def test_config_api_user_active_check_rejects_inactive_and_can_be_disabled
     disabled_cfg = {"/admin/protected": {"user_active_check": ["token", 0]}}
 
     with pytest.raises(Exception, match="user not active"):
-        await app.state.func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
-    await app.state.func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
@@ -540,10 +552,10 @@ async def test_config_api_user_active_check_accepts_mode_only_and_empty_mode_off
     none_mode_cfg = {"/admin/protected": {"user_active_check": [None]}}
 
     with pytest.raises(Exception, match="user not active"):
-        await app.state.func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=mode_only_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=mode_only_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
-    await app.state.func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=empty_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
-    await app.state.func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=none_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=empty_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deactivated(user_dict={"id": 1, "deactivated_at": "2026-05-21"}, url_path="/admin/protected", config_api=none_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deactivated={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.parametrize("mode, kwargs", [
@@ -556,7 +568,7 @@ async def test_config_api_user_active_check_accepts_mode_only_and_empty_mode_off
 async def test_func_middleware_check_user_deleted_modes(mode, kwargs):
     """Test user_deleted_check configuration strictly applies the specified mode."""
     cfg = {"/admin/protected": {"user_deleted_check": [mode, 1]}}
-    await app.state.func_middleware_check_user_deleted(
+    await func_middleware_check_user_deleted(
         user_dict=kwargs.get("user_dict"),
         url_path="/admin/protected",
         config_api=cfg,
@@ -572,9 +584,9 @@ async def test_func_middleware_check_user_deleted_flag():
     enabled_cfg = {"/admin/protected": {"user_deleted_check": ["token", 1]}}
     disabled_cfg = {"/admin/protected": {"user_deleted_check": ["token", 0]}}
     with pytest.raises(Exception, match="user is deleted"):
-        await app.state.func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=enabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
     # Should not raise
-    await app.state.func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=disabled_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
@@ -584,23 +596,23 @@ async def test_config_api_user_deleted_check_accepts_mode_only_and_empty_mode_of
     none_mode_cfg = {"/admin/protected": {"user_deleted_check": [None]}}
 
     with pytest.raises(Exception, match="user is deleted"):
-        await app.state.func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=mode_only_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+        await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=mode_only_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
 
-    await app.state.func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=empty_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
-    await app.state.func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=none_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=empty_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
+    await func_middleware_check_user_deleted(user_dict={"id": 1, "deleted_at": "2026-05-21T12:00:00Z"}, url_path="/admin/protected", config_api=none_mode_cfg, client_postgres_pool=None, client_redis=None, cache_users_deleted={}, config_redis_cache_ttl_sec=60)
 
 
 @pytest.mark.asyncio
 async def test_config_regex_accepts_valid_username_password_and_rejects_invalid_values():
-    await app.state.func_regex_check(
+    await func_regex_check(
         config_regex=config.config_regex,
         obj_list=[{"username": "user_1", "password": "secret1"}],
     )
 
     with pytest.raises(Exception, match="Username must be"):
-        await app.state.func_regex_check(config_regex=config.config_regex, obj_list=[{"username": "BadUser"}])
+        await func_regex_check(config_regex=config.config_regex, obj_list=[{"username": "BadUser"}])
     with pytest.raises(Exception, match="Password must be"):
-        await app.state.func_regex_check(config_regex=config.config_regex, obj_list=[{"password": "bad pass"}])
+        await func_regex_check(config_regex=config.config_regex, obj_list=[{"password": "bad pass"}])
 
 
 @pytest.mark.asyncio
@@ -619,15 +631,15 @@ async def test_postgres_create_rejects_missing_or_empty_object_data():
         "config_buffer_limit": config.config_buffer_limit,
         "cache_postgres_buffer_create": {},
         "config_regex": config.config_regex,
-        "func_regex_check": app.state.func_regex_check,
+        "func_regex_check": func_regex_check,
         "config_table": config.config_table,
         "config_obj_list_limit": config.config_obj_list_limit,
     }
 
     with pytest.raises(Exception, match="object list required"):
-        await app.state.func_postgres_create(obj_list=[], cache_postgres_buffer_create=common["cache_postgres_buffer_create"], **{k: v for k, v in common.items() if k != "cache_postgres_buffer_create"})
+        await func_postgres_create(obj_list=[], cache_postgres_buffer_create=common["cache_postgres_buffer_create"], **{k: v for k, v in common.items() if k != "cache_postgres_buffer_create"})
     with pytest.raises(Exception, match="object data required"):
-        await app.state.func_postgres_create(obj_list=[{}], cache_postgres_buffer_create=common["cache_postgres_buffer_create"], **{k: v for k, v in common.items() if k != "cache_postgres_buffer_create"})
+        await func_postgres_create(obj_list=[{}], cache_postgres_buffer_create=common["cache_postgres_buffer_create"], **{k: v for k, v in common.items() if k != "cache_postgres_buffer_create"})
 
 
 @pytest.mark.asyncio
@@ -636,7 +648,7 @@ async def test_postgres_create_rejects_obj_list_over_limit():
         return kwargs["obj_list"]
 
     with pytest.raises(Exception, match="maximum 1 objects allowed"):
-        await app.state.func_postgres_create(
+        await func_postgres_create(
             client_postgres_pool=None,
             client_postgres_conn=None,
             client_password_hasher=None,
@@ -648,7 +660,7 @@ async def test_postgres_create_rejects_obj_list_over_limit():
             config_buffer_limit=0,
             cache_postgres_buffer_create={},
             config_regex=config.config_regex,
-            func_regex_check=app.state.func_regex_check,
+            func_regex_check=func_regex_check,
             config_table=config.config_table,
             config_obj_list_limit=1,
         )
@@ -678,17 +690,17 @@ async def test_postgres_create_serializes_before_buffering_and_releases_without_
         "config_buffer_limit": 2,
         "cache_postgres_buffer_create": buffer,
         "config_regex": config.config_regex,
-        "func_regex_check": app.state.func_regex_check,
+        "func_regex_check": func_regex_check,
         "config_table": config.config_table,
         "config_obj_list_limit": config.config_obj_list_limit,
     }
 
-    assert await app.state.func_postgres_create(obj_list=[{"title": "one"}], **common) == "buffered"
+    assert await func_postgres_create(obj_list=[{"title": "one"}], **common) == "buffered"
     assert len(calls) == 1
     assert calls[0]["obj_list"] == [{"title": "one"}]
     assert buffer["test|title"] == [{"title": "serialized:one"}]
 
-    assert await app.state.func_postgres_create(obj_list=[{"title": "two"}], **common) == "buffered released"
+    assert await func_postgres_create(obj_list=[{"title": "two"}], **common) == "buffered released"
     assert len(calls) == 2
     assert calls[1]["obj_list"] == [{"title": "two"}]
     assert buffer["test|title"] == []
@@ -709,14 +721,14 @@ async def test_postgres_update_rejects_missing_or_empty_object_data():
         "created_by_id": None,
         "config_obj_list_limit": config.config_obj_list_limit,
         "config_regex": config.config_regex,
-        "func_regex_check": app.state.func_regex_check,
+        "func_regex_check": func_regex_check,
         "config_table": config.config_table,
     }
 
     with pytest.raises(Exception, match="object list required"):
-        await app.state.func_postgres_update(obj_list=[], **common)
+        await func_postgres_update(obj_list=[], **common)
     with pytest.raises(Exception, match="object data required"):
-        await app.state.func_postgres_update(obj_list=[{}], **common)
+        await func_postgres_update(obj_list=[{}], **common)
 
 
 @pytest.mark.asyncio
@@ -725,7 +737,7 @@ async def test_postgres_update_rejects_obj_list_over_limit():
         return kwargs["obj_list"]
 
     with pytest.raises(Exception, match="maximum 1 objects allowed"):
-        await app.state.func_postgres_update(
+        await func_postgres_update(
             client_postgres_pool=None,
             client_postgres_conn=None,
             client_password_hasher=None,
@@ -736,7 +748,7 @@ async def test_postgres_update_rejects_obj_list_over_limit():
             created_by_id=None,
             config_obj_list_limit=1,
             config_regex=config.config_regex,
-            func_regex_check=app.state.func_regex_check,
+            func_regex_check=func_regex_check,
             config_table=config.config_table,
         )
 
@@ -755,16 +767,16 @@ async def test_postgres_update_rejects_invalid_table_or_missing_update_fields():
         "created_by_id": None,
         "config_obj_list_limit": config.config_obj_list_limit,
         "config_regex": config.config_regex,
-        "func_regex_check": app.state.func_regex_check,
+        "func_regex_check": func_regex_check,
         "config_table": config.config_table,
     }
 
     with pytest.raises(Exception, match="invalid identifier"):
-        await app.state.func_postgres_update(table="bad-table", obj_list=[{"id": 1, "title": "one"}], **common)
+        await func_postgres_update(table="bad-table", obj_list=[{"id": 1, "title": "one"}], **common)
     with pytest.raises(Exception, match="object data invalid"):
-        await app.state.func_postgres_update(table="test", obj_list=[{"id": 1, "title": "one"}, 2], **common)
+        await func_postgres_update(table="test", obj_list=[{"id": 1, "title": "one"}, 2], **common)
     with pytest.raises(Exception, match="update field required"):
-        await app.state.func_postgres_update(table="test", obj_list=[{"id": 1}], **common)
+        await func_postgres_update(table="test", obj_list=[{"id": 1}], **common)
 
 
 @pytest.mark.asyncio
@@ -773,7 +785,7 @@ async def test_postgres_update_rejects_mismatched_object_keys():
         return kwargs["obj_list"]
 
     with pytest.raises(Exception, match="object keys mismatch"):
-        await app.state.func_postgres_update(
+        await func_postgres_update(
             client_postgres_pool=None,
             client_postgres_conn=None,
             client_password_hasher=None,
@@ -784,7 +796,7 @@ async def test_postgres_update_rejects_mismatched_object_keys():
             created_by_id=None,
             config_obj_list_limit=config.config_obj_list_limit,
             config_regex=config.config_regex,
-            func_regex_check=app.state.func_regex_check,
+            func_regex_check=func_regex_check,
             config_table=config.config_table,
         )
 
@@ -805,7 +817,7 @@ async def test_postgres_update_uses_zero_created_by_id_for_owner_filter():
             return [{"id": 1}]
 
     conn = FakeConn()
-    output = await app.state.func_postgres_update(
+    output = await func_postgres_update(
         client_postgres_pool=None,
         client_postgres_conn=conn,
         client_password_hasher=None,
@@ -816,7 +828,7 @@ async def test_postgres_update_uses_zero_created_by_id_for_owner_filter():
         created_by_id=0,
         config_obj_list_limit=config.config_obj_list_limit,
         config_regex=config.config_regex,
-        func_regex_check=app.state.func_regex_check,
+        func_regex_check=func_regex_check,
         config_table=config.config_table,
     )
 
@@ -851,7 +863,7 @@ async def test_postgres_update_bulk_owner_filter_uses_correct_case_placeholders(
             return [{"id": 1}, {"id": 2}]
 
     conn = FakeConn()
-    output = await app.state.func_postgres_update(
+    output = await func_postgres_update(
         client_postgres_pool=None,
         client_postgres_conn=conn,
         client_password_hasher=None,
@@ -862,7 +874,7 @@ async def test_postgres_update_bulk_owner_filter_uses_correct_case_placeholders(
         created_by_id=10,
         config_obj_list_limit=config.config_obj_list_limit,
         config_regex=config.config_regex,
-        func_regex_check=app.state.func_regex_check,
+        func_regex_check=func_regex_check,
         config_table=config.config_table,
     )
 
@@ -878,7 +890,7 @@ async def test_postgres_update_validates_users_with_regex():
         return kwargs["obj_list"]
 
     with pytest.raises(Exception, match="Username must be"):
-        await app.state.func_postgres_update(
+        await func_postgres_update(
             client_postgres_pool=None,
             client_postgres_conn=None,
             client_password_hasher=None,
@@ -889,7 +901,7 @@ async def test_postgres_update_validates_users_with_regex():
             created_by_id=None,
             config_obj_list_limit=config.config_obj_list_limit,
             config_regex=config.config_regex,
-            func_regex_check=app.state.func_regex_check,
+            func_regex_check=func_regex_check,
             config_table=config.config_table,
         )
 
@@ -900,7 +912,7 @@ async def test_postgres_create_validates_users_with_regex():
         return kwargs["obj_list"]
 
     with pytest.raises(Exception, match="Username must be"):
-        await app.state.func_postgres_create(
+        await func_postgres_create(
             client_postgres_pool=None,
             client_postgres_conn=None,
             client_password_hasher=None,
@@ -912,7 +924,7 @@ async def test_postgres_create_validates_users_with_regex():
             config_buffer_limit=0,
             cache_postgres_buffer_create={},
             config_regex=config.config_regex,
-            func_regex_check=app.state.func_regex_check,
+            func_regex_check=func_regex_check,
             config_obj_list_limit=config.config_obj_list_limit,
             config_table=config.config_table,
         )
@@ -930,7 +942,7 @@ async def test_postgres_create_forces_users_serialization():
         async def fetch(self, sql, *args):
             return [{"id": 1}]
 
-    await app.state.func_postgres_create(
+    await func_postgres_create(
         client_postgres_pool=None,
         client_postgres_conn=FakeConn(),
         client_password_hasher=None,
@@ -942,7 +954,7 @@ async def test_postgres_create_forces_users_serialization():
         config_buffer_limit=10,
         cache_postgres_buffer_create={},
         config_regex=config.config_regex,
-        func_regex_check=app.state.func_regex_check,
+        func_regex_check=func_regex_check,
         config_obj_list_limit=config.config_obj_list_limit,
         config_table=config.config_table,
     )
@@ -960,7 +972,7 @@ async def test_postgres_update_forces_users_serialization():
         return [{"id": 1, "username": "user_1"}]
 
     with pytest.raises(AttributeError):
-        await app.state.func_postgres_update(
+        await func_postgres_update(
             client_postgres_pool=None,
             client_postgres_conn=None,
             client_password_hasher=None,
@@ -971,7 +983,7 @@ async def test_postgres_update_forces_users_serialization():
             created_by_id=None,
             config_obj_list_limit=config.config_obj_list_limit,
             config_regex=config.config_regex,
-            func_regex_check=app.state.func_regex_check,
+            func_regex_check=func_regex_check,
             config_table=config.config_table,
         )
 
@@ -992,8 +1004,9 @@ class DummyRoute:
 
 
 def test_func_check_allows_empty_modes_for_optional_config_api_settings():
+    from core.function import func_check
 
-    app.state.func_check(
+    func_check(
         app_routes=[DummyRoute("/public/disabled-empty"), DummyRoute("/public/disabled-none")],
         config_config_path=None,
         config_function_path=None,
@@ -1020,6 +1033,7 @@ def test_func_check_allows_empty_modes_for_optional_config_api_settings():
 
 
 def test_func_check_requires_valid_admin_user_role_check():
+    from core.function import func_check
 
     def func_api_admin_protected():
         pass
@@ -1028,7 +1042,7 @@ def test_func_check_requires_valid_admin_user_role_check():
     admin_route.endpoint = func_api_admin_protected
 
     def run(config_api):
-        app.state.func_check(
+        func_check(
             app_routes=[admin_route],
             config_config_path=None,
             config_function_path=None,
@@ -1053,6 +1067,7 @@ def test_func_check_requires_valid_admin_user_role_check():
 
 
 def test_func_check_routing_namespace_rules():
+    from core.function import func_check
     
     valid_routes = [
         DummyRoute("/"),
@@ -1062,7 +1077,7 @@ def test_func_check_routing_namespace_rules():
         DummyRoute("/my/profile"),
     ]
     
-    app.state.func_check(
+    func_check(
         app_routes=valid_routes,
         config_config_path=None,
         config_function_path=None,
@@ -1079,7 +1094,7 @@ def test_func_check_routing_namespace_rules():
     ]
     
     with pytest.raises(Exception, match="invalid route: /invalid/login"):
-        app.state.func_check(
+        func_check(
             app_routes=invalid_routes,
             config_config_path=None,
             config_function_path=None,

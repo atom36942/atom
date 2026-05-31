@@ -1,4 +1,3 @@
-from core.app import app
 import pytest
 
 @pytest.mark.asyncio
@@ -34,13 +33,14 @@ async def test_config_api_logging_observability(integration_app, auth_client):
     await integration_app.get("/info")
     
     # 3. Flush the buffer so buffered log_api entries are written to Postgres
+    from core.function import func_postgres_create, func_postgres_serialize, func_regex_check
     from core.config import config_regex, config_table, config_obj_list_limit, config_buffer_limit
-    await app.state.func_postgres_create(
+    await func_postgres_create(
         client_postgres_pool=app.state.client_postgres_pool,
         client_postgres_conn=None,
         client_password_hasher=app.state.client_password_hasher,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_regex_check=app.state.func_regex_check,
+        func_postgres_serialize=func_postgres_serialize,
+        func_regex_check=func_regex_check,
         cache_postgres_schema=app.state.cache_postgres_schema,
         cache_postgres_buffer_create=app.state.cache_postgres_buffer_create,
         config_regex={},

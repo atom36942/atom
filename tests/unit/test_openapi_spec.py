@@ -1,4 +1,3 @@
-from core.app import app
 import sys
 from pathlib import Path
 import pytest
@@ -6,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from core.function import func_openapi_spec_generate
 
 def test_func_openapi_spec_generate_basic():
     # Mock route
@@ -24,7 +24,7 @@ def test_func_openapi_spec_generate_basic():
     app_state = MagicMock()
     app_state.config_regex = {}
     
-    spec = app.state.func_openapi_spec_generate(
+    spec = func_openapi_spec_generate(
         app_routes=app_routes,
         config_allowed_api_namespace_auth=["/my/"],
         app_state=app_state
@@ -59,7 +59,7 @@ def item_create(request):
     return {"id": 1}
 """
     with patch("inspect.getsource", return_value=source_code):
-        spec = app.state.func_openapi_spec_generate(
+        spec = func_openapi_spec_generate(
             app_routes=app_routes,
             config_allowed_api_namespace_auth=[],
             app_state=app_state
@@ -106,7 +106,7 @@ def ternary_read(request):
     return {"ok": 1}
 """
     with patch("inspect.getsource", return_value=source_code):
-        spec = app.state.func_openapi_spec_generate(
+        spec = func_openapi_spec_generate(
             app_routes=app_routes,
             config_allowed_api_namespace_auth=[],
             app_state=app_state

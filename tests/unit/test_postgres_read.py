@@ -1,4 +1,3 @@
-from core.app import app
 import sys
 from pathlib import Path
 import pytest
@@ -6,6 +5,7 @@ import re
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from core.function import func_postgres_read, func_postgres_serialize, func_postgres_where_build, func_postgres_relation
 
 class FakeAcquire:
     def __init__(self, conn):
@@ -44,12 +44,12 @@ async def test_postgres_read_identifier_quoting_and_basic_logic():
     pool = FakePool(fetch_responses=[[{"id": 1, "name": "test"}]])
     schema = {"users": {"id": {"datatype": "integer"}, "name": {"datatype": "text"}}}
     
-    await app.state.func_postgres_read(
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="users",
@@ -82,12 +82,12 @@ async def test_postgres_read_relation_fetch_one_to_one():
         "users": {"id": {"datatype": "integer"}, "name": {"datatype": "text"}}
     }
     
-    result = await app.state.func_postgres_read(
+    result = await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
@@ -110,12 +110,12 @@ async def test_postgres_read_relation_aggregate():
     pool = FakePool(fetch_responses=[[{"id": 1}], [{"id": 1, "value": 5}]])
     schema = {"posts": {"id": {"datatype": "integer"}}}
     
-    result = await app.state.func_postgres_read(
+    result = await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
@@ -136,12 +136,12 @@ async def test_postgres_read_empty_order_defaults_to_id_desc():
     pool = FakePool(fetch_responses=[[]])
     schema = {"posts": {"id": {"datatype": "integer"}}}
 
-    await app.state.func_postgres_read(
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
@@ -160,7 +160,7 @@ async def test_postgres_relation_requires_selected_source_column():
     pool = FakePool()
 
     with pytest.raises(Exception, match="relation source column missing from selected columns: created_by_id"):
-        await app.state.func_postgres_relation(
+        await func_postgres_relation(
             client_postgres_pool=pool,
             obj_list=[{"id": 1, "title": "hello"}],
             relation="created_by_id,users,id,fetch|1,name",
@@ -171,7 +171,7 @@ async def test_postgres_relation_requires_selected_source_column():
 async def test_postgres_relation_uses_provided_connection():
     conn = RecordingConn(fetch_responses=[[{"id": 1, "value": 2}]])
 
-    result = await app.state.func_postgres_relation(
+    result = await func_postgres_relation(
         client_postgres_pool=ExplodingPool(),
         client_postgres_conn=conn,
         obj_list=[{"id": 1}],
@@ -189,7 +189,7 @@ async def test_postgres_relation_validation():
     
     # 1. Missing limit error
     with pytest.raises(Exception, match="explicit limit required in relation fetch"):
-        await app.state.func_postgres_relation(
+        await func_postgres_relation(
             client_postgres_pool=pool,
             obj_list=obj_list,
             relation="id,comments,post_id,fetch,*",
@@ -198,7 +198,7 @@ async def test_postgres_relation_validation():
         
     # 2. Exceeding max limit error
     with pytest.raises(Exception, match="exceeds maximum allowed"):
-        await app.state.func_postgres_relation(
+        await func_postgres_relation(
             client_postgres_pool=pool,
             obj_list=obj_list,
             relation="id,comments,post_id,fetch|500,*",
@@ -216,12 +216,12 @@ async def test_postgres_read_complex_filters():
         }
     }
     
-    await app.state.func_postgres_read(
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
@@ -232,12 +232,12 @@ async def test_postgres_read_complex_filters():
     assert '$1 = ANY("tags")' in pool.queries[-1][0]
     
     # JSONB exists
-    await app.state.func_postgres_read(
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
@@ -248,12 +248,12 @@ async def test_postgres_read_complex_filters():
     assert '"meta" ? $1' in pool.queries[-1][0]
 
     # Point distance
-    await app.state.func_postgres_read(
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="test",
@@ -278,12 +278,12 @@ async def test_postgres_read_json_and_logical_filters():
         ]
     }
     
-    await app.state.func_postgres_read(
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
@@ -301,12 +301,12 @@ async def test_postgres_read_json_and_logical_filters():
     
     # Test explicit operator requirement (Failure case)
     with pytest.raises(Exception, match="Expected 'operator,value'"):
-        await app.state.func_postgres_read(
+        await func_postgres_read(
             client_postgres_pool=pool,
             client_password_hasher=None,
-            func_postgres_serialize=app.state.func_postgres_serialize,
-            func_postgres_where_build=app.state.func_postgres_where_build,
-            func_postgres_relation=app.state.func_postgres_relation,
+            func_postgres_serialize=func_postgres_serialize,
+            func_postgres_where_build=func_postgres_where_build,
+            func_postgres_relation=func_postgres_relation,
             cache_postgres_schema=schema,
             config_relation_fetch_limit_max=100,
             table="posts",
@@ -327,12 +327,13 @@ async def test_postgres_read_flat_list_filters():
         "title ILIKE '%apple%' OR title ILIKE '%samsung%'"
     ]
     
-    await app.state.func_postgres_read(
+    from core.function import func_postgres_read, func_postgres_serialize, func_postgres_where_build, func_postgres_relation
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
@@ -357,12 +358,12 @@ async def test_postgres_read_flat_list_preserves_repeated_columns():
         "title ILIKE %apple%",
     ]
 
-    await app.state.func_postgres_read(
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",
@@ -395,12 +396,12 @@ async def test_postgres_read_flat_list_prefers_longer_operator_matches():
         "slug ~* ^post-",
     ]
 
-    await app.state.func_postgres_read(
+    await func_postgres_read(
         client_postgres_pool=pool,
         client_password_hasher=None,
-        func_postgres_serialize=app.state.func_postgres_serialize,
-        func_postgres_where_build=app.state.func_postgres_where_build,
-        func_postgres_relation=app.state.func_postgres_relation,
+        func_postgres_serialize=func_postgres_serialize,
+        func_postgres_where_build=func_postgres_where_build,
+        func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
         table="posts",

@@ -1,8 +1,8 @@
-from core.app import app
 import pytest
 import asyncio
 from testcontainers.postgres import PostgresContainer
 import asyncpg
+from core.function import func_postgres_schema_init, func_postgres_create, func_postgres_read, func_postgres_serialize
 
 @pytest.mark.asyncio
 async def test_postgres_integration_lifecycle():
@@ -30,7 +30,7 @@ async def test_postgres_integration_lifecycle():
             from argon2 import PasswordHasher
             hasher = PasswordHasher()
 
-            await app.state.func_postgres_schema_init(
+            await func_postgres_schema_init(
                 client_postgres_pool=pool,
                 client_password_hasher=hasher,
                 config_postgres=config_postgres,
@@ -38,15 +38,16 @@ async def test_postgres_integration_lifecycle():
             )
             
             # Fetch the schema so that serialization knows the types
-            schema_cache = await app.state.func_postgres_schema_read(client_postgres_pool=pool)
+            from core.function import func_postgres_schema_read
+            schema_cache = await func_postgres_schema_read(client_postgres_pool=pool)
             
             # 4. Perform a real CREATE
             # NOTE: Payloads must be a list of dictionaries
-            created_ids = await app.state.func_postgres_create(
+            created_ids = await func_postgres_create(
                 client_postgres_pool=pool,
                 client_postgres_conn=None,
                 client_password_hasher=hasher,
-                func_postgres_serialize=app.state.func_postgres_serialize, # Pass the real function
+                func_postgres_serialize=func_postgres_serialize, # Pass the real function
                 func_regex_check=None,
                 cache_postgres_schema=schema_cache,
                 cache_postgres_buffer_create={},
@@ -63,12 +64,13 @@ async def test_postgres_integration_lifecycle():
             new_id = created_ids[0]
             
             # 5. Perform a real READ
-            rows = await app.state.func_postgres_read(
+            from core.function import func_postgres_where_build, func_postgres_relation
+            rows = await func_postgres_read(
                 client_postgres_pool=pool,
                 client_password_hasher=hasher,
-                func_postgres_serialize=app.state.func_postgres_serialize, 
-                func_postgres_where_build=app.state.func_postgres_where_build,
-                func_postgres_relation=app.state.func_postgres_relation,
+                func_postgres_serialize=func_postgres_serialize, 
+                func_postgres_where_build=func_postgres_where_build,
+                func_postgres_relation=func_postgres_relation,
                 cache_postgres_schema=schema_cache,
                 config_relation_fetch_limit_max=1000,
                 table="test_integration",

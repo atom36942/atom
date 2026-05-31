@@ -1,4 +1,3 @@
-from core.app import app
 import sys
 from pathlib import Path
 import pytest
@@ -6,6 +5,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from core.function import func_postgres_schema_init
 
 @pytest.mark.asyncio
 async def test_func_postgres_schema_init_basic_table_creation():
@@ -40,7 +40,7 @@ async def test_func_postgres_schema_init_basic_table_creation():
         []  # pg_trigger
     ]
     
-    await app.state.func_postgres_schema_init(
+    await func_postgres_schema_init(
         client_postgres_pool=client_postgres_pool,
         client_password_hasher=client_password_hasher,
         config_postgres=config_postgres,
@@ -82,7 +82,7 @@ async def test_func_postgres_schema_init_adds_missing_column():
         []  # pg_trigger
     ]
     
-    await app.state.func_postgres_schema_init(
+    await func_postgres_schema_init(
         client_postgres_pool=client_postgres_pool,
         client_password_hasher=client_password_hasher,
         config_postgres=config_postgres,
@@ -105,7 +105,7 @@ async def test_func_postgres_schema_init_raises_on_reserved_keyword():
     }
     
     with pytest.raises(Exception, match="is a PostgreSQL reserved keyword"):
-        await app.state.func_postgres_schema_init(
+        await func_postgres_schema_init(
             client_postgres_pool=client_postgres_pool,
             client_password_hasher=MagicMock(),
             config_postgres=config_postgres,

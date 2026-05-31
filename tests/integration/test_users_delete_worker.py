@@ -1,9 +1,9 @@
-from core.app import app
 import asyncpg
 import pytest
 from argon2 import PasswordHasher
 from testcontainers.postgres import PostgresContainer
 
+from core.function import func_postgres_schema_init
 from core.script.users_delete_worker import func_users_delete_worker_once
 
 
@@ -55,7 +55,7 @@ async def test_users_delete_worker_processes_events_and_retention():
     with PostgresContainer("postgis/postgis:16-3.4-alpine") as postgres:
         pool = await asyncpg.create_pool(dsn=postgres.get_connection_url().replace("+psycopg2", ""))
         try:
-            await app.state.func_postgres_schema_init(
+            await func_postgres_schema_init(
                 client_postgres_pool=pool,
                 client_password_hasher=PasswordHasher(),
                 config_postgres=worker_test_config(),

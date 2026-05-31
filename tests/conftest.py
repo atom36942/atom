@@ -100,6 +100,7 @@ def db_containers():
 @pytest.fixture(scope="session")
 async def integration_app(db_containers):
     from core.app import app
+    from core.function import func_postgres_schema_init
     from argon2 import PasswordHasher
     
     # 1. Override App State with Real Container URLs
@@ -182,7 +183,7 @@ async def integration_app(db_containers):
     # 3. Run Real Schema Migration
     # Using your actual core config
     from core.config import config_postgres, config_root_user_password
-    await app.state.func_postgres_schema_init(
+    await func_postgres_schema_init(
         client_postgres_pool=app.state.client_postgres_pool,
         client_password_hasher=app.state.client_password_hasher,
         config_postgres=app.state.config_postgres,
@@ -190,14 +191,15 @@ async def integration_app(db_containers):
     )
     
     # 3.1 Synchronize State Caches
+    from core.function import func_postgres_schema_read, func_postgres_map_column
     from core.config import config_sql
     app.state.config_regex = {} # Disable regex checks for integration tests to prevent 400 errors
-    app.state.cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres_pool=app.state.client_postgres_pool)
+    app.state.cache_postgres_schema = await func_postgres_schema_read(client_postgres_pool=app.state.client_postgres_pool)
     app.state.cache_postgres_table_list = list(app.state.cache_postgres_schema.keys())
     app.state.cache_postgres_column_list = sorted(list(set(col for table in app.state.cache_postgres_schema.values() for col in table.keys())))
-    app.state.cache_users_role = await app.state.func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_role"))
-    app.state.cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_deactivated"))
-    app.state.cache_users_deleted = await app.state.func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_deleted"))
+    app.state.cache_users_role = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_role"))
+    app.state.cache_users_deactivated = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_deactivated"))
+    app.state.cache_users_deleted = await func_postgres_map_column(client_postgres_pool=app.state.client_postgres_pool, config_sql=config_sql.get("users_deleted"))
     app.state.cache_ratelimiter, app.state.cache_api_response, app.state.cache_postgres_buffer_create = {}, {}, {}
 
     # 4. Map S3 to Localstack
