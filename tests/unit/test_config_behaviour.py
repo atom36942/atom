@@ -10,8 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import config
 from core.app import app, middleware
 from core.function import (
-    func_middleware_api_cache_get,
-    func_middleware_api_cache_set,
+    func_middleware_api_cache,
     func_middleware_check_ratelimiter,
     func_middleware_check_user_deactivated,
     func_middleware_check_user_deleted,
@@ -354,8 +353,8 @@ async def test_config_api_cache_empty_or_missing_mode_is_off():
         cache = {"existing": "untouched"}
         response = responses.JSONResponse({"status": 1})
 
-        assert await func_middleware_api_cache_get(path="/cached", query_params={}, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[]) is None
-        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
+        assert await func_middleware_api_cache(mode="get", path="/cached", query_params={}, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[]) is None
+        returned = await func_middleware_api_cache(mode="set", path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
 
         assert returned is response
         assert cache == {"existing": "untouched"}
@@ -370,10 +369,24 @@ async def test_config_api_cache_non_positive_ttl_is_off():
         cache = {}
         response = responses.JSONResponse({"status": 1})
 
-        returned = await func_middleware_api_cache_set(path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
+        returned = await func_middleware_api_cache(mode="set", path="/cached", query_params={}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
 
         assert returned is response
         assert cache == {}
+
+
+@pytest.mark.asyncio
+async def test_config_api_cache_disable_query_param_bypasses_get_and_set():
+    cfg = {"/cached": {"api_cache_sec": ["inmemory", 60]}}
+    cache = {}
+    response = responses.JSONResponse({"status": 1})
+
+    returned = await func_middleware_api_cache(mode="set", path="/cached", query_params={"is_disable_cache": "1"}, response=response, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
+    cached = await func_middleware_api_cache(mode="get", path="/cached", query_params={"is_disable_cache": "1"}, config_api=cfg, client_redis=None, user_id=1, cache_api_response=cache, config_allowed_api_namespace_user=[])
+
+    assert returned is response
+    assert cached is None
+    assert cache == {}
 
 
 @pytest.mark.asyncio

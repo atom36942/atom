@@ -182,7 +182,7 @@ config_column_int_mapping = {
 "department": {
 "job": {1: "Engineering", 2: "Human Resources", 3: "Sales", 4: "Marketing", 5: "Finance", 6: "Operations", 7: "IT", 8: "Legal", 9: "Customer Support", 10: "Product Management", 11: "Research & Development", 12: "Administration", 13: "Quality Assurance", 14: "Data & Analytics", 15: "Management", 16: "Design", 17: "Procurement"},
 },
-"response_type": {1: "Direct", 2: "Cache Hit", 3: "Background Accepted", 4: "Direct Cache Store", 5: "Middleware Error"},
+"response_type": {1: "Direct No Cache Set", 2: "Direct Cache Set", 3: "Cache Response", 4: "Background Added", 5: "Error"},
 "method": {
 "log_api": {1: "GET", 2: "POST", 3: "PUT", 4: "PATCH", 5: "DELETE", 6: "OPTIONS", 7: "HEAD"},
 },

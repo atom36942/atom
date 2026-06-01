@@ -163,18 +163,31 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, config_api: di
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_middleware_api_cache_get(*, path: str, query_params: dict, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict, config_allowed_api_namespace_user: list) -> any:
-    """Check for cached response in Redis or in-memory. Returns a Response object if hit, else None."""
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, config_api: dict, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, config_allowed_api_namespace_user: list = None, response: any = None) -> any:
+    """Get or set middleware API cache for a request."""
     from fastapi import Response
     import gzip, base64, time
+    if mode not in ("get", "set"): raise Exception(f"invalid cache operation: {mode}, allowed: get, set")
     cfg = config_api.get(path, {}).get("api_cache_sec")
-    mode = cfg[0] if isinstance(cfg, list) else cfg
+    cache_mode = cfg[0] if isinstance(cfg, list) else cfg
     ttl = cfg[1] if isinstance(cfg, list) and len(cfg) > 1 else 0
-    if not cfg or not mode or ttl <= 0: return None
+    is_enabled = query_params.get("is_disable_cache") != "1" and bool(cfg) and bool(cache_mode) and ttl > 0
+    if mode == "set" and not is_enabled: return response
+    if mode == "get" and not is_enabled: return None
+    if cache_api_response is None: cache_api_response = {}
+    if config_allowed_api_namespace_user is None: config_allowed_api_namespace_user = []
     uid = user_id if path.startswith(tuple(config_allowed_api_namespace_user)) else 0
     key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
-    data = await client_redis.get(key) if mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
-    return Response(content=gzip.decompress(base64.b64decode(data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
+    if mode == "get":
+        data = await client_redis.get(key) if cache_mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
+        return Response(content=gzip.decompress(base64.b64decode(data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
+    body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
+    comp = base64.b64encode(gzip.compress(body)).decode()
+    if cache_mode == "redis": await client_redis.setex(key, ttl, comp)
+    else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
+    response = Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
+    response.is_cache_set = True
+    return response
 
 async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> any:
     """Delegate the request execution to a background task and return a standard acknowledgment."""
@@ -185,22 +198,6 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_
     resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
     resp.background = BackgroundTask(task)
     return resp
-
-async def func_middleware_api_cache_set(*, path: str, query_params: dict, response: any, config_api: dict, client_redis: any, user_id: int, cache_api_response: dict, config_allowed_api_namespace_user: list) -> any:
-    """Compress and store the response in the configured cache (Redis or in-memory)."""
-    from fastapi import Response
-    import gzip, base64, time
-    cfg = config_api.get(path, {}).get("api_cache_sec")
-    mode = cfg[0] if isinstance(cfg, list) else cfg
-    ttl = cfg[1] if isinstance(cfg, list) and len(cfg) > 1 else 0
-    if not cfg or not mode or ttl <= 0: return response
-    body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
-    comp = base64.b64encode(gzip.compress(body)).decode()
-    uid = user_id if path.startswith(tuple(config_allowed_api_namespace_user)) else 0
-    key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
-    if mode == "redis": await client_redis.setex(key, ttl, comp)
-    else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
-    return Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
 
 async def func_middleware_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""

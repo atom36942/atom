@@ -26,6 +26,7 @@ def middleware_client(middleware_test_client):
         "config_table_read_enable_public": test_client.app.state.config_table_read_enable_public,
         "func_postgres_create": test_client.app.state.func_postgres_create,
         "func_postgres_read": test_client.app.state.func_postgres_read,
+        "client_postgres_pool": test_client.app.state.client_postgres_pool,
     }
 
 
@@ -123,3 +124,67 @@ def test_middleware_background_query_takes_precedence_over_cache(middleware_clie
     assert len(calls) == 2
     assert calls[0]["table"] == "test"
     assert calls[1]["table"] == "test"
+
+
+def test_middleware_disable_cache_query_bypasses_cache_get_and_set(middleware_client):
+    calls = []
+
+    async def fake_read(**kwargs):
+        calls.append(kwargs)
+        return [{"id": len(calls)}]
+
+    middleware_client.app.state.func_postgres_read = fake_read
+
+    first_response = middleware_client.get("/public/object-read?table=test")
+    bypass_response = middleware_client.get("/public/object-read?table=test&is_disable_cache=1")
+    cached_response = middleware_client.get("/public/object-read?table=test")
+    bypass_again_response = middleware_client.get("/public/object-read?table=test&is_disable_cache=1")
+
+    assert first_response.status_code == 200
+    assert first_response.headers.get("x-cache") is None
+    assert first_response.json() == {"status": 1, "message": [{"id": 1}]}
+
+    assert bypass_response.status_code == 200
+    assert bypass_response.headers.get("x-cache") is None
+    assert bypass_response.json() == {"status": 1, "message": [{"id": 2}]}
+
+    assert cached_response.status_code == 200
+    assert cached_response.headers.get("x-cache") == "hit"
+    assert cached_response.json() == {"status": 1, "message": [{"id": 1}]}
+
+    assert bypass_again_response.status_code == 200
+    assert bypass_again_response.headers.get("x-cache") is None
+    assert bypass_again_response.json() == {"status": 1, "message": [{"id": 3}]}
+
+    assert len(calls) == 3
+    assert [call["table"] for call in calls] == ["test", "test", "test"]
+
+
+def test_middleware_logs_new_response_type_order(middleware_client):
+    read_calls, log_rows = [], []
+
+    async def fake_read(**kwargs):
+        read_calls.append(kwargs)
+        return [{"id": len(read_calls)}]
+
+    async def fake_log_create(**kwargs):
+        log_rows.extend(kwargs["obj_list"])
+        return []
+
+    middleware_client.app.state.config_is_enable_log_api = 1
+    middleware_client.app.state.client_postgres_pool = object()
+    middleware_client.app.state.func_postgres_read = fake_read
+    middleware_client.app.state.func_postgres_create = fake_log_create
+
+    direct_response = middleware_client.get("/public/object-read?table=test&is_disable_cache=1")
+    cache_store_response = middleware_client.get("/public/object-read?table=test")
+    cache_hit_response = middleware_client.get("/public/object-read?table=test")
+    background_response = middleware_client.get("/public/object-read?table=test&is_background=1")
+
+    assert direct_response.status_code == 200
+    assert cache_store_response.status_code == 200
+    assert cache_hit_response.status_code == 200
+    assert cache_hit_response.headers.get("x-cache") == "hit"
+    assert background_response.status_code == 200
+    assert background_response.json() == {"status": 1, "message": "added in background"}
+    assert [row["response_type"] for row in log_rows] == [1, 2, 3, 4]

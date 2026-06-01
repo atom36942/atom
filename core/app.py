@@ -142,17 +142,17 @@ async def middleware(request, api_function):
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis, config_api=app_state.config_api, url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
         user_id, path, query_params = (request.state.user.get("id") if request.state.user else 0), request.url.path, dict(request.query_params)
-        response = await app_state.func_middleware_api_cache_get(path=path, query_params=query_params, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_allowed_api_namespace_user=app_state.config_allowed_api_namespace_user)
+        response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_allowed_api_namespace_user=app_state.config_allowed_api_namespace_user)
         if not response:
             if query_params.get("is_background") == "1":
-                response_type = 3
+                response_type = 4
                 response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body(), api_function=api_function)
             else:
                 response = await api_function(request)
-                if (cache_cfg := app_state.config_api.get(path, {}).get("api_cache_sec")) and cache_cfg[1] > 0: response_type = 4
-                response = await app_state.func_middleware_api_cache_set(path=path, query_params=query_params, response=response, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_allowed_api_namespace_user=app_state.config_allowed_api_namespace_user)
+                response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_allowed_api_namespace_user=app_state.config_allowed_api_namespace_user)
+                if getattr(response, "is_cache_set", False): response_type = 2
         else:
-            response_type = 2
+            response_type = 3
     except Exception as e:
         response_type = 5
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=app_state.config_is_enable_traceback, sentry_dsn=app_state.config_sentry_dsn)
