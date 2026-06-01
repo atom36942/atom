@@ -1,7 +1,7 @@
 # import
 import asyncio
 import asyncpg
-from core.config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_s3_region_name, config_users_delete_batch_limit, config_users_delete_exclude_table, config_users_delete_ownership_column, config_users_delete_retention_day, config_users_delete_retry_delay_sec, config_blob_purge_batch_limit, config_blob_purge_azure_concurrency
+from core.config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_s3_region_name, config_users_delete_batch_limit, config_users_delete_exclude_table, config_users_ownership_column, config_users_delete_retention_day, config_users_delete_retry_delay_sec, config_blob_purge_batch_limit, config_blob_purge_azure_concurrency
 
 # logic
 async def execute():
@@ -38,7 +38,7 @@ async def execute():
         tables = []
         for table, columns in schema.items():
             if func_is_excluded_table(table): continue
-            ownership_columns = [col for col in config_users_delete_ownership_column if col in columns]
+            ownership_columns = [col for col in config_users_ownership_column if col in columns]
             if "deleted_at" not in columns or not ownership_columns: continue
             tables.append((table, ownership_columns, "is_protected" in columns))
         return tables

@@ -123,7 +123,7 @@ config_buffer_flush_interval_sec = 60
 config_users_delete_retention_day = 30
 config_users_delete_batch_limit = 100
 config_users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
-config_users_delete_ownership_column = ["created_by_id", "user_id"]
+config_users_ownership_column = ["created_by_id", "user_id"]
 config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
 
 # Tables / Schema

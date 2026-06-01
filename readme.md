@@ -56,6 +56,11 @@ config_redis_queue_url=redis://localhost:6379
 # Documentation
 Detailed documentation is maintained in the `docs/` directory:
 - [Architecture Overview](docs/architecture.md)
-- [Background Scripts & Workers](docs/script.md)
-- [API Development & Config](docs/api.md)
 - [PostgreSQL Schema & Setup](docs/postgres.md)
+- [API Development & Config](docs/api.md)
+- [Background Scripts & Workers](docs/script.md)
+- [Database Operations](docs/database.md)
+- [Authentication & Authorization](docs/auth.md)
+- [Third-Party Integrations](docs/integration.md)
+- [Message Queues & Event Publishing](docs/messaging.md)
+- [Object CRUD APIs](docs/object.md)
