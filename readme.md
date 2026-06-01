@@ -12,7 +12,6 @@ Atom is a high-performance, developer-centric ASGI orchestrator designed for ato
 | **⚡ Smart Cache** | Multi-backend response caching and integrated rate limiting. |
 | **🛠️ API Sandbox** | Native interactive tester for real-time endpoint exploration. |
 | **📊 Monitoring** | Integrated DB-level API logging and Sentry error tracking. |
-| **☁️ Cloud Native** | Out-of-the-box integrations for AWS, Azure, and Google Cloud. |
 
 # Deployment
 ```bash
