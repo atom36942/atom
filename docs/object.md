@@ -54,7 +54,7 @@ The core logic of these endpoints remains the same, but the namespace (`/admin`,
 This is the standard namespace for logged-in users interacting with their own data.
 - **Security Check**: Enforced by global middleware (requires valid JWT).
 - **Creation (`/my/object-create`)**: The API completely ignores any provided `created_by_id`. It forcibly attaches the logged-in user's ID to the payload, ensuring absolute ownership tracking. Restricted admin columns (like `is_superuser`) are automatically blocked.
-- **Reading (`/my/object-read`)**: The API automatically injects a `created_by_id = <user_id>` constraint into every `filter` condition. A user can *only* read records they own.
+- **Reading (`/my/object-read`)**: The API automatically injects an ownership constraint (`created_by_id = <user_id>` by default) into every `filter` condition. A user can *only* read records they own. The frontend can optionally pass an `ownership_column` query parameter (e.g., `user_id`) to override this, provided the column is allowed in `config_users_ownership_column`.
 - **Updating (`/my/object-update`)**: Will only update records if the user owns them. Adds `updated_by_id = <user_id>` automatically. For user profile updates, strictly controls which fields can be modified.
 - **Deleting (`/my/object-delete`)**: Forces the `created_by_id` constraint into the delete query so users cannot delete records owned by others.
 
