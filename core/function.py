@@ -1647,18 +1647,24 @@ def func_check(*, app_routes: list, config_config_path: str, config_function_pat
                 if (col_unique := col.get("unique")):
                     for group in (x.strip() for x in col_unique.split("|")):
                         u_cols = [c.strip() for c in group.split(",")]
+                        if len(u_cols) != len(set(u_cols)): raise Exception(f"unique constraint in {table_name}.{col_name} contains duplicate columns: {u_cols}")
                         for uc in u_cols:
                             if uc not in column_names: raise Exception(f"unique constraint in {table_name}.{col_name} references non-existent column '{uc}'")
                         if col_name not in u_cols: raise Exception(f"unique constraint in {table_name}.{col_name} does not include '{col_name}' itself")
                         btrees.append((u_cols, True, col_name))
                 if (col_index := col.get("index")):
+                    curr_table_types = {c.get("name"): c.get("datatype", "") for c in columns if c.get("name")}
                     for group in (x.strip() for x in col_index.split("|")):
                         if "(" in group and group.endswith(")"):
                             idx_type, cols_str = group[:-1].split("(", 1)
                             idx_type, idx_cols = idx_type.strip().lower(), [c.strip() for c in cols_str.split(",")]
+                            if len(idx_cols) != len(set(idx_cols)): raise Exception(f"index in {table_name}.{col_name} contains duplicate columns: {idx_cols}")
+                            if col_name == "id" and idx_cols == ["id"] and idx_type == "btree": raise Exception(f"Primary key '{table_name}.id' is natively indexed. Do not add an explicit btree index for it.")
                             for ic in idx_cols:
                                 if ic not in column_names: raise Exception(f"index in {table_name}.{col_name} references non-existent column '{ic}'")
-                            if col_name not in idx_cols: raise Exception(f"index in {table_name}.{col_name} does not include '{col_name}' itself")
+                                ic_type = curr_table_types.get(ic, "").lower()
+                                if idx_type == "btree" and ("[]" in ic_type or "jsonb" in ic_type): raise Exception(f"btree index in {table_name}.{col_name} on column '{ic}' (type {ic_type}) is unsupported. Use gin instead.")
+                            if idx_cols[0] != col_name: raise Exception(f"index in {table_name}.{col_name} must have '{col_name}' as the first column")
                             if idx_type == "btree": btrees.append((idx_cols, False, col_name))
                             else: others.append((idx_type, idx_cols, col_name))
                         else:
