@@ -54,9 +54,9 @@
   *(Joins the `users` table where `users.id = created_by_id`, fetches 1 record, and returns only the username, name, and email).*
 
 - **Perform aggregations on a related table:**
-  `"id,action_report_test,test_id,count,*"`
-  *(Counts all records in `action_report_test` where `test_id = id`).*
-  You can also use `sum`, `avg`, `min`, and `max` (e.g., `"id,action_feedback_test,test_id,avg,rating"`).
+  `"id,action_test_report,test_id,count,*"`
+  *(Counts all records in `action_test_report` where `test_id = id`).*
+  You can also use `sum`, `avg`, `min`, and `max` (e.g., `"id,action_test_feedback,test_id,avg,rating"`).
 
 ---
 

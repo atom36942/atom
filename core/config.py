@@ -389,8 +389,7 @@ config_postgres = {
 {"name":"skills","datatype":"text[]","index":"gin(skills)"},
 {"name":"closing_date","datatype":"date"},
 {"name":"location","datatype":"text","index":"btree(location)"},
-{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
-{"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
+{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"}
 ],
 "candidate":[
 {"name":"id","datatype":"bigserial","is_primary":1},
@@ -430,16 +429,16 @@ config_postgres = {
 {"name":"languages","datatype":"text[]","index":"gin(languages)"},
 {"name":"gender","datatype":"smallint"},
 {"name":"date_of_birth","datatype":"date"},
-{"name":"remark","datatype":"text"},
-{"name":"ai_rating","datatype":"numeric(3,1)"},
-{"name":"ai_remark","datatype":"text"},
 {"name":"worker_status","datatype":"smallint","default":1,"index":"btree(worker_status)"},
 {"name":"worker_retry_count","datatype":"integer","default":0},
 {"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()","index":"btree(worker_next_retry_at)"},
 {"name":"worker_processed_at","datatype":"timestamptz"},
 {"name":"worker_last_error","datatype":"text"},
-{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
-{"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
+{"name":"ai_remark","datatype":"text"},
+{"name":"ai_rating","datatype":"numeric(3,1)"},
+{"name":"remark","datatype":"text"},
+{"name":"rating","datatype":"numeric(3,1)"},
+{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"}
 ],
 "interview":[
 {"name":"id","datatype":"bigserial","is_primary":1},
@@ -462,12 +461,9 @@ config_postgres = {
 {"name":"scheduled_at","datatype":"timestamptz","index":"btree(scheduled_at)"},
 {"name":"duration_minutes","datatype":"integer"},
 {"name":"panel","datatype":"text[]","index":"gin(panel)"},
-{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
-{"name":"remark","datatype":"text"},
-{"name":"rating","datatype":"numeric(3,1)","check":"rating >= 1 AND rating <= 10","index":"btree(rating)"},
-{"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
+{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"}
 ],
-"action_comment_test":[
+"action_test_comment":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1},
@@ -480,7 +476,7 @@ config_postgres = {
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
 {"name":"description","datatype":"text","is_mandatory":1},
 ],
-"action_report_test":[
+"action_test_report":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"unique":"created_by_id,test_id"},
@@ -493,7 +489,7 @@ config_postgres = {
 {"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
 {"name":"description","datatype":"text"}
 ],
-"action_feedback_test":[
+"action_test_feedback":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
@@ -507,7 +503,7 @@ config_postgres = {
 {"name":"description","datatype":"text"},
 {"name":"rating","datatype":"numeric(3,1)"}
 ],
-"action_feedback_candidate":[
+"action_candidate_feedback":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1},
@@ -611,14 +607,14 @@ config_postgres = {
 "idx_message_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_message_deactivated_at_not_null ON message (id) WHERE deactivated_at IS NOT NULL",
 "idx_message_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_message_deleted_at_not_null ON message (id) WHERE deleted_at IS NOT NULL",
 "idx_message_read_at_null": "CREATE INDEX IF NOT EXISTS idx_message_read_at_null ON message (user_id) WHERE read_at IS NULL",
-"idx_action_comment_test_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_comment_test_deactivated_at_not_null ON action_comment_test (id) WHERE deactivated_at IS NOT NULL",
-"idx_action_comment_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_comment_test_deleted_at_not_null ON action_comment_test (id) WHERE deleted_at IS NOT NULL",
-"idx_action_report_test_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_report_test_deactivated_at_not_null ON action_report_test (id) WHERE deactivated_at IS NOT NULL",
-"idx_action_report_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_report_test_deleted_at_not_null ON action_report_test (id) WHERE deleted_at IS NOT NULL",
-"idx_action_feedback_test_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_feedback_test_deactivated_at_not_null ON action_feedback_test (id) WHERE deactivated_at IS NOT NULL",
-"idx_action_feedback_test_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_feedback_test_deleted_at_not_null ON action_feedback_test (id) WHERE deleted_at IS NOT NULL",
-"idx_action_feedback_candidate_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_feedback_candidate_deactivated_at_not_null ON action_feedback_candidate (id) WHERE deactivated_at IS NOT NULL",
-"idx_action_feedback_candidate_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_feedback_candidate_deleted_at_not_null ON action_feedback_candidate (id) WHERE deleted_at IS NOT NULL",
+"idx_action_test_comment_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_comment_deactivated_at_not_null ON action_test_comment (id) WHERE deactivated_at IS NOT NULL",
+"idx_action_test_comment_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_comment_deleted_at_not_null ON action_test_comment (id) WHERE deleted_at IS NOT NULL",
+"idx_action_test_report_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_report_deactivated_at_not_null ON action_test_report (id) WHERE deactivated_at IS NOT NULL",
+"idx_action_test_report_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_report_deleted_at_not_null ON action_test_report (id) WHERE deleted_at IS NOT NULL",
+"idx_action_test_feedback_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_feedback_deactivated_at_not_null ON action_test_feedback (id) WHERE deactivated_at IS NOT NULL",
+"idx_action_test_feedback_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_feedback_deleted_at_not_null ON action_test_feedback (id) WHERE deleted_at IS NOT NULL",
+"idx_action_candidate_feedback_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_candidate_feedback_deactivated_at_not_null ON action_candidate_feedback (id) WHERE deactivated_at IS NOT NULL",
+"idx_action_candidate_feedback_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_candidate_feedback_deleted_at_not_null ON action_candidate_feedback (id) WHERE deleted_at IS NOT NULL",
 "idx_log_api_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_log_api_deleted_at_not_null ON log_api (id) WHERE deleted_at IS NOT NULL",
 "idx_log_users_password_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_log_users_password_deleted_at_not_null ON log_users_password (id) WHERE deleted_at IS NOT NULL",
 "idx_log_users_delete_worker": "CREATE INDEX IF NOT EXISTS idx_log_users_delete_worker ON log_users_delete (worker_next_retry_at, created_at, id) WHERE worker_status IN (1,4)",
