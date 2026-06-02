@@ -8,7 +8,6 @@ config_postgres_max_connection = 20
 config_root_user_password = "mysecretkey"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_is_enable_postgres_sql_runner_write = 1
-config_is_enable_postgres_init_startup = 1
 config_is_enable_user_delete = 1
 config_is_enable_signup = 1
 config_is_enable_regex_check = 0
@@ -17,6 +16,7 @@ config_is_enable_reset_tmp = 0
 config_is_enable_background_workers = 1
 config_is_enable_traceback = 1
 config_is_enable_log_api = 1
+config_is_enable_postgres_init_startup = 1
 
 # Allowed
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
@@ -148,6 +148,7 @@ config_table = {
 "log_api": {"retention_day": 30, "buffer_limit": 10},
 "log_users_password": {"retention_day": 90},
 "otp": {"retention_day": 30},
+"notification": {"retention_day": 30, "buffer_limit": 10},
 }
 
 config_regex = {
@@ -195,7 +196,7 @@ config_column_int_mapping = {
 "blob": {1: "Upload File", 2: "Upload URL"},
 "post": {1: "Article", 2: "News", 3: "Announcement"},
 "interview": {1: "HR", 2: "Technical", 3: "Managerial", 4: "Cultural", 5: "Assignment"},
-"notification": {1: "System", 2: "Job Approved", 3: "Job Rejected"},
+"notification": {1: "Password Change", 2: "Job Status Change"},
 },
 "status": {
 "test": {1: "Active", 2: "Inactive", 3: "Archived"},

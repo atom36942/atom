@@ -94,6 +94,58 @@ config_api = {
 
 ---
 
+### Q: How do I add a new PostgreSQL table?
+
+**A:** To create a new table and start the service normally, adding the table definition under `config_postgres["table"]` in `core/config.py` is enough. On app startup, the schema initializer reads that config and creates or syncs the table when `config_is_enable_postgres_init_startup = 1`.
+
+**Mandatory for schema creation:**
+- Add the table inside `config_postgres["table"]`.
+- The first column must be exactly `{"name":"id","datatype":"bigserial","is_primary":1}`.
+- Use valid PostgreSQL datatypes, keep column names unique, and avoid reserved keywords.
+- If a column uses `index` or `unique`, make sure the referenced columns exist in the same table.
+
+**Recommended when using generic object APIs:**
+- Add `created_at` and `created_by_id` if the table will use `/my/object-create`, `/public/object-create`, or `/admin/object-create`.
+- Add `updated_at` and `updated_by_id` if the table will use `/my/object-update` or `/admin/object-update`.
+- Add `deleted_at`, `deleted_by_id`, `deactivated_at`, or similar lifecycle columns only if the table needs those states.
+- Add indexes for columns commonly used in filters, ownership checks, ordering, or relation lookups.
+
+**Optional related configs to review:**
+- `config_table`: Add the table only if it needs `retention_day` cleanup or a custom `buffer_limit`.
+- `config_table_create_disable_my`: Add the table if logged-in users should not create records through `/my/object-create`.
+- `config_table_create_enable_public`: Add the table only if unauthenticated users may create records through `/public/object-create`.
+- `config_table_read_enable_public`: Review this before adding private data. If it is set to `["*"]`, new tables are publicly readable through `/public/object-read`.
+- `config_users_ownership_column`: Add a non-standard ownership column only if `/my/object-read` should support that column as an ownership filter.
+- `config_column_int_mapping`: Add labels for `smallint` category columns such as `status`, `type`, or `role`.
+- `config_sensitive_table`: Add sensitive tables that should be protected from accidental retention cleanup. This is not an API permission setting.
+- `config_postgres["sql"]["index"]`: Add custom SQL indexes only for partial indexes or advanced indexes that the column-level `index` setting cannot express.
+
+If none of those optional behaviors are needed, the `config_postgres["table"]` entry alone is enough for the table to be created during startup.
+
+---
+
+### Q: What is the use of `config_table` in `core/config.py`?
+
+**A:** `config_table` defines table-level operational behavior that is separate from the PostgreSQL schema in `config_postgres`. Use it when a table needs background cleanup or buffered writes.
+
+**Example:**
+```python
+config_table = {
+    "test": {"buffer_limit": 10},
+    "log_api": {"retention_day": 30, "buffer_limit": 10},
+    "log_users_password": {"retention_day": 90},
+    "otp": {"retention_day": 30},
+}
+```
+
+**Supported keys:**
+- **`retention_day`**: Automatically removes old records after the configured number of days. This is used by cleanup scripts for temporary or sensitive tables such as logs and OTPs.
+- **`buffer_limit`**: Buffers high-frequency inserts in memory and flushes them in bulk when the limit is reached or during the periodic buffer flush. This is useful for write-heavy tables such as `log_api`.
+
+If a table is not listed in `config_table`, Atom uses the default behavior for create/update/read operations and does not apply table-specific retention or buffer settings.
+
+---
+
 ### Q: What is the use of `actor_tracking_column` in `config_postgres`?
 
 **A:** `actor_tracking_column` maps lifecycle timestamp columns to the user ID columns that should record who performed that lifecycle action. During schema initialization, Atom creates an automatic `BEFORE UPDATE` trigger for matching tables. When a mapped timestamp changes, the trigger copies `updated_by_id` into the mapped actor column.

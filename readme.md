@@ -63,4 +63,5 @@ Detailed documentation is maintained in the `docs/` directory:
 - [Third-Party Integrations](docs/integration.md)
 - [Message Queues & Event Publishing](docs/messaging.md)
 - [Object CRUD APIs](docs/object.md)
+- [Notification System](docs/notification.md)
 - [Frequently Asked Questions (FAQ)](docs/faq.md)

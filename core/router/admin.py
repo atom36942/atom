@@ -53,7 +53,10 @@ async def func_api_admin_object_update(*, request: Request):
     if "updated_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'updated_by_id' column for update tracking")
     if request.state.user.get("id"): obj_list = [dict(item, updated_by_id=request.state.user["id"]) for item in obj_list]
     created_by_id = None
-    return {"status": 1, "message": await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_obj_list_limit=app_state.config_obj_list_limit, config_regex=app_state.config_regex, config_table=app_state.config_table)}
+    result = await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_obj_list_limit=app_state.config_obj_list_limit, config_regex=app_state.config_regex, config_table=app_state.config_table)
+    asyncio.create_task(app_state.func_notification_create(type=1, app_state=app_state, payload={"table": oq["table"], "obj_list": obj_list}))
+    asyncio.create_task(app_state.func_notification_create(type=2, app_state=app_state, payload={"table": oq["table"], "obj_list": obj_list}))
+    return {"status": 1, "message": result}
 
 @router.post("/admin/object-delete")
 async def func_api_admin_object_delete(*, request: Request):
