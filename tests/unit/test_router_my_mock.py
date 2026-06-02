@@ -67,6 +67,8 @@ class InMemoryMyConn:
             return [{"api": api, "count": count} for api, count in sorted(usage.items())]
         if "with chat_summary" in normalized:
             return self._message_inbox(user_id=args[0], normalized=normalized)
+        if normalized.startswith('select * from "message"'):
+            return self._message_received(user_id=args[0], normalized=normalized, limit=args[-2], offset=args[-1])
         if normalized.startswith("select * from message where user_id=$1"):
             return self._message_received(user_id=args[0], normalized=normalized)
         if "select * from message where ((created_by_id=$1 and user_id=$2)" in normalized:
@@ -93,6 +95,11 @@ class InMemoryMyConn:
         elif normalized.startswith('delete from "users" where "id" = any($1::bigint[])'):
             ids = set(args[0])
             self.users = [row for row in self.users if row["id"] not in ids]
+        elif normalized.startswith('update "message" set read_at=now() where "user_id"=$1 and "id"=any'):
+            user_id, ids = args
+            for row in self.messages:
+                if row["id"] in ids and row.get("user_id") == user_id and row.get("read_at") is None:
+                    row["read_at"] = "2026-05-21T12:00:00Z"
         elif normalized.startswith("update message set read_at=now() where id in"):
             ids = {int(x) for x in sql.split("IN (", 1)[1].split(")", 1)[0].split(",") if x.strip()}
             for row in self.messages:
@@ -155,13 +162,14 @@ class InMemoryMyConn:
         rows = [row for row in self.users if row["id"] == user_id]
         return rows[0] if rows else None
 
-    def _message_received(self, *, user_id, normalized):
+    def _message_received(self, *, user_id, normalized, limit=None, offset=0):
         rows = [row for row in self.messages if row.get("user_id") == user_id]
-        if "read_at is not null" in normalized:
+        if "read_at is not null" in normalized or '"read_at" is not null' in normalized:
             rows = [row for row in rows if row.get("read_at") is not None]
-        elif "read_at is null" in normalized:
+        elif "read_at is null" in normalized or '"read_at" is null' in normalized:
             rows = [row for row in rows if row.get("read_at") is None]
-        return sorted(rows, key=lambda row: row["id"], reverse=True)
+        rows = sorted(rows, key=lambda row: row["id"], reverse=True)
+        return rows[offset : offset + limit] if limit is not None else rows
 
     def _message_thread(self, *, user_one_id, user_two_id):
         rows = [
@@ -254,7 +262,7 @@ def my_client(my_test_client):
     test_client.app.state.cache_postgres_schema = {
         "test": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
         "users": {"id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
-        "message": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
+        "message": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}, "user_id": {"datatype": "bigint"}, "read_at": {"datatype": "timestamptz"}},
         "parent": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
         "child": {"id": {"datatype": "bigint"}, "created_by_id": {"datatype": "bigint"}, "updated_by_id": {"datatype": "bigint"}},
     }
@@ -317,12 +325,17 @@ def test_my_api_usage_groups_logs_for_authenticated_user(my_client, auth_headers
         {"api": "/my/profile", "count": 2},
     ]
 
-def test_my_message_received_returns_unread_and_marks_them_read(my_client, auth_headers):
+def test_my_object_read_received_objects_marks_them_read_in_background(my_client, auth_headers):
     conn = my_client.app.state.client_postgres_pool.conn
     conn.seed_message(id=1, created_by_id=20, user_id=10, read_at=None)
     conn.seed_message(id=2, created_by_id=21, user_id=10, read_at='2026-05-21')
 
-    response = my_client.get("/my/message-received?mode=unread", headers=auth_headers)
+    response = my_client.get(
+        "/my/object-read",
+        params={"table": "message", "ownership_column": "user_id", "filter": orjson.dumps(["read_at is null"]).decode()},
+        headers=auth_headers,
+    )
+    time.sleep(0.05)
 
     assert response.status_code == 200
     assert [row["id"] for row in response.json()["message"]] == [1]

@@ -68,13 +68,12 @@ async def func_api_my_object_create(*, request: Request):
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ownership_column", "str", 0, app_state.config_users_ownership_column, "created_by_id"), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
-    for rel in oq["relation"]:
-        parts = [p.strip() for p in rel.split(",", 4)]
-        if len(parts) >= 2 and "*" not in app_state.config_table_read_enable_public and parts[1] not in app_state.config_table_read_enable_public: raise Exception(f"relation read disabled for table: {parts[1]}")
+    if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in app_state.config_table_read_enable_public and parts[1] not in app_state.config_table_read_enable_public), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
     schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
     ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_relation_fetch_limit_max=app_state.config_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres_pool=app_state.client_postgres_pool, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
     return {"status": 1, "message": ol}
 
 @router.put("/my/object-update")
@@ -118,21 +117,6 @@ async def func_api_my_message_inbox(*, request: Request):
     async with app_state.client_postgres_pool.acquire() as conn:
         records = await conn.fetch(sql, user_id)
         obj_list = [dict(r) for r in records]
-    return {"status": 1, "message": obj_list}
-
-@router.get("/my/message-received")
-async def func_api_my_message_received(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_query_limit_default), ("page", "int", 0, None, 1)])
-    user_id = request.state.user["id"]
-    unread_filter = "AND read_at IS NOT NULL" if oq["mode"] == "read" else "AND read_at IS NULL" if oq["mode"] == "unread" else ""
-    sql = f"SELECT * FROM message WHERE user_id=$1 {unread_filter} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(sql, user_id)
-        obj_list = [dict(r) for r in records]
-        if obj_list:
-            mark_read_ids = [r["id"] for r in obj_list if r.get("read_at") is None]
-            if mark_read_ids: await conn.execute(f"UPDATE message SET read_at=now() WHERE id IN ({','.join(map(str, mark_read_ids))})")
     return {"status": 1, "message": obj_list}
 
 @router.get("/my/message-thread")
