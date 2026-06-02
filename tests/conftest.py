@@ -167,7 +167,7 @@ async def integration_app(db_containers):
         "config_is_enable_signup": 1,
         "config_is_enable_log_api": 0, # Disabled for tests to avoid contention
         "config_is_enable_traceback": 0, # Disabled to keep console clean for expected failures
-        "config_api": copy.deepcopy(app.state.config_api),
+        "config_api": copy.deepcopy(config.config_api),
         "config_allowed_api_namespace": copy.deepcopy(app.state.config_allowed_api_namespace),
         "config_allowed_api_namespace_auth": copy.deepcopy(app.state.config_allowed_api_namespace_auth),
         "config_allowed_api_namespace_user": copy.deepcopy(app.state.config_allowed_api_namespace_user),
@@ -269,6 +269,8 @@ async def reset_state():
             setattr(app.state, key, copy.deepcopy(value))
         if hasattr(app.state, "cache_api_response"):
             app.state.cache_api_response.clear()
+        if hasattr(app.state, "cache_ratelimiter"):
+            app.state.cache_ratelimiter.clear()
 
     # 1. Reset configuration before tests that mutate app.state directly.
     restore_config()

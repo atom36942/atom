@@ -5,6 +5,9 @@ import json
 @pytest.mark.asyncio
 async def test_scenario_rate_limiting(integration_app):
     # SCENARIO: Verify that the Redis rate limiter blocks excessive requests
+    integration_app.app.state.config_api["/public/object-read"].update({
+        "api_ratelimiting_times_sec": ["redis", 10, 60]
+    })
     
     # 1. Ensure the limiter is clean
     redis = integration_app.app.state.client_redis
@@ -59,6 +62,10 @@ async def test_scenario_db_state_matching(integration_app, auth_client):
 @pytest.mark.asyncio
 async def test_scenario_redis_cache_integrity(integration_app):
     # SCENARIO: Verify that Redis cache actually stores and returns data
+    integration_app.app.state.config_api["/public/object-read"].update({
+        "api_cache_sec": ["redis", 60]
+    })
+    
     # Flush rate limiter keys first to avoid interference
     await integration_app.app.state.client_redis.flushdb()
     
