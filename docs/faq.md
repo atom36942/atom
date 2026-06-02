@@ -94,3 +94,22 @@ config_api = {
 
 ---
 
+### Q: What is the use of `actor_tracking_column` in `config_postgres`?
+
+**A:** `actor_tracking_column` maps lifecycle timestamp columns to the user ID columns that should record who performed that lifecycle action. During schema initialization, Atom creates an automatic `BEFORE UPDATE` trigger for matching tables. When a mapped timestamp changes, the trigger copies `updated_by_id` into the mapped actor column.
+
+**Example:**
+```python
+"actor_tracking_column": {
+    "deleted_at": "deleted_by_id",
+    "deactivated_at": "deactivated_by_id",
+    "archived_at": "archived_by_id",
+    "verified_at": "verified_by_id"
+}
+```
+
+If `deleted_at` changes and `updated_by_id = 10`, then `deleted_by_id` is automatically set to `10`.
+
+The trigger is added only for tables that contain `updated_by_id` and both columns in the mapping, such as `deleted_at` and `deleted_by_id`. If the actor column is explicitly changed in the same update, Atom keeps that explicit value instead of overwriting it.
+
+---

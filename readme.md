@@ -37,8 +37,8 @@ docker run --rm -p 8000:8000 atom
 venv/bin/pytest -s -v
 
 # Script Start
-venv/bin/python -m core.script.<filename>
-venv/bin/python -m core.consumer.<filename> [redis|rabbitmq|kafka|celery]
+venv/bin/python -m core.script.<script_name_without_py>
+venv/bin/python -m core.consumer.<consumer_name_without_py> [redis|rabbitmq|kafka|celery]
 ```
 
 # Env

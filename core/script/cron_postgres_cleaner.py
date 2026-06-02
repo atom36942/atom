@@ -1,7 +1,5 @@
 # import
 import asyncio
-import os
-import sys
 import asyncpg
 from core.config import config_postgres_url, config_sensitive_table, config_table
 

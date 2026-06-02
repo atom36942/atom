@@ -1,6 +1,6 @@
 # Scripts and Background Workers
 
-The `core/script/` directory is dedicated to standalone, long-running processes, CRON jobs, and message queue consumers. These scripts are designed to run independently from the main FastAPI server, typically deployed as separate background containers or daemon processes.
+The `core/script/` directory is dedicated to standalone tasks, long-running processes, CRON jobs, and message queue consumers. These scripts are designed to run independently from the main FastAPI server, typically deployed as separate background containers, daemon processes, scheduled jobs, or manual maintenance commands.
 
 ## Types of Scripts
 
@@ -19,21 +19,28 @@ These are continuous, infinite-looping daemon workers that process stateful item
 - **Use Case:** Complex AI processing, bulk email sending, or heavy data processing where you have a specific queue table or column in your database representing "jobs".
 - **Example:** `worker_resume_parser.py` constantly polls the `candidate` table for newly uploaded resumes. When it finds one, it locks the row, downloads the file, calls the Gemini AI API to parse the candidate's skills and experience, and updates the row back into PostgreSQL.
 
+### 4. Manual Tasks (`task_*.py`)
+These are one-off scripts intended to be run manually or during setup, not on a schedule.
+- **Use Case:** Database seeding, ad-hoc maintenance, migrations, fixture creation, or operational actions that should only happen when explicitly invoked.
+- **Example:** `task_postgres_seed_test_data.py` inserts sample test records into PostgreSQL for local development or testing.
+
 ## How to Expand (Creating a new script)
 
-1. **Create the file**: Add a new Python file to `core/script/` following the naming conventions above (e.g., `worker_invoice_generator.py`).
+1. **Create the file**: Add a new Python file to `core/script/` following the naming conventions above (e.g., `worker_invoice_generator.py`, `cron_report_summary.py`, or `task_postgres_seed_test_data.py`).
 2. **Structure**: 
    - Define your imports at the top (usually pulling `config_*` variables from `core.config`).
    - Wrap your logic inside an `async def execute():` block.
    - Setup your own connection pools (e.g., `asyncpg.create_pool`) since these scripts run entirely isolated from the FastAPI lifespan.
-   - Create a `while True:` loop if it's a daemon, or a single procedural run if it's a cron.
-   - Initialize execution at the bottom using `asyncio.run(execute())`.
+   - Create a `while True:` loop if it's a daemon, or a single procedural run if it's a cron or manual task.
+   - Keep the `# init` entrypoint at the bottom using `asyncio.run(execute())`.
 
 ```python
 # core/script/worker_example.py
+# import
 import asyncio
 from core.config import config_postgres_url
 
+# logic
 async def execute():
     # Setup your connections
     print("Starting Worker...")
@@ -41,13 +48,14 @@ async def execute():
         # Perform your logic
         await asyncio.sleep(5)
 
+# init
 if __name__ == "__main__":
     asyncio.run(execute())
 ```
 
 ## How to Execute
 
-To run any script locally, execute it as a Python module from the project root:
+To run any script locally, execute it as a Python module from the project root. Direct file execution is not supported because scripts import the `core` package.
 
 ```bash
 # Run a background worker
@@ -55,6 +63,9 @@ python -m core.script.worker_resume_parser
 
 # Run a cron job once
 python -m core.script.cron_postgres_cleaner
+
+# Run a manual task
+python -m core.script.task_postgres_seed_test_data
 ```
 
 If you are using Docker, you would typically run the main web app in one container, and launch your workers in separate, dedicated containers using the same image but overriding the startup command.

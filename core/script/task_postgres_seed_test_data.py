@@ -1,10 +1,7 @@
 # import
 import asyncio
-import os
-import sys
 import asyncpg
 import random
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.config import config_postgres_url
 
 # logic

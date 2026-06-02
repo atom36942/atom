@@ -195,6 +195,7 @@ config_column_int_mapping = {
 "blob": {1: "Upload File", 2: "Upload URL"},
 "post": {1: "Article", 2: "News", 3: "Announcement"},
 "interview": {1: "HR", 2: "Technical", 3: "Managerial", 4: "Cultural", 5: "Assignment"},
+"notification": {1: "System", 2: "Job Approved", 3: "Job Rejected"},
 },
 "status": {
 "test": {1: "Active", 2: "Inactive", 3: "Archived"},
@@ -462,6 +463,24 @@ config_postgres = {
 {"name":"duration_minutes","datatype":"integer"},
 {"name":"panel","datatype":"text[]","index":"gin(panel)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"}
+],
+"notification":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
+{"name":"deleted_by_id","datatype":"bigint"},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"deactivated_by_id","datatype":"bigint"},
+{"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
+{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id)"},
+{"name":"title","datatype":"text","is_mandatory":1},
+{"name":"description","datatype":"text"},
+{"name":"reference_table","datatype":"text"},
+{"name":"reference_id","datatype":"bigint"},
+{"name":"read_at","datatype":"timestamptz"}
 ],
 "action_test_comment":[
 {"name":"id","datatype":"bigserial","is_primary":1},

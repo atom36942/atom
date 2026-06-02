@@ -10,8 +10,6 @@
 !tests/**
 !docs/
 !docs/**
-!script/
-!script/**
 !.github/
 !.github/**
 !.vscode/
