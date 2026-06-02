@@ -1945,13 +1945,14 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
 async def func_notification_create(*, type: int, app_state: any, payload: dict) -> None:
     notification_obj_list = []
     table = payload.get("table")
-    if table and "created_by_id" in app_state.cache_postgres_schema.get(table, {}):
-        missing_ids = [obj["id"] for obj in payload.get("obj_list", []) if not obj.get("created_by_id") and obj.get("id")]
+    async def _fetch_missing_created_by_id(tbl: str, obj_list: list):
+        if not tbl or not obj_list: return
+        missing_ids = [obj["id"] for obj in obj_list if not obj.get("created_by_id") and obj.get("id")]
         if missing_ids:
             try:
-                db_records = await app_state.client_postgres_pool.fetch(f'SELECT "id", "created_by_id" FROM "{table}" WHERE "id" = ANY($1::int[])', missing_ids)
+                db_records = await app_state.client_postgres_pool.fetch(f'SELECT "id", "created_by_id" FROM "{tbl}" WHERE "id" = ANY($1::int[])', missing_ids)
                 db_map = {r["id"]: r.get("created_by_id") for r in db_records}
-                for obj in payload.get("obj_list", []):
+                for obj in obj_list:
                     if obj.get("id") in db_map:
                         obj["created_by_id"] = db_map[obj.get("id")]
             except Exception:
@@ -1960,8 +1961,9 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
         for obj in payload.get("obj_list", []):
             obj_id, created_by_id, updated_by_id, password = obj.get("id"), obj.get("created_by_id"), obj.get("updated_by_id"), obj.get("password")
             if password and obj_id and updated_by_id and obj_id != updated_by_id:
-                notification_obj_list.append({"type": type, "created_by_id": updated_by_id, "user_id": obj_id, "title": "Security Alert", "description": "Your account password was recently updated by Admin.", "reference_table": table, "reference_id": obj_id})
+                notification_obj_list.append({"type": type, "created_by_id": updated_by_id, "user_id": obj_id, "title": "Security Alert", "description": "Your account password was recently updated by Admin.", "reference_table": table, "reference_id": obj_id})     
     if type == 2 and table == "job":
+        await _fetch_missing_created_by_id(table, payload.get("obj_list", []))
         for obj in payload.get("obj_list", []):
             obj_id, created_by_id, updated_by_id, status = obj.get("id"), obj.get("created_by_id"), obj.get("updated_by_id"), int(obj.get("status")) if obj.get("status") is not None else None
             if status in (3, 4) and created_by_id and created_by_id != updated_by_id:
