@@ -21,7 +21,7 @@ config_is_enable_postgres_init_startup = 1
 # Allowed
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
 config_allowed_blob_services = ["s3", "azure"]
-config_allowed_email_services = ["ses", "resend"]
+config_allowed_email_services = ["ses", "resend", "azure"]
 config_allowed_mobile_services = ["sns", "fast2sms"]
 config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
 config_allowed_api_storage_backends = ["redis", "inmemory"]
@@ -60,6 +60,7 @@ config_ses_region_name = None
 # Azure
 config_azure_account_name = None
 config_azure_account_key = None
+config_azure_email_connection_string = None
 
 # Blob
 config_blob_container_default = "test"

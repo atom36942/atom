@@ -22,6 +22,7 @@ async def func_lifespan(app:"FastAPI"):
         from google import genai
         from argon2 import PasswordHasher
         from aiokafka import AIOKafkaProducer
+        from azure.communication.email import EmailClient
         from azure.storage.blob.aio import BlobServiceClient
         from celery import Celery
         from posthog import Posthog
@@ -44,6 +45,7 @@ async def func_lifespan(app:"FastAPI"):
         client_kafka_producer = (AIOKafkaProducer(bootstrap_servers=app.state.config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=app.state.config_kafka_username, sasl_plain_password=app.state.config_kafka_password) if app.state.config_kafka_username else AIOKafkaProducer(bootstrap_servers=app.state.config_kafka_url)) if app.state.config_kafka_url else None; await client_kafka_producer.start() if client_kafka_producer else None
         client_rabbitmq = await aio_pika.connect_robust(app.state.config_rabbitmq_url) if app.state.config_rabbitmq_url else None; client_rabbitmq_producer = await client_rabbitmq.channel() if client_rabbitmq else None
         client_sftp = await asyncssh.connect(host=app.state.config_sftp_host, port=int(app.state.config_sftp_port), username=app.state.config_sftp_username, password=app.state.config_sftp_password, known_hosts=None) if app.state.config_sftp_host else None
+        client_azure_email = EmailClient.from_connection_string(app.state.config_azure_email_connection_string) if app.state.config_azure_email_connection_string else None
         client_azure_blob = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={app.state.config_azure_account_name};AccountKey={app.state.config_azure_account_key};EndpointSuffix=core.windows.net") if (app.state.config_azure_account_name and app.state.config_azure_account_key) else None
         # postges schema init
         if client_postgres_pool and app.state.config_is_enable_postgres_init_startup == 1: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, config_postgres=app.state.config_postgres, config_root_user_password=app.state.config_root_user_password)
@@ -102,6 +104,7 @@ async def func_lifespan(app:"FastAPI"):
         if client_rabbitmq and not client_rabbitmq.is_closed: await client_rabbitmq.close()
         if client_redis_producer: await client_redis_producer.aclose()
         if client_sftp: client_sftp.close(); await client_sftp.wait_closed()
+        if client_azure_email and hasattr(client_azure_email, "close"): client_azure_email.close()
         if client_azure_blob: await client_azure_blob.close()
     except Exception as e:
         print(f"❌ shutdown error: {e}")

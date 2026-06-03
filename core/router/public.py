@@ -78,6 +78,10 @@ async def func_api_public_otp_send_email(*, request: Request):
         async with httpx.AsyncClient() as client:
             response = await client.post(app_state.config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
             if response.status_code != 200: raise Exception(f"failed to send email: {response.text}")
+    if oq["service"] == "azure":
+        if not app_state.client_azure_email: raise Exception("azure email client not configured")
+        message = {"senderAddress": oq["sender"], "recipients": {"to": [{"address": oq["email"]}]}, "content": {"subject": "your otp code", "plainText": str(otp)}}
+        await asyncio.to_thread(lambda: app_state.client_azure_email.begin_send(message).result())
     return {"status": 1, "message": "done"}
 
 @router.post("/public/otp-send-mobile")
