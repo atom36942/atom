@@ -838,7 +838,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, client_passwor
             if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role", "deleted_at", "deactivated_at")):
                 if config_root_user_password in (None, ""): raise Exception("root user password missing")
                 root_user_password_hash = client_password_hasher.hash(str(config_root_user_password))
-                await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'atom', $1, 1) ON CONFLICT (username, type) DO UPDATE SET type = 1, username = 'atom', password = COALESCE(users.password, EXCLUDED.password), role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
+                await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'admin', $1, 1) ON CONFLICT (username, type) DO UPDATE SET type = 1, username = 'admin', password = COALESCE(users.password, EXCLUDED.password), role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
             if is_enable_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password, created_by_id) VALUES (NEW.id, NEW.password, NEW.updated_by_id); END IF; RETURN NEW; END; $$;")

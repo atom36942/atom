@@ -5,8 +5,8 @@ config_postgres_min_connection = 5
 config_postgres_max_connection = 20
 
 # System
-config_root_user_password = "mysecretkey"
-config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
+config_root_user_password = "123456"
+config_token_secret_key = "mysecretkey"
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_user_delete = 1
 config_is_enable_signup = 1

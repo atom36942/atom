@@ -24,7 +24,7 @@ async def fetch_control_checks(conn):
             ('is_enable_delete_disable_users_role', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_role_users' AND p.proname = 'func_delete_disable_role_users' AND NOT t.tgisinternal)),
             ('is_enable_delete_disable_users_role_soft', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_delete_disable_role_users_soft' AND p.proname = 'func_delete_disable_role_users_soft' AND NOT t.tgisinternal)),
             ('is_enable_delete_disable_users_root', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_protect_root_users' AND p.proname = 'func_protect_root_users' AND NOT t.tgisinternal)),
-            ('is_enable_users_root_upsert', EXISTS (SELECT 1 FROM users WHERE id = 1 AND type = 1 AND username = 'atom' AND role = 1 AND deactivated_at IS NULL)),
+            ('is_enable_users_root_upsert', EXISTS (SELECT 1 FROM users WHERE id = 1 AND type = 1 AND username = 'admin' AND role = 1 AND deactivated_at IS NULL)),
             ('is_enable_log_users_password', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_password_log_users' AND p.proname = 'func_password_log_users' AND NOT t.tgisinternal)),
             ('is_enable_log_users_delete', EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid WHERE c.relname = 'users' AND t.tgname = 'trigger_log_users_delete' AND p.proname = 'func_log_users_delete' AND NOT t.tgisinternal)),
 
@@ -165,7 +165,7 @@ async def test_postgres_schema_init_control_triggers_enforce_runtime_behavior():
 
             async with pool.acquire() as conn:
                 root = await conn.fetchrow("SELECT id, username, role, deactivated_at FROM users WHERE id = 1")
-                assert dict(root) == {"id": 1, "username": "atom", "role": 1, "deactivated_at": None}
+                assert dict(root) == {"id": 1, "username": "admin", "role": 1, "deactivated_at": None}
 
                 with pytest.raises(asyncpg.PostgresError, match="DELETE not allowed for"):
                     await conn.execute("DELETE FROM users WHERE id = 1")

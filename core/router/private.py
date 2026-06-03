@@ -4,11 +4,38 @@ router = APIRouter()
 
 # import
 from fastapi import Request
+import orjson
 import uuid
 from datetime import datetime, timedelta, timezone
 from azure.storage.blob import generate_blob_sas, generate_container_sas, BlobSasPermissions, ContainerSasPermissions
 
 # api
+@router.post("/private/send-email")
+async def func_api_private_send_email(request:Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_email_services, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sender", "str", 1, None, None), ("to", "list", 1, None, None), ("subject", "str", 1, None, None), ("html", "str", 0, None, None), ("text", "str", 0, None, None), ("cc", "list", 0, None, []), ("bcc", "list", 0, None, []), ("reply_to", "list", 0, None, [])])
+    if not ob["html"] and not ob["text"]: raise Exception("html or text required")
+    if oq["service"] == "ses":
+        body = {}
+        if ob["html"]: body["Html"] = {"Data": ob["html"]}
+        if ob["text"]: body["Text"] = {"Data": ob["text"]}
+        params = {"Source": ob["sender"], "Destination": {"ToAddresses": ob["to"], "CcAddresses": ob["cc"], "BccAddresses": ob["bcc"]}, "Message": {"Subject": {"Data": ob["subject"]}, "Body": body}}
+        if ob["reply_to"]: params["ReplyToAddresses"] = ob["reply_to"]
+        response = app_state.client_ses.send_email(**params)
+        return {"status":1,"message":{"id": response.get("MessageId")}}
+    if oq["service"] == "resend":
+        headers = {"Authorization": f"Bearer {app_state.config_resend_key}", "Content-Type": "application/json"}
+        payload = {"from": ob["sender"], "to": ob["to"], "subject": ob["subject"]}
+        if ob["html"]: payload["html"] = ob["html"]
+        if ob["text"]: payload["text"] = ob["text"]
+        if ob["cc"]: payload["cc"] = ob["cc"]
+        if ob["bcc"]: payload["bcc"] = ob["bcc"]
+        if ob["reply_to"]: payload["reply_to"] = ob["reply_to"]
+        response = await app_state.client_http.post(app_state.config_resend_url, headers=headers, content=orjson.dumps(payload))
+        if response.status_code not in (200, 201): raise Exception(f"failed to send email: {response.text}")
+        return {"status":1,"message":response.json()}
+
 @router.post("/private/blob-upload-file")
 async def func_api_private_blob_upload_file(request:Request):
     app_state = request.app.state
