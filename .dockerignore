@@ -1,7 +1,6 @@
 .git
 .github
 infra
-tests
 scratch
 tmp
 secret

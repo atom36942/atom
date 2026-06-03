@@ -33,9 +33,6 @@ docker run --rm -p 8000:8000 atom
 
 # Commands
 ```bash
-# Test cases
-venv/bin/pytest -s -v
-
 # Script Start
 venv/bin/python -m core.script.<script_name_without_py>
 venv/bin/python -m core.consumer.<consumer_name_without_py> [redis|rabbitmq|kafka|celery]
@@ -51,17 +48,3 @@ config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_celery_url=redis://localhost:6379
 config_redis_queue_url=redis://localhost:6379
 ```
-
-# Documentation
-Detailed documentation is maintained in the `docs/` directory:
-- [Architecture Overview](docs/architecture.md)
-- [PostgreSQL Schema & Setup](docs/postgres.md)
-- [API Development & Config](docs/api.md)
-- [Background Scripts & Workers](docs/script.md)
-- [Database Operations](docs/database.md)
-- [Authentication & Authorization](docs/auth.md)
-- [Third-Party Integrations](docs/integration.md)
-- [Message Queues & Event Publishing](docs/messaging.md)
-- [Object CRUD APIs](docs/object.md)
-- [Notification System](docs/notification.md)
-- [Frequently Asked Questions (FAQ)](docs/faq.md)
