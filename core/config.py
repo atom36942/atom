@@ -469,7 +469,7 @@ config_postgres = {
 "notification":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
