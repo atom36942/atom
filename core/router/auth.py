@@ -7,6 +7,7 @@ from fastapi import Request
 from google.oauth2 import id_token
 from google.auth.transport import requests
 import orjson
+import asyncio
 
 # api
 @router.post("/auth/signup-username-password")
@@ -20,6 +21,7 @@ async def func_api_auth_signup_username_password(*, request:Request):
     async with app_state.client_postgres_pool.acquire() as conn:
         user = dict((await conn.fetch("INSERT INTO users (type, username, password) VALUES ($1, $2, $3) RETURNING *;", ob["type"], ob["username"], app_state.client_password_hasher.hash(str(ob["password"]))))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    asyncio.create_task(app_state.func_notification_create(type=3, app_state=app_state, payload={"table": "users", "obj_list": [user]}))
     return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-username-password")

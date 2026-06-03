@@ -6,7 +6,7 @@ config_postgres_max_connection = 20
 
 # System
 config_root_user_password = "123456"
-config_token_secret_key = "mysecretkey"
+config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_user_delete = 1
 config_is_enable_signup = 1
@@ -197,7 +197,7 @@ config_column_int_mapping = {
 "blob": {1: "Upload File", 2: "Upload URL"},
 "post": {1: "Article", 2: "News", 3: "Announcement"},
 "interview": {1: "HR", 2: "Technical", 3: "Managerial", 4: "Cultural", 5: "Assignment"},
-"notification": {1: "Password Change", 2: "Job Status Change"},
+"notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
 },
 "status": {
 "test": {1: "Active", 2: "Inactive", 3: "Archived"},

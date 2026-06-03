@@ -1972,5 +1972,10 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
             obj_id, created_by_id, updated_by_id, status = obj.get("id"), obj.get("created_by_id"), obj.get("updated_by_id"), int(obj.get("status")) if obj.get("status") is not None else None
             if status in (3, 4) and created_by_id and created_by_id != updated_by_id:
                 notification_obj_list.append({"type": type, "created_by_id": updated_by_id, "user_id": created_by_id, "title": "Job Status Update", "description": f"Your Job (ID: {obj_id}) has been {'Approved' if status == 3 else 'Rejected'} by Admin.", "reference_table": table, "reference_id": obj_id})
+    if type == 3 and table == "users":
+        for obj in payload.get("obj_list", []):
+            obj_id = obj.get("id")
+            if obj_id:
+                notification_obj_list.append({"type": type, "created_by_id": None, "user_id": obj_id, "title": "Account Created", "description": "Your account has been created successfully.", "reference_table": table, "reference_id": obj_id})
     if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="notification", obj_list=notification_obj_list)
     return None

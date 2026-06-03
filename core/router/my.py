@@ -107,6 +107,20 @@ async def func_api_my_ids_delete(*, request: Request):
     deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id, config_is_enable_user_delete=app_state.config_is_enable_user_delete)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
+@router.delete("/my/object-delete-misc")
+async def func_api_my_object_delete_misc(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["message_delete_single", "message_delete_sent", "message_delete_received", "message_delete_all"], None), ("id", "int", 0, None, None)])
+    async with app_state.client_postgres_pool.acquire() as conn:
+        if oq["mode"] == "message_delete_single":
+            if oq["id"] is None: raise Exception("parameter 'id' missing")
+            await conn.execute("DELETE FROM message WHERE id=$1 AND (created_by_id=$2 OR user_id=$2)", oq["id"], user_id)
+            return {"status": 1, "message": "message deleted"}
+        if oq["mode"] == "message_delete_sent": await conn.execute("DELETE FROM message WHERE created_by_id=$1", user_id)
+        elif oq["mode"] == "message_delete_received": await conn.execute("DELETE FROM message WHERE user_id=$1", user_id)
+        elif oq["mode"] == "message_delete_all": await conn.execute("DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)", user_id)
+    return {"status": 1, "message": "messages deleted"}
+
 @router.get("/my/message-inbox")
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
@@ -131,20 +145,3 @@ async def func_api_my_message_thread(*, request: Request):
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": obj_list}
 
-@router.delete("/my/message-delete-single")
-async def func_api_my_message_delete_single(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("id", "int", 1, None, None)])
-    async with app_state.client_postgres_pool.acquire() as conn:
-        await conn.execute("DELETE FROM message WHERE id=$1 AND (created_by_id=$2 OR user_id=$2)", oq["id"], request.state.user["id"])
-    return {"status": 1, "message": "message deleted"}
-
-@router.delete("/my/message-delete-bulk")
-async def func_api_my_message_delete_bulk(*, request: Request):
-    app_state, user_id = request.app.state, request.state.user["id"]
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["sent", "received", "all"], None)])
-    async with app_state.client_postgres_pool.acquire() as conn:
-        if oq["mode"] == "sent": await conn.execute("DELETE FROM message WHERE created_by_id=$1", user_id)
-        elif oq["mode"] == "received": await conn.execute("DELETE FROM message WHERE user_id=$1", user_id)
-        elif oq["mode"] == "all": await conn.execute("DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)", user_id)
-    return {"status": 1, "message": "messages deleted"}
