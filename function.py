@@ -1493,21 +1493,6 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_relation_fetch_limit_max=config_relation_fetch_limit_max)
         return result_list
 
-def func_postgres_mark_read(*, client_postgres_pool: any, table: str, ownership_column: str, user_id: int, ids: list) -> None:
-    """Schedule a non-blocking read_at update for fetched objects owned by a user."""
-    import asyncio, re
-    if not ids: return
-    for identifier in (table, ownership_column):
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(identifier)): raise Exception(f"invalid identifier {identifier}")
-    read_ids = list(dict.fromkeys(int(obj_id) for obj_id in ids if obj_id is not None))
-    if not read_ids: return
-    async def update_read_at():
-        async with client_postgres_pool.acquire() as conn:
-            await conn.execute(f'UPDATE "{table}" SET read_at=now() WHERE "{ownership_column}"=$1 AND "id"=ANY($2::bigint[]) AND read_at IS NULL', user_id, read_ids)
-    task = asyncio.create_task(update_read_at())
-    task.add_done_callback(lambda t: (t.exception() if not t.cancelled() else None))
-    return None
-
 async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, created_by_id: int) -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     import re
@@ -1963,4 +1948,19 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
             if obj_id:
                 notification_obj_list.append({"type": type, "created_by_id": None, "user_id": obj_id, "title": "Account Created", "description": "Your account has been created successfully.", "reference_table": table, "reference_id": obj_id})
     if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="notification", obj_list=notification_obj_list)
+    return None
+
+def func_postgres_mark_read(*, client_postgres_pool: any, table: str, ownership_column: str, user_id: int, ids: list) -> None:
+    """Schedule a non-blocking read_at update for fetched objects owned by a user."""
+    import asyncio, re
+    if not ids: return
+    for identifier in (table, ownership_column):
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(identifier)): raise Exception(f"invalid identifier {identifier}")
+    read_ids = list(dict.fromkeys(int(obj_id) for obj_id in ids if obj_id is not None))
+    if not read_ids: return
+    async def update_read_at():
+        async with client_postgres_pool.acquire() as conn:
+            await conn.execute(f'UPDATE "{table}" SET read_at=now() WHERE "{ownership_column}"=$1 AND "id"=ANY($2::bigint[]) AND read_at IS NULL', user_id, read_ids)
+    task = asyncio.create_task(update_read_at())
+    task.add_done_callback(lambda t: (t.exception() if not t.cancelled() else None))
     return None

@@ -6,9 +6,6 @@ from config import config_postgres_url, config_sensitive_table, config_table
 # logic
 async def execute():
     import time
-    if not config_postgres_url:
-        print("Error: config_postgres_url is not set in environment or config.")
-        return
     blocked_tables = [table for table, cfg in config_table.items() if cfg.get("retention_day") is not None and table in config_sensitive_table]
     if blocked_tables:
         raise Exception(f"postgres cleaner blocked for sensitive table(s): {', '.join(blocked_tables)}")

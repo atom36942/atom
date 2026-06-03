@@ -1,8 +1,6 @@
 # Postgres
 config_postgres_url = None
 config_postgres_url_read = None
-config_postgres_min_connection = 5
-config_postgres_max_connection = 20
 
 # System
 config_root_user_password = "123456"

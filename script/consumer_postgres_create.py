@@ -3,11 +3,11 @@ import sys
 from argon2 import PasswordHasher
 import asyncpg
 from function import func_run_broker, func_postgres_schema_read, func_postgres_create, func_postgres_serialize, func_regex_check
-from config import config_postgres_url, config_postgres_min_connection, config_postgres_max_connection, config_regex, config_table, config_obj_list_limit, config_buffer_limit, config_consumer_concurrency, config_redis_queue_url, config_rabbitmq_url, config_kafka_url, config_kafka_group_id, config_kafka_is_enable_auto_commit, config_kafka_username, config_kafka_password, config_kafka_batch_timeout_ms, config_kafka_batch_limit, config_celery_url
+from config import config_postgres_url, config_regex, config_table, config_obj_list_limit, config_buffer_limit, config_consumer_concurrency, config_redis_queue_url, config_rabbitmq_url, config_kafka_url, config_kafka_group_id, config_kafka_is_enable_auto_commit, config_kafka_username, config_kafka_password, config_kafka_batch_timeout_ms, config_kafka_batch_limit, config_celery_url
 
 # logic
 async def setup():
-    client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=config_postgres_min_connection, max_size=config_postgres_max_connection) if config_postgres_url else None
+    client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5)
     cache_postgres_buffer_create = {}
     cache_postgres_schema = await func_postgres_schema_read(client_postgres_pool=client_postgres_pool)
     client_password_hasher = PasswordHasher()
