@@ -4,6 +4,7 @@ import asyncpg
 import random
 from datetime import date, datetime, timedelta, timezone
 from config import config_postgres_url
+
 # logic
 async def execute():
     db_url = config_postgres_url
