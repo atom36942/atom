@@ -7,9 +7,8 @@ from fastapi import Request, responses, WebSocket, WebSocketDisconnect
 
 # api
 @router.get("/")
-async def func_api_index(*, request:Request):
-    app_state = request.app.state
-    return {"status":1,"message":"welcome to atom"} if not app_state.config_index_html_path else responses.FileResponse(app_state.config_index_html_path)
+async def func_api_index():
+    return responses.FileResponse("static/api.html")
 
 @router.get("/health")
 async def func_api_index_health(*, request:Request):

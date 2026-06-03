@@ -3,9 +3,7 @@ config_postgres_url = None
 config_postgres_url_read = None
 
 # System
-config_root_user_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
-config_index_html_path = "static/api.html"
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_user_delete = 1
 config_is_enable_signup = 1
