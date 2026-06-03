@@ -50,7 +50,7 @@ jobs:
       - name: Restart App Service
         run: az webapp restart --resource-group "${{ secrets.AZURE_RG }}" --name "${{ secrets.AZURE_APP }}"
 
-      - name: Verify /health
+      - name: Smoke test /health
         run: |
           set -euo pipefail
           URL="https://${{ secrets.AZURE_APP }}.azurewebsites.net/health"
