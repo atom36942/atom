@@ -52,6 +52,7 @@ async def test_postgres_read_identifier_quoting_and_basic_logic():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="users",
         filter=[{"id": "=,1"}],
         limit=10,
@@ -68,6 +69,32 @@ async def test_postgres_read_identifier_quoting_and_basic_logic():
     assert 'ORDER BY "id" DESC' in sql
     assert "LIMIT $2 OFFSET $3" in sql
     assert args == (1, 10, 0)
+
+@pytest.mark.asyncio
+async def test_postgres_read_rejects_limit_above_config_max():
+    pool = FakePool(fetch_responses=[[{"id": 1}]])
+    schema = {"users": {"id": {"datatype": "integer"}}}
+
+    with pytest.raises(Exception, match="query limit 101 exceeds maximum allowed: 100"):
+        await func_postgres_read(
+            client_postgres_pool=pool,
+            client_password_hasher=None,
+            func_postgres_serialize=func_postgres_serialize,
+            func_postgres_where_build=func_postgres_where_build,
+            func_postgres_relation=func_postgres_relation,
+            cache_postgres_schema=schema,
+            config_relation_fetch_limit_max=100,
+            config_query_limit_max=100,
+            table="users",
+            filter=[],
+            limit=101,
+            page=1,
+            order="id desc",
+            column="*",
+            relation=None
+        )
+
+    assert pool.queries == []
 
 @pytest.mark.asyncio
 async def test_postgres_read_relation_fetch_one_to_one():
@@ -90,6 +117,7 @@ async def test_postgres_read_relation_fetch_one_to_one():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="posts",
         filter=[],
         limit=10,
@@ -118,6 +146,7 @@ async def test_postgres_read_relation_aggregate():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="posts",
         filter=[],
         limit=10,
@@ -144,6 +173,7 @@ async def test_postgres_read_empty_order_defaults_to_id_desc():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="posts",
         filter=[],
         limit=10,
@@ -224,6 +254,7 @@ async def test_postgres_read_complex_filters():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="test",
         filter=[{"tags": "any,python"}],
         limit=10, page=1, order="id", column="*",
@@ -240,6 +271,7 @@ async def test_postgres_read_complex_filters():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="test",
         filter=[{"meta": "exists,role"}],
         limit=10, page=1, order="id", column="*",
@@ -256,6 +288,7 @@ async def test_postgres_read_complex_filters():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="test",
         filter=[{"loc": "point,80|15|0|1000"}],
         limit=10, page=1, order="id", column="*",
@@ -286,6 +319,7 @@ async def test_postgres_read_json_and_logical_filters():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="posts",
         filter=[complex_filter],
         limit=10, page=1, order="id", column="*",
@@ -309,6 +343,7 @@ async def test_postgres_read_json_and_logical_filters():
             func_postgres_relation=func_postgres_relation,
             cache_postgres_schema=schema,
             config_relation_fetch_limit_max=100,
+            config_query_limit_max=100,
             table="posts",
             filter=[{"status": "active"}], # MISSING COMMA (still fails but now it's a list)
             limit=10, page=1, order="id", column="*",
@@ -336,6 +371,7 @@ async def test_postgres_read_flat_list_filters():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="posts",
         filter=flat_filter,
         limit=10, page=1, order="id", column="*",
@@ -366,6 +402,7 @@ async def test_postgres_read_flat_list_preserves_repeated_columns():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="posts",
         filter=flat_filter,
         limit=10, page=1, order="id", column="*",
@@ -404,6 +441,7 @@ async def test_postgres_read_flat_list_prefers_longer_operator_matches():
         func_postgres_relation=func_postgres_relation,
         cache_postgres_schema=schema,
         config_relation_fetch_limit_max=100,
+        config_query_limit_max=100,
         table="posts",
         filter=flat_filter,
         limit=10, page=1, order="id", column="*",

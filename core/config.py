@@ -114,6 +114,7 @@ config_cors_expose_headers = ["Content-Disposition", "x-cache"]
 
 # Limits / Buffers
 config_query_limit_default = 100
+config_query_limit_max = 1000
 config_relation_fetch_limit_max = 100
 config_obj_list_limit = 1000
 config_buffer_limit = 100
@@ -523,6 +524,19 @@ config_postgres = {
 {"name":"description","datatype":"text"},
 {"name":"rating","datatype":"numeric(3,1)"}
 ],
+"action_users_report":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"unique":"created_by_id,user_id"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
+{"name":"deleted_by_id","datatype":"bigint"},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"deactivated_by_id","datatype":"bigint"},
+{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id)"},
+{"name":"description","datatype":"text"}
+],
 "action_candidate_feedback":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -633,6 +647,8 @@ config_postgres = {
 "idx_action_test_report_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_report_deleted_at_not_null ON action_test_report (id) WHERE deleted_at IS NOT NULL",
 "idx_action_test_feedback_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_feedback_deactivated_at_not_null ON action_test_feedback (id) WHERE deactivated_at IS NOT NULL",
 "idx_action_test_feedback_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_test_feedback_deleted_at_not_null ON action_test_feedback (id) WHERE deleted_at IS NOT NULL",
+"idx_action_users_report_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_users_report_deactivated_at_not_null ON action_users_report (id) WHERE deactivated_at IS NOT NULL",
+"idx_action_users_report_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_users_report_deleted_at_not_null ON action_users_report (id) WHERE deleted_at IS NOT NULL",
 "idx_action_candidate_feedback_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_candidate_feedback_deactivated_at_not_null ON action_candidate_feedback (id) WHERE deactivated_at IS NOT NULL",
 "idx_action_candidate_feedback_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_action_candidate_feedback_deleted_at_not_null ON action_candidate_feedback (id) WHERE deleted_at IS NOT NULL",
 "idx_log_api_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_log_api_deleted_at_not_null ON log_api (id) WHERE deleted_at IS NOT NULL",

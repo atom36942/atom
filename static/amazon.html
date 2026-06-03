@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amazon Shipments Dashboard</title>
+    <title>Amazon CargoWise Shipments</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         
@@ -31,26 +31,45 @@
 
         .container {
             width: 100%;
-            max-width: 1400px;
+            max-width: 1500px;
             padding: 2rem;
             box-sizing: border-box;
         }
 
-        /* Login Section */
+        /* Modal Login Section */
         #login-section {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(4px);
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            z-index: 1000;
         }
 
         .login-card {
             background: var(--surface);
             padding: 2.5rem;
             border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             width: 100%;
             max-width: 400px;
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
         }
 
         .login-card h2 {
@@ -79,7 +98,6 @@
             border-radius: 8px;
             box-sizing: border-box;
             font-size: 1rem;
-            transition: border-color 0.2s;
         }
 
         .form-group input:focus {
@@ -89,13 +107,12 @@
         }
 
         .btn {
-            width: 100%;
-            padding: 0.75rem;
+            padding: 0.75rem 1.25rem;
             background: var(--primary);
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 0.875rem;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s;
@@ -105,9 +122,15 @@
             background: var(--primary-hover);
         }
 
+        .btn-green { background: #10B981; }
+        .btn-green:hover { background: #059669; }
+        
+        .btn-red { background: #DC2626; }
+        .btn-red:hover { background: #B91C1C; }
+
         /* Dashboard Section */
         #dashboard-section {
-            display: none;
+            display: block;
             width: 100%;
         }
 
@@ -115,12 +138,26 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
         }
         
         .header h1 {
-            margin: 0;
+            margin: 0 0 0.5rem 0;
             font-size: 1.875rem;
+        }
+
+        .header p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
         }
 
         .table-container {
@@ -164,13 +201,60 @@
             background: #E0E7FF;
             color: #3730A3;
         }
+        
+        .status-badge.bkd { background: #FEF3C7; color: #92400E; }
+        .status-badge.rcv { background: #D1FAE5; color: #065F46; }
+
+        /* KPI Cards */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .kpi-card {
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .kpi-card .kpi-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .kpi-card .kpi-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1;
+        }
 
         /* Pagination */
         .pagination {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
+            margin-bottom: 1rem;
+            background: var(--surface);
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .pagination-controls {
+            display: flex;
             gap: 1rem;
+            align-items: center;
         }
 
         .pagination button {
@@ -207,18 +291,99 @@
         }
 
         .loading {
-            display: none;
             text-align: center;
-            padding: 2rem;
+            padding: 4rem;
             color: var(--text-muted);
+            font-size: 1.1rem;
         }
     </style>
 </head>
 <body>
 
-    <!-- Login Section -->
-    <div id="login-section" class="container">
+    <div id="dashboard-section" class="container">
+        <!-- Header Info -->
+        <div class="header">
+            <div>
+                <h1>Amazon CargoWise Data</h1>
+                <p>Live view of Amazon FBA shipments and tracking data directly from CargoWise.</p>
+            </div>
+            <div class="controls">
+                <button class="btn btn-green" id="refresh-btn" onclick="refreshData()" style="display: none;">
+                    ↻ Manual Refresh
+                </button>
+                <button class="btn" id="download-csv-btn" onclick="downloadCSV()" style="display: none; background: #374151;">
+                    ⬇ Download CSV
+                </button>
+                <button class="btn" id="show-login-btn" onclick="showLoginModal()">Login to View Data</button>
+                <button class="btn btn-red" id="logout-btn" onclick="logout()" style="display: none;">Logout</button>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-container" id="kpi-section" style="display: none;">
+            <div class="kpi-card">
+                <div class="kpi-title">Total Shipments</div>
+                <div class="kpi-value" id="kpi-total">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Last 30 Days</div>
+                <div class="kpi-value" id="kpi-30days">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Total Weight (kg)</div>
+                <div class="kpi-value" id="kpi-weight">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Total Volume</div>
+                <div class="kpi-value" id="kpi-volume">-</div>
+            </div>
+        </div>
+
+        <!-- Top Pagination -->
+        <div class="pagination" id="pagination-bar" style="display: none;">
+            <div class="page-info">Showing Amazon Shipments</div>
+            <div class="pagination-controls">
+                <button class="prev-btn" onclick="changePage(-1)" disabled>Previous</button>
+                <span class="page-info">Page <span class="current-page">1</span></span>
+                <button class="next-btn" onclick="changePage(1)">Next</button>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="table-container">
+            <div class="loading" id="table-loading">Please log in to view the live shipment data.</div>
+            <table id="shipments-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Created Date</th>
+                        <th>Booking #</th>
+                        <th>Amazon fbaShipmentId</th>
+                        <th>Amazon merchantId</th>
+                        <th>Controlling Customer</th>
+                        <th>Status</th>
+                        <th>Consignor</th>
+                        <th>House Bill</th>
+                        <th>Client</th>
+                        <th>Mode</th>
+                        <th>Incoterm</th>
+                        <th>Service Lvl.</th>
+                        <th>Weight</th>
+                        <th>UW</th>
+                        <th>Volume</th>
+                        <th>UV</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Rows populated by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Login Modal (Hidden by Default) -->
+    <div id="login-section" style="display: none;">
         <div class="login-card">
+            <button class="close-btn" onclick="hideLoginModal()">&times;</button>
             <h2>System Login</h2>
             <form id="login-form">
                 <div class="form-group">
@@ -229,52 +394,9 @@
                     <label for="password">Password</label>
                     <input type="password" id="password" required>
                 </div>
-                <button type="submit" class="btn" id="login-btn">Login</button>
+                <button type="submit" class="btn" id="login-btn" style="width: 100%;">Login</button>
                 <div class="error-message" id="login-error"></div>
             </form>
-        </div>
-    </div>
-
-    <!-- Dashboard Section -->
-    <div id="dashboard-section" class="container">
-        <div class="header">
-            <h1>Amazon Shipments Dashboard</h1>
-            <button class="btn" style="width: auto;" onclick="logout()">Logout</button>
-        </div>
-
-        <div class="table-container">
-            <div class="loading" id="table-loading">Loading shipments...</div>
-            <table id="shipments-table">
-                <thead>
-                    <tr>
-                        <th>Booking #</th>
-                        <th>Client</th>
-                        <th>Mode</th>
-                        <th>Weight</th>
-                        <th>UW</th>
-                        <th>Volume</th>
-                        <th>UV</th>
-                        <th>Service Lvl.</th>
-                        <th>Incoterm</th>
-                        <th>House Bill</th>
-                        <th>Consignor</th>
-                        <th>Amazon merchantId</th>
-                        <th>Amazon fbaShipmentId</th>
-                        <th>Controlling Customer</th>
-                        <th>Status</th>
-                        <th>Created Date</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body">
-                    <!-- Rows will be populated by JS -->
-                </tbody>
-            </table>
-        </div>
-
-        <div class="pagination">
-            <button id="prev-btn" onclick="changePage(-1)" disabled>Previous</button>
-            <span class="page-info">Page <span id="current-page">1</span></span>
-            <button id="next-btn" onclick="changePage(1)">Next</button>
         </div>
     </div>
 
@@ -286,21 +408,42 @@
 
         // Elements
         const loginSection = document.getElementById('login-section');
-        const dashboardSection = document.getElementById('dashboard-section');
         const loginForm = document.getElementById('login-form');
         const loginBtn = document.getElementById('login-btn');
         const loginError = document.getElementById('login-error');
+        
+        const showLoginBtn = document.getElementById('show-login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const downloadCsvBtn = document.getElementById('download-csv-btn');
+        
         const tableBody = document.getElementById('table-body');
         const tableLoading = document.getElementById('table-loading');
         const shipmentsTable = document.getElementById('shipments-table');
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        const pageSpan = document.getElementById('current-page');
+        const paginationBar = document.getElementById('pagination-bar');
+        
+        const prevBtns = document.querySelectorAll('.prev-btn');
+        const nextBtns = document.querySelectorAll('.next-btn');
+        const pageSpans = document.querySelectorAll('.current-page');
 
         // Check auth on load
         if (token) {
-            showDashboard();
+            updateUIToLoggedIn();
+            refreshData();
+        }
+
+        // Refresh Data helper
+        function refreshData() {
             fetchShipments(currentPage);
+            fetchKPIs();
+        }
+
+        // Modal Controls
+        function showLoginModal() {
+            loginSection.style.display = 'flex';
+        }
+        function hideLoginModal() {
+            loginSection.style.display = 'none';
         }
 
         // Login Handler
@@ -320,17 +463,16 @@
                     body: JSON.stringify({ type: 1, username, password })
                 });
 
-                if (!response.ok) {
-                    throw new Error('Authentication failed. Please check your credentials.');
-                }
-
                 const data = await response.json();
                 
                 if (data.status === 1 && data.message && data.message.token) {
-                    token = data.message.token;
+                    const tokenObj = data.message.token;
+                    token = typeof tokenObj === 'object' ? tokenObj.token : tokenObj;
+                    
                     localStorage.setItem('access_token', token);
-                    showDashboard();
-                    fetchShipments(currentPage);
+                    hideLoginModal();
+                    updateUIToLoggedIn();
+                    refreshData();
                 } else {
                     throw new Error(data.message || 'No access token received from server.');
                 }
@@ -344,22 +486,44 @@
         });
 
         // Logout
-        function logout() {
+        function logout(force = false) {
+            if (!force && !confirm("Are you sure you want to log out?")) {
+                return;
+            }
             localStorage.removeItem('access_token');
             token = null;
-            dashboardSection.style.display = 'none';
-            loginSection.style.display = 'flex';
-            document.getElementById('password').value = '';
+            updateUIToLoggedOut();
+            hideLoginModal(); // Guarantee the modal is hidden when logging out
         }
 
-        // View toggle
-        function showDashboard() {
-            loginSection.style.display = 'none';
-            dashboardSection.style.display = 'block';
+        // UI State management
+        function updateUIToLoggedIn() {
+            showLoginBtn.style.display = 'none';
+            logoutBtn.style.display = 'block';
+            refreshBtn.style.display = 'block';
+            downloadCsvBtn.style.display = 'block';
+            document.getElementById('kpi-section').style.display = 'grid';
+            paginationBar.style.display = 'flex';
+            shipmentsTable.style.display = 'table';
+            tableLoading.style.display = 'none';
+        }
+
+        function updateUIToLoggedOut() {
+            showLoginBtn.style.display = 'block';
+            logoutBtn.style.display = 'none';
+            refreshBtn.style.display = 'none';
+            downloadCsvBtn.style.display = 'none';
+            document.getElementById('kpi-section').style.display = 'none';
+            paginationBar.style.display = 'none';
+            shipmentsTable.style.display = 'none';
+            tableLoading.style.display = 'block';
+            tableLoading.textContent = 'Please log in to view the live shipment data.';
+            tableBody.innerHTML = '';
         }
 
         // Fetch Data
         async function fetchShipments(page) {
+            if (!token) return;
             const offset = (page - 1) * limit;
             
             const sqlQuery = `
@@ -408,14 +572,15 @@
                 OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY;
             `;
 
-            tableLoading.style.display = 'block';
+            refreshBtn.textContent = 'Refreshing...';
+            refreshBtn.disabled = true;
             shipmentsTable.style.opacity = '0.5';
 
             try {
                 const response = await fetch('/admin/mssql-sql-runner', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -429,29 +594,39 @@
                 if (response.status === 401 || response.status === 403 || data.status === 0) {
                     if (data.status === 0 && data.message && typeof data.message === 'string' && data.message.includes('expired')) {
                         alert("Session expired. Please log in again.");
-                        logout();
+                        logout(true);
                         return;
                     }
                     if (data.status === 0) {
+                        if (typeof data.message === 'string' && data.message.toLowerCase().includes('token invalid')) {
+                            logout(true);
+                        }
                         throw new Error(data.message);
                     }
                 }
 
-                // Assuming data.message holds the array of objects
                 const rows = Array.isArray(data.message) ? data.message : [];
                 renderTable(rows);
 
                 // Update pagination state
-                prevBtn.disabled = page === 1;
-                nextBtn.disabled = rows.length < limit; // If less than 50 rows returned, it's the last page
+                prevBtns.forEach(btn => btn.disabled = page === 1);
+                nextBtns.forEach(btn => btn.disabled = rows.length < limit);
 
             } catch (err) {
                 console.error(err);
-                alert("An error occurred while fetching shipments: " + err.message);
+                alert("An error occurred: " + err.message);
             } finally {
-                tableLoading.style.display = 'none';
+                refreshBtn.innerHTML = '&#8635; Manual Refresh';
+                refreshBtn.disabled = false;
                 shipmentsTable.style.opacity = '1';
             }
+        }
+
+        // Format Date Helper
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         }
 
         // Render Table
@@ -465,30 +640,85 @@
 
             rows.forEach(row => {
                 const tr = document.createElement('tr');
-                
-                // Helper to render cell safely
                 const td = (val) => `<td>${val !== null && val !== undefined ? val : ''}</td>`;
                 
+                const status = row['SHIPMENT STATUS'] || 'N/A';
+                let statusClass = '';
+                if (status.toLowerCase() === 'bkd') statusClass = 'bkd';
+                else if (status.toLowerCase() === 'rcv') statusClass = 'rcv';
+
+                // Render in the logical order
                 tr.innerHTML = `
+                    <td style="color: var(--text-muted);">${formatDate(row['Created Date'])}</td>
                     <td style="font-weight: 600;">${row['Booking #'] || ''}</td>
+                    <td style="font-family: monospace; color: var(--primary);">${row['Amazon fbaShipmentId'] || ''}</td>
+                    <td>${row['Amazon merchantId'] || ''}</td>
+                    <td style="font-weight: 500;">${row['Controlling Customer'] || ''}</td>
+                    <td><span class="status-badge ${statusClass}">${status}</span></td>
+                    ${td(row['Consignor'])}
+                    ${td(row['House Bill'])}
                     ${td(row['Client'])}
                     ${td(row['Mode'])}
+                    ${td(row['Incoterm'])}
+                    ${td(row['Service Lvl.'])}
                     ${td(row['Weight'])}
                     ${td(row['UW'])}
                     ${td(row['Volume'])}
                     ${td(row['UV'])}
-                    ${td(row['Service Lvl.'])}
-                    ${td(row['Incoterm'])}
-                    ${td(row['House Bill'])}
-                    ${td(row['Consignor'])}
-                    ${td(row['Amazon merchantId'])}
-                    ${td(row['Amazon fbaShipmentId'])}
-                    ${td(row['Controlling Customer'])}
-                    <td><span class="status-badge">${row['SHIPMENT STATUS'] || 'N/A'}</span></td>
-                    ${td(row['Created Date'] ? new Date(row['Created Date']).toLocaleString() : '')}
                 `;
                 tableBody.appendChild(tr);
             });
+        }
+
+        // Fetch KPIs
+        async function fetchKPIs() {
+            if (!token) return;
+            
+            const sqlQuery = `
+                SELECT 
+                    COUNT(js.JS_PK) AS TotalShipments,
+                    SUM(CASE WHEN js.JS_SystemCreateTimeUtc >= DATEADD(day, -30, GETUTCDATE()) THEN 1 ELSE 0 END) AS ShipmentsLast30Days,
+                    SUM(js.JS_ActualWeight) AS TotalWeight,
+                    SUM(js.JS_ActualVolume) AS TotalVolume
+                FROM JobShipment js
+                LEFT JOIN JobHeader jh ON js.JS_TH_OneTimeQuote = jh.JH_ParentID
+                LEFT JOIN OrgAddress oa_client ON jh.JH_OA_LocalChargesAddr = oa_client.OA_PK
+                LEFT JOIN OrgHeader org_client ON oa_client.OA_OH = org_client.OH_PK
+                WHERE org_client.OH_Code = 'AMAZONWAS';
+            `;
+
+            document.getElementById('kpi-total').textContent = '...';
+            document.getElementById('kpi-30days').textContent = '...';
+            document.getElementById('kpi-weight').textContent = '...';
+            document.getElementById('kpi-volume').textContent = '...';
+
+            try {
+                const response = await fetch('/admin/mssql-sql-runner', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mode: 'read', sql: sqlQuery })
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 1 && data.message && data.message.length > 0) {
+                    const row = data.message[0];
+                    const formatNum = (num) => {
+                        const val = parseFloat(num);
+                        return isNaN(val) ? 0 : val.toLocaleString();
+                    };
+                    
+                    document.getElementById('kpi-total').textContent = formatNum(row.TotalShipments);
+                    document.getElementById('kpi-30days').textContent = formatNum(row.ShipmentsLast30Days);
+                    document.getElementById('kpi-weight').textContent = formatNum(row.TotalWeight);
+                    document.getElementById('kpi-volume').textContent = formatNum(row.TotalVolume);
+                }
+            } catch (err) {
+                console.error("Failed to fetch KPIs", err);
+            }
         }
 
         // Pagination Handler
@@ -496,8 +726,121 @@
             const newPage = currentPage + delta;
             if (newPage > 0) {
                 currentPage = newPage;
-                pageSpan.textContent = currentPage;
+                pageSpans.forEach(span => span.textContent = currentPage);
                 fetchShipments(currentPage);
+            }
+        }
+
+        // Download CSV Logic
+        async function downloadCSV() {
+            if (!token) return;
+            
+            const limitStr = prompt("Enter the number of latest records to download:", "1000");
+            if (limitStr === null) return; // User cancelled
+            
+            const dlLimit = parseInt(limitStr);
+            if (isNaN(dlLimit) || dlLimit <= 0) {
+                alert("Please enter a valid positive number.");
+                return;
+            }
+
+            const sqlQuery = `
+                SELECT TOP ${dlLimit}
+                    js.JS_SystemCreateTimeUtc AS [Created Date],
+                    js.JS_UniqueConsignRef AS [Booking #],
+                    MAX(CASE WHEN custom.XV_Name = 'Amazon fbaShipmentId' THEN custom.XV_Data END) AS [Amazon fbaShipmentId],
+                    MAX(CASE WHEN custom.XV_Name = 'Amazon merchantId' THEN custom.XV_Data END) AS [Amazon merchantId],
+                    org_control.OH_Code AS [Controlling Customer],
+                    js.JS_ShipmentStatus AS [SHIPMENT STATUS],
+                    org_consignor.OH_FullName AS [Consignor],
+                    js.JS_HouseBill AS [House Bill],
+                    org_client.OH_Code AS [Client],
+                    js.JS_PackingMode AS [Mode],
+                    js.JS_INCO AS [Incoterm],
+                    js.JS_RS_NKServiceLevel AS [Service Lvl.],
+                    js.JS_ActualWeight AS [Weight],
+                    js.JS_UnitOfWeight AS [UW],
+                    js.JS_ActualVolume AS [Volume],
+                    js.JS_UnitOfVolume AS [UV]
+                FROM JobShipment js
+                LEFT JOIN JobHeader jh ON js.JS_TH_OneTimeQuote = jh.JH_ParentID
+                LEFT JOIN OrgAddress oa_client ON jh.JH_OA_LocalChargesAddr = oa_client.OA_PK
+                LEFT JOIN OrgHeader org_client ON oa_client.OA_OH = org_client.OH_PK
+                LEFT JOIN cvw_JobShipmentOrgs parties ON js.JS_PK = parties.JS_PK
+                LEFT JOIN OrgHeader org_consignor ON parties.JS_E2_OA_OH_Consignor = org_consignor.OH_PK
+                LEFT JOIN OrgHeader org_control ON parties.ControllingCustomer_PK = org_control.OH_PK
+                LEFT JOIN GenCustomAddOnValue custom ON js.JS_TH_OneTimeQuote = custom.XV_ParentID
+                WHERE org_client.OH_Code = 'AMAZONWAS'
+                GROUP BY 
+                    js.JS_UniqueConsignRef, org_client.OH_Code, js.JS_PackingMode, js.JS_ActualWeight, js.JS_UnitOfWeight, js.JS_ActualVolume, js.JS_UnitOfVolume, js.JS_RS_NKServiceLevel, js.JS_INCO, js.JS_HouseBill, org_consignor.OH_FullName, org_control.OH_Code, js.JS_ShipmentStatus, js.JS_SystemCreateTimeUtc
+                ORDER BY js.JS_SystemCreateTimeUtc DESC;
+            `;
+
+            downloadCsvBtn.textContent = 'Preparing...';
+            downloadCsvBtn.disabled = true;
+
+            try {
+                const response = await fetch('/admin/mssql-sql-runner', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mode: 'read', sql: sqlQuery })
+                });
+
+                const data = await response.json();
+                
+                if (response.status === 401 || response.status === 403 || data.status === 0) {
+                    if (data.status === 0 && data.message && typeof data.message === 'string' && data.message.includes('expired')) {
+                        alert("Session expired. Please log in again.");
+                        logout(true);
+                        return;
+                    }
+                    if (data.status === 0) {
+                        if (typeof data.message === 'string' && data.message.toLowerCase().includes('token invalid')) {
+                            logout(true);
+                        }
+                        throw new Error(data.message);
+                    }
+                }
+
+                const rows = Array.isArray(data.message) ? data.message : [];
+                if (rows.length === 0) {
+                    alert("No data available to download.");
+                    return;
+                }
+
+                // Convert to CSV
+                const headers = Object.keys(rows[0]);
+                let csvContent = headers.map(h => `"${h}"`).join(",") + "\n";
+                
+                rows.forEach(row => {
+                    const rowData = headers.map(header => {
+                        let cell = row[header] === null || row[header] === undefined ? "" : String(row[header]);
+                        // Escape quotes and wrap in quotes
+                        return `"${cell.replace(/"/g, '""')}"`;
+                    });
+                    csvContent += rowData.join(",") + "\n";
+                });
+
+                // Trigger download
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `amazon_shipments_${new Date().getTime()}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+            } catch (err) {
+                console.error(err);
+                alert("Failed to download CSV: " + err.message);
+            } finally {
+                downloadCsvBtn.innerHTML = '⬇ Download CSV';
+                downloadCsvBtn.disabled = false;
             }
         }
     </script>

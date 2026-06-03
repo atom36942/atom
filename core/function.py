@@ -1316,10 +1316,13 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
     if mode == "now":
         return await insert_serialized(table, serialized_list)
 
-async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
+async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_query_limit_max: int, config_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
+    if limit < 1: raise Exception("query limit must be greater than 0")
+    if page < 1: raise Exception("query page must be greater than 0")
+    if config_query_limit_max and limit > config_query_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_query_limit_max}")
     order = str(order or "").strip() or "id desc"
     order_list = []
     for part in order.split(","):
