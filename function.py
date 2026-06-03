@@ -1,3 +1,562 @@
+def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_allowed_api_namespace: list, config_router_path: str, config_api: dict, config_allowed_user_storage_backends: list, config_allowed_api_storage_backends: list, config_postgres: dict) -> None:
+    import re
+    def optional_mode(mode_cfg):
+        return mode_cfg[0] if isinstance(mode_cfg, list) else mode_cfg
+    def is_valid_postgres_datatype(datatype: str) -> bool:
+        if not isinstance(datatype, str) or not datatype.strip():
+            return False
+        dtype = re.sub(r"\s+", " ", datatype.strip().lower())
+        while dtype.endswith("[]"):
+            dtype = dtype[:-2].strip()
+        dtype = re.sub(r"\([^)]*\)", "", dtype)
+        dtype = re.sub(r"\s+", " ", dtype).strip()
+        allowed_types = {
+            "smallint", "integer", "bigint", "int2", "int4", "int8", "serial", "serial2", "serial4", "bigserial", "serial8",
+            "real", "double precision", "float4", "float8", "numeric", "decimal", "money",
+            "boolean", "bool",
+            "text", "varchar", "character varying", "char", "character",
+            "date", "time", "time without time zone", "time with time zone", "timetz",
+            "timestamp", "timestamp without time zone", "timestamp with time zone", "timestamptz", "interval",
+            "json", "jsonb", "uuid", "bytea", "xml",
+            "cidr", "inet", "macaddr", "macaddr8",
+            "point", "line", "lseg", "box", "path", "polygon", "circle",
+            "tsvector", "tsquery",
+            "bit", "bit varying", "varbit",
+            "int4range", "int8range", "numrange", "tsrange", "tstzrange", "daterange",
+            "geometry", "geography",
+        }
+        return dtype in allowed_types
+    api_ids = []
+    for path, cfg in config_api.items():
+        if (api_id := cfg.get("id")):
+            if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
+            api_ids.append(api_id)
+        if mode_cfg := cfg.get("user_role_check"):
+            if not isinstance(mode_cfg, list) or len(mode_cfg) < 2: raise Exception(f"invalid user_role_check in {path}: expected [mode, roles]")
+            if not mode_cfg[0] or mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_role_check), allowed: {config_allowed_user_storage_backends}")
+            if not isinstance(mode_cfg[1], list) or 1 not in mode_cfg[1]: raise Exception(f"{path} user_role_check must allow role 1")
+        if (mode_cfg := cfg.get("user_deactivated_check")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (user_deactivated_check), allowed: {config_allowed_user_storage_backends}")
+        if (mode_cfg := cfg.get("user_deleted_check")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (user_deleted_check), allowed: {config_allowed_user_storage_backends}")
+        if (mode_cfg := cfg.get("api_ratelimiting_times_sec")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (api_ratelimiting_times_sec), allowed: {config_allowed_api_storage_backends}")
+        if (mode_cfg := cfg.get("api_cache_sec")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (api_cache_sec), allowed: {config_allowed_api_storage_backends}")
+    route_paths = {route.path for route in app_routes if hasattr(route, "path")}
+    for path in config_api.keys():
+        if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
+    for route in app_routes:
+        if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
+        path = route.path
+        if path.startswith("/admin"):
+            if path not in config_api: raise Exception(f"admin route '{path}' missing in config_api")
+            if path in config_api and "user_role_check" not in config_api[path]: raise Exception(f"admin route '{path}' missing 'user_role_check' in config_api")
+    for route in app_routes:
+        if not hasattr(route, "path"): continue
+        path = route.path
+        segments = path.split("/")
+        if path == "/":
+            route_ns = "/"
+        elif len(segments) <= 2 or not any(segments[2:]):
+            route_ns = "/"
+        else:
+            route_ns = f"/{segments[1]}/"
+        if route_ns not in config_allowed_api_namespace:
+            raise Exception(f"invalid route: {path}")
+    for route in app_routes:
+        if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
+        path, endpoint_name = route.path, route.endpoint.__name__
+        if not endpoint_name.startswith("func_api_"): raise Exception(f"invalid endpoint function name: {endpoint_name} in {path}")
+    import ast, pathlib
+    def iter_python_paths(path_cfg):
+        path = pathlib.Path(path_cfg)
+        if path.is_dir():
+            return [p for p in path.glob("*.py") if not p.name.startswith(("_", "."))]
+        if path.suffix == ".py":
+            return [path]
+        return [path.with_suffix(".py")]
+    if config_config_path:
+        for config_path in iter_python_paths(config_config_path):
+            with open(config_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
+            for node in tree.body:
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        targets_to_check = [target]
+                        while targets_to_check:
+                            t = targets_to_check.pop()
+                            if isinstance(t, ast.Name) and not t.id.startswith("config_"): raise Exception(f"invalid config variable name: {t.id}")
+                            if isinstance(t, (ast.Tuple, ast.List)): targets_to_check.extend(t.elts)
+                elif isinstance(node, ast.AnnAssign):
+                    if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
+    if config_function_path:
+        for function_path in iter_python_paths(config_function_path):
+            with open(function_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
+    if config_router_path:
+        for router_path in iter_python_paths(config_router_path):
+            with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
+            if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
+    if config_postgres and "table" in config_postgres:
+        global_column_types = {}
+        for table_name, columns in config_postgres["table"].items():
+            if not table_name or not table_name.strip(): raise Exception("table name cannot be empty")
+            column_names_list = [col.get("name") for col in columns if "name" in col]
+            if len(column_names_list) != len(set(column_names_list)):
+                seen = set()
+                for name in column_names_list:
+                    if name in seen: raise Exception(f"duplicate column name '{name}' in table '{table_name}'")
+                    seen.add(name)
+            column_names = set(column_names_list)
+            btrees, others = [], []
+            for col in columns:
+                col_name, col_type = col.get("name"), col.get("datatype")
+                if not col_name or not col_name.strip(): raise Exception(f"column name in {table_name} cannot be empty")
+                if not col_type or not col_type.strip(): raise Exception(f"datatype in {table_name}.{col_name} cannot be empty")
+                if not is_valid_postgres_datatype(col_type): raise Exception(f"invalid datatype '{col_type}' in {table_name}.{col_name}")
+                if col_name in global_column_types and global_column_types[col_name] != col_type:
+                    raise Exception(f"datatype mismatch for column '{col_name}': '{col_type}' in {table_name} vs '{global_column_types[col_name]}' elsewhere")
+                global_column_types[col_name] = col_type
+                if (col_unique := col.get("unique")):
+                    for group in (x.strip() for x in col_unique.split("|")):
+                        u_cols = [c.strip() for c in group.split(",")]
+                        if len(u_cols) != len(set(u_cols)): raise Exception(f"unique constraint in {table_name}.{col_name} contains duplicate columns: {u_cols}")
+                        for uc in u_cols:
+                            if uc not in column_names: raise Exception(f"unique constraint in {table_name}.{col_name} references non-existent column '{uc}'")
+                        if col_name not in u_cols: raise Exception(f"unique constraint in {table_name}.{col_name} does not include '{col_name}' itself")
+                        btrees.append((u_cols, True, col_name))
+                if (col_index := col.get("index")):
+                    curr_table_types = {c.get("name"): c.get("datatype", "") for c in columns if c.get("name")}
+                    for group in (x.strip() for x in col_index.split("|")):
+                        if "(" in group and group.endswith(")"):
+                            idx_type, cols_str = group[:-1].split("(", 1)
+                            idx_type, idx_cols = idx_type.strip().lower(), [c.strip() for c in cols_str.split(",")]
+                            if len(idx_cols) != len(set(idx_cols)): raise Exception(f"index in {table_name}.{col_name} contains duplicate columns: {idx_cols}")
+                            if col_name == "id" and idx_cols == ["id"] and idx_type == "btree": raise Exception(f"Primary key '{table_name}.id' is natively indexed. Do not add an explicit btree index for it.")
+                            for ic in idx_cols:
+                                if ic not in column_names: raise Exception(f"index in {table_name}.{col_name} references non-existent column '{ic}'")
+                                ic_type = curr_table_types.get(ic, "").lower()
+                                if idx_type == "btree" and ("[]" in ic_type or "jsonb" in ic_type): raise Exception(f"btree index in {table_name}.{col_name} on column '{ic}' (type {ic_type}) is unsupported. Use gin instead.")
+                            if idx_cols[0] != col_name: raise Exception(f"index in {table_name}.{col_name} must have '{col_name}' as the first column")
+                            if idx_type == "btree": btrees.append((idx_cols, False, col_name))
+                            else: others.append((idx_type, idx_cols, col_name))
+                        else:
+                            raise Exception(f"invalid index syntax '{group}' in {table_name}.{col_name}")
+            for i, (c1, u1, o1) in enumerate(btrees):
+                for j, (c2, u2, o2) in enumerate(btrees):
+                    if i == j: continue
+                    if c1 == c2 and u1 == u2: raise Exception(f"duplicate {'unique' if u1 else 'btree index'} on {table_name}: {c1}")
+                    if not u1 and c2[:len(c1)] == c1: raise Exception(f"redundant btree index on {table_name}.{o1}({','.join(c1)}) covered by {'unique' if u2 else 'btree'} on {o2}({','.join(c2)})")
+                    if u1 and u2 and c1[:len(c2)] == c2: raise Exception(f"redundant unique constraint on {table_name}.{o1}({','.join(c1)}) - {o2}({','.join(c2)}) is already unique")
+            for i, (t1, c1, o1) in enumerate(others):
+                for j, (t2, c2, o2) in enumerate(others):
+                    if i == j: continue
+                    if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
+    return None
+
+async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_root_user_password: str) -> str:
+    """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
+    if not config_postgres: raise Exception("config_postgres missing")
+    if "table" not in config_postgres: raise Exception("config_postgres.table missing")
+    control = config_postgres.get("control", {})
+    def get_enable_control_switch(key: str, default: int = 1, legacy_disable_keys: tuple = ()) -> int:
+        if key in control:
+            return control.get(key)
+        for legacy_key in legacy_disable_keys:
+            if legacy_key in control:
+                return 0 if control.get(legacy_key) else 1
+        return default
+    is_ext, is_autovacuum = control.get("is_enable_extension", 0), control.get("is_enable_autovacuum_optimize", 0)
+    is_enable_drop_schema = get_enable_control_switch("is_enable_drop_schema", 1, ("is_enable_drop_schema_disable", "is_disable_drop_schema"))
+    is_enable_drop_table = get_enable_control_switch("is_enable_drop_table", 1, ("is_enable_drop_table_disable", "is_disable_drop_table"))
+    is_enable_truncate = get_enable_control_switch("is_enable_truncate", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
+    is_enable_drop_column = get_enable_control_switch("is_enable_drop_column", 0, ("is_enable_drop_column_disable", "is_disable_drop_column"))
+    is_enable_delete_disable_users_root = control.get("is_enable_delete_disable_users_root", control.get("is_enable_users_protect_root", 1))
+    is_enable_users_root_upsert = control.get("is_enable_users_root_upsert", 1)
+    is_enable_log_users_password = control.get("is_enable_log_users_password", 1)
+    is_enable_log_users_delete = control.get("is_enable_log_users_delete", 1)
+    is_enable_delete_disable_is_protected = control.get("is_enable_delete_disable_is_protected", 1)
+    is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
+    is_enable_delete_disable_users_role = control.get("is_enable_delete_disable_users_role", control.get("is_enable_users_protect_role", control.get("is_enable_users_protect_with_role", 0 if control.get("is_enable_users_delete_with_role", control.get("is_enable_users_delete_role", 1)) else 1)))
+    is_enable_delete_disable_users_role_soft = control.get("is_enable_delete_disable_users_role_soft", 0)
+    if "is_enable_users_delete_role_disable" in control:
+        is_enable_delete_disable_users_role = control.get("is_enable_users_delete_role_disable")
+    if "is_disable_users_delete_role" in control:
+        is_enable_delete_disable_users_role = control.get("is_disable_users_delete_role")
+    is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", 0)))
+    if not is_enable_drop_column and is_enable_drop_column_mismatch:
+        raise Exception("config_postgres.control conflict: is_enable_drop_column=0 blocks is_enable_drop_column_mismatch=1")
+    bulk_blocked = control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))
+    table_blocked = control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))
+    catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
+    for key, val in config_postgres.get("sql", {}).items():
+        if key == "index" and isinstance(val, dict):
+            for idx_name in val.keys():
+                catalog["idx"].add(idx_name)
+        elif isinstance(key, str) and key.startswith("index_"):
+            catalog["idx"].add(key[6:])
+    reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
+    for table_name, column_configs in config_postgres["table"].items():
+        primary_cfg = column_configs[0] if column_configs else {}
+        if len(primary_cfg) > 3:
+            raise Exception(f"{table_name}.id primary column config cannot have more than 3 keys")
+        if primary_cfg != {"name": "id", "datatype": "bigserial", "is_primary": 1}:
+            raise Exception(f"{table_name} first column must be exactly {{'name':'id','datatype':'bigserial','is_primary':1}}")
+        for col in column_configs[1:]:
+            if col.get("is_primary") == 1:
+                raise Exception(f"{table_name} can only define one primary column")
+            if col.get("name") == "id":
+                raise Exception(f"{table_name}.id must only be defined as the first primary column")
+        column_names = {col["name"] for col in column_configs if "name" in col}
+        for col in column_configs:
+            name, dtype = col.get("name"), col.get("datatype")
+            if not name or not dtype:
+                raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column: {col}")
+            if name.lower() in reserved:
+                raise Exception(f"Column name '{name}' in table '{table_name}' is a PostgreSQL reserved keyword. Please rename it.")
+            if "regex" in col and "[]" in dtype.lower():
+                raise Exception(f"Regex constraint is not supported for array column {table_name}.{name}. Remove 'regex' key to resolve.")
+            if col.get("index"):
+                for index_group in (x.strip() for x in col["index"].split("|")):
+                    if "(" in index_group and index_group.endswith(")"):
+                        index_type, cols_str = index_group[:-1].split("(", 1)
+                        index_type = index_type.strip().lower()
+                        index_cols = [c.strip() for c in cols_str.split(",")]
+                        for ic in index_cols:
+                            if ic not in column_names:
+                                raise Exception(f"Index in {table_name} references non-existent column '{ic}'. Defined: {list(column_names)}")
+                        if index_type == "gin":
+                            if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar")):
+                                raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar.")
+                        elif index_type == "gist":
+                            if not any(x in dtype.lower() for x in ("geography", "geometry", "box", "circle", "point", "polygon")):
+                                raise Exception(f"GIST index is not compatible with '{dtype}' on {table_name}.{name}. Supported: geography, geometry, spatial types.")
+                        if any(x in dtype.lower() for x in ("geography", "geometry")) and index_type != "gist":
+                            raise Exception(f"Spatial column {table_name}.{name} must use 'gist' index if indexed.")
+                    else:
+                        raise Exception(f"Invalid index syntax '{index_group}' in {table_name}.{name}. Expected 'col(type)' or 'col1,col2(type)'.")
+        for col in column_configs:
+            if col.get("unique"):
+                for group in col["unique"].split("|"):
+                    for u_col in (x.strip() for x in group.split(",") if x.strip()):
+                        if u_col not in column_names:
+                            raise Exception(f"Unique constraint in {table_name} references non-existent column '{u_col}'. Defined columns: {list(column_names)}")
+    import hashlib
+    def get_hash(val: str) -> str:
+        return hashlib.md5(str(val).encode()).hexdigest()[:4]
+    def is_enabled_col_setting(col_cfg: dict, key: str) -> bool:
+        return key in col_cfg and col_cfg.get(key) not in (None, "")
+    async with client_postgres_pool.acquire() as conn:
+        if is_ext:
+            extensions = config_postgres.get("extension", [])
+            for extension in extensions:
+                try:
+                    await conn.execute(f'CREATE EXTENSION IF NOT EXISTS "{extension}";')
+                except Exception as e:
+                    if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")) or "pg_cron" in extension:
+                        print(f"⚠️  {f'extension {extension}':<30} : ❌ skipped (insufficient privileges)")
+                    else:
+                        raise e
+        try:
+            if not is_enable_drop_column:
+                await conn.execute("CREATE OR REPLACE FUNCTION func_drop_column_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ DECLARE obj RECORD; BEGIN FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP IF obj.object_type = 'table column' THEN RAISE EXCEPTION 'dropping columns is disabled in configuration'; END IF; END LOOP; END; $$;")
+                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
+                await conn.execute("CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE') EXECUTE FUNCTION func_drop_column_disable();")
+            else:
+                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
+        except Exception as e:
+            if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
+                print(f"⚠️  {'drop column event trigger':<30} : ❌ skipped (insufficient privileges)")
+            else:
+                raise e
+        for table_name, column_configs in config_postgres["table"].items():
+            primary_cfg = column_configs[0]
+            await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ("{primary_cfg["name"]}" {primary_cfg["datatype"]} PRIMARY KEY);')
+            if is_autovacuum:
+                await conn.execute(f'ALTER TABLE "{table_name}" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);')
+            rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
+            current_cols = {r[0]: r[1] for r in rows}
+            current_notnulls = {r[0]: r[2] for r in rows}
+            current_defaults = {r[0]: r[3] for r in rows}
+            meta_rows = await conn.fetch("SELECT indexname as name FROM pg_indexes WHERE tablename=$1 UNION ALL SELECT conname as name FROM pg_constraint WHERE conrelid=$1::regclass", table_name)
+            existing_meta = {r[0] for r in meta_rows}
+            table_changed = False
+            await conn.execute(f"DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid WHERE relname = '{table_name}' AND tgname LIKE 'trigger_%%' LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{table_name}'); END LOOP; END $$;")
+            renamed_cols = {}
+            for col_cfg in column_configs:
+                if col_cfg.get("is_primary") == 1:
+                    continue
+                col_name = col_cfg["name"]
+                col_type = col_cfg["datatype"]
+                if col_name not in current_cols:
+                    old_name = col_cfg.get("old") if col_cfg.get("old") not in (None, "") else None
+                    if old_name and old_name in current_cols:
+                        await conn.execute(f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{col_name}"')
+                        current_cols[col_name] = current_cols.pop(old_name)
+                        current_notnulls[col_name] = current_notnulls.pop(old_name)
+                        renamed_cols[col_name] = old_name
+                        table_changed = True
+                    else:
+                        default_val = f"""DEFAULT {col_cfg["default"]}""" if is_enabled_col_setting(col_cfg, "default") else ""
+                        mandatory_val = "NOT NULL" if col_cfg.get("is_mandatory") == 1 else ""
+                        await conn.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} {default_val} {mandatory_val}')
+                        current_cols[col_name] = col_type.split("(")[0].lower()
+                        current_notnulls[col_name] = (col_cfg.get("is_mandatory") == 1)
+                        table_changed = True
+                else:
+                    type_map = {"timestamp with time zone": "timestamptz", "character varying": "varchar", "integer": "int", "boolean": "bool"}
+                    current_type = type_map.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0])
+                    target_type = type_map.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0])
+                    if current_type != target_type:
+                        await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" TYPE {col_type} USING "{col_name}"::{col_type}')
+                        table_changed = True
+                    target_notnull = (col_cfg.get("is_mandatory") == 1)
+                    if current_notnulls[col_name] != target_notnull:
+                        if target_notnull:
+                            await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" SET NOT NULL')
+                        else:
+                            await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP NOT NULL')
+                        table_changed = True
+                    target_default = str(col_cfg.get("default")).strip() if is_enabled_col_setting(col_cfg, "default") else None
+                    current_default = current_defaults.get(col_name)
+                    if target_default:
+                        if current_default is None or target_default not in current_default:
+                             await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" SET DEFAULT {target_default}')
+                             table_changed = True
+                    elif current_default is not None:
+                        await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP DEFAULT')
+                        table_changed = True
+            if is_enable_drop_column_mismatch:
+                desired_cols = {col_cfg["name"] for col_cfg in column_configs}
+                for col_name in list(current_cols):
+                    if col_name not in desired_cols:
+                        await conn.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{col_name}"')
+                        table_changed = True
+            for col_cfg in column_configs:
+                if col_cfg.get("is_primary") == 1:
+                    continue
+                col_name = col_cfg["name"]
+                col_type = col_cfg["datatype"]
+                if col_cfg.get("index"):
+                    for index_group in (x.strip() for x in col_cfg["index"].split("|")):
+                        if "(" in index_group and index_group.endswith(")"):
+                            index_type, cols_str = index_group[:-1].split("(", 1)
+                            index_type = index_type.strip().lower()
+                            index_cols = [c.strip() for c in cols_str.split(",")]
+                            idx_name = f"idx_{table_name}_{'_'.join(index_cols)}_{index_type}"
+                            catalog["idx"].add(idx_name)
+                            if idx_name not in existing_meta:
+                                old_index_cols = [renamed_cols.get(c, c) for c in index_cols]
+                                old_idx_name = f"idx_{table_name}_{'_'.join(old_index_cols)}_{index_type}"
+                                if old_idx_name in existing_meta and old_idx_name != idx_name:
+                                    await conn.execute(f'ALTER INDEX "{old_idx_name}" RENAME TO "{idx_name}"')
+                                    existing_meta.remove(old_idx_name)
+                                    existing_meta.add(idx_name)
+                                else:
+                                    ops = ""
+                                    if index_type == "gin" and len(index_cols) == 1:
+                                        if index_cols[0] == col_name and "text" in col_type.lower() and "[]" not in col_type.lower():
+                                            ops = "gin_trgm_ops"
+                                    cols_joined = ", ".join(index_cols)
+                                    if ops:
+                                        await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {index_type}("{index_cols[0]}" {ops});')
+                                    else:
+                                        cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
+                                        await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
+                                    table_changed = True
+                if is_enabled_col_setting(col_cfg, "in"):
+                    chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"
+                    catalog["chk"].add(chk_name)
+                    if chk_name not in existing_meta:
+                        old_col_name = renamed_cols.get(col_name, col_name)
+                        old_chk_name = f"check_{table_name}_{old_col_name}_in_{get_hash(col_cfg['in'])}"
+                        if old_chk_name in existing_meta and old_chk_name != chk_name:
+                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_chk_name}" TO "{chk_name}"')
+                            existing_meta.remove(old_chk_name)
+                            existing_meta.add(chk_name)
+                        else:
+                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN {col_cfg["in"]});')
+                            table_changed = True
+                if is_enabled_col_setting(col_cfg, "regex"):
+                    regex_name = f"check_{table_name}_{col_name}_regex_{get_hash(col_cfg['regex'])}"
+                    catalog["chk"].add(regex_name)
+                    if regex_name not in existing_meta:
+                        old_col_name = renamed_cols.get(col_name, col_name)
+                        old_regex_name = f"check_{table_name}_{old_col_name}_regex_{get_hash(col_cfg['regex'])}"
+                        if old_regex_name in existing_meta and old_regex_name != regex_name:
+                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_regex_name}" TO "{regex_name}"')
+                            existing_meta.remove(old_regex_name)
+                            existing_meta.add(regex_name)
+                        else:
+                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{regex_name}" CHECK ("{col_name}" ~ \'{col_cfg["regex"]}\');')
+                            table_changed = True
+                if is_enabled_col_setting(col_cfg, "check"):
+                    vld_name = f"check_{table_name}_{col_name}_vld_{get_hash(col_cfg['check'])}"
+                    catalog["chk"].add(vld_name)
+                    if vld_name not in existing_meta:
+                        old_col_name = renamed_cols.get(col_name, col_name)
+                        old_vld_name = f"check_{table_name}_{old_col_name}_vld_{get_hash(col_cfg['check'])}"
+                        if old_vld_name in existing_meta and old_vld_name != vld_name:
+                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_vld_name}" TO "{vld_name}"')
+                            existing_meta.remove(old_vld_name)
+                            existing_meta.add(vld_name)
+                        else:
+                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{vld_name}" CHECK ({col_cfg["check"]});')
+                            table_changed = True
+                if col_cfg.get("unique"):
+                    for group in col_cfg["unique"].split("|"):
+                        unique_cols = [x.strip() for x in group.split(",")]
+                        uni_name = f"""unique_{table_name}_{"_".join(unique_cols)}"""
+                        catalog["uni"].add(uni_name)
+                        if uni_name not in existing_meta:
+                            old_unique_cols = [renamed_cols.get(c, c) for c in unique_cols]
+                            old_uni_name = f"""unique_{table_name}_{"_".join(old_unique_cols)}"""
+                            if old_uni_name in existing_meta and old_uni_name != uni_name:
+                                await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_uni_name}" TO "{uni_name}"')
+                                existing_meta.remove(old_uni_name)
+                                existing_meta.add(uni_name)
+                            else:
+                                cols_quoted = ",".join([f'"{x}"' for x in unique_cols])
+                                await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{uni_name}" UNIQUE ({cols_quoted});')
+                                table_changed = True
+            if table_changed:
+                await conn.execute(f'ANALYZE "{table_name}";')
+        db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
+        db_tables = {}
+        for row in db_schema_rows:
+            db_tables.setdefault(row[0], []).append(row[1])
+        users_cols = db_tables.get("users", [])
+        if users_cols:
+            if is_enable_delete_disable_users_root:
+                catalog["tg"].add("trigger_protect_root_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
+            if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role", "deleted_at", "deactivated_at")):
+                if config_root_user_password in (None, ""): raise Exception("root user password missing")
+                root_user_password_hash = client_password_hasher.hash(str(config_root_user_password))
+                await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'admin', $1, 1) ON CONFLICT (username, type) DO UPDATE SET type = 1, username = 'admin', password = COALESCE(users.password, EXCLUDED.password), role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
+                await conn.execute("UPDATE users SET type = 1, username = 'admin', password = COALESCE(users.password, $1), role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
+            if is_enable_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
+                catalog["tg"].add("trigger_password_log_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password, created_by_id) VALUES (NEW.id, NEW.password, NEW.updated_by_id); END IF; RETURN NEW; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
+            if is_enable_log_users_delete and "deleted_at" in users_cols and "log_users_delete" in db_tables:
+                catalog["tg"].add("trigger_log_users_delete")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_log_users_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'UPDATE' THEN IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN INSERT INTO log_users_delete (user_id, event, status, created_by_id) VALUES (NEW.id, 1, 1, NEW.deleted_by_id); ELSIF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NULL THEN INSERT INTO log_users_delete (user_id, event, status, created_by_id) VALUES (NEW.id, 2, 1, NEW.updated_by_id); END IF; RETURN NEW; ELSIF TG_OP = 'DELETE' THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (OLD.id, 3, 1); RETURN OLD; END IF; RETURN NULL; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_log_users_delete ON users; CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete();")
+            if is_enable_delete_disable_users_role and "role" in users_cols:
+                catalog["tg"].add("trigger_delete_disable_role_users")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users ON users; CREATE TRIGGER trigger_delete_disable_role_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users();")
+            if is_enable_delete_disable_users_role_soft and all(c in users_cols for c in ("role", "deleted_at")):
+                catalog["tg"].add("trigger_delete_disable_role_users_soft")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users_soft() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL AND OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN RAISE EXCEPTION 'soft DELETE not allowed for user with role'; END IF; RETURN NEW; END; $$;")
+                await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users_soft ON users; CREATE TRIGGER trigger_delete_disable_role_users_soft BEFORE UPDATE OF deleted_at ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users_soft();")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected IS TRUE THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
+        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
+        drop_tags = []
+        if not is_enable_drop_schema: drop_tags.append("'DROP SCHEMA'")
+        if not is_enable_drop_table: drop_tags.append("'DROP TABLE'")
+        if drop_tags:
+            tag_list = ",".join(drop_tags)
+            await conn.execute("CREATE OR REPLACE FUNCTION func_drop_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'dropping objects is disabled in configuration'; END; $$;")
+            try:
+                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
+                await conn.execute(f"CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ({tag_list}) EXECUTE FUNCTION func_drop_disable();")
+            except Exception as e:
+                if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
+                    print(f"⚠️  {'event trigger':<30} : ❌ skipped (insufficient privileges)")
+                else:
+                    raise e
+        else:
+            try:
+                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
+            except:
+                pass
+        for table, cols in db_tables.items():
+            if table == "spatial_ref_sys":
+                continue
+            if not is_enable_truncate:
+                trunc_tg_name = f"trigger_truncate_disable_{table}"
+                catalog["tg"].add(trunc_tg_name)
+                await conn.execute(f"DROP TRIGGER IF EXISTS {trunc_tg_name} ON {table}; CREATE TRIGGER {trunc_tg_name} BEFORE TRUNCATE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_table();")
+            if is_enable_delete_disable_is_protected and "is_protected" in cols:
+                prot_tg_name = f"trigger_delete_disable_is_protected_{table}"
+                catalog["tg"].add(prot_tg_name)
+                await conn.execute(f"DROP TRIGGER IF EXISTS {prot_tg_name} ON {table}")
+                await conn.execute(f"CREATE TRIGGER {prot_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();")
+            if is_enable_updated_at_set and "updated_at" in cols:
+                upd_tg_name = f"trigger_updated_at_set_{table}"
+                catalog["tg"].add(upd_tg_name)
+                await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}")
+                await conn.execute(f"CREATE TRIGGER {upd_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();")
+            actor_tracking_column = control.get("actor_tracking_column", {})
+            if actor_tracking_column and "updated_by_id" in cols:
+                trigger_body = ""
+                for ts_col, actor_col in actor_tracking_column.items():
+                    if ts_col in cols and actor_col in cols:
+                        trigger_body += f'IF OLD."{ts_col}" IS DISTINCT FROM NEW."{ts_col}" THEN IF OLD."{actor_col}" IS NOT DISTINCT FROM NEW."{actor_col}" THEN NEW."{actor_col}" = NEW."updated_by_id"; END IF; END IF; '
+                actor_func_name = f"func_actor_tracking_{table}"
+                actor_tg_name = f"trigger_actor_tracking_{table}"
+                if trigger_body:
+                    catalog["tg"].add(actor_tg_name)
+                    await conn.execute(f"CREATE OR REPLACE FUNCTION {actor_func_name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN {trigger_body} RETURN NEW; END; $$;")
+                    await conn.execute(f"DROP TRIGGER IF EXISTS {actor_tg_name} ON {table}")
+                    await conn.execute(f"CREATE TRIGGER {actor_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION {actor_func_name}();")
+                else:
+                    await conn.execute(f"DROP TRIGGER IF EXISTS {actor_tg_name} ON {table}")
+                    await conn.execute(f"DROP FUNCTION IF EXISTS {actor_func_name}()")
+        if table_blocked == ["*"]:
+            table_blocked = [t for t in db_tables if t != "spatial_ref_sys"]
+        if bulk_blocked and bulk_blocked[0][0] == "*":
+            limit = bulk_blocked[0][1]
+            bulk_blocked = [[t, limit] for t in db_tables if t != "spatial_ref_sys"]
+        for table, limit in bulk_blocked:
+            if table in db_tables:
+                bulk_tg_name = f"trigger_delete_disable_bulk_{table}"
+                catalog["tg"].add(bulk_tg_name)
+                await conn.execute(f"DROP TRIGGER IF EXISTS {bulk_tg_name} ON {table}")
+                await conn.execute(f"CREATE TRIGGER {bulk_tg_name} AFTER DELETE ON {table} REFERENCING OLD TABLE AS deleted_rows FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_bulk({limit});")
+        for table in table_blocked:
+            if table in db_tables:
+                tab_tg_name = f"trigger_delete_disable_{table}"
+                catalog["tg"].add(tab_tg_name)
+                await conn.execute(f"DROP TRIGGER IF EXISTS {tab_tg_name} ON {table}")
+                await conn.execute(f"CREATE TRIGGER {tab_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();")
+        managed_tables = list(config_postgres["table"].keys())
+        managed_tables_str = ",".join(f"'{t}'" for t in managed_tables) if managed_tables else "''"
+        for prefix in ("tg", "uni_chk", "idx"):
+            wants = catalog["tg"] if prefix == "tg" else catalog["uni"] | catalog["chk"] if prefix == "uni_chk" else catalog["idx"] | catalog["uni"] | catalog["chk"]
+            wants_str = ",".join(f"'{i}'" for i in wants) if wants else "''"
+            if prefix == "idx":
+                selection = "indexname"
+                info_tbl = "pg_indexes"
+                join_clause = ""
+                drop_fmt = "DROP INDEX IF EXISTS %I"
+                drop_vars = "record.indexname"
+                like_filter = f"(indexname LIKE 'idx_%%' OR indexname LIKE 'unique_%%' OR indexname LIKE 'check_%%') AND tablename IN ({managed_tables_str})"
+            elif prefix == "tg":
+                selection = "tgname, relname"
+                info_tbl = "pg_trigger"
+                join_clause = "JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid"
+                drop_fmt = "DROP TRIGGER IF EXISTS %I ON %I"
+                drop_vars = "record.tgname, record.relname"
+                like_filter = f"tgname LIKE 'trigger_%%' AND relname IN ({managed_tables_str})"
+            else:
+                selection = "conname, relname"
+                info_tbl = "pg_constraint"
+                join_clause = "JOIN pg_class ON pg_constraint.conrelid = pg_class.oid"
+                drop_fmt = "ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I"
+                drop_vars = "record.relname, record.conname"
+                like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
+            await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
+        for key, query in config_postgres.get("sql", {}).items():
+            if key == "index" and isinstance(query, dict):
+                for idx_name, idx_query in query.items():
+                    if isinstance(idx_query, str) and idx_query.strip():
+                        await conn.execute(idx_query)
+            elif isinstance(query, str) and query.strip():
+                await conn.execute(query)
+    return "database init done"
+    
 async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_allowed_api_namespace_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
     auth_header = headers.get("Authorization")
@@ -14,8 +573,8 @@ async def func_middleware_check_auth(*, headers: dict, url_path: str, config_tok
     return user_obj
 
 async def func_middleware_check_user_deactivated(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
-    """Check if the user is active using a strictly configured mode from config_api."""
-    cfg = config_api.get(url_path, {}).get("user_active_check")
+    """Check if the user is deactivated using a strictly configured mode from config_api."""
+    cfg = config_api.get(url_path, {}).get("user_deactivated_check")
     if not cfg or not user_dict: return None
     mode = cfg[0] if isinstance(cfg, list) else cfg
     active_flag = cfg[1] if isinstance(cfg, list) and len(cfg) > 1 else 1
@@ -543,412 +1102,6 @@ async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str
         if isinstance(value, (str, bytes, bytearray)): value = orjson.loads(value)
         output[r[0]] = value
     return output
-
-async def func_postgres_schema_init(*, client_postgres_pool: any, client_password_hasher: any, config_postgres: dict, config_root_user_password: str) -> str:
-    """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
-    if not config_postgres: raise Exception("config_postgres missing")
-    if "table" not in config_postgres: raise Exception("config_postgres.table missing")
-    control = config_postgres.get("control", {})
-    def get_enable_control_switch(key: str, default: int = 1, legacy_disable_keys: tuple = ()) -> int:
-        if key in control:
-            return control.get(key)
-        for legacy_key in legacy_disable_keys:
-            if legacy_key in control:
-                return 0 if control.get(legacy_key) else 1
-        return default
-    is_ext, is_autovacuum = control.get("is_enable_extension", 0), control.get("is_enable_autovacuum_optimize", 0)
-    is_enable_drop_schema = get_enable_control_switch("is_enable_drop_schema", 1, ("is_enable_drop_schema_disable", "is_disable_drop_schema"))
-    is_enable_drop_table = get_enable_control_switch("is_enable_drop_table", 1, ("is_enable_drop_table_disable", "is_disable_drop_table"))
-    is_enable_truncate = get_enable_control_switch("is_enable_truncate", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
-    is_enable_drop_column = get_enable_control_switch("is_enable_drop_column", 0, ("is_enable_drop_column_disable", "is_disable_drop_column"))
-    is_enable_delete_disable_users_root = control.get("is_enable_delete_disable_users_root", control.get("is_enable_users_protect_root", 1))
-    is_enable_users_root_upsert = control.get("is_enable_users_root_upsert", 1)
-    is_enable_log_users_password = control.get("is_enable_log_users_password", 1)
-    is_enable_log_users_delete = control.get("is_enable_log_users_delete", 1)
-    is_enable_delete_disable_is_protected = control.get("is_enable_delete_disable_is_protected", 1)
-    is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
-    is_enable_delete_disable_users_role = control.get("is_enable_delete_disable_users_role", control.get("is_enable_users_protect_role", control.get("is_enable_users_protect_with_role", 0 if control.get("is_enable_users_delete_with_role", control.get("is_enable_users_delete_role", 1)) else 1)))
-    is_enable_delete_disable_users_role_soft = control.get("is_enable_delete_disable_users_role_soft", 0)
-    if "is_enable_users_delete_role_disable" in control:
-        is_enable_delete_disable_users_role = control.get("is_enable_users_delete_role_disable")
-    if "is_disable_users_delete_role" in control:
-        is_enable_delete_disable_users_role = control.get("is_disable_users_delete_role")
-    is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", 0)))
-    if not is_enable_drop_column and is_enable_drop_column_mismatch:
-        raise Exception("config_postgres.control conflict: is_enable_drop_column=0 blocks is_enable_drop_column_mismatch=1")
-    bulk_blocked = control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))
-    table_blocked = control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))
-    catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
-    for key, val in config_postgres.get("sql", {}).items():
-        if key == "index" and isinstance(val, dict):
-            for idx_name in val.keys():
-                catalog["idx"].add(idx_name)
-        elif isinstance(key, str) and key.startswith("index_"):
-            catalog["idx"].add(key[6:])
-    reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
-    for table_name, column_configs in config_postgres["table"].items():
-        primary_cfg = column_configs[0] if column_configs else {}
-        if len(primary_cfg) > 3:
-            raise Exception(f"{table_name}.id primary column config cannot have more than 3 keys")
-        if primary_cfg != {"name": "id", "datatype": "bigserial", "is_primary": 1}:
-            raise Exception(f"{table_name} first column must be exactly {{'name':'id','datatype':'bigserial','is_primary':1}}")
-        for col in column_configs[1:]:
-            if col.get("is_primary") == 1:
-                raise Exception(f"{table_name} can only define one primary column")
-            if col.get("name") == "id":
-                raise Exception(f"{table_name}.id must only be defined as the first primary column")
-        column_names = {col["name"] for col in column_configs if "name" in col}
-        for col in column_configs:
-            name, dtype = col.get("name"), col.get("datatype")
-            if not name or not dtype:
-                raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column: {col}")
-            if name.lower() in reserved:
-                raise Exception(f"Column name '{name}' in table '{table_name}' is a PostgreSQL reserved keyword. Please rename it.")
-            if "regex" in col and "[]" in dtype.lower():
-                raise Exception(f"Regex constraint is not supported for array column {table_name}.{name}. Remove 'regex' key to resolve.")
-            if col.get("index"):
-                for index_group in (x.strip() for x in col["index"].split("|")):
-                    if "(" in index_group and index_group.endswith(")"):
-                        index_type, cols_str = index_group[:-1].split("(", 1)
-                        index_type = index_type.strip().lower()
-                        index_cols = [c.strip() for c in cols_str.split(",")]
-                        for ic in index_cols:
-                            if ic not in column_names:
-                                raise Exception(f"Index in {table_name} references non-existent column '{ic}'. Defined: {list(column_names)}")
-                        if index_type == "gin":
-                            if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar")):
-                                raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar.")
-                        elif index_type == "gist":
-                            if not any(x in dtype.lower() for x in ("geography", "geometry", "box", "circle", "point", "polygon")):
-                                raise Exception(f"GIST index is not compatible with '{dtype}' on {table_name}.{name}. Supported: geography, geometry, spatial types.")
-                        if any(x in dtype.lower() for x in ("geography", "geometry")) and index_type != "gist":
-                            raise Exception(f"Spatial column {table_name}.{name} must use 'gist' index if indexed.")
-                    else:
-                        raise Exception(f"Invalid index syntax '{index_group}' in {table_name}.{name}. Expected 'col(type)' or 'col1,col2(type)'.")
-        for col in column_configs:
-            if col.get("unique"):
-                for group in col["unique"].split("|"):
-                    for u_col in (x.strip() for x in group.split(",") if x.strip()):
-                        if u_col not in column_names:
-                            raise Exception(f"Unique constraint in {table_name} references non-existent column '{u_col}'. Defined columns: {list(column_names)}")
-    import hashlib
-    def get_hash(val: str) -> str:
-        return hashlib.md5(str(val).encode()).hexdigest()[:4]
-    def is_enabled_col_setting(col_cfg: dict, key: str) -> bool:
-        return key in col_cfg and col_cfg.get(key) not in (None, "")
-    async with client_postgres_pool.acquire() as conn:
-        if is_ext:
-            extensions = config_postgres.get("extension", [])
-            for extension in extensions:
-                try:
-                    await conn.execute(f'CREATE EXTENSION IF NOT EXISTS "{extension}";')
-                except Exception as e:
-                    if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")) or "pg_cron" in extension:
-                        print(f"⚠️  {f'extension {extension}':<30} : ❌ skipped (insufficient privileges)")
-                    else:
-                        raise e
-        try:
-            if not is_enable_drop_column:
-                await conn.execute("CREATE OR REPLACE FUNCTION func_drop_column_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ DECLARE obj RECORD; BEGIN FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP IF obj.object_type = 'table column' THEN RAISE EXCEPTION 'dropping columns is disabled in configuration'; END IF; END LOOP; END; $$;")
-                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
-                await conn.execute("CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE') EXECUTE FUNCTION func_drop_column_disable();")
-            else:
-                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
-        except Exception as e:
-            if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
-                print(f"⚠️  {'drop column event trigger':<30} : ❌ skipped (insufficient privileges)")
-            else:
-                raise e
-        for table_name, column_configs in config_postgres["table"].items():
-            primary_cfg = column_configs[0]
-            await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ("{primary_cfg["name"]}" {primary_cfg["datatype"]} PRIMARY KEY);')
-            if is_autovacuum:
-                await conn.execute(f'ALTER TABLE "{table_name}" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);')
-            rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
-            current_cols = {r[0]: r[1] for r in rows}
-            current_notnulls = {r[0]: r[2] for r in rows}
-            current_defaults = {r[0]: r[3] for r in rows}
-            meta_rows = await conn.fetch("SELECT indexname as name FROM pg_indexes WHERE tablename=$1 UNION ALL SELECT conname as name FROM pg_constraint WHERE conrelid=$1::regclass", table_name)
-            existing_meta = {r[0] for r in meta_rows}
-            table_changed = False
-            await conn.execute(f"DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid WHERE relname = '{table_name}' AND tgname LIKE 'trigger_%%' LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{table_name}'); END LOOP; END $$;")
-            renamed_cols = {}
-            for col_cfg in column_configs:
-                if col_cfg.get("is_primary") == 1:
-                    continue
-                col_name = col_cfg["name"]
-                col_type = col_cfg["datatype"]
-                if col_name not in current_cols:
-                    old_name = col_cfg.get("old") if col_cfg.get("old") not in (None, "") else None
-                    if old_name and old_name in current_cols:
-                        await conn.execute(f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{col_name}"')
-                        current_cols[col_name] = current_cols.pop(old_name)
-                        current_notnulls[col_name] = current_notnulls.pop(old_name)
-                        renamed_cols[col_name] = old_name
-                        table_changed = True
-                    else:
-                        default_val = f"""DEFAULT {col_cfg["default"]}""" if is_enabled_col_setting(col_cfg, "default") else ""
-                        mandatory_val = "NOT NULL" if col_cfg.get("is_mandatory") == 1 else ""
-                        await conn.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} {default_val} {mandatory_val}')
-                        current_cols[col_name] = col_type.split("(")[0].lower()
-                        current_notnulls[col_name] = (col_cfg.get("is_mandatory") == 1)
-                        table_changed = True
-                else:
-                    type_map = {"timestamp with time zone": "timestamptz", "character varying": "varchar", "integer": "int", "boolean": "bool"}
-                    current_type = type_map.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0])
-                    target_type = type_map.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0])
-                    if current_type != target_type:
-                        await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" TYPE {col_type} USING "{col_name}"::{col_type}')
-                        table_changed = True
-                    target_notnull = (col_cfg.get("is_mandatory") == 1)
-                    if current_notnulls[col_name] != target_notnull:
-                        if target_notnull:
-                            await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" SET NOT NULL')
-                        else:
-                            await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP NOT NULL')
-                        table_changed = True
-                    target_default = str(col_cfg.get("default")).strip() if is_enabled_col_setting(col_cfg, "default") else None
-                    current_default = current_defaults.get(col_name)
-                    if target_default:
-                        if current_default is None or target_default not in current_default:
-                             await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" SET DEFAULT {target_default}')
-                             table_changed = True
-                    elif current_default is not None:
-                        await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP DEFAULT')
-                        table_changed = True
-            if is_enable_drop_column_mismatch:
-                desired_cols = {col_cfg["name"] for col_cfg in column_configs}
-                for col_name in list(current_cols):
-                    if col_name not in desired_cols:
-                        await conn.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{col_name}"')
-                        table_changed = True
-            for col_cfg in column_configs:
-                if col_cfg.get("is_primary") == 1:
-                    continue
-                col_name = col_cfg["name"]
-                col_type = col_cfg["datatype"]
-                if col_cfg.get("index"):
-                    for index_group in (x.strip() for x in col_cfg["index"].split("|")):
-                        if "(" in index_group and index_group.endswith(")"):
-                            index_type, cols_str = index_group[:-1].split("(", 1)
-                            index_type = index_type.strip().lower()
-                            index_cols = [c.strip() for c in cols_str.split(",")]
-                            idx_name = f"idx_{table_name}_{'_'.join(index_cols)}_{index_type}"
-                            catalog["idx"].add(idx_name)
-                            if idx_name not in existing_meta:
-                                old_index_cols = [renamed_cols.get(c, c) for c in index_cols]
-                                old_idx_name = f"idx_{table_name}_{'_'.join(old_index_cols)}_{index_type}"
-                                if old_idx_name in existing_meta and old_idx_name != idx_name:
-                                    await conn.execute(f'ALTER INDEX "{old_idx_name}" RENAME TO "{idx_name}"')
-                                    existing_meta.remove(old_idx_name)
-                                    existing_meta.add(idx_name)
-                                else:
-                                    ops = ""
-                                    if index_type == "gin" and len(index_cols) == 1:
-                                        if index_cols[0] == col_name and "text" in col_type.lower() and "[]" not in col_type.lower():
-                                            ops = "gin_trgm_ops"
-                                    cols_joined = ", ".join(index_cols)
-                                    if ops:
-                                        await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {index_type}("{index_cols[0]}" {ops});')
-                                    else:
-                                        cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
-                                        await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
-                                    table_changed = True
-                if is_enabled_col_setting(col_cfg, "in"):
-                    chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"
-                    catalog["chk"].add(chk_name)
-                    if chk_name not in existing_meta:
-                        old_col_name = renamed_cols.get(col_name, col_name)
-                        old_chk_name = f"check_{table_name}_{old_col_name}_in_{get_hash(col_cfg['in'])}"
-                        if old_chk_name in existing_meta and old_chk_name != chk_name:
-                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_chk_name}" TO "{chk_name}"')
-                            existing_meta.remove(old_chk_name)
-                            existing_meta.add(chk_name)
-                        else:
-                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN {col_cfg["in"]});')
-                            table_changed = True
-                if is_enabled_col_setting(col_cfg, "regex"):
-                    regex_name = f"check_{table_name}_{col_name}_regex_{get_hash(col_cfg['regex'])}"
-                    catalog["chk"].add(regex_name)
-                    if regex_name not in existing_meta:
-                        old_col_name = renamed_cols.get(col_name, col_name)
-                        old_regex_name = f"check_{table_name}_{old_col_name}_regex_{get_hash(col_cfg['regex'])}"
-                        if old_regex_name in existing_meta and old_regex_name != regex_name:
-                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_regex_name}" TO "{regex_name}"')
-                            existing_meta.remove(old_regex_name)
-                            existing_meta.add(regex_name)
-                        else:
-                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{regex_name}" CHECK ("{col_name}" ~ \'{col_cfg["regex"]}\');')
-                            table_changed = True
-                if is_enabled_col_setting(col_cfg, "check"):
-                    vld_name = f"check_{table_name}_{col_name}_vld_{get_hash(col_cfg['check'])}"
-                    catalog["chk"].add(vld_name)
-                    if vld_name not in existing_meta:
-                        old_col_name = renamed_cols.get(col_name, col_name)
-                        old_vld_name = f"check_{table_name}_{old_col_name}_vld_{get_hash(col_cfg['check'])}"
-                        if old_vld_name in existing_meta and old_vld_name != vld_name:
-                            await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_vld_name}" TO "{vld_name}"')
-                            existing_meta.remove(old_vld_name)
-                            existing_meta.add(vld_name)
-                        else:
-                            await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{vld_name}" CHECK ({col_cfg["check"]});')
-                            table_changed = True
-                if col_cfg.get("unique"):
-                    for group in col_cfg["unique"].split("|"):
-                        unique_cols = [x.strip() for x in group.split(",")]
-                        uni_name = f"""unique_{table_name}_{"_".join(unique_cols)}"""
-                        catalog["uni"].add(uni_name)
-                        if uni_name not in existing_meta:
-                            old_unique_cols = [renamed_cols.get(c, c) for c in unique_cols]
-                            old_uni_name = f"""unique_{table_name}_{"_".join(old_unique_cols)}"""
-                            if old_uni_name in existing_meta and old_uni_name != uni_name:
-                                await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_uni_name}" TO "{uni_name}"')
-                                existing_meta.remove(old_uni_name)
-                                existing_meta.add(uni_name)
-                            else:
-                                cols_quoted = ",".join([f'"{x}"' for x in unique_cols])
-                                await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{uni_name}" UNIQUE ({cols_quoted});')
-                                table_changed = True
-            if table_changed:
-                await conn.execute(f'ANALYZE "{table_name}";')
-        db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
-        db_tables = {}
-        for row in db_schema_rows:
-            db_tables.setdefault(row[0], []).append(row[1])
-        users_cols = db_tables.get("users", [])
-        if users_cols:
-            if is_enable_delete_disable_users_root:
-                catalog["tg"].add("trigger_protect_root_users")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
-            if is_enable_users_root_upsert and all(c in users_cols for c in ("type", "username", "password", "role", "deleted_at", "deactivated_at")):
-                if config_root_user_password in (None, ""): raise Exception("root user password missing")
-                root_user_password_hash = client_password_hasher.hash(str(config_root_user_password))
-                await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'admin', $1, 1) ON CONFLICT (username, type) DO UPDATE SET type = 1, username = 'admin', password = COALESCE(users.password, EXCLUDED.password), role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
-                await conn.execute("UPDATE users SET type = 1, username = 'admin', password = COALESCE(users.password, $1), role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
-            if is_enable_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
-                catalog["tg"].add("trigger_password_log_users")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password, created_by_id) VALUES (NEW.id, NEW.password, NEW.updated_by_id); END IF; RETURN NEW; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
-            if is_enable_log_users_delete and "deleted_at" in users_cols and "log_users_delete" in db_tables:
-                catalog["tg"].add("trigger_log_users_delete")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_log_users_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'UPDATE' THEN IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN INSERT INTO log_users_delete (user_id, event, status, created_by_id) VALUES (NEW.id, 1, 1, NEW.deleted_by_id); ELSIF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NULL THEN INSERT INTO log_users_delete (user_id, event, status, created_by_id) VALUES (NEW.id, 2, 1, NEW.updated_by_id); END IF; RETURN NEW; ELSIF TG_OP = 'DELETE' THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (OLD.id, 3, 1); RETURN OLD; END IF; RETURN NULL; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_log_users_delete ON users; CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete();")
-            if is_enable_delete_disable_users_role and "role" in users_cols:
-                catalog["tg"].add("trigger_delete_disable_role_users")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users ON users; CREATE TRIGGER trigger_delete_disable_role_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users();")
-            if is_enable_delete_disable_users_role_soft and all(c in users_cols for c in ("role", "deleted_at")):
-                catalog["tg"].add("trigger_delete_disable_role_users_soft")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users_soft() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL AND OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN RAISE EXCEPTION 'soft DELETE not allowed for user with role'; END IF; RETURN NEW; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users_soft ON users; CREATE TRIGGER trigger_delete_disable_role_users_soft BEFORE UPDATE OF deleted_at ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users_soft();")
-        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected IS TRUE THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
-        await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
-        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
-        await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
-        drop_tags = []
-        if not is_enable_drop_schema: drop_tags.append("'DROP SCHEMA'")
-        if not is_enable_drop_table: drop_tags.append("'DROP TABLE'")
-        if drop_tags:
-            tag_list = ",".join(drop_tags)
-            await conn.execute("CREATE OR REPLACE FUNCTION func_drop_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'dropping objects is disabled in configuration'; END; $$;")
-            try:
-                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
-                await conn.execute(f"CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ({tag_list}) EXECUTE FUNCTION func_drop_disable();")
-            except Exception as e:
-                if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
-                    print(f"⚠️  {'event trigger':<30} : ❌ skipped (insufficient privileges)")
-                else:
-                    raise e
-        else:
-            try:
-                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
-            except:
-                pass
-        for table, cols in db_tables.items():
-            if table == "spatial_ref_sys":
-                continue
-            if not is_enable_truncate:
-                trunc_tg_name = f"trigger_truncate_disable_{table}"
-                catalog["tg"].add(trunc_tg_name)
-                await conn.execute(f"DROP TRIGGER IF EXISTS {trunc_tg_name} ON {table}; CREATE TRIGGER {trunc_tg_name} BEFORE TRUNCATE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_table();")
-            if is_enable_delete_disable_is_protected and "is_protected" in cols:
-                prot_tg_name = f"trigger_delete_disable_is_protected_{table}"
-                catalog["tg"].add(prot_tg_name)
-                await conn.execute(f"DROP TRIGGER IF EXISTS {prot_tg_name} ON {table}")
-                await conn.execute(f"CREATE TRIGGER {prot_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();")
-            if is_enable_updated_at_set and "updated_at" in cols:
-                upd_tg_name = f"trigger_updated_at_set_{table}"
-                catalog["tg"].add(upd_tg_name)
-                await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}")
-                await conn.execute(f"CREATE TRIGGER {upd_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();")
-            actor_tracking_column = control.get("actor_tracking_column", {})
-            if actor_tracking_column and "updated_by_id" in cols:
-                trigger_body = ""
-                for ts_col, actor_col in actor_tracking_column.items():
-                    if ts_col in cols and actor_col in cols:
-                        trigger_body += f'IF OLD."{ts_col}" IS DISTINCT FROM NEW."{ts_col}" THEN IF OLD."{actor_col}" IS NOT DISTINCT FROM NEW."{actor_col}" THEN NEW."{actor_col}" = NEW."updated_by_id"; END IF; END IF; '
-                actor_func_name = f"func_actor_tracking_{table}"
-                actor_tg_name = f"trigger_actor_tracking_{table}"
-                if trigger_body:
-                    catalog["tg"].add(actor_tg_name)
-                    await conn.execute(f"CREATE OR REPLACE FUNCTION {actor_func_name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN {trigger_body} RETURN NEW; END; $$;")
-                    await conn.execute(f"DROP TRIGGER IF EXISTS {actor_tg_name} ON {table}")
-                    await conn.execute(f"CREATE TRIGGER {actor_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION {actor_func_name}();")
-                else:
-                    await conn.execute(f"DROP TRIGGER IF EXISTS {actor_tg_name} ON {table}")
-                    await conn.execute(f"DROP FUNCTION IF EXISTS {actor_func_name}()")
-        if table_blocked == ["*"]:
-            table_blocked = [t for t in db_tables if t != "spatial_ref_sys"]
-        if bulk_blocked and bulk_blocked[0][0] == "*":
-            limit = bulk_blocked[0][1]
-            bulk_blocked = [[t, limit] for t in db_tables if t != "spatial_ref_sys"]
-        for table, limit in bulk_blocked:
-            if table in db_tables:
-                bulk_tg_name = f"trigger_delete_disable_bulk_{table}"
-                catalog["tg"].add(bulk_tg_name)
-                await conn.execute(f"DROP TRIGGER IF EXISTS {bulk_tg_name} ON {table}")
-                await conn.execute(f"CREATE TRIGGER {bulk_tg_name} AFTER DELETE ON {table} REFERENCING OLD TABLE AS deleted_rows FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_bulk({limit});")
-        for table in table_blocked:
-            if table in db_tables:
-                tab_tg_name = f"trigger_delete_disable_{table}"
-                catalog["tg"].add(tab_tg_name)
-                await conn.execute(f"DROP TRIGGER IF EXISTS {tab_tg_name} ON {table}")
-                await conn.execute(f"CREATE TRIGGER {tab_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();")
-        managed_tables = list(config_postgres["table"].keys())
-        managed_tables_str = ",".join(f"'{t}'" for t in managed_tables) if managed_tables else "''"
-        for prefix in ("tg", "uni_chk", "idx"):
-            wants = catalog["tg"] if prefix == "tg" else catalog["uni"] | catalog["chk"] if prefix == "uni_chk" else catalog["idx"] | catalog["uni"] | catalog["chk"]
-            wants_str = ",".join(f"'{i}'" for i in wants) if wants else "''"
-            if prefix == "idx":
-                selection = "indexname"
-                info_tbl = "pg_indexes"
-                join_clause = ""
-                drop_fmt = "DROP INDEX IF EXISTS %I"
-                drop_vars = "record.indexname"
-                like_filter = f"(indexname LIKE 'idx_%%' OR indexname LIKE 'unique_%%' OR indexname LIKE 'check_%%') AND tablename IN ({managed_tables_str})"
-            elif prefix == "tg":
-                selection = "tgname, relname"
-                info_tbl = "pg_trigger"
-                join_clause = "JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid"
-                drop_fmt = "DROP TRIGGER IF EXISTS %I ON %I"
-                drop_vars = "record.tgname, record.relname"
-                like_filter = f"tgname LIKE 'trigger_%%' AND relname IN ({managed_tables_str})"
-            else:
-                selection = "conname, relname"
-                info_tbl = "pg_constraint"
-                join_clause = "JOIN pg_class ON pg_constraint.conrelid = pg_class.oid"
-                drop_fmt = "ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I"
-                drop_vars = "record.relname, record.conname"
-                like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
-            await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-        for key, query in config_postgres.get("sql", {}).items():
-            if key == "index" and isinstance(query, dict):
-                for idx_name, idx_query in query.items():
-                    if isinstance(idx_query, str) and idx_query.strip():
-                        await conn.execute(idx_query)
-            elif isinstance(query, str) and query.strip():
-                await conn.execute(query)
-    return "database init done"
 
 async def func_postgres_serialize(*, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
     """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware injection."""
@@ -1528,159 +1681,6 @@ async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> d
         record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", user_id)
     if not record: raise Exception("user not found")
     return dict(record)
-
-def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_allowed_api_namespace: list, config_router_path: str, config_api: dict, config_allowed_user_storage_backends: list, config_allowed_api_storage_backends: list, config_postgres: dict) -> None:
-    import re
-    def optional_mode(mode_cfg):
-        return mode_cfg[0] if isinstance(mode_cfg, list) else mode_cfg
-    def is_valid_postgres_datatype(datatype: str) -> bool:
-        if not isinstance(datatype, str) or not datatype.strip():
-            return False
-        dtype = re.sub(r"\s+", " ", datatype.strip().lower())
-        while dtype.endswith("[]"):
-            dtype = dtype[:-2].strip()
-        dtype = re.sub(r"\([^)]*\)", "", dtype)
-        dtype = re.sub(r"\s+", " ", dtype).strip()
-        allowed_types = {
-            "smallint", "integer", "bigint", "int2", "int4", "int8", "serial", "serial2", "serial4", "bigserial", "serial8",
-            "real", "double precision", "float4", "float8", "numeric", "decimal", "money",
-            "boolean", "bool",
-            "text", "varchar", "character varying", "char", "character",
-            "date", "time", "time without time zone", "time with time zone", "timetz",
-            "timestamp", "timestamp without time zone", "timestamp with time zone", "timestamptz", "interval",
-            "json", "jsonb", "uuid", "bytea", "xml",
-            "cidr", "inet", "macaddr", "macaddr8",
-            "point", "line", "lseg", "box", "path", "polygon", "circle",
-            "tsvector", "tsquery",
-            "bit", "bit varying", "varbit",
-            "int4range", "int8range", "numrange", "tsrange", "tstzrange", "daterange",
-            "geometry", "geography",
-        }
-        return dtype in allowed_types
-    api_ids = []
-    for path, cfg in config_api.items():
-        if (api_id := cfg.get("id")):
-            if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
-            api_ids.append(api_id)
-        if mode_cfg := cfg.get("user_role_check"):
-            if not isinstance(mode_cfg, list) or len(mode_cfg) < 2: raise Exception(f"invalid user_role_check in {path}: expected [mode, roles]")
-            if not mode_cfg[0] or mode_cfg[0] not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode_cfg[0]} in {path} (user_role_check), allowed: {config_allowed_user_storage_backends}")
-            if not isinstance(mode_cfg[1], list) or 1 not in mode_cfg[1]: raise Exception(f"{path} user_role_check must allow role 1")
-        if (mode_cfg := cfg.get("user_active_check")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (user_active_check), allowed: {config_allowed_user_storage_backends}")
-        if (mode_cfg := cfg.get("user_deleted_check")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_user_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (user_deleted_check), allowed: {config_allowed_user_storage_backends}")
-        if (mode_cfg := cfg.get("api_ratelimiting_times_sec")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (api_ratelimiting_times_sec), allowed: {config_allowed_api_storage_backends}")
-        if (mode_cfg := cfg.get("api_cache_sec")) and (mode := optional_mode(mode_cfg)) and mode not in config_allowed_api_storage_backends: raise Exception(f"invalid mode: {mode} in {path} (api_cache_sec), allowed: {config_allowed_api_storage_backends}")
-    route_paths = {route.path for route in app_routes if hasattr(route, "path")}
-    for path in config_api.keys():
-        if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
-    for route in app_routes:
-        if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
-        path = route.path
-        if path.startswith("/admin"):
-            if path not in config_api: raise Exception(f"admin route '{path}' missing in config_api")
-            if path in config_api and "user_role_check" not in config_api[path]: raise Exception(f"admin route '{path}' missing 'user_role_check' in config_api")
-    for route in app_routes:
-        if not hasattr(route, "path"): continue
-        path = route.path
-        segments = path.split("/")
-        if path == "/":
-            route_ns = "/"
-        elif len(segments) <= 2 or not any(segments[2:]):
-            route_ns = "/"
-        else:
-            route_ns = f"/{segments[1]}/"
-        if route_ns not in config_allowed_api_namespace:
-            raise Exception(f"invalid route: {path}")
-    for route in app_routes:
-        if not hasattr(route, "path") or not hasattr(route, "endpoint"): continue
-        path, endpoint_name = route.path, route.endpoint.__name__
-        if not endpoint_name.startswith("func_api_"): raise Exception(f"invalid endpoint function name: {endpoint_name} in {path}")
-    import ast, pathlib
-    def iter_python_paths(path_cfg):
-        path = pathlib.Path(path_cfg)
-        if path.is_dir():
-            return [p for p in path.glob("*.py") if not p.name.startswith(("_", "."))]
-        if path.suffix == ".py":
-            return [path]
-        return [path.with_suffix(".py")]
-    if config_config_path:
-        for config_path in iter_python_paths(config_config_path):
-            with open(config_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
-            for node in tree.body:
-                if isinstance(node, ast.Assign):
-                    for target in node.targets:
-                        targets_to_check = [target]
-                        while targets_to_check:
-                            t = targets_to_check.pop()
-                            if isinstance(t, ast.Name) and not t.id.startswith("config_"): raise Exception(f"invalid config variable name: {t.id}")
-                            if isinstance(t, (ast.Tuple, ast.List)): targets_to_check.extend(t.elts)
-                elif isinstance(node, ast.AnnAssign):
-                    if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
-    if config_function_path:
-        for function_path in iter_python_paths(config_function_path):
-            with open(function_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
-            for node in tree.body:
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
-    if config_router_path:
-        for router_path in iter_python_paths(config_router_path):
-            with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
-            if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
-    if config_postgres and "table" in config_postgres:
-        global_column_types = {}
-        for table_name, columns in config_postgres["table"].items():
-            if not table_name or not table_name.strip(): raise Exception("table name cannot be empty")
-            column_names_list = [col.get("name") for col in columns if "name" in col]
-            if len(column_names_list) != len(set(column_names_list)):
-                seen = set()
-                for name in column_names_list:
-                    if name in seen: raise Exception(f"duplicate column name '{name}' in table '{table_name}'")
-                    seen.add(name)
-            column_names = set(column_names_list)
-            btrees, others = [], []
-            for col in columns:
-                col_name, col_type = col.get("name"), col.get("datatype")
-                if not col_name or not col_name.strip(): raise Exception(f"column name in {table_name} cannot be empty")
-                if not col_type or not col_type.strip(): raise Exception(f"datatype in {table_name}.{col_name} cannot be empty")
-                if not is_valid_postgres_datatype(col_type): raise Exception(f"invalid datatype '{col_type}' in {table_name}.{col_name}")
-                if col_name in global_column_types and global_column_types[col_name] != col_type:
-                    raise Exception(f"datatype mismatch for column '{col_name}': '{col_type}' in {table_name} vs '{global_column_types[col_name]}' elsewhere")
-                global_column_types[col_name] = col_type
-                if (col_unique := col.get("unique")):
-                    for group in (x.strip() for x in col_unique.split("|")):
-                        u_cols = [c.strip() for c in group.split(",")]
-                        if len(u_cols) != len(set(u_cols)): raise Exception(f"unique constraint in {table_name}.{col_name} contains duplicate columns: {u_cols}")
-                        for uc in u_cols:
-                            if uc not in column_names: raise Exception(f"unique constraint in {table_name}.{col_name} references non-existent column '{uc}'")
-                        if col_name not in u_cols: raise Exception(f"unique constraint in {table_name}.{col_name} does not include '{col_name}' itself")
-                        btrees.append((u_cols, True, col_name))
-                if (col_index := col.get("index")):
-                    curr_table_types = {c.get("name"): c.get("datatype", "") for c in columns if c.get("name")}
-                    for group in (x.strip() for x in col_index.split("|")):
-                        if "(" in group and group.endswith(")"):
-                            idx_type, cols_str = group[:-1].split("(", 1)
-                            idx_type, idx_cols = idx_type.strip().lower(), [c.strip() for c in cols_str.split(",")]
-                            if len(idx_cols) != len(set(idx_cols)): raise Exception(f"index in {table_name}.{col_name} contains duplicate columns: {idx_cols}")
-                            if col_name == "id" and idx_cols == ["id"] and idx_type == "btree": raise Exception(f"Primary key '{table_name}.id' is natively indexed. Do not add an explicit btree index for it.")
-                            for ic in idx_cols:
-                                if ic not in column_names: raise Exception(f"index in {table_name}.{col_name} references non-existent column '{ic}'")
-                                ic_type = curr_table_types.get(ic, "").lower()
-                                if idx_type == "btree" and ("[]" in ic_type or "jsonb" in ic_type): raise Exception(f"btree index in {table_name}.{col_name} on column '{ic}' (type {ic_type}) is unsupported. Use gin instead.")
-                            if idx_cols[0] != col_name: raise Exception(f"index in {table_name}.{col_name} must have '{col_name}' as the first column")
-                            if idx_type == "btree": btrees.append((idx_cols, False, col_name))
-                            else: others.append((idx_type, idx_cols, col_name))
-                        else:
-                            raise Exception(f"invalid index syntax '{group}' in {table_name}.{col_name}")
-            for i, (c1, u1, o1) in enumerate(btrees):
-                for j, (c2, u2, o2) in enumerate(btrees):
-                    if i == j: continue
-                    if c1 == c2 and u1 == u2: raise Exception(f"duplicate {'unique' if u1 else 'btree index'} on {table_name}: {c1}")
-                    if not u1 and c2[:len(c1)] == c1: raise Exception(f"redundant btree index on {table_name}.{o1}({','.join(c1)}) covered by {'unique' if u2 else 'btree'} on {o2}({','.join(c2)})")
-                    if u1 and u2 and c1[:len(c2)] == c2: raise Exception(f"redundant unique constraint on {table_name}.{o1}({','.join(c1)}) - {o2}({','.join(c2)}) is already unique")
-            for i, (t1, c1, o1) in enumerate(others):
-                for j, (t2, c2, o2) in enumerate(others):
-                    if i == j: continue
-                    if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
-    return None
 
 async def func_postgres_csv_ingestion(*, csv_path: str, pg_dsn: str, table: str, crud_mode: str, validation_mode: str, rename_column: list[list] | None, ignore_column: list[str] | None, const_column: list[list] | None):
     """Performs high-performance bulk operations from a CSV to Postgres."""

@@ -113,7 +113,7 @@ async def func_lifespan(app:"FastAPI"):
 from fastapi import FastAPI
 app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
-# state pre-population (ensures func_* are available even before lifespan)
+# state
 [setattr(app.state, k, v) for k, v in globals().items() if k.startswith(("func_", "config_"))]
 if app.state.config_is_enable_regex_check != 1: app.state.config_regex = {}
 
