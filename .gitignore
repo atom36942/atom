@@ -1,27 +1,21 @@
 # deny
 *
 
-# add folder
-!core/
-!core/**
+# flow
+!function.py
+!config.py
+!main.py
 !router/
 !router/**
+!script/
+!script/**
 !static/
 !static/**
 !drive/
 !drive/**
+
+# misc
 !.vscode/
-
-# deployment
-!.github/
-!.github/**
-!infra/
-!infra/**
-
-# add file
-!main.py
-!function.py
-!config.py
 !requirements.txt
 !Dockerfile
 !readme.md
@@ -29,6 +23,10 @@
 !.dockerignore
 !.vscode/settings.json
 !.vscode/launch.json
+!.github/
+!.github/**
+!infra/
+!infra/**
 
 # ignore
 __pycache__/
